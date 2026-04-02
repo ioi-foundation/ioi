@@ -6,6 +6,38 @@ pub(super) fn capability(id: &str) -> CapabilityId {
     CapabilityId::from(id)
 }
 
+fn instruction_contract_requires_delegation(
+    instruction_contract: Option<&InstructionContract>,
+) -> bool {
+    instruction_contract
+        .map(|contract| {
+            contract.slot_bindings.iter().any(|binding| {
+                binding.slot.trim().eq_ignore_ascii_case("playbook_id")
+                    && binding
+                        .value
+                        .as_deref()
+                        .map(str::trim)
+                        .is_some_and(|value| !value.is_empty())
+            })
+        })
+        .unwrap_or(false)
+}
+
+pub fn required_capabilities_with_instruction_contract(
+    required_capabilities: &[CapabilityId],
+    instruction_contract: Option<&InstructionContract>,
+) -> Vec<CapabilityId> {
+    let mut effective = required_capabilities.to_vec();
+    if instruction_contract_requires_delegation(instruction_contract)
+        && !effective
+            .iter()
+            .any(|capability_id| capability_id == &capability("delegation.manage"))
+    {
+        effective.push(capability("delegation.manage"));
+    }
+    effective
+}
+
 fn browser_interact_capabilities() -> Vec<CapabilityId> {
     vec![capability("browser.interact"), capability("ui.interact")]
 }
@@ -232,6 +264,11 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
         },
         ToolCapabilityBinding {
             tool_name: "filesystem__write_file".to_string(),
+            action_target: ActionTarget::FsWrite,
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "filesystem__edit_line".to_string(),
             action_target: ActionTarget::FsWrite,
             capabilities: vec![capability("filesystem.write")],
         },
@@ -1011,6 +1048,48 @@ mod tests {
     }
 
     #[test]
+    fn filesystem_edit_line_inherits_filesystem_write_capability() {
+        let resolved = ResolvedIntentState {
+            intent_id: "workspace.ops".to_string(),
+            scope: IntentScopeProfile::WorkspaceOps,
+            band: IntentConfidenceBand::High,
+            score: 0.99,
+            top_k: vec![],
+            required_capabilities: vec![capability("filesystem.write")],
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "test".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "v1".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
+            matrix_source_hash: [1u8; 32],
+            receipt_hash: [2u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
+            constrained: false,
+        };
+
+        assert!(is_tool_allowed_for_resolution(
+            Some(&resolved),
+            "filesystem__write_file",
+        ));
+        assert!(is_tool_allowed_for_resolution(
+            Some(&resolved),
+            "filesystem__edit_line",
+        ));
+        assert!(is_tool_allowed_for_resolution(
+            Some(&resolved),
+            "filesystem__patch",
+        ));
+    }
+
+    #[test]
     fn durable_automation_remains_feasible_when_monitoring_public_sources() {
         let entry = automation_monitor_entry();
         let profile = durable_remote_monitor_profile();
@@ -1040,5 +1119,31 @@ mod tests {
         assert!(!intent_feasible_for_execution(
             &entry, &bindings, &rules, &profile
         ));
+    }
+
+    #[test]
+    fn parent_playbook_contract_adds_delegation_capability() {
+        let contract = InstructionContract {
+            slot_bindings: vec![ioi_types::app::agentic::InstructionSlotBinding {
+                slot: "playbook_id".to_string(),
+                binding_kind: ioi_types::app::agentic::InstructionBindingKind::UserLiteral,
+                value: Some("evidence_audited_patch".to_string()),
+                origin: ioi_types::app::agentic::ArgumentOrigin::ModelInferred,
+                protected_slot_kind: ioi_types::app::agentic::ProtectedSlotKind::Unknown,
+            }],
+            ..InstructionContract::default()
+        };
+
+        let effective = required_capabilities_with_instruction_contract(
+            &[
+                capability("filesystem.read"),
+                capability("filesystem.write"),
+            ],
+            Some(&contract),
+        );
+
+        assert!(effective.contains(&capability("filesystem.read")));
+        assert!(effective.contains(&capability("filesystem.write")));
+        assert!(effective.contains(&capability("delegation.manage")));
     }
 }

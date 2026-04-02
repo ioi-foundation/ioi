@@ -1,10 +1,12 @@
 import type {
   Artifact,
   ArtifactHubViewKey,
+  PlanSummary,
   SourceBrowseRow,
   SourceSearchRow,
   ThoughtAgentSummary,
 } from "../../../types";
+import { ExecutionRouteCard } from "./ExecutionRouteCard";
 import { icons } from "./Icons";
 import { SubstrateGlassBox } from "./SubstrateGlassBox";
 import { VisualEvidenceCard } from "./VisualEvidenceCard";
@@ -61,6 +63,7 @@ function clipText(value: string, maxChars: number): string {
 
 interface ArtifactHubDetailViewProps {
   activeView: ArtifactHubViewKey;
+  planSummary: PlanSummary | null;
   searches: SourceSearchRow[];
   browses: SourceBrowseRow[];
   thoughtAgents: ThoughtAgentSummary[];
@@ -77,20 +80,189 @@ interface ArtifactHubDetailViewProps {
   formatTimestamp: (value: string) => string;
 }
 
+function humanizeStatus(value: string | null | undefined): string {
+  const text = (value || "").trim().replace(/[_-]+/g, " ");
+  if (!text) return "Unknown";
+  return text.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function buildVerificationNotes(planSummary: PlanSummary | null): string[] {
+  if (!planSummary) return [];
+
+  const verifierHeadline = [
+    `Verifier state: ${humanizeStatus(planSummary.verifierState)}`,
+    planSummary.verifierOutcome
+      ? `Outcome: ${humanizeStatus(planSummary.verifierOutcome)}`
+      : null,
+    `Approval: ${humanizeStatus(planSummary.approvalState)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const notes: string[] = [
+    verifierHeadline,
+  ];
+
+  if (planSummary.researchVerification) {
+    notes.push(
+      `Research scorecard: ${humanizeStatus(planSummary.researchVerification.verdict)} · ${planSummary.researchVerification.sourceCount} sources across ${planSummary.researchVerification.distinctDomainCount} domains.`,
+    );
+  }
+
+  if (planSummary.codingVerification) {
+    notes.push(
+      `Coding scorecard: ${humanizeStatus(planSummary.codingVerification.verdict)} · ${planSummary.codingVerification.targetedPassCount}/${planSummary.codingVerification.targetedCommandCount} targeted commands passed.`,
+    );
+  }
+
+  if (planSummary.computerUseVerification) {
+    notes.push(
+      `Computer-use verifier: ${humanizeStatus(planSummary.computerUseVerification.verdict)} · postcondition ${humanizeStatus(planSummary.computerUseVerification.postconditionStatus)} · recovery ${humanizeStatus(planSummary.computerUseVerification.recoveryStatus)}.`,
+    );
+  }
+
+  if (planSummary.artifactQuality) {
+    notes.push(
+      `Artifact judge: ${humanizeStatus(planSummary.artifactQuality.verdict)} · fidelity ${humanizeStatus(planSummary.artifactQuality.fidelityStatus)} · presentation ${humanizeStatus(planSummary.artifactQuality.presentationStatus)}.`,
+    );
+  }
+
+  if (planSummary.pauseSummary) {
+    notes.push(`Pause: ${planSummary.pauseSummary}`);
+  }
+
+  return notes;
+}
+
+function workerInsight(
+  agent: ThoughtAgentSummary,
+  planSummary: PlanSummary | null,
+): { label: string; text: string } | null {
+  if (!planSummary) {
+    return null;
+  }
+
+  const signal = `${agent.agentLabel} ${agent.agentRole || ""}`.toLowerCase();
+  const verifierLike =
+    signal.includes("verifier") ||
+    signal.includes("audit") ||
+    signal.includes("judge") ||
+    signal.includes("verify");
+
+  if (verifierLike) {
+    if (planSummary.researchVerification) {
+      return {
+        label: "Verifier finding",
+        text:
+          planSummary.researchVerification.notes ||
+          `${planSummary.researchVerification.sourceCount} sources across ${planSummary.researchVerification.distinctDomainCount} domains. Quote grounding ${humanizeStatus(planSummary.researchVerification.quoteGroundingStatus)}.`,
+      };
+    }
+    if (planSummary.codingVerification) {
+      return {
+        label: "Verifier finding",
+        text:
+          planSummary.codingVerification.notes ||
+          `${planSummary.codingVerification.targetedPassCount}/${planSummary.codingVerification.targetedCommandCount} targeted commands passed. Regression ${humanizeStatus(planSummary.codingVerification.regressionStatus)}.`,
+      };
+    }
+    if (planSummary.computerUseVerification) {
+      return {
+        label: "Verifier finding",
+        text:
+          planSummary.computerUseVerification.notes ||
+          `Postcondition ${humanizeStatus(planSummary.computerUseVerification.postconditionStatus)}. Recovery ${humanizeStatus(planSummary.computerUseVerification.recoveryStatus)}.`,
+      };
+    }
+    if (planSummary.artifactQuality) {
+      return {
+        label: "Verifier finding",
+        text:
+          planSummary.artifactQuality.notes ||
+          `Fidelity ${humanizeStatus(planSummary.artifactQuality.fidelityStatus)}. Presentation ${humanizeStatus(planSummary.artifactQuality.presentationStatus)}.`,
+      };
+    }
+  }
+
+  if (signal.includes("patch") && planSummary.patchSynthesis) {
+    return {
+      label: "Output",
+      text:
+        planSummary.patchSynthesis.notes ||
+        `${planSummary.patchSynthesis.touchedFileCount} touched files ready for final handoff.`,
+    };
+  }
+
+  if (
+    (signal.includes("artifact") || signal.includes("builder")) &&
+    planSummary.artifactGeneration
+  ) {
+    return {
+      label: "Output",
+      text:
+        planSummary.artifactGeneration.notes ||
+        `${planSummary.artifactGeneration.producedFileCount} files produced with presentation ${humanizeStatus(planSummary.artifactGeneration.presentationStatus)}.`,
+    };
+  }
+
+  if (signal.includes("browser") && planSummary.computerUsePerception?.nextAction) {
+    return {
+      label: "Next action",
+      text: planSummary.computerUsePerception.nextAction,
+    };
+  }
+
+  if (planSummary.activeWorkerLabel === agent.agentLabel && planSummary.progressSummary) {
+    return {
+      label: "Route progress",
+      text: planSummary.progressSummary,
+    };
+  }
+
+  return null;
+}
+
+function PlanView({ planSummary }: { planSummary: PlanSummary | null }) {
+  if (!planSummary) {
+    return (
+      <p className="artifact-hub-empty">
+        No execution plan summary was captured for this scope.
+      </p>
+    );
+  }
+
+  return (
+    <div className="artifact-hub-plan">
+      <ExecutionRouteCard summary={planSummary} />
+      <p className="artifact-hub-empty">
+        Use Workers, Evidence, Verification, and Raw trace to drill into the
+        selected route.
+      </p>
+    </div>
+  );
+}
+
 function ThoughtsView({
+  planSummary,
   searches,
   browses,
   thoughtAgents,
   openExternalUrl,
 }: {
+  planSummary: PlanSummary | null;
   searches: SourceSearchRow[];
   browses: SourceBrowseRow[];
   thoughtAgents: ThoughtAgentSummary[];
   openExternalUrl: (url: string) => Promise<void>;
 }) {
-  const hasContent = searches.length > 0 || browses.length > 0 || thoughtAgents.length > 0;
+  const hasContent =
+    searches.length > 0 || browses.length > 0 || thoughtAgents.length > 0;
   if (!hasContent) {
-    return <p className="artifact-hub-empty">No worklog entries were captured for this turn.</p>;
+    return (
+      <p className="artifact-hub-empty">
+        No worklog entries were captured for this turn.
+      </p>
+    );
   }
 
   return (
@@ -104,7 +276,10 @@ function ThoughtsView({
           </div>
           <div className="thoughts-items thoughts-items-linked">
             {searches.map((entry, index) => (
-              <div className="thoughts-item thoughts-item-search" key={`thought-search-${index}`}>
+              <div
+                className="thoughts-item thoughts-item-search"
+                key={`thought-search-${index}`}
+              >
                 <span className="thoughts-item-icon">{icons.search}</span>
                 <div className="thoughts-item-main">
                   <span className="thoughts-item-kind">Search</span>
@@ -145,21 +320,66 @@ function ThoughtsView({
         </section>
       )}
 
-      {thoughtAgents.map((agent, index) => (
-        <section className="thoughts-section" key={`thought-agent-${agent.stepIndex}-${index}`}>
-          <div className="thoughts-agent-header">
-            <span className="thoughts-agent-dot" />
-            <span className="thoughts-agent-name">{agent.agentLabel}</span>
-          </div>
-          <div className="thoughts-notes">
-            {agent.notes.map((note, noteIndex) => (
-              <div className="thoughts-note" key={`thought-note-${agent.stepIndex}-${noteIndex}`}>
-                {note}
+      {thoughtAgents.map((agent, index) => {
+        const insight = workerInsight(agent, planSummary);
+        return (
+          <section
+            className={`thoughts-section worker-card ${
+              planSummary?.activeWorkerLabel === agent.agentLabel
+                ? "is-active"
+                : ""
+            }`}
+            key={`thought-agent-${agent.stepIndex}-${index}`}
+          >
+            <div className="thoughts-agent-header">
+              <span className="thoughts-agent-dot" />
+              <span className="thoughts-agent-name">{agent.agentLabel}</span>
+              {agent.agentRole && (
+                <span className="thoughts-agent-role">{agent.agentRole}</span>
+              )}
+            </div>
+            <div className="worker-card-meta">
+              <span className="worker-card-chip">step {agent.stepIndex}</span>
+              {planSummary?.activeWorkerLabel === agent.agentLabel && (
+                <span className="worker-card-chip is-emphasis">Active</span>
+              )}
+              {planSummary?.branchCount ? (
+                <span className="worker-card-chip">
+                  {planSummary.branchCount} branches
+                </span>
+              ) : null}
+            </div>
+            <div className="worker-card-grid">
+              <div className="worker-card-block">
+                <span>Objective</span>
+                <p>{agent.agentRole || `Advance step ${agent.stepIndex}`}</p>
               </div>
-            ))}
-          </div>
-        </section>
-      ))}
+              {agent.notes[0] && (
+                <div className="worker-card-block">
+                  <span>Current action</span>
+                  <p>{agent.notes[0]}</p>
+                </div>
+              )}
+              {insight && (
+                <div className="worker-card-block is-emphasis">
+                  <span>{insight.label}</span>
+                  <p>{insight.text}</p>
+                </div>
+              )}
+            </div>
+            <div className="thoughts-notes">
+              {agent.notes.slice(1).map((note, noteIndex) => (
+                <div
+                  className="thoughts-note"
+                  key={`thought-note-${agent.stepIndex}-${noteIndex + 1}`}
+                >
+                  {note}
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -176,7 +396,11 @@ function SourcesView({
   openExternalUrl: (url: string) => Promise<void>;
 }) {
   if (searches.length === 0 && browses.length === 0) {
-    return <p className="artifact-hub-empty">No evidence was captured for this run.</p>;
+    return (
+      <p className="artifact-hub-empty">
+        No evidence was captured for this run.
+      </p>
+    );
   }
 
   return (
@@ -191,7 +415,9 @@ function SourcesView({
           <span className="source-row-icon">{icons.search}</span>
           <div className="source-row-content">
             <span className="source-row-kind">Search</span>
-            <span className="source-row-primary source-row-query">{entry.query}</span>
+            <span className="source-row-primary source-row-query">
+              {entry.query}
+            </span>
           </div>
           <span className="source-row-badge">{entry.resultCount}</span>
         </div>
@@ -219,20 +445,29 @@ function SourcesView({
 
 function KernelView({ kernelLogs }: { kernelLogs: KernelLogRow[] }) {
   if (kernelLogs.length === 0) {
-    return <p className="artifact-hub-empty">No activity events were captured for this scope.</p>;
+    return (
+      <p className="artifact-hub-empty">
+        No activity events were captured for this scope.
+      </p>
+    );
   }
 
   return (
     <div className="artifact-hub-log-list">
       {kernelLogs.map((row) => (
-        <article className={`artifact-hub-log-row status-${row.status}`} key={row.eventId}>
+        <article
+          className={`artifact-hub-log-row status-${row.status}`}
+          key={row.eventId}
+        >
           <div className="artifact-hub-log-meta">
             <span>{row.timestamp}</span>
             <span>{row.eventType}</span>
             <span>{row.toolName || "system"}</span>
           </div>
           <div className="artifact-hub-log-title">{row.title}</div>
-          {row.summary && <p className="artifact-hub-log-summary">{row.summary}</p>}
+          {row.summary && (
+            <p className="artifact-hub-log-summary">{row.summary}</p>
+          )}
         </article>
       ))}
     </div>
@@ -240,41 +475,76 @@ function KernelView({ kernelLogs }: { kernelLogs: KernelLogRow[] }) {
 }
 
 function SecurityView({
+  planSummary,
   securityRows,
   onOpenArtifact,
 }: {
+  planSummary: PlanSummary | null;
   securityRows: SecurityPolicyRow[];
   onOpenArtifact?: (artifactId: string) => void;
 }) {
-  if (securityRows.length === 0) {
-    return <p className="artifact-hub-empty">No governance events were captured for this scope.</p>;
+  const verificationNotes = buildVerificationNotes(planSummary);
+
+  if (securityRows.length === 0 && verificationNotes.length === 0) {
+    return (
+      <p className="artifact-hub-empty">
+        No verification evidence was captured for this scope.
+      </p>
+    );
   }
 
   return (
-    <div className="artifact-hub-policy-list">
-      {securityRows.map((row) => (
-        <article className="artifact-hub-policy-row" key={row.eventId}>
-          <div className="artifact-hub-policy-meta">
-            <span className="artifact-hub-policy-pill">{row.decision}</span>
-            <span>{row.timestamp}</span>
-            <span>{row.toolName}</span>
+    <div className="artifact-hub-thoughts">
+      {verificationNotes.length > 0 && (
+        <section className="thoughts-section">
+          <div className="thoughts-agent-header">
+            <span className="thoughts-agent-dot" />
+            <span className="thoughts-agent-name">Verifier</span>
+            {planSummary && (
+              <span className="thoughts-agent-role">
+                {planSummary.selectedRoute}
+              </span>
+            )}
           </div>
-          <div className="artifact-hub-policy-body">
-            <span>stage={row.stage}</span>
-            <span>resolution={row.resolution}</span>
+          <div className="thoughts-notes">
+            {verificationNotes.map((note) => (
+              <div className="thoughts-note" key={note}>
+                {note}
+              </div>
+            ))}
           </div>
-          {row.summary && <p className="artifact-hub-policy-summary">{row.summary}</p>}
-          {row.reportArtifactId && onOpenArtifact && (
-            <button
-              className="artifact-hub-open-btn"
-              onClick={() => onOpenArtifact(row.reportArtifactId!)}
-              type="button"
-            >
-              Open report artifact
-            </button>
-          )}
-        </article>
-      ))}
+        </section>
+      )}
+
+      {securityRows.length > 0 && (
+        <div className="artifact-hub-policy-list">
+          {securityRows.map((row) => (
+            <article className="artifact-hub-policy-row" key={row.eventId}>
+              <div className="artifact-hub-policy-meta">
+                <span className="artifact-hub-policy-pill">{row.decision}</span>
+                <span>{row.timestamp}</span>
+                <span>{row.toolName}</span>
+              </div>
+              <div className="artifact-hub-policy-body">
+                <span>stage={row.stage}</span>
+                <span>resolution={row.resolution}</span>
+              </div>
+              {row.summary && (
+                <p className="artifact-hub-policy-summary">{row.summary}</p>
+              )}
+              {row.reportArtifactId && onOpenArtifact && (
+                <button
+                  className="artifact-hub-open-btn"
+                  onClick={() => onOpenArtifact(row.reportArtifactId!)}
+                  type="button"
+                >
+                  Open report artifact
+                </button>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -295,7 +565,9 @@ function ArtifactListView({
   formatTimestamp: (value: string) => string;
 }) {
   if (items.length === 0) {
-    return <p className="artifact-hub-empty">No {label.toLowerCase()} available.</p>;
+    return (
+      <p className="artifact-hub-empty">No {label.toLowerCase()} available.</p>
+    );
   }
 
   return (
@@ -303,14 +575,19 @@ function ArtifactListView({
       {items.map((artifact) => {
         const url = extractArtifactUrl(artifact);
         return (
-            <article className="artifact-hub-generic-row" key={artifact.artifact_id}>
-              <div className="artifact-hub-generic-meta">
-                <span>{artifact.artifact_type}</span>
-                <span>{formatTimestamp(artifact.created_at)}</span>
-              </div>
+          <article
+            className="artifact-hub-generic-row"
+            key={artifact.artifact_id}
+          >
+            <div className="artifact-hub-generic-meta">
+              <span>{artifact.artifact_type}</span>
+              <span>{formatTimestamp(artifact.created_at)}</span>
+            </div>
             <div className="artifact-hub-generic-title">{artifact.title}</div>
             {artifact.description && (
-              <p className="artifact-hub-generic-summary">{clipText(artifact.description, 180)}</p>
+              <p className="artifact-hub-generic-summary">
+                {clipText(artifact.description, 180)}
+              </p>
             )}
             <div className="artifact-hub-generic-actions">
               {onOpenArtifact && (
@@ -347,7 +624,11 @@ function ScreenshotsView({
   formatTimestamp: (value: string) => string;
 }) {
   if (screenshotReceipts.length === 0) {
-    return <p className="artifact-hub-empty">No visual evidence was captured for this run.</p>;
+    return (
+      <p className="artifact-hub-empty">
+        No visual evidence was captured for this run.
+      </p>
+    );
   }
 
   return (
@@ -361,18 +642,25 @@ function ScreenshotsView({
           </div>
           {!receipt.hasBlob && (
             <p className="artifact-hub-generic-summary">
-              Screenshot action receipt captured, but no retrievable blob hash was emitted.
+              Screenshot action receipt captured, but no retrievable blob hash
+              was emitted.
             </p>
           )}
           <VisualEvidenceCard
             hash={receipt.hash}
             timestamp={receipt.timestamp}
             stepIndex={receipt.stepIndex}
-            title={receipt.hasBlob ? "Visual evidence" : "Visual evidence (metadata-only)"}
+            title={
+              receipt.hasBlob
+                ? "Visual evidence"
+                : "Visual evidence (metadata-only)"
+            }
             compact={true}
           />
           {!!receipt.summary && (
-            <p className="artifact-hub-generic-summary">{clipText(receipt.summary, 180)}</p>
+            <p className="artifact-hub-generic-summary">
+              {clipText(receipt.summary, 180)}
+            </p>
           )}
         </article>
       ))}
@@ -405,27 +693,36 @@ function SubstrateView({
               <span>{receipt.success ? "success" : "failure"}</span>
             </div>
             <div className="artifact-hub-generic-title">
-              {receipt.toolName || "memory_retrieve"} · k={receipt.k} · ef={receipt.efSearch}
+              {receipt.toolName || "memory_retrieve"} · k={receipt.k} · ef=
+              {receipt.efSearch}
             </div>
             <p className="artifact-hub-generic-summary">
-              candidates={receipt.candidateReranked}/{receipt.candidateTotal} (limit{" "}
-              {receipt.candidateLimit}) · truncated=
+              candidates={receipt.candidateReranked}/{receipt.candidateTotal}{" "}
+              (limit {receipt.candidateLimit}) · truncated=
               {receipt.candidateTruncated ? "true" : "false"} · metric=
               {receipt.distanceMetric}
               {receipt.embeddingNormalized ? " (normalized)" : ""}
             </p>
             <div className="artifact-hub-substrate-meta">
-              <span title={receipt.queryHash}>query={clipText(receipt.queryHash, 16)}</span>
-              <span title={receipt.indexRoot}>index={clipText(receipt.indexRoot, 16)}</span>
+              <span title={receipt.queryHash}>
+                query={clipText(receipt.queryHash, 16)}
+              </span>
+              <span title={receipt.indexRoot}>
+                index={clipText(receipt.indexRoot, 16)}
+              </span>
               {!!receipt.proofHash && (
-                <span title={receipt.proofHash}>proof={clipText(receipt.proofHash, 16)}</span>
+                <span title={receipt.proofHash}>
+                  proof={clipText(receipt.proofHash, 16)}
+                </span>
               )}
               {!!receipt.certificateMode && (
                 <span>certificate={receipt.certificateMode}</span>
               )}
             </div>
             {!!receipt.errorClass && (
-              <p className="artifact-hub-generic-summary">error={receipt.errorClass}</p>
+              <p className="artifact-hub-generic-summary">
+                error={receipt.errorClass}
+              </p>
             )}
           </article>
         ))}
@@ -436,6 +733,7 @@ function SubstrateView({
 
 export function ArtifactHubDetailView({
   activeView,
+  planSummary,
   searches,
   browses,
   thoughtAgents,
@@ -452,9 +750,12 @@ export function ArtifactHubDetailView({
   formatTimestamp,
 }: ArtifactHubDetailViewProps) {
   switch (activeView) {
+    case "active_context":
+      return <PlanView planSummary={planSummary} />;
     case "thoughts":
       return (
         <ThoughtsView
+          planSummary={planSummary}
           searches={searches}
           browses={browses}
           thoughtAgents={thoughtAgents}
@@ -475,7 +776,13 @@ export function ArtifactHubDetailView({
     case "kernel_logs":
       return <KernelView kernelLogs={kernelLogs} />;
     case "security_policy":
-      return <SecurityView securityRows={securityRows} onOpenArtifact={onOpenArtifact} />;
+      return (
+        <SecurityView
+          planSummary={planSummary}
+          securityRows={securityRows}
+          onOpenArtifact={onOpenArtifact}
+        />
+      );
     case "files":
       return (
         <ArtifactListView

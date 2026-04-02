@@ -66,11 +66,13 @@ use policy::*;
 use providers::*;
 use ranking::*;
 
+pub use capabilities::required_capabilities_with_instruction_contract;
 pub(crate) use capabilities::tool_provider_route_label;
 pub(crate) use capabilities::{
     is_mail_reply_provider_tool, is_tool_allowed_for_resolution,
     is_tool_allowed_for_selected_provider, tool_has_capability,
 };
+pub use instruction_contract::seeded_instruction_contract_for_intent;
 pub use ranking::{preferred_tier, should_pause_for_clarification};
 pub use resolve::{resolve_step_intent, resolve_step_intent_with_state};
 

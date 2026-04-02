@@ -2,10 +2,14 @@ use super::*;
 use crate::models::{StudioArtifactRevision, StudioArtifactSession};
 use crate::orchestrator;
 use ioi_api::studio::{
-    StudioArtifactBrief, StudioArtifactEditIntent, StudioArtifactRefinementContext,
-    StudioArtifactTasteMemory, StudioArtifactUxLifecycle, StudioGeneratedArtifactFile,
+    StudioArtifactBlueprint, StudioArtifactBrief, StudioArtifactEditIntent, StudioArtifactExemplar,
+    StudioArtifactIR, StudioArtifactJudgeClassification, StudioArtifactJudgeResult,
+    StudioArtifactRefinementContext, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    StudioGeneratedArtifactFile,
 };
-use ioi_memory::MemoryRuntime;
+use ioi_api::vm::inference::InferenceRuntime;
+use ioi_memory::{ArchivalMemoryRecord, MemoryRuntime, NewArchivalMemoryRecord};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -14,6 +18,347 @@ use super::{
     lifecycle_state_label, navigator_nodes_for_manifest, now_iso, refresh_pipeline_steps,
     verified_reply_from_manifest,
 };
+
+pub(super) const STUDIO_ARTIFACT_EXEMPLAR_SCOPE: &str = "desktop.studio.artifact_exemplars";
+const STUDIO_ARTIFACT_EXEMPLAR_KIND: &str = "studio.artifact_exemplar";
+const STUDIO_ARTIFACT_EXEMPLAR_MIN_SCORE: i32 = 24;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StudioArtifactExemplarArchivalMetadata {
+    trust_level: String,
+    artifact_id: String,
+    revision_id: String,
+    renderer: StudioRendererKind,
+    scaffold_family: String,
+    title: String,
+    summary: String,
+    thesis: String,
+    quality_rationale: String,
+    score_total: i32,
+    #[serde(default)]
+    design_cues: Vec<String>,
+    #[serde(default)]
+    component_patterns: Vec<String>,
+    #[serde(default)]
+    anti_patterns: Vec<String>,
+}
+
+fn merge_unique_text_values<'a>(
+    target: &mut Vec<String>,
+    values: impl IntoIterator<Item = &'a str>,
+) {
+    for value in values {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !target
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(trimmed))
+        {
+            target.push(trimmed.to_string());
+        }
+    }
+}
+
+fn studio_artifact_judge_total_score(judge: &StudioArtifactJudgeResult) -> i32 {
+    i32::from(judge.request_faithfulness)
+        + i32::from(judge.concept_coverage)
+        + i32::from(judge.interaction_relevance)
+        + i32::from(judge.layout_coherence)
+        + i32::from(judge.visual_hierarchy)
+        + i32::from(judge.completeness)
+}
+
+fn exemplar_quality_rationale(
+    judge: &StudioArtifactJudgeResult,
+    winning_candidate_rationale: Option<&str>,
+) -> String {
+    winning_candidate_rationale
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| judge.rationale.trim().to_string())
+}
+
+fn exemplar_design_cues(
+    brief: &StudioArtifactBrief,
+    blueprint: &StudioArtifactBlueprint,
+    artifact_ir: &StudioArtifactIR,
+    taste_memory: Option<&StudioArtifactTasteMemory>,
+) -> Vec<String> {
+    let mut cues = Vec::new();
+    merge_unique_text_values(&mut cues, brief.visual_tone.iter().map(String::as_str));
+    merge_unique_text_values(
+        &mut cues,
+        std::iter::once(blueprint.design_system.typography_strategy.as_str())
+            .chain(std::iter::once(blueprint.design_system.density.as_str()))
+            .chain(std::iter::once(
+                blueprint.design_system.motion_style.as_str(),
+            ))
+            .chain(
+                blueprint
+                    .design_system
+                    .emphasis_modes
+                    .iter()
+                    .map(String::as_str),
+            ),
+    );
+    merge_unique_text_values(
+        &mut cues,
+        artifact_ir
+            .design_tokens
+            .iter()
+            .take(4)
+            .map(|token| token.value.as_str()),
+    );
+    if let Some(memory) = taste_memory {
+        merge_unique_text_values(
+            &mut cues,
+            memory.typography_preferences.iter().map(String::as_str),
+        );
+        merge_unique_text_values(&mut cues, memory.tone_family.iter().map(String::as_str));
+    }
+    cues
+}
+
+fn exemplar_component_patterns(
+    blueprint: &StudioArtifactBlueprint,
+    artifact_ir: &StudioArtifactIR,
+    prior: Option<&StudioArtifactTasteMemory>,
+) -> Vec<String> {
+    let mut patterns = Vec::new();
+    merge_unique_text_values(
+        &mut patterns,
+        blueprint
+            .component_plan
+            .iter()
+            .map(|component| component.component_family.as_str()),
+    );
+    merge_unique_text_values(
+        &mut patterns,
+        artifact_ir.component_bindings.iter().map(String::as_str),
+    );
+    if let Some(prior) = prior {
+        merge_unique_text_values(
+            &mut patterns,
+            prior
+                .preferred_component_patterns
+                .iter()
+                .map(String::as_str),
+        );
+    }
+    patterns
+}
+
+fn exemplar_anti_patterns(
+    prior: Option<&StudioArtifactTasteMemory>,
+    judge: Option<&StudioArtifactJudgeResult>,
+) -> Vec<String> {
+    let mut patterns = Vec::new();
+    if let Some(prior) = prior {
+        merge_unique_text_values(
+            &mut patterns,
+            prior.anti_patterns.iter().map(String::as_str),
+        );
+    }
+    if let Some(judge) = judge {
+        if judge.generic_shell_detected {
+            patterns.push("generic_shell".to_string());
+        }
+        if judge.trivial_shell_detected {
+            patterns.push("trivial_shell".to_string());
+        }
+        merge_unique_text_values(
+            &mut patterns,
+            judge
+                .issue_classes
+                .iter()
+                .filter(|issue| issue.as_str() != "generation_failure")
+                .map(String::as_str),
+        );
+    }
+    patterns
+}
+
+fn build_studio_artifact_exemplar_content(
+    exemplar: &StudioArtifactExemplar,
+    brief: &StudioArtifactBrief,
+    blueprint: &StudioArtifactBlueprint,
+    artifact_ir: &StudioArtifactIR,
+) -> String {
+    format!(
+        "Studio artifact exemplar.\nTitle: {}\nRenderer: {:?}\nScaffold family: {}\nAudience: {}\nJob to be done: {}\nSubject domain: {}\nArtifact thesis: {}\nSummary: {}\nQuality rationale: {}\nScore total: {}\nRequired concepts: {}\nRequired interactions: {}\nSection roles: {}\nInteraction families: {}\nEvidence kinds: {}\nComponent patterns: {}\nDesign cues: {}\nAnti patterns to avoid: {}\nRender evaluation checklist: {}",
+        exemplar.title,
+        exemplar.renderer,
+        exemplar.scaffold_family,
+        brief.audience,
+        brief.job_to_be_done,
+        brief.subject_domain,
+        exemplar.thesis,
+        exemplar.summary,
+        exemplar.quality_rationale,
+        exemplar.score_total,
+        brief.required_concepts.join(", "),
+        brief.required_interactions.join(", "),
+        blueprint
+            .section_plan
+            .iter()
+            .map(|section| section.role.clone())
+            .collect::<Vec<_>>()
+            .join(", "),
+        blueprint
+            .interaction_plan
+            .iter()
+            .map(|interaction| interaction.family.clone())
+            .collect::<Vec<_>>()
+            .join(", "),
+        blueprint
+            .evidence_plan
+            .iter()
+            .map(|entry| entry.kind.clone())
+            .collect::<Vec<_>>()
+            .join(", "),
+        exemplar.component_patterns.join(", "),
+        exemplar.design_cues.join(", "),
+        exemplar.anti_patterns.join(", "),
+        artifact_ir.render_eval_checklist.join(", "),
+    )
+}
+
+fn studio_artifact_exemplar_from_metadata(
+    record_id: i64,
+    metadata: StudioArtifactExemplarArchivalMetadata,
+) -> StudioArtifactExemplar {
+    StudioArtifactExemplar {
+        record_id,
+        title: metadata.title,
+        summary: metadata.summary,
+        renderer: metadata.renderer,
+        scaffold_family: metadata.scaffold_family,
+        thesis: metadata.thesis,
+        quality_rationale: metadata.quality_rationale,
+        score_total: metadata.score_total,
+        design_cues: metadata.design_cues,
+        component_patterns: metadata.component_patterns,
+        anti_patterns: metadata.anti_patterns,
+        source_revision_id: Some(metadata.revision_id),
+    }
+}
+
+pub(super) fn studio_artifact_exemplar_from_archival_record(
+    record: &ArchivalMemoryRecord,
+) -> Option<StudioArtifactExemplar> {
+    if record.scope != STUDIO_ARTIFACT_EXEMPLAR_SCOPE
+        || record.kind != STUDIO_ARTIFACT_EXEMPLAR_KIND
+    {
+        return None;
+    }
+    let metadata =
+        serde_json::from_str::<StudioArtifactExemplarArchivalMetadata>(&record.metadata_json)
+            .ok()?;
+    Some(studio_artifact_exemplar_from_metadata(record.id, metadata))
+}
+
+pub(super) fn persist_studio_artifact_exemplar(
+    memory_runtime: &Arc<MemoryRuntime>,
+    inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    studio_session: &StudioArtifactSession,
+    revision: &StudioArtifactRevision,
+) -> Result<Option<StudioArtifactExemplar>, String> {
+    let Some(runtime) = inference_runtime else {
+        return Ok(None);
+    };
+    let Some(brief) = revision.artifact_brief.as_ref() else {
+        return Ok(None);
+    };
+    let Some(blueprint) = revision.blueprint.as_ref() else {
+        return Ok(None);
+    };
+    let Some(artifact_ir) = revision.artifact_ir.as_ref() else {
+        return Ok(None);
+    };
+    let Some(judge) = revision.judge.as_ref() else {
+        return Ok(None);
+    };
+    if judge.classification != StudioArtifactJudgeClassification::Pass
+        || studio_artifact_judge_total_score(judge) < STUDIO_ARTIFACT_EXEMPLAR_MIN_SCORE
+        || studio_session.materialization.fallback_used
+    {
+        return Ok(None);
+    }
+
+    let exemplar = StudioArtifactExemplar {
+        record_id: 0,
+        title: revision.artifact_manifest.title.clone(),
+        summary: studio_session.summary.clone(),
+        renderer: revision.artifact_manifest.renderer,
+        scaffold_family: blueprint.scaffold_family.clone(),
+        thesis: brief.artifact_thesis.clone(),
+        quality_rationale: exemplar_quality_rationale(
+            judge,
+            studio_session
+                .materialization
+                .winning_candidate_rationale
+                .as_deref(),
+        ),
+        score_total: studio_artifact_judge_total_score(judge),
+        design_cues: exemplar_design_cues(
+            brief,
+            blueprint,
+            artifact_ir,
+            studio_session.taste_memory.as_ref(),
+        ),
+        component_patterns: exemplar_component_patterns(
+            blueprint,
+            artifact_ir,
+            studio_session.taste_memory.as_ref(),
+        ),
+        anti_patterns: exemplar_anti_patterns(studio_session.taste_memory.as_ref(), Some(judge)),
+        source_revision_id: Some(revision.revision_id.clone()),
+    };
+    let content = build_studio_artifact_exemplar_content(&exemplar, brief, blueprint, artifact_ir);
+    let metadata = StudioArtifactExemplarArchivalMetadata {
+        trust_level: "runtime_observed".to_string(),
+        artifact_id: studio_session.artifact_id.clone(),
+        revision_id: revision.revision_id.clone(),
+        renderer: exemplar.renderer,
+        scaffold_family: exemplar.scaffold_family.clone(),
+        title: exemplar.title.clone(),
+        summary: exemplar.summary.clone(),
+        thesis: exemplar.thesis.clone(),
+        quality_rationale: exemplar.quality_rationale.clone(),
+        score_total: exemplar.score_total,
+        design_cues: exemplar.design_cues.clone(),
+        component_patterns: exemplar.component_patterns.clone(),
+        anti_patterns: exemplar.anti_patterns.clone(),
+    };
+    let metadata_json = serde_json::to_string(&metadata)
+        .map_err(|error| format!("Failed to serialize Studio exemplar metadata: {error}"))?;
+    let Some(record_id) = memory_runtime
+        .insert_archival_record(&NewArchivalMemoryRecord {
+            scope: STUDIO_ARTIFACT_EXEMPLAR_SCOPE.to_string(),
+            thread_id: None,
+            kind: STUDIO_ARTIFACT_EXEMPLAR_KIND.to_string(),
+            content: content.clone(),
+            metadata_json,
+        })
+        .map_err(|error| format!("Failed to insert Studio exemplar record: {error}"))?
+    else {
+        return Ok(None);
+    };
+    let embedding = tauri::async_runtime::block_on(async { runtime.embed_text(&content).await })
+        .map_err(|error| format!("Failed to embed Studio exemplar record: {error}"))?;
+    memory_runtime
+        .upsert_archival_embedding(record_id, &embedding)
+        .map_err(|error| format!("Failed to index Studio exemplar record: {error}"))?;
+
+    Ok(Some(StudioArtifactExemplar {
+        record_id,
+        ..exemplar
+    }))
+}
 
 pub(super) fn compare_artifact_revisions(
     state: State<'_, Mutex<AppState>>,
@@ -229,11 +574,14 @@ pub(super) fn apply_revision_to_studio_session(
         studio_session.current_lens = studio_session.artifact_manifest.primary_tab.clone();
     }
     studio_session.materialization.artifact_brief = revision.artifact_brief.clone();
+    studio_session.materialization.blueprint = revision.blueprint.clone();
+    studio_session.materialization.artifact_ir = revision.artifact_ir.clone();
     studio_session.materialization.edit_intent = revision.edit_intent.clone();
     studio_session.materialization.candidate_summaries = revision.candidate_summaries.clone();
     studio_session.materialization.winning_candidate_id = revision.winning_candidate_id.clone();
     studio_session.materialization.winning_candidate_rationale =
         revision.judge.as_ref().map(|judge| judge.rationale.clone());
+    studio_session.materialization.render_evaluation = revision.render_evaluation.clone();
     studio_session.materialization.judge = revision.judge.clone();
     studio_session.materialization.output_origin = revision.output_origin;
     studio_session.materialization.production_provenance = revision.production_provenance.clone();
@@ -245,6 +593,8 @@ pub(super) fn apply_revision_to_studio_session(
     studio_session.materialization.summary =
         materialization_summary_for_revision(studio_session, revision);
     studio_session.materialization.ux_lifecycle = Some(revision.ux_lifecycle);
+    studio_session.materialization.selected_skills = revision.selected_skills.clone();
+    studio_session.materialization.retrieved_exemplars = revision.retrieved_exemplars.clone();
     studio_session.verified_reply =
         verified_reply_from_manifest(&studio_session.title, &studio_session.artifact_manifest);
     studio_session.lifecycle_state = studio_session
@@ -252,6 +602,8 @@ pub(super) fn apply_revision_to_studio_session(
         .verification
         .lifecycle_state;
     studio_session.status = lifecycle_state_label(studio_session.lifecycle_state).to_string();
+    studio_session.taste_memory = revision.taste_memory.clone();
+    studio_session.retrieved_exemplars = revision.retrieved_exemplars.clone();
     studio_session.selected_targets = revision.selected_targets.clone();
     studio_session.ux_lifecycle = Some(revision.ux_lifecycle);
     studio_session.active_revision_id = Some(revision.revision_id.clone());
@@ -305,13 +657,20 @@ pub(super) fn studio_refinement_context_for_session(
         files,
         selected_targets: session.selected_targets.clone(),
         taste_memory: session.taste_memory.clone(),
+        retrieved_exemplars: session.retrieved_exemplars.clone(),
+        blueprint: session.materialization.blueprint.clone(),
+        artifact_ir: session.materialization.artifact_ir.clone(),
+        selected_skills: session.materialization.selected_skills.clone(),
     }
 }
 
 pub(super) fn derive_studio_taste_memory(
     prior: Option<&StudioArtifactTasteMemory>,
     brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
     edit_intent: Option<&StudioArtifactEditIntent>,
+    judge: Option<&StudioArtifactJudgeResult>,
 ) -> Option<StudioArtifactTasteMemory> {
     let mut directives = Vec::new();
     if let Some(prior) = prior {
@@ -324,21 +683,137 @@ pub(super) fn derive_studio_taste_memory(
         merge_unique_directives(&mut directives, edit_intent.style_directives.iter());
     }
 
-    if directives.is_empty() {
+    let mut typography_preferences = Vec::new();
+    if let Some(prior) = prior {
+        merge_unique_text_values(
+            &mut typography_preferences,
+            prior.typography_preferences.iter().map(String::as_str),
+        );
+    }
+    if let Some(blueprint) = blueprint {
+        merge_unique_text_values(
+            &mut typography_preferences,
+            std::iter::once(blueprint.design_system.typography_strategy.as_str()),
+        );
+    }
+
+    let mut tone_family = Vec::new();
+    if let Some(prior) = prior {
+        merge_unique_text_values(
+            &mut tone_family,
+            prior.tone_family.iter().map(String::as_str),
+        );
+    }
+    merge_unique_text_values(
+        &mut tone_family,
+        brief.visual_tone.iter().map(String::as_str),
+    );
+    if let Some(edit_intent) = edit_intent {
+        merge_unique_text_values(
+            &mut tone_family,
+            edit_intent.tone_directives.iter().map(String::as_str),
+        );
+    }
+
+    let mut preferred_scaffold_families = Vec::new();
+    if let Some(prior) = prior {
+        merge_unique_text_values(
+            &mut preferred_scaffold_families,
+            prior.preferred_scaffold_families.iter().map(String::as_str),
+        );
+    }
+    if let Some(blueprint) = blueprint {
+        merge_unique_text_values(
+            &mut preferred_scaffold_families,
+            std::iter::once(blueprint.scaffold_family.as_str()),
+        );
+    }
+
+    let mut preferred_component_patterns = Vec::new();
+    if let Some(prior) = prior {
+        merge_unique_text_values(
+            &mut preferred_component_patterns,
+            prior
+                .preferred_component_patterns
+                .iter()
+                .map(String::as_str),
+        );
+    }
+    if let Some(artifact_ir) = artifact_ir {
+        merge_unique_text_values(
+            &mut preferred_component_patterns,
+            artifact_ir.component_bindings.iter().map(String::as_str),
+        );
+    }
+    if let Some(blueprint) = blueprint {
+        merge_unique_text_values(
+            &mut preferred_component_patterns,
+            blueprint
+                .component_plan
+                .iter()
+                .map(|component| component.component_family.as_str()),
+        );
+    }
+
+    let anti_patterns = exemplar_anti_patterns(prior, judge);
+    let density_preference = prior
+        .and_then(|memory| memory.density_preference.clone())
+        .or_else(|| blueprint.map(|value| value.design_system.density.clone()));
+    let motion_tolerance = prior
+        .and_then(|memory| memory.motion_tolerance.clone())
+        .or_else(|| blueprint.map(|value| value.design_system.motion_style.clone()));
+
+    if directives.is_empty()
+        && typography_preferences.is_empty()
+        && tone_family.is_empty()
+        && preferred_scaffold_families.is_empty()
+        && preferred_component_patterns.is_empty()
+        && anti_patterns.is_empty()
+        && density_preference.is_none()
+        && motion_tolerance.is_none()
+    {
         return prior.cloned();
     }
 
+    let scaffold_summary = preferred_scaffold_families
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "current".to_string());
+    let density_summary = density_preference
+        .clone()
+        .unwrap_or_else(|| "balanced".to_string());
+    let component_summary = preferred_component_patterns
+        .iter()
+        .take(2)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(", ");
+
     Some(StudioArtifactTasteMemory {
         summary: format!(
-            "Session taste memory is steering this artifact toward {}.",
+            "Session taste memory is steering this artifact toward {} inside the {} scaffold with {} density{}.",
             directives
                 .iter()
-                .take(4)
+                .take(3)
                 .cloned()
                 .collect::<Vec<_>>()
-                .join(", ")
+                .join(", "),
+            scaffold_summary,
+            density_summary,
+            if component_summary.is_empty() {
+                String::new()
+            } else {
+                format!(" and {} patterns", component_summary)
+            }
         ),
         directives,
+        typography_preferences,
+        density_preference,
+        tone_family,
+        motion_tolerance,
+        preferred_scaffold_families,
+        preferred_component_patterns,
+        anti_patterns,
     })
 }
 
@@ -430,15 +905,21 @@ fn build_revision_from_session(
             .unwrap_or(StudioArtifactUxLifecycle::Judged),
         artifact_manifest: studio_session.artifact_manifest.clone(),
         artifact_brief: studio_session.materialization.artifact_brief.clone(),
+        blueprint: studio_session.materialization.blueprint.clone(),
+        artifact_ir: studio_session.materialization.artifact_ir.clone(),
+        selected_skills: studio_session.materialization.selected_skills.clone(),
         edit_intent: studio_session.materialization.edit_intent.clone(),
         candidate_summaries: studio_session.materialization.candidate_summaries.clone(),
         winning_candidate_id: studio_session.materialization.winning_candidate_id.clone(),
+        render_evaluation: studio_session.materialization.render_evaluation.clone(),
         judge: studio_session.materialization.judge.clone(),
         output_origin: studio_session.materialization.output_origin,
         production_provenance: studio_session.materialization.production_provenance.clone(),
         acceptance_provenance: studio_session.materialization.acceptance_provenance.clone(),
         failure: studio_session.materialization.failure.clone(),
         file_writes: studio_session.materialization.file_writes.clone(),
+        taste_memory: studio_session.taste_memory.clone(),
+        retrieved_exemplars: studio_session.retrieved_exemplars.clone(),
         selected_targets: studio_session.selected_targets.clone(),
     }
 }

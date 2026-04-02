@@ -36,7 +36,6 @@ use types::{
     BIGQUERY_WRITE_TARGET, GWS_DEFAULT_TIMEOUT_SECS,
 };
 
-
 include!("bindings.rs");
 include!("postconditions.rs");
 include!("execution.rs");

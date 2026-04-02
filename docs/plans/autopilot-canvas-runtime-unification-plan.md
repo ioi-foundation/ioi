@@ -6,8 +6,8 @@ Status: post-Studio follow-on plan rebased on shipped Studio foundation
 
 ## Shipped Studio foundation
 
-`docs/plans/autopilot-studio-artifact-real-output-convergence-plan.md` is now
-the canonical Studio artifact baseline and convergence reference.
+`docs/plans/close-the-parity-gap-with-artifacts.md` is now the canonical Studio
+artifact baseline and convergence reference.
 
 The current baseline this plan builds on is:
 

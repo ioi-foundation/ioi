@@ -82,6 +82,15 @@ mod tests {
     }
 
     #[test]
+    fn included_hosts_from_query_extracts_positive_site_tokens() {
+        let hosts = included_hosts_from_query(
+            "nist post quantum cryptography standards site:nist.gov site:www.nist.gov -site:ibm.com",
+        );
+        assert!(hosts.contains("nist.gov"));
+        assert_eq!(hosts.len(), 1);
+    }
+
+    #[test]
     fn source_matches_excluded_host_filters_matching_domains() {
         let mut excluded = HashSet::new();
         excluded.insert("fifa.com".to_string());
@@ -97,6 +106,31 @@ mod tests {
         assert!(!source_matches_excluded_host(
             &test_source("https://www.reuters.com/world/example", "www.reuters.com"),
             &excluded
+        ));
+    }
+
+    #[test]
+    fn source_matches_included_host_accepts_matching_root_and_subdomains() {
+        let mut included = HashSet::new();
+        included.insert("nist.gov".to_string());
+
+        assert!(source_matches_included_host(
+            &test_source(
+                "https://www.nist.gov/news-events/news/2024/08/example",
+                "www.nist.gov",
+            ),
+            &included
+        ));
+        assert!(source_matches_included_host(
+            &test_source(
+                "https://csrc.nist.gov/projects/post-quantum-cryptography",
+                "csrc.nist.gov",
+            ),
+            &included
+        ));
+        assert!(!source_matches_included_host(
+            &test_source("https://www.ibm.com/think/topics/nist", "www.ibm.com"),
+            &included
         ));
     }
 
@@ -216,7 +250,38 @@ mod tests {
     }
 
     #[test]
+    fn provider_request_query_preserves_explicit_grounded_recovery_probe_query() {
+        let query_contract =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(
+            "latest nist post quantum cryptography standards",
+            Some(query_contract),
+        )
+        .expect("contract should derive");
+        let query = provider_request_query(
+            "nist post quantum cryptography standards web UTC timestamp \"nist post quantum cryptography\" \"observed now\" site:nist.gov -site:ibm.com",
+            Some(query_contract),
+            &retrieval_contract,
+            None,
+        );
+        let normalized = query.to_ascii_lowercase();
+        assert!(
+            normalized.contains("\"observed now\""),
+            "explicit recovery probe phrase should survive provider query reconstruction: {query}"
+        );
+        assert!(
+            normalized.contains("site:nist.gov"),
+            "authority site constraint should survive provider query reconstruction: {query}"
+        );
+        assert!(
+            normalized.contains("-site:ibm.com"),
+            "recovery host exclusion should survive provider query reconstruction: {query}"
+        );
+    }
+
+    #[test]
     fn finalize_provider_sources_respects_explicit_host_exclusions_only() {
+        let included_hosts = HashSet::new();
         let mut excluded_hosts = HashSet::new();
         excluded_hosts.insert("bitco.in".to_string());
         let filtered = finalize_provider_sources(
@@ -232,6 +297,7 @@ mod tests {
                 ),
                 domain: Some("bitco.in".to_string()),
             }],
+            &included_hosts,
             &excluded_hosts,
         );
         assert!(
@@ -241,6 +307,55 @@ mod tests {
                 .iter()
                 .map(|source| (&source.url, source.title.as_deref().unwrap_or_default()))
                 .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn finalize_provider_sources_respects_explicit_positive_site_constraints() {
+        let mut included_hosts = HashSet::new();
+        included_hosts.insert("nist.gov".to_string());
+        let excluded_hosts = HashSet::new();
+        let filtered = finalize_provider_sources(
+            vec![
+                WebSource {
+                    source_id: source_id_for_url(
+                        "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2",
+                    ),
+                    rank: Some(1),
+                    url: "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2"
+                        .to_string(),
+                    title: Some(
+                        "El marco de ciberseguridad 2.0 del NIST, en detalle | IBM".to_string(),
+                    ),
+                    snippet: Some(
+                        "IBM overview of the NIST cybersecurity framework.".to_string(),
+                    ),
+                    domain: Some("www.ibm.com".to_string()),
+                },
+                WebSource {
+                    source_id: source_id_for_url(
+                        "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards",
+                    ),
+                    rank: Some(2),
+                    url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                    title: Some(
+                        "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
+                            .to_string(),
+                    ),
+                    snippet: Some(
+                        "NIST finalized the first post-quantum encryption standards."
+                            .to_string(),
+                    ),
+                    domain: Some("www.nist.gov".to_string()),
+                },
+            ],
+            &included_hosts,
+            &excluded_hosts,
+        );
+        assert_eq!(filtered.len(), 1, "filtered={filtered:?}");
+        assert!(
+            filtered[0].url.contains("nist.gov"),
+            "filtered={filtered:?}"
         );
     }
 }

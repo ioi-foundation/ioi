@@ -1,0 +1,149 @@
+{
+  "presetId": "coding-executor-local-oss",
+  "label": "Coding executor local OSS",
+  "role": "coding_executor",
+  "benchmarkTier": "tier2",
+  "experimental": true,
+  "shippedDefault": false,
+  "runtimeModel": "qwen2.5:7b",
+  "artifactAcceptanceModel": "qwen2.5:14b",
+  "availabilityStatus": "ready",
+  "availabilitySummary": "Local runtime is healthy and exposes 'qwen2.5:7b'.",
+  "caseCount": 4,
+  "availableWorkloadCount": 1,
+  "topFindings": [
+    "Artifact download bundle: Error: Failed to generate Studio artifact bundle: Studio artifact generation did not produce a valid candidate. candidate-1: judge failed: Failed to parse Studio artifact judge result: Studio artifact judge output missing JSON payload; judge repair attempt also failed: Failed to parse Studio artifact judge result: Studio artifact judge output missing JSON payload",
+    "Artifact markdown report: Error: Failed to generate Studio artifact bundle: Studio artifact generation did not produce a valid candidate. candidate-1: judge failed: Failed to parse Studio artifact judge result: Studio artifact judge output missing JSON payload; judge repair attempt also failed: Failed to parse Studio artifact judge result: Studio artifact judge output missing JSON payload",
+    "Artifact editorial launch page: Artifact benchmark timed out after 120000ms.",
+    "Computer use click-button smoke: MiniWoB dependency bootstrap failed: /usr/bin/python3: No module named pip\n"
+  ],
+  "scorecards": {
+    "artifactQuality": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 3,
+        "passRate": 0,
+        "averageJudgeScore": null,
+        "verifierPassRate": 0,
+        "averageRepairLoopIterations": 0,
+        "routeMatchRate": 0
+      }
+    },
+    "codingCompletion": {
+      "available": false,
+      "reason": "Phase 0 defines the coding scorecard here, but the repo does not yet retain a preset-aware coding benchmark harness.",
+      "metrics": {}
+    },
+    "researchQuality": {
+      "available": false,
+      "reason": "Phase 0 defines the research scorecard here, but the repo does not yet retain a preset-aware research benchmark harness.",
+      "metrics": {}
+    },
+    "computerUseCompletion": {
+      "available": false,
+      "reason": "No retained computer-use benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 1,
+        "rewardFloorPassRate": 0,
+        "postconditionPassRate": 0,
+        "meanStepCount": null
+      }
+    },
+    "latencyAndResourcePressure": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "meanWallClockMs": 70257,
+        "p95WallClockMs": 120101,
+        "residentModelBytes": 4683087332,
+        "processorKind": null
+      }
+    },
+    "operationalDiscipline": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "malformedToolCallRate": null,
+        "noOpStallRate": null,
+        "repairLoopIterations": 0,
+        "interruptionRecoveryQuality": null
+      }
+    }
+  },
+  "cases": [
+    {
+      "benchmarkId": "artifact-download-bundle",
+      "title": "Artifact download bundle",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "status": "failed",
+      "result": "red",
+      "elapsedMs": 35221,
+      "timedOut": false,
+      "judgeScore": null,
+      "verifierPass": false,
+      "repairLoopIterations": 0,
+      "routeMatched": false,
+      "summary": "Error: Failed to generate Studio artifact bundle: Studio artifact generation did not produce a valid candidate. candidate-1: judge failed: Failed to parse Studio artifact judge result: Studio artifact judge output missing JSON payload; judge repair attempt also failed: Failed to parse Studio artifact judge result: Studio artifact judge output missing JSON payload",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-download-bundle/artifact/generation.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-download-bundle/artifact",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-download-bundle/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-download-bundle/command.stderr.log"
+    },
+    {
+      "benchmarkId": "artifact-markdown-report",
+      "title": "Artifact markdown report",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "status": "failed",
+      "result": "red",
+      "elapsedMs": 55449,
+      "timedOut": false,
+      "judgeScore": null,
+      "verifierPass": false,
+      "repairLoopIterations": 0,
+      "routeMatched": false,
+      "summary": "Error: Failed to generate Studio artifact bundle: Studio artifact generation did not produce a valid candidate. candidate-1: judge failed: Failed to parse Studio artifact judge result: Studio artifact judge output missing JSON payload; judge repair attempt also failed: Failed to parse Studio artifact judge result: Studio artifact judge output missing JSON payload",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-markdown-report/artifact/generation.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-markdown-report/artifact",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-markdown-report/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-markdown-report/command.stderr.log"
+    },
+    {
+      "benchmarkId": "artifact-editorial-launch-page",
+      "title": "Artifact editorial launch page",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "status": "timed_out",
+      "result": "red",
+      "elapsedMs": 120101,
+      "timedOut": true,
+      "judgeScore": null,
+      "verifierPass": false,
+      "repairLoopIterations": 0,
+      "routeMatched": false,
+      "summary": "Artifact benchmark timed out after 120000ms.",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-editorial-launch-page/artifact/generation.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-editorial-launch-page/artifact",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-editorial-launch-page/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/artifact-editorial-launch-page/command.stderr.log"
+    },
+    {
+      "benchmarkId": "computer-use-click-button-smoke",
+      "title": "Computer use click-button smoke",
+      "workload": "computer_use",
+      "runner": "computer_use_suite",
+      "status": "blocked",
+      "result": "unknown",
+      "elapsedMs": null,
+      "summary": "MiniWoB dependency bootstrap failed: /usr/bin/python3: No module named pip\n",
+      "evidencePath": null,
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/computer-use-click-button-smoke",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/computer-use-click-button-smoke/miniwob-bootstrap.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/computer-use-click-button-smoke/miniwob-bootstrap.stderr.log"
+    }
+  ],
+  "summaryPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss/summary.json",
+  "runRootPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T08-59-50-999Z/coding-executor-local-oss"
+}

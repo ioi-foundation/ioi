@@ -173,6 +173,314 @@ type BenchmarkDataShape = {
   liveStorePath?: string;
   suiteSummaries: SuiteSummary[];
   latestCases: CaseRecord[];
+  agentModelMatrix?: AgentModelMatrixView | null;
+  studioArtifactBenchmarkSuite?: StudioArtifactBenchmarkSuite | null;
+  studioArtifactArena?: StudioArtifactArenaView | null;
+  studioArtifactReleaseGates?: StudioArtifactReleaseGatesView | null;
+  studioArtifactDistillation?: StudioArtifactDistillationView | null;
+  studioArtifactParityLoop?: StudioArtifactParityLoopView | null;
+};
+
+type ModelMatrixScorecardCategory = {
+  available: boolean;
+  reason: string;
+  metrics: Record<string, number | string | null | undefined>;
+};
+
+type ModelMatrixPreset = {
+  presetId: string;
+  label: string;
+  role: string;
+  benchmarkTier: string;
+  experimental: boolean;
+  shippedDefault: boolean;
+  availabilityStatus: string;
+  availabilitySummary: string;
+  runtimeModel: string | null;
+  artifactAcceptanceModel: string | null;
+  caseCount: number;
+  availableWorkloadCount: number;
+  summaryPath: string;
+  summaryHref: string;
+  runRootPath: string;
+  runRootHref: string;
+  topFindings: string[];
+  scorecards: {
+    artifactQuality: ModelMatrixScorecardCategory;
+    codingCompletion: ModelMatrixScorecardCategory;
+    researchQuality: ModelMatrixScorecardCategory;
+    computerUseCompletion: ModelMatrixScorecardCategory;
+    latencyAndResourcePressure: ModelMatrixScorecardCategory;
+    operationalDiscipline: ModelMatrixScorecardCategory;
+  };
+};
+
+type AgentModelMatrixView = {
+  status: string;
+  generatedAt: string | null;
+  runId: string | null;
+  decision: {
+    outcome: string;
+    summary: string;
+    leaderPresetId: string | null;
+    artifactLeaderPresetId: string | null;
+    missingCoverage: string[];
+  };
+  scorecardSchema: {
+    version: number;
+    categories: Array<{
+      id: string;
+      label: string;
+      requiredForPromotion: boolean;
+      metrics: string[];
+    }>;
+  };
+  presetCatalogPath: string;
+  presetCatalogHref: string;
+  benchmarkCatalogPath: string;
+  benchmarkCatalogHref: string;
+  summaryPath: string;
+  summaryHref: string;
+  runRootPath: string;
+  runRootHref: string;
+  executedPresetCount: number;
+  comparedPresetCount: number;
+  preservedDefault: boolean;
+  presets: ModelMatrixPreset[];
+};
+
+type BenchmarkMetricReading = {
+  label: string;
+  value: number | null;
+  unit: string;
+  available: boolean;
+  method: string;
+  numerator?: number | null;
+  denominator?: number | null;
+  supportingBenchmarkIds?: string[];
+};
+
+type StudioArtifactArenaRating = {
+  participant: string;
+  label?: string | null;
+  rating: number;
+  matches: number;
+  wins: number;
+  losses: number;
+  draws: number;
+};
+
+type StudioArtifactBenchmarkCase = {
+  benchmarkId: string;
+  title: string;
+  prompt: string;
+  categories: string[];
+  trackedParityTarget: boolean;
+  externalReferenceCount: number;
+  externalReferenceParticipants: string[];
+  matchedCaseId: string | null;
+  matchedRunId: string | null;
+  matchedVerificationStatus: string | null;
+  matchedClassification: string | null;
+  judgeScore: number | null;
+  firstPaintEvidenceScore: number | null;
+  iterationsToClear: number | null;
+  shimDependent: boolean | null;
+  blueprintPresent: boolean;
+  artifactIrPresent: boolean;
+  selectedSkillCount: number;
+  retrievedExemplarCount: number;
+  caseAvailable: boolean;
+  requiredInteractionContracts: string[];
+  goldenEvaluationCriteria: string[];
+};
+
+type StudioArtifactBenchmarkSuite = {
+  catalogVersion: number;
+  totalBenchmarks: number;
+  executedBenchmarks: number;
+  missingBenchmarks: number;
+  parityTargets: string[];
+  metrics: Record<string, BenchmarkMetricReading>;
+  arena: {
+    available: boolean;
+    matchCount: number;
+    blindMatchCount: number;
+    participantCount: number;
+    winRateVsExternalReference: number | null;
+    ratings: StudioArtifactArenaRating[];
+  };
+  externalReferences: {
+    available: boolean;
+    path: string | null;
+    count: number;
+    benchmarkCount: number;
+  };
+  cases: StudioArtifactBenchmarkCase[];
+};
+
+type StudioArtifactArenaView = {
+  status: string;
+  ledgerPath: string;
+  ledgerHref: string;
+  benchmarkCount: number;
+  executedBenchmarkCount: number;
+  comparativeBenchmarkCount: number;
+  benchmarksWithBlindWinnerCount: number;
+  internalExecutionCount: number;
+  internalParticipantCount: number;
+  externalReferenceCount: number;
+  pairwiseMatchCount: number;
+  blindMatchCount: number;
+  pendingBlindMatchCount: number;
+  topCompositeRatings: StudioArtifactArenaRating[];
+  benchmarkLeaders: Array<{
+    benchmarkId: string | null;
+    title: string | null;
+    pairwiseMatchCount: number;
+    pendingBlindMatchCount: number;
+    provisionalLeader: {
+      participant?: string | null;
+      label?: string | null;
+      executionId?: string | null;
+      caseId?: string | null;
+      classification?: string | null;
+      judgeScore?: number | null;
+    } | null;
+    blindWinner: {
+      participant?: string | null;
+      label?: string | null;
+      source?: string | null;
+      caseId?: string | null;
+      unique?: boolean | null;
+    } | null;
+  }>;
+  pendingBlindMatches: Array<{
+    matchId: string | null;
+    benchmarkId: string | null;
+    benchmarkTitle: string | null;
+    leftLabel: string | null;
+    rightLabel: string | null;
+    rationale: string | null;
+  }>;
+};
+
+type StudioArtifactReleaseGatesView = {
+  status: string;
+  passing: boolean;
+  reportPath: string;
+  reportHref: string;
+  gateCount: number;
+  passCount: number;
+  failCount: number;
+  pendingCount: number;
+  blockingGateIds: string[];
+  ratchetCandidateIds: string[];
+  topGates: Array<{
+    id: string | null;
+    label: string | null;
+    status: string | null;
+    operator: string | null;
+    shipThreshold: number | null;
+    reading: {
+      value?: number | null;
+      available?: boolean | null;
+      failedCheckIds?: string[];
+    } | null;
+    ratchet: {
+      status?: string | null;
+      floor?: number | null;
+      candidateFloor?: number | null;
+    } | null;
+  }>;
+  ratchetCandidates: Array<{
+    id: string | null;
+    label: string | null;
+    operator: string | null;
+    currentValue: number | null;
+    currentFloor: number | null;
+    candidateFloor: number | null;
+  }>;
+};
+
+type StudioArtifactParityLoopTarget = {
+  id: string | null;
+  label: string | null;
+  summary: string | null;
+  family: string | null;
+  caseIds: string[];
+};
+
+type StudioArtifactParityLoopComparison = {
+  improvedMetrics: string[];
+  regressedMetrics: string[];
+  unchangedMetrics: string[];
+};
+
+type StudioArtifactParityLoopReceipt = {
+  createdAt: string | null;
+  keepChange: boolean | null;
+  noImprovementStreak: number;
+  selectedInterventionFamily: string | null;
+  allowedInterventionFamilies: string[];
+  decision: {
+    kind: string;
+    reason: string;
+  };
+  weakestTarget: StudioArtifactParityLoopTarget | null;
+  relevantCaseIds: string[];
+  requiredReceipts: string[];
+  comparison: StudioArtifactParityLoopComparison | null;
+};
+
+type StudioArtifactParityLoopView = {
+  status: string;
+  receiptCount: number;
+  summaryPath: string;
+  summaryHref: string;
+  ledgerPath: string;
+  ledgerHref: string;
+  latestReceipt: StudioArtifactParityLoopReceipt | null;
+  currentPlan: StudioArtifactParityLoopReceipt | null;
+};
+
+type StudioArtifactDistillationProposal = {
+  proposalId: string | null;
+  sourceKind: string | null;
+  benchmarkId: string | null;
+  benchmarkTitle: string | null;
+  targetUpgrades: string[];
+  typedReasons: string[];
+  before: {
+    caseId: string | null;
+    classification: string | null;
+    judgeScore: number | null;
+  } | null;
+  after: {
+    caseId: string | null;
+    classification: string | null;
+    judgeScore: number | null;
+  } | null;
+  structuralChanges: {
+    classificationDelta?: number | null;
+    judgeScoreDelta?: number | null;
+    firstPaintEvidenceDelta?: number | null;
+  } | null;
+  generalization: {
+    generalizesAcrossRelatedPrompts?: boolean;
+    relatedCaseCount?: number;
+  } | null;
+  status: string;
+};
+
+type StudioArtifactDistillationView = {
+  status: string;
+  ledgerPath: string;
+  ledgerHref: string;
+  proposalCount: number;
+  appliedCount: number;
+  measuredGain: number | null;
+  topProposals: StudioArtifactDistillationProposal[];
 };
 
 type BenchmarkStoreRunRecord = {
@@ -253,6 +561,41 @@ function shortCaseId(id: string | null | undefined) {
 
 function total(c: Record<ResultStatus, number>) {
   return c.pass + c["near-miss"] + c.red + c.unknown;
+}
+
+function fmtPct(value: number | null | undefined) {
+  return value == null ? "—" : `${Math.round(value * 100)}%`;
+}
+
+function fmtScore(value: number | null | undefined) {
+  return value == null ? "—" : value.toFixed(2);
+}
+
+function fmtMs(value: number | null | undefined) {
+  return value == null ? "—" : `${Math.round(value)}ms`;
+}
+
+function fmtAvailabilityStatus(value: string | null | undefined) {
+  return value ? value.replace(/_/g, " ") : "unknown";
+}
+
+function fmtLoopStatus(value: string | null | undefined) {
+  switch (value) {
+    case "active":
+      return "active";
+    case "stop_parity":
+      return "parity met";
+    case "stop_plateau":
+      return "plateau";
+    case "stop_budget":
+      return "budget cap";
+    default:
+      return value ? value.replace(/_/g, " ") : "—";
+  }
+}
+
+function fmtLoopFamily(value: string | null | undefined) {
+  return value ? value.replace(/_/g, " ") : "—";
 }
 
 function inferSuite(caseId: string | null | undefined): string {
@@ -350,6 +693,24 @@ function actMeta(name: string | null) {
 
 function traceLaneLabel(lane: string) {
   return lane.replace(/_/g, " ");
+}
+
+function studioArtifactParticipantLabel(participant: string, label?: string | null) {
+  if (label && label.trim()) {
+    return label;
+  }
+  return participant
+    .replace(/^reference:/, "external ")
+    .replace(/^stack:/, "")
+    .replace(/^generator:/, "")
+    .replace(/^judge:/, "")
+    .replace(/^scaffold:/, "")
+    .replace(/^component_profile:/, "")
+    .replace(/^skill_spine:/, "")
+    .replace(/[_:.-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b[a-z]/g, (char) => char.toUpperCase());
 }
 
 function traceStatusClass(status: string) {
@@ -805,6 +1166,16 @@ function App() {
 
   const suiteSummaries = benchmarkData.suiteSummaries as SuiteSummary[];
   const latestCases = benchmarkData.latestCases as CaseRecord[];
+  const agentModelMatrix = benchmarkData.agentModelMatrix ?? null;
+  const studioArtifactBenchmarkSuite =
+    benchmarkData.studioArtifactBenchmarkSuite ?? null;
+  const studioArtifactArena = benchmarkData.studioArtifactArena ?? null;
+  const studioArtifactReleaseGates =
+    benchmarkData.studioArtifactReleaseGates ?? null;
+  const studioArtifactDistillation =
+    benchmarkData.studioArtifactDistillation ?? null;
+  const studioArtifactParityLoop =
+    benchmarkData.studioArtifactParityLoop ?? null;
 
   const headline = latestCases[0] ?? null;
   const initSuite = suiteSummaries.find((s) => s.focusCaseId)?.suite ?? headline?.suite ?? "MiniWoB++";
@@ -963,6 +1334,724 @@ function App() {
                 </button>
               );
             })}</div>
+
+            {agentModelMatrix && (
+              <section className="panel model-matrix-panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Phase 0</p>
+                    <h2>Agent model matrix</h2>
+                  </div>
+                  <div className="artifact-benchmark-headline">
+                    <span>{agentModelMatrix.comparedPresetCount} presets</span>
+                    <span>{agentModelMatrix.executedPresetCount} executed</span>
+                    <span>{fmtLoopStatus(agentModelMatrix.status)}</span>
+                    <span>{agentModelMatrix.decision.outcome.replace(/_/g, " ")}</span>
+                  </div>
+                </div>
+
+                <div className="model-matrix-strip">
+                  <article className="artifact-benchmark-stat">
+                    <span>Decision</span>
+                    <strong>{agentModelMatrix.decision.outcome.replace(/_/g, " ")}</strong>
+                  </article>
+                  <article className="artifact-benchmark-stat">
+                    <span>Current leader</span>
+                    <strong>
+                      {agentModelMatrix.presets.find(
+                        (preset) =>
+                          preset.presetId ===
+                          (agentModelMatrix.decision.leaderPresetId ??
+                            agentModelMatrix.decision.artifactLeaderPresetId),
+                      )?.label ?? "—"}
+                    </strong>
+                  </article>
+                  <article className="artifact-benchmark-stat">
+                    <span>Coverage gaps</span>
+                    <strong>{agentModelMatrix.decision.missingCoverage.length}</strong>
+                  </article>
+                  <article className="artifact-benchmark-stat">
+                    <span>Default preserved</span>
+                    <strong>{agentModelMatrix.preservedDefault ? "yes" : "no"}</strong>
+                  </article>
+                </div>
+
+                <div className="artifact-benchmark-grid">
+                  <div className="artifact-benchmark-list">
+                    {agentModelMatrix.presets.map((preset) => {
+                      const artifactMetrics = preset.scorecards.artifactQuality.metrics;
+                      const codingMetrics = preset.scorecards.codingCompletion.metrics;
+                      const researchMetrics = preset.scorecards.researchQuality.metrics;
+                      const computerUseMetrics =
+                        preset.scorecards.computerUseCompletion.metrics;
+                      const latencyMetrics =
+                        preset.scorecards.latencyAndResourcePressure.metrics;
+                      return (
+                        <div
+                          key={preset.presetId}
+                          className={`artifact-benchmark-row artifact-benchmark-row-static ${
+                            preset.shippedDefault ? "parity" : ""
+                          }`}
+                        >
+                          <div className="artifact-benchmark-copy">
+                            <div className="artifact-benchmark-title-row">
+                              <strong>{preset.label}</strong>
+                              {preset.shippedDefault && (
+                                <span className="artifact-benchmark-flag">default</span>
+                              )}
+                              {preset.experimental && (
+                                <span className="artifact-benchmark-flag artifact-benchmark-flag-muted">
+                                  experimental
+                                </span>
+                              )}
+                            </div>
+                            <p>
+                              {preset.role.replace(/_/g, " ")} ·{" "}
+                              {fmtAvailabilityStatus(preset.availabilityStatus)}
+                            </p>
+                            <div className="artifact-benchmark-tags">
+                              {preset.runtimeModel && <span>{preset.runtimeModel}</span>}
+                              {preset.artifactAcceptanceModel && (
+                                <span>judge {preset.artifactAcceptanceModel}</span>
+                              )}
+                              <span>{preset.caseCount} retained cases</span>
+                            </div>
+                            {preset.topFindings.length > 0 && (
+                              <p className="model-matrix-findings">
+                                {preset.topFindings.slice(0, 2).join(" · ")}
+                              </p>
+                            )}
+                          </div>
+                          <div className="model-matrix-score">
+                            <div className="model-matrix-score-item">
+                              <span>artifact judge</span>
+                              <strong>
+                                {fmtScore(
+                                  typeof artifactMetrics.averageJudgeScore === "number"
+                                    ? artifactMetrics.averageJudgeScore
+                                    : null,
+                                )}
+                              </strong>
+                            </div>
+                            <div className="model-matrix-score-item">
+                              <span>artifact verifier</span>
+                              <strong>
+                                {fmtPct(
+                                  typeof artifactMetrics.verifierPassRate === "number"
+                                    ? artifactMetrics.verifierPassRate
+                                    : null,
+                                )}
+                              </strong>
+                            </div>
+                            <div className="model-matrix-score-item">
+                              <span>coding</span>
+                              <strong>
+                                {fmtPct(
+                                  typeof codingMetrics.taskPassRate === "number"
+                                    ? codingMetrics.taskPassRate
+                                    : null,
+                                )}
+                              </strong>
+                            </div>
+                            <div className="model-matrix-score-item">
+                              <span>research</span>
+                              <strong>
+                                {fmtPct(
+                                  typeof researchMetrics.citationVerifierPassRate ===
+                                    "number"
+                                    ? researchMetrics.citationVerifierPassRate
+                                    : null,
+                                )}
+                              </strong>
+                            </div>
+                            <div className="model-matrix-score-item">
+                              <span>computer use</span>
+                              <strong>
+                                {fmtPct(
+                                  typeof computerUseMetrics.rewardFloorPassRate === "number"
+                                    ? computerUseMetrics.rewardFloorPassRate
+                                    : null,
+                                )}
+                              </strong>
+                            </div>
+                            <div className="model-matrix-score-item">
+                              <span>latency</span>
+                              <strong>
+                                {fmtMs(
+                                  typeof latencyMetrics.meanWallClockMs === "number"
+                                    ? latencyMetrics.meanWallClockMs
+                                    : null,
+                                )}
+                              </strong>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="artifact-benchmark-side">
+                    <div className="artifact-benchmark-side-block">
+                      <span className="eyebrow">Decision</span>
+                      <p>{agentModelMatrix.decision.summary}</p>
+                      {agentModelMatrix.decision.missingCoverage.length > 0 && (
+                        <ul>
+                          {agentModelMatrix.decision.missingCoverage.map((entry) => (
+                            <li key={`matrix-gap-${entry}`}>
+                              {entry
+                                .replace(/([A-Z])/g, " $1")
+                                .replace(/_/g, " ")
+                                .trim()}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="artifact-benchmark-side-block">
+                      <span className="eyebrow">Scorecard schema</span>
+                      <ul>
+                        {agentModelMatrix.scorecardSchema.categories.map((category) => (
+                          <li key={`matrix-cat-${category.id}`}>
+                            {category.label}
+                            {category.requiredForPromotion ? " · required" : " · supporting"}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="artifact-benchmark-side-block">
+                      <span className="eyebrow">Evidence</span>
+                      <div className="artifact-benchmark-link-list">
+                        {agentModelMatrix.summaryHref && (
+                          <a href={agentModelMatrix.summaryHref} target="_blank" rel="noreferrer">
+                            latest_summary ↗
+                          </a>
+                        )}
+                        {agentModelMatrix.runRootHref && (
+                          <a href={agentModelMatrix.runRootHref} target="_blank" rel="noreferrer">
+                            retained_run ↗
+                          </a>
+                        )}
+                        {agentModelMatrix.presetCatalogHref && (
+                          <a
+                            href={agentModelMatrix.presetCatalogHref}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            preset_catalog ↗
+                          </a>
+                        )}
+                        {agentModelMatrix.benchmarkCatalogHref && (
+                          <a
+                            href={agentModelMatrix.benchmarkCatalogHref}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            benchmark_catalog ↗
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {studioArtifactBenchmarkSuite && (
+              <section className="panel artifact-benchmark-panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Studio artifact benchmark</p>
+                    <h2>Parity ladder</h2>
+                  </div>
+                  <div className="artifact-benchmark-headline">
+                    <span>catalog v{studioArtifactBenchmarkSuite.catalogVersion}</span>
+                    <span>
+                      {studioArtifactBenchmarkSuite.executedBenchmarks}/
+                      {studioArtifactBenchmarkSuite.totalBenchmarks} executed
+                    </span>
+                    <span>
+                      {studioArtifactBenchmarkSuite.arena.available
+                        ? `${studioArtifactBenchmarkSuite.arena.matchCount} pairwise`
+                        : "arena pending"}
+                    </span>
+                    <span>
+                      {studioArtifactBenchmarkSuite.externalReferences.available
+                        ? `${studioArtifactBenchmarkSuite.externalReferences.count} external refs`
+                        : "refs pending"}
+                    </span>
+                    {studioArtifactArena && (
+                      <span>
+                        {studioArtifactArena.pendingBlindMatchCount} blind pending
+                      </span>
+                    )}
+                    {studioArtifactReleaseGates && (
+                      <span>
+                        {studioArtifactReleaseGates.failCount} gate fails
+                      </span>
+                    )}
+                    {studioArtifactParityLoop && (
+                      <span>{fmtLoopStatus(studioArtifactParityLoop.status)} loop</span>
+                    )}
+                    {studioArtifactDistillation && (
+                      <span>
+                        {studioArtifactDistillation.proposalCount} distillation proposals
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="artifact-benchmark-strip">
+                  <article className="artifact-benchmark-stat">
+                    <span>Ready rate</span>
+                    <strong>
+                      {fmtPct(
+                        studioArtifactBenchmarkSuite.metrics.readyRate?.value ?? null,
+                      )}
+                    </strong>
+                  </article>
+                  <article className="artifact-benchmark-stat">
+                    <span>Shim rate</span>
+                    <strong>
+                      {fmtPct(
+                        studioArtifactBenchmarkSuite.metrics.shimRequiredRate?.value ??
+                          null,
+                      )}
+                    </strong>
+                  </article>
+                  <article className="artifact-benchmark-stat">
+                    <span>Judge score</span>
+                    <strong>
+                      {fmtScore(
+                        studioArtifactBenchmarkSuite.metrics.averageJudgeScore?.value ??
+                          null,
+                      )}
+                    </strong>
+                  </article>
+                  <article className="artifact-benchmark-stat">
+                    <span>1st-paint</span>
+                    <strong>
+                      {fmtScore(
+                        studioArtifactBenchmarkSuite.metrics.firstPaintEvidenceScore
+                          ?.value ?? null,
+                      )}
+                    </strong>
+                  </article>
+                  <article className="artifact-benchmark-stat">
+                    <span>Coverage</span>
+                    <strong>
+                      {studioArtifactBenchmarkSuite.executedBenchmarks}/
+                      {studioArtifactBenchmarkSuite.totalBenchmarks}
+                    </strong>
+                  </article>
+                </div>
+
+                <div className="artifact-benchmark-grid">
+                  <div className="artifact-benchmark-list">
+                    {studioArtifactBenchmarkSuite.cases.map((entry) => {
+                      const focusable = entry.caseAvailable && entry.matchedCaseId;
+                      const row = (
+                        <>
+                          <div className="artifact-benchmark-copy">
+                            <div className="artifact-benchmark-title-row">
+                              <strong>{entry.title}</strong>
+                              {entry.trackedParityTarget && (
+                                <span className="artifact-benchmark-flag">parity</span>
+                              )}
+                              {!entry.caseAvailable && (
+                                <span className="artifact-benchmark-flag artifact-benchmark-flag-muted">
+                                  pending
+                                </span>
+                              )}
+                            </div>
+                            <p>{entry.prompt}</p>
+                            <div className="artifact-benchmark-tags">
+                              {entry.categories.slice(0, 3).map((tag) => (
+                                <span key={`${entry.benchmarkId}-${tag}`}>{tag}</span>
+                              ))}
+                              {entry.externalReferenceCount > 0 && (
+                                <span>{entry.externalReferenceCount} refs</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="artifact-benchmark-score">
+                            <span>{entry.matchedClassification ?? "unrun"}</span>
+                            <strong>{fmtScore(entry.judgeScore)}</strong>
+                            <small>
+                              {entry.shimDependent === true
+                                ? "shimmed"
+                                : entry.caseAvailable
+                                  ? "native"
+                                  : "no evidence"}
+                            </small>
+                          </div>
+                        </>
+                      );
+
+                      return focusable ? (
+                        <button
+                          key={entry.benchmarkId}
+                          type="button"
+                          className={`artifact-benchmark-row ${
+                            entry.trackedParityTarget ? "parity" : ""
+                          }`}
+                          onClick={() =>
+                            goTriage("Studio Artifacts", entry.matchedCaseId)
+                          }
+                        >
+                          {row}
+                        </button>
+                      ) : (
+                        <div
+                          key={entry.benchmarkId}
+                          className={`artifact-benchmark-row artifact-benchmark-row-static ${
+                            entry.trackedParityTarget ? "parity" : ""
+                          }`}
+                        >
+                          {row}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="artifact-benchmark-side">
+                    <div className="artifact-benchmark-side-block">
+                      <span className="eyebrow">Tracked targets</span>
+                      <ul>
+                        {studioArtifactBenchmarkSuite.cases
+                          .filter((entry) => entry.trackedParityTarget)
+                          .map((entry) => (
+                            <li key={`target-${entry.benchmarkId}`}>
+                              {entry.title}
+                              {entry.matchedClassification
+                                ? ` · ${entry.matchedClassification}`
+                                : " · pending evidence"}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                    <div className="artifact-benchmark-side-block">
+                      <span className="eyebrow">Arena</span>
+                      <p>
+                        {studioArtifactBenchmarkSuite.arena.available
+                          ? `${studioArtifactBenchmarkSuite.arena.matchCount} pairwise matches across ${studioArtifactBenchmarkSuite.arena.participantCount} participants`
+                          : "Blind pairwise evidence has not been retained yet."}
+                      </p>
+                      <p>
+                        {studioArtifactBenchmarkSuite.externalReferences.available
+                          ? `${studioArtifactBenchmarkSuite.externalReferences.count} retained external reference artifacts across ${studioArtifactBenchmarkSuite.externalReferences.benchmarkCount} benchmarks`
+                          : "No retained external reference catalog yet."}
+                      </p>
+                      {studioArtifactBenchmarkSuite.arena.available &&
+                        studioArtifactBenchmarkSuite.arena.ratings
+                          .slice(0, 3)
+                          .map((entry) => (
+                            <div
+                              key={`elo-${entry.participant}`}
+                              className="artifact-benchmark-rating"
+                            >
+                              <span>{studioArtifactParticipantLabel(entry.participant, entry.label)}</span>
+                              <strong>{entry.rating}</strong>
+                            </div>
+                          ))}
+                    </div>
+                    {studioArtifactArena && (
+                      <div className="artifact-benchmark-side-block">
+                        <span className="eyebrow">Frontier arena</span>
+                        <div className="artifact-benchmark-loop-head">
+                          <strong>{fmtLoopStatus(studioArtifactArena.status)}</strong>
+                          <span className="artifact-benchmark-loop-badge">
+                            {studioArtifactArena.pendingBlindMatchCount} pending
+                          </span>
+                        </div>
+                        <p>
+                          {studioArtifactArena.comparativeBenchmarkCount} comparative benchmarks
+                          across {studioArtifactArena.internalParticipantCount} internal stacks and{" "}
+                          {studioArtifactArena.externalReferenceCount} retained external references.
+                        </p>
+                        <div className="artifact-benchmark-loop-meta">
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>pairwise</span>
+                            <strong>{studioArtifactArena.pairwiseMatchCount}</strong>
+                          </div>
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>blind winners</span>
+                            <strong>{studioArtifactArena.benchmarksWithBlindWinnerCount}</strong>
+                          </div>
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>executions</span>
+                            <strong>{studioArtifactArena.internalExecutionCount}</strong>
+                          </div>
+                        </div>
+                        {studioArtifactArena.topCompositeRatings.length > 0 && (
+                          <div className="artifact-benchmark-link-list">
+                            {studioArtifactArena.topCompositeRatings.slice(0, 3).map((entry) => (
+                              <div
+                                key={`arena-top-${entry.participant}`}
+                                className="artifact-benchmark-rating"
+                              >
+                                <span>{studioArtifactParticipantLabel(entry.participant, entry.label)}</span>
+                                <strong>{entry.rating}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {studioArtifactArena.benchmarkLeaders.length > 0 && (
+                          <p className="artifact-benchmark-loop-note">
+                            {studioArtifactArena.benchmarkLeaders
+                              .slice(0, 2)
+                              .map((entry) => {
+                                const leader =
+                                  entry.blindWinner?.label ??
+                                  entry.provisionalLeader?.label ??
+                                  "pending";
+                                const mode = entry.blindWinner?.unique ? "blind" : "provisional";
+                                return `${entry.title ?? entry.benchmarkId}: ${leader} (${mode})`;
+                              })
+                              .join(" · ")}
+                          </p>
+                        )}
+                        {studioArtifactArena.pendingBlindMatches.length > 0 && (
+                          <p className="artifact-benchmark-loop-note">
+                            Next:{" "}
+                            {studioArtifactArena.pendingBlindMatches
+                              .slice(0, 2)
+                              .map(
+                                (entry) =>
+                                  `${entry.benchmarkTitle ?? entry.benchmarkId}: ${entry.leftLabel ?? "left"} vs ${entry.rightLabel ?? "right"}`,
+                              )
+                              .join(" · ")}
+                          </p>
+                        )}
+                        <div className="artifact-benchmark-link-list">
+                          {studioArtifactArena.ledgerHref && (
+                            <a
+                              href={studioArtifactArena.ledgerHref}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              arena_ledger ↗
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {studioArtifactReleaseGates && (
+                      <div className="artifact-benchmark-side-block">
+                        <span className="eyebrow">Release gates</span>
+                        <div className="artifact-benchmark-loop-head">
+                          <strong>{fmtLoopStatus(studioArtifactReleaseGates.status)}</strong>
+                          <span className="artifact-benchmark-loop-badge">
+                            {studioArtifactReleaseGates.failCount} fail /{" "}
+                            {studioArtifactReleaseGates.pendingCount} pending
+                          </span>
+                        </div>
+                        <p>
+                          {studioArtifactReleaseGates.passCount}/
+                          {studioArtifactReleaseGates.gateCount} gates are currently passing.
+                        </p>
+                        <div className="artifact-benchmark-loop-meta">
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>blocking</span>
+                            <strong>
+                              {studioArtifactReleaseGates.blockingGateIds.length}
+                            </strong>
+                          </div>
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>ratchets</span>
+                            <strong>
+                              {studioArtifactReleaseGates.ratchetCandidateIds.length}
+                            </strong>
+                          </div>
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>status</span>
+                            <strong>
+                              {studioArtifactReleaseGates.passing ? "ship" : "hold"}
+                            </strong>
+                          </div>
+                        </div>
+                        {studioArtifactReleaseGates.topGates.length > 0 && (
+                          <p className="artifact-benchmark-loop-note">
+                            {studioArtifactReleaseGates.topGates
+                              .slice(0, 2)
+                              .map((gate) => {
+                                const reading =
+                                  typeof gate.reading?.value === "number"
+                                    ? gate.reading.value.toFixed(2)
+                                    : gate.reading?.available === false
+                                      ? "pending"
+                                      : "—";
+                                return `${gate.label ?? gate.id}: ${reading} (${gate.status ?? "unknown"})`;
+                              })
+                              .join(" · ")}
+                          </p>
+                        )}
+                        {studioArtifactReleaseGates.ratchetCandidates.length > 0 && (
+                          <p className="artifact-benchmark-loop-note">
+                            Ratchet:{" "}
+                            {studioArtifactReleaseGates.ratchetCandidates
+                              .slice(0, 2)
+                              .map(
+                                (gate) =>
+                                  `${gate.label ?? gate.id} → ${gate.candidateFloor?.toFixed(2) ?? "—"}`,
+                              )
+                              .join(" · ")}
+                          </p>
+                        )}
+                        <div className="artifact-benchmark-link-list">
+                          {studioArtifactReleaseGates.reportHref && (
+                            <a
+                              href={studioArtifactReleaseGates.reportHref}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              release_gates ↗
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {studioArtifactParityLoop?.currentPlan && (
+                      <div className="artifact-benchmark-side-block">
+                        <span className="eyebrow">Autonomous parity loop</span>
+                        <div className="artifact-benchmark-loop-head">
+                          <strong>{fmtLoopStatus(studioArtifactParityLoop.status)}</strong>
+                          <span className="artifact-benchmark-loop-badge">
+                            {studioArtifactParityLoop.receiptCount} receipts
+                          </span>
+                        </div>
+                        <p>{studioArtifactParityLoop.currentPlan.decision.reason}</p>
+                        <div className="artifact-benchmark-loop-meta">
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>intervention</span>
+                            <strong>
+                              {fmtLoopFamily(
+                                studioArtifactParityLoop.currentPlan.selectedInterventionFamily,
+                              )}
+                            </strong>
+                          </div>
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>streak</span>
+                            <strong>
+                              {studioArtifactParityLoop.currentPlan.noImprovementStreak}
+                            </strong>
+                          </div>
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>target</span>
+                            <strong>
+                              {studioArtifactParityLoop.currentPlan.weakestTarget?.label ??
+                                "—"}
+                            </strong>
+                          </div>
+                        </div>
+                        {studioArtifactParityLoop.currentPlan.relevantCaseIds.length > 0 && (
+                          <p className="artifact-benchmark-loop-note">
+                            Cases: {studioArtifactParityLoop.currentPlan.relevantCaseIds.join(", ")}
+                          </p>
+                        )}
+                        {studioArtifactParityLoop.latestReceipt?.comparison && (
+                          <p className="artifact-benchmark-loop-note">
+                            Last delta:{" "}
+                            {studioArtifactParityLoop.latestReceipt.comparison.improvedMetrics
+                              .length > 0
+                              ? `improved ${studioArtifactParityLoop.latestReceipt.comparison.improvedMetrics.join(", ")}`
+                              : "no improved metrics recorded"}
+                          </p>
+                        )}
+                        <div className="artifact-benchmark-link-list">
+                          {studioArtifactParityLoop.summaryHref && (
+                            <a
+                              href={studioArtifactParityLoop.summaryHref}
+                              className="alink"
+                            >
+                              corpus_summary ↗
+                            </a>
+                          )}
+                          {studioArtifactParityLoop.ledgerHref && (
+                            <a
+                              href={studioArtifactParityLoop.ledgerHref}
+                              className="alink"
+                            >
+                              parity_ledger ↗
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {studioArtifactDistillation && (
+                      <div className="artifact-benchmark-side-block">
+                        <span className="eyebrow">Distillation</span>
+                        <div className="artifact-benchmark-loop-head">
+                          <strong>{fmtLoopStatus(studioArtifactDistillation.status)}</strong>
+                          <span className="artifact-benchmark-loop-badge">
+                            {studioArtifactDistillation.proposalCount} proposals
+                          </span>
+                        </div>
+                        <p>
+                          {studioArtifactDistillation.appliedCount > 0
+                            ? `${studioArtifactDistillation.appliedCount} upgrades already measured in the retained lane.`
+                            : "Winning retained runs are captured as typed distillation proposals before they are folded back into the default stack."}
+                        </p>
+                        <div className="artifact-benchmark-loop-meta">
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>applied</span>
+                            <strong>{studioArtifactDistillation.appliedCount}</strong>
+                          </div>
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>gain</span>
+                            <strong>{fmtScore(studioArtifactDistillation.measuredGain)}</strong>
+                          </div>
+                          <div className="artifact-benchmark-loop-kv">
+                            <span>ledger</span>
+                            <strong>{studioArtifactDistillation.ledgerPath ? "retained" : "—"}</strong>
+                          </div>
+                        </div>
+                        {studioArtifactDistillation.topProposals[0] && (
+                          <div className="artifact-benchmark-distill-card">
+                            <strong>
+                              {studioArtifactDistillation.topProposals[0].benchmarkTitle ??
+                                studioArtifactDistillation.topProposals[0].benchmarkId ??
+                                "Top proposal"}
+                            </strong>
+                            <p>
+                              {studioArtifactDistillation.topProposals[0].before?.caseId ?? "—"}
+                              {" → "}
+                              {studioArtifactDistillation.topProposals[0].after?.caseId ?? "—"}
+                            </p>
+                            <div className="artifact-benchmark-tags">
+                              {studioArtifactDistillation.topProposals[0].targetUpgrades.map(
+                                (target) => (
+                                  <span key={`distill-target-${target}`}>
+                                    {fmtLoopFamily(target)}
+                                  </span>
+                                ),
+                              )}
+                            </div>
+                            <p className="artifact-benchmark-loop-note">
+                              Reasons:{" "}
+                              {studioArtifactDistillation.topProposals[0].typedReasons.length > 0
+                                ? studioArtifactDistillation.topProposals[0].typedReasons
+                                    .map((reason) => fmtLoopFamily(reason))
+                                    .join(", ")
+                                : "no typed reasons retained"}
+                            </p>
+                          </div>
+                        )}
+                        <div className="artifact-benchmark-link-list">
+                          {studioArtifactDistillation.ledgerHref && (
+                            <a
+                              href={studioArtifactDistillation.ledgerHref}
+                              className="alink"
+                            >
+                              distillation_ledger ↗
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
 
             {liveRuns.length > 0 && (
               <section className="panel">

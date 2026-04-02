@@ -23,6 +23,16 @@ pub(crate) fn build_deterministic_story_draft(
         retrieval_contract_required_support_count(retrieval_contract, &query).max(1);
     let citations_per_story =
         retrieval_contract_required_citations_per_story(retrieval_contract, &query);
+    let document_briefing_distinct_domain_floor =
+        if matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing) {
+            retrieval_contract_required_distinct_domain_floor(retrieval_contract, &query)
+                .min(required_support_count.max(citations_per_story.max(1)))
+        } else {
+            0
+        };
+    let document_briefing_host_diversity_required =
+        matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing)
+            && document_briefing_distinct_domain_floor > 1;
     let selected_source_target =
         if matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing) {
             required_support_count
@@ -389,6 +399,7 @@ pub(crate) fn build_deterministic_story_draft(
             selected_source_target,
         );
         finalize_document_briefing_selected_sources(
+            retrieval_contract,
             &query,
             &candidates,
             &source_pool,
@@ -432,7 +443,7 @@ pub(crate) fn build_deterministic_story_draft(
             &candidates,
             &mut used_citation_urls,
             citations_per_story,
-            single_snapshot_mode,
+            single_snapshot_mode || document_briefing_host_diversity_required,
             &single_snapshot_constraints,
             single_snapshot_policy,
         );
@@ -542,6 +553,7 @@ pub(crate) fn build_deterministic_story_draft(
 
     if matches!(layout_profile, SynthesisLayoutProfile::DocumentBriefing) {
         repair_document_briefing_story_citation_coverage(
+            retrieval_contract,
             &query,
             &selected_sources,
             &mut stories,
@@ -671,14 +683,39 @@ fn selected_sources_contains_equivalent_source(
 }
 
 fn citation_candidates_contain_equivalent_url(candidates: &[CitationCandidate], url: &str) -> bool {
+    existing_citation_candidate_index_for_url(candidates, url).is_some()
+}
+
+fn existing_citation_candidate_index_for_url(
+    candidates: &[CitationCandidate],
+    url: &str,
+) -> Option<usize> {
     let trimmed = url.trim();
-    !trimmed.is_empty()
-        && candidates.iter().any(|candidate| {
-            let candidate_url = candidate.url.trim();
-            !candidate_url.is_empty()
-                && (candidate_url.eq_ignore_ascii_case(trimmed)
-                    || url_structurally_equivalent(candidate_url, trimmed))
-        })
+    (!trimmed.is_empty()).then_some(())?;
+    candidates.iter().position(|candidate| {
+        let candidate_url = candidate.url.trim();
+        !candidate_url.is_empty()
+            && (candidate_url.eq_ignore_ascii_case(trimmed)
+                || url_structurally_equivalent(candidate_url, trimmed))
+    })
+}
+
+fn citation_surface_quality_key(
+    query: &str,
+    url: &str,
+    source_label: &str,
+    excerpt: &str,
+) -> (usize, usize, bool) {
+    (
+        source_briefing_standard_identifier_labels(query, url, source_label, excerpt).len(),
+        usize::from(source_has_document_authority(
+            query,
+            url,
+            source_label,
+            excerpt,
+        )),
+        !excerpt.trim().is_empty(),
+    )
 }
 
 fn backfill_selected_source_citation_candidates(
@@ -702,7 +739,6 @@ fn backfill_selected_source_citation_candidates(
         if trimmed_url.is_empty()
             || !is_citable_web_url(trimmed_url)
             || is_search_hub_url(trimmed_url)
-            || citation_candidates_contain_equivalent_url(candidates, trimmed_url)
         {
             continue;
         }
@@ -717,6 +753,32 @@ fn backfill_selected_source_citation_candidates(
             source.excerpt.as_str(),
             180,
         );
+        if let Some(existing_idx) =
+            existing_citation_candidate_index_for_url(candidates, trimmed_url)
+        {
+            let existing = &mut candidates[existing_idx];
+            let replace_excerpt =
+                citation_surface_quality_key(query, trimmed_url, source_label.as_str(), &excerpt)
+                    > citation_surface_quality_key(
+                        query,
+                        trimmed_url,
+                        existing.source_label.as_str(),
+                        existing.excerpt.as_str(),
+                    );
+            let replace_label = existing.source_label.trim().is_empty()
+                || (is_low_signal_title(existing.source_label.as_str())
+                    && !is_low_signal_title(source_label.as_str()));
+            if replace_excerpt {
+                existing.excerpt = excerpt.clone();
+            }
+            if replace_label {
+                existing.source_label = source_label.clone();
+            }
+            if replace_excerpt || replace_label {
+                citations_by_id.insert(existing.id.clone(), existing.clone());
+            }
+            continue;
+        }
         next_candidate_num = next_candidate_num.saturating_add(1);
         let candidate = CitationCandidate {
             id: format!("C{}", next_candidate_num),
@@ -741,6 +803,32 @@ fn document_briefing_sources_share_url_identity(
         || url_structurally_equivalent(left.url.as_str(), right.url.as_str())
 }
 
+fn document_briefing_domain_key(source: &PendingSearchReadSummary) -> Option<String> {
+    let host = source_host(source.url.trim())?;
+    let normalized = host.trim().trim_start_matches("www.").to_ascii_lowercase();
+    if normalized.is_empty() {
+        return None;
+    }
+    let labels = normalized.split('.').collect::<Vec<_>>();
+    if labels.len() >= 2 {
+        Some(format!(
+            "{}.{}",
+            labels[labels.len() - 2],
+            labels[labels.len() - 1]
+        ))
+    } else {
+        Some(normalized)
+    }
+}
+
+fn document_briefing_distinct_domain_count(sources: &[PendingSearchReadSummary]) -> usize {
+    sources
+        .iter()
+        .filter_map(document_briefing_domain_key)
+        .collect::<BTreeSet<_>>()
+        .len()
+}
+
 fn document_briefing_identifier_surface_for_source(
     source: &PendingSearchReadSummary,
     candidates: &[CitationCandidate],
@@ -761,29 +849,26 @@ fn document_briefing_identifier_surface_for_source(
         })
         .collect::<Vec<_>>();
     let mut segments = Vec::new();
-    if matching_candidates.is_empty() {
-        if let Some(title) = source.title.as_deref().map(str::trim) {
-            if !title.is_empty() {
-                segments.push(title.to_string());
-            }
+    let mut seen_segments = BTreeSet::new();
+    let mut push_segment = |segment: &str| {
+        let compact = compact_whitespace(segment);
+        if compact.is_empty() {
+            return;
         }
-        if !source.excerpt.trim().is_empty() {
-            segments.push(source.excerpt.clone());
+        let key = compact.to_ascii_lowercase();
+        if seen_segments.insert(key) {
+            segments.push(compact);
         }
-        if !source.url.trim().is_empty() {
-            segments.push(source.url.clone());
-        }
+    };
+    if let Some(title) = source.title.as_deref().map(str::trim) {
+        push_segment(title);
     }
+    push_segment(&source.excerpt);
+    push_segment(&source.url);
     for candidate in matching_candidates {
-        if !candidate.source_label.trim().is_empty() {
-            segments.push(candidate.source_label.clone());
-        }
-        if !candidate.excerpt.trim().is_empty() {
-            segments.push(candidate.excerpt.clone());
-        }
-        if !candidate.url.trim().is_empty() {
-            segments.push(candidate.url.clone());
-        }
+        push_segment(&candidate.source_label);
+        push_segment(&candidate.excerpt);
+        push_segment(&candidate.url);
     }
     compact_whitespace(&segments.join(" "))
 }
@@ -825,12 +910,56 @@ fn document_briefing_authoritative_required_identifier_labels_for_source(
     )
 }
 
-fn required_document_briefing_identifier_labels(query: &str) -> BTreeSet<String> {
-    briefing_standard_identifier_groups_for_query(query)
+fn briefing_identifier_observation_for_source(
+    query: &str,
+    source: &PendingSearchReadSummary,
+    candidates: &[CitationCandidate],
+) -> Option<BriefingIdentifierObservation> {
+    let trimmed_url = source.url.trim();
+    (!trimmed_url.is_empty()).then(|| {
+        let title = source.title.as_deref().unwrap_or_default();
+        let surface = document_briefing_identifier_surface_for_source(source, candidates);
+        BriefingIdentifierObservation {
+            url: trimmed_url.to_string(),
+            authoritative: source_has_document_authority(query, trimmed_url, title, &surface),
+            surface,
+        }
+    })
+}
+
+fn required_document_briefing_identifier_labels(
+    query: &str,
+    sources: &[PendingSearchReadSummary],
+    candidates: &[CitationCandidate],
+) -> BTreeSet<String> {
+    let mut observations = sources
         .iter()
-        .filter(|group| group.required)
-        .map(|group| group.primary_label.to_string())
-        .collect()
+        .filter_map(|source| briefing_identifier_observation_for_source(query, source, candidates))
+        .collect::<Vec<_>>();
+    let seen_urls = observations
+        .iter()
+        .map(|observation| observation.url.to_ascii_lowercase())
+        .collect::<BTreeSet<_>>();
+    observations.extend(candidates.iter().filter_map(|candidate| {
+        let trimmed_url = candidate.url.trim();
+        (!trimmed_url.is_empty()
+            && !seen_urls.contains(&trimmed_url.to_ascii_lowercase())
+            && candidate.from_successful_read)
+            .then(|| BriefingIdentifierObservation {
+                url: trimmed_url.to_string(),
+                authoritative: source_has_document_authority(
+                    query,
+                    &candidate.url,
+                    &candidate.source_label,
+                    &candidate.excerpt,
+                ),
+                surface: format!(
+                    "{} {} {}",
+                    candidate.url, candidate.source_label, candidate.excerpt
+                ),
+            })
+    }));
+    infer_briefing_required_identifier_labels(query, &observations)
 }
 
 fn document_briefing_required_identifier_labels_for_source(
@@ -857,7 +986,8 @@ fn seed_document_briefing_identifier_coverage_sources(
         return;
     }
 
-    let required_labels = required_document_briefing_identifier_labels(query);
+    let required_labels =
+        required_document_briefing_identifier_labels(query, source_pool, candidates);
     if required_labels.is_empty() {
         return;
     }
@@ -951,7 +1081,8 @@ fn repair_document_briefing_authority_identifier_coverage(
         return;
     }
 
-    let required_labels = required_document_briefing_identifier_labels(query);
+    let required_labels =
+        required_document_briefing_identifier_labels(query, source_pool, candidates);
     if required_labels.is_empty() {
         return;
     }
@@ -1107,6 +1238,7 @@ fn repair_document_briefing_authority_identifier_coverage(
 }
 
 fn finalize_document_briefing_selected_sources(
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
     query: &str,
     candidates: &[CitationCandidate],
     source_pool: &[PendingSearchReadSummary],
@@ -1118,8 +1250,12 @@ fn finalize_document_briefing_selected_sources(
         return;
     }
 
-    let required_labels = required_document_briefing_identifier_labels(query);
+    let required_labels =
+        required_document_briefing_identifier_labels(query, source_pool, candidates);
     let required_floor = required_labels.len();
+    let required_domain_floor =
+        retrieval_contract_required_distinct_domain_floor(retrieval_contract, query)
+            .min(selected_source_target);
     let initially_selected_urls = selected_sources
         .iter()
         .map(|source| source.url.trim().to_ascii_lowercase())
@@ -1141,6 +1277,9 @@ fn finalize_document_briefing_selected_sources(
         return;
     }
 
+    let enforce_domain_diversity = required_domain_floor > 1
+        && document_briefing_distinct_domain_count(&pool) >= required_domain_floor;
+
     let authoritative_required_available = required_floor > 0
         && pool.iter().any(|source| {
             !document_briefing_authoritative_required_identifier_labels_for_source(
@@ -1154,12 +1293,15 @@ fn finalize_document_briefing_selected_sources(
     let mut finalized = Vec::<PendingSearchReadSummary>::new();
     let mut covered_required = BTreeSet::<String>::new();
     let mut covered_authority = BTreeSet::<String>::new();
+    let mut covered_domains = BTreeSet::<String>::new();
 
     while finalized.len() < selected_source_target {
-        let coverage_complete = required_floor == 0
+        let identifier_coverage_complete = required_floor == 0
             || (covered_required.len() >= required_floor
                 && (!authoritative_required_available
                     || covered_authority.len() >= required_floor));
+        let domain_coverage_complete =
+            !enforce_domain_diversity || covered_domains.len() >= required_domain_floor;
         let best_idx = pool
             .iter()
             .enumerate()
@@ -1184,11 +1326,42 @@ fn finalize_document_briefing_selected_sources(
                     );
                 let new_required_hits = required_hits.difference(&covered_required).count();
                 let new_authority_hits = authority_hits.difference(&covered_authority).count();
-                if !coverage_complete && new_required_hits == 0 && new_authority_hits == 0 {
+                let introduces_new_domain = document_briefing_domain_key(source)
+                    .map(|domain| !covered_domains.contains(&domain))
+                    .unwrap_or(false);
+                if !identifier_coverage_complete
+                    && new_required_hits == 0
+                    && new_authority_hits == 0
+                {
                     return None;
                 }
+                if !domain_coverage_complete
+                    && !introduces_new_domain
+                    && identifier_coverage_complete
+                {
+                    return None;
+                }
+                let title = source.title.as_deref().unwrap_or_default();
+                let excerpt = source.excerpt.as_str();
                 let authority_score =
                     document_briefing_document_authority_score(query, source, candidates);
+                let supports_domain_diversity = new_authority_hits > 0
+                    || new_required_hits > 0
+                    || source_has_document_briefing_authority_alignment_with_contract(
+                        retrieval_contract,
+                        query,
+                        selected_source_target,
+                        &source.url,
+                        title,
+                        excerpt,
+                    );
+                if !domain_coverage_complete
+                    && introduces_new_domain
+                    && identifier_coverage_complete
+                    && !supports_domain_diversity
+                {
+                    return None;
+                }
                 let initially_selected =
                     initially_selected_urls.contains(&source.url.trim().to_ascii_lowercase());
                 Some((
@@ -1196,6 +1369,7 @@ fn finalize_document_briefing_selected_sources(
                     (
                         new_authority_hits,
                         new_required_hits,
+                        introduces_new_domain,
                         !authority_hits.is_empty(),
                         authority_score,
                         required_hits.len(),
@@ -1229,10 +1403,17 @@ fn finalize_document_briefing_selected_sources(
                 &required_labels,
             ),
         );
+        if let Some(domain) = document_briefing_domain_key(&source) {
+            covered_domains.insert(domain);
+        }
         finalized.push(source);
     }
 
     if finalized.len() < selected_source_target {
+        let finalized_domains = finalized
+            .iter()
+            .filter_map(document_briefing_domain_key)
+            .collect::<BTreeSet<_>>();
         let mut remaining = pool
             .into_iter()
             .filter(|source| {
@@ -1280,7 +1461,40 @@ fn finalize_document_briefing_selected_sources(
                 initially_selected_urls.contains(&left.url.trim().to_ascii_lowercase());
             let right_initially_selected =
                 initially_selected_urls.contains(&right.url.trim().to_ascii_lowercase());
+            let left_supports_domain_gain = left_authority_hits > 0
+                || left_required_hits > 0
+                || source_has_document_briefing_authority_alignment_with_contract(
+                    retrieval_contract,
+                    query,
+                    selected_source_target,
+                    &left.url,
+                    left.title.as_deref().unwrap_or_default(),
+                    left.excerpt.as_str(),
+                );
+            let right_supports_domain_gain = right_authority_hits > 0
+                || right_required_hits > 0
+                || source_has_document_briefing_authority_alignment_with_contract(
+                    retrieval_contract,
+                    query,
+                    selected_source_target,
+                    &right.url,
+                    right.title.as_deref().unwrap_or_default(),
+                    right.excerpt.as_str(),
+                );
+            let left_domain_gain = enforce_domain_diversity
+                && finalized_domains.len() < required_domain_floor
+                && document_briefing_domain_key(left)
+                    .map(|domain| !finalized_domains.contains(&domain))
+                    .unwrap_or(false)
+                && left_supports_domain_gain;
+            let right_domain_gain = enforce_domain_diversity
+                && finalized_domains.len() < required_domain_floor
+                && document_briefing_domain_key(right)
+                    .map(|domain| !finalized_domains.contains(&domain))
+                    .unwrap_or(false)
+                && right_supports_domain_gain;
             (
+                right_domain_gain,
                 right_authority_hits,
                 right_required_hits,
                 right_authority_score,
@@ -1290,6 +1504,7 @@ fn finalize_document_briefing_selected_sources(
                 &right.url,
             )
                 .cmp(&(
+                    left_domain_gain,
                     left_authority_hits,
                     left_required_hits,
                     left_authority_score,
@@ -1386,6 +1601,7 @@ fn story_contains_equivalent_citation(
 }
 
 fn repair_document_briefing_story_citation_coverage(
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
     query: &str,
     story_sources: &[PendingSearchReadSummary],
     stories: &mut [StoryDraft],
@@ -1397,7 +1613,8 @@ fn repair_document_briefing_story_citation_coverage(
         return;
     }
 
-    let required_labels = required_document_briefing_identifier_labels(query);
+    let required_labels =
+        required_document_briefing_identifier_labels(query, story_sources, candidates);
     if required_labels.is_empty() {
         return;
     }
@@ -1424,14 +1641,57 @@ fn repair_document_briefing_story_citation_coverage(
             .map(|story| story.citation_ids.clone())
             .collect::<Vec<_>>()
     };
+    let authoritative_identifier_citation_urls = |stories: &[StoryDraft]| {
+        story_citation_ids(stories)
+            .iter()
+            .flat_map(|citation_ids| citation_ids.iter())
+            .filter_map(|citation_id| citations_by_id.get(citation_id))
+            .filter(|candidate| {
+                !document_briefing_candidate_authoritative_required_identifier_labels(
+                    query,
+                    candidate,
+                    &required_labels,
+                )
+                .is_empty()
+            })
+            .map(|candidate| candidate.url.trim().to_ascii_lowercase())
+            .filter(|url| !url.is_empty())
+            .collect::<BTreeSet<_>>()
+    };
     let mut current_authority_labels = document_briefing_authority_labels_from_story_citation_ids(
         query,
         &story_citation_ids(stories),
         citations_by_id,
         &required_labels,
     );
+    let authoritative_identifier_candidate_count = authoritative_candidates
+        .iter()
+        .filter(|candidate| {
+            !document_briefing_candidate_authoritative_required_identifier_labels(
+                query,
+                candidate,
+                &required_labels,
+            )
+            .is_empty()
+        })
+        .map(|candidate| candidate.url.trim().to_ascii_lowercase())
+        .filter(|url| !url.is_empty())
+        .collect::<BTreeSet<_>>()
+        .len();
+    let target_authority_identifier_citation_count =
+        crate::agentic::desktop::service::step::queue::support::retrieval_contract_primary_authority_source_slot_cap(
+            retrieval_contract,
+            query,
+            citations_per_story.max(1),
+        )
+        .min(authoritative_identifier_candidate_count);
 
-    while current_authority_labels.len() < required_labels.len() {
+    while current_authority_labels.len() < required_labels.len()
+        || authoritative_identifier_citation_urls(stories).len()
+            < target_authority_identifier_citation_count
+    {
+        let current_authority_identifier_urls = authoritative_identifier_citation_urls(stories);
+        let current_authority_identifier_count = current_authority_identifier_urls.len();
         let best_candidate = authoritative_candidates
             .iter()
             .filter_map(|candidate| {
@@ -1441,13 +1701,17 @@ fn repair_document_briefing_story_citation_coverage(
                     &required_labels,
                 );
                 let new_hits = labels.difference(&current_authority_labels).count();
-                if new_hits == 0 {
+                let candidate_url = candidate.url.trim().to_ascii_lowercase();
+                let adds_authority_identifier_citation = !candidate_url.is_empty()
+                    && !current_authority_identifier_urls.contains(&candidate_url);
+                if new_hits == 0 && !adds_authority_identifier_citation {
                     return None;
                 }
                 Some((
                     *candidate,
                     labels,
                     new_hits,
+                    adds_authority_identifier_citation,
                     source_document_authority_score(
                         query,
                         &candidate.url,
@@ -1459,20 +1723,22 @@ fn repair_document_briefing_story_citation_coverage(
             .max_by(|left, right| {
                 (
                     left.2,
-                    left.1.len(),
                     left.3,
+                    left.1.len(),
+                    left.4,
                     !left.0.excerpt.trim().is_empty(),
                     &left.0.url,
                 )
                     .cmp(&(
                         right.2,
-                        right.1.len(),
                         right.3,
+                        right.1.len(),
+                        right.4,
                         !right.0.excerpt.trim().is_empty(),
                         &right.0.url,
                     ))
             });
-        let Some((candidate, _, _, authority_score)) = best_candidate else {
+        let Some((candidate, _, _, _, authority_score)) = best_candidate else {
             break;
         };
 
@@ -1498,7 +1764,25 @@ fn repair_document_briefing_story_citation_coverage(
                     let label_gain = hypothetical_labels
                         .len()
                         .saturating_sub(current_authority_labels.len());
-                    if label_gain == 0 {
+                    let hypothetical_authority_identifier_count = hypothetical
+                        .iter()
+                        .flat_map(|citation_ids| citation_ids.iter())
+                        .filter_map(|citation_id| citations_by_id.get(citation_id))
+                        .filter(|candidate| {
+                            !document_briefing_candidate_authoritative_required_identifier_labels(
+                                query,
+                                candidate,
+                                &required_labels,
+                            )
+                            .is_empty()
+                        })
+                        .map(|candidate| candidate.url.trim().to_ascii_lowercase())
+                        .filter(|url| !url.is_empty())
+                        .collect::<BTreeSet<_>>()
+                        .len();
+                    let authority_identifier_gain = hypothetical_authority_identifier_count
+                        .saturating_sub(current_authority_identifier_count);
+                    if label_gain == 0 && authority_identifier_gain == 0 {
                         return None;
                     }
                     return Some((
@@ -1507,6 +1791,7 @@ fn repair_document_briefing_story_citation_coverage(
                         (
                             true,
                             label_gain,
+                            authority_identifier_gain,
                             relevance,
                             authority_score,
                             usize::MAX,
@@ -1534,7 +1819,25 @@ fn repair_document_briefing_story_citation_coverage(
                         let label_gain = hypothetical_labels
                             .len()
                             .saturating_sub(current_authority_labels.len());
-                        if label_gain == 0 {
+                        let hypothetical_authority_identifier_count = hypothetical
+                            .iter()
+                            .flat_map(|citation_ids| citation_ids.iter())
+                            .filter_map(|citation_id| citations_by_id.get(citation_id))
+                            .filter(|candidate| {
+                                !document_briefing_candidate_authoritative_required_identifier_labels(
+                                    query,
+                                    candidate,
+                                    &required_labels,
+                                )
+                                .is_empty()
+                            })
+                            .map(|candidate| candidate.url.trim().to_ascii_lowercase())
+                            .filter(|url| !url.is_empty())
+                            .collect::<BTreeSet<_>>()
+                            .len();
+                        let authority_identifier_gain = hypothetical_authority_identifier_count
+                            .saturating_sub(current_authority_identifier_count);
+                        if label_gain == 0 && authority_identifier_gain == 0 {
                             return None;
                         }
                         let existing_authority_labels =
@@ -1550,6 +1853,7 @@ fn repair_document_briefing_story_citation_coverage(
                             (
                                 false,
                                 label_gain,
+                                authority_identifier_gain,
                                 relevance,
                                 authority_score,
                                 usize::MAX.saturating_sub(existing_authority_labels),
@@ -1814,7 +2118,7 @@ mod tests {
             .map(|citation| citation.url.clone())
             .collect::<Vec<_>>();
 
-        assert_eq!(required_support_count, 3);
+        assert_eq!(required_support_count, 2);
         assert_eq!(draft.stories.len(), required_support_count);
         assert!(story_anchor_urls.iter().any(|url| {
             url == "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
@@ -1895,7 +2199,7 @@ mod tests {
             .map(|citation| citation.url.clone())
             .collect::<Vec<_>>();
 
-        assert_eq!(required_support_count, 3);
+        assert_eq!(required_support_count, 2);
         assert_eq!(draft.stories.len(), required_support_count);
         assert!(story_anchor_urls.iter().any(|url| {
             url == "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
@@ -1967,11 +2271,135 @@ mod tests {
             .map(|citation| citation.url.clone())
             .collect::<Vec<_>>();
 
-        assert_eq!(required_support_count, 3);
+        assert_eq!(required_support_count, 2);
         assert_eq!(draft.stories.len(), required_support_count);
         assert!(story_anchor_urls.iter().any(|url| {
             url == "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
         }));
+    }
+
+    #[test]
+    fn document_briefing_retained_like_nist_reads_preserve_project_page_citation_surface() {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+        let pending = PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(retrieval_contract),
+            url: "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1_775_118_581_000,
+            deadline_ms: 1_775_118_641_000,
+            candidate_urls: vec![
+                "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved"
+                    .to_string(),
+                "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization"
+                    .to_string(),
+                "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf"
+                    .to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved"
+                        .to_string(),
+                    title: Some(
+                        "NIST Releases First 3 Finalized Post-Quantum Encryption Standards | CSRC"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "NIST finalized FIPS 203, FIPS 204, and FIPS 205 as its first post-quantum cryptography standards."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf"
+                        .to_string(),
+                    title: Some("State of PQC Readiness 2025".to_string()),
+                    excerpt:
+                        "Independent November 2025 report on post-quantum cryptography readiness after NIST finalized its first post-quantum standards."
+                            .to_string(),
+                },
+            ],
+            attempted_urls: vec![
+                "https://www.ciodive.com/spons/building-organizational-readiness-for-post-quantum-cryptography/815308/"
+                    .to_string(),
+                "https://www.bing.com/search?q=nist+post+quantum+cryptography+standards"
+                    .to_string(),
+            ],
+            blocked_urls: Vec::new(),
+            successful_reads: vec![
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                    title: Some(
+                        "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "The new public-key cryptography standards will specify additional digital signature, public-key encryption, and key-establishment algorithms to augment Federal Information Processing Standards 203, 204, and 205."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization"
+                        .to_string(),
+                    title: Some("Post-Quantum Cryptography | CSRC".to_string()),
+                    excerpt:
+                        "FIPS 203, FIPS 204, and FIPS 205 were published August 13, 2024 as the first finalized NIST post-quantum cryptography standards."
+                            .to_string(),
+                },
+            ],
+            min_sources: 2,
+        };
+
+        let draft = build_deterministic_story_draft(
+            &pending,
+            WebPipelineCompletionReason::ExhaustedCandidates,
+        );
+        let rendered = render_user_synthesis_draft(&draft);
+        let required_sections = build_hybrid_required_sections(query);
+        let required_support_count =
+            retrieval_contract_required_support_count(pending.retrieval_contract.as_ref(), query);
+        let facts =
+            document_briefing_render_facts(&draft, &required_sections, required_support_count);
+        let project_page_url =
+            "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization";
+        let rendered_citation_lines = rendered
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.starts_with("- ") && line.contains("http"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(required_support_count, 2);
+        assert_eq!(draft.stories.len(), required_support_count, "{draft:#?}");
+        assert!(
+            draft.citations_by_id.values().any(|candidate| {
+                candidate.from_successful_read
+                    && candidate.url == project_page_url
+                    && candidate.excerpt.contains("FIPS 203")
+                    && candidate.excerpt.contains("FIPS 204")
+                    && candidate.excerpt.contains("FIPS 205")
+            }),
+            "{draft:#?}"
+        );
+        assert!(
+            rendered_citation_lines
+                .iter()
+                .any(|line| line.contains(project_page_url)),
+            "{rendered}"
+        );
+        assert!(
+            rendered_citation_lines
+                .iter()
+                .any(|line| { line.contains("https://csrc.nist.gov/pubs/ir/8413/upd1/final") }),
+            "{rendered}"
+        );
+        assert!(
+            rendered_citation_lines.len() >= required_support_count,
+            "{rendered}"
+        );
+        assert!(facts.summary_inventory_floor_met, "{facts:#?}\n{rendered}");
+        assert!(facts.evidence_block_floor_met, "{facts:#?}\n{rendered}");
     }
 
     #[test]
@@ -2034,8 +2462,10 @@ mod tests {
         ];
         let source_pool = vec![terra.clone(), nist_2025.clone(), nist_2024.clone()];
         let mut selected_sources = vec![terra, nist_2025, nist_2024];
+        let retrieval_contract = Some(nist_briefing_contract());
 
         finalize_document_briefing_selected_sources(
+            retrieval_contract.as_ref(),
             query,
             &candidates,
             &source_pool,
@@ -2049,14 +2479,12 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(selected_sources.len(), 2);
-        assert_eq!(
-            selected_urls[0],
-            "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
-        );
         assert!(selected_urls.iter().any(|url| {
-            *url == "https://www.nist.gov/news-events/news/2025/03/nist-selects-hqc-fifth-algorithm-post-quantum-encryption"
-                || *url
-                    == "https://terraquantum.swiss/news/diving-into-nists-new-post-quantum-standards/"
+            *url
+                == "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+        }));
+        assert!(selected_urls.iter().any(|url| {
+            *url == "https://terraquantum.swiss/news/diving-into-nists-new-post-quantum-standards/"
         }));
     }
 
@@ -2129,6 +2557,7 @@ mod tests {
             2,
         );
         finalize_document_briefing_selected_sources(
+            Some(&nist_briefing_contract()),
             query,
             &candidates,
             &source_pool,
@@ -2147,8 +2576,7 @@ mod tests {
                 == "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
         }));
         assert!(selected_urls.iter().any(|url| {
-            *url
-                == "https://www.nist.gov/news-events/news/2025/03/nist-selects-hqc-fifth-algorithm-post-quantum-encryption"
+            *url == "https://terraquantum.swiss/news/diving-into-nists-new-post-quantum-standards/"
         }));
     }
 
@@ -2244,6 +2672,7 @@ mod tests {
         ];
 
         repair_document_briefing_story_citation_coverage(
+            retrieval_contract.as_ref(),
             query,
             &story_sources,
             &mut stories,
@@ -2281,6 +2710,110 @@ mod tests {
 
         assert!(facts.authority_standard_identifier_floor_met);
         assert!(facts.summary_inventory_floor_met);
+    }
+
+    #[test]
+    fn document_briefing_story_citation_repair_preserves_corroborating_slot_once_authority_floor_is_met(
+    ) {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract = Some(nist_briefing_contract());
+        let update = PendingSearchReadSummary {
+            url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+            title: Some(
+                "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                    .to_string(),
+            ),
+            excerpt:
+                "NIST's current authoritative publication set for the post-quantum cryptography standardization process includes IR 8413."
+                    .to_string(),
+        };
+        let final_report = PendingSearchReadSummary {
+            url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+            title: Some(
+                "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                    .to_string(),
+            ),
+            excerpt:
+                "IR 8413 documents the authoritative NIST status report for the post-quantum cryptography standardization process."
+                    .to_string(),
+        };
+        let terra = PendingSearchReadSummary {
+            url: "https://terraquantum.swiss/news/diving-into-nists-new-post-quantum-standards/"
+                .to_string(),
+            title: Some("Diving Into NIST’s New Post-Quantum Standards".to_string()),
+            excerpt: "Independent coverage summarizing NIST's post-quantum cryptography standards."
+                .to_string(),
+        };
+        let candidates = vec![
+            CitationCandidate {
+                id: "update".to_string(),
+                url: update.url.clone(),
+                source_label: update.title.clone().unwrap(),
+                excerpt: update.excerpt.clone(),
+                timestamp_utc: "2026-04-02T01:48:07Z".to_string(),
+                note: "retrieved_utc".to_string(),
+                from_successful_read: true,
+            },
+            CitationCandidate {
+                id: "final".to_string(),
+                url: final_report.url.clone(),
+                source_label: final_report.title.clone().unwrap(),
+                excerpt: final_report.excerpt.clone(),
+                timestamp_utc: "2026-04-02T01:48:07Z".to_string(),
+                note: "retrieved_utc".to_string(),
+                from_successful_read: true,
+            },
+            CitationCandidate {
+                id: "terra".to_string(),
+                url: terra.url.clone(),
+                source_label: terra.title.clone().unwrap(),
+                excerpt: terra.excerpt.clone(),
+                timestamp_utc: "2026-04-02T01:48:07Z".to_string(),
+                note: "retrieved_utc".to_string(),
+                from_successful_read: true,
+            },
+        ];
+        let citations_by_id = candidates
+            .iter()
+            .map(|candidate| (candidate.id.clone(), candidate.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let story_sources = vec![update.clone(), terra.clone()];
+        let mut stories = vec![StoryDraft {
+            title: update.title.clone().unwrap(),
+            what_happened: update.excerpt.clone(),
+            changed_last_hour: String::new(),
+            why_it_matters: String::new(),
+            user_impact: String::new(),
+            workaround: String::new(),
+            eta_confidence: "medium".to_string(),
+            citation_ids: vec!["update".to_string(), "terra".to_string()],
+            confidence: "medium".to_string(),
+            caveat: "retrieved_utc".to_string(),
+        }];
+
+        repair_document_briefing_story_citation_coverage(
+            retrieval_contract.as_ref(),
+            query,
+            &story_sources,
+            &mut stories,
+            &candidates,
+            &citations_by_id,
+            2,
+        );
+
+        let selected_urls = stories
+            .iter()
+            .flat_map(|story| story.citation_ids.iter())
+            .filter_map(|citation_id| citations_by_id.get(citation_id))
+            .map(|citation| citation.url.as_str())
+            .collect::<BTreeSet<_>>();
+
+        assert!(selected_urls.contains("https://csrc.nist.gov/pubs/ir/8413/upd1/final"));
+        assert!(selected_urls.contains(
+            "https://terraquantum.swiss/news/diving-into-nists-new-post-quantum-standards/"
+        ));
+        assert!(!selected_urls.contains("https://csrc.nist.gov/pubs/ir/8413/final"));
     }
 
     #[test]
@@ -2355,7 +2888,11 @@ mod tests {
                     == "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
             })
             .expect("backfilled citation");
-        let required_labels = required_document_briefing_identifier_labels(query);
+        let required_labels = required_document_briefing_identifier_labels(
+            query,
+            &[terra.clone(), nist_2025.clone(), nist_2024.clone()],
+            &candidates,
+        );
         let authority_labels = document_briefing_candidate_authoritative_required_identifier_labels(
             query,
             backfilled,
@@ -2367,5 +2904,102 @@ mod tests {
         assert!(authority_labels.contains("FIPS 204"));
         assert!(authority_labels.contains("FIPS 205"));
         assert!(citations_by_id.contains_key(&backfilled.id));
+    }
+
+    #[test]
+    fn document_briefing_identifier_surface_for_source_keeps_selected_source_excerpt_when_matching_citation_is_narrower(
+    ) {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let project_page = PendingSearchReadSummary {
+            url: "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization".to_string(),
+            title: Some("Post-Quantum Cryptography | CSRC".to_string()),
+            excerpt: "NIST finalized FIPS 203, FIPS 204, and FIPS 205 as its first post-quantum cryptography standards."
+                .to_string(),
+        };
+        let candidates = vec![CitationCandidate {
+            id: "project".to_string(),
+            url: project_page.url.clone(),
+            source_label: project_page.title.clone().unwrap(),
+            excerpt:
+                "The project page tracks NIST's post-quantum cryptography standardization effort."
+                    .to_string(),
+            timestamp_utc: "2026-04-02T08:10:17Z".to_string(),
+            note: "retrieved_utc".to_string(),
+            from_successful_read: true,
+        }];
+        let required_labels = ["FIPS 203", "FIPS 204", "FIPS 205"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<BTreeSet<_>>();
+
+        let labels = document_briefing_required_identifier_labels_for_source(
+            query,
+            &project_page,
+            &candidates,
+            &required_labels,
+        );
+
+        assert!(labels.contains("FIPS 203"));
+        assert!(labels.contains("FIPS 204"));
+        assert!(labels.contains("FIPS 205"));
+    }
+
+    #[test]
+    fn backfill_selected_source_citation_candidates_upgrades_existing_candidate_excerpt_for_identifier_coverage(
+    ) {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let project_page = PendingSearchReadSummary {
+            url: "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization".to_string(),
+            title: Some("Post-Quantum Cryptography | CSRC".to_string()),
+            excerpt: "NIST finalized FIPS 203, FIPS 204, and FIPS 205 as its first post-quantum cryptography standards."
+                .to_string(),
+        };
+        let mut candidates = vec![CitationCandidate {
+            id: "C1".to_string(),
+            url: project_page.url.clone(),
+            source_label: project_page.title.clone().unwrap(),
+            excerpt:
+                "The project page tracks NIST's post-quantum cryptography standardization effort."
+                    .to_string(),
+            timestamp_utc: "2026-04-02T08:10:17Z".to_string(),
+            note: "retrieved_utc".to_string(),
+            from_successful_read: true,
+        }];
+        let mut citations_by_id = candidates
+            .iter()
+            .map(|candidate| (candidate.id.clone(), candidate.clone()))
+            .collect::<BTreeMap<_, _>>();
+
+        backfill_selected_source_citation_candidates(
+            query,
+            Some(&nist_briefing_contract()),
+            2,
+            std::slice::from_ref(&project_page),
+            "2026-04-02T08:10:17Z",
+            &mut candidates,
+            &mut citations_by_id,
+        );
+
+        let updated = candidates
+            .iter()
+            .find(|candidate| candidate.id == "C1")
+            .expect("existing candidate");
+        let labels = source_briefing_standard_identifier_labels(
+            query,
+            &updated.url,
+            &updated.source_label,
+            &updated.excerpt,
+        );
+
+        assert_eq!(candidates.len(), 1);
+        assert!(labels.contains("FIPS 203"));
+        assert!(labels.contains("FIPS 204"));
+        assert!(labels.contains("FIPS 205"));
+        assert_eq!(
+            citations_by_id.get("C1").expect("updated citation").excerpt,
+            updated.excerpt
+        );
     }
 }

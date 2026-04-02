@@ -2431,11 +2431,148 @@ pub(crate) fn build_recent_session_events_context(
     history: &[ChatMessage],
     prefer_browser_semantics: bool,
 ) -> String {
+    fn compact_recent_session_event_scalar(
+        value: Option<&Value>,
+        max_chars: usize,
+    ) -> Option<String> {
+        value
+            .and_then(Value::as_str)
+            .map(compact_ws_for_prompt)
+            .filter(|value| !value.is_empty())
+            .map(|value| safe_truncate(&value, max_chars))
+    }
+
+    fn compact_recent_session_web_source_summaries(payload: &Value) -> Vec<String> {
+        payload
+            .get("sources")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .take(2)
+            .filter_map(|source| {
+                let title = compact_recent_session_event_scalar(source.get("title"), 96)
+                    .unwrap_or_default();
+                let url =
+                    compact_recent_session_event_scalar(source.get("url"), 120).unwrap_or_default();
+                let snippet = compact_recent_session_event_scalar(source.get("snippet"), 140)
+                    .unwrap_or_default();
+
+                if title.is_empty() && url.is_empty() && snippet.is_empty() {
+                    return None;
+                }
+
+                let mut summary = String::new();
+                if !title.is_empty() {
+                    summary.push_str(&title);
+                }
+                if !url.is_empty() {
+                    if !summary.is_empty() {
+                        summary.push_str(" | ");
+                    }
+                    summary.push_str(&url);
+                }
+                if !snippet.is_empty() {
+                    if !summary.is_empty() {
+                        summary.push_str(" | ");
+                    }
+                    summary.push_str(&snippet);
+                }
+                Some(summary)
+            })
+            .collect()
+    }
+
+    fn compact_recent_session_web_document_summaries(payload: &Value) -> Vec<String> {
+        payload
+            .get("documents")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .take(2)
+            .filter_map(|document| {
+                let title = compact_recent_session_event_scalar(document.get("title"), 96)
+                    .unwrap_or_default();
+                let url = compact_recent_session_event_scalar(document.get("url"), 120)
+                    .unwrap_or_default();
+                let excerpt =
+                    compact_recent_session_event_scalar(document.get("content_text"), 220)
+                        .unwrap_or_default();
+
+                if title.is_empty() && url.is_empty() && excerpt.is_empty() {
+                    return None;
+                }
+
+                let mut summary = String::new();
+                if !title.is_empty() {
+                    summary.push_str(&title);
+                }
+                if !url.is_empty() {
+                    if !summary.is_empty() {
+                        summary.push_str(" | ");
+                    }
+                    summary.push_str(&url);
+                }
+                if !excerpt.is_empty() {
+                    if !summary.is_empty() {
+                        summary.push_str(" | ");
+                    }
+                    summary.push_str(&excerpt);
+                }
+                Some(summary)
+            })
+            .collect()
+    }
+
+    fn compact_non_browser_tool_event_content(message: &ChatMessage) -> Option<String> {
+        if message.role != "tool" {
+            return None;
+        }
+
+        let payload = parse_json_value_from_message(&message.content)?;
+        let tool = compact_recent_session_event_scalar(payload.get("tool"), 48)?;
+
+        if matches!(tool.as_str(), "web__search" | "web__read") {
+            let primary = compact_recent_session_event_scalar(
+                payload.get("query").or_else(|| payload.get("url")),
+                140,
+            );
+            let source_summaries = compact_recent_session_web_source_summaries(&payload);
+            let document_summaries = compact_recent_session_web_document_summaries(&payload);
+            let mut segments = vec![tool];
+
+            if let Some(primary) = primary {
+                segments.push(primary);
+            }
+            if !source_summaries.is_empty() {
+                segments.push(format!("sources={}", source_summaries.join(" || ")));
+            }
+            if !document_summaries.is_empty() {
+                segments.push(format!("docs={}", document_summaries.join(" || ")));
+            }
+
+            return Some(segments.join(" ; "));
+        }
+
+        None
+    }
+
     fn compact_recent_session_event_content(
         message: &ChatMessage,
         prefer_browser_semantics: bool,
     ) -> String {
-        if !prefer_browser_semantics || message.role != "tool" {
+        if !prefer_browser_semantics {
+            if message.role != "tool" {
+                return message.content.clone();
+            }
+
+            if let Some(compact) = compact_non_browser_tool_event_content(message) {
+                return compact;
+            }
+
+            return safe_truncate(&compact_ws_for_prompt(&message.content), 360);
+        }
+
+        if message.role != "tool" {
             return message.content.clone();
         }
 

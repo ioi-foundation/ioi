@@ -411,6 +411,7 @@ mod tests {
             memory_pointers: String::new(),
             available_tools: Vec::new(),
             tool_desc: String::new(),
+            worker_assignment: None,
             visual_verification_note: None,
             last_failure_reason: None,
             consecutive_failures: 0,

@@ -27,6 +27,42 @@ export interface StudioJudgeResult {
   rationale: string;
 }
 
+export type RenderCaptureViewport = "desktop" | "mobile" | "interaction";
+export type RenderFindingSeverity = "info" | "warning" | "blocked";
+
+export interface StudioRenderCapture {
+  viewport: RenderCaptureViewport;
+  width: number;
+  height: number;
+  screenshotSha256: string;
+  screenshotByteCount: number;
+  visibleElementCount: number;
+  visibleTextChars: number;
+  interactiveElementCount: number;
+  screenshotChangedFromPrevious?: boolean;
+}
+
+export interface StudioRenderFinding {
+  code: string;
+  severity: RenderFindingSeverity;
+  summary: string;
+}
+
+export interface StudioRenderEvaluation {
+  supported: boolean;
+  firstPaintCaptured: boolean;
+  interactionCaptureAttempted: boolean;
+  captures: StudioRenderCapture[];
+  layoutDensityScore: number;
+  spacingAlignmentScore: number;
+  typographyContrastScore: number;
+  visualHierarchyScore: number;
+  blueprintConsistencyScore: number;
+  overallScore: number;
+  findings: StudioRenderFinding[];
+  summary: string;
+}
+
 export type RuntimeProvenance = {
   kind: string;
   label: string;
@@ -72,6 +108,10 @@ export interface GeneratedArtifactEvidence {
     styleDirectives: string[];
     referenceHints: string[];
   };
+  blueprint?: Record<string, unknown> | null;
+  artifactIr?: Record<string, unknown> | null;
+  selectedSkills?: Array<Record<string, unknown>>;
+  retrievedExemplars?: Array<Record<string, unknown>>;
   editIntent?: {
     mode: "create" | "patch" | "replace" | "branch";
     summary: string;
@@ -103,10 +143,12 @@ export interface GeneratedArtifactEvidence {
     fallback: boolean;
     failure?: string | null;
     rawOutputPreview?: string | null;
+    renderEvaluation?: StudioRenderEvaluation | null;
     judge: StudioJudgeResult;
   }>;
   winningCandidateId: string | null;
   winningCandidateRationale: string | null;
+  renderEvaluation?: StudioRenderEvaluation | null;
   judge: StudioJudgeResult | null;
   outputOrigin: string | null;
   productionProvenance?: RuntimeProvenance | null;
@@ -264,10 +306,15 @@ export interface CaseSummary {
   manifestPath: string;
   route: unknown;
   artifactBrief: GeneratedArtifactEvidence["artifactBrief"];
+  blueprint?: GeneratedArtifactEvidence["blueprint"];
+  artifactIr?: GeneratedArtifactEvidence["artifactIr"];
+  selectedSkills?: GeneratedArtifactEvidence["selectedSkills"];
+  retrievedExemplars?: GeneratedArtifactEvidence["retrievedExemplars"];
   editIntent: GeneratedArtifactEvidence["editIntent"];
   candidateSetMetadata: GeneratedArtifactEvidence["candidateSummaries"];
   winningCandidateId: string | null;
   winningCandidateRationale: string | null;
+  renderEvaluation?: GeneratedArtifactEvidence["renderEvaluation"];
   manifest: GeneratedArtifactEvidence["manifest"];
   verifiedReply: GeneratedArtifactEvidence["verifiedReply"];
   rendererOutput: {

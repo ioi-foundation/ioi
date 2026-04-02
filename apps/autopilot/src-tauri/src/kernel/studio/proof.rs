@@ -1,5 +1,7 @@
+use super::revisions::persist_studio_artifact_exemplar;
 use super::workspace_build::run_build_supervisor_for_proof;
 use super::*;
+use ioi_api::studio::StudioArtifactExemplar;
 use std::time::Duration;
 
 pub(crate) fn run_studio_current_task_turn_for_proof(
@@ -203,6 +205,7 @@ fn prepare_task_for_studio_with_request_for_proof(
     let mut candidate_summaries = Vec::<StudioArtifactCandidateSummary>::new();
     let mut winning_candidate_id: Option<String> = None;
     let mut winning_candidate_rationale: Option<String> = None;
+    let mut render_evaluation: Option<ioi_api::studio::StudioArtifactRenderEvaluation> = None;
     let mut judge: Option<StudioArtifactJudgeResult> = None;
     let mut output_origin: Option<StudioArtifactOutputOrigin> = None;
     let mut production_provenance: Option<crate::models::StudioRuntimeProvenance> = None;
@@ -211,6 +214,7 @@ fn prepare_task_for_studio_with_request_for_proof(
     let mut ux_lifecycle: Option<StudioArtifactUxLifecycle> = None;
     let mut failure: Option<crate::models::StudioArtifactFailure> = None;
     let mut taste_memory: Option<StudioArtifactTasteMemory> = None;
+    let mut retrieved_exemplars = Vec::<StudioArtifactExemplar>::new();
     let mut selected_targets = Vec::<StudioArtifactSelectionTarget>::new();
 
     if renderer_kind == StudioRendererKind::WorkspaceSurface {
@@ -335,6 +339,7 @@ fn prepare_task_for_studio_with_request_for_proof(
             intent,
             &artifact_request,
             None,
+            None,
         )?;
         initial_lifecycle_state = materialized_artifact.lifecycle_state;
         non_workspace_verification_summary =
@@ -344,6 +349,7 @@ fn prepare_task_for_studio_with_request_for_proof(
         candidate_summaries = materialized_artifact.candidate_summaries.clone();
         winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
         winning_candidate_rationale = materialized_artifact.winning_candidate_rationale.clone();
+        render_evaluation = materialized_artifact.render_evaluation.clone();
         judge = materialized_artifact.judge.clone();
         output_origin = Some(materialized_artifact.output_origin);
         production_provenance = materialized_artifact.production_provenance.clone();
@@ -352,6 +358,7 @@ fn prepare_task_for_studio_with_request_for_proof(
         ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
         failure = materialized_artifact.failure.clone();
         taste_memory = materialized_artifact.taste_memory.clone();
+        retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
         selected_targets = materialized_artifact.selected_targets.clone();
         attached_artifact_ids.extend(
             materialized_artifact
@@ -412,6 +419,7 @@ fn prepare_task_for_studio_with_request_for_proof(
     materialization.candidate_summaries = candidate_summaries.clone();
     materialization.winning_candidate_id = winning_candidate_id.clone();
     materialization.winning_candidate_rationale = winning_candidate_rationale.clone();
+    materialization.render_evaluation = render_evaluation;
     materialization.judge = judge.clone();
     materialization.output_origin = output_origin;
     materialization.production_provenance = production_provenance.clone();
@@ -419,6 +427,7 @@ fn prepare_task_for_studio_with_request_for_proof(
     materialization.fallback_used = fallback_used;
     materialization.ux_lifecycle = ux_lifecycle;
     materialization.failure = failure.clone();
+    materialization.retrieved_exemplars = retrieved_exemplars.clone();
     materialization.navigator_nodes = navigator_nodes_for_manifest(&artifact_manifest);
     let verified_reply = verified_reply_from_manifest(&title, &artifact_manifest);
 
@@ -453,6 +462,7 @@ fn prepare_task_for_studio_with_request_for_proof(
         active_revision_id: None,
         revisions: Vec::new(),
         taste_memory,
+        retrieved_exemplars,
         selected_targets,
         ux_lifecycle,
         created_at: created_at.clone(),
@@ -532,13 +542,14 @@ fn refine_current_non_workspace_artifact_turn_for_proof(
     let thread_id = task.session_id.clone().unwrap_or_else(|| task.id.clone());
     let mut materialized_artifact = materialize_non_workspace_artifact_with_dependencies(
         memory_runtime,
-        Some(inference_runtime),
-        Some(acceptance_inference_runtime),
+        Some(inference_runtime.clone()),
+        Some(acceptance_inference_runtime.clone()),
         &thread_id,
         &studio_session.title,
         intent,
         &request,
         Some(&refinement),
+        None,
     )?;
     let selected_targets = if materialized_artifact.selected_targets.is_empty() {
         materialized_artifact
@@ -552,7 +563,10 @@ fn refine_current_non_workspace_artifact_turn_for_proof(
     let taste_memory = derive_studio_taste_memory(
         refinement.taste_memory.as_ref(),
         &materialized_artifact.brief,
+        materialized_artifact.blueprint.as_ref(),
+        materialized_artifact.artifact_ir.as_ref(),
         materialized_artifact.edit_intent.as_ref(),
+        materialized_artifact.judge.as_ref(),
     );
     materialized_artifact.selected_targets = selected_targets.clone();
     materialized_artifact.taste_memory = taste_memory.clone();
@@ -632,11 +646,16 @@ fn refine_current_non_workspace_artifact_turn_for_proof(
     materialization.file_writes = materialized_artifact.file_writes.clone();
     materialization.notes = materialized_artifact.notes.clone();
     materialization.artifact_brief = Some(materialized_artifact.brief.clone());
+    materialization.blueprint = materialized_artifact.blueprint.clone();
+    materialization.artifact_ir = materialized_artifact.artifact_ir.clone();
+    materialization.selected_skills = materialized_artifact.selected_skills.clone();
+    materialization.retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
     materialization.edit_intent = materialized_artifact.edit_intent.clone();
     materialization.candidate_summaries = materialized_artifact.candidate_summaries.clone();
     materialization.winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
     materialization.winning_candidate_rationale =
         materialized_artifact.winning_candidate_rationale.clone();
+    materialization.render_evaluation = materialized_artifact.render_evaluation.clone();
     materialization.judge = materialized_artifact.judge.clone();
     materialization.output_origin = Some(materialized_artifact.output_origin);
     materialization.production_provenance = materialized_artifact.production_provenance.clone();
@@ -656,6 +675,7 @@ fn refine_current_non_workspace_artifact_turn_for_proof(
     studio_session.status =
         lifecycle_state_label(materialized_artifact.lifecycle_state).to_string();
     studio_session.taste_memory = taste_memory;
+    studio_session.retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
     studio_session.selected_targets = selected_targets;
     studio_session.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
     studio_session.updated_at = now_iso();
@@ -672,6 +692,24 @@ fn refine_current_non_workspace_artifact_turn_for_proof(
     );
     studio_session.active_revision_id = Some(revision.revision_id.clone());
     studio_session.revisions.push(revision.clone());
+    match persist_studio_artifact_exemplar(
+        memory_runtime,
+        Some(inference_runtime.clone()),
+        &studio_session,
+        &revision,
+    ) {
+        Ok(Some(exemplar)) => studio_session.materialization.notes.push(format!(
+            "Archived exemplar {} for {} / {}.",
+            exemplar.record_id,
+            renderer_kind_id(exemplar.renderer),
+            exemplar.scaffold_family
+        )),
+        Ok(None) => {}
+        Err(error) => studio_session
+            .materialization
+            .notes
+            .push(format!("Exemplar archival skipped: {error}")),
+    }
 
     let artifact_refs = task
         .artifacts

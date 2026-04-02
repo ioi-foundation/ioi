@@ -1,0 +1,29 @@
+{
+  "command": [
+    "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli",
+    "artifact",
+    "generate",
+    "Create a downloadable artifact bundle with a CSV and README",
+    "--output",
+    "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T20-35-31-743Z/coding-executor-local-oss/artifact-download-bundle/artifact",
+    "--force",
+    "--local",
+    "--api-url",
+    "http://127.0.0.1:11434/v1/chat/completions",
+    "--api-key",
+    "ollama",
+    "--model-name",
+    "qwen2.5:7b",
+    "--acceptance-api-url",
+    "http://127.0.0.1:11434/v1/chat/completions",
+    "--acceptance-api-key",
+    "ollama",
+    "--acceptance-model-name",
+    "qwen2.5:7b",
+    "--json"
+  ],
+  "exitStatus": 0,
+  "elapsedMs": 31210,
+  "timedOut": false,
+  "timeoutMs": 120000
+}

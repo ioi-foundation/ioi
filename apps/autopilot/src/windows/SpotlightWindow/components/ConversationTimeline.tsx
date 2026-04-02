@@ -4,12 +4,11 @@ import type {
   RunPresentation,
   SourceSummary,
 } from "../../../types";
-import type {
-  ConversationTurn,
-  TurnContext,
-} from "../hooks/useTurnContexts";
+import type { ConversationTurn, TurnContext } from "../hooks/useTurnContexts";
 import { normalizeVisualHash } from "../utils/visualHash";
 import { AnswerCard } from "./AnswerCard";
+import { ExecutionMomentList } from "./ExecutionMomentList";
+import { ExecutionRouteCard } from "./ExecutionRouteCard";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { VisualEvidenceCard } from "./VisualEvidenceCard";
 
@@ -55,26 +54,48 @@ export function ConversationTimeline({
         const isLatestTurn = index === conversationTurns.length - 1;
         const isLatestAnsweredTurn = index === latestAnsweredTurnIndex;
         const turnContext = turnContexts[index] || null;
+        const turnPlanSummary =
+          turnContext?.planSummary ||
+          (isLatestTurn ? runPresentation.planSummary : null);
         const latestAnswerMatches =
           isLatestAnsweredTurn &&
           !!turn.answer &&
           !!runPresentation.finalAnswer;
         const hasThoughtSummary = !!runPresentation.thoughtSummary;
-        const showLiveThinking = isLatestTurn && !!turn.prompt && !turn.answer && isRunning;
-        const showThoughtTrigger = !!turn.prompt && (showLiveThinking || !!turn.answer);
+        const hasPlanSummary = !!turnPlanSummary;
+        const showLiveThinking =
+          isLatestTurn && !!turn.prompt && !turn.answer && isRunning;
+        const showExecutionRouteCard = !!turn.prompt && hasPlanSummary;
+        const showThoughtTrigger =
+          !showExecutionRouteCard &&
+          !!turn.prompt &&
+          (showLiveThinking || !!turn.answer);
         const thoughtCount = turnContext?.thoughtCount || 0;
         const visualReceiptCount = turnContext?.visualReceiptCount || 0;
         const liveVisualHash =
           isLatestTurn && showLiveThinking
             ? normalizeVisualHash(visualHash ?? "") || null
             : null;
-        const inlineVisualHash = liveVisualHash || turnContext?.latestVisualHash || null;
+        const inlineVisualHash =
+          liveVisualHash || turnContext?.latestVisualHash || null;
         const showInlineVisualReceipt =
-          !!inlineVisualHash || (!!turnContext && turnContext.visualReceiptCount > 0);
+          !!inlineVisualHash ||
+          (!!turnContext && turnContext.visualReceiptCount > 0);
         const hasTurnTrace =
           (turnContext?.kernelEventCount || 0) > 0 ||
           thoughtCount > 0 ||
           visualReceiptCount > 0;
+        const traceDetail = showLiveThinking
+          ? currentStep || "Reasoning across tools"
+          : !hasTurnTrace
+            ? "No trace captured"
+            : thoughtCount > 0
+              ? `${thoughtCount} ${thoughtCount === 1 ? "step" : "steps"} captured`
+              : visualReceiptCount > 0
+                ? `${visualReceiptCount} visual ${
+                    visualReceiptCount === 1 ? "receipt" : "receipts"
+                  } captured`
+                : `${turnContext?.kernelEventCount || 0} events captured`;
         const worklogLabel = showLiveThinking ? "Working..." : "Worklog";
 
         return (
@@ -83,6 +104,25 @@ export function ConversationTimeline({
               <div className="spot-message user spot-message--prompt">
                 <div className="message-content-text">{turn.prompt.text}</div>
               </div>
+            )}
+
+            {showExecutionRouteCard && turnPlanSummary && (
+              <>
+                <ExecutionRouteCard
+                  summary={turnPlanSummary}
+                  currentStep={showLiveThinking ? currentStep : undefined}
+                  traceDetail={traceDetail}
+                  onOpenArtifacts={() =>
+                    onOpenArtifactHub(
+                      "active_context",
+                      turnContext?.turnId || null,
+                    )
+                  }
+                />
+                <ExecutionMomentList
+                  moments={turnContext?.executionMoments || []}
+                />
+              </>
             )}
 
             {showThoughtTrigger && (
@@ -100,33 +140,27 @@ export function ConversationTimeline({
                 }
                 title="Open thinking artifacts"
               >
-                <span className="spot-thinking-pill-icon">{icons.sparkles}</span>
-                <span className="spot-thinking-pill-text">{worklogLabel}</span>
-                <span className="spot-thinking-pill-detail">
-                  {showLiveThinking
-                    ? currentStep || "Reasoning across tools"
-                    : !hasTurnTrace
-                      ? "No trace captured"
-                      : thoughtCount > 0
-                        ? `${thoughtCount} ${thoughtCount === 1 ? "step" : "steps"} captured`
-                        : visualReceiptCount > 0
-                          ? `${visualReceiptCount} visual ${
-                              visualReceiptCount === 1 ? "receipt" : "receipts"
-                            } captured`
-                          : `${turnContext?.kernelEventCount || 0} events captured`}
+                <span className="spot-thinking-pill-icon">
+                  {icons.sparkles}
                 </span>
+                <span className="spot-thinking-pill-text">{worklogLabel}</span>
+                <span className="spot-thinking-pill-detail">{traceDetail}</span>
               </button>
             )}
 
-            {showLiveThinking && !!turnContext?.streamPreview && (
-              <div className="thought-stream-panel spot-inline-stream-panel">
-                <div className="thought-stream-header">
-                  <span>{turnContext.streamLabel || "Terminal output"}</span>
-                  <span>{turnContext.streamIsFinal ? "final" : "live"}</span>
+            {showLiveThinking &&
+              !showExecutionRouteCard &&
+              !!turnContext?.streamPreview && (
+                <div className="thought-stream-panel spot-inline-stream-panel">
+                  <div className="thought-stream-header">
+                    <span>{turnContext.streamLabel || "Terminal output"}</span>
+                    <span>{turnContext.streamIsFinal ? "final" : "live"}</span>
+                  </div>
+                  <pre className="thought-stream-output">
+                    {turnContext.streamPreview}
+                  </pre>
                 </div>
-                <pre className="thought-stream-output">{turnContext.streamPreview}</pre>
-              </div>
-            )}
+              )}
 
             {showInlineVisualReceipt && (
               <VisualEvidenceCard
@@ -205,13 +239,17 @@ export function ConversationTimeline({
           className="spot-thinking-pill spot-thinking-pill--active"
           type="button"
           onClick={() =>
-            onOpenArtifactHub(runPresentation.thoughtSummary ? "thoughts" : "kernel_logs")
+            onOpenArtifactHub(
+              runPresentation.thoughtSummary ? "thoughts" : "kernel_logs",
+            )
           }
           title="Open thinking artifacts"
         >
           <span className="spot-thinking-pill-icon">{icons.sparkles}</span>
           <span className="spot-thinking-pill-text">Working...</span>
-          <span className="spot-thinking-pill-detail">{currentStep || "Initializing..."}</span>
+          <span className="spot-thinking-pill-detail">
+            {currentStep || "Initializing..."}
+          </span>
         </button>
       )}
     </>

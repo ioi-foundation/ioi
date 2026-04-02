@@ -1,0 +1,282 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "benchmarkId": "html-quantum-explainer",
+      "title": "Interactive HTML quantum explainer",
+      "prompt": "Create an interactive HTML artifact that explains quantum computers",
+      "outcomeRequest": {
+        "artifactClass": "interactive_single_file",
+        "deliverableShape": "single_file",
+        "renderer": "html_iframe",
+        "presentationSurface": "side_panel",
+        "executionSubstrate": "client_sandbox"
+      },
+      "caseBindings": [
+        "html-quantum-explainer-baseline"
+      ],
+      "categories": [
+        "interactive_html",
+        "educational",
+        "parity_target"
+      ],
+      "requiredInteractionContracts": [
+        "Multiple pre-rendered evidence views must be navigable on first paint",
+        "A shared detail region must update from visible selectable evidence",
+        "The explainer must tie interactions directly to qubits, superposition, entanglement, and gate behavior"
+      ],
+      "goldenEvaluationCriteria": [
+        "The artifact must visibly ground the four quantum concepts instead of naming them in prose only",
+        "The first paint must already contain populated evidence surfaces and request-specific visual hierarchy",
+        "The artifact must surface without Studio normalization repair shims to count as parity-credible"
+      ],
+      "trackedParityTarget": true,
+      "referenceMode": "external_pairwise_optional"
+    },
+    {
+      "benchmarkId": "html-editorial-launch-page",
+      "title": "Editorial launch page",
+      "prompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+      "outcomeRequest": {
+        "artifactClass": "interactive_single_file",
+        "deliverableShape": "single_file",
+        "renderer": "html_iframe",
+        "presentationSurface": "side_panel",
+        "executionSubstrate": "client_sandbox"
+      },
+      "caseBindings": [
+        "html-ai-tools-editorial"
+      ],
+      "categories": [
+        "interactive_html",
+        "editorial",
+        "launch"
+      ],
+      "requiredInteractionContracts": [
+        "The first paint must show editorial story structure rather than a generic shell",
+        "Controls must reveal or compare launch evidence inline",
+        "The surfaced hierarchy must carry a distinctive art direction without depending on remote assets"
+      ],
+      "goldenEvaluationCriteria": [
+        "Launch narrative must remain request-specific across copy, controls, and evidence panels",
+        "Typography, palette, and spacing must read as a designed editorial surface rather than a default dashboard",
+        "The artifact must preserve truthful first-paint evidence density"
+      ],
+      "trackedParityTarget": false,
+      "referenceMode": "external_pairwise_optional"
+    },
+    {
+      "benchmarkId": "html-rollout-with-charts",
+      "title": "Product rollout explainer with charts",
+      "prompt": "Create an interactive HTML artifact that explains a product rollout with charts about dog shampoo",
+      "outcomeRequest": {
+        "artifactClass": "interactive_single_file",
+        "deliverableShape": "single_file",
+        "renderer": "html_iframe",
+        "presentationSurface": "side_panel",
+        "executionSubstrate": "client_sandbox"
+      },
+      "caseBindings": [
+        "html-dog-shampoo",
+        "html-instacart-mcp"
+      ],
+      "categories": [
+        "interactive_html",
+        "product_rollout",
+        "charts"
+      ],
+      "requiredInteractionContracts": [
+        "The first paint must present at least two populated evidence families tied to different rollout concepts",
+        "View switching must toggle pre-rendered evidence panels",
+        "Chart interactions must update shared explanatory detail rather than act as decorative navigation"
+      ],
+      "goldenEvaluationCriteria": [
+        "The surfaced evidence must stay grounded in rollout milestones, adoption, or risk rather than generic metrics",
+        "Controls and charts must behave as an explainer, not a static poster",
+        "The artifact must remain validation-clean and renderable without hidden repair tricks"
+      ],
+      "trackedParityTarget": false,
+      "referenceMode": "external_pairwise_optional"
+    },
+    {
+      "benchmarkId": "html-technical-comparison",
+      "title": "Technical comparison explainer",
+      "prompt": "Create an interactive HTML artifact that compares technical launch tradeoffs with charts and evidence panels",
+      "outcomeRequest": {
+        "artifactClass": "interactive_single_file",
+        "deliverableShape": "single_file",
+        "renderer": "html_iframe",
+        "presentationSurface": "side_panel",
+        "executionSubstrate": "client_sandbox"
+      },
+      "caseBindings": [
+        "html-dog-shampoo-technical"
+      ],
+      "categories": [
+        "interactive_html",
+        "technical",
+        "comparison"
+      ],
+      "requiredInteractionContracts": [
+        "The artifact must compare at least two technical views or tradeoff frames on first paint",
+        "Switching controls must preserve pre-rendered comparison evidence",
+        "Detail regions must surface technical implications, not just relabel tabs"
+      ],
+      "goldenEvaluationCriteria": [
+        "Evidence must read as technical comparison, not only tone-swapped marketing copy",
+        "The visible artifact must show a structured comparison surface with differentiated evidence",
+        "The case should remain patch-faithful when used as a refinement target"
+      ],
+      "trackedParityTarget": false,
+      "referenceMode": "external_pairwise_optional"
+    },
+    {
+      "benchmarkId": "html-guided-onboarding-explainer",
+      "title": "Guided onboarding explainer",
+      "prompt": "Create an interactive HTML artifact that guides a new operator through onboarding for a release workflow",
+      "outcomeRequest": {
+        "artifactClass": "interactive_single_file",
+        "deliverableShape": "single_file",
+        "renderer": "html_iframe",
+        "presentationSurface": "side_panel",
+        "executionSubstrate": "client_sandbox"
+      },
+      "caseBindings": [
+        "html-release-workflow-onboarding"
+      ],
+      "categories": [
+        "interactive_html",
+        "guided_onboarding",
+        "sequence_browsing"
+      ],
+      "requiredInteractionContracts": [
+        "The first paint must show a visible progression mechanism such as steps or previous/next controls",
+        "Each step must map to pre-rendered onboarding detail rather than an empty shell",
+        "Progress state must remain visible while the operator moves through the guide"
+      ],
+      "goldenEvaluationCriteria": [
+        "The surfaced content must orient a first-time operator, not merely restate the prompt",
+        "Sequence browsing must remain truthful and bounded without lexical shortcuts",
+        "The case stays cataloged even when evidence has not yet been recorded"
+      ],
+      "trackedParityTarget": false,
+      "referenceMode": "external_pairwise_optional"
+    },
+    {
+      "benchmarkId": "svg-concept-poster",
+      "title": "SVG concept poster",
+      "prompt": "Create an SVG hero concept for an AI tools brand",
+      "outcomeRequest": {
+        "artifactClass": "visual",
+        "deliverableShape": "single_file",
+        "renderer": "svg",
+        "presentationSurface": "side_panel",
+        "executionSubstrate": "none"
+      },
+      "caseBindings": [
+        "svg-ai-tools-hero"
+      ],
+      "categories": [
+        "svg",
+        "poster",
+        "brand"
+      ],
+      "requiredInteractionContracts": [],
+      "goldenEvaluationCriteria": [
+        "The poster must have enough visual density to stand on its own without fallback prose",
+        "The SVG must remain structurally valid with a stable viewBox and multiple meaningful marks",
+        "Brand and concept language must stay request-specific"
+      ],
+      "trackedParityTarget": false,
+      "referenceMode": "external_pairwise_optional"
+    },
+    {
+      "benchmarkId": "jsx-pricing-configurator",
+      "title": "JSX pricing configurator",
+      "prompt": "Create a JSX artifact for a pricing configurator",
+      "outcomeRequest": {
+        "artifactClass": "interactive_single_file",
+        "deliverableShape": "single_file",
+        "renderer": "jsx_sandbox",
+        "presentationSurface": "side_panel",
+        "executionSubstrate": "client_sandbox"
+      },
+      "caseBindings": [
+        "jsx-pricing-configurator"
+      ],
+      "categories": [
+        "jsx",
+        "interactive",
+        "configurator"
+      ],
+      "requiredInteractionContracts": [
+        "The default export must render a stateful configurator surface on first paint",
+        "Configuration controls must update visible pricing or plan evidence inside the JSX surface",
+        "The component should remain request-specific rather than collapsing into a generic form shell"
+      ],
+      "goldenEvaluationCriteria": [
+        "The surfaced JSX artifact must keep pricing logic, controls, and visible output tied to the configurator job",
+        "The first paint must include enough rendered pricing evidence to stand on its own without follow-up prose",
+        "The benchmark should pressure the governed JSX lane, not only HTML-specific scaffolds"
+      ],
+      "trackedParityTarget": false,
+      "referenceMode": "external_pairwise_optional"
+    },
+    {
+      "benchmarkId": "markdown-report",
+      "title": "Markdown report",
+      "prompt": "Create a markdown artifact that documents a release checklist",
+      "outcomeRequest": {
+        "artifactClass": "document",
+        "deliverableShape": "single_file",
+        "renderer": "markdown",
+        "presentationSurface": "side_panel",
+        "executionSubstrate": "none"
+      },
+      "caseBindings": [
+        "markdown-release-checklist"
+      ],
+      "categories": [
+        "markdown",
+        "report",
+        "checklist"
+      ],
+      "requiredInteractionContracts": [],
+      "goldenEvaluationCriteria": [
+        "The report must have clear section structure and enough density to stand as the surfaced artifact",
+        "The content must remain operational and request-faithful rather than generic filler",
+        "The benchmark should capture document-lane quality without requiring app-style interactivity"
+      ],
+      "trackedParityTarget": false,
+      "referenceMode": "external_pairwise_optional"
+    },
+    {
+      "benchmarkId": "pdf-launch-brief",
+      "title": "PDF launch brief",
+      "prompt": "Create a PDF artifact that summarizes a launch brief",
+      "outcomeRequest": {
+        "artifactClass": "document",
+        "deliverableShape": "single_file",
+        "renderer": "pdf_embed",
+        "presentationSurface": "side_panel",
+        "executionSubstrate": "none"
+      },
+      "caseBindings": [
+        "pdf-launch-brief"
+      ],
+      "categories": [
+        "pdf",
+        "document",
+        "brief"
+      ],
+      "requiredInteractionContracts": [],
+      "goldenEvaluationCriteria": [
+        "The PDF brief must summarize launch context, risks, owners, and next steps in a readable artifact-first format",
+        "The retained PDF lane should stay truthfully measured rather than hidden behind markdown or prose fallbacks",
+        "The benchmark should pressure the governed pdf_embed lane with the same corpus and release machinery used elsewhere"
+      ],
+      "trackedParityTarget": false,
+      "referenceMode": "external_pairwise_optional"
+    }
+  ]
+}

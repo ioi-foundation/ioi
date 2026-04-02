@@ -105,22 +105,35 @@ fn reliability_fixture_sources() -> Option<Vec<String>> {
 fn excluded_hosts_from_query(query: &str) -> HashSet<String> {
     let mut out = HashSet::new();
     for token in query.split_whitespace() {
-        let normalized = token
-            .trim_matches(|ch: char| matches!(ch, ',' | ';' | ')' | '(' | '"' | '\''))
-            .to_ascii_lowercase();
-        let Some(host_raw) = normalized.strip_prefix("-site:") else {
+        let Some(host) = normalized_query_site_host(token, "-site:") else {
             continue;
         };
-        let host = host_raw
-            .trim()
-            .trim_start_matches("www.")
-            .trim_end_matches('.');
-        if host.is_empty() {
-            continue;
-        }
-        out.insert(host.to_string());
+        out.insert(host);
     }
     out
+}
+
+fn included_hosts_from_query(query: &str) -> HashSet<String> {
+    let mut out = HashSet::new();
+    for token in query.split_whitespace() {
+        let Some(host) = normalized_query_site_host(token, "site:") else {
+            continue;
+        };
+        out.insert(host);
+    }
+    out
+}
+
+fn normalized_query_site_host(token: &str, prefix: &str) -> Option<String> {
+    let normalized = token
+        .trim_matches(|ch: char| matches!(ch, ',' | ';' | ')' | '(' | '"' | '\''))
+        .to_ascii_lowercase();
+    let host_raw = normalized.strip_prefix(prefix)?;
+    let host = host_raw
+        .trim()
+        .trim_start_matches("www.")
+        .trim_end_matches('.');
+    (!host.is_empty()).then(|| host.to_string())
 }
 
 fn source_matches_excluded_host(source: &WebSource, excluded_hosts: &HashSet<String>) -> bool {
@@ -132,6 +145,19 @@ fn source_matches_excluded_host(source: &WebSource, excluded_hosts: &HashSet<Str
             excluded_hosts
                 .iter()
                 .any(|excluded| domain == *excluded || domain.ends_with(&format!(".{}", excluded)))
+        })
+        .unwrap_or(false)
+}
+
+fn source_matches_included_host(source: &WebSource, included_hosts: &HashSet<String>) -> bool {
+    if included_hosts.is_empty() {
+        return true;
+    }
+    canonical_source_domain(source)
+        .map(|domain| {
+            included_hosts
+                .iter()
+                .any(|included| domain == *included || domain.ends_with(&format!(".{}", included)))
         })
         .unwrap_or(false)
 }
@@ -332,6 +358,66 @@ fn resolved_locality_scope(
         })
 }
 
+fn query_site_constraint_terms(query: &str) -> HashSet<String> {
+    query
+        .split_whitespace()
+        .filter_map(|token| {
+            let normalized = token
+                .trim_matches(|ch: char| matches!(ch, ',' | ';' | ')' | '(' | '"' | '\''))
+                .to_ascii_lowercase();
+            if normalized.starts_with("site:") || normalized.starts_with("-site:") {
+                Some(normalized)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn provider_query_has_unique_probe_recovery_signal(
+    query: &str,
+    grounded_contract_query: &str,
+    retrieval_contract: &WebRetrievalContract,
+) -> bool {
+    if !contract_requires_semantic_source_alignment(retrieval_contract) {
+        return false;
+    }
+
+    let raw_query = compact_ws(query);
+    let grounded_contract_query = compact_ws(grounded_contract_query);
+    let raw_trimmed = raw_query.trim();
+    let grounded_trimmed = grounded_contract_query.trim();
+    if raw_trimmed.is_empty() || raw_trimmed.eq_ignore_ascii_case(grounded_trimmed) {
+        return false;
+    }
+
+    let raw_site_terms = query_site_constraint_terms(raw_trimmed);
+    let grounded_site_terms = query_site_constraint_terms(grounded_trimmed);
+    if raw_site_terms
+        .iter()
+        .any(|term| !grounded_site_terms.contains(term))
+    {
+        return true;
+    }
+
+    let raw_lower = raw_trimmed.to_ascii_lowercase();
+    let grounded_lower = grounded_trimmed.to_ascii_lowercase();
+    [
+        "\"observed now\"",
+        "\"latest measured data\"",
+        "\"as-of observation\"",
+        "\"official status page\"",
+        "\"service health\"",
+        "\"incident update\"",
+        "\"status dashboard\"",
+        "\"incident report\"",
+        "\"customer impact\"",
+        "\"workaround\"",
+    ]
+    .iter()
+    .any(|phrase| raw_lower.contains(phrase) && !grounded_lower.contains(phrase))
+}
+
 fn provider_request_query(
     query: &str,
     query_contract: Option<&str>,
@@ -359,6 +445,10 @@ fn provider_request_query(
         &[],
         locality_scope,
     );
+    if provider_query_has_unique_probe_recovery_signal(query, &grounded_query, retrieval_contract)
+    {
+        return query.trim().to_string();
+    }
     let grounded_trimmed = grounded_query.trim();
     if !grounded_trimmed.is_empty() {
         return grounded_trimmed.to_string();

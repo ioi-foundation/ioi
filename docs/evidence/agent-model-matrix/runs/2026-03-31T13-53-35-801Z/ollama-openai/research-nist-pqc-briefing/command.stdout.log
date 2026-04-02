@@ -1,0 +1,661 @@
+
+running 1 test
+--- Building Test Artifacts (one-time setup) ---
+Building component for mock-verifier in "/home/heathledger/Documents/ioi/repos/ioi/crates/cli/tests/fixtures/mock-verifier"
+WARN: `cargo-component` not found. Skipping build of 'mock-verifier'. Tests relying on this artifact may fail.
+--- Test Artifacts built successfully ---
+CAPABILITIES_INFERENCE_MODEL_SELECTED_AGENT=llama3.2:3b
+CAPABILITIES_INFERENCE_MODEL_SELECTED_ARBITER=qwen2.5:14b
+CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing_ATTEMPT_1={
+  "case_id": "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing",
+  "query": "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+  "run_timestamp_ms": 1774965248236,
+  "run_timestamp_iso_utc": "2026-03-31T13:54:08Z",
+  "elapsed_ms": 2824,
+  "completed": true,
+  "failed": false,
+  "final_status": "Completed(Some(\"Invalid tool call generated during web research. Stopping early to avoid recovery churn.\"))",
+  "terminal_pause_reason": null,
+  "terminal_failure_reason": null,
+  "final_reply": "",
+  "chat_reply_count": 0,
+  "action_tools": [
+    "system::invalid_tool_call"
+  ],
+  "planned_tool_calls": [
+    {
+      "step_index": 0,
+      "tool_name": "web__search",
+      "arguments": {
+        "limit": "10",
+        "query": "NIST post-quantum cryptography standards"
+      }
+    }
+  ],
+  "routing_tools": [
+    "system::invalid_tool_call"
+  ],
+  "workload_tools": [],
+  "routing_policy_decisions": [
+    "allowed"
+  ],
+  "routing_failure_classes": [],
+  "routing_stop_condition_hits": 1,
+  "verification_checks": [
+    "awaiting_clarification=false",
+    "awaiting_sudo_password=false",
+    "env_receipt::latest_nist_pqc_briefing_cleanup=true",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_manifest_exists=false",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_manifest_exists_probe_source=harness.latest_nist_pqc_briefing_fixture.cleanup_probe",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_manifest_exists_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_manifest_exists_timestamp_ms=1774965252319",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_probe_source=harness.latest_nist_pqc_briefing_fixture.cleanup_probe",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_root_exists=false",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_root_exists_probe_source=harness.latest_nist_pqc_briefing_fixture.cleanup_probe",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_root_exists_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_root_exists_timestamp_ms=1774965252319",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_cleanup_timestamp_ms=1774965252319",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_date=2026-03-31",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_date_post_run=2026-03-31",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_date_post_run_probe_source=harness.latest_nist_pqc_briefing_fixture.post_run",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_date_post_run_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_date_post_run_timestamp_ms=1774965252318",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_date_probe_source=harness.latest_nist_pqc_briefing_fixture.preflight",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_date_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_date_timestamp_ms=1774965248236",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_timestamp_ms=1774965248237",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_timestamp_ms_probe_source=harness.latest_nist_pqc_briefing_fixture.preflight",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_timestamp_ms_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_current_utc_timestamp_ms_timestamp_ms=1774965248236",
+    "env_receipt::latest_nist_pqc_briefing_fixture=true",
+    "env_receipt::latest_nist_pqc_briefing_fixture_manifest_path=/tmp/.tmpViVPQ1/ioi_latest_nist_pqc_briefing_1774965248236001/latest_nist_pqc_briefing_fixture_manifest.txt",
+    "env_receipt::latest_nist_pqc_briefing_fixture_manifest_path_probe_source=harness.latest_nist_pqc_briefing_fixture",
+    "env_receipt::latest_nist_pqc_briefing_fixture_manifest_path_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_fixture_manifest_path_timestamp_ms=1774965248236",
+    "env_receipt::latest_nist_pqc_briefing_fixture_mode=latest_nist_pqc_briefing_fixture_v1",
+    "env_receipt::latest_nist_pqc_briefing_fixture_mode_probe_source=harness.latest_nist_pqc_briefing_fixture",
+    "env_receipt::latest_nist_pqc_briefing_fixture_mode_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_fixture_mode_timestamp_ms=1774965248236",
+    "env_receipt::latest_nist_pqc_briefing_fixture_probe_source=harness.latest_nist_pqc_briefing_fixture",
+    "env_receipt::latest_nist_pqc_briefing_fixture_root=/tmp/.tmpViVPQ1/ioi_latest_nist_pqc_briefing_1774965248236001",
+    "env_receipt::latest_nist_pqc_briefing_fixture_root_exists=true",
+    "env_receipt::latest_nist_pqc_briefing_fixture_root_exists_probe_source=harness.latest_nist_pqc_briefing_fixture.post_run",
+    "env_receipt::latest_nist_pqc_briefing_fixture_root_exists_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_fixture_root_exists_timestamp_ms=1774965252318",
+    "env_receipt::latest_nist_pqc_briefing_fixture_root_probe_source=harness.latest_nist_pqc_briefing_fixture",
+    "env_receipt::latest_nist_pqc_briefing_fixture_root_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_fixture_root_timestamp_ms=1774965248236",
+    "env_receipt::latest_nist_pqc_briefing_fixture_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_fixture_timestamp_ms=1774965248236",
+    "env_receipt::latest_nist_pqc_briefing_manifest_exists=true",
+    "env_receipt::latest_nist_pqc_briefing_manifest_exists_probe_source=harness.latest_nist_pqc_briefing_fixture.post_run",
+    "env_receipt::latest_nist_pqc_briefing_manifest_exists_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_manifest_exists_timestamp_ms=1774965252318",
+    "env_receipt::latest_nist_pqc_briefing_run_unique_num=1774965248236001",
+    "env_receipt::latest_nist_pqc_briefing_run_unique_num_probe_source=harness.latest_nist_pqc_briefing_fixture",
+    "env_receipt::latest_nist_pqc_briefing_run_unique_num_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_run_unique_num_timestamp_ms=1774965248236",
+    "env_receipt::latest_nist_pqc_briefing_scope=true",
+    "env_receipt::latest_nist_pqc_briefing_scope_probe_source=harness.latest_nist_pqc_briefing_fixture.post_run",
+    "env_receipt::latest_nist_pqc_briefing_scope_satisfied=true",
+    "env_receipt::latest_nist_pqc_briefing_scope_timestamp_ms=1774965252318",
+    "invalid_tool_call_fail_fast=true",
+    "policy_decision=allowed",
+    "remediation_queued=false",
+    "routing_reason_code=tool_first_default",
+    "routing_source_failure=None",
+    "routing_tier_matches_pre_state=true",
+    "routing_tier_selected=ToolFirst",
+    "schema_validation_error=true",
+    "stop_condition_hit=true",
+    "was_gated=false"
+  ],
+  "verification_facts": [
+    {
+      "key": "awaiting_clarification",
+      "value": "false"
+    },
+    {
+      "key": "awaiting_sudo_password",
+      "value": "false"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_manifest_exists",
+      "value": "false"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_manifest_exists_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture.cleanup_probe"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_manifest_exists_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_manifest_exists_timestamp_ms",
+      "value": "1774965252319"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture.cleanup_probe"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_root_exists",
+      "value": "false"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_root_exists_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture.cleanup_probe"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_root_exists_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_root_exists_timestamp_ms",
+      "value": "1774965252319"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_cleanup_timestamp_ms",
+      "value": "1774965252319"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_date",
+      "value": "2026-03-31"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_date_post_run",
+      "value": "2026-03-31"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_date_post_run_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture.post_run"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_date_post_run_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_date_post_run_timestamp_ms",
+      "value": "1774965252318"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_date_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture.preflight"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_date_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_date_timestamp_ms",
+      "value": "1774965248236"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_timestamp_ms",
+      "value": "1774965248237"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_timestamp_ms_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture.preflight"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_timestamp_ms_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_current_utc_timestamp_ms_timestamp_ms",
+      "value": "1774965248236"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_manifest_path",
+      "value": "/tmp/.tmpViVPQ1/ioi_latest_nist_pqc_briefing_1774965248236001/latest_nist_pqc_briefing_fixture_manifest.txt"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_manifest_path_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_manifest_path_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_manifest_path_timestamp_ms",
+      "value": "1774965248236"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_mode",
+      "value": "latest_nist_pqc_briefing_fixture_v1"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_mode_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_mode_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_mode_timestamp_ms",
+      "value": "1774965248236"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_root",
+      "value": "/tmp/.tmpViVPQ1/ioi_latest_nist_pqc_briefing_1774965248236001"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_root_exists",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_root_exists_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture.post_run"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_root_exists_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_root_exists_timestamp_ms",
+      "value": "1774965252318"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_root_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_root_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_root_timestamp_ms",
+      "value": "1774965248236"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_fixture_timestamp_ms",
+      "value": "1774965248236"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_manifest_exists",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_manifest_exists_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture.post_run"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_manifest_exists_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_manifest_exists_timestamp_ms",
+      "value": "1774965252318"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_run_unique_num",
+      "value": "1774965248236001"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_run_unique_num_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_run_unique_num_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_run_unique_num_timestamp_ms",
+      "value": "1774965248236"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_scope",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_scope_probe_source",
+      "value": "harness.latest_nist_pqc_briefing_fixture.post_run"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_scope_satisfied",
+      "value": "true"
+    },
+    {
+      "key": "env_receipt::latest_nist_pqc_briefing_scope_timestamp_ms",
+      "value": "1774965252318"
+    },
+    {
+      "key": "invalid_tool_call_fail_fast",
+      "value": "true"
+    },
+    {
+      "key": "policy_decision",
+      "value": "allowed"
+    },
+    {
+      "key": "remediation_queued",
+      "value": "false"
+    },
+    {
+      "key": "routing_reason_code",
+      "value": "tool_first_default"
+    },
+    {
+      "key": "routing_source_failure",
+      "value": "None"
+    },
+    {
+      "key": "routing_tier_matches_pre_state",
+      "value": "true"
+    },
+    {
+      "key": "routing_tier_selected",
+      "value": "ToolFirst"
+    },
+    {
+      "key": "schema_validation_error",
+      "value": "true"
+    },
+    {
+      "key": "stop_condition_hit",
+      "value": "true"
+    },
+    {
+      "key": "was_gated",
+      "value": "false"
+    }
+  ],
+  "approval_required_events": 0,
+  "parent_playbook_receipts": [],
+  "action_evidence": [
+    {
+      "tool_name": "system::invalid_tool_call",
+      "agent_status": "Completed",
+      "output_excerpt": "Invalid tool call generated during web research. Stopping early to avoid recovery churn.",
+      "error_class": null
+    }
+  ],
+  "action_error_classes": [],
+  "command_history_evidence": [],
+  "cec_receipts": [],
+  "intent_resolution_evidence": [],
+  "environment_receipts": [
+    {
+      "key": "latest_nist_pqc_briefing_fixture_mode",
+      "observed_values": [
+        "latest_nist_pqc_briefing_fixture_v1"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture",
+      "timestamp_ms": 1774965248236,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_fixture_root",
+      "observed_values": [
+        "/tmp/.tmpViVPQ1/ioi_latest_nist_pqc_briefing_1774965248236001"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture",
+      "timestamp_ms": 1774965248236,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_fixture_manifest_path",
+      "observed_values": [
+        "/tmp/.tmpViVPQ1/ioi_latest_nist_pqc_briefing_1774965248236001/latest_nist_pqc_briefing_fixture_manifest.txt"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture",
+      "timestamp_ms": 1774965248236,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_run_unique_num",
+      "observed_values": [
+        "1774965248236001"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture",
+      "timestamp_ms": 1774965248236,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_current_utc_date",
+      "observed_values": [
+        "2026-03-31"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture.preflight",
+      "timestamp_ms": 1774965248236,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_current_utc_timestamp_ms",
+      "observed_values": [
+        "1774965248237"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture.preflight",
+      "timestamp_ms": 1774965248236,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_fixture",
+      "observed_values": [
+        "true"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture",
+      "timestamp_ms": 1774965248236,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_fixture_root_exists",
+      "observed_values": [
+        "true"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture.post_run",
+      "timestamp_ms": 1774965252318,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_manifest_exists",
+      "observed_values": [
+        "true"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture.post_run",
+      "timestamp_ms": 1774965252318,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_current_utc_date_post_run",
+      "observed_values": [
+        "2026-03-31"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture.post_run",
+      "timestamp_ms": 1774965252318,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_scope",
+      "observed_values": [
+        "true"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture.post_run",
+      "timestamp_ms": 1774965252318,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_cleanup_root_exists",
+      "observed_values": [
+        "false"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture.cleanup_probe",
+      "timestamp_ms": 1774965252319,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_cleanup_manifest_exists",
+      "observed_values": [
+        "false"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture.cleanup_probe",
+      "timestamp_ms": 1774965252319,
+      "satisfied": true
+    },
+    {
+      "key": "latest_nist_pqc_briefing_cleanup",
+      "observed_values": [
+        "true"
+      ],
+      "probe_source": "harness.latest_nist_pqc_briefing_fixture.cleanup_probe",
+      "timestamp_ms": 1774965252319,
+      "satisfied": true
+    }
+  ],
+  "web": null,
+  "screenshot": null,
+  "mail": null,
+  "google": null,
+  "event_excerpt": [
+    "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115]), target: \"cloud_inference::desktop_agent::model_hash:000000000000000...",
+    "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0...",
+    "action tool=system::invalid_tool_call status=Completed error_class=none output=Invalid tool call generated during web research. Stopping early to avoid recovery churn.",
+    "routing tool=system::invalid_tool_call decision=allowed success=true checks=schema_validation_error=true,invalid_tool_call_fail_fast=true,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=true,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,..."
+  ],
+  "kernel_event_count": 4,
+  "kernel_log_lines": [
+    "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115]), target: \"cloud_inference::desktop_agent::model_hash:0000000000000000000000000000000000000000000000000000000000000000\", target_id: Some(CloudInference { provider: \"desktop_agent\", model: \"model_hash:0000000000000000000000000000000000000000000000000000000000000000\" }), risk_surface: \"egress\", decision_hash: [154, 194, 61, 131, 76, 126, 65, 134, 129, 117, 144, 174, 61, 114, 215, 247, 226, 92, 67, 39, 198, 150, 235, 136, 165, 148, 9, 141, 180, 181, 1, 44], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [139, 142, 193, 195, 231, 203, 16, 200, 100, 205, 196, 65, 67, 37, 186, 231, 153, 145, 247, 30, 84, 135, 190, 10, 190, 212, 46, 13, 113, 67, 101, 152], assist_output_graph_hash: [139, 142, 193, 195, 231, 203, 16, 200, 100, 205, 196, 65, 67, 37, 186, 231, 153, 145, 247, 30, 84, 135, 190, 10, 190, 212, 46, 13, 113, 67, 101, 152] })",
+    "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: DomHeadless]\\n{\\\"arguments\\\":{\\\"limit\\\":\\\"10\\\",\\\"query\\\":\\\"NIST post-quantum cryptography standards\\\"},\\\"name\\\":\\\"web__search\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"limit\\\":\\\"10\\\",\\\"query\\\":\\\"NIST post-quantum cryptography standards\\\"},\\\"name\\\":\\\"web__search\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774965252 })",
+    "action tool=system::invalid_tool_call status=Completed error_class=none output=Invalid tool call generated during web research. Stopping early to avoid recovery churn.",
+    "routing tool=system::invalid_tool_call decision=allowed success=true checks=schema_validation_error=true,invalid_tool_call_fail_fast=true,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=true,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true"
+  ]
+}
+CAPABILITIES_CASE_RESULT_research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing_ATTEMPT_1={
+  "case_id": "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing",
+  "query": "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+  "expected_pass": true,
+  "observed_pass": false,
+  "completed": true,
+  "final_status": "Completed(Some(\"Invalid tool call generated during web research. Stopping early to avoid recovery churn.\"))",
+  "local": {
+    "pass": false,
+    "score": 0.0,
+    "checks": [
+      {
+        "name": "web_observation_present",
+        "passed": false,
+        "detail": "missing typed web observation"
+      },
+      {
+        "name": "completion_evidence_present",
+        "passed": false,
+        "detail": "status=Completed(Some(\"Invalid tool call generated during web research. Stopping early to avoid recovery churn.\")) failed=false"
+      }
+    ],
+    "failures": [
+      "web_observation_present",
+      "completion_evidence_present"
+    ]
+  },
+  "arbiter": {
+    "pass": false,
+    "confidence": "medium",
+    "rationale": "NIST briefing local verification or contract gates were not satisfied.",
+    "score": 0.0,
+    "failures": [
+      "completion_evidence_present",
+      "web_observation_present"
+    ]
+  }
+}
+CAPABILITIES_KERNEL_LOG_DUMP_research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing_ATTEMPT_1={
+  "arbiter_failures": [
+    "completion_evidence_present",
+    "web_observation_present"
+  ],
+  "arbiter_pass": false,
+  "attempt": 1,
+  "case_id": "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing",
+  "completed": true,
+  "expected_pass": true,
+  "failed": false,
+  "final_status": "Completed(Some(\"Invalid tool call generated during web research. Stopping early to avoid recovery churn.\"))",
+  "kernel_event_count": 4,
+  "kernel_log_lines": [
+    "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115]), target: \"cloud_inference::desktop_agent::model_hash:0000000000000000000000000000000000000000000000000000000000000000\", target_id: Some(CloudInference { provider: \"desktop_agent\", model: \"model_hash:0000000000000000000000000000000000000000000000000000000000000000\" }), risk_surface: \"egress\", decision_hash: [154, 194, 61, 131, 76, 126, 65, 134, 129, 117, 144, 174, 61, 114, 215, 247, 226, 92, 67, 39, 198, 150, 235, 136, 165, 148, 9, 141, 180, 181, 1, 44], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [139, 142, 193, 195, 231, 203, 16, 200, 100, 205, 196, 65, 67, 37, 186, 231, 153, 145, 247, 30, 84, 135, 190, 10, 190, 212, 46, 13, 113, 67, 101, 152], assist_output_graph_hash: [139, 142, 193, 195, 231, 203, 16, 200, 100, 205, 196, 65, 67, 37, 186, 231, 153, 145, 247, 30, 84, 135, 190, 10, 190, 212, 46, 13, 113, 67, 101, 152] })",
+    "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: DomHeadless]\\n{\\\"arguments\\\":{\\\"limit\\\":\\\"10\\\",\\\"query\\\":\\\"NIST post-quantum cryptography standards\\\"},\\\"name\\\":\\\"web__search\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"limit\\\":\\\"10\\\",\\\"query\\\":\\\"NIST post-quantum cryptography standards\\\"},\\\"name\\\":\\\"web__search\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774965252 })",
+    "action tool=system::invalid_tool_call status=Completed error_class=none output=Invalid tool call generated during web research. Stopping early to avoid recovery churn.",
+    "routing tool=system::invalid_tool_call decision=allowed success=true checks=schema_validation_error=true,invalid_tool_call_fail_fast=true,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=true,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true"
+  ],
+  "local_failures": [
+    "web_observation_present",
+    "completion_evidence_present"
+  ],
+  "local_pass": false,
+  "observed_pass": false,
+  "query": "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+  "run_timestamp_iso_utc": "2026-03-31T13:54:08Z",
+  "run_timestamp_ms": 1774965248236
+}
+CAPABILITIES_CASE_RESULT_research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing={
+  "case_id": "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing",
+  "query": "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+  "expected_pass": true,
+  "observed_pass": false,
+  "completed": true,
+  "final_status": "Completed(Some(\"Invalid tool call generated during web research. Stopping early to avoid recovery churn.\"))",
+  "local": {
+    "pass": false,
+    "score": 0.0,
+    "checks": [
+      {
+        "name": "web_observation_present",
+        "passed": false,
+        "detail": "missing typed web observation"
+      },
+      {
+        "name": "completion_evidence_present",
+        "passed": false,
+        "detail": "status=Completed(Some(\"Invalid tool call generated during web research. Stopping early to avoid recovery churn.\")) failed=false"
+      }
+    ],
+    "failures": [
+      "web_observation_present",
+      "completion_evidence_present"
+    ]
+  },
+  "arbiter": {
+    "pass": false,
+    "confidence": "medium",
+    "rationale": "NIST briefing local verification or contract gates were not satisfied.",
+    "score": 0.0,
+    "failures": [
+      "completion_evidence_present",
+      "web_observation_present"
+    ]
+  }
+}
+test capabilities_query_suite_e2e ... FAILED
+
+failures:
+
+failures:
+    capabilities_query_suite_e2e
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 23 filtered out; finished in 33.47s
+

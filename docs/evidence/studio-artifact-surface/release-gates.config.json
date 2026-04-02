@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "gates": [
+    {
+      "id": "ready_rate",
+      "label": "Ready rate",
+      "source": {
+        "kind": "benchmark_metric",
+        "metricId": "readyRate"
+      },
+      "operator": "minimum",
+      "shipThreshold": 0.95,
+      "ratchetFloor": 0.8,
+      "minImprovementDelta": 0.02,
+      "required": true
+    },
+    {
+      "id": "average_judge_score",
+      "label": "Average judge score",
+      "source": {
+        "kind": "benchmark_metric",
+        "metricId": "averageJudgeScore"
+      },
+      "operator": "minimum",
+      "shipThreshold": 0.85,
+      "ratchetFloor": 0.8,
+      "minImprovementDelta": 0.02,
+      "required": true
+    },
+    {
+      "id": "screenshot_quality_score",
+      "label": "Screenshot quality score",
+      "source": {
+        "kind": "benchmark_metric",
+        "metricId": "screenshotQualityScore"
+      },
+      "operator": "minimum",
+      "shipThreshold": 0.8,
+      "ratchetFloor": 0.75,
+      "minImprovementDelta": 0.02,
+      "required": true
+    },
+    {
+      "id": "pairwise_win_rate",
+      "label": "Pairwise win rate",
+      "source": {
+        "kind": "benchmark_metric",
+        "metricId": "humanPreferenceScore"
+      },
+      "operator": "minimum",
+      "shipThreshold": 0.55,
+      "ratchetFloor": 0.5,
+      "minImprovementDelta": 0.02,
+      "required": true
+    },
+    {
+      "id": "shim_required_rate",
+      "label": "Shim-required rate",
+      "source": {
+        "kind": "benchmark_metric",
+        "metricId": "shimRequiredRate"
+      },
+      "operator": "maximum",
+      "shipThreshold": 0.1,
+      "ratchetFloor": 0.7,
+      "minImprovementDelta": 0.02,
+      "required": true
+    },
+    {
+      "id": "variance_across_repeats",
+      "label": "Variance across repeated runs",
+      "source": {
+        "kind": "benchmark_metric",
+        "metricId": "varianceAcrossRepeatedRuns"
+      },
+      "operator": "maximum",
+      "shipThreshold": 0.15,
+      "ratchetFloor": 0.25,
+      "minImprovementDelta": 0.02,
+      "required": true
+    },
+    {
+      "id": "lexical_routing_regressions",
+      "label": "Lexical routing regressions",
+      "source": {
+        "kind": "conformance_failed_checks",
+        "checkIds": [
+          "benchmark_specific_routing",
+          "skill_name_routing"
+        ]
+      },
+      "operator": "maximum",
+      "shipThreshold": 0,
+      "ratchetFloor": 0,
+      "minImprovementDelta": 0,
+      "required": true
+    }
+  ]
+}

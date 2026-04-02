@@ -5,6 +5,7 @@ use crate::models::{
     StudioArtifactPipelineStep, StudioArtifactSession, StudioOutcomeArtifactRequest,
     StudioRendererKind,
 };
+use ioi_api::studio::{StudioArtifactJudgeClassification, StudioArtifactTasteMemory};
 
 use super::{
     artifact_class_id_for_request, persistence_mode_id, presentation_surface_id, renderer_kind_id,
@@ -176,6 +177,35 @@ fn pipeline_status_for_stage(
     }
 }
 
+fn truncate_pipeline_output(value: impl AsRef<str>, limit: usize) -> String {
+    let value = value.as_ref().trim();
+    if value.chars().count() <= limit {
+        value.to_string()
+    } else {
+        format!(
+            "{}…",
+            value.chars().take(limit).collect::<String>().trim_end()
+        )
+    }
+}
+
+fn repair_pass_count(materialization: &StudioArtifactMaterializationContract) -> usize {
+    materialization
+        .candidate_summaries
+        .iter()
+        .filter_map(|candidate| candidate.convergence.as_ref())
+        .filter(|trace| trace.pass_kind != "initial")
+        .count()
+}
+
+fn judge_classification_id(classification: StudioArtifactJudgeClassification) -> &'static str {
+    match classification {
+        StudioArtifactJudgeClassification::Pass => "pass",
+        StudioArtifactJudgeClassification::Repairable => "repairable",
+        StudioArtifactJudgeClassification::Blocked => "blocked",
+    }
+}
+
 pub(super) fn pipeline_steps_for_state(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
@@ -183,6 +213,7 @@ pub(super) fn pipeline_steps_for_state(
     materialization: &StudioArtifactMaterializationContract,
     lifecycle_state: StudioArtifactLifecycleState,
     build_session: Option<&BuildArtifactSession>,
+    taste_memory: Option<&StudioArtifactTasteMemory>,
 ) -> Vec<StudioArtifactPipelineStep> {
     let trimmed_intent = intent.trim();
     let prompt_excerpt = if trimmed_intent.chars().count() > 88 {
@@ -203,25 +234,83 @@ pub(super) fn pipeline_steps_for_state(
         .is_some()
         && manifest.primary_tab == "preview";
     let verification_gate = "Verification state, not worker prose, authorizes Studio replies.";
-    let spec_outputs = vec![
+    let mut spec_outputs = vec![
         artifact_class_id_for_request(request),
         renderer_kind_id(request.renderer).to_string(),
         presentation_surface_id(request.presentation_surface).to_string(),
         persistence_mode_id(request.persistence).to_string(),
     ];
+    if let Some(blueprint) = materialization.blueprint.as_ref() {
+        spec_outputs.push(format!("blueprint:{}", blueprint.scaffold_family));
+        if !blueprint.component_plan.is_empty() {
+            spec_outputs.push(format!("component_plan:{}", blueprint.component_plan.len()));
+        }
+        if !blueprint.skill_needs.is_empty() {
+            spec_outputs.push(format!("skill_needs:{}", blueprint.skill_needs.len()));
+        }
+    }
+    if let Some(artifact_ir) = materialization.artifact_ir.as_ref() {
+        spec_outputs.push(format!("ir_nodes:{}", artifact_ir.semantic_structure.len()));
+        spec_outputs.push(format!(
+            "ir_interactions:{}",
+            artifact_ir.interaction_graph.len()
+        ));
+        if !artifact_ir.component_bindings.is_empty() {
+            spec_outputs.push(format!(
+                "component_packs:{}",
+                artifact_ir.component_bindings.join(" · ")
+            ));
+        }
+    }
+    if !materialization.selected_skills.is_empty() {
+        spec_outputs.push(format!(
+            "selected_skills:{}",
+            materialization.selected_skills.len()
+        ));
+    }
     let file_outputs = if !materialization.file_writes.is_empty() {
         materialization
             .file_writes
             .iter()
             .map(|file| file.path.clone())
-            .collect()
+            .collect::<Vec<_>>()
     } else {
         manifest
             .files
             .iter()
             .map(|file| file.path.clone())
-            .collect()
+            .collect::<Vec<_>>()
     };
+    let candidate_count = materialization.candidate_summaries.len();
+    let repair_passes = repair_pass_count(materialization);
+    let winner_summary = materialization.winning_candidate_id.as_ref().map(|winner| {
+        if let Some(rationale) = materialization.winning_candidate_rationale.as_ref() {
+            format!(
+                "winner:{} ({})",
+                winner,
+                truncate_pipeline_output(rationale, 72)
+            )
+        } else {
+            format!("winner:{winner}")
+        }
+    });
+    let mut materialization_outputs = Vec::new();
+    if candidate_count > 0 {
+        materialization_outputs.push(format!("candidates:{candidate_count}"));
+    }
+    if let Some(winner) = winner_summary {
+        materialization_outputs.push(winner);
+    }
+    if repair_passes > 0 {
+        materialization_outputs.push(format!("repair_passes:{repair_passes}"));
+    }
+    if let Some(origin) = materialization.output_origin.as_ref() {
+        materialization_outputs.push(format!("origin:{origin:?}").to_ascii_lowercase());
+    }
+    materialization_outputs.extend(file_outputs.iter().take(3).cloned());
+    if file_outputs.len() > 3 {
+        materialization_outputs.push(format!("files:{}", file_outputs.len()));
+    }
     let execution_outputs = if let Some(session) = build_session {
         if !session.receipts.is_empty() {
             session
@@ -237,21 +326,57 @@ pub(super) fn pipeline_steps_for_state(
                 .collect()
         }
     } else {
-        manifest
+        let mut outputs = manifest
             .files
             .iter()
             .map(|file| file.path.clone())
-            .collect()
+            .collect::<Vec<_>>();
+        if !materialization.selected_skills.is_empty() {
+            outputs.push(format!(
+                "skills:{}",
+                materialization
+                    .selected_skills
+                    .iter()
+                    .map(|skill| skill.name.clone())
+                    .take(2)
+                    .collect::<Vec<_>>()
+                    .join(" · ")
+            ));
+        }
+        outputs
     };
-    let verification_outputs = if !materialization.verification_steps.is_empty() {
+    let mut verification_outputs = if !materialization.verification_steps.is_empty() {
         materialization
             .verification_steps
             .iter()
             .map(|step| format!("{} ({})", step.label, step.status))
-            .collect()
+            .collect::<Vec<_>>()
     } else {
         vec![manifest.verification.summary.clone()]
     };
+    if let Some(artifact_ir) = materialization.artifact_ir.as_ref() {
+        if !artifact_ir.static_audit_expectations.is_empty() {
+            verification_outputs.push(format!(
+                "audit_targets:{}",
+                artifact_ir.static_audit_expectations.len()
+            ));
+        }
+    }
+    if let Some(judge) = materialization.judge.as_ref() {
+        verification_outputs.push(format!(
+            "judge:{}",
+            judge_classification_id(judge.classification)
+        ));
+        if !judge.issue_classes.is_empty() {
+            verification_outputs.push(format!("issues:{}", judge.issue_classes.join(" · ")));
+        }
+        if !judge.repair_hints.is_empty() {
+            verification_outputs.push(format!("repair_hints:{}", judge.repair_hints.len()));
+        }
+    }
+    if let Some(failure) = manifest.verification.failure.as_ref() {
+        verification_outputs.push(format!("failure:{}", failure.code));
+    }
     let presentation_outputs = if preview_ready {
         vec![
             "preview".to_string(),
@@ -260,15 +385,35 @@ pub(super) fn pipeline_steps_for_state(
                 .unwrap_or_default(),
         ]
     } else {
-        vec![
+        let mut outputs = vec![
             manifest.primary_tab.clone(),
             format!("{} file(s)", manifest.files.len()),
-        ]
+        ];
+        if repair_passes > 0 {
+            outputs.push(format!("repair_passes:{repair_passes}"));
+        }
+        outputs
     };
     let requirements_outputs = {
         let mut outputs = request.scope.mutation_boundary.clone();
         if outputs.is_empty() {
             outputs.push("artifact".to_string());
+        }
+        if request.verification.require_render {
+            outputs.push("require_render".to_string());
+        }
+        if request.verification.require_export {
+            outputs.push("require_export".to_string());
+        }
+        outputs
+    };
+    let reply_outputs = {
+        let mut outputs = vec![manifest.verification.summary.clone()];
+        if let Some(taste_memory) = taste_memory {
+            outputs.push(format!(
+                "taste_memory:{}",
+                truncate_pipeline_output(&taste_memory.summary, 72)
+            ));
         }
         outputs
     };
@@ -334,7 +479,15 @@ pub(super) fn pipeline_steps_for_state(
                 has_files,
                 preview_ready,
             ),
-            "Artifact class, renderer, presentation surface, and substrate are explicit.",
+            if let Some(blueprint) = materialization.blueprint.as_ref() {
+                format!(
+                    "Studio locked the typed artifact spec around the {} scaffold with explicit structure and interaction contracts.",
+                    blueprint.scaffold_family
+                )
+            } else {
+                "Artifact class, renderer, presentation surface, and substrate are explicit."
+                    .to_string()
+            },
             spec_outputs,
             None,
         ),
@@ -349,8 +502,15 @@ pub(super) fn pipeline_steps_for_state(
                 has_files,
                 preview_ready,
             ),
-            "Studio is creating the files or workspace required by the manifest.",
-            file_outputs,
+            if candidate_count > 0 {
+                format!(
+                    "Studio drafted {} candidate(s), selected the strongest winner, and tracked {} repair pass(es).",
+                    candidate_count, repair_passes
+                )
+            } else {
+                "Studio is creating the files or workspace required by the manifest.".to_string()
+            },
+            materialization_outputs,
             Some("Files or scaffold receipts must exist before the artifact can present."),
         ),
         pipeline_step(
@@ -383,7 +543,14 @@ pub(super) fn pipeline_steps_for_state(
                 has_files,
                 preview_ready,
             ),
-            manifest.verification.summary.clone(),
+            if let Some(judge) = materialization.judge.as_ref() {
+                format!(
+                    "Static audits and acceptance judging classified the artifact as {} before Studio surfaced it.",
+                    judge_classification_id(judge.classification)
+                )
+            } else {
+                manifest.verification.summary.clone()
+            },
             verification_outputs,
             Some(
                 "Render, build, preview, or export checks must pass before Studio can claim success.",
@@ -420,7 +587,7 @@ pub(super) fn pipeline_steps_for_state(
                 preview_ready,
             ),
             "Studio composes the user-facing summary from artifact state and verification.",
-            vec![manifest.verification.summary.clone()],
+            reply_outputs,
             Some(verification_gate),
         ),
     ]
@@ -441,6 +608,7 @@ pub(super) fn refresh_pipeline_steps(
         &studio_session.materialization,
         studio_session.lifecycle_state,
         build_session,
+        studio_session.taste_memory.as_ref(),
     );
 }
 

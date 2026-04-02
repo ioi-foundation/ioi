@@ -246,14 +246,23 @@ export function SpotlightWindow({
   const activeHistory: ChatMessage[] = shouldPreferLocalHistory
     ? localHistory
     : (task?.history ?? []);
-  const activeEvents: AgentEvent[] = task?.events?.length ? task.events : events;
-  const activeArtifacts: Artifact[] = task?.artifacts?.length ? task.artifacts : artifacts;
+  const activeEvents: AgentEvent[] = task?.events?.length
+    ? task.events
+    : events;
+  const activeArtifacts: Artifact[] = task?.artifacts?.length
+    ? task.artifacts
+    : artifacts;
   const selectedArtifact =
-    activeArtifacts.find((artifact) => artifact.artifact_id === selectedArtifactId) || null;
+    activeArtifacts.find(
+      (artifact) => artifact.artifact_id === selectedArtifactId,
+    ) || null;
 
   const isRunning = task?.phase === "Running";
   const hasContent =
-    !!task || localHistory.length > 0 || chatEvents.length > 0 || activeEvents.length > 0;
+    !!task ||
+    localHistory.length > 0 ||
+    chatEvents.length > 0 ||
+    activeEvents.length > 0;
   const activeStudioSessionId = task?.studio_session?.sessionId ?? null;
   const studioArtifactAvailable = useMemo(() => {
     const manifest = task?.studio_session?.artifactManifest;
@@ -266,24 +275,31 @@ export function SpotlightWindow({
       task?.renderer_session ?? null,
       task?.build_session?.workspaceRoot ?? null,
     );
-  }, [task?.build_session?.workspaceRoot, task?.renderer_session, task?.studio_session]);
+  }, [
+    task?.build_session?.workspaceRoot,
+    task?.renderer_session,
+    task?.studio_session,
+  ]);
 
   const panelWidth =
     BASE_PANEL_WIDTH +
     (layout.sidebarVisible ? SIDEBAR_PANEL_WIDTH : 0) +
     (layout.artifactPanelVisible ? ARTIFACT_PANEL_WIDTH : 0);
-  const containerStyle = isStudioVariant ? undefined : { width: `${panelWidth}px` };
+  const containerStyle = isStudioVariant
+    ? undefined
+    : { width: `${panelWidth}px` };
 
   const runPresentation: RunPresentation = useMemo(
     () => buildRunPresentation(activeHistory, activeEvents, activeArtifacts),
     [activeArtifacts, activeEvents, activeHistory],
   );
 
-  const { conversationTurns, latestAnsweredTurnIndex, turnContexts } = useTurnContexts({
-    activeHistory,
-    activeEvents,
-    runPresentation,
-  });
+  const { conversationTurns, latestAnsweredTurnIndex, turnContexts } =
+    useTurnContexts({
+      activeHistory,
+      activeEvents,
+      runPresentation,
+    });
 
   useEffect(() => {
     if (chatAreaRef.current && isUserAtBottomRef.current) {
@@ -375,7 +391,12 @@ export function SpotlightWindow({
       setSelectedArtifactId(artifactId);
       void toggleArtifactPanel(true);
     },
-    [setArtifactHubTurnId, setArtifactHubView, setSelectedArtifactId, toggleArtifactPanel],
+    [
+      setArtifactHubTurnId,
+      setArtifactHubView,
+      setSelectedArtifactId,
+      toggleArtifactPanel,
+    ],
   );
 
   const openArtifactHub = useCallback(
@@ -385,7 +406,12 @@ export function SpotlightWindow({
       setSelectedArtifactId(null);
       void toggleArtifactPanel(true);
     },
-    [setArtifactHubTurnId, setArtifactHubView, setSelectedArtifactId, toggleArtifactPanel],
+    [
+      setArtifactHubTurnId,
+      setArtifactHubView,
+      setSelectedArtifactId,
+      toggleArtifactPanel,
+    ],
   );
 
   const openSourceSummaryPanel = useCallback(
@@ -462,7 +488,12 @@ export function SpotlightWindow({
 
     autoOpenedStudioArtifactSessionRef.current = nextSessionId;
     setStudioArtifactVisible(true);
-  }, [activeStudioSessionId, isStudioVariant, studioArtifactAvailable, task?.id]);
+  }, [
+    activeStudioSessionId,
+    isStudioVariant,
+    studioArtifactAvailable,
+    task?.id,
+  ]);
 
   const studioStatusCard = useMemo(() => {
     if (!isStudioVariant) {
@@ -492,7 +523,12 @@ export function SpotlightWindow({
       );
     }
 
-    if (task && isRunning && !activeStudioSessionId && !runPresentation.finalAnswer) {
+    if (
+      task &&
+      isRunning &&
+      !activeStudioSessionId &&
+      !runPresentation.finalAnswer
+    ) {
       return (
         <StudioRunStateCard
           title="Preparing the outcome surface"
@@ -576,9 +612,12 @@ export function SpotlightWindow({
             }`}
             onClick={() => setStudioArtifactVisible((current) => !current)}
           >
-            <span>{studioArtifactVisible ? "Hide artifact" : "Open artifact"}</span>
+            <span>
+              {studioArtifactVisible ? "Hide artifact" : "Open artifact"}
+            </span>
             <small>
-              {task?.studio_session?.artifactManifest?.renderer === "workspace_surface"
+              {task?.studio_session?.artifactManifest?.renderer ===
+              "workspace_surface"
                 ? "Workspace renderer"
                 : "Artifact renderer"}
             </small>
@@ -589,7 +628,9 @@ export function SpotlightWindow({
       <div className="spot-chat" ref={chatAreaRef}>
         {!hasContent &&
           (isStudioVariant ? (
-            <StudioConversationWelcome onSuggestionClick={(text) => setIntent(text)} />
+            <StudioConversationWelcome
+              onSuggestionClick={(text) => setIntent(text)}
+            />
           ) : (
             <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
           ))}
@@ -614,17 +655,16 @@ export function SpotlightWindow({
           <>{legacyChatElements}</>
         )}
 
-        {showInitialLoader &&
-          (!CONTENT_PIPELINE_V2_ENABLED && (
-            <ThoughtChain
-              messages={[]}
-              activeStep={task?.current_step || "Initializing..."}
-              agentName={task?.agent || "Autopilot"}
-              generation={task?.generation || 0}
-              progress={0}
-              totalSteps={task?.total_steps || 10}
-            />
-          ))}
+        {showInitialLoader && !CONTENT_PIPELINE_V2_ENABLED && (
+          <ThoughtChain
+            messages={[]}
+            activeStep={task?.current_step || "Initializing..."}
+            agentName={task?.agent || "Autopilot"}
+            generation={task?.generation || 0}
+            progress={0}
+            totalSteps={task?.total_steps || 10}
+          />
+        )}
 
         {studioStatusCard}
       </div>
@@ -707,15 +747,21 @@ export function SpotlightWindow({
               activeSessionId={task?.session_id || task?.id || null}
               title={isStudioVariant ? "Studio threads" : "Chats"}
               newLabel={isStudioVariant ? "New artifact" : "New"}
-              emptyLabel={isStudioVariant ? "No Studio threads yet" : "No chats yet"}
+              emptyLabel={
+                isStudioVariant ? "No Studio threads yet" : "No chats yet"
+              }
             />
           )}
 
-          <div className={`spot-main ${isStudioVariant ? "spot-main--studio" : ""}`}>
+          <div
+            className={`spot-main ${isStudioVariant ? "spot-main--studio" : ""}`}
+          >
             {isStudioVariant ? (
               <div
                 className={`spot-studio-shell ${
-                  studioArtifactVisible ? "is-artifact-open" : "is-artifact-collapsed"
+                  studioArtifactVisible
+                    ? "is-artifact-open"
+                    : "is-artifact-collapsed"
                 }`}
               >
                 {conversationSurface}

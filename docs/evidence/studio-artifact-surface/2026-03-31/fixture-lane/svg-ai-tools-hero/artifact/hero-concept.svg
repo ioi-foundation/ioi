@@ -1,0 +1,46 @@
+<svg viewBox="0 0 960 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">AI tools concept poster</title>
+  <desc id="desc">A layered concept poster for an AI tools brand with operator signals, annotation rails, and a central automation motif.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#08111f"/>
+      <stop offset="100%" stop-color="#132238"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#14b8a6"/>
+      <stop offset="100%" stop-color="#93c5fd"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="640" rx="36" fill="url(#bg)"/>
+  <g transform="translate(64 78)" fill="#dbeafe">
+    <text x="0" y="0" font-family="Georgia, serif" font-size="18" letter-spacing="3">AI TOOLS / SYSTEM SIGNAL</text>
+    <text x="0" y="74" font-family="Georgia, serif" font-size="78">Automation that feels</text>
+    <text x="0" y="148" font-family="Georgia, serif" font-size="78" fill="#99f6e4">operator-native.</text>
+    <text x="0" y="206" font-family="'JetBrains Mono', monospace" font-size="18" fill="#cbd5e1">Planning, proof, and launch evidence visible in one composed surface.</text>
+  </g>
+  <g transform="translate(590 154)">
+    <circle cx="110" cy="110" r="110" fill="#0f172a" stroke="#334155" stroke-width="2"/>
+    <circle cx="110" cy="110" r="74" fill="none" stroke="url(#beam)" stroke-width="14"/>
+    <circle cx="110" cy="110" r="12" fill="#99f6e4"/>
+    <path d="M110 24 L110 196 M24 110 L196 110" stroke="#1e293b" stroke-width="2"/>
+    <text x="110" y="250" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="15" fill="#99f6e4">CONTROL / EVIDENCE / DETAIL</text>
+  </g>
+  <g transform="translate(72 352)">
+    <rect width="250" height="172" rx="24" fill="#111c2b" stroke="#334155"/>
+    <text x="24" y="34" font-family="'JetBrains Mono', monospace" font-size="15" fill="#99f6e4">01 / Operator Signals</text>
+    <text x="24" y="78" font-family="Georgia, serif" font-size="34" fill="#f8fafc">Clear handoff rails</text>
+    <text x="24" y="116" font-family="'JetBrains Mono', monospace" font-size="15" fill="#cbd5e1">Owners, windows, and rollback cues remain visible.</text>
+  </g>
+  <g transform="translate(356 352)">
+    <rect width="250" height="172" rx="24" fill="#111c2b" stroke="#334155"/>
+    <text x="24" y="34" font-family="'JetBrains Mono', monospace" font-size="15" fill="#bfdbfe">02 / Proof Layers</text>
+    <text x="24" y="78" font-family="Georgia, serif" font-size="34" fill="#f8fafc">Render before rhetoric</text>
+    <text x="24" y="116" font-family="'JetBrains Mono', monospace" font-size="15" fill="#cbd5e1">Validation, render, and review read as separate evidence planes.</text>
+  </g>
+  <g transform="translate(640 352)">
+    <rect width="250" height="172" rx="24" fill="#111c2b" stroke="#334155"/>
+    <text x="24" y="34" font-family="'JetBrains Mono', monospace" font-size="15" fill="#93c5fd">03 / Release Rhythm</text>
+    <text x="24" y="78" font-family="Georgia, serif" font-size="34" fill="#f8fafc">Launch with receipts</text>
+    <text x="24" y="116" font-family="'JetBrains Mono', monospace" font-size="15" fill="#cbd5e1">The artifact closes with evidence, notes, and rollback ownership.</text>
+  </g>
+</svg>

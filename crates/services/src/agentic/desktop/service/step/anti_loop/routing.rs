@@ -4,6 +4,44 @@ use crate::agentic::desktop::service::step::intent_resolver;
 use crate::agentic::desktop::types::{AgentState, AgentStatus, ExecutionTier};
 use ioi_types::app::{RoutingPostStateSummary, RoutingStateSummary};
 
+fn parse_recent_failure_class(entry: &str) -> Option<FailureClass> {
+    let mut parts = entry.split("::");
+    let _scope = parts.next()?;
+    let class = parts.next()?;
+    FailureClass::from_str(class)
+}
+
+fn effective_source_failure(
+    agent_state: &AgentState,
+    source_failure: Option<FailureClass>,
+    command_scope: bool,
+    workspace_scope: bool,
+) -> Option<FailureClass> {
+    if !matches!(source_failure, Some(FailureClass::UnexpectedState))
+        || !(command_scope || workspace_scope)
+    {
+        return source_failure;
+    }
+
+    if !agent_state.command_history.is_empty() {
+        return source_failure;
+    }
+
+    let prior_no_effect_boundary = agent_state
+        .recent_actions
+        .iter()
+        .rev()
+        .skip(1)
+        .take(3)
+        .any(|entry| parse_recent_failure_class(entry) == Some(FailureClass::NoEffectAfterAction));
+
+    if prior_no_effect_boundary {
+        Some(FailureClass::NoEffectAfterAction)
+    } else {
+        source_failure
+    }
+}
+
 fn status_as_str(status: &AgentStatus) -> String {
     format!("{:?}", status)
         .split('(')
@@ -14,7 +52,6 @@ fn status_as_str(status: &AgentStatus) -> String {
 
 pub fn choose_routing_tier(agent_state: &AgentState) -> TierRoutingDecision {
     let failures = agent_state.consecutive_failures as usize;
-    let source_failure = latest_failure_class(agent_state);
     let command_scope = agent_state
         .resolved_intent
         .as_ref()
@@ -27,6 +64,12 @@ pub fn choose_routing_tier(agent_state: &AgentState) -> TierRoutingDecision {
         .as_ref()
         .map(|resolved| resolved.scope == ioi_types::app::agentic::IntentScopeProfile::WorkspaceOps)
         .unwrap_or(false);
+    let source_failure = effective_source_failure(
+        agent_state,
+        latest_failure_class(agent_state),
+        command_scope,
+        workspace_scope,
+    );
 
     if failures == 0 {
         if let Some(resolved) = agent_state.resolved_intent.as_ref() {

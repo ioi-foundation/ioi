@@ -343,7 +343,6 @@ struct ResolvedBackendGallerySource {
     resolved_from_meta: bool,
 }
 
-
 include!("status.rs");
 include!("bootstrap.rs");
 include!("executor.rs");

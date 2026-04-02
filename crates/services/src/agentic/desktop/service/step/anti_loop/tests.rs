@@ -1,5 +1,7 @@
 use super::*;
-use crate::agentic::desktop::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+use crate::agentic::desktop::types::{
+    AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier,
+};
 use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
 use ioi_types::app::RoutingFailureClass;
 use std::collections::BTreeMap;
@@ -521,4 +523,98 @@ fn routing_keeps_no_effect_failures_tool_first_for_workspace_scope() {
         decision.source_failure,
         Some(FailureClass::NoEffectAfterAction)
     );
+}
+
+#[test]
+fn routing_preserves_workspace_no_effect_recovery_after_invalid_tool_call() {
+    let mut state = test_agent_state();
+    state.consecutive_failures = 2;
+    state.resolved_intent = Some(ResolvedIntentState {
+        intent_id: "workspace.ops".to_string(),
+        scope: IntentScopeProfile::WorkspaceOps,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![],
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "intent-matrix-v2".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [0u8; 32],
+        receipt_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    });
+    state.recent_actions = vec![
+        "attempt::NoEffectAfterAction::abcd1234".to_string(),
+        "attempt::UnexpectedState::efgh5678".to_string(),
+    ];
+
+    let decision = choose_routing_tier(&state);
+    assert_eq!(decision.tier, ExecutionTier::DomHeadless);
+    assert_eq!(
+        decision.reason_code,
+        "tool_first_no_effect_workspace_recovery"
+    );
+    assert_eq!(
+        decision.source_failure,
+        Some(FailureClass::NoEffectAfterAction)
+    );
+}
+
+#[test]
+fn routing_resets_workspace_no_effect_recovery_after_command_history() {
+    let mut state = test_agent_state();
+    state.consecutive_failures = 2;
+    state.resolved_intent = Some(ResolvedIntentState {
+        intent_id: "workspace.ops".to_string(),
+        scope: IntentScopeProfile::WorkspaceOps,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![],
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "intent-matrix-v2".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [0u8; 32],
+        receipt_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    });
+    state.recent_actions = vec![
+        "attempt::NoEffectAfterAction::abcd1234".to_string(),
+        "attempt::UnexpectedState::efgh5678".to_string(),
+    ];
+    state.command_history.push_back(CommandExecution {
+        command: "python3 -m unittest tests.test_path_utils -v".to_string(),
+        exit_code: 1,
+        stdout: "failing test output".to_string(),
+        stderr: String::new(),
+        timestamp_ms: 1,
+        step_index: 3,
+    });
+
+    let decision = choose_routing_tier(&state);
+    assert_eq!(decision.tier, ExecutionTier::VisualBackground);
+    assert_eq!(decision.reason_code, "ax_first_runtime_recovery");
+    assert_eq!(decision.source_failure, Some(FailureClass::UnexpectedState));
 }

@@ -89,6 +89,7 @@ mod duplicate_guard;
 mod grounding;
 mod phases;
 mod refusal;
+mod repair;
 mod web_helpers;
 
 pub(crate) use self::duplicate_guard::verified_command_probe_completion_summary;
@@ -108,6 +109,12 @@ pub(crate) use self::phases::{
     emit_execution_contract_receipt_event_with_observation, record_non_command_success_receipts,
     resolved_intent_id,
 };
+use self::repair::{
+    attempt_invalid_tool_call_repair, attempt_patch_build_verify_runtime_patch_miss_repair,
+    attempt_refusal_repair, maybe_rewrite_patch_build_verify_post_command_edit,
+    maybe_rewrite_patch_build_verify_post_success_completion,
+    maybe_rewrite_patch_build_verify_redundant_refresh_read,
+};
 use self::web_helpers::{
     extract_web_read_url_from_payload, is_empty_memory_search_output,
     is_transient_browser_snapshot_unexpected_state, queue_web_search_bootstrap,
@@ -121,6 +128,24 @@ pub fn resolve_action_routing_context(
     agent_state.current_tier = routing_decision.tier;
     let pre_state_summary = build_state_summary(agent_state);
     (routing_decision, pre_state_summary)
+}
+
+fn extract_system_refusal_reason(tool_call_result: &str) -> Option<String> {
+    if !tool_call_result.contains("\"name\":\"system::refusal\"") {
+        return None;
+    }
+
+    serde_json::from_str::<serde_json::Value>(tool_call_result)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("arguments")
+                .and_then(|arguments| arguments.get("reason"))
+                .and_then(|reason| reason.as_str())
+                .map(str::trim)
+                .filter(|reason| !reason.is_empty())
+                .map(str::to_string)
+        })
 }
 
 pub async fn process_tool_output(
@@ -144,27 +169,83 @@ pub async fn process_tool_output(
     let (routing_decision, pre_state_summary) = resolve_action_routing_context(agent_state);
     let tool_version = env!("CARGO_PKG_VERSION");
     let mut processing_state = ActionProcessingState::new(&tool_call_result);
+    let refusal_reason = extract_system_refusal_reason(&tool_call_result);
+
+    let refusal_repair = if let Some(reason) = refusal_reason.as_deref() {
+        if !should_use_web_research_path(agent_state)
+            && !is_mailbox_connector_goal(&agent_state.goal)
+        {
+            Some(attempt_refusal_repair(service, state, agent_state, session_id, reason).await?)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    if let Some(repair_attempt) = refusal_repair.as_ref() {
+        processing_state
+            .verification_checks
+            .extend(repair_attempt.verification_checks.clone());
+    }
 
     // 1. Raw Refusal Interceptor
-    if refusal::intercept_raw_refusal(
-        service,
-        state,
-        agent_state,
-        &key,
-        session_id,
-        final_visual_phash,
-        &tool_call_result,
-        &routing_decision,
-        &pre_state_summary,
-        tool_version,
-    )
-    .await?
+    if refusal_repair
+        .as_ref()
+        .and_then(|attempt| attempt.repaired_tool.as_ref())
+        .is_none()
     {
-        return Ok(());
+        if refusal::intercept_raw_refusal(
+            service,
+            state,
+            agent_state,
+            &key,
+            session_id,
+            final_visual_phash,
+            &tool_call_result,
+            &routing_decision,
+            &pre_state_summary,
+            tool_version,
+        )
+        .await?
+        {
+            return Ok(());
+        }
     }
 
     // 2. Normalize & Expand
-    let tool_call = middleware::normalize_tool_call(&tool_call_result);
+    let tool_call =
+        if let Some(repaired_tool) = refusal_repair.and_then(|attempt| attempt.repaired_tool) {
+            Ok(repaired_tool)
+        } else {
+            match middleware::normalize_tool_call(&tool_call_result) {
+                Ok(tool) => Ok(tool),
+                Err(error) => {
+                    if !should_use_web_research_path(agent_state)
+                        && !is_mailbox_connector_goal(&agent_state.goal)
+                    {
+                        let repair_attempt = attempt_invalid_tool_call_repair(
+                            service,
+                            state,
+                            agent_state,
+                            session_id,
+                            &tool_call_result,
+                            &error.to_string(),
+                        )
+                        .await?;
+                        processing_state
+                            .verification_checks
+                            .extend(repair_attempt.verification_checks);
+                        if let Some(repaired_tool) = repair_attempt.repaired_tool {
+                            Ok(repaired_tool)
+                        } else {
+                            Err(error)
+                        }
+                    } else {
+                        Err(error)
+                    }
+                }
+            }
+        };
 
     // Check for Skill / Macro Match
     if let Ok(AgentTool::Dynamic(ref val)) = tool_call {
@@ -215,6 +296,7 @@ pub async fn process_tool_output(
     let tool_call = match tool_call {
         Ok(tool) => {
             let mut tool = apply_instruction_contract_grounding(
+                state,
                 service,
                 agent_state,
                 tool,
@@ -246,6 +328,35 @@ pub async fn process_tool_output(
                     "web_read_reconciled_replacement_url={}",
                     replacement_url
                 ));
+            }
+            if let Some(rewritten_tool) = maybe_rewrite_patch_build_verify_redundant_refresh_read(
+                state,
+                agent_state,
+                session_id,
+                &tool,
+                &mut processing_state.verification_checks,
+            ) {
+                tool = rewritten_tool;
+            }
+            if let Some(rewritten_tool) = maybe_rewrite_patch_build_verify_post_command_edit(
+                state,
+                agent_state,
+                session_id,
+                &tool,
+                &mut processing_state.verification_checks,
+            )
+            .await?
+            {
+                tool = rewritten_tool;
+            }
+            if let Some(rewritten_tool) = maybe_rewrite_patch_build_verify_post_success_completion(
+                state,
+                agent_state,
+                session_id,
+                &tool,
+                &mut processing_state.verification_checks,
+            ) {
+                tool = rewritten_tool;
             }
             Ok(tool)
         }

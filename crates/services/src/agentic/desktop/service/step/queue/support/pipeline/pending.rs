@@ -12,11 +12,16 @@ struct RankedGroundedPendingCandidate {
     url: String,
     domain_key: String,
     grounded_viable: bool,
+    briefing_support_viable: bool,
+    grounded_external_publication_artifact: bool,
     identifier_priority_viable: bool,
+    canonical_publication_detail: bool,
     resolvable_payload: bool,
     blocked_domain_repeat: bool,
     document_authority_score: usize,
     identifier_signal: bool,
+    low_priority: bool,
+    reuses_authority_family: bool,
     required_identifier_label_count: usize,
     adds_missing_required_identifier_coverage: bool,
     official_status_host_hits: usize,
@@ -24,6 +29,71 @@ struct RankedGroundedPendingCandidate {
     compatibility: CandidateConstraintCompatibility,
     envelope_score: CandidateEvidenceScore,
     relevance_score: usize,
+}
+
+fn canonical_publication_detail_candidate(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+    document_authority_score: usize,
+    identifier_signal: bool,
+) -> bool {
+    if document_authority_score == 0 {
+        return false;
+    }
+    let trimmed = url.trim();
+    if trimmed.is_empty() || !is_citable_web_url(trimmed) || is_search_hub_url(trimmed) {
+        return false;
+    }
+    let Ok(parsed) = ::url::Url::parse(trimmed) else {
+        return false;
+    };
+    let host = parsed
+        .host_str()
+        .map(|value| value.trim_start_matches("www.").to_ascii_lowercase())
+        .unwrap_or_default();
+    let normalized_path = parsed.path().trim_matches('/').to_ascii_lowercase();
+    let title_lower = title.trim().to_ascii_lowercase();
+    let authority_publication_artifact = host == "nvlpubs.nist.gov"
+        || (host.ends_with(".nist.gov") && normalized_path.ends_with(".pdf"))
+        || (!normalized_path.is_empty()
+            && normalized_path.starts_with("pubs/")
+            && !normalized_path.starts_with("news")
+            && !normalized_path.starts_with("news-events"));
+    if authority_publication_artifact {
+        return true;
+    }
+    if !identifier_signal {
+        return false;
+    }
+    let observed_labels =
+        source_briefing_standard_identifier_labels(query_contract, trimmed, title, excerpt);
+
+    title_lower.contains("federal information processing standard")
+        || (!observed_labels.is_empty() && title_lower.starts_with("fips "))
+}
+
+fn grounded_external_publication_artifact_candidate(
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+    query_contract: &str,
+    url: &str,
+) -> bool {
+    if !query_prefers_document_briefing_layout(query_contract)
+        || query_requests_comparison(query_contract)
+        || !crate::agentic::desktop::service::step::signals::analyze_query_facets(query_contract)
+            .grounded_external_required
+        || !retrieval_contract
+            .map(|contract| contract.currentness_required || contract.source_independence_min > 1)
+            .unwrap_or(false)
+    {
+        return false;
+    }
+
+    Url::parse(url.trim())
+        .ok()
+        .map(|parsed| parsed.path().to_ascii_lowercase().ends_with(".pdf"))
+        .unwrap_or(false)
 }
 
 pub(crate) fn pending_candidate_inventory(pending: &PendingSearchCompletion) -> Vec<String> {
@@ -163,39 +233,81 @@ fn next_pending_grounded_candidate(
     let reject_search_hub = projection.reject_search_hub_candidates();
     let enforce_grounded_compatibility = projection.enforce_grounded_compatibility();
     let has_constraint_objective = projection.has_constraint_objective();
+    let document_briefing_layout = query_prefers_document_briefing_layout(query_contract)
+        && !query_requests_comparison(query_contract);
     let envelope_constraints = &projection.constraints;
     let envelope_policy = ResolutionPolicy::default();
     let min_sources_required = pending.min_sources.max(1) as usize;
     let required_distinct_domains =
         retrieval_contract_required_distinct_domain_floor(retrieval_contract, query_contract);
-    let required_identifier_labels = briefing_standard_identifier_groups_for_query(query_contract)
+    let briefing_identifier_observations = pending
+        .successful_reads
         .iter()
-        .filter(|group| group.required)
-        .map(|group| group.primary_label.to_string())
-        .collect::<BTreeSet<_>>();
+        .filter_map(|source| {
+            let trimmed = source.url.trim();
+            let title = source.title.as_deref().unwrap_or_default();
+            (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
+                url: trimmed.to_string(),
+                surface: format!("{} {} {}", source.url, title, source.excerpt),
+                authoritative: source_has_document_authority(
+                    query_contract,
+                    trimmed,
+                    title,
+                    &source.excerpt,
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+    let required_identifier_labels = infer_briefing_required_identifier_labels(
+        query_contract,
+        &briefing_identifier_observations,
+    );
+    let required_identifier_labels_for_surface = |url: &str, title: &str, excerpt: &str| {
+        observed_briefing_standard_identifier_labels(
+            query_contract,
+            &format!("{url} {title} {excerpt}"),
+        )
+        .into_iter()
+        .filter(|label| required_identifier_labels.contains(label))
+        .collect::<BTreeSet<_>>()
+    };
     let observed_required_identifier_labels = pending
         .successful_reads
         .iter()
         .flat_map(|source| {
-            source_briefing_standard_identifier_labels(
-                query_contract,
+            required_identifier_labels_for_surface(
                 &source.url,
                 source.title.as_deref().unwrap_or_default(),
                 &source.excerpt,
             )
             .into_iter()
         })
-        .filter(|label| required_identifier_labels.contains(label))
         .collect::<BTreeSet<_>>();
     let missing_required_identifier_labels = required_identifier_labels
         .difference(&observed_required_identifier_labels)
         .cloned()
         .collect::<BTreeSet<_>>();
     let identifier_priority_required =
-        retrieval_contract_requires_document_briefing_identifier_evidence(
-            retrieval_contract,
-            query_contract,
-        ) && !missing_required_identifier_labels.is_empty();
+        !required_identifier_labels.is_empty() && !missing_required_identifier_labels.is_empty();
+    let observed_authority_families = pending
+        .successful_reads
+        .iter()
+        .filter_map(|source| {
+            let trimmed = source.url.trim();
+            let title = source.title.as_deref().unwrap_or_default();
+            source_has_document_authority(query_contract, trimmed, title, &source.excerpt).then(
+                || {
+                    source_document_authority_family_key(
+                        query_contract,
+                        trimmed,
+                        title,
+                        &source.excerpt,
+                    )
+                    .unwrap_or_else(|| trimmed.to_ascii_lowercase())
+                },
+            )
+        })
+        .collect::<BTreeSet<_>>();
     let blocked_domains = pending
         .blocked_urls
         .iter()
@@ -259,21 +371,63 @@ fn next_pending_grounded_candidate(
             let grounded_viable =
                 (!enforce_grounded_compatibility || compatibility_passes) && resolves_constraint;
             let signals = analyze_source_record_signals(trimmed, title, excerpt);
+            let low_priority = signals.low_priority_hits > 0 || signals.low_priority_dominates();
             let document_authority_score =
                 source_document_authority_score(query_contract, trimmed, title, excerpt);
             let identifier_labels =
                 source_briefing_standard_identifier_labels(query_contract, trimmed, title, excerpt);
+            let required_identifier_hits =
+                required_identifier_labels_for_surface(trimmed, title, excerpt);
             let required_identifier_label_count = identifier_labels
                 .iter()
-                .filter(|label| required_identifier_labels.contains(*label))
+                .filter(|label| required_identifier_hits.contains(*label))
                 .count();
-            let adds_missing_required_identifier_coverage = identifier_labels
+            let adds_missing_required_identifier_coverage = required_identifier_hits
                 .iter()
                 .any(|label| missing_required_identifier_labels.contains(label));
             let identifier_signal = !identifier_labels.is_empty();
+            let authority_family_key =
+                source_document_authority_family_key(query_contract, trimmed, title, excerpt);
             let identifier_priority_viable = identifier_priority_required
                 && (adds_missing_required_identifier_coverage
                     || (document_authority_score > 0 && identifier_signal));
+            let grounded_external_publication_artifact =
+                grounded_external_publication_artifact_candidate(
+                    retrieval_contract,
+                    query_contract,
+                    trimmed,
+                );
+            let temporal_recency_score = source_temporal_recency_score(trimmed, title, excerpt);
+            let source_tokens = source_anchor_tokens(trimmed, title, excerpt);
+            let query_native_overlap = projection
+                .query_native_tokens
+                .intersection(&source_tokens)
+                .count();
+            let strong_subject_overlap = query_native_overlap >= 3
+                || (query_native_overlap >= 2 && temporal_recency_score > 0);
+            let query_grounding_signal = excerpt_has_query_grounding_signal_with_contract(
+                retrieval_contract,
+                query_contract,
+                min_sources_required,
+                trimmed,
+                title,
+                excerpt,
+            );
+            let briefing_support_viable = !low_priority
+                && (!document_briefing_layout
+                    || document_authority_score > 0
+                    || identifier_signal
+                    || grounded_external_publication_artifact
+                    || query_grounding_signal
+                    || strong_subject_overlap);
+            let canonical_publication_detail = canonical_publication_detail_candidate(
+                query_contract,
+                trimmed,
+                title,
+                excerpt,
+                document_authority_score,
+                identifier_signal,
+            );
 
             Some(RankedGroundedPendingCandidate {
                 idx,
@@ -281,8 +435,11 @@ fn next_pending_grounded_candidate(
                 domain_key: source_host(trimmed)
                     .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
                     .unwrap_or_else(|| trimmed.to_ascii_lowercase()),
-                grounded_viable,
+                grounded_viable: grounded_viable && briefing_support_viable,
+                briefing_support_viable,
+                grounded_external_publication_artifact,
                 identifier_priority_viable,
+                canonical_publication_detail,
                 resolvable_payload: candidate_time_sensitive_resolvable_payload(
                     trimmed, title, excerpt,
                 ),
@@ -293,6 +450,10 @@ fn next_pending_grounded_candidate(
                 ),
                 document_authority_score,
                 identifier_signal,
+                low_priority,
+                reuses_authority_family: authority_family_key
+                    .as_ref()
+                    .is_some_and(|family| observed_authority_families.contains(family)),
                 required_identifier_label_count,
                 adds_missing_required_identifier_coverage,
                 official_status_host_hits: signals.official_status_host_hits,
@@ -312,6 +473,17 @@ fn next_pending_grounded_candidate(
         right
             .identifier_priority_viable
             .cmp(&left.identifier_priority_viable)
+            .then_with(|| {
+                right
+                    .briefing_support_viable
+                    .cmp(&left.briefing_support_viable)
+            })
+            .then_with(|| {
+                right
+                    .grounded_external_publication_artifact
+                    .cmp(&left.grounded_external_publication_artifact)
+            })
+            .then_with(|| left.low_priority.cmp(&right.low_priority))
             .then_with(|| left.blocked_domain_repeat.cmp(&right.blocked_domain_repeat))
             .then_with(|| {
                 right
@@ -322,6 +494,11 @@ fn next_pending_grounded_candidate(
                 right
                     .required_identifier_label_count
                     .cmp(&left.required_identifier_label_count)
+            })
+            .then_with(|| {
+                right
+                    .canonical_publication_detail
+                    .cmp(&left.canonical_publication_detail)
             })
             .then_with(|| {
                 (right.document_authority_score > 0).cmp(&(left.document_authority_score > 0))
@@ -388,6 +565,39 @@ fn next_pending_grounded_candidate(
         );
     }
 
+    let best_bounded_unseen_domain_probe = ranked_candidates.iter().find(|candidate| {
+        observed_domains.len() < required_distinct_domains
+            && !observed_domains.contains(&candidate.domain_key)
+            && !candidate.blocked_domain_repeat
+            && candidate.briefing_support_viable
+            && (candidate.grounded_external_publication_artifact
+                || candidate.document_authority_score > 0
+                || candidate.identifier_signal
+                || candidate.resolvable_payload
+                || candidate.compatibility.compatibility_score > 0
+                || candidate.relevance_score > 0)
+    });
+    if let Some(candidate) = best_bounded_unseen_domain_probe {
+        return (
+            PendingGroundedCandidateSelection::Applicable,
+            Some(candidate.url.clone()),
+        );
+    }
+
+    let source_floor_unmet = pending.successful_reads.len() < min_sources_required;
+    if !identifier_priority_required && source_floor_unmet {
+        if let Some(candidate) = ranked_candidates.iter().find(|candidate| {
+            !candidate.reuses_authority_family
+                && candidate.briefing_support_viable
+                && !candidate.canonical_publication_detail
+        }) {
+            return (
+                PendingGroundedCandidateSelection::Applicable,
+                Some(candidate.url.clone()),
+            );
+        }
+    }
+
     if let Some(candidate) = ranked_candidates
         .iter()
         .find(|candidate| candidate_is_viable(candidate))
@@ -403,7 +613,9 @@ fn next_pending_grounded_candidate(
         return (
             PendingGroundedCandidateSelection::Applicable,
             ranked_candidates
-                .first()
+                .iter()
+                .find(|candidate| candidate.briefing_support_viable)
+                .or_else(|| ranked_candidates.first())
                 .map(|candidate| candidate.url.clone()),
         );
     }
@@ -1077,9 +1289,701 @@ mod tests {
 
         assert_eq!(
             next_pending_web_candidate(&pending).as_deref(),
+            Some("https://csrc.nist.gov/pubs/fips/203/final")
+        );
+    }
+
+    #[test]
+    fn next_pending_web_candidate_keeps_distinct_domain_probe_alive_for_low_signal_unseen_hosts() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: vec![
+                "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2"
+                    .to_string(),
+                "https://www.ibm.com/think/topics/nist".to_string(),
+                "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2"
+                        .to_string(),
+                    title: Some(
+                        "El marco de ciberseguridad 2.0 del NIST, en detalle | IBM"
+                            .to_string(),
+                    ),
+                    excerpt: "IBM overview of the NIST cybersecurity framework.".to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.ibm.com/think/topics/nist".to_string(),
+                    title: Some("What is the NIST Cybersecurity Framework? | IBM".to_string()),
+                    excerpt: "IBM overview of NIST topics.".to_string(),
+                },
+            ],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: vec![
+                PendingSearchReadSummary {
+                    url: "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2"
+                        .to_string(),
+                    title: Some(
+                        "El marco de ciberseguridad 2.0 del NIST, en detalle | IBM"
+                            .to_string(),
+                    ),
+                    excerpt: "IBM overview of the NIST cybersecurity framework.".to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.ibm.com/think/topics/nist".to_string(),
+                    title: Some("What is the NIST Cybersecurity Framework? | IBM".to_string()),
+                    excerpt: "IBM overview of NIST topics.".to_string(),
+                },
+            ],
+            min_sources: 2,
+        };
+
+        let candidate = next_pending_web_candidate(&pending)
+            .expect("expected a bounded unseen-domain follow-up candidate");
+        assert!(
+            candidate.starts_with("https://www.nist.gov/")
+                || candidate.starts_with("https://csrc.nist.gov/"),
+            "expected an unseen NIST-domain candidate, got {candidate}"
+        );
+    }
+
+    #[test]
+    fn next_pending_web_candidate_prefers_canonical_publication_detail_over_generic_policy_page() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: vec![
+                "https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf".to_string(),
+                "https://www.nist.gov/nist-information-quality-standards".to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf"
+                        .to_string(),
+                    title: Some(
+                        "Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "NIST IR 8413 Update 1 summarizes the standardization process and references FIPS 203, FIPS 204, and FIPS 205."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.nist.gov/nist-information-quality-standards".to_string(),
+                    title: Some(
+                        "NIST Guidelines, Information Quality Standards and Administrative Mechanism | NIST"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Part I: Background, Mission, Definitions and Scope for NIST information quality guidelines."
+                            .to_string(),
+                },
+            ],
+            attempted_urls: vec!["https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string()],
+            blocked_urls: Vec::new(),
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process"
+                        .to_string(),
+                ),
+                excerpt:
+                    "The report references FIPS 203, FIPS 204, and FIPS 205 in the NIST post-quantum cryptography standardization process."
+                        .to_string(),
+            }],
+            min_sources: 2,
+        };
+
+        assert_eq!(
+            next_pending_web_candidate(&pending).as_deref(),
+            Some("https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf")
+        );
+    }
+
+    #[test]
+    fn next_pending_web_candidate_prefers_sparse_authority_pdf_hint_over_verbose_policy_page() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: vec![
+                "https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf".to_string(),
+                "https://www.nist.gov/nist-information-quality-standards".to_string(),
+            ],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: "https://www.nist.gov/nist-information-quality-standards".to_string(),
+                title: Some(
+                    "NIST Guidelines, Information Quality Standards and Administrative Mechanism | NIST"
+                        .to_string(),
+                ),
+                excerpt:
+                    "Part I: Background, Mission, Definitions and Scope for NIST information quality guidelines."
+                        .to_string(),
+            }],
+            attempted_urls: vec!["https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string()],
+            blocked_urls: Vec::new(),
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process"
+                        .to_string(),
+                ),
+                excerpt:
+                    "The report references FIPS 203, FIPS 204, and FIPS 205 in the NIST post-quantum cryptography standardization process."
+                        .to_string(),
+            }],
+            min_sources: 2,
+        };
+
+        assert_eq!(
+            next_pending_web_candidate(&pending).as_deref(),
+            Some("https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf")
+        );
+    }
+
+    #[test]
+    fn next_pending_web_candidate_prefers_query_grounded_support_over_sponsored_or_opinion_hints() {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let pending = PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: vec![],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://www.ciodive.com/spons/building-organizational-readiness-for-post-quantum-cryptography/815308/".to_string(),
+                    title: Some(
+                        "Sponsored: Building organizational readiness for post-quantum cryptography"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Sponsored briefing on organizational readiness for post-quantum cryptography."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.washingtontechnology.com/opinion/2025/06/why-federal-agencies-must-act-now-post-quantum-cryptography/405738/".to_string(),
+                    title: Some(
+                        "Opinion: Why federal agencies must act now on post-quantum cryptography"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Opinion essay urging agencies to move faster on post-quantum cryptography."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf".to_string(),
+                    title: Some("State of PQC Readiness 2025".to_string()),
+                    excerpt:
+                        "Independent November 2025 report on post-quantum cryptography readiness after NIST finalized its first post-quantum standards."
+                            .to_string(),
+                },
+            ],
+            attempted_urls: vec![],
+            blocked_urls: vec![],
+            successful_reads: vec![
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                    title: Some(
+                        "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "IR 8413 Update 1 is the status report on the NIST post-quantum cryptography standardization process."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                    title: Some(
+                        "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "IR 8413 documents the third-round status of the NIST post-quantum cryptography standardization process."
+                            .to_string(),
+                },
+            ],
+            min_sources: 2,
+        };
+
+        assert_eq!(
+            next_pending_web_candidate(&pending).as_deref(),
+            Some(
+                "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf"
+            )
+        );
+    }
+
+    #[test]
+    fn next_pending_web_candidate_prefers_distinct_official_support_over_same_domain_authority_tail(
+    ) {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let pending = PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: vec![
+                "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved"
+                    .to_string(),
+                "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization"
+                    .to_string(),
+                "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+                    .to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved"
+                        .to_string(),
+                    title: Some("Post-Quantum Cryptography FIPS Approved | CSRC".to_string()),
+                    excerpt:
+                        "CSRC announced approval of the post-quantum cryptography FIPS standards."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization"
+                        .to_string(),
+                    title: Some("Post-Quantum Cryptography Standardization | CSRC".to_string()),
+                    excerpt:
+                        "Current CSRC project page for the latest NIST post-quantum cryptography standardization updates."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                    title: Some(
+                        "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "IR 8413 documents the third-round status of the NIST post-quantum cryptography standardization process."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+                        .to_string(),
+                    title: Some(
+                        "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "NIST released the first three finalized post-quantum encryption standards and urged administrators to begin transitioning."
+                            .to_string(),
+                },
+            ],
+            attempted_urls: vec![],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt:
+                    "IR 8413 Update 1 summarizes the latest NIST post-quantum cryptography standards and references FIPS 203, FIPS 204, and FIPS 205."
+                        .to_string(),
+            }],
+            min_sources: 2,
+        };
+
+        assert_eq!(
+            next_pending_web_candidate(&pending).as_deref(),
             Some(
                 "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
             )
         );
+    }
+
+    #[test]
+    fn next_pending_web_candidate_prefers_same_domain_authoritative_support_surface_over_duplicate_authority_tail(
+    ) {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let pending = PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: vec![
+                "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved"
+                    .to_string(),
+                "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization"
+                    .to_string(),
+                "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved"
+                        .to_string(),
+                    title: Some("Post-Quantum Cryptography FIPS Approved | CSRC".to_string()),
+                    excerpt:
+                        "CSRC announced approval of the post-quantum cryptography FIPS standards."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization"
+                        .to_string(),
+                    title: Some("Post-Quantum Cryptography Standardization | CSRC".to_string()),
+                    excerpt:
+                        "Current CSRC project page for the latest NIST post-quantum cryptography standardization updates."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                    title: Some(
+                        "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "IR 8413 documents the third-round status of the NIST post-quantum cryptography standardization process."
+                            .to_string(),
+                },
+            ],
+            attempted_urls: vec![],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt:
+                    "IR 8413 Update 1 summarizes the latest NIST post-quantum cryptography standards and references FIPS 203, FIPS 204, and FIPS 205."
+                        .to_string(),
+            }],
+            min_sources: 2,
+        };
+
+        assert_eq!(
+            next_pending_web_candidate(&pending).as_deref(),
+            Some(
+                "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization"
+            )
+        );
+    }
+
+    #[test]
+    fn next_pending_web_candidate_prefers_cleaned_external_support_context_over_same_host_authority_tail(
+    ) {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let pending = PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: vec![
+                "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf".to_string(),
+                "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved".to_string(),
+                "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization".to_string(),
+                "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                "https://csrc.nist.gov/pubs/fips/205/final".to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf".to_string(),
+                    title: Some("State of PQC Readiness 2025".to_string()),
+                    excerpt:
+                        "State of PQC Readiness 2025 | linked from Building organizational readiness for post-quantum cryptography | guidance on organizational readiness for post-quantum cryptography."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved".to_string(),
+                    title: Some("Post-Quantum Cryptography FIPS Approved | CSRC".to_string()),
+                    excerpt:
+                        "CSRC announced approval of the post-quantum cryptography FIPS standards."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization".to_string(),
+                    title: Some("Post-Quantum Cryptography Standardization | CSRC".to_string()),
+                    excerpt:
+                        "Current CSRC project page for the latest NIST post-quantum cryptography standardization updates."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                    title: Some("FIPS 203, Module-Lattice-Based Key-Encapsulation Mechanism Standard".to_string()),
+                    excerpt: "Finalized NIST FIPS 203 post-quantum cryptography standard.".to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                    title: Some("FIPS 204, Module-Lattice-Based Digital Signature Standard".to_string()),
+                    excerpt: "Finalized NIST FIPS 204 post-quantum cryptography standard.".to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/fips/205/final".to_string(),
+                    title: Some("FIPS 205, Stateless Hash-Based Digital Signature Standard".to_string()),
+                    excerpt: "Finalized NIST FIPS 205 post-quantum cryptography standard.".to_string(),
+                },
+            ],
+            attempted_urls: vec![],
+            blocked_urls: vec![],
+            successful_reads: vec![
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                    title: Some(
+                        "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "IR 8413 Update 1 summarizes the latest NIST post-quantum cryptography standards and references FIPS 203, FIPS 204, and FIPS 205."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                    title: Some(
+                        "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "IR 8413 documents the third-round status of the NIST post-quantum cryptography standardization process."
+                            .to_string(),
+                },
+            ],
+            min_sources: 2,
+        };
+
+        assert_eq!(
+            next_pending_web_candidate(&pending).as_deref(),
+            Some(
+                "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf"
+            )
+        );
+    }
+
+    #[test]
+    fn next_pending_web_candidate_prefers_distinct_domain_support_after_first_authority_read() {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let pending = PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: vec![
+                "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf".to_string(),
+                "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved".to_string(),
+                "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization".to_string(),
+                "https://csrc.nist.gov/pubs/ir/8547/ipd".to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf".to_string(),
+                    title: Some("State of PQC Readiness 2025".to_string()),
+                    excerpt:
+                        "State of PQC Readiness 2025 | linked from Building organizational readiness for post-quantum cryptography | guidance on organizational readiness for post-quantum cryptography."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/News/2024/postquantum-cryptography-fips-approved".to_string(),
+                    title: Some("NIST releases first 3 finalized post-quantum encryption standards".to_string()),
+                    excerpt:
+                        "NIST finalized the first post-quantum cryptography standards including FIPS 203, FIPS 204 and FIPS 205."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization".to_string(),
+                    title: Some("Post-Quantum Cryptography Standardization | CSRC".to_string()),
+                    excerpt:
+                        "Current CSRC project page for the latest NIST post-quantum cryptography standardization updates."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/ir/8547/ipd".to_string(),
+                    title: Some("IR 8547 Initial Public Draft".to_string()),
+                    excerpt:
+                        "NIST IR 8547 covers transition guidance for post-quantum cryptography."
+                            .to_string(),
+                },
+            ],
+            attempted_urls: vec![],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt:
+                    "IR 8413 Update 1 summarizes the latest NIST post-quantum cryptography standards and references FIPS 203, FIPS 204, and FIPS 205."
+                        .to_string(),
+            }],
+            min_sources: 2,
+        };
+
+        assert_eq!(
+            next_pending_web_candidate(&pending).as_deref(),
+            Some(
+                "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf"
+            )
+        );
+    }
+
+    #[test]
+    fn next_pending_web_candidate_prefers_sparse_distinct_domain_pdf_support_after_first_authority_read(
+    ) {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let pending = PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: vec![
+                "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf".to_string(),
+                "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization".to_string(),
+            ],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/projects/post-quantum-cryptography/post-quantum-cryptography-standardization".to_string(),
+                title: Some("Post-Quantum Cryptography Standardization | CSRC".to_string()),
+                excerpt:
+                    "Current CSRC project page for the latest NIST post-quantum cryptography standardization updates."
+                        .to_string(),
+            }],
+            attempted_urls: vec![],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt:
+                    "IR 8413 Update 1 summarizes the latest NIST post-quantum cryptography standards and references FIPS 203, FIPS 204, and FIPS 205."
+                        .to_string(),
+            }],
+            min_sources: 2,
+        };
+
+        assert_eq!(
+            next_pending_web_candidate(&pending).as_deref(),
+            Some(
+                "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf"
+            )
+        );
+    }
+
+    #[test]
+    fn next_pending_web_candidate_stops_when_only_low_priority_residual_hints_remain() {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let pending = PendingSearchCompletion {
+            query: "nist post quantum cryptography standards".to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract,
+            url: String::new(),
+            started_step: 0,
+            started_at_ms: 0,
+            deadline_ms: 0,
+            candidate_urls: vec![],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://www.ciodive.com/spons/building-organizational-readiness-for-post-quantum-cryptography/815308/".to_string(),
+                    title: Some(
+                        "Sponsored: Building organizational readiness for post-quantum cryptography"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Sponsored briefing on organizational readiness for post-quantum cryptography."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.washingtontechnology.com/opinion/2025/06/why-federal-agencies-must-act-now-post-quantum-cryptography/405738/".to_string(),
+                    title: Some(
+                        "Opinion: Why federal agencies must act now on post-quantum cryptography"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Opinion essay urging agencies to move faster on post-quantum cryptography."
+                            .to_string(),
+                },
+            ],
+            attempted_urls: vec![],
+            blocked_urls: vec![],
+            successful_reads: vec![
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+                    title: Some(
+                        "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "IR 8413 Update 1 is the status report on the NIST post-quantum cryptography standardization process."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+                    title: Some(
+                        "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "IR 8413 documents the third-round status of the NIST post-quantum cryptography standardization process."
+                            .to_string(),
+                },
+            ],
+            min_sources: 2,
+        };
+
+        assert_eq!(next_pending_web_candidate(&pending), None);
     }
 }

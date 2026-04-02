@@ -192,8 +192,17 @@ pub(crate) fn candidate_constraint_compatibility(
     let strong_anchor_coverage = query_anchor_count > 0
         && anchor_overlap_count * QUERY_COMPATIBILITY_STRONG_COVERAGE_DENOMINATOR
             >= query_anchor_count * QUERY_COMPATIBILITY_STRONG_COVERAGE_NUMERATOR;
+    let strong_semantic_anchor_coverage = semantic_anchor_token_count > 0
+        && semantic_anchor_overlap_count * QUERY_COMPATIBILITY_STRONG_COVERAGE_DENOMINATOR
+            >= semantic_anchor_token_count * QUERY_COMPATIBILITY_STRONG_COVERAGE_NUMERATOR;
+    let time_sensitive_scope = constraints.scopes.contains(&ConstraintScope::TimeSensitive);
+    let grounded_briefing_requires_stronger_semantic_overlap = query_facets
+        .grounded_external_required
+        && semantic_anchor_token_count > QUERY_COMPATIBILITY_MIN_GROUNDED_MULTI_ANCHOR_OVERLAP
+        && axis_overlap_count == 0
+        && !has_current_observation_payload;
 
-    let mut is_compatible = if constraints.scopes.contains(&ConstraintScope::TimeSensitive) {
+    let mut is_compatible = if time_sensitive_scope {
         let anchor_requirement =
             if query_facets.grounded_external_required && query_anchor_count > 0 {
                 has_native_anchor_overlap
@@ -214,6 +223,9 @@ pub(crate) fn candidate_constraint_compatibility(
     };
     if reject_search_hub && search_hub {
         // Search-hub URLs are intermediary navigation surfaces, not evidence pages.
+        is_compatible = false;
+    }
+    if grounded_briefing_requires_stronger_semantic_overlap && !strong_semantic_anchor_coverage {
         is_compatible = false;
     }
     let mut compatibility_score = anchor_overlap_count * QUERY_COMPATIBILITY_ANCHOR_WEIGHT;
@@ -240,8 +252,8 @@ pub(crate) fn candidate_constraint_compatibility(
         source_signals.official_status_host_hits * QUERY_COMPATIBILITY_OFFICIAL_STATUS_HOST_BONUS,
     );
     if source_signals.low_priority_hits > 0 || source_signals.low_priority_dominates() {
-        compatibility_score = compatibility_score
-            .saturating_sub(QUERY_COMPATIBILITY_LOW_PRIORITY_PENALTY);
+        compatibility_score =
+            compatibility_score.saturating_sub(QUERY_COMPATIBILITY_LOW_PRIORITY_PENALTY);
     }
     if search_hub {
         compatibility_score =
@@ -274,5 +286,86 @@ pub(crate) fn candidate_constraint_compatibility(
         compatibility_score,
         is_compatible,
         locality_compatible,
+    }
+}
+
+#[cfg(test)]
+mod compatibility_tests {
+    use super::*;
+
+    fn projection_for_query(query: &str) -> QueryConstraintProjection {
+        build_query_constraint_projection(query, 2, &[])
+    }
+
+    #[test]
+    fn grounded_briefing_rejects_off_topic_authority_neighbor_fill() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let projection = projection_for_query(query);
+        let compatibility = candidate_constraint_compatibility(
+            &projection.constraints,
+            &projection.query_facets,
+            &projection.query_native_tokens,
+            &projection.query_tokens,
+            &projection.locality_tokens,
+            projection.locality_scope.is_some(),
+            "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2",
+            "El marco de ciberseguridad 2.0 del NIST, en detalle | IBM",
+            "IBM explains the NIST Cybersecurity Framework 2.0 and broader cyber risk management.",
+        );
+
+        assert!(
+            !compatibility_passes_projection(&projection, &compatibility),
+            "off-topic authority-neighbor fill should not satisfy grounded briefing compatibility: {:?}",
+            compatibility
+        );
+    }
+
+    #[test]
+    fn grounded_briefing_keeps_on_topic_secondary_sources_compatible() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let projection = projection_for_query(query);
+        let compatibility = candidate_constraint_compatibility(
+            &projection.constraints,
+            &projection.query_facets,
+            &projection.query_native_tokens,
+            &projection.query_tokens,
+            &projection.locality_tokens,
+            projection.locality_scope.is_some(),
+            "https://www.ibm.com/think/insights/post-quantum-cryptography-transition",
+            "Post-quantum cryptography transition guidance",
+            "March 2026 - IBM explains recent NIST post-quantum cryptography transition planning for enterprises.",
+        );
+
+        assert!(
+            compatibility_passes_projection(&projection, &compatibility),
+            "on-topic secondary coverage should remain compatible: {:?}",
+            compatibility
+        );
+    }
+
+    #[test]
+    fn grounded_briefing_contract_rejects_off_topic_authority_neighbor_with_execution_suffix() {
+        let query_contract =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let projection = projection_for_query(query_contract);
+        let compatibility = candidate_constraint_compatibility(
+            &projection.constraints,
+            &projection.query_facets,
+            &projection.query_native_tokens,
+            &projection.query_tokens,
+            &projection.locality_tokens,
+            projection.locality_scope.is_some(),
+            "https://www.ibm.com/es-es/think/insights/nist-cybersecurity-framework-2",
+            "El marco de ciberseguridad 2.0 del NIST, en detalle | IBM",
+            "He aqui todo lo que las empresas deben saber sobre como el marco de ciberseguridad 2.0 del NIST puede mejorar la gestion de riesgos.",
+        );
+
+        assert!(
+            !compatibility_passes_projection(&projection, &compatibility),
+            "execution-contract suffix must not weaken subject grounding for off-topic authority-neighbor fill: {:?}",
+            compatibility
+        );
     }
 }

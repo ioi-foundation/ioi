@@ -3,8 +3,8 @@ use super::{
     analyze_source_record_signals, analyze_source_text_signals, has_price_quote_payload,
     infer_interaction_target, infer_report_sections, is_live_external_research_goal,
     is_mail_connector_tool_name, is_mailbox_connector_intent, query_semantic_anchor_tokens,
-    query_structural_directive_tokens, report_section_label, GoalSignalProfile, MetricAxis,
-    ReportSectionKind,
+    query_structural_directive_tokens, report_section_label, strip_low_priority_leading_marker,
+    GoalSignalProfile, MetricAxis, ReportSectionKind,
 };
 
 #[test]
@@ -97,6 +97,26 @@ fn source_signals_demote_community_discussion_surfaces() {
     );
     assert!(discussion.low_priority_hits > 0);
     assert!(discussion.low_priority_dominates());
+}
+
+#[test]
+fn strip_low_priority_leading_marker_preserves_grounded_body_text() {
+    assert_eq!(
+        strip_low_priority_leading_marker(
+            "Sponsored: Building organizational readiness for post-quantum cryptography"
+        ),
+        "Building organizational readiness for post-quantum cryptography"
+    );
+    assert_eq!(
+        strip_low_priority_leading_marker(
+            "Opinion - Why federal agencies must act now on post-quantum cryptography"
+        ),
+        "Why federal agencies must act now on post-quantum cryptography"
+    );
+    assert_eq!(
+        strip_low_priority_leading_marker("State of PQC Readiness 2025"),
+        "State of PQC Readiness 2025"
+    );
 }
 
 #[test]

@@ -677,7 +677,7 @@ mod tests {
                             .to_string(),
                     },
                 ],
-                citation_ids: vec!["C1".to_string(), "C3".to_string()],
+                citation_ids: vec!["C1".to_string()],
                 confidence: "high".to_string(),
                 caveat: "caveat".to_string(),
             }],
@@ -768,7 +768,7 @@ mod tests {
                             .to_string(),
                     },
                 ],
-                citation_ids: vec!["C1".to_string(), "C2".to_string(), "C3".to_string()],
+                citation_ids: vec!["C1".to_string(), "C2".to_string()],
                 confidence: "high".to_string(),
                 caveat: "caveat".to_string(),
             }],
@@ -779,7 +779,7 @@ mod tests {
         let updated = apply_hybrid_synthesis_response(&base, &required_sections, response)
             .expect("response should satisfy single-item briefing contract");
         assert_eq!(updated.stories.len(), 1);
-        assert_eq!(updated.stories[0].citation_ids.len(), 3);
+        assert_eq!(updated.stories[0].citation_ids.len(), 2);
     }
 
     #[test]

@@ -1,4 +1,9 @@
 use super::*;
+use crate::agentic::desktop::service::step::intent_resolver::required_capabilities_with_instruction_contract;
+use ioi_types::app::agentic::{
+    ArgumentOrigin, InstructionBindingKind, InstructionContract, InstructionSlotBinding,
+    ProtectedSlotKind,
+};
 
 #[test]
 fn conversation_scope_blocks_browser() {
@@ -469,6 +474,56 @@ fn workspace_ops_scope_allows_clipboard() {
     };
     assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
     assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
+}
+
+#[test]
+fn workspace_parent_playbook_scope_allows_agent_delegate() {
+    let instruction_contract = InstructionContract {
+        slot_bindings: vec![InstructionSlotBinding {
+            slot: "playbook_id".to_string(),
+            binding_kind: InstructionBindingKind::UserLiteral,
+            value: Some("evidence_audited_patch".to_string()),
+            origin: ArgumentOrigin::ModelInferred,
+            protected_slot_kind: ProtectedSlotKind::Unknown,
+        }],
+        ..InstructionContract::default()
+    };
+    let state = ResolvedIntentState {
+        intent_id: "workspace.ops".to_string(),
+        scope: IntentScopeProfile::WorkspaceOps,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: required_capabilities_with_instruction_contract(
+            &[
+                CapabilityId::from("filesystem.read"),
+                CapabilityId::from("filesystem.write"),
+            ],
+            Some(&instruction_contract),
+        ),
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "v1".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [1u8; 32],
+        receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: Some(instruction_contract),
+        constrained: false,
+    };
+
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "agent__delegate"
+    ));
 }
 
 #[test]

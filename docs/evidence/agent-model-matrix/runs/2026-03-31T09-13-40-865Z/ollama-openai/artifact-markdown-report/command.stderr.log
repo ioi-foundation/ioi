@@ -1,0 +1,2 @@
+[2026-03-31T09:14:26Z WARN  chromiumoxide::browser] Browser was not closed manually, it will be killed automatically in the background
+Error: Failed to generate Studio artifact bundle: Studio artifact generation did not produce a valid candidate. candidate-1: judge failed: Failed to parse Studio artifact judge result: Studio artifact judge output missing JSON payload; judge repair attempt also failed: Failed to parse Studio artifact judge result: Studio artifact judge output missing JSON payload

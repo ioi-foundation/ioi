@@ -31,6 +31,64 @@ pub struct StudioGeneratedArtifactPayload {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRenderCaptureViewport {
+    Desktop,
+    Mobile,
+    Interaction,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRenderFindingSeverity {
+    Info,
+    Warning,
+    Blocked,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactRenderCapture {
+    pub viewport: StudioArtifactRenderCaptureViewport,
+    pub width: u32,
+    pub height: u32,
+    pub screenshot_sha256: String,
+    pub screenshot_byte_count: usize,
+    pub visible_element_count: usize,
+    pub visible_text_chars: usize,
+    pub interactive_element_count: usize,
+    #[serde(default)]
+    pub screenshot_changed_from_previous: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactRenderFinding {
+    pub code: String,
+    pub severity: StudioArtifactRenderFindingSeverity,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactRenderEvaluation {
+    pub supported: bool,
+    pub first_paint_captured: bool,
+    pub interaction_capture_attempted: bool,
+    #[serde(default)]
+    pub captures: Vec<StudioArtifactRenderCapture>,
+    pub layout_density_score: u8,
+    pub spacing_alignment_score: u8,
+    pub typography_contrast_score: u8,
+    pub visual_hierarchy_score: u8,
+    pub blueprint_consistency_score: u8,
+    pub overall_score: u8,
+    #[serde(default)]
+    pub findings: Vec<StudioArtifactRenderFinding>,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum StudioArtifactEditMode {
     Create,
     Patch,
@@ -78,10 +136,45 @@ pub struct StudioArtifactSelectionTarget {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct StudioArtifactExemplar {
+    pub record_id: i64,
+    pub title: String,
+    pub summary: String,
+    pub renderer: StudioRendererKind,
+    pub scaffold_family: String,
+    pub thesis: String,
+    pub quality_rationale: String,
+    pub score_total: i32,
+    #[serde(default)]
+    pub design_cues: Vec<String>,
+    #[serde(default)]
+    pub component_patterns: Vec<String>,
+    #[serde(default)]
+    pub anti_patterns: Vec<String>,
+    #[serde(default)]
+    pub source_revision_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct StudioArtifactTasteMemory {
     #[serde(default)]
     pub directives: Vec<String>,
     pub summary: String,
+    #[serde(default)]
+    pub typography_preferences: Vec<String>,
+    #[serde(default)]
+    pub density_preference: Option<String>,
+    #[serde(default)]
+    pub tone_family: Vec<String>,
+    #[serde(default)]
+    pub motion_tolerance: Option<String>,
+    #[serde(default)]
+    pub preferred_scaffold_families: Vec<String>,
+    #[serde(default)]
+    pub preferred_component_patterns: Vec<String>,
+    #[serde(default)]
+    pub anti_patterns: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -103,6 +196,352 @@ pub struct StudioArtifactBrief {
     pub style_directives: Vec<String>,
     #[serde(default)]
     pub reference_hints: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactSkillNeedKind {
+    VisualArtDirection,
+    EditorialLayout,
+    MotionHierarchy,
+    InteractionCopyDiscipline,
+    AccessibilityReview,
+    DataStorytelling,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactSkillNeedPriority {
+    Required,
+    Recommended,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactSkillNeed {
+    pub kind: StudioArtifactSkillNeedKind,
+    pub priority: StudioArtifactSkillNeedPriority,
+    pub rationale: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactSectionPlan {
+    pub id: String,
+    pub role: String,
+    pub visible_purpose: String,
+    #[serde(default)]
+    pub content_requirements: Vec<String>,
+    #[serde(default)]
+    pub interaction_hooks: Vec<String>,
+    #[serde(default)]
+    pub first_paint_requirements: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactInteractionPlan {
+    pub id: String,
+    pub family: String,
+    #[serde(default)]
+    pub source_controls: Vec<String>,
+    #[serde(default)]
+    pub target_surfaces: Vec<String>,
+    pub default_state: String,
+    #[serde(default)]
+    pub required_first_paint_affordances: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactEvidencePlanEntry {
+    pub id: String,
+    pub kind: String,
+    pub purpose: String,
+    #[serde(default)]
+    pub concept_bindings: Vec<String>,
+    #[serde(default)]
+    pub first_paint_elements: Vec<String>,
+    #[serde(default)]
+    pub detail_targets: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactDesignSystem {
+    pub color_strategy: String,
+    pub typography_strategy: String,
+    pub density: String,
+    pub motion_style: String,
+    #[serde(default)]
+    pub emphasis_modes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactComponentPlanEntry {
+    pub id: String,
+    pub component_family: String,
+    pub role: String,
+    #[serde(default)]
+    pub section_ids: Vec<String>,
+    #[serde(default)]
+    pub interaction_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactAccessibilityPlan {
+    #[serde(default)]
+    pub obligations: Vec<String>,
+    #[serde(default)]
+    pub focus_order: Vec<String>,
+    #[serde(default)]
+    pub aria_expectations: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactAcceptanceTargets {
+    pub minimum_section_count: u8,
+    pub minimum_interactive_regions: u8,
+    pub require_first_paint_evidence: bool,
+    pub require_persistent_detail_region: bool,
+    pub require_distinct_typography: bool,
+    pub require_keyboard_affordances: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactBlueprint {
+    pub version: u32,
+    pub renderer: StudioRendererKind,
+    pub narrative_arc: String,
+    #[serde(default)]
+    pub section_plan: Vec<StudioArtifactSectionPlan>,
+    #[serde(default)]
+    pub interaction_plan: Vec<StudioArtifactInteractionPlan>,
+    #[serde(default)]
+    pub evidence_plan: Vec<StudioArtifactEvidencePlanEntry>,
+    pub design_system: StudioArtifactDesignSystem,
+    #[serde(default)]
+    pub component_plan: Vec<StudioArtifactComponentPlanEntry>,
+    pub accessibility_plan: StudioArtifactAccessibilityPlan,
+    pub acceptance_targets: StudioArtifactAcceptanceTargets,
+    pub scaffold_family: String,
+    pub variation_strategy: String,
+    #[serde(default)]
+    pub skill_needs: Vec<StudioArtifactSkillNeed>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactSelectedSkill {
+    pub skill_hash: String,
+    pub name: String,
+    pub description: String,
+    pub lifecycle_state: String,
+    pub source_type: String,
+    pub reliability_bps: u32,
+    pub semantic_score_bps: u32,
+    pub adjusted_score_bps: u32,
+    #[serde(default)]
+    pub relative_path: Option<String>,
+    #[serde(default)]
+    pub matched_need_ids: Vec<String>,
+    #[serde(default)]
+    pub matched_need_kinds: Vec<StudioArtifactSkillNeedKind>,
+    pub match_rationale: String,
+    #[serde(default)]
+    pub guidance_markdown: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactIRNode {
+    pub id: String,
+    pub kind: String,
+    #[serde(default)]
+    pub parent_id: Option<String>,
+    #[serde(default)]
+    pub section_id: Option<String>,
+    pub label: String,
+    #[serde(default)]
+    pub bindings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactIRInteractionEdge {
+    pub id: String,
+    pub family: String,
+    #[serde(default)]
+    pub control_node_ids: Vec<String>,
+    #[serde(default)]
+    pub target_node_ids: Vec<String>,
+    pub default_state: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactIREvidenceSurface {
+    pub id: String,
+    pub kind: String,
+    pub section_id: String,
+    #[serde(default)]
+    pub bound_concepts: Vec<String>,
+    #[serde(default)]
+    pub first_paint_expectations: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactDesignToken {
+    pub name: String,
+    pub category: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactIR {
+    pub version: u32,
+    pub renderer: StudioRendererKind,
+    pub scaffold_family: String,
+    #[serde(default)]
+    pub semantic_structure: Vec<StudioArtifactIRNode>,
+    #[serde(default)]
+    pub interaction_graph: Vec<StudioArtifactIRInteractionEdge>,
+    #[serde(default)]
+    pub evidence_surfaces: Vec<StudioArtifactIREvidenceSurface>,
+    #[serde(default)]
+    pub design_tokens: Vec<StudioArtifactDesignToken>,
+    #[serde(default)]
+    pub motion_plan: Vec<String>,
+    #[serde(default)]
+    pub accessibility_obligations: Vec<String>,
+    #[serde(default)]
+    pub responsive_layout_rules: Vec<String>,
+    #[serde(default)]
+    pub component_bindings: Vec<String>,
+    #[serde(default)]
+    pub static_audit_expectations: Vec<String>,
+    #[serde(default)]
+    pub render_eval_checklist: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactPlanningContext {
+    pub brief: StudioArtifactBrief,
+    #[serde(default)]
+    pub blueprint: Option<StudioArtifactBlueprint>,
+    #[serde(default)]
+    pub artifact_ir: Option<StudioArtifactIR>,
+    #[serde(default)]
+    pub selected_skills: Vec<StudioArtifactSelectedSkill>,
+    #[serde(default)]
+    pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRuntimePolicyProfile {
+    Auto,
+    FullyLocal,
+    LocalGenerationRemoteAcceptance,
+    PremiumPlanningLocalGeneration,
+    PremiumEndToEnd,
+}
+
+impl StudioArtifactRuntimePolicyProfile {
+    pub fn parse(value: &str) -> Option<Self> {
+        let normalized = value.trim().to_ascii_lowercase().replace('-', "_");
+        serde_json::from_str(&format!("\"{normalized}\"")).ok()
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRuntimeStep {
+    OutcomeRouting,
+    BlueprintPlanning,
+    CandidateGeneration,
+    AcceptanceJudge,
+    RepairPlanning,
+    MemoryDistillation,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRuntimeTier {
+    Deterministic,
+    Local,
+    CostEffective,
+    Premium,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactRuntimeStepPolicy {
+    pub step: StudioArtifactRuntimeStep,
+    pub preferred_tier: StudioArtifactRuntimeTier,
+    pub fallback_to_generation_runtime: bool,
+    pub require_distinct_runtime: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactRuntimeBinding {
+    pub step: StudioArtifactRuntimeStep,
+    pub preferred_tier: StudioArtifactRuntimeTier,
+    pub selected_tier: StudioArtifactRuntimeTier,
+    pub fallback_applied: bool,
+    #[serde(default)]
+    pub fallback_reason: Option<String>,
+    pub provenance: StudioRuntimeProvenance,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactRuntimePolicy {
+    pub profile: StudioArtifactRuntimePolicyProfile,
+    #[serde(default)]
+    pub step_policies: Vec<StudioArtifactRuntimeStepPolicy>,
+    #[serde(default)]
+    pub bindings: Vec<StudioArtifactRuntimeBinding>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioAdaptiveSearchSignal {
+    RendererComplexity,
+    BriefInteractionLoad,
+    BriefConceptLoad,
+    SkillBackedDesign,
+    ExemplarSupport,
+    ContinuationEdit,
+    LocalGenerationConstraint,
+    HighCandidateVariance,
+    LowCandidateVariance,
+    NoPrimaryViewCandidate,
+    NearMissPrimaryView,
+    GenerationFailureObserved,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioAdaptiveSearchBudget {
+    pub initial_candidate_count: usize,
+    pub max_candidate_count: usize,
+    pub shortlist_limit: usize,
+    pub max_semantic_refinement_passes: usize,
+    pub plateau_limit: usize,
+    pub min_score_delta: i32,
+    pub target_judge_score_for_early_stop: i32,
+    pub expansion_score_margin: i32,
+    #[serde(default)]
+    pub signals: Vec<StudioAdaptiveSearchSignal>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -144,8 +583,41 @@ pub struct StudioArtifactJudgeResult {
     #[serde(default)]
     pub continuity_revision_ux: Option<u8>,
     #[serde(default)]
+    pub issue_classes: Vec<String>,
+    #[serde(default)]
+    pub repair_hints: Vec<String>,
+    #[serde(default)]
+    pub strengths: Vec<String>,
+    #[serde(default)]
+    pub blocked_reasons: Vec<String>,
+    #[serde(default)]
+    pub file_findings: Vec<String>,
+    #[serde(default)]
+    pub aesthetic_verdict: String,
+    #[serde(default)]
+    pub interaction_verdict: String,
+    #[serde(default)]
+    pub truthfulness_warnings: Vec<String>,
+    #[serde(default)]
+    pub recommended_next_pass: Option<String>,
+    #[serde(default)]
     pub strongest_contradiction: Option<String>,
     pub rationale: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactCandidateConvergenceTrace {
+    pub lineage_root_id: String,
+    #[serde(default)]
+    pub parent_candidate_id: Option<String>,
+    pub pass_kind: String,
+    pub pass_index: u32,
+    pub score_total: i32,
+    #[serde(default)]
+    pub score_delta_from_parent: Option<i32>,
+    #[serde(default)]
+    pub terminated_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -168,6 +640,10 @@ pub struct StudioArtifactCandidateSummary {
     pub failure: Option<String>,
     #[serde(default)]
     pub raw_output_preview: Option<String>,
+    #[serde(default)]
+    pub convergence: Option<StudioArtifactCandidateConvergenceTrace>,
+    #[serde(default)]
+    pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
     pub judge: StudioArtifactJudgeResult,
 }
 
@@ -177,6 +653,12 @@ pub struct StudioArtifactGenerationError {
     pub message: String,
     #[serde(default)]
     pub brief: Option<StudioArtifactBrief>,
+    #[serde(default)]
+    pub blueprint: Option<StudioArtifactBlueprint>,
+    #[serde(default)]
+    pub artifact_ir: Option<StudioArtifactIR>,
+    #[serde(default)]
+    pub selected_skills: Vec<StudioArtifactSelectedSkill>,
     #[serde(default)]
     pub edit_intent: Option<StudioArtifactEditIntent>,
     #[serde(default)]
@@ -207,6 +689,14 @@ pub struct StudioArtifactRefinementContext {
     pub selected_targets: Vec<StudioArtifactSelectionTarget>,
     #[serde(default)]
     pub taste_memory: Option<StudioArtifactTasteMemory>,
+    #[serde(default)]
+    pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    #[serde(default)]
+    pub blueprint: Option<StudioArtifactBlueprint>,
+    #[serde(default)]
+    pub artifact_ir: Option<StudioArtifactIR>,
+    #[serde(default)]
+    pub selected_skills: Vec<StudioArtifactSelectedSkill>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -214,16 +704,28 @@ pub struct StudioArtifactRefinementContext {
 pub struct StudioArtifactGenerationBundle {
     pub brief: StudioArtifactBrief,
     #[serde(default)]
+    pub blueprint: Option<StudioArtifactBlueprint>,
+    #[serde(default)]
+    pub artifact_ir: Option<StudioArtifactIR>,
+    #[serde(default)]
+    pub selected_skills: Vec<StudioArtifactSelectedSkill>,
+    #[serde(default)]
     pub edit_intent: Option<StudioArtifactEditIntent>,
     #[serde(default)]
     pub candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     pub winning_candidate_id: String,
     pub winning_candidate_rationale: String,
     pub winner: StudioGeneratedArtifactPayload,
+    #[serde(default)]
+    pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
     pub judge: StudioArtifactJudgeResult,
     pub origin: StudioArtifactOutputOrigin,
     pub production_provenance: StudioRuntimeProvenance,
     pub acceptance_provenance: StudioRuntimeProvenance,
+    #[serde(default)]
+    pub runtime_policy: Option<StudioArtifactRuntimePolicy>,
+    #[serde(default)]
+    pub adaptive_search_budget: Option<StudioAdaptiveSearchBudget>,
     pub fallback_used: bool,
     pub ux_lifecycle: StudioArtifactUxLifecycle,
     #[serde(default)]

@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "defaultPresetId": "ollama-openai",
+  "presets": [
+    {
+      "id": "ollama-openai",
+      "label": "Baseline local smoke",
+      "role": "baseline_local",
+      "benchmarkTier": "tier0",
+      "runtimeKind": "local_http",
+      "family": "ollama_openai",
+      "shippedDefault": true,
+      "experimental": false,
+      "routingIntent": "Fast smoke tests, routing floor, and low-cost local sanity runs.",
+      "runtimeUrl": "http://127.0.0.1:11434/v1/chat/completions",
+      "runtimeHealthUrl": "http://127.0.0.1:11434/api/tags",
+      "runtimeModel": "llama3.2:3b",
+      "embeddingModel": "nomic-embed-text",
+      "backendId": "ollama-openai",
+      "backendSource": "dev/local-backends/ollama-openai",
+      "backendAutostart": true,
+      "artifactAcceptanceModel": "qwen2.5:14b",
+      "workloadIntents": [
+        "smoke",
+        "routing",
+        "summarization"
+      ],
+      "notes": [
+        "This is the current shipped default. Phase 0 preserves it until a challenger wins repeatedly."
+      ]
+    },
+    {
+      "id": "planner-grade-local-oss",
+      "label": "Planner-grade local OSS",
+      "role": "planner_verifier",
+      "benchmarkTier": "tier1",
+      "runtimeKind": "local_http",
+      "family": "ollama_openai",
+      "shippedDefault": false,
+      "experimental": true,
+      "routingIntent": "Task decomposition, verifier passes, artifact judging, and longer-horizon local reasoning.",
+      "runtimeUrl": "http://127.0.0.1:11434/v1/chat/completions",
+      "runtimeHealthUrl": "http://127.0.0.1:11434/api/tags",
+      "runtimeModel": "qwen2.5:14b",
+      "cognitionInferenceTimeoutSecs": 60,
+      "embeddingModel": "nomic-embed-text",
+      "backendId": "ollama-openai",
+      "backendSource": "dev/local-backends/ollama-openai",
+      "backendAutostart": true,
+      "artifactAcceptanceModel": "qwen2.5:7b",
+      "workloadIntents": [
+        "planning",
+        "verification",
+        "artifact_judging"
+      ],
+      "notes": [
+        "The guide target for this slot is gpt-oss-20b or a Qwen3.5-27B-class local reasoner.",
+        "This repo currently has qwen2.5:14b installed and benchmarkable, so it is the concrete phase-0 challenger.",
+        "Planner-grade retained research runs set a 60-second cognition inference ceiling for this experimental preset so delegated research workers can clear the first long-horizon planning turn without changing shipped-default behavior."
+      ]
+    },
+    {
+      "id": "coding-executor-local-oss",
+      "label": "Coding executor local OSS",
+      "role": "coding_executor",
+      "benchmarkTier": "tier2",
+      "runtimeKind": "local_http",
+      "family": "ollama_openai",
+      "shippedDefault": false,
+      "experimental": true,
+      "routingIntent": "Repo-grounded patching, shell loops, and autonomous local execution continuity.",
+      "runtimeUrl": "http://127.0.0.1:11434/v1/chat/completions",
+      "runtimeHealthUrl": "http://127.0.0.1:11434/api/tags",
+      "runtimeModel": "qwen2.5:7b",
+      "cognitionInferenceTimeoutSecs": 30,
+      "embeddingModel": "nomic-embed-text",
+      "backendId": "ollama-openai",
+      "backendSource": "dev/local-backends/ollama-openai",
+      "backendAutostart": true,
+      "artifactAcceptanceModel": "qwen2.5:7b",
+      "workloadIntents": [
+        "coding",
+        "tool_loops",
+        "execution"
+      ],
+      "notes": [
+        "The guide target for this slot is a stronger open coding model once it wins evals.",
+        "This repo currently has qwen2.5:7b installed and benchmarkable, so it is the concrete phase-0 executor challenger.",
+        "Artifact acceptance stays on qwen2.5:7b for this experimental preset so retained artifact runs stay inside the 120s matrix budget without changing the shipped default or the benchmark timeout.",
+        "Coding retained runs set a 30-second cognition inference ceiling for this experimental preset so the executor can clear longer repo-grounded planning turns without changing shipped-default behavior."
+      ]
+    },
+    {
+      "id": "remote-multimodal-lane",
+      "label": "Remote multimodal / voice lane",
+      "role": "multimodal_realtime",
+      "benchmarkTier": "tier3",
+      "runtimeKind": "remote_http",
+      "family": "remote_http",
+      "shippedDefault": false,
+      "experimental": true,
+      "routingIntent": "Voice-first chat, interruption-safe interaction, and screen-plus-audio grounding.",
+      "runtimeUrlEnv": "AUTOPILOT_REMOTE_MULTIMODAL_RUNTIME_URL",
+      "apiKeyEnv": "AUTOPILOT_REMOTE_MULTIMODAL_API_KEY",
+      "runtimeModelEnv": "AUTOPILOT_REMOTE_MULTIMODAL_RUNTIME_MODEL",
+      "defaultRuntimeModel": "qwen3-omni-flash",
+      "workloadIntents": [
+        "voice",
+        "multimodal",
+        "interruptions"
+      ],
+      "notes": [
+        "This preset is intentionally configured-but-unrun until remote credentials are supplied.",
+        "Phase 0 keeps the lane visible in the matrix without inventing remote evidence."
+      ]
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import type {
   AgentEvent,
   ArtifactHubViewKey,
   ChatMessage,
+  ExecutionMoment,
   RunPresentation,
 } from "../../../types";
 import { collectScreenshotReceipts } from "../utils/screenshotEvidence";
@@ -16,6 +17,10 @@ import {
   eventBelongsToTurnWindow,
   type EventTurnWindow,
 } from "../utils/turnWindows";
+import {
+  buildExecutionMoments,
+  buildPlanSummary,
+} from "../viewmodels/contentPipeline.summaries";
 
 export type ConversationTurn = {
   key: string;
@@ -25,6 +30,8 @@ export type ConversationTurn = {
 
 export type TurnContext = {
   turnId: string | null;
+  planSummary: RunPresentation["planSummary"];
+  executionMoments: ExecutionMoment[];
   thoughtCount: number;
   sourceCount: number;
   kernelEventCount: number;
@@ -123,7 +130,9 @@ function buildStreamPreview(windowEvents: AgentEvent[]): {
   }
 
   const tool = eventToolName(latest).trim();
-  const channel = toEventString((latest.digest || {}).channel as unknown).trim();
+  const channel = toEventString(
+    (latest.digest || {}).channel as unknown,
+  ).trim();
   const streamLabel = [tool || "command", channel ? `(${channel})` : ""]
     .filter(Boolean)
     .join(" ");
@@ -228,10 +237,14 @@ export function useTurnContexts({
     const browses = runPresentation.sourceSummary?.browses || [];
 
     return conversationTurns.map((turn) => {
-      const window = turn.prompt ? eventTurnWindows[promptOrdinal++] || null : null;
+      const window = turn.prompt
+        ? eventTurnWindows[promptOrdinal++] || null
+        : null;
       if (!window) {
         return {
           turnId: null,
+          planSummary: null,
+          executionMoments: [],
           thoughtCount: 0,
           sourceCount: 0,
           kernelEventCount: 0,
@@ -251,21 +264,41 @@ export function useTurnContexts({
       const windowEvents = activeEvents.filter((event) =>
         eventBelongsToTurnWindow(event, window),
       );
-      const stepIndexes = new Set(windowEvents.map((event) => event.step_index));
-      const thoughtCount = thoughtAgents.filter((agent) => stepIndexes.has(agent.stepIndex)).length;
+      const stepIndexes = new Set(
+        windowEvents.map((event) => event.step_index),
+      );
+      const thoughtCount = thoughtAgents.filter((agent) =>
+        stepIndexes.has(agent.stepIndex),
+      ).length;
       const sourceCount = Math.max(
         searches
           .filter((row) => stepIndexes.has(row.stepIndex))
           .reduce((sum, row) => sum + Math.max(0, row.resultCount), 0),
         browses.filter((row) => stepIndexes.has(row.stepIndex)).length,
       );
-      const kernelEventCount = windowEvents.filter((event) => event.event_type !== "INFO_NOTE").length;
+      const kernelEventCount = windowEvents.filter(
+        (event) => event.event_type !== "INFO_NOTE",
+      ).length;
       const screenshotReceipts = collectScreenshotReceipts(windowEvents);
       const latestVisualReceipt = screenshotReceipts[0] || null;
       const streamPreview = buildStreamPreview(windowEvents);
+      const planSummary = buildPlanSummary(
+        windowEvents.map((event) => ({
+          key: event.event_id,
+          kind:
+            event.event_type === "RECEIPT"
+              ? "receipt_event"
+              : event.event_type === "INFO_NOTE"
+                ? "reasoning_event"
+                : "workload_event",
+          event,
+          toolName: eventToolName(event),
+        })),
+      );
 
-      const defaultView: ArtifactHubViewKey =
-        thoughtCount > 0
+      const defaultView: ArtifactHubViewKey = planSummary
+        ? "active_context"
+        : thoughtCount > 0
           ? "thoughts"
           : sourceCount > 0
             ? "sources"
@@ -275,6 +308,21 @@ export function useTurnContexts({
 
       return {
         turnId: window.id,
+        planSummary,
+        executionMoments: buildExecutionMoments(
+          windowEvents.map((event) => ({
+            key: event.event_id,
+            kind:
+              event.event_type === "RECEIPT"
+                ? "receipt_event"
+                : event.event_type === "INFO_NOTE"
+                  ? "reasoning_event"
+                  : "workload_event",
+            event,
+            toolName: eventToolName(event),
+          })),
+          planSummary,
+        ),
         thoughtCount,
         sourceCount,
         kernelEventCount,

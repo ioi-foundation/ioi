@@ -348,7 +348,6 @@ struct EnrichmentJobOutcome {
     rejected_by_reason: BTreeMap<String, usize>,
 }
 
-
 include!("core.rs");
 include!("diagnostics.rs");
 include!("context.rs");

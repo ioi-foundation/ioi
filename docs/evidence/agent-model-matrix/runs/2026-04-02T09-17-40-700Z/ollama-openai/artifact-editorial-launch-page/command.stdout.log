@@ -1,0 +1,19 @@
+{
+  "error": {
+    "kind": "generation_failure",
+    "code": "generation_failure",
+    "message": "Failed to generate Studio artifact bundle: Studio artifact generation did not produce a valid candidate. candidate-1: Generated artifact file 'index.html' must not have an empty body.; repair attempt 1 failed: HTML iframe artifacts that declare custom font families must load them with a real stylesheet or @font-face rule. | candidate-2: Failed to parse Studio artifact materialization payload: missing field `body`; repair attempt 1 failed: HTML iframe briefs that call for clickable view switching must keep every mapped evidence panel pre-rendered with first-paint content. | candidate-3: Failed to parse Studio artifact materialization payload: missing field `body`; repair attempt 1 failed: HTML iframe briefs that call for clickable view switching must keep every mapped evidence panel pre-rendered with first-paint content."
+  },
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "llama3.2:3b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:14b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  }
+}

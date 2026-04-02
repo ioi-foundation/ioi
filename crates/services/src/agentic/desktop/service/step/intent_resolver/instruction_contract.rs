@@ -388,6 +388,70 @@ fn query_requests_port_or_parity_work(query: &str) -> bool {
     query_contains_any(&normalized, &[" port ", " parity ", " clone ", " absorb "])
 }
 
+fn query_requests_browser_work(query: &str) -> bool {
+    let normalized = normalized_query_text(query);
+    let browser_action = query_contains_any(
+        &normalized,
+        &[
+            " click ",
+            " type ",
+            " select ",
+            " submit ",
+            " navigate ",
+            " open ",
+            " fill ",
+        ],
+    );
+    let browser_context = query_contains_any(
+        &normalized,
+        &[
+            " browser ",
+            " website ",
+            " webpage ",
+            " page ",
+            " tab ",
+            " form ",
+            " dialog ",
+            " dropdown ",
+            " ui ",
+            " screen ",
+        ],
+    );
+    browser_action && browser_context
+}
+
+fn query_requests_artifact_work(query: &str) -> bool {
+    let normalized = normalized_query_text(query);
+    let artifact_action = query_contains_any(
+        &normalized,
+        &[
+            " build ",
+            " create ",
+            " generate ",
+            " design ",
+            " draft ",
+            " refine ",
+            " make ",
+        ],
+    );
+    let artifact_context = query_contains_any(
+        &normalized,
+        &[
+            " artifact ",
+            " landing page ",
+            " dashboard ",
+            " mockup ",
+            " wireframe ",
+            " microsite ",
+            " html ",
+            " prototype ",
+            " ui concept ",
+            " visual treatment ",
+        ],
+    );
+    artifact_action && artifact_context
+}
+
 fn preferred_agent_playbook_for_intent(query: &str, intent_id: &str) -> Option<&'static str> {
     match intent_id.trim() {
         "workspace.ops" | "delegation.task"
@@ -398,16 +462,29 @@ fn preferred_agent_playbook_for_intent(query: &str, intent_id: &str) -> Option<&
         {
             Some("evidence_audited_patch")
         }
+        "web.research" | "memory.recall" => Some("citation_grounded_brief"),
+        "delegation.task" if query_requests_artifact_work(query) => {
+            Some("artifact_generation_gate")
+        }
+        "delegation.task" if query_requests_browser_work(query) => {
+            Some("browser_postcondition_gate")
+        }
+        "delegation.task" if query_requests_research_work(query) => Some("citation_grounded_brief"),
         _ => None,
     }
 }
 
 fn preferred_delegation_template_for_intent(query: &str, intent_id: &str) -> Option<&'static str> {
-    if matches!(
-        preferred_agent_playbook_for_intent(query, intent_id),
-        Some("evidence_audited_patch")
-    ) {
-        return Some("researcher");
+    match preferred_agent_playbook_for_intent(query, intent_id) {
+        Some("evidence_audited_patch") => {
+            return Some("context_worker");
+        }
+        Some("citation_grounded_brief") => {
+            return Some("researcher");
+        }
+        Some("browser_postcondition_gate") => return Some("perception_worker"),
+        Some("artifact_generation_gate") => return Some("context_worker"),
+        _ => {}
     }
 
     match intent_id.trim() {
@@ -425,20 +502,62 @@ fn preferred_delegation_workflow_for_intent(
     intent_id: &str,
     template_id: &str,
 ) -> Option<&'static str> {
-    if matches!(
-        preferred_agent_playbook_for_intent(query, intent_id),
-        Some("evidence_audited_patch")
-    ) && template_id.trim() == "researcher"
-    {
-        return Some("live_research_brief");
+    match preferred_agent_playbook_for_intent(query, intent_id) {
+        Some("evidence_audited_patch") if template_id.trim() == "context_worker" => {
+            return Some("repo_context_brief");
+        }
+        Some("citation_grounded_brief") if template_id.trim() == "researcher" => {
+            return Some("live_research_brief");
+        }
+        Some("citation_grounded_brief") if template_id.trim() == "verifier" => {
+            return Some("citation_audit");
+        }
+        Some("browser_postcondition_gate") if template_id.trim() == "perception_worker" => {
+            return Some("ui_state_brief");
+        }
+        Some("artifact_generation_gate") if template_id.trim() == "context_worker" => {
+            return Some("artifact_context_brief");
+        }
+        _ => {}
     }
 
     match (intent_id.trim(), template_id.trim()) {
         ("web.research", "researcher") | ("memory.recall", "researcher") => {
             Some("live_research_brief")
         }
+        ("web.research", "verifier") | ("memory.recall", "verifier") => Some("citation_audit"),
         ("workspace.ops", "coder") if query_requests_code_change_work(query) => {
             Some("patch_build_verify")
+        }
+        ("delegation.task", "context_worker") if query_requests_code_change_work(query) => {
+            Some("repo_context_brief")
+        }
+        ("delegation.task", "context_worker") if query_requests_artifact_work(query) => {
+            Some("artifact_context_brief")
+        }
+        ("delegation.task", "perception_worker") if query_requests_browser_work(query) => {
+            Some("ui_state_brief")
+        }
+        ("delegation.task", "verifier")
+            if query_requests_research_work(query) && query_requests_verification_work(query) =>
+        {
+            Some("citation_audit")
+        }
+        ("delegation.task", "verifier")
+            if query_requests_browser_work(query) && query_requests_verification_work(query) =>
+        {
+            Some("browser_postcondition_audit")
+        }
+        ("delegation.task", "verifier")
+            if query_requests_artifact_work(query) && query_requests_verification_work(query) =>
+        {
+            Some("artifact_quality_audit")
+        }
+        ("delegation.task", "verifier")
+            if query_requests_code_change_work(query)
+                && query_requests_verification_work(query) =>
+        {
+            Some("targeted_test_audit")
         }
         ("delegation.task", "researcher") if query_requests_research_work(query) => {
             Some("live_research_brief")
@@ -604,6 +723,13 @@ fn fallback_instruction_contract(query: &str, intent_id: &str) -> Option<Instruc
     let mut contract = InstructionContract::default();
     finalize_instruction_contract(query, intent_id, &mut contract);
     Some(contract)
+}
+
+pub fn seeded_instruction_contract_for_intent(
+    query: &str,
+    intent_id: &str,
+) -> Option<InstructionContract> {
+    fallback_instruction_contract(query, intent_id)
 }
 
 pub(super) async fn synthesize_instruction_contract(
@@ -881,16 +1007,112 @@ mod tests {
             .slot_bindings
             .iter()
             .find(|binding| binding.slot == "template_id")
-            .expect("researcher template binding should be added");
-        assert_eq!(template_binding.value.as_deref(), Some("researcher"));
+            .expect("context worker template binding should be added");
+        assert_eq!(template_binding.value.as_deref(), Some("context_worker"));
         let workflow_binding = contract
             .slot_bindings
             .iter()
             .find(|binding| binding.slot == "workflow_id")
-            .expect("researcher workflow binding should be added");
+            .expect("context worker workflow binding should be added");
         assert_eq!(
             workflow_binding.value.as_deref(),
-            Some("live_research_brief")
+            Some("repo_context_brief")
+        );
+    }
+
+    #[test]
+    fn seeds_research_playbook_for_web_research_intent() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Research the latest kernel scheduling benchmarks and verify the source freshness.",
+            "web.research",
+            &mut contract,
+        );
+
+        let playbook_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "playbook_id")
+            .expect("research playbook binding should be added");
+        assert_eq!(
+            playbook_binding.value.as_deref(),
+            Some("citation_grounded_brief")
+        );
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("researcher template binding should be added");
+        assert_eq!(template_binding.value.as_deref(), Some("researcher"));
+    }
+
+    #[test]
+    fn seeds_browser_playbook_for_browser_task() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Open the billing website, click the submit button, and verify the confirmation page appears.",
+            "delegation.task",
+            &mut contract,
+        );
+
+        let playbook_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "playbook_id")
+            .expect("browser playbook binding should be added");
+        assert_eq!(
+            playbook_binding.value.as_deref(),
+            Some("browser_postcondition_gate")
+        );
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("perception worker template binding should be added");
+        assert_eq!(template_binding.value.as_deref(), Some("perception_worker"));
+        let workflow_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "workflow_id")
+            .expect("browser workflow binding should be added");
+        assert_eq!(workflow_binding.value.as_deref(), Some("ui_state_brief"));
+    }
+
+    #[test]
+    fn seeds_artifact_playbook_for_artifact_task() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Generate a launch landing page artifact and verify the retained HTML is ready for presentation.",
+            "delegation.task",
+            &mut contract,
+        );
+
+        let playbook_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "playbook_id")
+            .expect("artifact playbook binding should be added");
+        assert_eq!(
+            playbook_binding.value.as_deref(),
+            Some("artifact_generation_gate")
+        );
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("artifact context template binding should be added");
+        assert_eq!(template_binding.value.as_deref(), Some("context_worker"));
+        let workflow_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "workflow_id")
+            .expect("artifact workflow binding should be added");
+        assert_eq!(
+            workflow_binding.value.as_deref(),
+            Some("artifact_context_brief")
         );
     }
 
@@ -941,6 +1163,33 @@ mod tests {
     }
 
     #[test]
+    fn seeds_targeted_test_verifier_for_code_verification_delegation() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Delegate a worker to verify the Rust patch by running the focused tests first and widening only if needed.",
+            "delegation.task",
+            &mut contract,
+        );
+
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("verifier template binding should be added");
+        assert_eq!(template_binding.value.as_deref(), Some("verifier"));
+        let workflow_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "workflow_id")
+            .expect("verifier workflow binding should be added");
+        assert_eq!(
+            workflow_binding.value.as_deref(),
+            Some("targeted_test_audit")
+        );
+    }
+
+    #[test]
     fn seeds_coder_workflow_for_explicit_code_change_delegation() {
         let mut contract = InstructionContract::default();
 
@@ -965,5 +1214,55 @@ mod tests {
             workflow_binding.value.as_deref(),
             Some("patch_build_verify")
         );
+    }
+
+    #[test]
+    fn seeded_instruction_contract_helper_returns_coding_parent_playbook_contract() {
+        let contract = seeded_instruction_contract_for_intent(
+            "Port the path-normalization parity fix into the repo, run the focused tests first, and report what changed.",
+            "workspace.ops",
+        )
+        .expect("seeded coding contract should exist");
+
+        let playbook_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "playbook_id")
+            .expect("coding parent playbook binding should exist");
+        assert_eq!(
+            playbook_binding.value.as_deref(),
+            Some("evidence_audited_patch")
+        );
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("coding template binding should exist");
+        assert_eq!(template_binding.value.as_deref(), Some("context_worker"));
+    }
+
+    #[test]
+    fn seeded_instruction_contract_helper_returns_research_parent_playbook_contract() {
+        let contract = seeded_instruction_contract_for_intent(
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+            "web.research",
+        )
+        .expect("seeded research contract should exist");
+
+        let playbook_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "playbook_id")
+            .expect("research parent playbook binding should exist");
+        assert_eq!(
+            playbook_binding.value.as_deref(),
+            Some("citation_grounded_brief")
+        );
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("research template binding should exist");
+        assert_eq!(template_binding.value.as_deref(), Some("researcher"));
     }
 }

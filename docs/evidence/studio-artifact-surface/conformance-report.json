@@ -1,0 +1,32 @@
+{
+  "generatedAt": "2026-03-31T07:53:58.029Z",
+  "repoRoot": "/home/heathledger/Documents/ioi/repos/ioi",
+  "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface",
+  "passing": true,
+  "checks": [
+    {
+      "id": "benchmark_specific_routing",
+      "status": "pass",
+      "summary": "Production Studio sources do not contain benchmark ids or case-binding ids.",
+      "details": []
+    },
+    {
+      "id": "skill_name_routing",
+      "status": "pass",
+      "summary": "Production Studio sources do not route on retained concrete skill names.",
+      "details": []
+    },
+    {
+      "id": "paraphrase_stability",
+      "status": "pass",
+      "summary": "Benchmarks with multiple retained bindings keep a stable scaffold family.",
+      "details": []
+    },
+    {
+      "id": "shim_free_parity_success",
+      "status": "pass",
+      "summary": "Tracked parity targets do not count shim-dependent ready states as conformance wins.",
+      "details": []
+    }
+  ]
+}

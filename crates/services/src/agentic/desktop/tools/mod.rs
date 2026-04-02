@@ -2,7 +2,7 @@ mod builtins;
 mod discovery;
 mod mcp;
 pub(crate) mod services;
-mod skills;
+pub(crate) mod skills;
 
 pub use discovery::discover_tools;
 

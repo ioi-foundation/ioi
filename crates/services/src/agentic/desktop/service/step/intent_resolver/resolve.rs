@@ -576,6 +576,10 @@ pub async fn resolve_step_intent_with_state(
         provider_selection.as_ref(),
     )
     .await;
+    let required_capabilities = required_capabilities_with_instruction_contract(
+        &required_capabilities,
+        instruction_contract.as_ref(),
+    );
     let mut resolved = ResolvedIntentState {
         intent_id: winner.intent_id,
         scope,

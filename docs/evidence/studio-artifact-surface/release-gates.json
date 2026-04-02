@@ -1,0 +1,269 @@
+{
+  "version": 1,
+  "generatedAt": "2026-04-02T10:04:37.177Z",
+  "configPath": "release-gates.config.json",
+  "summaryPath": "corpus-summary.json",
+  "conformanceReportPath": "conformance-report.json",
+  "arenaLedgerPath": "arena/ledger.json",
+  "passing": false,
+  "status": "fail",
+  "summary": {
+    "gateCount": 7,
+    "passCount": 4,
+    "failCount": 3,
+    "pendingCount": 0,
+    "blockingGateIds": [
+      "ready_rate",
+      "pairwise_win_rate",
+      "shim_required_rate"
+    ],
+    "ratchetCandidateIds": [
+      "ready_rate",
+      "average_judge_score",
+      "screenshot_quality_score",
+      "shim_required_rate",
+      "variance_across_repeats",
+      "lexical_routing_regressions"
+    ],
+    "changeRequirement": "Major artifact-lane changes should raise the floor, raise the ceiling, reduce variance, or reduce cost at the same quality; release gates make that obligation explicit."
+  },
+  "gates": [
+    {
+      "id": "ready_rate",
+      "label": "Ready rate",
+      "required": true,
+      "status": "fail",
+      "operator": "minimum",
+      "shipThreshold": 0.95,
+      "reading": {
+        "value": 0.889,
+        "available": true,
+        "method": "share of benchmark cases whose surfaced verification cleared to ready/pass",
+        "supportingBenchmarkIds": [
+          "html-quantum-explainer",
+          "html-editorial-launch-page",
+          "html-rollout-with-charts",
+          "html-technical-comparison",
+          "html-guided-onboarding-explainer",
+          "svg-concept-poster",
+          "jsx-pricing-configurator",
+          "markdown-report",
+          "pdf-launch-brief"
+        ],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "eligible_raise_floor",
+        "floor": 0.8,
+        "deltaToFloor": 0.089,
+        "candidateFloor": 0.889
+      }
+    },
+    {
+      "id": "average_judge_score",
+      "label": "Average judge score",
+      "required": true,
+      "status": "pass",
+      "operator": "minimum",
+      "shipThreshold": 0.85,
+      "reading": {
+        "value": 0.856,
+        "available": true,
+        "method": "mean of the six structured acceptance dimensions normalized to the 0-1 range",
+        "supportingBenchmarkIds": [
+          "html-quantum-explainer",
+          "html-editorial-launch-page",
+          "html-rollout-with-charts",
+          "html-technical-comparison",
+          "html-guided-onboarding-explainer",
+          "svg-concept-poster",
+          "jsx-pricing-configurator",
+          "markdown-report",
+          "pdf-launch-brief"
+        ],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "eligible_raise_floor",
+        "floor": 0.8,
+        "deltaToFloor": 0.056,
+        "candidateFloor": 0.856
+      }
+    },
+    {
+      "id": "screenshot_quality_score",
+      "label": "Screenshot quality score",
+      "required": true,
+      "status": "pass",
+      "operator": "minimum",
+      "shipThreshold": 0.8,
+      "reading": {
+        "value": 0.84,
+        "available": true,
+        "method": "mean normalized overall render-evaluation score across executed benchmarks with first-paint screenshot receipts",
+        "supportingBenchmarkIds": [
+          "html-guided-onboarding-explainer",
+          "svg-concept-poster"
+        ],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "eligible_raise_floor",
+        "floor": 0.75,
+        "deltaToFloor": 0.09,
+        "candidateFloor": 0.84
+      }
+    },
+    {
+      "id": "pairwise_win_rate",
+      "label": "Pairwise win rate",
+      "required": true,
+      "status": "fail",
+      "operator": "minimum",
+      "shipThreshold": 0.55,
+      "reading": {
+        "value": 0,
+        "available": true,
+        "method": "blind pairwise win rate against externally supplied references when arena evidence is present",
+        "supportingBenchmarkIds": [],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "regressed",
+        "floor": 0.5,
+        "deltaToFloor": -0.5,
+        "candidateFloor": null
+      }
+    },
+    {
+      "id": "shim_required_rate",
+      "label": "Shim-required rate",
+      "required": true,
+      "status": "fail",
+      "operator": "maximum",
+      "shipThreshold": 0.1,
+      "reading": {
+        "value": 0.444,
+        "available": true,
+        "method": "share of executed benchmark cases that still relied on Studio normalization repair shims",
+        "supportingBenchmarkIds": [
+          "html-quantum-explainer",
+          "html-editorial-launch-page",
+          "html-rollout-with-charts",
+          "html-technical-comparison"
+        ],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "eligible_raise_floor",
+        "floor": 0.7,
+        "deltaToFloor": 0.256,
+        "candidateFloor": 0.444
+      }
+    },
+    {
+      "id": "variance_across_repeats",
+      "label": "Variance across repeated runs",
+      "required": true,
+      "status": "pass",
+      "operator": "maximum",
+      "shipThreshold": 0.15,
+      "reading": {
+        "value": 0.056,
+        "available": true,
+        "method": "mean spread across judge, first-paint, render-eval, and classification scores for retained repeated-run variation receipts",
+        "supportingBenchmarkIds": [
+          "svg-concept-poster"
+        ],
+        "supportingCheckIds": [],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "eligible_raise_floor",
+        "floor": 0.25,
+        "deltaToFloor": 0.194,
+        "candidateFloor": 0.056
+      }
+    },
+    {
+      "id": "lexical_routing_regressions",
+      "label": "Lexical routing regressions",
+      "required": true,
+      "status": "pass",
+      "operator": "maximum",
+      "shipThreshold": 0,
+      "reading": {
+        "value": 0,
+        "available": true,
+        "method": "count of non-pass conformance checks across benchmark_specific_routing, skill_name_routing",
+        "supportingBenchmarkIds": [],
+        "supportingCheckIds": [
+          "benchmark_specific_routing",
+          "skill_name_routing"
+        ],
+        "failedCheckIds": []
+      },
+      "ratchet": {
+        "status": "eligible_raise_floor",
+        "floor": 0,
+        "deltaToFloor": 0,
+        "candidateFloor": 0
+      }
+    }
+  ],
+  "ratchetCandidates": [
+    {
+      "id": "ready_rate",
+      "label": "Ready rate",
+      "operator": "minimum",
+      "currentValue": 0.889,
+      "currentFloor": 0.8,
+      "candidateFloor": 0.889
+    },
+    {
+      "id": "average_judge_score",
+      "label": "Average judge score",
+      "operator": "minimum",
+      "currentValue": 0.856,
+      "currentFloor": 0.8,
+      "candidateFloor": 0.856
+    },
+    {
+      "id": "screenshot_quality_score",
+      "label": "Screenshot quality score",
+      "operator": "minimum",
+      "currentValue": 0.84,
+      "currentFloor": 0.75,
+      "candidateFloor": 0.84
+    },
+    {
+      "id": "shim_required_rate",
+      "label": "Shim-required rate",
+      "operator": "maximum",
+      "currentValue": 0.444,
+      "currentFloor": 0.7,
+      "candidateFloor": 0.444
+    },
+    {
+      "id": "variance_across_repeats",
+      "label": "Variance across repeated runs",
+      "operator": "maximum",
+      "currentValue": 0.056,
+      "currentFloor": 0.25,
+      "candidateFloor": 0.056
+    },
+    {
+      "id": "lexical_routing_regressions",
+      "label": "Lexical routing regressions",
+      "operator": "maximum",
+      "currentValue": 0,
+      "currentFloor": 0,
+      "candidateFloor": 0
+    }
+  ]
+}

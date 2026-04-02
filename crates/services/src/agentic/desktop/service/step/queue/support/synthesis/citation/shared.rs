@@ -71,19 +71,9 @@ fn document_briefing_excerpt_quality_key(
     source_label: &str,
     excerpt: &str,
 ) -> (usize, usize, usize, bool) {
-    let required_labels = briefing_standard_identifier_groups_for_query(query_contract)
-        .iter()
-        .filter(|group| group.required)
-        .map(|group| group.primary_label)
-        .collect::<BTreeSet<_>>();
-    let observed_labels = observed_briefing_standard_identifier_labels(
-        query_contract,
-        &format!("{} {} {}", url, source_label, excerpt),
-    );
-    let required_hits = observed_labels
-        .iter()
-        .filter(|label| required_labels.contains(label.as_str()))
-        .count();
+    let observed_labels =
+        source_briefing_standard_identifier_labels(query_contract, url, source_label, excerpt);
+    let required_hits = observed_labels.len();
     let authority_hits = usize::from(source_has_document_authority(
         query_contract,
         url,

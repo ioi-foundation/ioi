@@ -1,6 +1,8 @@
 use ioi_api::studio::{
-    StudioArtifactBrief, StudioArtifactCandidateSummary, StudioArtifactEditIntent,
-    StudioArtifactOutputOrigin, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    StudioAdaptiveSearchBudget, StudioArtifactBlueprint, StudioArtifactBrief,
+    StudioArtifactCandidateSummary, StudioArtifactEditIntent, StudioArtifactIR,
+    StudioArtifactOutputOrigin, StudioArtifactRenderEvaluation, StudioArtifactRuntimePolicy,
+    StudioArtifactSelectedSkill, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
     StudioGeneratedArtifactFile,
 };
 use ioi_types::app::{
@@ -46,12 +48,30 @@ pub(crate) struct ComposedVerifiedReply {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ArtifactLaneReceipt {
+    pub(crate) receipt_id: String,
+    pub(crate) kind: String,
+    pub(crate) status: String,
+    pub(crate) title: String,
+    pub(crate) summary: String,
+    #[serde(default)]
+    pub(crate) details: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct GeneratedArtifactEvidence {
     pub(crate) prompt: String,
     pub(crate) title: String,
     pub(crate) route: StudioOutcomePlanningPayload,
     #[serde(default)]
     pub(crate) artifact_brief: Option<StudioArtifactBrief>,
+    #[serde(default)]
+    pub(crate) blueprint: Option<StudioArtifactBlueprint>,
+    #[serde(default)]
+    pub(crate) artifact_ir: Option<StudioArtifactIR>,
+    #[serde(default)]
+    pub(crate) selected_skills: Vec<StudioArtifactSelectedSkill>,
     #[serde(default)]
     pub(crate) edit_intent: Option<StudioArtifactEditIntent>,
     #[serde(default)]
@@ -61,9 +81,17 @@ pub(crate) struct GeneratedArtifactEvidence {
     #[serde(default)]
     pub(crate) winning_candidate_rationale: Option<String>,
     #[serde(default)]
+    pub(crate) render_evaluation: Option<StudioArtifactRenderEvaluation>,
+    #[serde(default)]
     pub(crate) judge: Option<ioi_api::studio::StudioArtifactJudgeResult>,
     #[serde(default)]
     pub(crate) output_origin: Option<StudioArtifactOutputOrigin>,
+    #[serde(default)]
+    pub(crate) runtime_policy: Option<StudioArtifactRuntimePolicy>,
+    #[serde(default)]
+    pub(crate) adaptive_search_budget: Option<StudioAdaptiveSearchBudget>,
+    #[serde(default)]
+    pub(crate) artifact_lane_receipts: Vec<ArtifactLaneReceipt>,
     #[serde(default)]
     pub(crate) production_provenance: Option<StudioRuntimeProvenance>,
     #[serde(default)]

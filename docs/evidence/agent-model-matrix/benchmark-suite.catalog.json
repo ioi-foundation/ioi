@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "scorecardSchemaVersion": 1,
+  "benchmarks": [
+    {
+      "benchmarkId": "artifact-download-bundle",
+      "title": "Artifact download bundle",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "timeoutMs": 120000,
+      "prompt": "Create a downloadable artifact bundle with a CSV and README",
+      "expectedArtifactClass": "downloadable_file",
+      "expectedRenderer": "download_card",
+      "tags": [
+        "artifacts",
+        "bundle",
+        "verification"
+      ]
+    },
+    {
+      "benchmarkId": "artifact-markdown-report",
+      "title": "Artifact markdown report",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "timeoutMs": 120000,
+      "prompt": "Create a markdown artifact that documents a release checklist",
+      "expectedArtifactClass": "document",
+      "expectedRenderer": "markdown",
+      "tags": [
+        "artifacts",
+        "document",
+        "density"
+      ]
+    },
+    {
+      "benchmarkId": "artifact-editorial-launch-page",
+      "title": "Artifact editorial launch page",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "timeoutMs": 120000,
+      "prompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+      "expectedArtifactClass": "interactive_single_file",
+      "expectedRenderer": "html_iframe",
+      "tags": [
+        "artifacts",
+        "interactive_html",
+        "first_paint"
+      ]
+    },
+    {
+      "benchmarkId": "computer-use-click-button-smoke",
+      "title": "Computer use click-button smoke",
+      "workload": "computer_use",
+      "runner": "computer_use_suite",
+      "timeoutMs": 180000,
+      "caseId": "miniwob_click_button_smoke",
+      "taskSet": "smoke",
+      "tags": [
+        "computer_use",
+        "smoke",
+        "reward_floor"
+      ]
+    },
+    {
+      "benchmarkId": "research-nist-pqc-briefing",
+      "title": "Research latest NIST PQC standards",
+      "workload": "research",
+      "runner": "capabilities_suite",
+      "timeoutMs": 240000,
+      "caseId": "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing",
+      "routeFamily": "research",
+      "playbookId": "citation_grounded_brief",
+      "executionProfile": "hermetic",
+      "tags": [
+        "research",
+        "currentness",
+        "citation_verifier"
+      ]
+    },
+    {
+      "benchmarkId": "coding-path-normalizer-fixture",
+      "title": "Coding path normalizer fixture",
+      "workload": "coding",
+      "runner": "capabilities_suite",
+      "timeoutMs": 240000,
+      "caseId": "fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests",
+      "routeFamily": "coding",
+      "playbookId": "evidence_audited_patch",
+      "executionProfile": "hermetic",
+      "tags": [
+        "coding",
+        "targeted_tests",
+        "verifier"
+      ]
+    }
+  ]
+}

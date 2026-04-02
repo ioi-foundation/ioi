@@ -356,6 +356,26 @@ fn grounded_direct_citation_source_allowed_with_contract_and_projection(
         return false;
     }
 
+    let grounded_document_briefing_requires_authority_first =
+        query_prefers_document_briefing_layout(query_contract)
+            && !query_requests_comparison(query_contract)
+            && projection.query_facets.grounded_external_required
+            && retrieval_contract
+                .map(|contract| contract.currentness_required || contract.source_independence_min > 1)
+                .unwrap_or(false);
+    let grounded_external_publication_artifact =
+        Url::parse(trimmed)
+            .ok()
+            .map(|parsed| parsed.path().to_ascii_lowercase().ends_with(".pdf"))
+            .unwrap_or(false);
+    if grounded_document_briefing_requires_authority_first
+        && !source_has_public_authority_host(trimmed)
+        && !source_has_briefing_standard_identifier_signal(query_contract, trimmed, title, excerpt)
+        && !grounded_external_publication_artifact
+    {
+        return false;
+    }
+
     if retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, query_contract)
         && !candidate_time_sensitive_resolvable_payload(trimmed, title, excerpt)
     {
@@ -401,6 +421,14 @@ pub(crate) fn projection_candidate_url_allowed_with_contract_and_projection(
         return false;
     }
     let candidate_allowed = projection_candidate_url_allowed(raw)
+        || grounded_document_briefing_authority_direct_citation_allowed_with_contract_and_projection(
+            retrieval_contract,
+            query_contract,
+            projection,
+            raw,
+            title,
+            excerpt,
+        )
         || single_snapshot_metric_detail_candidate_allowed_with_contract_and_projection(
             retrieval_contract,
             query_contract,
@@ -750,6 +778,48 @@ mod candidate_filtering_tests {
             "https://www.nist.gov/pqc",
             "Post-quantum cryptography | NIST",
             "March 2026 - NIST provides post-quantum cryptography migration guidance for federal systems."
+        ));
+    }
+
+    #[test]
+    fn document_briefing_direct_citation_allows_public_authority_publication_with_late_grounding_context(
+    ) {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+        let projection = build_query_constraint_projection(query, 2, &[]);
+        let late_grounding_context = format!(
+            "{} post-quantum cryptography standards migration guidance from the NIST PQC program.",
+            "context ".repeat(24)
+        );
+
+        assert!(projection_candidate_url_allowed_with_contract_and_projection(
+            Some(&contract),
+            query,
+            &projection,
+            "https://csrc.nist.gov/pubs/fips/203/final",
+            "Module-Lattice-Based Key-Encapsulation Mechanism Standard",
+            &late_grounding_context,
+        ));
+    }
+
+    #[test]
+    fn document_briefing_direct_citation_allows_grounded_external_publication_artifact_without_identifier_signal(
+    ) {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+        let projection = build_query_constraint_projection(query, 2, &[]);
+
+        assert!(projection_candidate_url_allowed_with_contract_and_projection(
+            Some(&contract),
+            query,
+            &projection,
+            "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf",
+            "State of PQC Readiness 2025",
+            "Independent November 2025 report on post-quantum cryptography readiness after NIST finalized its first post-quantum standards."
         ));
     }
 }

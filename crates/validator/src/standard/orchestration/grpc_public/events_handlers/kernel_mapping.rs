@@ -378,10 +378,7 @@ fn map_kernel_event(
                             status: worker.status,
                             success: worker.success,
                             summary: worker.summary,
-                            verification_hint: worker
-                                .verification_hint
-                                .clone()
-                                .unwrap_or_default(),
+                            verification_hint: worker.verification_hint.clone().unwrap_or_default(),
                             has_verification_hint: worker.verification_hint.is_some(),
                             error_class: worker.error_class.clone().unwrap_or_default(),
                             has_error_class: worker.error_class.is_some(),
@@ -410,15 +407,143 @@ fn map_kernel_event(
                             has_step_id: playbook.step_id.is_some(),
                             step_label: playbook.step_label.clone().unwrap_or_default(),
                             has_step_label: playbook.step_label.is_some(),
-                            child_session_id: playbook
-                                .child_session_id
-                                .clone()
-                                .unwrap_or_default(),
+                            child_session_id: playbook.child_session_id.clone().unwrap_or_default(),
                             has_child_session_id: playbook.child_session_id.is_some(),
                             template_id: playbook.template_id.clone().unwrap_or_default(),
                             has_template_id: playbook.template_id.is_some(),
                             workflow_id: playbook.workflow_id.clone().unwrap_or_default(),
                             has_workflow_id: playbook.workflow_id.is_some(),
+                            route_family: playbook.route_family,
+                            topology: playbook.topology,
+                            verifier_state: playbook.verifier_state,
+                            planner_authority: playbook.planner_authority,
+                            verifier_role: playbook.verifier_role,
+                            verifier_outcome: playbook.verifier_outcome,
+                            selected_skills: playbook.selected_skills,
+                            prep_summary: playbook.prep_summary.clone().unwrap_or_default(),
+                            has_prep_summary: playbook.prep_summary.is_some(),
+                            artifact_generation: playbook.artifact_generation.as_ref().map(
+                                |summary| ioi_ipc::public::ArtifactGenerationSummary {
+                                    status: summary.status.clone(),
+                                    produced_file_count: summary.produced_file_count,
+                                    verification_signal_status: summary
+                                        .verification_signal_status
+                                        .clone(),
+                                    presentation_status: summary.presentation_status.clone(),
+                                    notes: summary.notes.clone().unwrap_or_default(),
+                                    has_notes: summary.notes.is_some(),
+                                },
+                            ),
+                            has_artifact_generation: playbook.artifact_generation.is_some(),
+                            computer_use_perception: playbook.computer_use_perception.as_ref().map(
+                                |summary| ioi_ipc::public::ComputerUsePerceptionSummary {
+                                    surface_status: summary.surface_status.clone(),
+                                    ui_state: summary.ui_state.clone(),
+                                    target: summary.target.clone().unwrap_or_default(),
+                                    has_target: summary.target.is_some(),
+                                    approval_risk: summary.approval_risk.clone(),
+                                    next_action: summary.next_action.clone().unwrap_or_default(),
+                                    has_next_action: summary.next_action.is_some(),
+                                    notes: summary.notes.clone().unwrap_or_default(),
+                                    has_notes: summary.notes.is_some(),
+                                },
+                            ),
+                            has_computer_use_perception: playbook.computer_use_perception.is_some(),
+                            research_scorecard: playbook.research_scorecard.as_ref().map(
+                                |scorecard| ioi_ipc::public::ResearchVerificationScorecard {
+                                    verdict: scorecard.verdict.clone(),
+                                    source_count: scorecard.source_count,
+                                    distinct_domain_count: scorecard.distinct_domain_count,
+                                    source_count_floor_met: scorecard.source_count_floor_met,
+                                    source_independence_floor_met: scorecard
+                                        .source_independence_floor_met,
+                                    freshness_status: scorecard.freshness_status.clone(),
+                                    quote_grounding_status: scorecard
+                                        .quote_grounding_status
+                                        .clone(),
+                                    notes: scorecard.notes.clone().unwrap_or_default(),
+                                    has_notes: scorecard.notes.is_some(),
+                                },
+                            ),
+                            has_research_scorecard: playbook.research_scorecard.is_some(),
+                            artifact_quality: playbook.artifact_quality.as_ref().map(|scorecard| {
+                                ioi_ipc::public::ArtifactQualityScorecard {
+                                    verdict: scorecard.verdict.clone(),
+                                    fidelity_status: scorecard.fidelity_status.clone(),
+                                    presentation_status: scorecard.presentation_status.clone(),
+                                    repair_status: scorecard.repair_status.clone(),
+                                    notes: scorecard.notes.clone().unwrap_or_default(),
+                                    has_notes: scorecard.notes.is_some(),
+                                }
+                            }),
+                            has_artifact_quality: playbook.artifact_quality.is_some(),
+                            computer_use_verification: playbook
+                                .computer_use_verification
+                                .as_ref()
+                                .map(|scorecard| {
+                                    ioi_ipc::public::ComputerUseVerificationScorecard {
+                                        verdict: scorecard.verdict.clone(),
+                                        postcondition_status: scorecard
+                                            .postcondition_status
+                                            .clone(),
+                                        approval_state: scorecard.approval_state.clone(),
+                                        recovery_status: scorecard.recovery_status.clone(),
+                                        observed_postcondition: scorecard
+                                            .observed_postcondition
+                                            .clone()
+                                            .unwrap_or_default(),
+                                        has_observed_postcondition: scorecard
+                                            .observed_postcondition
+                                            .is_some(),
+                                        notes: scorecard.notes.clone().unwrap_or_default(),
+                                        has_notes: scorecard.notes.is_some(),
+                                    }
+                                }),
+                            has_computer_use_verification: playbook
+                                .computer_use_verification
+                                .is_some(),
+                            coding_scorecard: playbook.coding_scorecard.as_ref().map(|scorecard| {
+                                ioi_ipc::public::CodingVerificationScorecard {
+                                    verdict: scorecard.verdict.clone(),
+                                    targeted_command_count: scorecard.targeted_command_count,
+                                    targeted_pass_count: scorecard.targeted_pass_count,
+                                    widening_status: scorecard.widening_status.clone(),
+                                    regression_status: scorecard.regression_status.clone(),
+                                    notes: scorecard.notes.clone().unwrap_or_default(),
+                                    has_notes: scorecard.notes.is_some(),
+                                }
+                            }),
+                            has_coding_scorecard: playbook.coding_scorecard.is_some(),
+                            patch_synthesis: playbook.patch_synthesis.as_ref().map(|summary| {
+                                ioi_ipc::public::PatchSynthesisSummary {
+                                    status: summary.status.clone(),
+                                    touched_file_count: summary.touched_file_count,
+                                    verification_ready: summary.verification_ready,
+                                    notes: summary.notes.clone().unwrap_or_default(),
+                                    has_notes: summary.notes.is_some(),
+                                }
+                            }),
+                            has_patch_synthesis: playbook.patch_synthesis.is_some(),
+                            artifact_repair: playbook.artifact_repair.as_ref().map(|summary| {
+                                ioi_ipc::public::ArtifactRepairSummary {
+                                    status: summary.status.clone(),
+                                    reason: summary.reason.clone().unwrap_or_default(),
+                                    has_reason: summary.reason.is_some(),
+                                    next_step: summary.next_step.clone().unwrap_or_default(),
+                                    has_next_step: summary.next_step.is_some(),
+                                }
+                            }),
+                            has_artifact_repair: playbook.artifact_repair.is_some(),
+                            computer_use_recovery: playbook.computer_use_recovery.as_ref().map(
+                                |summary| ioi_ipc::public::ComputerUseRecoverySummary {
+                                    status: summary.status.clone(),
+                                    reason: summary.reason.clone().unwrap_or_default(),
+                                    has_reason: summary.reason.is_some(),
+                                    next_step: summary.next_step.clone().unwrap_or_default(),
+                                    has_next_step: summary.next_step.is_some(),
+                                },
+                            ),
+                            has_computer_use_recovery: playbook.computer_use_recovery.is_some(),
                             summary: playbook.summary,
                             error_class: playbook.error_class.clone().unwrap_or_default(),
                             has_error_class: playbook.error_class.is_some(),

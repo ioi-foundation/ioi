@@ -1,0 +1,124 @@
+{
+  "presetId": "planner-grade-local-oss",
+  "label": "Planner-grade local OSS",
+  "role": "planner_verifier",
+  "benchmarkTier": "tier1",
+  "experimental": true,
+  "shippedDefault": false,
+  "runtimeModel": "qwen2.5:14b",
+  "artifactAcceptanceModel": "qwen2.5:7b",
+  "availabilityStatus": "ready",
+  "availabilitySummary": "Local runtime is healthy and exposes 'qwen2.5:14b'.",
+  "caseCount": 1,
+  "availableWorkloadCount": 1,
+  "topFindings": [],
+  "scorecards": {
+    "artifactQuality": {
+      "available": false,
+      "reason": "No retained artifact benchmarks were executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "passRate": null,
+        "averageJudgeScore": null,
+        "verifierPassRate": null,
+        "averageRepairLoopIterations": null,
+        "routeMatchRate": null
+      }
+    },
+    "codingCompletion": {
+      "available": false,
+      "reason": "No retained coding benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "taskPassRate": null,
+        "targetedTestPassRate": null,
+        "verifierPassRate": null,
+        "patchSynthesisReadyRate": null
+      }
+    },
+    "researchQuality": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 1,
+        "taskPassRate": 1,
+        "citationVerifierPassRate": 1,
+        "sourceIndependenceRate": 1,
+        "sourceCountFloorRate": 1,
+        "synthesisCompleteness": 1,
+        "freshnessPassRate": 1,
+        "quoteGroundingPassRate": 1
+      }
+    },
+    "computerUseCompletion": {
+      "available": false,
+      "reason": "No retained computer-use benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "rewardFloorPassRate": null,
+        "postconditionPassRate": null,
+        "meanStepCount": null
+      }
+    },
+    "latencyAndResourcePressure": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "meanWallClockMs": 85978,
+        "p95WallClockMs": 85978,
+        "residentModelBytes": 8988124069,
+        "processorKind": null
+      }
+    },
+    "operationalDiscipline": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "malformedToolCallRate": null,
+        "noOpStallRate": null,
+        "repairLoopIterations": null,
+        "interruptionRecoveryQuality": null
+      }
+    }
+  },
+  "cases": [
+    {
+      "benchmarkId": "research-nist-pqc-briefing",
+      "title": "Research latest NIST PQC standards",
+      "workload": "research",
+      "runner": "capabilities_suite",
+      "caseId": "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing",
+      "status": "completed",
+      "result": "pass",
+      "elapsedMs": 85978,
+      "timedOut": false,
+      "taskPassed": true,
+      "localScore": 1,
+      "arbiterPass": true,
+      "playbookId": "citation_grounded_brief",
+      "routeFamily": "research",
+      "topology": "planner_specialist_verifier",
+      "verifierState": "passed",
+      "verifierPass": true,
+      "targetedCommandCount": null,
+      "targetedPassCount": null,
+      "targetedTestPassRate": null,
+      "patchSynthesisReady": false,
+      "citationVerifierPass": true,
+      "sourceCount": 3,
+      "distinctDomainCount": 2,
+      "sourceCountFloorRate": 1,
+      "sourceIndependenceRate": 1,
+      "synthesisCompleteness": 1,
+      "freshnessPassed": true,
+      "quoteGroundingPassed": true,
+      "summary": "Completed parent playbook 'Citation-Grounded Brief' across 2 steps.",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T11-06-57-996Z/planner-grade-local-oss/research-nist-pqc-briefing/retained-result.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T11-06-57-996Z/planner-grade-local-oss/research-nist-pqc-briefing",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T11-06-57-996Z/planner-grade-local-oss/research-nist-pqc-briefing/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T11-06-57-996Z/planner-grade-local-oss/research-nist-pqc-briefing/command.stderr.log"
+    }
+  ],
+  "summaryPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T11-06-57-996Z/planner-grade-local-oss/summary.json",
+  "runRootPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-01T11-06-57-996Z/planner-grade-local-oss"
+}

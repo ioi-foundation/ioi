@@ -13,6 +13,31 @@ fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().to_string()
 }
 
+fn patch_apply_failure_message(path: &Path, error: &str) -> String {
+    let normalized = error.trim();
+    let deterministic_search_miss = normalized.contains("search block not found in file")
+        || normalized.contains("search block is ambiguous");
+    let malformed_patch_payload = normalized.contains("search block must");
+
+    if deterministic_search_miss {
+        return format!(
+            "ERROR_CLASS=NoEffectAfterAction Patch failed for {}: {}. Use the exact latest `filesystem__read_file` block for `search`, or prefer `filesystem__edit_line` / `filesystem__write_file` for one-line fixes.",
+            path.display(),
+            normalized
+        );
+    }
+
+    if malformed_patch_payload {
+        return format!(
+            "ERROR_CLASS=UnexpectedState Patch failed for {}: {}",
+            path.display(),
+            normalized
+        );
+    }
+
+    format!("Patch failed for {}: {}", path.display(), normalized)
+}
+
 async fn emit_fs_write_receipt(
     exec: &ToolExecutor,
     session_id: [u8; 32],
@@ -313,10 +338,9 @@ pub async fn handle(
             let updated = match apply_patch(&existing, &search, &replace) {
                 Ok(updated) => updated,
                 Err(e) => {
-                    let result = ToolExecutionResult::failure(format!(
-                        "Patch failed for {}: {}",
-                        resolved_path.display(),
-                        e
+                    let result = ToolExecutionResult::failure(patch_apply_failure_message(
+                        &resolved_path,
+                        &e,
                     ));
                     let target = path_to_string(&resolved_path);
                     emit_fs_write_receipt(
@@ -758,5 +782,31 @@ pub async fn handle(
             result
         }
         _ => ToolExecutionResult::failure("Unsupported FS action"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::patch_apply_failure_message;
+    use std::path::Path;
+
+    #[test]
+    fn patch_search_miss_maps_to_no_effect_after_action() {
+        let message = patch_apply_failure_message(
+            Path::new("/tmp/example.py"),
+            "search block not found in file",
+        );
+        assert!(message.starts_with("ERROR_CLASS=NoEffectAfterAction"));
+        assert!(message.contains("filesystem__edit_line"));
+        assert!(message.contains("filesystem__write_file"));
+    }
+
+    #[test]
+    fn malformed_patch_payload_maps_to_unexpected_state() {
+        let message = patch_apply_failure_message(
+            Path::new("/tmp/example.py"),
+            "search block must be non-empty",
+        );
+        assert!(message.starts_with("ERROR_CLASS=UnexpectedState"));
     }
 }

@@ -367,6 +367,34 @@ pub fn analyze_source_text_signals(text: &str) -> SourceSignalProfile {
     }
 }
 
+pub(crate) fn strip_low_priority_leading_marker(text: &str) -> String {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    let mut best_remainder: Option<(usize, &str)> = None;
+    for marker in SOURCE_LOW_PRIORITY_MARKERS {
+        if !lower.starts_with(marker) {
+            continue;
+        }
+        let remainder = trimmed[marker.len()..]
+            .trim_start_matches(|ch: char| ch.is_whitespace() || ch.is_ascii_punctuation())
+            .trim();
+        if remainder.is_empty() {
+            continue;
+        }
+        if best_remainder.is_none_or(|(best_len, _)| marker.len() > best_len) {
+            best_remainder = Some((marker.len(), remainder));
+        }
+    }
+
+    best_remainder
+        .map(|(_, remainder)| remainder.to_string())
+        .unwrap_or_else(|| trimmed.to_string())
+}
+
 fn analyze_source_url_signals(url: &str) -> SourceUrlSignalProfile {
     let parsed = match Url::parse(url.trim()) {
         Ok(parsed) => parsed,

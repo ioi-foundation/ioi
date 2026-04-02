@@ -1,4 +1,9 @@
+use super::revisions::persist_studio_artifact_exemplar;
 use super::*;
+use ioi_api::studio::{
+    StudioArtifactBlueprint, StudioArtifactExemplar, StudioArtifactIR,
+    StudioArtifactRenderEvaluation, StudioArtifactSelectedSkill,
+};
 use std::time::Duration;
 
 pub(super) fn studio_routing_timeout_for_runtime(runtime: &Arc<dyn InferenceRuntime>) -> Duration {
@@ -27,10 +32,15 @@ pub(super) struct MaterializedContentArtifact {
     pub(super) file_writes: Vec<StudioArtifactMaterializationFileWrite>,
     pub(super) notes: Vec<String>,
     pub(super) brief: StudioArtifactBrief,
+    pub(super) blueprint: Option<StudioArtifactBlueprint>,
+    pub(super) artifact_ir: Option<StudioArtifactIR>,
+    pub(super) selected_skills: Vec<StudioArtifactSelectedSkill>,
+    pub(super) retrieved_exemplars: Vec<StudioArtifactExemplar>,
     pub(super) edit_intent: Option<StudioArtifactEditIntent>,
     pub(super) candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     pub(super) winning_candidate_id: Option<String>,
     pub(super) winning_candidate_rationale: Option<String>,
+    pub(super) render_evaluation: Option<StudioArtifactRenderEvaluation>,
     pub(super) judge: Option<StudioArtifactJudgeResult>,
     pub(super) output_origin: StudioArtifactOutputOrigin,
     pub(super) production_provenance: Option<crate::models::StudioRuntimeProvenance>,
@@ -118,6 +128,18 @@ pub(super) fn attach_blocked_studio_failure_session(
         deserves_primary_artifact_view: false,
         patched_existing_artifact: None,
         continuity_revision_ux: None,
+        issue_classes: vec!["failure_session".to_string()],
+        repair_hints: vec![
+            "Resolve the upstream studio failure and rerun materialization before surfacing the artifact."
+                .to_string(),
+        ],
+        strengths: Vec::new(),
+        blocked_reasons: vec![summary.clone()],
+        file_findings: Vec::new(),
+        aesthetic_verdict: "not_evaluated_due_to_failure_session".to_string(),
+        interaction_verdict: "not_evaluated_due_to_failure_session".to_string(),
+        truthfulness_warnings: Vec::new(),
+        recommended_next_pass: Some("generation_retry".to_string()),
         strongest_contradiction: Some(summary.clone()),
         rationale: summary.clone(),
     };
@@ -194,6 +216,7 @@ pub(super) fn attach_blocked_studio_failure_session(
         active_revision_id: None,
         revisions: Vec::new(),
         taste_memory: None,
+        retrieved_exemplars: Vec::new(),
         selected_targets: Vec::new(),
         ux_lifecycle: Some(StudioArtifactUxLifecycle::Draft),
         created_at: now_iso(),
@@ -438,15 +461,20 @@ pub(super) fn materialization_contract_for_request(
     };
 
     StudioArtifactMaterializationContract {
-        version: 3,
+        version: 5,
         request_kind: artifact_class_id_for_request(request),
         normalized_intent: intent.trim().to_string(),
         summary: summary.to_string(),
         artifact_brief: None,
+        blueprint: None,
+        artifact_ir: None,
+        selected_skills: Vec::new(),
+        retrieved_exemplars: Vec::new(),
         edit_intent: None,
         candidate_summaries: Vec::new(),
         winning_candidate_id: None,
         winning_candidate_rationale: None,
+        render_evaluation: None,
         judge: None,
         output_origin: None,
         production_provenance: None,
@@ -535,7 +563,10 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     let taste_memory = derive_studio_taste_memory(
         refinement.taste_memory.as_ref(),
         &materialized_artifact.brief,
+        materialized_artifact.blueprint.as_ref(),
+        materialized_artifact.artifact_ir.as_ref(),
         materialized_artifact.edit_intent.as_ref(),
+        materialized_artifact.judge.as_ref(),
     );
     materialized_artifact.selected_targets = selected_targets.clone();
     materialized_artifact.taste_memory = taste_memory.clone();
@@ -615,11 +646,16 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     materialization.file_writes = materialized_artifact.file_writes.clone();
     materialization.notes = materialized_artifact.notes.clone();
     materialization.artifact_brief = Some(materialized_artifact.brief.clone());
+    materialization.blueprint = materialized_artifact.blueprint.clone();
+    materialization.artifact_ir = materialized_artifact.artifact_ir.clone();
+    materialization.selected_skills = materialized_artifact.selected_skills.clone();
+    materialization.retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
     materialization.edit_intent = materialized_artifact.edit_intent.clone();
     materialization.candidate_summaries = materialized_artifact.candidate_summaries.clone();
     materialization.winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
     materialization.winning_candidate_rationale =
         materialized_artifact.winning_candidate_rationale.clone();
+    materialization.render_evaluation = materialized_artifact.render_evaluation.clone();
     materialization.judge = materialized_artifact.judge.clone();
     materialization.output_origin = Some(materialized_artifact.output_origin);
     materialization.production_provenance = materialized_artifact.production_provenance.clone();
@@ -639,6 +675,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     studio_session.status =
         lifecycle_state_label(materialized_artifact.lifecycle_state).to_string();
     studio_session.taste_memory = taste_memory;
+    studio_session.retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
     studio_session.selected_targets = selected_targets;
     studio_session.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
     studio_session.updated_at = now_iso();
@@ -655,6 +692,24 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     );
     studio_session.active_revision_id = Some(revision.revision_id.clone());
     studio_session.revisions.push(revision.clone());
+    match persist_studio_artifact_exemplar(
+        &memory_runtime,
+        app_inference_runtime(app),
+        &studio_session,
+        &revision,
+    ) {
+        Ok(Some(exemplar)) => studio_session.materialization.notes.push(format!(
+            "Archived exemplar {} for {} / {}.",
+            exemplar.record_id,
+            renderer_kind_id(exemplar.renderer),
+            exemplar.scaffold_family
+        )),
+        Ok(None) => {}
+        Err(error) => studio_session
+            .materialization
+            .notes
+            .push(format!("Exemplar archival skipped: {error}")),
+    }
 
     let artifact_refs = task
         .artifacts

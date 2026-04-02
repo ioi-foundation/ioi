@@ -3,6 +3,7 @@
 mod compaction;
 mod delegation;
 mod handlers;
+mod parent_playbook_receipts;
 mod runtime_locality;
 mod sudo;
 mod worker_results;

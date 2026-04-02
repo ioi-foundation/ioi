@@ -14,13 +14,14 @@ It should not feel like a narrow chain-deployment tool.
 It should feel like the canonical toolchain for:
 
 * bootstrapping a sovereign execution network
+* translating high-level operator intent into kernel-native objects
 * defining the trust, policy, and identity roots of that network
 * publishing worker and service classes into that network
 * constraining machine labor through capability, approval, and evidence rules
 * inspecting receipts, traces, and settlement-linked outcomes
 * upgrading the domain over time without losing continuity or authority
 
-The current implementation should begin **CLI-first** and stay close to the kernel, identity, publication, and settlement layers. The present `crates/cli` surface is the natural starting point for this direction.
+The current implementation should begin **command-line first**, stay close to the kernel, identity, publication, and settlement layers, and grow into a natural-language-capable surface without abandoning explicit structured commands. The present `crates/cli` surface is the natural starting point for this direction.
 
 `forge` still matters inside this system, but it should be treated as:
 
@@ -31,7 +32,15 @@ The current implementation should begin **CLI-first** and stay close to the kern
 
 It should not be the primary product name for the whole surface.
 
-> **`IOI CLI` is the canonical command line for the Web4 L0. It should make it natural to instantiate a sovereign execution network, publish governed worker systems into it, prove what happened, and settle verified machine labor under explicit policy.**
+`IOI CLI` should likely become natural-language capable, but it should not become natural-language only.
+
+The right shape is:
+
+* natural language for ergonomic intent capture
+* explicit plans for inspection and confirmation
+* canonical commands, manifests, and receipts as the durable truth
+
+> **`IOI CLI` is the canonical command line for the Web4 L0. It should make it natural to express intent in plain language or structured commands, resolve that intent into inspectable plans and manifests, instantiate a sovereign execution network, prove what happened, and settle verified machine labor under explicit policy.**
 
 ---
 
@@ -103,25 +112,29 @@ That gives room for strong command families such as:
 
 ### Category
 
-Canonical CLI surface for Web4 L0 domain authoring, intelligent blockchain instantiation, and sovereign execution-network operations.
+Canonical command-line surface for Web4 L0 domain authoring, intelligent blockchain instantiation, and sovereign execution-network operations.
 
 ### One sentence
 
-`IOI CLI` is the CLI-first, kernel-adjacent surface for creating intelligent blockchains as sovereign execution networks that govern, verify, and settle programmable machine labor under explicit policy.
+`IOI CLI` is the kernel-adjacent command surface for creating intelligent blockchains as sovereign execution networks that govern, verify, and settle programmable machine labor under explicit policy through both structured commands and natural-language intent resolution.
 
 ### One paragraph
 
-`IOI CLI` is the builder and operator surface for creating durable sovereign execution domains when a workflow or worker system needs more than service packaging. It owns domain scaffolding, policy roots, authority and delegation structure, worker and service classes, capability and evidence constraints, publication behavior, kernel-native commitments, settlement-linked receipts, and upgrade semantics. It should feel closer to an execution-economy toolchain than to a thin chain deployer: developer-grade, protocol-aware, scaffolding-heavy, and rooted in the kernel's actual publication, identity, evidence, and settlement semantics.
+`IOI CLI` is the builder and operator surface for creating durable sovereign execution domains when a workflow or worker system needs more than service packaging. It owns domain scaffolding, policy roots, authority and delegation structure, worker and service classes, capability and evidence constraints, publication behavior, kernel-native commitments, settlement-linked receipts, upgrade semantics, and the translation of user intent into canonical kernel-native plans. It should feel closer to an execution-economy toolchain than to a thin chain deployer: developer-grade, protocol-aware, scaffolding-heavy, and rooted in the kernel's actual publication, identity, evidence, settlement, and execution-path semantics.
 
 ### Current implementation posture
 
 `IOI CLI` should begin as:
 
-* CLI-first
+* command-line first
+* natural-language capable
 * kernel-adjacent
 * identity-aware
 * publication-aware
 * evidence-aware
+* previewable before mutation
+* auditable after execution
+* structured underneath for truth
 * developer/operator facing
 
 Later, it may grow richer IDE or visual surfaces, but the canonical first interface should stay close to `ioi` and the underlying kernel.
@@ -142,7 +155,7 @@ Private/local operator shell for workers, workflows, approvals, receipts, eviden
 
 **Author at the kernel boundary**
 
-Kernel-adjacent L0 surface for intelligent blockchains, sovereign execution networks, labor-market primitives, identity roots, policy bundles, evidence thresholds, publication, and upgrades.
+Kernel-adjacent L0 surface for intelligent blockchains, sovereign execution networks, labor-market primitives, identity roots, policy bundles, evidence thresholds, publication, upgrades, and natural-language intent resolution over canonical command families.
 
 `forge` is one of its major command families, not a separate product.
 
@@ -258,7 +271,7 @@ In that model:
 
 ---
 
-## 9. Command Model and Why CLI-First Is Right
+## 9. Command Model, Intent Resolution, and Why CLI-First Is Right
 
 This surface is closer to:
 
@@ -277,7 +290,83 @@ A CLI-first interface is therefore the correct first expression.
 
 The command hierarchy should spend clarity at the top level and reserve metaphorical names for the right subcommands.
 
-## 9.1 Command families
+It should support two equivalent entry modes:
+
+* explicit structured commands for repeatable expert use
+* natural-language intent capture for discovery, scaffolding, repair, and plan generation
+
+Structured CLI remains the canonical truth even when the session begins in natural language.
+
+## 9.1 Natural-language front door
+
+The CLI should become natural-language capable, but not natural-language only.
+
+Natural language is especially valuable for:
+
+* bootstrapping
+* scaffolding
+* command discovery
+* explaining intent
+* manifest and config generation
+* interactive repair and debugging
+* translating product intent into kernel-native objects
+
+Illustrative natural-language invocations may look like:
+
+* `ioi "spin up an intelligent blockchain for a private docs worker with local GPU and publishable receipts"`
+* `ioi "create a private coding worker with a local OSS model"`
+* `ioi "publish this service candidate to sas-ready format"`
+* `ioi "initialize this project and bind a local GPU profile"`
+
+These should feel ergonomic, but they must still compile down to explicit plans, canonical commands, manifests, config, and receipts.
+
+## 9.2 Three-layer resolution model
+
+The correct architecture is:
+
+### Layer 1: Intent surface
+
+The user may enter:
+
+* natural-language requests
+* partially structured prompts
+* canonical CLI commands
+
+### Layer 2: Resolved plan
+
+The CLI resolves the request into a plan that is:
+
+* inspectable
+* confirmable
+* editable when appropriate
+* explicit about dependencies and trust posture
+* explicit about files, manifests, or state it will create or mutate
+
+### Layer 3: Canonical execution
+
+Execution happens through:
+
+* explicit subcommands
+* manifests and config files
+* deterministic planners and generators where possible
+* receipts, traces, and evidence bundles
+
+The core doctrine is:
+
+* natural language is the front door for intent
+* structured commands and manifests are the system of record
+* execution must be previewable before mutation
+* mutations must be auditable and replayable afterward
+
+Natural-language requests should therefore compile down to:
+
+* deterministic commands where possible
+* explicit plans when interpretation is required
+* previewable changes
+* auditable manifests
+* replayable execution
+
+## 9.3 Command families
 
 Illustrative command families should eventually include:
 
@@ -431,7 +520,7 @@ Purpose:
 * bind browser, desktop, API, and enterprise surfaces
 * record trust posture for execution environments
 
-## 9.2 Current implementation bridge
+## 9.4 Current implementation bridge
 
 The present `crates/cli` command set already contains important foundations:
 
@@ -448,6 +537,8 @@ The present `crates/cli` command set already contains important foundations:
 The spec should not require an immediate rename of everything.
 
 Instead, those commands should be understood as the current kernel-adjacent substrate from which the stronger Web4-oriented command hierarchy can emerge.
+
+They should also remain valid even as a natural-language surface grows above them. The structured command tree is the stable substrate that natural-language resolution targets, not something to be replaced by chatty ambiguity.
 
 ---
 
@@ -467,11 +558,11 @@ A contract that can commission, constrain, verify, and pay for real work rather 
 
 ## 10.4 Worker manifest
 
-A typed declaration of a worker's role, capabilities, trust posture, allowed execution lanes, evidence obligations, and settlement-facing behavior.
+A typed declaration of a worker's role, capabilities, trust posture, allowed execution lanes, preferred execution path, fallback posture, evidence obligations, and settlement-facing behavior.
 
 ## 10.5 Service manifest
 
-A typed declaration of a service's interface, pricing, SLA, evidence profile, update policy, and supported worker topology.
+A typed declaration of a service's interface, pricing, SLA, evidence profile, update policy, supported worker topology, and allowed execution dependency posture.
 
 ## 10.6 Policy bundle
 
@@ -533,27 +624,129 @@ These presets should make it easier to express execution domains specialized for
 
 ---
 
-## 12. Core Lifecycle
+## 12. Execution Path Resolution and Dependency Posture
+
+`IOI CLI` should not assume one universal dependency model.
+
+Whether a workload needs local hardware, provider credentials, or managed infrastructure depends on:
+
+* the requested worker or service
+* the privacy and sovereignty posture
+* the required model or execution lane
+* the user's available local hardware
+* the presence or absence of provider keys
+* whether a managed fallback is allowed by policy
+
+The CLI should make this explicit rather than hiding it behind implicit failures or magical defaults.
+
+## 12.1 Supported execution paths
+
+The user should be able to satisfy execution prerequisites through one of three broad paths:
+
+### Local-first path
+
+The user has:
+
+* local CPU or GPU
+* local models
+* local runtime support
+* strongest sovereignty and privacy posture
+
+This path should not require a mandatory API key for local execution.
+
+### BYOK/API path
+
+The user has:
+
+* provider API keys or hosted inference credentials
+* access to hosted models or external execution infrastructure
+* potentially lighter local hardware requirements
+
+This path trades some sovereignty for easier setup or broader model access.
+
+### Managed path
+
+The user has:
+
+* neither strong local hardware nor a personal model stack necessarily
+* a provider-managed or cloud execution option
+
+This path should be explicit about the trust boundary, cost posture, and provider dependency.
+
+## 12.2 Resolution behavior
+
+When a user issues a natural-language request or a high-level structured scaffold command, the CLI should resolve and surface:
+
+* whether suitable local hardware was found
+* whether a local model/runtime is configured
+* whether provider keys are configured
+* whether managed execution is available
+* which path is recommended: local, BYOK, or managed
+* what the implications are for privacy, cost, latency, and portability
+
+The CLI should not silently cross execution boundaries when the user's request implies a specific posture.
+
+For example:
+
+* if the user asks for local execution and no suitable local path exists, the CLI should say so and propose alternatives
+* if the CLI wants to fall back from local to cloud, it should surface that change clearly and ask for confirmation when policy or trust posture changes
+* the chosen execution path should be visible in generated manifests, plans, and receipts where relevant
+
+## 12.3 Example UX
+
+For a request such as:
+
+> "Create a local coding worker."
+
+The CLI should be able to answer in a shape like:
+
+```text
+Interpreted intent:
+- create coding worker
+- prefer local execution
+
+Environment checks:
+- local GPU found: yes
+- local model configured: no
+- provider key found: yes
+- managed fallback available: yes
+
+Recommended path:
+- BYOK, unless the user installs a local model/runtime
+
+Implications:
+- local: highest privacy, hardware dependent, lower recurring cost
+- BYOK: faster setup, provider dependency, external cost
+- managed: easiest setup, lowest sovereignty, provider-managed execution
+```
+
+This execution-path resolution should be part of the product, not an afterthought.
+
+---
+
+## 13. Core Lifecycle
 
 The core `IOI CLI` domain-authoring loop should be:
 
-1. Initialize domain scaffold or preset
-2. Define trust, identity, and delegation roots
-3. Define policy bundles, approval matrices, and budget rules
-4. Define worker, service, and participant topology
-5. Define capability leases and external execution surfaces
-6. Define evidence, receipt, dispute, and settlement profiles
-7. Generate kernel-native scaffolds, manifests, and publication metadata
-8. Simulate execution paths and verify policy or evidence behavior locally
-9. Instantiate the sovereign domain
-10. Publish and inspect commitments, receipts, and namespace state
-11. Upgrade the domain over time without breaking continuity
+1. Capture intent through structured commands or natural-language requests
+2. Resolve the request into an inspectable plan
+3. Initialize domain scaffold or preset
+4. Define trust, identity, and delegation roots
+5. Define policy bundles, approval matrices, and budget rules
+6. Define worker, service, and participant topology
+7. Define capability leases, execution paths, and external execution surfaces
+8. Define evidence, receipt, dispute, and settlement profiles
+9. Generate kernel-native scaffolds, manifests, and publication metadata
+10. Simulate execution paths and verify policy or evidence behavior locally
+11. Instantiate the sovereign domain
+12. Publish and inspect commitments, receipts, and namespace state
+13. Upgrade the domain over time without breaking continuity
 
 This is heavier than normal serviceization and should feel heavier.
 
 ---
 
-## 13. Relationship to `Autopilot`
+## 14. Relationship to `Autopilot`
 
 `Autopilot` is the private/local shell where worker systems are:
 
@@ -584,7 +777,7 @@ This keeps Studio as the control plane while making artifact and repo generation
 
 ---
 
-## 14. Relationship to `sas.xyz`
+## 15. Relationship to `sas.xyz`
 
 `sas.xyz` is not just cloud routing. It is the provider-side packaging, deployment, serving, and commercialization layer.
 
@@ -611,28 +804,32 @@ Only the latter need `sas.xyz` as the provider-serving and commercial surface.
 
 ---
 
-## 15. Definition of Done
+## 16. Definition of Done
 
 `IOI CLI` is successful when a developer or operator can:
 
-1. scaffold a new intelligent blockchain or sovereign execution domain from a CLI-first surface,
-2. choose a trust, identity, evidence, and settlement posture rather than only a ledger template,
-3. define policy roots, authority and delegation rules, and worker or service topology explicitly,
-4. generate worker manifests, service contracts, policy bundles, capability leases, and publication metadata from canonical command surfaces,
-5. simulate execution paths, approval behavior, and evidence requirements before publication,
-6. instantiate the domain as a kernel-native execution object,
-7. publish, inspect, replay, and upgrade that domain through canonical IOI semantics,
-8. inspect receipts, traces, evidence bundles, and settlement-linked outcomes locally,
-9. import or promote stabilized worker logic from `Autopilot` when relevant,
-10. use `forge` and adjacent command families without needing a separate product identity,
-11. and hand the resulting domain off to `sas.xyz` when it needs to become a deployable, billable, distributable provider service.
+1. express a new intelligent blockchain or sovereign execution-domain request through either structured commands or natural language,
+2. inspect the resolved plan before mutation,
+3. choose a trust, identity, evidence, settlement, and execution-path posture rather than only a ledger template,
+4. define policy roots, authority and delegation rules, and worker or service topology explicitly,
+5. generate worker manifests, service contracts, policy bundles, capability leases, and publication metadata from canonical command surfaces,
+6. understand whether the workload is using local hardware, BYOK/API, or managed execution and why,
+7. simulate execution paths, approval behavior, and evidence requirements before publication,
+8. instantiate the domain as a kernel-native execution object,
+9. publish, inspect, replay, and upgrade that domain through canonical IOI semantics,
+10. inspect receipts, traces, evidence bundles, and settlement-linked outcomes locally,
+11. import or promote stabilized worker logic from `Autopilot` when relevant,
+12. use `forge` and adjacent command families without needing a separate product identity,
+13. and hand the resulting domain off to `sas.xyz` when it needs to become a deployable, billable, distributable provider service.
 
-## 15.1 Litmus test
+## 16.1 Litmus test
 
 The CLI should make the following feel natural:
 
-> Spin up a new sovereign chain, publish a procurement worker, restrict it to approved vendors and budget bands, require browser receipts and policy proofs for purchases, route expensive reasoning to cloud models, keep secrets local, and settle only verified outcomes.
+> `ioi "spin up a new sovereign chain, publish a procurement worker, restrict it to approved vendors and budget bands, require browser receipts and policy proofs for purchases, route expensive reasoning to cloud models, keep secrets local, and settle only verified outcomes."`
 
 If that feels natural, the CLI is no longer just chain tooling.
 
 It is the operating toolchain for intelligent blockchains.
+
+If the request then resolves into an explicit plan, canonical commands, generated manifests, a surfaced execution path, and auditable receipts, the product shape is correct.

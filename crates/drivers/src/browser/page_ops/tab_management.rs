@@ -229,17 +229,34 @@ impl BrowserDriver {
         &self,
         full_page: bool,
     ) -> std::result::Result<Vec<u8>, BrowserError> {
+        let metrics = self
+            .active_tab_layout_metrics()
+            .await
+            .map_err(|e| BrowserError::Internal(format!("Tab screenshot metrics failed: {}", e)))?;
+        self.capture_tab_screenshot_with_viewport(
+            metrics.css_visual_viewport.client_width.round().max(1.0) as u32,
+            metrics.css_visual_viewport.client_height.round().max(1.0) as u32,
+            full_page,
+        )
+        .await
+    }
+
+    pub async fn capture_tab_screenshot_with_viewport(
+        &self,
+        width: u32,
+        height: u32,
+        full_page: bool,
+    ) -> std::result::Result<Vec<u8>, BrowserError> {
         self.require_runtime()?;
         self.ensure_page().await?;
         let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
         let scale_factor = browsergym_screenshot_scale_factor();
-
         let metrics = self
-            .check_connection_error(page.layout_metrics().await)
+            .active_tab_layout_metrics()
             .await
             .map_err(|e| BrowserError::Internal(format!("Tab screenshot metrics failed: {}", e)))?;
-        let width = metrics.css_visual_viewport.client_width.round().max(1.0) as i64;
-        let height = metrics.css_visual_viewport.client_height.round().max(1.0) as i64;
+        let width = i64::from(width.max(1));
+        let height = i64::from(height.max(1));
 
         self.check_connection_error(page.execute(
             chromiumoxide::cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams::new(
@@ -301,5 +318,19 @@ impl BrowserDriver {
             .await;
 
         capture_result
+    }
+
+    async fn active_tab_layout_metrics(
+        &self,
+    ) -> std::result::Result<
+        chromiumoxide::cdp::browser_protocol::page::GetLayoutMetricsReturns,
+        BrowserError,
+    > {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+        self.check_connection_error(page.layout_metrics().await)
+            .await
+            .map_err(|e| BrowserError::Internal(format!("Layout metrics failed: {}", e)))
     }
 }

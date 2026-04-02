@@ -302,6 +302,39 @@ pub(super) fn maybe_complete_browser_snapshot_interaction(
     );
 }
 
+pub(super) fn maybe_complete_agent_complete(
+    agent_state: &mut AgentState,
+    tool_wrapper: &AgentTool,
+    is_gated: bool,
+    success: &mut bool,
+    out: &mut Option<String>,
+    err: &mut Option<String>,
+    completion_summary: &mut Option<String>,
+    session_id: [u8; 32],
+) {
+    if is_gated || !*success || completion_summary.is_some() {
+        return;
+    }
+
+    let AgentTool::AgentComplete { result } = tool_wrapper else {
+        return;
+    };
+
+    complete_with_summary(
+        agent_state,
+        result.clone(),
+        success,
+        out,
+        err,
+        completion_summary,
+        false,
+    );
+    log::info!(
+        "Completed queued agent__complete flow for session {}.",
+        hex::encode(&session_id[..4])
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -486,5 +519,40 @@ mod tests {
             completion_summary.as_deref(),
             Some("Sent the email successfully.")
         );
+    }
+
+    #[test]
+    fn completes_explicit_agent_complete_result_from_queue() {
+        let mut agent_state = agent_state_with_mail_reply();
+        let session_id = agent_state.session_id;
+        let mut success = true;
+        let mut out = None;
+        let mut err = None;
+        let mut completion_summary = None;
+
+        maybe_complete_agent_complete(
+            &mut agent_state,
+            &AgentTool::AgentComplete {
+                result: "Touched files: path_utils.py\nCommand results: tests queued after edit"
+                    .to_string(),
+            },
+            false,
+            &mut success,
+            &mut out,
+            &mut err,
+            &mut completion_summary,
+            session_id,
+        );
+
+        assert!(matches!(
+            agent_state.status,
+            AgentStatus::Completed(Some(_))
+        ));
+        assert_eq!(
+            completion_summary.as_deref(),
+            Some("Touched files: path_utils.py\nCommand results: tests queued after edit")
+        );
+        assert_eq!(out, completion_summary);
+        assert!(err.is_none());
     }
 }

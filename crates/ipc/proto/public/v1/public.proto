@@ -461,6 +461,93 @@ message WorkloadWorkerReceipt {
     bool has_playbook_id = 19;
 }
 
+message ResearchVerificationScorecard {
+    string verdict = 1;
+    uint32 source_count = 2;
+    uint32 distinct_domain_count = 3;
+    bool source_count_floor_met = 4;
+    bool source_independence_floor_met = 5;
+    string freshness_status = 6;
+    string quote_grounding_status = 7;
+    string notes = 8;
+    bool has_notes = 9;
+}
+
+message ComputerUsePerceptionSummary {
+    string surface_status = 1;
+    string ui_state = 2;
+    string target = 3;
+    bool has_target = 4;
+    string approval_risk = 5;
+    string next_action = 6;
+    bool has_next_action = 7;
+    string notes = 8;
+    bool has_notes = 9;
+}
+
+message CodingVerificationScorecard {
+    string verdict = 1;
+    uint32 targeted_command_count = 2;
+    uint32 targeted_pass_count = 3;
+    string widening_status = 4;
+    string regression_status = 5;
+    string notes = 6;
+    bool has_notes = 7;
+}
+
+message ArtifactGenerationSummary {
+    string status = 1;
+    uint32 produced_file_count = 2;
+    string verification_signal_status = 3;
+    string presentation_status = 4;
+    string notes = 5;
+    bool has_notes = 6;
+}
+
+message ComputerUseVerificationScorecard {
+    string verdict = 1;
+    string postcondition_status = 2;
+    string approval_state = 3;
+    string recovery_status = 4;
+    string observed_postcondition = 5;
+    bool has_observed_postcondition = 6;
+    string notes = 7;
+    bool has_notes = 8;
+}
+
+message ArtifactQualityScorecard {
+    string verdict = 1;
+    string fidelity_status = 2;
+    string presentation_status = 3;
+    string repair_status = 4;
+    string notes = 5;
+    bool has_notes = 6;
+}
+
+message PatchSynthesisSummary {
+    string status = 1;
+    uint32 touched_file_count = 2;
+    bool verification_ready = 3;
+    string notes = 4;
+    bool has_notes = 5;
+}
+
+message ArtifactRepairSummary {
+    string status = 1;
+    string reason = 2;
+    bool has_reason = 3;
+    string next_step = 4;
+    bool has_next_step = 5;
+}
+
+message ComputerUseRecoverySummary {
+    string status = 1;
+    string reason = 2;
+    bool has_reason = 3;
+    string next_step = 4;
+    bool has_next_step = 5;
+}
+
 message WorkloadParentPlaybookReceipt {
     string tool_name = 1;
     string phase = 2;
@@ -485,10 +572,49 @@ message WorkloadParentPlaybookReceipt {
     string workflow_id = 16;
     bool has_workflow_id = 17;
 
-    string summary = 18;
+    string route_family = 18;
+    string topology = 19;
+    string verifier_state = 20;
+    string planner_authority = 45;
+    string verifier_role = 46;
+    string verifier_outcome = 47;
 
-    string error_class = 19;
-    bool has_error_class = 20;
+    repeated string selected_skills = 21;
+
+    string prep_summary = 22;
+    bool has_prep_summary = 23;
+
+    ArtifactGenerationSummary artifact_generation = 24;
+    bool has_artifact_generation = 25;
+
+    ComputerUsePerceptionSummary computer_use_perception = 26;
+    bool has_computer_use_perception = 27;
+
+    ResearchVerificationScorecard research_scorecard = 28;
+    bool has_research_scorecard = 29;
+
+    ArtifactQualityScorecard artifact_quality = 30;
+    bool has_artifact_quality = 31;
+
+    ComputerUseVerificationScorecard computer_use_verification = 32;
+    bool has_computer_use_verification = 33;
+
+    CodingVerificationScorecard coding_scorecard = 34;
+    bool has_coding_scorecard = 35;
+
+    PatchSynthesisSummary patch_synthesis = 36;
+    bool has_patch_synthesis = 37;
+
+    ArtifactRepairSummary artifact_repair = 38;
+    bool has_artifact_repair = 39;
+
+    ComputerUseRecoverySummary computer_use_recovery = 40;
+    bool has_computer_use_recovery = 41;
+
+    string summary = 42;
+
+    string error_class = 43;
+    bool has_error_class = 44;
 }
 
 message AdapterArtifactPointer {

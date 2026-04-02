@@ -4,8 +4,9 @@ use crate::kernel::studio::{
 use crate::models::{AgentPhase, AgentTask, StudioArtifactFailure, StudioArtifactRevision};
 use crate::orchestrator;
 use ioi_api::studio::{
-    StudioArtifactBrief, StudioArtifactCandidateSummary, StudioArtifactEditIntent,
-    StudioArtifactOutputOrigin, StudioArtifactSelectionTarget, StudioArtifactTasteMemory,
+    StudioArtifactBlueprint, StudioArtifactBrief, StudioArtifactCandidateSummary,
+    StudioArtifactEditIntent, StudioArtifactExemplar, StudioArtifactIR, StudioArtifactOutputOrigin,
+    StudioArtifactSelectedSkill, StudioArtifactSelectionTarget, StudioArtifactTasteMemory,
     StudioArtifactUxLifecycle,
 };
 use ioi_memory::MemoryRuntime;
@@ -30,6 +31,10 @@ struct ProofGenerationEvidence {
     title: String,
     route: crate::models::StudioOutcomeRequest,
     artifact_brief: Option<StudioArtifactBrief>,
+    blueprint: Option<StudioArtifactBlueprint>,
+    artifact_ir: Option<StudioArtifactIR>,
+    selected_skills: Vec<StudioArtifactSelectedSkill>,
+    retrieved_exemplars: Vec<StudioArtifactExemplar>,
     edit_intent: Option<StudioArtifactEditIntent>,
     candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     winning_candidate_id: Option<String>,
@@ -392,6 +397,18 @@ fn materialize_current_task_output(
             deserves_primary_artifact_view: false,
             patched_existing_artifact: None,
             continuity_revision_ux: None,
+            issue_classes: vec!["verification_summary_only".to_string()],
+            repair_hints: vec![
+                "Re-run judging so the proof export can include a full structured acceptance verdict."
+                    .to_string(),
+            ],
+            strengths: Vec::new(),
+            blocked_reasons: vec![contradiction.clone()],
+            file_findings: Vec::new(),
+            aesthetic_verdict: "not_evaluated_due_to_missing_judge_record".to_string(),
+            interaction_verdict: "not_evaluated_due_to_missing_judge_record".to_string(),
+            truthfulness_warnings: Vec::new(),
+            recommended_next_pass: Some("acceptance_pass".to_string()),
             strongest_contradiction: Some(contradiction.clone()),
             rationale: contradiction,
         })
@@ -405,6 +422,10 @@ fn materialize_current_task_output(
             .clone()
             .ok_or_else(|| "proof task is missing the Studio route outcome".to_string())?,
         artifact_brief: studio_session.materialization.artifact_brief.clone(),
+        blueprint: studio_session.materialization.blueprint.clone(),
+        artifact_ir: studio_session.materialization.artifact_ir.clone(),
+        selected_skills: studio_session.materialization.selected_skills.clone(),
+        retrieved_exemplars: studio_session.materialization.retrieved_exemplars.clone(),
         edit_intent: studio_session.materialization.edit_intent.clone(),
         candidate_summaries: studio_session.materialization.candidate_summaries.clone(),
         winning_candidate_id: studio_session.materialization.winning_candidate_id.clone(),

@@ -428,6 +428,83 @@ fn recent_session_events_context_keeps_compact_synthetic_click_verify_payload() 
 }
 
 #[test]
+fn recent_session_events_context_compacts_verbose_web_read_payloads_for_non_browser_work() {
+    let history = vec![chat_message(
+        "tool",
+        &format!(
+            r#"{{
+                "schema_version": 1,
+                "tool": "web__read",
+                "url": "https://csrc.nist.gov/pubs/ir/8413/upd1/final",
+                "sources": [{{
+                    "url": "https://csrc.nist.gov/pubs/ir/8413/upd1/final",
+                    "title": "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                }}],
+                "documents": [{{
+                    "url": "https://csrc.nist.gov/pubs/ir/8413/upd1/final",
+                    "title": "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC",
+                    "content_text": "{}"
+                }}]
+            }}"#,
+            "Date Published: July 2022. Planning Note: NIST updated the report and retained details about the post-quantum cryptography standardization process. ".repeat(12)
+        ),
+        1,
+    )];
+
+    let context = build_recent_session_events_context(&history, false);
+    assert!(
+        context.contains("tool: web__read ; https://csrc.nist.gov/pubs/ir/8413/upd1/final"),
+        "{context}"
+    );
+    assert!(
+        context.contains("IR 8413, Status Report on the Third Round"),
+        "{context}"
+    );
+    assert!(context.contains("Date Published: July 2022."), "{context}");
+    assert!(!context.contains("\"content_text\""), "{context}");
+    assert!(context.chars().count() < 700, "{context}");
+}
+
+#[test]
+fn recent_session_events_context_compacts_verbose_web_search_payloads_for_non_browser_work() {
+    let history = vec![chat_message(
+        "tool",
+        r#"{
+            "schema_version": 1,
+            "tool": "web__search",
+            "query": "nist post quantum cryptography standards site:nist.gov site:www.nist.gov",
+            "sources": [
+                {
+                    "url": "https://csrc.nist.gov/pubs/ir/8413/upd1/final",
+                    "title": "Status Report on the Third Round of the NIST Post-Quantum Cryptography ...",
+                    "snippet": "The National Institute of Standards and Technology is in the process of selecting public-key cryptographic algorithms."
+                },
+                {
+                    "url": "https://www.nist.gov/news-events/news/2022/07/nist-announces-first-four-quantum-resistant-cryptographic-algorithms",
+                    "title": "NIST Announces First Four Quantum-Resistant Cryptographic Algorithms | NIST",
+                    "snippet": "The four selected encryption algorithms will become part of NIST's post-quantum cryptographic standard."
+                }
+            ],
+            "provider_candidates": [{"provider_id": "edge:bing-search-rss", "source_count": 1, "success": true}]
+        }"#,
+        1,
+    )];
+
+    let context = build_recent_session_events_context(&history, false);
+    assert!(context.contains("tool: web__search ; nist post quantum cryptography standards site:nist.gov site:www.nist.gov"), "{context}");
+    assert!(
+        context.contains("sources=Status Report on the Third Round"),
+        "{context}"
+    );
+    assert!(
+        context.contains("NIST Announces First Four Quantum-Resistant Cryptographic Algorithms"),
+        "{context}"
+    );
+    assert!(!context.contains("provider_candidates"), "{context}");
+    assert!(context.chars().count() < 700, "{context}");
+}
+
+#[test]
 fn latest_recent_pending_browser_state_context_keeps_recent_explicit_context_without_refresh() {
     let history = vec![
             chat_message(

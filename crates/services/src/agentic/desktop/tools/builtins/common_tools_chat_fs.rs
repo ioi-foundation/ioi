@@ -99,7 +99,7 @@
     });
     tools.push(LlmToolDefinition {
         name: "filesystem__write_file".to_string(),
-        description: "Write text content to a file, or edit a single line deterministically by setting line_number."
+        description: "Write full text content to a file, or edit a single line deterministically by setting line_number. Prefer this when the change is tiny or an exact filesystem__patch search block would be awkward to encode."
             .to_string(),
         parameters: fs_write_params.to_string(),
     });
@@ -119,7 +119,7 @@
     });
     tools.push(LlmToolDefinition {
         name: "filesystem__edit_line".to_string(),
-        description: "Deterministically replace exactly one line in a file (alias of filesystem__write_file with line_number).".to_string(),
+        description: "Deterministically replace exactly one line in a file (alias of filesystem__write_file with line_number). Prefer this for single-line code fixes instead of a brittle filesystem__patch block.".to_string(),
         parameters: fs_edit_line_params.to_string(),
     });
 
@@ -138,7 +138,7 @@
     tools.push(LlmToolDefinition {
         name: "filesystem__patch".to_string(),
         description:
-            "Replace a unique text block in a file. Fails if search is missing or ambiguous."
+            "Replace a unique text block in a file. Copy the search block exactly from the latest read, including newlines and indentation; this fails if the search block is missing or ambiguous. For one-line or escape-heavy edits, prefer filesystem__edit_line or filesystem__write_file."
                 .to_string(),
         parameters: fs_patch_params.to_string(),
     });
@@ -152,7 +152,7 @@
     });
     tools.push(LlmToolDefinition {
         name: "filesystem__read_file".to_string(),
-        description: "Read text content from a file.".to_string(),
+        description: "Read exact text content from a file, preserving newlines so the result can be reused directly in filesystem__patch search blocks.".to_string(),
         parameters: fs_read_params.to_string(),
     });
 
@@ -180,8 +180,9 @@
     });
     tools.push(LlmToolDefinition {
         name: "filesystem__search".to_string(),
-        description: "Recursively search for a regex pattern in files under a directory and return matching lines."
-            .to_string(),
+        description:
+            "Recursively search for a valid Rust regex pattern in files under a directory and return matching lines. Use this only when the exact file path is still unknown; if you already know the file, read it directly."
+                .to_string(),
         parameters: fs_search_params.to_string(),
     });
 

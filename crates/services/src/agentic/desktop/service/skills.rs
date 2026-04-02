@@ -4,6 +4,7 @@ use super::DesktopAgentService;
 use crate::agentic::desktop::keys::{
     get_skill_session_outcome_key, get_skill_stats_key, TRACE_PREFIX,
 };
+use crate::agentic::desktop::tools::skills::discover_skill_candidates;
 use crate::agentic::skill_registry::{
     build_benchmark_report, generate_published_skill_doc, load_doc_catalog_index,
     load_published_skill_doc, load_skill_catalog_index, load_skill_record, next_lifecycle_state,
@@ -22,10 +23,36 @@ use serde_json::Value;
 use std::collections::HashSet;
 
 pub async fn recall_skills(
-    _service: &DesktopAgentService,
+    service: &DesktopAgentService,
     state: &dyn StateAccess,
     goal: &str,
 ) -> Result<Vec<AgentSkill>, TransactionError> {
+    if let Some(memory_runtime) = service.memory_runtime.as_ref() {
+        let semantic_matches = discover_skill_candidates(
+            state,
+            memory_runtime,
+            goal,
+            service.reasoning_inference.clone(),
+            4,
+        )
+        .await;
+        if !semantic_matches.is_empty() {
+            return Ok(semantic_matches
+                .into_iter()
+                .map(|candidate| AgentSkill {
+                    name: candidate.definition.name,
+                    description: format!(
+                        "{} (Reliability: {:.0}%)",
+                        candidate.definition.description,
+                        candidate.reliability * 100.0
+                    ),
+                    content: candidate.guidance_markdown,
+                    resources: candidate.relative_path.into_iter().collect(),
+                })
+                .collect());
+        }
+    }
+
     let mut relevant_skills = Vec::new();
     let goal_lower = goal.to_lowercase();
     let doc_index = load_doc_catalog_index(state)?;

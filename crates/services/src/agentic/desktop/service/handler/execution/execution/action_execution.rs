@@ -1,3 +1,8 @@
+use crate::agentic::desktop::service::lifecycle::load_worker_assignment;
+use crate::agentic::desktop::service::step::worker::{
+    worker_assignment_allows_tool_name, worker_assignment_disallowed_tool_error,
+};
+
 fn browser_tool_execution_timeout() -> Duration {
     const DEFAULT_TIMEOUT_SECS: u64 = 12;
     std::env::var("IOI_BROWSER_QUEUE_TOOL_TIMEOUT_SECS")
@@ -76,6 +81,24 @@ pub async fn handle_action_execution(
     let mut tool = tool;
     let execution_started = Instant::now();
     let intent_id = resolved_intent_id(agent_state);
+    let worker_assignment = execution_state
+        .as_ref()
+        .map(|state| load_worker_assignment(&**state, session_id))
+        .transpose()
+        .map_err(TransactionError::Invalid)?
+        .flatten();
+    if let Some(assignment) = worker_assignment.as_ref() {
+        let tool_name = tool.name_string();
+        if !worker_assignment_allows_tool_name(Some(assignment), &tool_name) {
+            return Ok(no_visual(
+                false,
+                None,
+                Some(worker_assignment_disallowed_tool_error(
+                    assignment, &tool_name,
+                )),
+            ));
+        }
+    }
 
     let mcp = service
         .mcp

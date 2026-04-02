@@ -455,6 +455,79 @@
   color: var(--spot-text-muted);
 }
 
+.worker-card {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.worker-card.is-active {
+  border-color: rgba(114, 145, 196, 0.24);
+  background:
+    linear-gradient(135deg, rgba(74, 93, 128, 0.14), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.035);
+}
+
+.worker-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.worker-card-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--spot-text-muted);
+  font-size: 11px;
+}
+
+.worker-card-chip.is-emphasis {
+  border-color: rgba(114, 145, 196, 0.24);
+  color: var(--spot-text-primary);
+}
+
+.worker-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.worker-card-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.worker-card-block.is-emphasis {
+  border-color: rgba(114, 145, 196, 0.18);
+  background: rgba(74, 93, 128, 0.12);
+}
+
+.worker-card-block span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--spot-text-muted);
+}
+
+.worker-card-block p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--spot-text-primary);
+}
+
 .thoughts-items {
   display: flex;
   flex-direction: column;

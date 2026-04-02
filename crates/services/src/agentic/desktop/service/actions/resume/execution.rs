@@ -120,6 +120,7 @@ pub(super) async fn execute(
                 agent_state,
                 pre_state_step_index,
                 block_height,
+                call_context,
                 child_session_id_hex,
             )
             .await

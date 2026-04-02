@@ -6,5 +6,6 @@ pub mod gui;
 pub mod mcp;
 pub mod os;
 pub mod provisioning;
+pub mod studio_render;
 pub mod terminal;
 pub mod ucp;

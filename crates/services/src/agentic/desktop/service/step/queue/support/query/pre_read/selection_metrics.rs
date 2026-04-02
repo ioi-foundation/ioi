@@ -39,21 +39,37 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
     let headline_lookup_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, query_contract);
     let required_source_count = min_sources.max(1) as usize;
-    let required_identifier_labels = briefing_standard_identifier_groups_for_query(query_contract)
+    let briefing_identifier_observations = source_hints
         .iter()
-        .filter(|group| group.required)
-        .map(|group| group.primary_label.to_string())
-        .collect::<BTreeSet<_>>();
-    let optional_identifier_labels = briefing_standard_identifier_groups_for_query(query_contract)
-        .iter()
-        .filter(|group| !group.required)
-        .map(|group| group.primary_label.to_string())
-        .collect::<BTreeSet<_>>();
-    let identifier_evidence_required =
-        retrieval_contract_requires_document_briefing_identifier_evidence(
-            retrieval_contract,
-            query_contract,
-        );
+        .filter_map(|hint| {
+            let trimmed = hint.url.trim();
+            let title = hint.title.as_deref().unwrap_or_default();
+            (!trimmed.is_empty()).then(|| BriefingIdentifierObservation {
+                url: trimmed.to_string(),
+                surface: preferred_source_briefing_identifier_surface(
+                    query_contract,
+                    &hint.url,
+                    title,
+                    &hint.excerpt,
+                ),
+                authoritative: source_has_document_authority(
+                    query_contract,
+                    trimmed,
+                    title,
+                    &hint.excerpt,
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+    let required_identifier_labels = infer_briefing_required_identifier_labels(
+        query_contract,
+        &briefing_identifier_observations,
+    );
+    let required_identifier_group_floor = required_identifier_labels.len();
+    let optional_identifier_labels = BTreeSet::<String>::new();
+    let identifier_evidence_required = !required_identifier_labels.is_empty()
+        && retrieval_contract
+            .is_some_and(|_| query_prefers_document_briefing_layout(query_contract));
     let local_business_entity_selection_flow =
         query_requires_local_business_entity_diversity(query_contract);
     let local_business_menu_surface_required = query_requires_local_business_menu_surface(
@@ -79,10 +95,11 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
     let mut seen_urls = BTreeSet::new();
     let mut identifier_bearing_sources = 0usize;
     let mut authority_identifier_sources = 0usize;
-    let mut authoritative_sources = BTreeSet::new();
+    let mut authoritative_source_families = BTreeSet::new();
     let mut required_identifier_coverage = BTreeSet::new();
     let mut optional_identifier_coverage = BTreeSet::new();
     let mut missing_identifier_urls = Vec::new();
+    let mut authority_backed_compatible_sources = 0usize;
 
     for selected in selected_urls {
         let selected_trimmed = selected.trim();
@@ -128,8 +145,7 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
             )
         };
         if entity_anchor_compatible {
-            entity_anchor_compatible_sources =
-                entity_anchor_compatible_sources.saturating_add(1);
+            entity_anchor_compatible_sources = entity_anchor_compatible_sources.saturating_add(1);
             entity_anchor_source_urls.push(selected_trimmed.to_string());
         } else {
             entity_anchor_mismatched_urls.push(selected_trimmed.to_string());
@@ -145,7 +161,15 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
         let authoritative =
             source_has_document_authority(query_contract, selected_trimmed, title, excerpt);
         if authoritative {
-            authoritative_sources.insert(selected_trimmed.to_ascii_lowercase());
+            authoritative_source_families.insert(
+                source_document_authority_family_key(
+                    query_contract,
+                    selected_trimmed,
+                    title,
+                    excerpt,
+                )
+                .unwrap_or_else(|| selected_trimmed.to_ascii_lowercase()),
+            );
         }
         if identifier_bearing {
             identifier_bearing_sources = identifier_bearing_sources.saturating_add(1);
@@ -218,11 +242,33 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
             }
         } else {
             let compatibility = compatibility.expect("non-headline compatibility");
-            if compatibility_passes_projection(&projection, &compatibility)
+            let authority_aligned = source_has_document_briefing_authority_alignment_with_contract(
+                retrieval_contract,
+                query_contract,
+                required_source_count,
+                selected_trimmed,
+                title,
+                excerpt,
+            );
+            let grounded_external_publication_support =
+                source_is_grounded_external_publication_support_artifact(
+                    retrieval_contract,
+                    query_contract,
+                    selected_trimmed,
+                    title,
+                    excerpt,
+                );
+            let quality_compatible = (compatibility_passes_projection(&projection, &compatibility)
+                || authority_aligned
+                || grounded_external_publication_support)
                 && admissible_for_document_briefing
-                && entity_anchor_compatible
-            {
+                && entity_anchor_compatible;
+            if quality_compatible {
                 compatible_sources = compatible_sources.saturating_add(1);
+            }
+            if quality_compatible && (authority_aligned || authoritative) {
+                authority_backed_compatible_sources =
+                    authority_backed_compatible_sources.saturating_add(1);
             }
             if compatibility.locality_compatible
                 && admissible_for_document_briefing
@@ -248,28 +294,34 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
             .max(usize::from(required_source_count > 1));
     let locality_floor_met = !projection.locality_scope.is_some()
         || locality_compatible_sources >= required_source_count;
-    let authoritative_same_authority_override = identifier_evidence_required
-        && authoritative_sources.len() >= required_source_count;
     let distinct_domain_floor_met =
-        required_domain_floor == 0
-            || distinct_domains.len() >= required_domain_floor
-            || authoritative_same_authority_override;
+        required_domain_floor == 0 || distinct_domains.len() >= required_domain_floor;
     let entity_anchor_floor_met =
         !entity_anchor_required || entity_anchor_compatible_sources >= required_source_count;
     let local_business_same_authority_override = local_business_entity_selection_flow
         && entity_anchor_floor_met
         && (!local_business_menu_surface_required || compatible_sources >= required_source_count);
-    let distinct_domain_floor_met = distinct_domain_floor_met || local_business_same_authority_override;
+    let distinct_domain_floor_met =
+        distinct_domain_floor_met || local_business_same_authority_override;
     let identifier_coverage_floor_met = !identifier_evidence_required
         || (identifier_bearing_sources >= required_source_count
-            && required_identifier_coverage.len()
-                >= briefing_standard_identifier_group_floor(query_contract));
+            && required_identifier_coverage.len() >= required_identifier_group_floor);
+    let grounded_document_briefing_support_mode =
+        query_prefers_document_briefing_layout(query_contract)
+            && !query_requests_comparison(query_contract)
+            && analyze_query_facets(query_contract).grounded_external_required
+            && retrieval_contract
+                .map(|contract| {
+                    contract.currentness_required || contract.source_independence_min > 1
+                })
+                .unwrap_or(false);
     let quality_floor_met = total_sources >= required_source_count
         && compatible_sources >= required_source_count
         && locality_floor_met
         && distinct_domain_floor_met
         && low_priority_sources == 0
         && entity_anchor_floor_met
+        && (!grounded_document_briefing_support_mode || authority_backed_compatible_sources > 0)
         && identifier_coverage_floor_met;
 
     SelectedSourceQualityObservation {
@@ -290,7 +342,7 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
         authority_identifier_sources,
         required_identifier_label_coverage: required_identifier_coverage.len(),
         optional_identifier_label_coverage: optional_identifier_coverage.len(),
-        required_identifier_group_floor: briefing_standard_identifier_group_floor(query_contract),
+        required_identifier_group_floor,
         identifier_coverage_floor_met,
         missing_identifier_urls,
     }
@@ -390,7 +442,7 @@ mod selection_metrics_tests {
     }
 
     #[test]
-    fn document_briefing_quality_observation_ignores_subject_specific_identifier_inventory() {
+    fn document_briefing_quality_observation_requires_evidence_backed_identifier_inventory() {
         let query =
             "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
         let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
@@ -428,47 +480,44 @@ mod selection_metrics_tests {
             None,
         );
 
-        assert!(!observation.identifier_evidence_required);
-        assert_eq!(observation.identifier_bearing_sources, 0);
-        assert_eq!(observation.authority_identifier_sources, 0);
-        assert_eq!(observation.required_identifier_label_coverage, 0);
+        assert!(observation.identifier_evidence_required);
+        assert_eq!(observation.identifier_bearing_sources, 2);
+        assert_eq!(observation.authority_identifier_sources, 1);
+        assert_eq!(observation.required_identifier_label_coverage, 3);
         assert!(observation.identifier_coverage_floor_met);
         assert!(observation.quality_floor_met);
         assert!(observation.missing_identifier_urls.is_empty());
     }
 
     #[test]
-    fn document_briefing_quality_observation_requires_domain_diversity_without_identifier_override()
-    {
+    fn document_briefing_quality_observation_rejects_grounded_same_authority_selection_when_distinct_domain_floor_is_required(
+    ) {
         let query =
             "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
         let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
             .expect("retrieval contract");
         let selected_urls = vec![
-            "https://www.nist.gov/news-events/news/2025/03/nist-selects-hqc-fifth-algorithm-post-quantum-encryption"
-                .to_string(),
-            "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
-                .to_string(),
+            "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+            "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
         ];
         let source_hints = vec![
             PendingSearchReadSummary {
                 url: selected_urls[0].clone(),
                 title: Some(
-                    "NIST Selects HQC as Fifth Algorithm for Post-Quantum Encryption"
+                    "FIPS 203 Module-Lattice-Based Key-Encapsulation Mechanism Standard"
                         .to_string(),
                 ),
                 excerpt:
-                    "March 11, 2025 - NIST selected HQC after finalizing FIPS 203, FIPS 204, and FIPS 205."
+                    "NIST finalized FIPS 203 as a post-quantum cryptography standard based on ML-KEM."
                         .to_string(),
             },
             PendingSearchReadSummary {
                 url: selected_urls[1].clone(),
                 title: Some(
-                    "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
-                        .to_string(),
+                    "FIPS 204 Module-Lattice-Based Digital Signature Standard".to_string(),
                 ),
                 excerpt:
-                    "August 13, 2024 - The finalized standards are FIPS 203, FIPS 204, and FIPS 205 for post-quantum cryptography."
+                    "NIST finalized FIPS 204 as a post-quantum cryptography standard based on ML-DSA."
                         .to_string(),
             },
         ];
@@ -486,6 +535,147 @@ mod selection_metrics_tests {
         assert!(observation.identifier_coverage_floor_met);
         assert_eq!(observation.distinct_domains, 1);
         assert!(!observation.quality_floor_met);
+    }
+
+    #[test]
+    fn document_briefing_quality_observation_rejects_duplicate_ir_authority_family_fill() {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+            .expect("retrieval contract");
+        let selected_urls = vec![
+            "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+            "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+        ];
+        let source_hints = vec![
+            PendingSearchReadSummary {
+                url: selected_urls[0].clone(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt:
+                    "The report references FIPS 203, FIPS 204, and FIPS 205 in the NIST post-quantum cryptography standardization process."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: selected_urls[1].clone(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt:
+                    "The report references FIPS 203, FIPS 204, and FIPS 205 in the NIST post-quantum cryptography standardization process."
+                        .to_string(),
+            },
+        ];
+
+        let observation = selected_source_quality_observation_with_contract_and_locality_hint(
+            Some(&contract),
+            query,
+            2,
+            &selected_urls,
+            &source_hints,
+            None,
+        );
+
+        assert!(observation.identifier_evidence_required);
+        assert_eq!(observation.compatible_sources, 2);
+        assert_eq!(observation.required_identifier_group_floor, 1);
+        assert_eq!(observation.required_identifier_label_coverage, 1);
+        assert!(observation.identifier_coverage_floor_met);
+        assert!(!observation.quality_floor_met);
+        assert!(observation.missing_identifier_urls.is_empty());
+    }
+
+    #[test]
+    fn document_briefing_quality_observation_rejects_empty_snippet_duplicate_authority_family_fill()
+    {
+        let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+            .expect("retrieval contract");
+        let selected_urls = vec![
+            "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+            "https://csrc.nist.gov/pubs/ir/8413/final".to_string(),
+        ];
+        let source_hints = vec![
+            PendingSearchReadSummary {
+                url: selected_urls[0].clone(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt: "".to_string(),
+            },
+            PendingSearchReadSummary {
+                url: selected_urls[1].clone(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt: "".to_string(),
+            },
+        ];
+
+        let observation = selected_source_quality_observation_with_contract_and_locality_hint(
+            Some(&contract),
+            query,
+            2,
+            &selected_urls,
+            &source_hints,
+            None,
+        );
+
+        assert_eq!(observation.compatible_sources, 2);
+        assert_eq!(observation.required_identifier_group_floor, 1);
+        assert!(observation.identifier_coverage_floor_met);
+        assert!(!observation.quality_floor_met);
+    }
+
+    #[test]
+    fn document_briefing_quality_observation_accepts_grounded_external_pdf_support_with_authority_pairing(
+    ) {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+            .expect("retrieval contract");
+        let selected_urls = vec![
+            "https://csrc.nist.gov/pubs/ir/8413/upd1/final".to_string(),
+            "https://trustedcomputinggroup.org/wp-content/uploads/State-of-PQC-Readiness-2025-November-2025.pdf"
+                .to_string(),
+        ];
+        let source_hints = vec![
+            PendingSearchReadSummary {
+                url: selected_urls[0].clone(),
+                title: Some(
+                    "IR 8413, Status Report on the Third Round of the NIST Post-Quantum Cryptography Standardization Process | CSRC"
+                        .to_string(),
+                ),
+                excerpt:
+                    "NIST IR 8413 Update 1 tracks the current post-quantum cryptography standardization process and references FIPS 203, FIPS 204, and FIPS 205."
+                        .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: selected_urls[1].clone(),
+                title: Some("91% of organizations".to_string()),
+                excerpt:
+                    "Industry readiness report for quantum-safe migration and deployment planning."
+                        .to_string(),
+            },
+        ];
+
+        let observation = selected_source_quality_observation_with_contract_and_locality_hint(
+            Some(&contract),
+            query,
+            2,
+            &selected_urls,
+            &source_hints,
+            None,
+        );
+
+        assert_eq!(observation.total_sources, 2);
+        assert_eq!(observation.compatible_sources, 2);
+        assert_eq!(observation.distinct_domains, 2);
+        assert!(observation.quality_floor_met);
     }
 
     #[test]

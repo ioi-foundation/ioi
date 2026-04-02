@@ -93,6 +93,47 @@ fn terminal_chat_reply_layout_profile(
     TerminalChatReplyLayoutProfile::Other
 }
 
+fn patch_build_verify_patch_miss_receipt_evidence(
+    current_tool_name: &str,
+    error_msg: Option<&str>,
+    executed_tool_jcs: Option<&[u8]>,
+    tool_call_result: &str,
+    step_index: u32,
+) -> Option<String> {
+    if current_tool_name != "filesystem__patch" {
+        return None;
+    }
+    let normalized_error = error_msg?.trim().to_ascii_lowercase();
+    if !normalized_error.contains("error_class=noeffectafteraction")
+        || !normalized_error.contains("search block not found in file")
+    {
+        return None;
+    }
+
+    let path_from_executed = executed_tool_jcs
+        .and_then(|bytes| serde_json::from_slice::<AgentTool>(bytes).ok())
+        .and_then(|tool| match tool {
+            AgentTool::FsPatch { path, .. } => Some(path),
+            _ => None,
+        });
+    let path = path_from_executed.or_else(|| {
+        crate::agentic::desktop::middleware::normalize_tool_call(tool_call_result)
+            .ok()
+            .and_then(|tool| match tool {
+                AgentTool::FsPatch { path, .. } => Some(path),
+                _ => None,
+            })
+    })?;
+    let path = path.trim();
+    if path.is_empty() {
+        return None;
+    }
+
+    Some(format!(
+        "step={step_index};tool=filesystem__patch;path={path};reason=search_block_not_found"
+    ))
+}
+
 fn emit_terminal_chat_reply_postcondition_receipts(
     service: &DesktopAgentService,
     session_id: [u8; 32],
@@ -401,7 +442,63 @@ pub(crate) async fn finalize_action_processing(
                     agent_state.pending_search_completion = None;
                     agent_state.status = AgentStatus::Completed(Some(summary));
                     verification_checks.push("web_timeout_fail_fast=true".to_string());
+                } else if let Some(recovery_tool) =
+                    attempt_patch_build_verify_runtime_patch_miss_repair(
+                        state,
+                        agent_state,
+                        session_id,
+                        &current_tool_name,
+                        error_msg.as_deref(),
+                        &tool_call_result,
+                        &mut verification_checks,
+                    )
+                {
+                    if let Some(evidence) = patch_build_verify_patch_miss_receipt_evidence(
+                        &current_tool_name,
+                        error_msg.as_deref(),
+                        executed_tool_jcs.as_deref(),
+                        &tool_call_result,
+                        pre_state_summary.step_index,
+                    ) {
+                        crate::agentic::desktop::service::step::action::support::mark_execution_receipt_with_value(
+                            &mut agent_state.tool_execution_log,
+                            "workspace_patch_miss_observed",
+                            evidence,
+                        );
+                        verification_checks.push("runtime_patch_miss_observed=true".to_string());
+                    }
+                    let nonce = agent_state.step_count as u64
+                        + agent_state.execution_queue.len() as u64
+                        + 1;
+                    let request = tool_to_action_request(&recovery_tool, session_id, nonce)?;
+                    agent_state.execution_queue.insert(0, request);
+                    stop_condition_hit = false;
+                    escalation_path = None;
+                    is_lifecycle_action = true;
+                    remediation_queued = true;
+                    success = true;
+                    error_msg = None;
+                    history_entry =
+                        Some("Queued deterministic patch-miss recovery action.".to_string());
+                    action_output = history_entry.clone();
+                    agent_state.status = AgentStatus::Running;
+                    agent_state.recent_actions.clear();
+                    verification_checks.push("runtime_patch_miss_recovery_queued=true".to_string());
                 } else {
+                    if let Some(evidence) = patch_build_verify_patch_miss_receipt_evidence(
+                        &current_tool_name,
+                        error_msg.as_deref(),
+                        executed_tool_jcs.as_deref(),
+                        &tool_call_result,
+                        pre_state_summary.step_index,
+                    ) {
+                        crate::agentic::desktop::service::step::action::support::mark_execution_receipt_with_value(
+                            &mut agent_state.tool_execution_log,
+                            "workspace_patch_miss_observed",
+                            evidence,
+                        );
+                        verification_checks.push("runtime_patch_miss_observed=true".to_string());
+                    }
                     let incident_state = load_incident_state(state, &session_id)?;
                     if should_enter_incident_recovery(
                         Some(class),
@@ -683,7 +780,24 @@ pub(crate) async fn finalize_action_processing(
         && !awaiting_sudo_password
         && !awaiting_clarification
         && agent_state.status == AgentStatus::Running
+        && !crate::agentic::desktop::utils::max_steps_completion_blocked_by_active_child(
+            state,
+            agent_state,
+        )
         && agent_state.step_count.saturating_add(1) >= agent_state.max_steps;
+    if !is_gated
+        && !awaiting_sudo_password
+        && !awaiting_clarification
+        && agent_state.status == AgentStatus::Running
+        && agent_state.step_count.saturating_add(1) >= agent_state.max_steps
+        && crate::agentic::desktop::utils::max_steps_completion_blocked_by_active_child(
+            state,
+            agent_state,
+        )
+    {
+        verification_checks
+            .push("max_steps_terminalization_deferred_for_active_child=true".to_string());
+    }
     if max_steps_terminalization_due {
         if let Some(pending) = agent_state.pending_search_completion.clone() {
             if let Some(reason) = web_pipeline_completion_reason(&pending, web_pipeline_now_ms()) {
@@ -868,8 +982,10 @@ pub(crate) async fn finalize_action_processing(
     }
 
     // ... [Max steps check] ...
-    if agent_state.step_count >= agent_state.max_steps && agent_state.status == AgentStatus::Running
-    {
+    if crate::agentic::desktop::utils::should_terminalize_running_agent_after_max_steps(
+        state,
+        agent_state,
+    ) {
         agent_state.status = AgentStatus::Completed(None);
     }
 

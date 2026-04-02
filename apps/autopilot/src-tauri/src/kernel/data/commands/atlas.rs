@@ -295,7 +295,7 @@ mod tests {
     #[test]
     fn default_worker_templates_expose_researcher_contract() {
         let templates = default_worker_templates();
-        assert_eq!(templates.len(), 3);
+        assert_eq!(templates.len(), 8);
         let researcher = templates
             .iter()
             .find(|template| template.template_id == "researcher")
@@ -308,10 +308,19 @@ mod tests {
         );
         assert!(templates
             .iter()
+            .any(|template| template.template_id == "context_worker"));
+        assert!(templates
+            .iter()
+            .any(|template| template.template_id == "perception_worker"));
+        assert!(templates
+            .iter()
             .any(|template| template.template_id == "verifier"));
         assert!(templates
             .iter()
             .any(|template| template.template_id == "coder"));
+        assert!(templates
+            .iter()
+            .any(|template| template.template_id == "patch_synthesizer"));
         assert!(researcher
             .allowed_tools
             .iter()
@@ -339,6 +348,30 @@ mod tests {
             .allowed_tools
             .iter()
             .any(|tool| tool == "model__rerank"));
+        assert!(verifier
+            .workflows
+            .iter()
+            .any(|workflow| workflow.workflow_id == "browser_postcondition_audit"));
+        assert!(verifier
+            .workflows
+            .iter()
+            .any(|workflow| workflow.workflow_id == "citation_audit"));
+        assert!(verifier
+            .workflows
+            .iter()
+            .any(|workflow| workflow.workflow_id == "artifact_quality_audit"));
+        assert!(verifier
+            .workflows
+            .iter()
+            .any(|workflow| workflow.workflow_id == "targeted_test_audit"));
+        let context_worker = templates
+            .iter()
+            .find(|template| template.template_id == "context_worker")
+            .expect("context_worker template should exist");
+        assert!(context_worker
+            .workflows
+            .iter()
+            .any(|workflow| workflow.workflow_id == "artifact_context_brief"));
         let coder = templates
             .iter()
             .find(|template| template.template_id == "coder")
@@ -374,13 +407,13 @@ mod tests {
         let result = (|| -> Result<(), String> {
             let runtime = Arc::new(crate::open_or_create_memory_runtime(&data_dir)?);
             let templates = load_or_initialize_worker_templates(&runtime);
-            assert_eq!(templates.len(), 3);
+            assert_eq!(templates.len(), 8);
             assert!(templates
                 .iter()
                 .any(|template| template.template_id == "researcher"));
 
             let persisted = orchestrator::load_worker_templates(&runtime);
-            assert_eq!(persisted.len(), 3);
+            assert_eq!(persisted.len(), 8);
             assert!(persisted
                 .iter()
                 .any(|template| template.template_id == "researcher"));
@@ -403,12 +436,14 @@ mod tests {
     #[test]
     fn default_agent_playbooks_expose_evidence_audited_patch_contract() {
         let playbooks = default_agent_playbooks();
-        assert_eq!(playbooks.len(), 1);
+        assert_eq!(playbooks.len(), 4);
         let playbook = playbooks
             .iter()
             .find(|entry| entry.playbook_id == "evidence_audited_patch")
             .expect("evidence-audited patch playbook should exist");
         assert_eq!(playbook.default_budget, 196);
+        assert_eq!(playbook.route_family, "coding");
+        assert_eq!(playbook.topology, "planner_specialist_verifier");
         assert_eq!(
             playbook.completion_contract.merge_mode,
             "append_summary_to_parent"
@@ -417,10 +452,41 @@ mod tests {
             .trigger_intents
             .iter()
             .any(|intent| intent == "workspace.ops"));
-        assert_eq!(playbook.steps.len(), 3);
-        assert_eq!(playbook.steps[0].worker_template_id, "researcher");
+        assert_eq!(playbook.steps.len(), 4);
+        assert_eq!(playbook.steps[0].worker_template_id, "context_worker");
         assert_eq!(playbook.steps[1].worker_workflow_id, "patch_build_verify");
-        assert_eq!(playbook.steps[2].worker_workflow_id, "postcondition_audit");
+        assert_eq!(playbook.steps[2].worker_workflow_id, "targeted_test_audit");
+        assert_eq!(
+            playbook.steps[3].worker_workflow_id,
+            "patch_synthesis_handoff"
+        );
+    }
+
+    #[test]
+    fn default_agent_playbooks_expose_artifact_generation_gate_contract() {
+        let playbook = default_agent_playbooks()
+            .into_iter()
+            .find(|entry| entry.playbook_id == "artifact_generation_gate")
+            .expect("artifact_generation_gate playbook should exist");
+        assert_eq!(playbook.default_budget, 196);
+        assert_eq!(playbook.route_family, "artifacts");
+        assert_eq!(playbook.topology, "planner_specialist_verifier");
+        assert_eq!(playbook.steps.len(), 3);
+        assert_eq!(playbook.steps[0].worker_template_id, "context_worker");
+        assert_eq!(
+            playbook.steps[0].worker_workflow_id,
+            "artifact_context_brief"
+        );
+        assert_eq!(playbook.steps[1].worker_template_id, "artifact_builder");
+        assert_eq!(
+            playbook.steps[1].worker_workflow_id,
+            "artifact_generate_repair"
+        );
+        assert_eq!(playbook.steps[2].worker_template_id, "verifier");
+        assert_eq!(
+            playbook.steps[2].worker_workflow_id,
+            "artifact_quality_audit"
+        );
     }
 
     #[test]
@@ -431,10 +497,10 @@ mod tests {
             .expect("expected evidence_audited_patch playbook");
         let playbook_specs = std::iter::once((playbook.playbook_id.clone(), playbook.clone()))
             .collect::<BTreeMap<_, _>>();
-        let research_step = playbook
+        let context_step = playbook
             .steps
             .first()
-            .expect("research step should exist")
+            .expect("context step should exist")
             .clone();
         let coder_step = playbook
             .steps
@@ -463,9 +529,9 @@ mod tests {
                 "step_spawned",
                 "running",
                 true,
-                Some(&research_step),
-                Some("child-research"),
-                "Spawned research step.",
+                Some(&context_step),
+                Some("child-context"),
+                "Spawned context step.",
                 &[],
                 None,
             ),
@@ -476,10 +542,10 @@ mod tests {
                 "step_completed",
                 "running",
                 true,
-                Some(&research_step),
-                Some("child-research"),
-                "Research brief merged into parent context.",
-                &["artifact-research"],
+                Some(&context_step),
+                Some("child-context"),
+                "Context brief merged into parent context.",
+                &["artifact-context"],
                 None,
             ),
             parent_playbook_event(
@@ -513,22 +579,22 @@ mod tests {
             projected.active_child_session_id.as_deref(),
             Some("child-coder")
         );
-        assert_eq!(projected.steps.len(), 3);
+        assert_eq!(projected.steps.len(), 4);
 
-        let projected_research = projected
+        let projected_context = projected
             .steps
             .iter()
-            .find(|step| step.step_id == research_step.step_id)
-            .expect("projected research step should exist");
-        assert_eq!(projected_research.status, "completed");
-        assert_eq!(projected_research.receipts.len(), 2);
+            .find(|step| step.step_id == context_step.step_id)
+            .expect("projected context step should exist");
+        assert_eq!(projected_context.status, "completed");
+        assert_eq!(projected_context.receipts.len(), 2);
         assert_eq!(
-            projected_research
+            projected_context
                 .receipts
                 .last()
-                .expect("latest research receipt should exist")
+                .expect("latest context receipt should exist")
                 .artifact_ids,
-            vec!["artifact-research".to_string()]
+            vec!["artifact-context".to_string()]
         );
 
         let projected_coder = projected

@@ -1,0 +1,107 @@
+{
+  "presetId": "coding-executor-local-oss",
+  "label": "Coding executor local OSS",
+  "role": "coding_executor",
+  "benchmarkTier": "tier2",
+  "experimental": true,
+  "shippedDefault": false,
+  "runtimeModel": "qwen2.5:7b",
+  "artifactAcceptanceModel": "qwen2.5:7b",
+  "availabilityStatus": "ready",
+  "availabilitySummary": "Local runtime is healthy and exposes 'qwen2.5:7b'.",
+  "caseCount": 1,
+  "availableWorkloadCount": 1,
+  "topFindings": [],
+  "scorecards": {
+    "artifactQuality": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 1,
+        "passRate": 1,
+        "averageJudgeScore": 0.833,
+        "verifierPassRate": 1,
+        "averageRepairLoopIterations": 0,
+        "routeMatchRate": 1
+      }
+    },
+    "codingCompletion": {
+      "available": false,
+      "reason": "No retained coding benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "taskPassRate": null,
+        "targetedTestPassRate": null,
+        "verifierPassRate": null,
+        "patchSynthesisReadyRate": null
+      }
+    },
+    "researchQuality": {
+      "available": false,
+      "reason": "No retained research benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "taskPassRate": null,
+        "citationVerifierPassRate": null,
+        "sourceIndependenceRate": null,
+        "sourceCountFloorRate": null,
+        "synthesisCompleteness": null,
+        "freshnessPassRate": null,
+        "quoteGroundingPassRate": null
+      }
+    },
+    "computerUseCompletion": {
+      "available": false,
+      "reason": "No retained computer-use benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "rewardFloorPassRate": null,
+        "postconditionPassRate": null,
+        "meanStepCount": null
+      }
+    },
+    "latencyAndResourcePressure": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "meanWallClockMs": 31210,
+        "p95WallClockMs": 31210,
+        "residentModelBytes": 4683087332,
+        "processorKind": "100% GPU"
+      }
+    },
+    "operationalDiscipline": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "malformedToolCallRate": null,
+        "noOpStallRate": null,
+        "repairLoopIterations": 0,
+        "interruptionRecoveryQuality": null
+      }
+    }
+  },
+  "cases": [
+    {
+      "benchmarkId": "artifact-download-bundle",
+      "title": "Artifact download bundle",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "status": "completed",
+      "result": "pass",
+      "elapsedMs": 31210,
+      "timedOut": false,
+      "judgeScore": 0.833,
+      "verifierPass": true,
+      "repairLoopIterations": 0,
+      "routeMatched": true,
+      "summary": "a downloadable artifact bundle with a CSV and README {",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T20-35-31-743Z/coding-executor-local-oss/artifact-download-bundle/artifact/generation.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T20-35-31-743Z/coding-executor-local-oss/artifact-download-bundle/artifact",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T20-35-31-743Z/coding-executor-local-oss/artifact-download-bundle/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T20-35-31-743Z/coding-executor-local-oss/artifact-download-bundle/command.stderr.log"
+    }
+  ],
+  "summaryPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T20-35-31-743Z/coding-executor-local-oss/summary.json",
+  "runRootPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T20-35-31-743Z/coding-executor-local-oss"
+}
