@@ -1,0 +1,181 @@
+{
+  "summary": "An interactive HTML artifact showcasing an AI tools editorial launch page with a minimalist, modern design and interactive features such as hover and click interactions. The artifact includes a hero section, a control bar, two populated evidence surfaces, and a shared detail region with pre-rendered content.",
+  "notes": [
+    "Normalized from raw HTML output",
+    "Soft validation: HTML iframe artifacts must contain at least three sectioning elements with first-paint content",
+    "First-paint content includes a hero, control bar, two evidence surfaces, and a shared detail region",
+    "All content is pre-rendered in HTML with inline CSS and JavaScript for interactivity",
+    "The design is responsive and follows the requested visual tone of clean and professional"
+  ],
+  "files": [
+    {
+      "path": "index.html",
+      "mime": "text/html",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": false,
+      "encoding": "utf8",
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>AI Tools Editorial Launch</title>\n  <style>\n    body {\n      margin: 0;\n      font-family: system-ui, sans-serif;\n      background-color: #f5f5f5;\n      color: #333;\n    }\n    header {\n      background-color: #1e3a8a;\n      color: white;\n      padding: 20px;\n      text-align: center;\n    }\n    .control-bar {\n      display: flex;\n      justify-content: space-between;\n      align-items: center;\n      padding: 10px 20px;\n      background-color: #e5e7eb;\n    }\n    .control-bar button {\n      background: none;\n      border: none;\n      color: #1e3a8a;\n      cursor: pointer;\n      font-weight: bold;\n      padding: 8px 16px;\n      transition: background 0.2s;\n    }\n    .control-bar button:hover {\n      background-color: #d1d5db;\n    }\n    .evidence-surface {\n      padding: 20px;\n      margin: 20px;\n      background-color: white;\n      border-radius: 8px;\n      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);\n    }\n    .evidence-surface h3 {\n      margin-top: 0;\n    }\n    .shared-detail {\n      padding: 20px;\n      margin: 20px;\n      background-color: white;\n      border-radius: 8px;\n      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);\n    }\n    .shared-detail h3 {\n      margin-top: 0;\n    }\n    .evidence-item {\n      margin-bottom: 10px;\n    }\n    .evidence-item label {\n      font-weight: bold;\n    }\n    .evidence-item span {\n      font-style: italic;\n    }\n    .evidence-item button {\n      margin-left: 10px;\n      padding: 4px 8px;\n      background-color: #1e3a8a;\n      color: white;\n      border: none;\n      border-radius: 4px;\n      cursor: pointer;\n    }\n    .evidence-item button:hover {\n      background-color: #162e5c;\n    }\n    .evidence-item:hover {\n      background-color: #f0f0f0;\n    }\n    .evidence-item:focus {\n      outline: 2px solid #1e3a8a;\n    }\n  </style>\n<style data-studio-interaction-polish="true">
+:root { color-scheme: light; }
+body { line-height: 1.5; color: #0f172a; }
+header { padding: 32px 24px; text-align: left; }
+header > * { max-width: 1120px; margin-left: auto; margin-right: auto; }
+header h1, header p { margin-left: 0; margin-right: 0; }
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 24px;
+  box-sizing: border-box;
+}
+main > section,
+main > nav,
+main > aside,
+main > footer {
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+.control-bar,
+.studio-view-switch-controls,
+nav[aria-label="Artifact views"] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+button,
+[role="tab"][data-view] {
+  font: inherit;
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+button[data-view],
+.control-bar button,
+.studio-view-switch-controls button,
+[role="tab"][data-view] {
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  font-weight: 600;
+}
+button[data-view][aria-selected="true"],
+.control-bar button[aria-selected="true"],
+.studio-view-switch-controls button[aria-selected="true"],
+[role="tab"][data-view][aria-selected="true"] {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+}
+button:hover,
+button:focus-visible,
+[role="tab"][data-view]:hover,
+[role="tab"][data-view]:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  outline: none;
+}
+.evidence-surface,
+[data-view-panel],
+[data-panel],
+[role="tabpanel"],
+.shared-detail,
+[data-studio-shared-detail="true"],
+[data-studio-rollover-chip-rail="true"] {
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.07);
+  padding: 24px;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+.evidence-surface:hover,
+.evidence-surface:focus-within,
+[data-view-panel]:hover,
+[data-view-panel]:focus-within,
+[data-panel]:hover,
+[data-panel]:focus-within,
+[role="tabpanel"]:hover,
+[role="tabpanel"]:focus-within,
+.shared-detail:hover,
+.shared-detail:focus-within,
+[data-studio-shared-detail="true"]:hover,
+[data-studio-shared-detail="true"]:focus-within,
+[data-studio-rollover-chip-rail="true"]:hover,
+[data-studio-rollover-chip-rail="true"]:focus-within {
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.12);
+}
+.evidence-surface h1,
+.evidence-surface h2,
+.evidence-surface h3,
+[data-view-panel] h1,
+[data-view-panel] h2,
+[data-view-panel] h3,
+.shared-detail h1,
+.shared-detail h2,
+.shared-detail h3,
+[data-studio-shared-detail="true"] h1,
+[data-studio-shared-detail="true"] h2,
+[data-studio-shared-detail="true"] h3 {
+  margin-top: 0;
+  text-align: left;
+}
+.evidence-surface svg,
+[data-view-panel] svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 16px 0 0;
+}
+[data-detail]:hover,
+[data-detail]:focus-visible,
+.studio-rollover-chip:hover,
+.studio-rollover-chip:focus-visible {
+  cursor: pointer;
+  filter: brightness(0.96);
+  outline: 2px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 2px;
+}
+[hidden] { display: none !important; }
+@media (max-width: 720px) {
+  header { padding: 24px 16px; }
+  main { padding: 16px; gap: 16px; }
+  .control-bar,
+  .studio-view-switch-controls,
+  nav[aria-label="Artifact views"] { gap: 8px; }
+  .evidence-surface,
+  [data-view-panel],
+  [data-panel],
+  [role="tabpanel"],
+  .shared-detail,
+  [data-studio-shared-detail="true"],
+  [data-studio-rollover-chip-rail="true"] { padding: 18px; }
+}
+</style></head>\n<body>\n  <header>\n    <h1>AI Tools Editorial Launch</h1>\n    <p>Explore the future of AI tools with interactive features and real-world examples.</p>\n  </header>\n  <main><section data-studio-normalized="true">\n    <div class=\"control-bar\">\n      <button data-view=\"tools\" aria-controls="studio-view-panel-tools" aria-selected="true" type="button" aria-label="Tools">Tools</button>\n      <button data-view=\"demos\" aria-controls="studio-view-panel-demos" aria-selected="false" type="button" aria-label="Demos" data-studio-render-primary-action="true">Demos</button>\n      <button data-view=\"comparison\" aria-controls="studio-view-panel-comparison" aria-selected="false" type="button" aria-label="Comparison">Comparison</button>\n    </div></section><section data-studio-normalized="true" id="studio-view-panel-tools" data-view-panel="tools" data-studio-view-panel-repair="true">\n    <div class=\"evidence-surface\" id="studio-view-panel-demos" data-view-panel="demos" data-studio-view-panel-repair="true" hidden="hidden" aria-hidden="true">\n      <h3>Featured AI Tools</h3>\n      <div class=\"evidence-item\" id="studio-view-panel-comparison" data-view-panel="comparison" data-studio-view-panel-repair="true" hidden="hidden" aria-hidden="true">\n        <label>Tool A</label>\n        <span>AI-powered data analysis</span>\n        <button data-detail=\"tool-a\" data-view="view-details" aria-controls="studio-view-panel-view-details" aria-selected="false" type="button" aria-label="View Details">View Details</button>\n      </div>\n      <div class=\"evidence-item\" id="studio-view-panel-view-details" data-view-panel="view-details" data-studio-view-panel-repair="true" hidden="hidden" aria-hidden="true">\n        <label>Tool B</label>\n        <span>Automated content generation</span>\n        <button data-detail=\"tool-b\" type="button" aria-label="View Details">View Details</button>\n      </div>\n      <div class=\"evidence-item\" id="studio-view-panel-watch-demo" data-view-panel="watch-demo" data-studio-view-panel-repair="true" hidden="hidden" aria-hidden="true">\n        <label>Tool C</label>\n        <span>Real-time language translation</span>\n        <button data-detail=\"tool-c\" type="button" aria-label="View Details">View Details</button>\n      </div>\n    </div></section><section data-studio-normalized="true">\n    <div class=\"evidence-surface\">\n      <h3>Tool Demos</h3>\n      <div class=\"evidence-item\">\n        <label>Tool A Demo</label>\n        <span>Watch a short demo of Tool A</span>\n        <button data-detail=\"demo-a\" data-view="watch-demo" aria-controls="studio-view-panel-watch-demo" aria-selected="false" type="button" aria-label="Watch Demo">Watch Demo</button>\n      </div>\n      <div class=\"evidence-item\">\n        <label>Tool B Demo</label>\n        <span>Watch a short demo of Tool B</span>\n        <button data-detail=\"demo-b\" type="button" aria-label="Watch Demo">Watch Demo</button>\n      </div>\n      <div class=\"evidence-item\">\n        <label>Tool C Demo</label>\n        <span>Watch a short demo of Tool C</span>\n        <button data-detail=\"demo-c\" type="button" aria-label="Watch Demo">Watch Demo</button>\n      </div>\n    </div></section><section data-studio-normalized="true">\n    <div class=\"shared-detail\" id=\"shared-detail\">\n      <h3>Selected Tool Details</h3>\n      <div id=\"detail-content\">\n        <p>Default content for the shared detail region.</p>\n      </div>\n    </div></section><section data-studio-normalized="true">\n  </section><aside data-studio-normalized="true" data-studio-shared-detail="true"><h2>Detail</h2><p id="detail-copy">Tools is selected by default.</p></aside><section data-studio-normalized="true" data-studio-rollover-chip-rail="true"><h2>Evidence highlights</h2><div class="studio-rollover-chip-rail"><button type="button" class="studio-rollover-chip" data-detail="AI tools editorial launch page">AI tools editorial launch page</button><button type="button" class="studio-rollover-chip" data-detail="interactive HTML artifact">interactive HTML artifact</button><button type="button" class="studio-rollover-chip" data-detail="client sandbox execution">client sandbox execution</button></div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section></main>\n  <script>\n    document.querySelectorAll('[data-view]').forEach(button => {\n      button.addEventListener('click', () => {\n        document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));\n        button.classList.add('active');\n        const view = button.getAttribute('data-view');\n        document.querySelectorAll('[data-view-panel]').forEach(panel => {\n          panel.classList.remove('active');\n        });\n        document.querySelector(`[data-view-panel=\"${view}\"]`).classList.add('active');\n      });\n    });\n    document.querySelectorAll('[data-detail]').forEach(item => {\n      item.addEventListener('<script data-studio-normalized="true" data-studio-rollover-repair="true">(() => {
+  const detailCopy = document.getElementById('detail-copy');
+  if (!detailCopy) {
+    return;
+  }
+  document.querySelectorAll('[data-detail]').forEach((mark) => {
+    if (!mark.hasAttribute('tabindex')) {
+      mark.setAttribute('tabindex', '0');
+    }
+    const updateDetail = () => {
+      const detail = mark.getAttribute('data-detail') || '';
+      if (detail) {
+        detailCopy.textContent = detail;
+      }
+    };
+    mark.addEventListener('click', updateDetail);
+    mark.addEventListener('mouseenter', updateDetail);
+    mark.addEventListener('focus', updateDetail);
+  });
+})();</script>

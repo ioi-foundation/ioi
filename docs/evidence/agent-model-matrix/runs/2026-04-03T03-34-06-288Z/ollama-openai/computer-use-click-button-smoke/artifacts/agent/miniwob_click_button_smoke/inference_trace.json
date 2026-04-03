@@ -1,0 +1,22 @@
+{
+  "backend": "live_http",
+  "runtime_kind": "OpenAiChatCompletionsHarness",
+  "api_url": "http://127.0.0.1:11434/v1/chat/completions",
+  "model": "llama3.2:3b",
+  "call_count": 1,
+  "phase_timings": {
+    "harness_run_started_at_ms": 1775187382964,
+    "browser_launch_started_at_ms": 1775187368696,
+    "browser_launch_finished_at_ms": 1775187382824,
+    "session_created_at_ms": 1775187382964,
+    "browser_navigation_started_at_ms": 1775187382964,
+    "browser_navigation_finished_at_ms": 1775187383097,
+    "initial_bridge_sync_at_ms": 1775187383073,
+    "initial_bridge_ready_observed_at_ms": 1775187383098,
+    "agent_start_service_started_at_ms": null,
+    "agent_start_service_finished_at_ms": null,
+    "first_step_service_started_at_ms": 1775187383634,
+    "first_step_service_finished_at_ms": 1775187383802,
+    "case_finished_at_ms": 1775187383804
+  }
+}

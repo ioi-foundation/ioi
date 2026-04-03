@@ -1,0 +1,1 @@
+Error: Failed to generate Studio artifact bundle: Studio artifact generation did not produce a valid candidate. candidate-1: Failed to parse Studio artifact materialization payload: missing field `body`; repair attempt 1 failed: Failed to parse Studio artifact materialization payload: missing field `body`

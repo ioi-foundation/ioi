@@ -80,6 +80,8 @@ struct OpenAiRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     response_format: Option<ResponseFormat>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_effort: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     options: Option<Value>,
 }
 
@@ -173,6 +175,7 @@ impl ProviderStrategy for OpenAiStrategy {
         };
         let max_tokens = (options.max_tokens > 0).then_some(options.max_tokens);
         let local_runtime_options = ollama_request_options_for_api_url(api_url);
+        let reasoning_effort = local_openai_reasoning_effort_for_api_url(api_url);
 
         let body = OpenAiRequest {
             model: model_name.to_string(),
@@ -184,6 +187,7 @@ impl ProviderStrategy for OpenAiStrategy {
             max_tokens,
             stream,
             response_format,
+            reasoning_effort,
             options: local_runtime_options,
         };
 
@@ -810,6 +814,31 @@ fn ollama_request_options_for_api_url(api_url: &str) -> Option<Value> {
     Some(json!({ "num_ctx": num_ctx }))
 }
 
+fn local_openai_reasoning_effort_for_api_url(api_url: &str) -> Option<String> {
+    local_openai_reasoning_effort_for_api_url_with_lookup(api_url, |key| std::env::var(key).ok())
+}
+
+fn local_openai_reasoning_effort_for_api_url_with_lookup<F>(
+    api_url: &str,
+    lookup: F,
+) -> Option<String>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    if runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime {
+        return None;
+    }
+
+    let configured = lookup("AUTOPILOT_LOCAL_OPENAI_REASONING_EFFORT")
+        .or_else(|| lookup("IOI_LOCAL_OPENAI_REASONING_EFFORT"));
+
+    match configured.as_deref().map(str::trim) {
+        Some("") | Some("omit") => None,
+        Some(value) => Some(value.to_string()),
+        None => Some("none".to_string()),
+    }
+}
+
 async fn read_error_response_body(response: reqwest::Response) -> String {
     match tokio::time::timeout(Duration::from_secs(3), response.text()).await {
         Ok(Ok(body)) if !body.trim().is_empty() => body,
@@ -1067,7 +1096,22 @@ impl InferenceRuntime for HttpInferenceRuntime {
     }
 
     async fn load_model(&self, _hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-        Ok(())
+        if runtime_kind_for_api_url(&self.api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime
+        {
+            return Ok(());
+        }
+
+        self.execute_inference(
+            _hash,
+            b"Reply with OK.",
+            InferenceOptions {
+                max_tokens: 1,
+                temperature: 0.0,
+                ..Default::default()
+            },
+        )
+        .await
+        .map(|_| ())
     }
     async fn unload_model(&self, _hash: [u8; 32]) -> Result<(), VmError> {
         Ok(())
@@ -1099,7 +1143,7 @@ fn runtime_kind_for_api_url(api_url: &str) -> StudioRuntimeProvenanceKind {
 #[cfg(test)]
 mod tests {
     use super::{
-        default_inference_http_timeout_seconds,
+        default_inference_http_timeout_seconds, local_openai_reasoning_effort_for_api_url_with_lookup,
         inference_http_timeout_seconds_for_api_url_with_lookup, resolve_embedding_model_with,
         resolve_embedding_target_url, should_use_openai_streaming, HttpInferenceRuntime,
         OpenAiStrategy, OpenAiStreamAccumulator, ProviderKind, ProviderStrategy,
@@ -1109,9 +1153,11 @@ mod tests {
     use reqwest::Client;
     use serde_json::{json, Value};
     use std::collections::HashMap;
+    use std::path::Path;
     use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
+    use tokio::sync::oneshot;
 
     #[test]
     fn openai_stream_accumulator_returns_complete_tool_call_before_done() {
@@ -1259,6 +1305,47 @@ mod tests {
         let parsed: Value = serde_json::from_slice(body).expect("json body");
 
         assert_eq!(parsed["options"]["num_ctx"], 2048);
+    }
+
+    #[test]
+    fn local_ollama_requests_disable_reasoning_effort_by_runtime_shape() {
+        let request = OpenAiStrategy
+            .build_request(
+                &Client::new(),
+                "http://127.0.0.1:11434/v1/chat/completions",
+                "",
+                "llama3.2:3b",
+                br#"[{"role":"user","content":"Say ok"}]"#,
+                &InferenceOptions {
+                    max_tokens: 8,
+                    ..Default::default()
+                },
+                false,
+            )
+            .expect("request builder")
+            .build()
+            .expect("request");
+
+        let body = request
+            .body()
+            .and_then(|payload| payload.as_bytes())
+            .expect("request body");
+        let parsed: Value = serde_json::from_slice(body).expect("json body");
+
+        assert_eq!(parsed["reasoning_effort"], "none");
+    }
+
+    #[test]
+    fn local_reasoning_effort_policy_can_be_explicitly_omitted() {
+        let effort = local_openai_reasoning_effort_for_api_url_with_lookup(
+            "http://127.0.0.1:11434/v1/chat/completions",
+            |key| match key {
+                "AUTOPILOT_LOCAL_OPENAI_REASONING_EFFORT" => Some("omit".to_string()),
+                _ => None,
+            },
+        );
+
+        assert!(effort.is_none());
     }
 
     #[test]
@@ -1471,5 +1558,65 @@ mod tests {
                 ..Default::default()
             }
         ));
+    }
+
+    #[tokio::test]
+    async fn local_runtime_load_model_uses_tiny_chat_warmup_request() {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind local listener");
+        let address = listener.local_addr().expect("listener address");
+        let (request_tx, request_rx) = oneshot::channel::<String>();
+
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept test client");
+            let mut request = vec![0u8; 16384];
+            let read = socket.read(&mut request).await.expect("read request");
+            request_tx
+                .send(String::from_utf8_lossy(&request[..read]).to_string())
+                .expect("send request payload");
+            let body = json!({
+                "id": "chatcmpl-warmup",
+                "object": "chat.completion",
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "OK"
+                    },
+                    "finish_reason": "stop"
+                }]
+            })
+            .to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            socket
+                .write_all(response.as_bytes())
+                .await
+                .expect("write response");
+        });
+
+        std::env::set_var("OLLAMA_CONTEXT_LENGTH", "4096");
+        let runtime = HttpInferenceRuntime::new(
+            format!("http://{address}/v1/chat/completions"),
+            String::new(),
+            "qwen2.5:14b".to_string(),
+        );
+        runtime
+            .load_model([0u8; 32], Path::new(""))
+            .await
+            .expect("warmup should succeed");
+        std::env::remove_var("OLLAMA_CONTEXT_LENGTH");
+
+        let request = request_rx.await.expect("captured request");
+        assert!(request.starts_with("POST /v1/chat/completions HTTP/1.1"));
+        assert!(request.contains("\"model\":\"qwen2.5:14b\""));
+        assert!(request.contains("\"max_tokens\":1"));
+        assert!(request.contains("\"temperature\":0.0"));
+        assert!(request.contains("\"Reply with OK.\""));
+        assert!(request.contains("\"num_ctx\":4096"));
     }
 }

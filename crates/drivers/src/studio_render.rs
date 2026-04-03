@@ -12,12 +12,18 @@ use ioi_types::app::{StudioOutcomeArtifactRequest, StudioRendererKind};
 use serde::Deserialize;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 const DESKTOP_VIEWPORT: (u32, u32) = (1440, 960);
 const MOBILE_VIEWPORT: (u32, u32) = (390, 844);
 const CAPTURE_SETTLE_MS: u64 = 140;
+
+fn studio_render_trace(message: impl AsRef<str>) {
+    if std::env::var_os("IOI_STUDIO_PROOF_TRACE").is_some() {
+        eprintln!("[studio-proof-trace] {}", message.as_ref());
+    }
+}
 
 pub struct BrowserStudioArtifactRenderEvaluator {
     browser: BrowserDriver,
@@ -165,14 +171,42 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
             return Ok(None);
         }
 
+        let started_at = Instant::now();
         let preview_bundle = build_preview_bundle(request.renderer, candidate)?;
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:bundle_ready renderer={:?} entry={} elapsed_ms={}",
+            request.renderer,
+            preview_bundle.entry_path.display(),
+            started_at.elapsed().as_millis()
+        ));
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:browser_launch:start elapsed_ms={}",
+            started_at.elapsed().as_millis()
+        ));
         self.ensure_headless_browser().await?;
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:browser_launch:ok elapsed_ms={}",
+            started_at.elapsed().as_millis()
+        ));
         let preview_url = format!("file://{}", preview_bundle.entry_path.display());
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:navigate:start url={} elapsed_ms={}",
+            preview_url,
+            started_at.elapsed().as_millis()
+        ));
         self.browser
             .navigate(&preview_url)
             .await
             .map_err(browser_error_to_string)?;
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:navigate:ok elapsed_ms={}",
+            started_at.elapsed().as_millis()
+        ));
 
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:desktop:start elapsed_ms={}",
+            started_at.elapsed().as_millis()
+        ));
         let desktop = self
             .capture_viewport(
                 StudioArtifactRenderCaptureViewport::Desktop,
@@ -181,6 +215,15 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
                 None,
             )
             .await?;
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:desktop:ok bytes={} elapsed_ms={}",
+            desktop.capture.screenshot_byte_count,
+            started_at.elapsed().as_millis()
+        ));
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:mobile:start elapsed_ms={}",
+            started_at.elapsed().as_millis()
+        ));
         let mobile = self
             .capture_viewport(
                 StudioArtifactRenderCaptureViewport::Mobile,
@@ -189,6 +232,11 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
                 Some(&desktop.capture.screenshot_sha256),
             )
             .await?;
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:mobile:ok bytes={} elapsed_ms={}",
+            mobile.capture.screenshot_byte_count,
+            started_at.elapsed().as_millis()
+        ));
         let interaction_expected = !brief.required_interactions.is_empty()
             || blueprint
                 .map(|value| !value.interaction_plan.is_empty())
@@ -196,12 +244,22 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
             || artifact_ir
                 .map(|value| !value.interaction_graph.is_empty())
                 .unwrap_or(false);
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:interaction:start expected={} elapsed_ms={}",
+            interaction_expected,
+            started_at.elapsed().as_millis()
+        ));
         let interaction = self
             .maybe_capture_interaction(
                 interaction_expected,
                 Some(&desktop.capture.screenshot_sha256),
             )
             .await?;
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:interaction:ok captured={} elapsed_ms={}",
+            interaction.is_some(),
+            started_at.elapsed().as_millis()
+        ));
 
         let render_evaluation = score_render_evaluation(
             request,
@@ -213,6 +271,11 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
             interaction.as_ref(),
             interaction_expected,
         );
+        studio_render_trace(format!(
+            "artifact_generation:render_eval:scored overall={} elapsed_ms={}",
+            render_evaluation.overall_score,
+            started_at.elapsed().as_millis()
+        ));
         let _ = fs::remove_dir_all(&preview_bundle.root_dir);
         Ok(Some(render_evaluation))
     }

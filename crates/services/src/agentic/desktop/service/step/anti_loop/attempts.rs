@@ -1,8 +1,13 @@
 use super::model::{
     tier_as_str, AttemptKey, FailureClass, RETRY_GUARD_REPEAT_LIMIT, RETRY_GUARD_WINDOW,
 };
-use crate::agentic::desktop::types::{AgentState, ExecutionTier};
+use crate::agentic::desktop::types::{AgentState, AgentStatus, ExecutionTier};
+use crate::agentic::desktop::utils::load_agent_state_with_runtime_preference;
+use ioi_api::state::StateAccess;
+use ioi_memory::MemoryRuntime;
 use ioi_crypto::algorithms::hash::sha256;
+use ioi_types::app::agentic::AgentTool;
+use std::sync::Arc;
 
 fn normalize_optional(value: Option<&str>) -> Option<String> {
     value
@@ -21,6 +26,64 @@ pub fn canonical_attempt_window_fingerprint(
     }
 
     normalize_optional(window_fingerprint)
+}
+
+fn lifecycle_attempt_status_label(status: &AgentStatus) -> &'static str {
+    match status {
+        AgentStatus::Idle => "idle",
+        AgentStatus::Running => "running",
+        AgentStatus::Paused(_) => "paused",
+        AgentStatus::Completed(_) => "completed",
+        AgentStatus::Failed(_) => "failed",
+        AgentStatus::Terminated => "terminated",
+    }
+}
+
+pub fn specialized_attempt_target_id(
+    state: &dyn StateAccess,
+    memory_runtime: Option<&Arc<MemoryRuntime>>,
+    tool_name: &str,
+    tool_jcs: Option<&[u8]>,
+) -> Option<String> {
+    if tool_name != "agent__await_result" {
+        return None;
+    }
+
+    let AgentTool::AgentAwait {
+        child_session_id_hex,
+    } = serde_json::from_slice::<AgentTool>(tool_jcs?).ok()?
+    else {
+        return None;
+    };
+
+    let child_session_id_hex = child_session_id_hex.trim();
+    if child_session_id_hex.is_empty() {
+        return None;
+    }
+
+    let child_session_id = hex::decode(child_session_id_hex).ok()?;
+    if child_session_id.len() != 32 {
+        return Some(format!("await_child={child_session_id_hex}"));
+    }
+
+    let mut child_session_id_array = [0u8; 32];
+    child_session_id_array.copy_from_slice(&child_session_id);
+    let child_state = load_agent_state_with_runtime_preference(
+        state,
+        memory_runtime,
+        child_session_id_array,
+        child_session_id_hex,
+    )
+    .ok();
+
+    match child_state {
+        Some(child_state) => Some(format!(
+            "await_child={child_session_id_hex};step={};status={}",
+            child_state.step_count,
+            lifecycle_attempt_status_label(&child_state.status)
+        )),
+        None => Some(format!("await_child={child_session_id_hex}")),
+    }
 }
 
 pub fn build_attempt_key(

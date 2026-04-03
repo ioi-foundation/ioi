@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-04-02T10:04:37.177Z",
+  "generatedAt": "2026-04-03T12:12:47.793Z",
   "configPath": "release-gates.config.json",
   "summaryPath": "corpus-summary.json",
   "conformanceReportPath": "conformance-report.json",
@@ -9,16 +9,16 @@
   "status": "fail",
   "summary": {
     "gateCount": 7,
-    "passCount": 4,
-    "failCount": 3,
+    "passCount": 3,
+    "failCount": 4,
     "pendingCount": 0,
     "blockingGateIds": [
       "ready_rate",
+      "average_judge_score",
       "pairwise_win_rate",
       "shim_required_rate"
     ],
     "ratchetCandidateIds": [
-      "ready_rate",
       "average_judge_score",
       "screenshot_quality_score",
       "shim_required_rate",
@@ -36,7 +36,7 @@
       "operator": "minimum",
       "shipThreshold": 0.95,
       "reading": {
-        "value": 0.889,
+        "value": 0.778,
         "available": true,
         "method": "share of benchmark cases whose surfaced verification cleared to ready/pass",
         "supportingBenchmarkIds": [
@@ -54,21 +54,21 @@
         "failedCheckIds": []
       },
       "ratchet": {
-        "status": "eligible_raise_floor",
+        "status": "regressed",
         "floor": 0.8,
-        "deltaToFloor": 0.089,
-        "candidateFloor": 0.889
+        "deltaToFloor": -0.022,
+        "candidateFloor": null
       }
     },
     {
       "id": "average_judge_score",
       "label": "Average judge score",
       "required": true,
-      "status": "pass",
+      "status": "fail",
       "operator": "minimum",
       "shipThreshold": 0.85,
       "reading": {
-        "value": 0.856,
+        "value": 0.848,
         "available": true,
         "method": "mean of the six structured acceptance dimensions normalized to the 0-1 range",
         "supportingBenchmarkIds": [
@@ -88,8 +88,8 @@
       "ratchet": {
         "status": "eligible_raise_floor",
         "floor": 0.8,
-        "deltaToFloor": 0.056,
-        "candidateFloor": 0.856
+        "deltaToFloor": 0.048,
+        "candidateFloor": 0.848
       }
     },
     {
@@ -100,10 +100,11 @@
       "operator": "minimum",
       "shipThreshold": 0.8,
       "reading": {
-        "value": 0.84,
+        "value": 0.8,
         "available": true,
         "method": "mean normalized overall render-evaluation score across executed benchmarks with first-paint screenshot receipts",
         "supportingBenchmarkIds": [
+          "html-editorial-launch-page",
           "html-guided-onboarding-explainer",
           "svg-concept-poster"
         ],
@@ -113,8 +114,8 @@
       "ratchet": {
         "status": "eligible_raise_floor",
         "floor": 0.75,
-        "deltaToFloor": 0.09,
-        "candidateFloor": 0.84
+        "deltaToFloor": 0.05,
+        "candidateFloor": 0.8
       }
     },
     {
@@ -218,28 +219,20 @@
   ],
   "ratchetCandidates": [
     {
-      "id": "ready_rate",
-      "label": "Ready rate",
-      "operator": "minimum",
-      "currentValue": 0.889,
-      "currentFloor": 0.8,
-      "candidateFloor": 0.889
-    },
-    {
       "id": "average_judge_score",
       "label": "Average judge score",
       "operator": "minimum",
-      "currentValue": 0.856,
+      "currentValue": 0.848,
       "currentFloor": 0.8,
-      "candidateFloor": 0.856
+      "candidateFloor": 0.848
     },
     {
       "id": "screenshot_quality_score",
       "label": "Screenshot quality score",
       "operator": "minimum",
-      "currentValue": 0.84,
+      "currentValue": 0.8,
       "currentFloor": 0.75,
-      "candidateFloor": 0.84
+      "candidateFloor": 0.8
     },
     {
       "id": "shim_required_rate",

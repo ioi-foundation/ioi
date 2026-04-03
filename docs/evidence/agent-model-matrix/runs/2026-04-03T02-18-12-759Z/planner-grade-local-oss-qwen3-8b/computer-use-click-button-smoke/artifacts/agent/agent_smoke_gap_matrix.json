@@ -1,0 +1,29 @@
+{
+  "artifact_root": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T02-18-12-759Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts",
+  "by_gap_class": {
+    "infra_or_bridge_gap": 1
+  },
+  "by_support_state": {
+    "infra_blocked": 1
+  },
+  "mode": "agent",
+  "results": [
+    {
+      "agent_backend": "live_http",
+      "artifact_root": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T02-18-12-759Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke",
+      "case_id": "miniwob_click_button_smoke",
+      "env_id": "click-button",
+      "failure_class": "ERROR_CLASS=NoEffectAfterAction Browser click/focus failed to satisfy postcondition for '#area > button:nth-of-type(2)'. verify={\"click_errors\":[],\"fallback_used\":\"selector_focus\",\"location_shortcut_sent\":false,\"post\":{\"blocked_by\":\"#sync-task-cover\",\"editable\":false,\"focused\":true,\"found\":true,\"role\":\"\",\"tag\":\"button\",\"topmost\":false,\"url\":\"file:///tmp/ioi-miniwob-bridge/b9861e23ebff2a27/miniwob/click-button.1.html\",\"visible\":true},\"postcondition_met\":false,\"pre\":{\"blocked_by\":\"#sync-task-cover\",\"editable\":false,\"focused\":false,\"found\":true,\"role\":\"\",\"tag\":\"button\",\"topmost\":false,\"url\":\"file:///tmp/ioi-miniwob-bridge/b9861e23ebff2a27/miniwob/click-button.1.html\",\"visible\":true},\"selector\":\"#area > button:nth-of-type(2)\"}",
+      "overall_pass": false,
+      "primary_gap_class": "infra_or_bridge_gap",
+      "secondary_gap_tags": [],
+      "support_state": "infra_blocked"
+    }
+  ],
+  "task_set": "smoke",
+  "totals": {
+    "cases": 1,
+    "failing": 1,
+    "passing": 0
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "error": {
+    "kind": "generation_failure",
+    "code": "generation_failure",
+    "message": "Failed to generate Studio artifact bundle: Studio artifact generation did not produce a valid candidate. candidate-1: Failed to parse Studio artifact materialization payload: missing field `body`; repair attempt 1 failed: Failed to parse Studio artifact materialization payload: missing field `body`"
+  },
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "llama3.2:3b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen2.5:14b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  }
+}

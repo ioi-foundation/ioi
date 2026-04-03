@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "trace_id": "artifacts:miniwob_click_button_smoke",
+  "run_id": "artifacts",
+  "case_id": "miniwob_click_button_smoke",
+  "env_id": "click-button",
+  "suite": "MiniWoB++",
+  "generated_at_ms": 1775135204820,
+  "summary": {
+    "backend": "live_http",
+    "effective_reward": 0.0,
+    "elapsed_ms": 60145,
+    "env_id": "click-button",
+    "episode_step": 0,
+    "expected_reward_floor": 1.0,
+    "failure_class": "harness_error",
+    "final_trigger": null,
+    "mode": "agent",
+    "provider_calls": 0,
+    "query_text": "",
+    "raw_reward": null,
+    "result_label": "red",
+    "reward": 0.0,
+    "reward_floor_met": false,
+    "terminated": false,
+    "truncated": false
+  },
+  "findings": [
+    "failure_class: harness_error",
+    "run ended without a terminal benchmark state",
+    "effective reward 0.000 stayed below floor 1.000",
+    "no tool steps were recorded"
+  ],
+  "source_artifacts": {
+    "benchmark_summary_json": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T12-44-54-433Z/planner-grade-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.json",
+    "benchmark_summary_markdown": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T12-44-54-433Z/planner-grade-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.md",
+    "bridge_state": null,
+    "case_dir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T12-44-54-433Z/planner-grade-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke",
+    "diagnostic_json": null,
+    "diagnostic_markdown": null,
+    "inference_calls": null,
+    "inference_trace": null
+  },
+  "spans": [
+    {
+      "id": "case",
+      "lane": "case",
+      "parent_span_id": null,
+      "step_index": null,
+      "capability_tags": [
+        "overall_case_outcome"
+      ],
+      "ts_start_ms": null,
+      "ts_end_ms": null,
+      "duration_ms": null,
+      "status": "red",
+      "summary": "| reward=0 effective_reward=0 floor_met=false | failure_class: harness_error",
+      "attributes": {},
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T12-44-54-433Z/planner-grade-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.json"
+      ]
+    }
+  ],
+  "bookmarks": [
+    {
+      "id": "case_outcome",
+      "label": "Case outcome",
+      "span_id": "case",
+      "kind": "summary"
+    }
+  ]
+}

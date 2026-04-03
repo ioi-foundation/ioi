@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import {
   DEFAULT_OLLAMA_CHAT_ENDPOINT,
   DEFAULT_OLLAMA_HEALTH_ENDPOINT,
+  OLLAMA_SINGLE_MODEL_LANE_OVERRIDES,
   PREFERRED_OLLAMA_ACCEPTANCE_MODELS,
   PREFERRED_FAST_OLLAMA_ACCEPTANCE_MODELS,
   PREFERRED_FAST_OLLAMA_PRODUCTION_MODELS,
@@ -18,6 +19,8 @@ let cachedAutoConfiguredRuntime: StudioRuntimeEnv | null = null;
 let cachedAvailableOllamaModels: string[] | null = null;
 type CommandEnvOverrides = Record<string, string | null | undefined>;
 type ProofLane = "contract" | "live";
+const DEFAULT_OLLAMA_CONTEXT_LENGTH = "8192";
+const LIVE_HTML_OLLAMA_CONTEXT_LENGTH = "4096";
 
 export function chooseAvailableOllamaModel(
   availableModels: string[],
@@ -29,6 +32,21 @@ export function chooseAvailableOllamaModel(
     }
   }
   return availableModels[0] ?? null;
+}
+
+export function ollamaContextLengthForRenderer(
+  renderer: RendererKind,
+  lane: ProofLane,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const explicit = env.OLLAMA_CONTEXT_LENGTH?.trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  return renderer === "html_iframe" && lane === "live"
+    ? LIVE_HTML_OLLAMA_CONTEXT_LENGTH
+    : DEFAULT_OLLAMA_CONTEXT_LENGTH;
 }
 
 function buildStudioRuntimeEnv(
@@ -75,6 +93,28 @@ function buildStudioRuntimeEnvFromModels(
   };
 }
 
+function chooseSingleModelLaneOverrideRuntime(
+  renderer: RendererKind,
+  lane: ProofLane,
+  availableModels: string[],
+): StudioRuntimeEnv | null {
+  const override = OLLAMA_SINGLE_MODEL_LANE_OVERRIDES.find(
+    (entry) => entry.renderer === renderer && entry.lane === lane,
+  );
+  if (!override) {
+    return null;
+  }
+
+  const model = override.modelPreferences.find((entry) =>
+    availableModels.includes(entry),
+  );
+  if (model) {
+    return buildStudioRuntimeEnvFromModels(model, model);
+  }
+
+  return null;
+}
+
 function rendererUsesFastDocumentProofLane(renderer: RendererKind): boolean {
   return (
     process.env.STUDIO_ARTIFACT_CORPUS_USE_FAST_DOC_LANE === "1" &&
@@ -99,6 +139,15 @@ export function chooseAvailableOllamaRuntimeForRenderer(
   renderer: RendererKind,
   availableModels: string[],
 ): StudioRuntimeEnv | null {
+  const singleModelLaneOverride = chooseSingleModelLaneOverrideRuntime(
+    renderer,
+    "live",
+    availableModels,
+  );
+  if (singleModelLaneOverride) {
+    return singleModelLaneOverride;
+  }
+
   if (rendererUsesFastDocumentProofLane(renderer)) {
     return buildStudioRuntimeEnv(
       availableModels,
@@ -114,6 +163,15 @@ function chooseAvailableOllamaContractRuntimeForRenderer(
   renderer: RendererKind,
   availableModels: string[],
 ): StudioRuntimeEnv | null {
+  const singleModelLaneOverride = chooseSingleModelLaneOverrideRuntime(
+    renderer,
+    "contract",
+    availableModels,
+  );
+  if (singleModelLaneOverride) {
+    return singleModelLaneOverride;
+  }
+
   const documentRenderer =
     renderer === "markdown" ||
     renderer === "mermaid" ||
@@ -140,10 +198,7 @@ function chooseAvailableOllamaContractRuntimeForRenderer(
     return buildStudioRuntimeEnvFromModels(productionModel, acceptanceModel);
   }
 
-  const acceptanceModel = availableModels.includes("qwen2.5:7b")
-    ? "qwen2.5:7b"
-    : productionModel;
-  return buildStudioRuntimeEnvFromModels(productionModel, acceptanceModel);
+  return buildStudioRuntimeEnvFromModels(productionModel, productionModel);
 }
 
 export function chooseAvailableOllamaRuntimeForProofLane(
@@ -216,7 +271,8 @@ export function artifactCommandEnv(): NodeJS.ProcessEnv {
         cachedAutoConfiguredRuntime.acceptanceModel;
       env.AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS =
         env.AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS ?? "600";
-      env.OLLAMA_CONTEXT_LENGTH = env.OLLAMA_CONTEXT_LENGTH ?? "8192";
+      env.OLLAMA_CONTEXT_LENGTH =
+        env.OLLAMA_CONTEXT_LENGTH ?? DEFAULT_OLLAMA_CONTEXT_LENGTH;
     }
   }
 
@@ -262,7 +318,7 @@ export function runtimeEnvOverridesForRenderer(
     AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL: runtime.acceptanceModel,
     AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS:
       env.AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS ?? "600",
-    OLLAMA_CONTEXT_LENGTH: env.OLLAMA_CONTEXT_LENGTH ?? "8192",
+    OLLAMA_CONTEXT_LENGTH: ollamaContextLengthForRenderer(renderer, lane, env),
   };
 }
 

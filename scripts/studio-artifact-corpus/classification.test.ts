@@ -9,6 +9,7 @@ import {
   buildRepeatedRunVariationCheck,
   caseRetainsStyleSteering,
   deriveCaseClassification,
+  runtimeProvenanceMatches,
 } from "./classification";
 import type {
   CaseSummary,
@@ -252,6 +253,59 @@ function baseSummary(
     fullStudioPath: false,
   };
 }
+
+test("runtime provenance matching ignores lane-only endpoint tags", () => {
+  const production = {
+    kind: "real_local_runtime",
+    label: "openai-compatible",
+    model: "qwen3:8b",
+    endpoint: "http://127.0.0.1:11434/v1/chat/completions",
+  } as const;
+  const acceptance = {
+    kind: "real_local_runtime",
+    label: "openai-compatible",
+    model: "qwen3:8b",
+    endpoint: "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
+  } as const;
+
+  assert.equal(runtimeProvenanceMatches(production, acceptance), true);
+});
+
+test("deriveCaseClassification falls back to blocked manifest summary", () => {
+  const evidence = baseEvidence();
+  evidence.manifest.verification = {
+    ...evidence.manifest.verification,
+    status: "blocked",
+    lifecycleState: "blocked",
+    summary:
+      "Studio materialized files, but blocked the primary presentation: repair shims still dominate the artifact.",
+  };
+  evidence.verifiedReply = {
+    ...evidence.verifiedReply,
+    status: "blocked",
+    lifecycleState: "blocked",
+    summary:
+      "Studio materialized files, but blocked the primary presentation: repair shims still dominate the artifact.",
+  };
+  evidence.judge = {
+    ...evidence.judge,
+    strongestContradiction: null,
+  };
+
+  const result = deriveCaseClassification(
+    baseCaseConfig("html-ai-tools-editorial"),
+    evidence,
+    "<html></html>",
+    { args: [], status: 0, stdout: "", stderr: "" },
+    undefined,
+  );
+
+  assert.equal(result.classification, "blocked");
+  assert.equal(
+    result.contradiction,
+    "Studio materialized files, but blocked the primary presentation: repair shims still dominate the artifact.",
+  );
+});
 
 test("deriveCaseClassification does not downgrade pass output with keyword heuristics", () => {
   const result = deriveCaseClassification(

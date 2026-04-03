@@ -1,0 +1,870 @@
+{
+  "generatedAt": "2026-04-02T23:27:49.727Z",
+  "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02",
+  "cases": [],
+  "lanes": {
+    "contract": {
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/contract-lane",
+      "status": "pass"
+    },
+    "liveStudio": {
+      "status": "blocked",
+      "fullStudioPath": true,
+      "runtimeConfigured": true,
+      "runtimeEndpoint": "http://127.0.0.1:11434/v1/chat/completions",
+      "totals": {
+        "pass": 0,
+        "repairable": 0,
+        "blocked": 1
+      },
+      "strongestContradiction": "Captured viewports show weak alignment or inconsistent spacing cadence.",
+      "notes": [
+        "Executed 1 live Studio-path cases through the kernel-owned proof runner.",
+        "Auto-configured the live lane against local Ollama at http://127.0.0.1:11434/v1/chat/completions using production=qwen2.5:7b and acceptance=qwen2.5:14b.",
+        "Skipped cross-case live parity checks because this was a partial live run.",
+        "Live lane totals: pass=0, repairable=0, blocked=1."
+      ],
+      "unavailableProof": null,
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane",
+      "cases": [
+        {
+          "id": "html-ai-tools-editorial",
+          "prompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+          "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/artifact",
+          "stateRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/state",
+          "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/artifact/artifact-manifest.json",
+          "route": {
+            "requestId": "1b69c58b-e693-429d-bd7c-3d0f25bd2520",
+            "rawPrompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+            "activeArtifactId": null,
+            "outcomeKind": "artifact",
+            "confidence": 0.95,
+            "needsClarification": false,
+            "clarificationQuestions": [],
+            "artifact": {
+              "artifactClass": "interactive_single_file",
+              "deliverableShape": "single_file",
+              "renderer": "html_iframe",
+              "presentationSurface": "side_panel",
+              "persistence": "shared_artifact_scoped",
+              "executionSubstrate": "client_sandbox",
+              "workspaceRecipeId": null,
+              "presentationVariantId": "product-launch",
+              "scope": {
+                "targetProject": "ai-tools-launch-page",
+                "createNewWorkspace": false,
+                "mutationBoundary": [
+                  "html",
+                  "css",
+                  "javascript"
+                ]
+              },
+              "verification": {
+                "requireRender": false,
+                "requireBuild": false,
+                "requirePreview": false,
+                "requireExport": true,
+                "requireDiffReview": false
+              }
+            }
+          },
+          "artifactBrief": {
+            "audience": "AI tools editors and industry professionals",
+            "jobToBeDone": "engage with an interactive launch page for an AI tools editorial",
+            "subjectDomain": "AI tools editorial launch",
+            "artifactThesis": "Create an interactive HTML artifact that showcases the launch of an AI tools editorial",
+            "requiredConcepts": [
+              "interactive HTML artifact",
+              "AI tools editorial launch page",
+              "client sandbox execution"
+            ],
+            "requiredInteractions": [
+              "click to explore AI tools features",
+              "hover to reveal editorial content highlights"
+            ],
+            "visualTone": [
+              "modern",
+              "clean",
+              "professional"
+            ],
+            "factualAnchors": [
+              "AI tools editorial launch page"
+            ],
+            "styleDirectives": [
+              "responsive design",
+              "minimalist layout",
+              "interactive elements"
+            ],
+            "referenceHints": [
+              "html_iframe renderer"
+            ]
+          },
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSetMetadata": [
+            {
+              "candidateId": "candidate-1",
+              "seed": 16003710278222019000,
+              "model": "qwen3:8b",
+              "temperature": 0.32,
+              "strategy": "request-grounded_html",
+              "origin": "live_inference",
+              "provenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3:8b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "summary": "An interactive HTML artifact showcasing the launch of an AI tools editorial with a minimalist, modern design and client sandbox execution.",
+              "renderablePaths": [
+                "launch.html"
+              ],
+              "selected": true,
+              "fallback": false,
+              "failure": null,
+              "rawOutputPreview": null,
+              "convergence": {
+                "lineageRootId": "candidate-1",
+                "parentCandidateId": null,
+                "passKind": "initial_generation",
+                "passIndex": 0,
+                "scoreTotal": 458,
+                "scoreDeltaFromParent": null,
+                "terminatedReason": "selected_as_best_available_candidate"
+              },
+              "renderEvaluation": {
+                "supported": true,
+                "firstPaintCaptured": true,
+                "interactionCaptureAttempted": true,
+                "captures": [
+                  {
+                    "viewport": "desktop",
+                    "width": 1440,
+                    "height": 960,
+                    "screenshotSha256": "8332ce2994079227c302c23571a640c20a0eef6204eda9430a1124e4b8c51d8b",
+                    "screenshotByteCount": 153519,
+                    "visibleElementCount": 15,
+                    "visibleTextChars": 1298,
+                    "interactiveElementCount": 4,
+                    "screenshotChangedFromPrevious": false
+                  },
+                  {
+                    "viewport": "mobile",
+                    "width": 390,
+                    "height": 844,
+                    "screenshotSha256": "1bfe11128e5ac3ef7959e031cfc70d2f9bf9c2e4dca6b61f74277e3dae9dfe38",
+                    "screenshotByteCount": 128918,
+                    "visibleElementCount": 12,
+                    "visibleTextChars": 1248,
+                    "interactiveElementCount": 4,
+                    "screenshotChangedFromPrevious": true
+                  },
+                  {
+                    "viewport": "interaction",
+                    "width": 1440,
+                    "height": 960,
+                    "screenshotSha256": "32e1ddc3e1e051337991fc8e3d85580ceb7ea63c7ec4ba11494da11a098a853a",
+                    "screenshotByteCount": 132664,
+                    "visibleElementCount": 16,
+                    "visibleTextChars": 928,
+                    "interactiveElementCount": 4,
+                    "screenshotChangedFromPrevious": true
+                  }
+                ],
+                "layoutDensityScore": 3,
+                "spacingAlignmentScore": 2,
+                "typographyContrastScore": 4,
+                "visualHierarchyScore": 4,
+                "blueprintConsistencyScore": 5,
+                "overallScore": 18,
+                "findings": [
+                  {
+                    "code": "alignment_unstable",
+                    "severity": "warning",
+                    "summary": "Captured viewports show weak alignment or inconsistent spacing cadence."
+                  }
+                ],
+                "summary": "Render evaluation found repairable desktop/mobile issues with an overall score of 18/25."
+              },
+              "judge": {
+                "classification": "repairable",
+                "requestFaithfulness": 5,
+                "conceptCoverage": 5,
+                "interactionRelevance": 5,
+                "layoutCoherence": 3,
+                "visualHierarchy": 5,
+                "completeness": 5,
+                "genericShellDetected": false,
+                "trivialShellDetected": false,
+                "deservesPrimaryArtifactView": true,
+                "patchedExistingArtifact": null,
+                "continuityRevisionUx": null,
+                "issueClasses": [
+                  "Missing closing tag for hover background color",
+                  "render_eval"
+                ],
+                "repairHints": [
+                  "Ensure all CSS rules are properly closed"
+                ],
+                "strengths": [
+                  "Responsive and minimalist design",
+                  "Interactive elements with hover and click",
+                  "Keyboard accessibility"
+                ],
+                "blockedReasons": [],
+                "fileFindings": [],
+                "aestheticVerdict": "Typography and layout feel deliberate enough to carry the artifact.",
+                "interactionVerdict": "Interaction model is visible and materially changes the page state.",
+                "truthfulnessWarnings": [
+                  "Render evaluation found repairable desktop/mobile issues with an overall score of 18/25."
+                ],
+                "recommendedNextPass": "accept",
+                "strongestContradiction": "Captured viewports show weak alignment or inconsistent spacing cadence.",
+                "rationale": "Ensure all CSS rules are properly closed Render evaluation: Render evaluation found repairable desktop/mobile issues with an overall score of 18/25."
+              }
+            },
+            {
+              "candidateId": "candidate-1-refine-1",
+              "seed": 16003710278222019000,
+              "model": "qwen3:8b",
+              "temperature": 0.18,
+              "strategy": "request-grounded_html.structural_repair",
+              "origin": "live_inference",
+              "provenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3:8b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "summary": "An interactive HTML artifact showcasing the launch of an AI tools editorial with a minimalist, modern design and client sandbox execution, featuring a control bar, two populated evidence surfaces, and a shared detail region with keyboard-accessible interactive elements.",
+              "renderablePaths": [
+                "launch.html"
+              ],
+              "selected": false,
+              "fallback": false,
+              "failure": null,
+              "rawOutputPreview": null,
+              "convergence": {
+                "lineageRootId": "candidate-1",
+                "parentCandidateId": "candidate-1",
+                "passKind": "structural_repair",
+                "passIndex": 1,
+                "scoreTotal": 413,
+                "scoreDeltaFromParent": -45,
+                "terminatedReason": "regressed_after_rejudge"
+              },
+              "renderEvaluation": {
+                "supported": true,
+                "firstPaintCaptured": true,
+                "interactionCaptureAttempted": true,
+                "captures": [
+                  {
+                    "viewport": "desktop",
+                    "width": 1440,
+                    "height": 960,
+                    "screenshotSha256": "86fd299293912661e9359328d961fc4aedef35ac7ca76df1b5f78987283a35d1",
+                    "screenshotByteCount": 130086,
+                    "visibleElementCount": 15,
+                    "visibleTextChars": 1082,
+                    "interactiveElementCount": 4,
+                    "screenshotChangedFromPrevious": false
+                  },
+                  {
+                    "viewport": "mobile",
+                    "width": 390,
+                    "height": 844,
+                    "screenshotSha256": "195d8981e197ac02abf42d7e0bddbd97d3fc7d75f9ce61d782a82314f4e926a8",
+                    "screenshotByteCount": 101512,
+                    "visibleElementCount": 12,
+                    "visibleTextChars": 1009,
+                    "interactiveElementCount": 4,
+                    "screenshotChangedFromPrevious": true
+                  },
+                  {
+                    "viewport": "interaction",
+                    "width": 1440,
+                    "height": 960,
+                    "screenshotSha256": "c3cfaa714fbd65e007cb571aaaaa93fa96ec2a29d1df3abda5d6d35bfc6d6087",
+                    "screenshotByteCount": 151569,
+                    "visibleElementCount": 18,
+                    "visibleTextChars": 1228,
+                    "interactiveElementCount": 4,
+                    "screenshotChangedFromPrevious": true
+                  }
+                ],
+                "layoutDensityScore": 3,
+                "spacingAlignmentScore": 2,
+                "typographyContrastScore": 4,
+                "visualHierarchyScore": 4,
+                "blueprintConsistencyScore": 3,
+                "overallScore": 16,
+                "findings": [
+                  {
+                    "code": "alignment_unstable",
+                    "severity": "warning",
+                    "summary": "Captured viewports show weak alignment or inconsistent spacing cadence."
+                  }
+                ],
+                "summary": "Render evaluation found repairable desktop/mobile issues with an overall score of 16/25."
+              },
+              "judge": {
+                "classification": "repairable",
+                "requestFaithfulness": 5,
+                "conceptCoverage": 5,
+                "interactionRelevance": 5,
+                "layoutCoherence": 3,
+                "visualHierarchy": 5,
+                "completeness": 4,
+                "genericShellDetected": false,
+                "trivialShellDetected": false,
+                "deservesPrimaryArtifactView": false,
+                "patchedExistingArtifact": null,
+                "continuityRevisionUx": null,
+                "issueClasses": [
+                  "Missing hover states on evidence surfaces",
+                  "Incomplete detail region styling",
+                  "render_eval"
+                ],
+                "repairHints": [
+                  "Add hover states for enhanced interactivity",
+                  "Style the detail region for better visibility"
+                ],
+                "strengths": [
+                  "Minimalist and modern design",
+                  "Keyboard accessibility",
+                  "Responsive layout"
+                ],
+                "blockedReasons": [],
+                "fileFindings": [],
+                "aestheticVerdict": "Typography and layout feel deliberate enough to carry the artifact.",
+                "interactionVerdict": "Interaction model is visible and materially changes the page state.",
+                "truthfulnessWarnings": [
+                  "Render evaluation found repairable desktop/mobile issues with an overall score of 16/25."
+                ],
+                "recommendedNextPass": "accept",
+                "strongestContradiction": "Captured viewports show weak alignment or inconsistent spacing cadence.",
+                "rationale": "Add hover states for enhanced interactivity Render evaluation: Render evaluation found repairable desktop/mobile issues with an overall score of 16/25."
+              }
+            }
+          ],
+          "winningCandidateId": "candidate-1",
+          "winningCandidateRationale": "Ensure all CSS rules are properly closed Render evaluation: Render evaluation found repairable desktop/mobile issues with an overall score of 18/25.",
+          "renderEvaluation": {
+            "supported": true,
+            "firstPaintCaptured": true,
+            "interactionCaptureAttempted": true,
+            "captures": [
+              {
+                "viewport": "desktop",
+                "width": 1440,
+                "height": 960,
+                "screenshotSha256": "8332ce2994079227c302c23571a640c20a0eef6204eda9430a1124e4b8c51d8b",
+                "screenshotByteCount": 153519,
+                "visibleElementCount": 15,
+                "visibleTextChars": 1298,
+                "interactiveElementCount": 4,
+                "screenshotChangedFromPrevious": false
+              },
+              {
+                "viewport": "mobile",
+                "width": 390,
+                "height": 844,
+                "screenshotSha256": "1bfe11128e5ac3ef7959e031cfc70d2f9bf9c2e4dca6b61f74277e3dae9dfe38",
+                "screenshotByteCount": 128918,
+                "visibleElementCount": 12,
+                "visibleTextChars": 1248,
+                "interactiveElementCount": 4,
+                "screenshotChangedFromPrevious": true
+              },
+              {
+                "viewport": "interaction",
+                "width": 1440,
+                "height": 960,
+                "screenshotSha256": "32e1ddc3e1e051337991fc8e3d85580ceb7ea63c7ec4ba11494da11a098a853a",
+                "screenshotByteCount": 132664,
+                "visibleElementCount": 16,
+                "visibleTextChars": 928,
+                "interactiveElementCount": 4,
+                "screenshotChangedFromPrevious": true
+              }
+            ],
+            "layoutDensityScore": 3,
+            "spacingAlignmentScore": 2,
+            "typographyContrastScore": 4,
+            "visualHierarchyScore": 4,
+            "blueprintConsistencyScore": 5,
+            "overallScore": 18,
+            "findings": [
+              {
+                "code": "alignment_unstable",
+                "severity": "warning",
+                "summary": "Captured viewports show weak alignment or inconsistent spacing cadence."
+              }
+            ],
+            "summary": "Render evaluation found repairable desktop/mobile issues with an overall score of 18/25."
+          },
+          "manifest": {
+            "artifactId": "dc95cb27-0d2f-46b4-bcc7-245450d57082",
+            "title": "Create an interactive HTML artifact for an AI tools editorial lau...",
+            "artifactClass": "interactive_single_file",
+            "renderer": "html_iframe",
+            "primaryTab": "render",
+            "tabs": [
+              {
+                "id": "render",
+                "label": "Render",
+                "kind": "render",
+                "renderer": "html_iframe",
+                "filePath": null,
+                "lens": "render"
+              },
+              {
+                "id": "source",
+                "label": "Source",
+                "kind": "source",
+                "renderer": null,
+                "filePath": null,
+                "lens": "source"
+              },
+              {
+                "id": "evidence",
+                "label": "Evidence",
+                "kind": "evidence",
+                "renderer": null,
+                "filePath": null,
+                "lens": "evidence"
+              }
+            ],
+            "files": [
+              {
+                "path": "launch.html",
+                "mime": "text/html",
+                "role": "primary",
+                "renderable": true,
+                "downloadable": true,
+                "artifactId": "dc95cb27-0d2f-46b4-bcc7-245450d57082",
+                "externalUrl": null
+              }
+            ],
+            "verification": {
+              "status": "blocked",
+              "lifecycleState": "blocked",
+              "summary": "Studio materialized files, but acceptance judging blocked the primary presentation: Captured viewports show weak alignment or inconsistent spacing cadence.",
+              "productionProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3:8b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "acceptanceProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3:8b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "failure": null
+            },
+            "storage": {
+              "mode": "shared_artifact_scoped",
+              "apiLabel": "artifact storage"
+            }
+          },
+          "verifiedReply": {
+            "status": "blocked",
+            "lifecycleState": "blocked",
+            "title": "Studio outcome: Create an interactive HTML artifact for an AI tools editorial lau...",
+            "summary": "Create an interactive HTML artifact for an AI tools editorial lau... Studio materialized files, but acceptance judging blocked the primary presentation: Captured viewports show weak alignment or inconsistent spacing cadence.",
+            "evidence": [
+              "launch.html",
+              "production provenance: openai-compatible (qwen3:8b)",
+              "acceptance provenance: openai-compatible (qwen3:8b)"
+            ],
+            "productionProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3:8b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "acceptanceProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3:8b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "failure": null,
+            "updatedAt": "2026-04-02T23:27:49.486433146+00:00"
+          },
+          "rendererOutput": {
+            "primaryFile": "launch.html",
+            "capturePaths": [
+              "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/captures/render-capture.html"
+            ]
+          },
+          "materializedFiles": [
+            "launch.html"
+          ],
+          "inspect": {
+            "inspection": {
+              "artifact_id": "dc95cb27-0d2f-46b4-bcc7-245450d57082",
+              "title": "Create an interactive HTML artifact for an AI tools editorial lau...",
+              "artifact_class": "interactive_single_file",
+              "renderer": "html_iframe",
+              "verification_status": "blocked",
+              "lifecycle_state": "blocked",
+              "verification_summary": "Studio materialized files, but acceptance judging blocked the primary presentation: Captured viewports show weak alignment or inconsistent spacing cadence.",
+              "primary_tab": "render",
+              "tab_count": 3,
+              "file_count": 1,
+              "renderable_file_count": 1,
+              "downloadable_file_count": 1,
+              "repo_centric_package": false,
+              "render_surface_available": false,
+              "preferred_stage_mode": "source",
+              "production_provenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3:8b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "acceptance_provenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3:8b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "failure": null
+            },
+            "valid": true,
+            "validation_errors": []
+          },
+          "validate": {
+            "args": [
+              "artifact",
+              "validate",
+              "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/artifact/artifact-manifest.json",
+              "--source-root",
+              "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/artifact"
+            ],
+            "status": 0,
+            "stdout": "Artifact manifest 'Create an interactive HTML artifact for an AI tools editorial lau...' is valid.\n",
+            "stderr": ""
+          },
+          "materialize": {
+            "args": [
+              "artifact",
+              "materialize",
+              "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/artifact/artifact-manifest.json",
+              "--source-root",
+              "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/artifact",
+              "--output",
+              "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/materialized",
+              "--force"
+            ],
+            "status": 0,
+            "stdout": "Materialized artifact package 'Create an interactive HTML artifact for an AI tools editorial lau...' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/materialized'.\nPackaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/html-ai-tools-editorial/materialized/artifact-manifest.json'.\n",
+            "stderr": ""
+          },
+          "composeReply": {
+            "status": "blocked",
+            "lifecycleState": "blocked",
+            "title": "Studio outcome: Create an interactive HTML artifact for an AI tools editorial lau...",
+            "summary": "Create an interactive HTML artifact for an AI tools editorial lau... Studio materialized files, but acceptance judging blocked the primary presentation: Captured viewports show weak alignment or inconsistent spacing cadence.",
+            "evidence": [
+              "launch.html"
+            ],
+            "productionProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3:8b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "acceptanceProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3:8b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "failure": null
+          },
+          "judge": {
+            "classification": "repairable",
+            "requestFaithfulness": 5,
+            "conceptCoverage": 5,
+            "interactionRelevance": 5,
+            "layoutCoherence": 3,
+            "visualHierarchy": 5,
+            "completeness": 5,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "issueClasses": [
+              "Missing closing tag for hover background color",
+              "render_eval"
+            ],
+            "repairHints": [
+              "Ensure all CSS rules are properly closed"
+            ],
+            "strengths": [
+              "Responsive and minimalist design",
+              "Interactive elements with hover and click",
+              "Keyboard accessibility"
+            ],
+            "blockedReasons": [],
+            "fileFindings": [],
+            "aestheticVerdict": "Typography and layout feel deliberate enough to carry the artifact.",
+            "interactionVerdict": "Interaction model is visible and materially changes the page state.",
+            "truthfulnessWarnings": [
+              "Render evaluation found repairable desktop/mobile issues with an overall score of 18/25."
+            ],
+            "recommendedNextPass": "accept",
+            "strongestContradiction": "Captured viewports show weak alignment or inconsistent spacing cadence.",
+            "rationale": "Ensure all CSS rules are properly closed Render evaluation: Render evaluation found repairable desktop/mobile issues with an overall score of 18/25."
+          },
+          "rubric": {
+            "classification": "repairable",
+            "requestFaithfulness": 5,
+            "conceptCoverage": 5,
+            "interactionRelevance": 5,
+            "layoutCoherence": 3,
+            "visualHierarchy": 5,
+            "completeness": 5,
+            "genericShellDetected": false,
+            "trivialShellDetected": false,
+            "deservesPrimaryArtifactView": true,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": null,
+            "issueClasses": [
+              "Missing closing tag for hover background color",
+              "render_eval"
+            ],
+            "repairHints": [
+              "Ensure all CSS rules are properly closed"
+            ],
+            "strengths": [
+              "Responsive and minimalist design",
+              "Interactive elements with hover and click",
+              "Keyboard accessibility"
+            ],
+            "blockedReasons": [],
+            "fileFindings": [],
+            "aestheticVerdict": "Typography and layout feel deliberate enough to carry the artifact.",
+            "interactionVerdict": "Interaction model is visible and materially changes the page state.",
+            "truthfulnessWarnings": [
+              "Render evaluation found repairable desktop/mobile issues with an overall score of 18/25."
+            ],
+            "recommendedNextPass": "accept",
+            "strongestContradiction": "Captured viewports show weak alignment or inconsistent spacing cadence.",
+            "rationale": "Ensure all CSS rules are properly closed Render evaluation: Render evaluation found repairable desktop/mobile issues with an overall score of 18/25."
+          },
+          "classification": "blocked",
+          "strongestContradiction": "Captured viewports show weak alignment or inconsistent spacing cadence.",
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3:8b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3:8b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "fallbackUsed": false,
+          "uxLifecycle": "judged",
+          "failure": null,
+          "notes": [
+            "production and acceptance judging shared the same runtime provenance for this live run"
+          ],
+          "proofPath": "full_studio_path",
+          "fullStudioPath": true
+        }
+      ],
+      "revisionFlow": {
+        "compare": {
+          "baseCaseId": "html-dog-shampoo",
+          "refinedCaseId": "html-dog-shampoo-technical",
+          "changedPaths": [],
+          "classification": "blocked"
+        },
+        "restore": {
+          "sourceCaseId": "html-dog-shampoo",
+          "restoredDir": "",
+          "restoredMatchesSource": false,
+          "validate": {
+            "args": [],
+            "status": 1,
+            "stdout": "",
+            "stderr": "Live revision flow cases are missing from the executed corpus."
+          },
+          "inspect": {
+            "artifactId": "",
+            "title": "missing",
+            "artifactClass": "missing",
+            "renderer": "missing",
+            "verificationStatus": "blocked",
+            "lifecycleState": "blocked",
+            "verificationSummary": "Required revision-flow evidence is missing.",
+            "primaryTab": "evidence",
+            "tabCount": 0,
+            "fileCount": 0,
+            "renderableFileCount": 0,
+            "downloadableFileCount": 0,
+            "repoCentricPackage": false,
+            "renderSurfaceAvailable": false,
+            "preferredStageMode": "evidence"
+          },
+          "judge": {
+            "classification": "blocked",
+            "requestFaithfulness": 1,
+            "conceptCoverage": 1,
+            "interactionRelevance": 1,
+            "layoutCoherence": 1,
+            "visualHierarchy": 1,
+            "completeness": 1,
+            "genericShellDetected": true,
+            "trivialShellDetected": true,
+            "deservesPrimaryArtifactView": false,
+            "patchedExistingArtifact": null,
+            "continuityRevisionUx": 1,
+            "strongestContradiction": "Live revision flow cases are missing from the executed corpus.",
+            "rationale": "Live revision flow cases are missing from the executed corpus."
+          },
+          "classification": "blocked"
+        },
+        "branch": {
+          "caseId": "html-dog-shampoo-branch-editorial",
+          "editMode": null,
+          "classification": "blocked"
+        }
+      },
+      "repeatedRunVariationFlow": {
+        "renderer": "svg",
+        "sourceCaseId": "svg-ai-tools-hero",
+        "prompt": "Create an SVG hero concept for an AI tools brand",
+        "runCount": 0,
+        "uniqueSignatureCount": 0,
+        "classification": "blocked",
+        "strongestContradiction": "Repeated-run variation source case is missing from the live corpus.",
+        "failingRunIds": [],
+        "runs": []
+      }
+    }
+  },
+  "parityChecks": {
+    "htmlDistinctness": {
+      "caseIds": [
+        "html-dog-shampoo",
+        "html-instacart-mcp",
+        "html-ai-tools-editorial"
+      ],
+      "allDistinct": false,
+      "failingCaseIds": [
+        "html-dog-shampoo",
+        "html-instacart-mcp",
+        "html-ai-tools-editorial"
+      ]
+    },
+    "refinementPatchFlow": {
+      "caseIds": [
+        "html-dog-shampoo-enterprise",
+        "html-dog-shampoo-technical",
+        "html-dog-shampoo-targeted-chart"
+      ],
+      "allPatched": false,
+      "failingCaseIds": [
+        "html-dog-shampoo-enterprise",
+        "html-dog-shampoo-technical",
+        "html-dog-shampoo-targeted-chart"
+      ]
+    },
+    "targetedEditFlow": {
+      "caseId": "html-dog-shampoo-targeted-chart",
+      "passed": false
+    },
+    "styleSteeringFlow": {
+      "caseId": "html-dog-shampoo-enterprise",
+      "passed": false
+    },
+    "revisionFlow": {
+      "compare": {
+        "baseCaseId": "html-dog-shampoo",
+        "refinedCaseId": "html-dog-shampoo-technical",
+        "changedPaths": [],
+        "classification": "blocked"
+      },
+      "restore": {
+        "sourceCaseId": "html-dog-shampoo",
+        "restoredDir": "",
+        "restoredMatchesSource": false,
+        "validate": {
+          "args": [],
+          "status": 1,
+          "stdout": "",
+          "stderr": "Revision flow cases are missing from the executed corpus."
+        },
+        "inspect": {
+          "artifactId": "",
+          "title": "missing",
+          "artifactClass": "missing",
+          "renderer": "missing",
+          "verificationStatus": "blocked",
+          "lifecycleState": "blocked",
+          "verificationSummary": "Required revision-flow evidence is missing.",
+          "primaryTab": "evidence",
+          "tabCount": 0,
+          "fileCount": 0,
+          "renderableFileCount": 0,
+          "downloadableFileCount": 0,
+          "repoCentricPackage": false,
+          "renderSurfaceAvailable": false,
+          "preferredStageMode": "evidence"
+        },
+        "judge": {
+          "classification": "blocked",
+          "requestFaithfulness": 1,
+          "conceptCoverage": 1,
+          "interactionRelevance": 1,
+          "layoutCoherence": 1,
+          "visualHierarchy": 1,
+          "completeness": 1,
+          "genericShellDetected": true,
+          "trivialShellDetected": true,
+          "deservesPrimaryArtifactView": false,
+          "patchedExistingArtifact": null,
+          "continuityRevisionUx": 1,
+          "strongestContradiction": "Revision flow cases are missing from the executed corpus.",
+          "rationale": "Revision flow cases are missing from the executed corpus."
+        },
+        "classification": "blocked"
+      },
+      "branch": {
+        "caseId": "html-dog-shampoo-branch-editorial",
+        "editMode": null,
+        "classification": "blocked"
+      }
+    },
+    "repeatedRunVariationFlow": {
+      "renderer": "svg",
+      "sourceCaseId": "svg-ai-tools-hero",
+      "prompt": "Create an SVG hero concept for an AI tools brand",
+      "runCount": 0,
+      "uniqueSignatureCount": 0,
+      "classification": "blocked",
+      "strongestContradiction": "Repeated-run variation source case is missing from the live corpus.",
+      "failingRunIds": [],
+      "runs": []
+    }
+  },
+  "totals": {
+    "pass": 0,
+    "repairable": 0,
+    "blocked": 1
+  }
+}

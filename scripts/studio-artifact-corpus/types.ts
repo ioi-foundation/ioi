@@ -165,6 +165,7 @@ export interface GeneratedArtifactEvidence {
     verification?: {
       status?: string;
       lifecycleState?: string;
+      summary?: string;
       productionProvenance?: RuntimeProvenance | null;
       acceptanceProvenance?: RuntimeProvenance | null;
       failure?: FailureEnvelope | null;

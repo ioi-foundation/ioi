@@ -1,0 +1,67 @@
+{
+  "artifactId": "5076b556-9963-42cc-ac68-c75e128b1221",
+  "title": "a downloadable artifact bundle with a CSV and README",
+  "artifactClass": "downloadable_file",
+  "renderer": "download_card",
+  "primaryTab": "download",
+  "tabs": [
+    {
+      "id": "download",
+      "label": "Download",
+      "kind": "download",
+      "renderer": "download_card",
+      "filePath": "README.md",
+      "lens": "download"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "mime": "text/markdown",
+      "role": "primary",
+      "renderable": false,
+      "downloadable": true,
+      "artifactId": "generated-README.md",
+      "externalUrl": null
+    },
+    {
+      "path": "data.csv",
+      "mime": "text/csv",
+      "role": "export",
+      "renderable": false,
+      "downloadable": true,
+      "artifactId": "generated-data.csv",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "Includes a README.md explaining the bundle contents.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "llama3.2:3b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:14b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

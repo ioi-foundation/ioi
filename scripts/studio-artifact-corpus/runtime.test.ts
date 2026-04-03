@@ -5,6 +5,7 @@ import {
   chooseAvailableOllamaRuntime,
   chooseAvailableOllamaRuntimeForRenderer,
   chooseAvailableOllamaRuntimeForProofLane,
+  ollamaContextLengthForRenderer,
 } from "./runtime";
 
 test("chooseAvailableOllamaRuntime prefers qwen 7b production and qwen 14b acceptance", () => {
@@ -68,6 +69,19 @@ test("chooseAvailableOllamaRuntimeForRenderer keeps the high-fidelity lane for h
   assert.equal(runtime.acceptanceModel, "qwen2.5:14b");
 });
 
+test("chooseAvailableOllamaRuntimeForRenderer honors the explicit single-model live html override when available", () => {
+  const runtime = chooseAvailableOllamaRuntimeForRenderer("html_iframe", [
+    "qwen2.5:14b",
+    "qwen2.5:7b",
+    "qwen3:8b",
+    "llama3.2:3b",
+  ]);
+
+  assert.ok(runtime);
+  assert.equal(runtime.productionModel, "qwen3:8b");
+  assert.equal(runtime.acceptanceModel, "qwen3:8b");
+});
+
 test("chooseAvailableOllamaRuntime returns null when no models are available", () => {
   assert.equal(chooseAvailableOllamaRuntime([]), null);
 });
@@ -123,4 +137,53 @@ test("chooseAvailableOllamaRuntimeForProofLane keeps contract html on qwen 7b", 
   assert.ok(runtime);
   assert.equal(runtime.productionModel, "qwen2.5:7b");
   assert.equal(runtime.acceptanceModel, "qwen2.5:7b");
+});
+
+test("chooseAvailableOllamaRuntimeForProofLane honors the explicit single-model live html override when available", () => {
+  const runtime = chooseAvailableOllamaRuntimeForProofLane(
+    "html_iframe",
+    "live",
+    ["qwen2.5:14b", "qwen2.5:7b", "qwen3:8b", "llama3.2:3b"],
+  );
+
+  assert.ok(runtime);
+  assert.equal(runtime.productionModel, "qwen3:8b");
+  assert.equal(runtime.acceptanceModel, "qwen3:8b");
+});
+
+test("chooseAvailableOllamaRuntimeForProofLane defaults contract acceptance to the chosen production model", () => {
+  const runtime = chooseAvailableOllamaRuntimeForProofLane(
+    "html_iframe",
+    "contract",
+    ["custom-local:8b"],
+  );
+
+  assert.ok(runtime);
+  assert.equal(runtime.productionModel, "custom-local:8b");
+  assert.equal(runtime.acceptanceModel, "custom-local:8b");
+});
+
+test("ollamaContextLengthForRenderer lowers live html context by default", () => {
+  delete process.env.OLLAMA_CONTEXT_LENGTH;
+
+  assert.equal(
+    ollamaContextLengthForRenderer("html_iframe", "live"),
+    "4096",
+  );
+  assert.equal(
+    ollamaContextLengthForRenderer("html_iframe", "contract"),
+    "8192",
+  );
+});
+
+test("ollamaContextLengthForRenderer respects explicit overrides", () => {
+  process.env.OLLAMA_CONTEXT_LENGTH = "2048";
+  try {
+    assert.equal(
+      ollamaContextLengthForRenderer("html_iframe", "live"),
+      "2048",
+    );
+  } finally {
+    delete process.env.OLLAMA_CONTEXT_LENGTH;
+  }
 });

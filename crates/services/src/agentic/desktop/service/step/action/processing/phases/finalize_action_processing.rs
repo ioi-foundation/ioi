@@ -371,17 +371,26 @@ pub(crate) async fn finalize_action_processing(
         } else {
             failure_class = classify_failure(error_msg.as_deref(), &policy_decision);
             if let Some(class) = failure_class {
-                let target_id = agent_state.target.as_ref().and_then(|target| {
-                    target
-                        .app_hint
-                        .as_deref()
-                        .filter(|v| !v.trim().is_empty())
-                        .or_else(|| {
-                            target
-                                .title_pattern
-                                .as_deref()
-                                .filter(|v| !v.trim().is_empty())
-                        })
+                let target_id = crate::agentic::desktop::service::step::anti_loop::specialized_attempt_target_id(
+                    state,
+                    service.memory_runtime.as_ref(),
+                    &current_tool_name,
+                    executed_tool_jcs.as_deref(),
+                )
+                .or_else(|| {
+                    agent_state.target.as_ref().and_then(|target| {
+                        target
+                            .app_hint
+                            .as_deref()
+                            .filter(|v| !v.trim().is_empty())
+                            .or_else(|| {
+                                target
+                                    .title_pattern
+                                    .as_deref()
+                                    .filter(|v| !v.trim().is_empty())
+                            })
+                            .map(str::to_string)
+                    })
                 });
                 let command_scope = agent_state
                     .resolved_intent
@@ -406,7 +415,7 @@ pub(crate) async fn finalize_action_processing(
                     retry_hash,
                     routing_decision.tier,
                     &current_tool_name,
-                    target_id,
+                    target_id.as_deref(),
                     window_fingerprint.as_deref(),
                 );
                 let (repeat_count, attempt_key_hash) =

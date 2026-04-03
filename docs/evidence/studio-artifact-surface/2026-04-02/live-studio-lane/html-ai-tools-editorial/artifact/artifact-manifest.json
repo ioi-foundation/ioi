@@ -1,0 +1,66 @@
+{
+  "artifactId": "dc95cb27-0d2f-46b4-bcc7-245450d57082",
+  "title": "Create an interactive HTML artifact for an AI tools editorial lau...",
+  "artifactClass": "interactive_single_file",
+  "renderer": "html_iframe",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "html_iframe",
+      "filePath": null,
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": null,
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "launch.html",
+      "mime": "text/html",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": true,
+      "artifactId": "dc95cb27-0d2f-46b4-bcc7-245450d57082",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "blocked",
+    "lifecycleState": "blocked",
+    "summary": "Studio materialized files, but acceptance judging blocked the primary presentation: Captured viewports show weak alignment or inconsistent spacing cadence.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen3:8b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen3:8b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "shared_artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

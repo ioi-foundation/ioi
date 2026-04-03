@@ -204,6 +204,8 @@ Implementations MUST NOT:
 - Select remote providers through hardcoded query-class/provider-class mappings.
 - Use predesignated query archetypes, domain buckets, or canned query designs as a stand-in for typed provider discovery or execution planning.
 - Build provider-specific URLs or provider order directly from lexical subject extraction unless a discovery receipt has already admitted that provider and affordance.
+- hide model-family-conditioned execution behavior, retry policy, prompt budgeting, or harness/runtime handling inside workflow code when the policy can instead be expressed through typed runtime provenance, declared lane, renderer class, or explicit preset configuration.
+- use benchmark-specific or model-family-specific workflow branches without surfacing the governing preset/lane policy as an explicit configuration input or receipt-backed execution policy.
 - Gate success primarily on reply text, diagnostic prose, or substring matches over debug output.
 
 ## 11. Non-Goals
@@ -225,6 +227,7 @@ To migrate a heuristic executor to Draft v0.5:
 7. Normalize execution and verification outputs into typed receipt and observation structures with `probe_source` and `observed_value`.
 8. Make completion gates, local judges, and arbiters consume typed evidence directly; demote reply text and shorthand markers to observability-only.
 9. Add conformance coverage for provider-discovery integrity, source-independence enforcement, connector-registry routing integrity, and judge-integrity invariants.
+10. Inventory model-family-conditioned execution branches, prompt-budget exceptions, reasoning toggles, and harness/runtime overrides; move them into versioned preset/lane policy or typed runtime-shape rules so workflow code no longer keys off model labels.
 
 ## 14. Change Control and Versioning
 CEC changes MUST be versioned.

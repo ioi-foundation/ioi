@@ -2,6 +2,216 @@ use crate::agentic::desktop::service::lifecycle::load_worker_assignment;
 use crate::agentic::desktop::service::step::worker::{
     worker_assignment_allows_tool_name, worker_assignment_disallowed_tool_error,
 };
+use crate::agentic::desktop::types::{CommandExecution, WorkerAssignment};
+
+fn split_parent_playbook_context(goal: &str) -> (&str, Option<&str>) {
+    if let Some((head, tail)) = goal.split_once("[PARENT PLAYBOOK CONTEXT]") {
+        (head.trim(), Some(tail.trim()))
+    } else {
+        (goal.trim(), None)
+    }
+}
+
+fn normalize_worker_context_key(key: &str) -> String {
+    key.trim().to_ascii_lowercase().replace([' ', '-'], "_")
+}
+
+fn extract_worker_context_field(text: &str, keys: &[&str]) -> Option<String> {
+    let normalized_keys = keys
+        .iter()
+        .map(|key| normalize_worker_context_key(key))
+        .collect::<Vec<_>>();
+    for line in text.lines() {
+        let trimmed = line
+            .trim()
+            .trim_start_matches('-')
+            .trim_start_matches('*')
+            .trim();
+        let Some((key, value)) = trimmed.split_once(':') else {
+            continue;
+        };
+        if normalized_keys
+            .iter()
+            .any(|candidate| *candidate == normalize_worker_context_key(key))
+        {
+            let value = value.trim();
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn normalize_whitespace(value: &str) -> String {
+    value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn looks_like_command_literal(value: &str) -> bool {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let lowered = trimmed.to_ascii_lowercase();
+    lowered.contains("python")
+        || lowered.contains("cargo")
+        || lowered.contains("pytest")
+        || lowered.contains("unittest")
+        || lowered.contains("npm")
+        || lowered.contains("pnpm")
+        || lowered.contains("yarn")
+        || lowered.contains("bash")
+        || trimmed.contains(' ')
+}
+
+fn collect_goal_literals(goal: &str) -> Vec<String> {
+    let mut literals = Vec::new();
+    let mut current = String::new();
+    let mut delimiter: Option<char> = None;
+
+    for ch in goal.chars() {
+        if let Some(active) = delimiter {
+            if ch == active {
+                let trimmed = current.trim();
+                if !trimmed.is_empty() {
+                    literals.push(trimmed.to_string());
+                }
+                current.clear();
+                delimiter = None;
+            } else {
+                current.push(ch);
+            }
+            continue;
+        }
+
+        if matches!(ch, '"' | '\'' | '`') {
+            delimiter = Some(ch);
+        }
+    }
+
+    literals
+}
+
+fn first_goal_command_literal(goal: &str) -> Option<String> {
+    let (_, inherited_context) = split_parent_playbook_context(goal);
+    if let Some(command) = inherited_context
+        .and_then(|text| {
+            extract_worker_context_field(
+                text,
+                &[
+                    "targeted_checks",
+                    "targeted_check",
+                    "verification_plan",
+                    "verification",
+                ],
+            )
+        })
+        .and_then(|value| value.split(';').next().map(str::trim).map(str::to_string))
+        .map(|value| normalize_whitespace(&value))
+        .filter(|value| looks_like_command_literal(value))
+    {
+        return Some(command);
+    }
+
+    collect_goal_literals(goal)
+        .into_iter()
+        .map(|value| normalize_whitespace(&value))
+        .find(|value| looks_like_command_literal(value))
+}
+
+fn command_history_contains_goal_command(
+    history: &std::collections::VecDeque<CommandExecution>,
+    command_literal: &str,
+) -> bool {
+    let target = normalize_whitespace(command_literal);
+    history.iter().rev().any(|entry| {
+        let observed = normalize_whitespace(&entry.command);
+        observed == target || observed.contains(&target)
+    })
+}
+
+fn exec_tool_command_preview(command: &str, args: &[String]) -> String {
+    if args.is_empty() {
+        return command.to_string();
+    }
+    let joined = args.join(" ");
+    let preview = format!("{} {}", command, joined);
+    let mut chars = preview.chars();
+    let preview_truncated: String = chars.by_ref().take(220).collect();
+    if chars.next().is_some() {
+        format!("{}...", preview_truncated)
+    } else {
+        preview
+    }
+}
+
+fn tool_command_preview(tool: &AgentTool) -> Option<String> {
+    match tool {
+        AgentTool::SysExec { command, args, .. } => Some(exec_tool_command_preview(command, args)),
+        AgentTool::SysExecSession { command, args, .. } => {
+            Some(exec_tool_command_preview(command, args))
+        }
+        _ => None,
+    }
+}
+
+fn rewrite_exec_tool_to_goal_command(tool: &mut AgentTool, command_literal: String) {
+    match tool {
+        AgentTool::SysExec {
+            command,
+            args,
+            stdin,
+            detach,
+        } => {
+            *command = "bash".to_string();
+            *args = vec!["-lc".to_string(), command_literal];
+            *stdin = None;
+            *detach = false;
+        }
+        AgentTool::SysExecSession {
+            command,
+            args,
+            stdin,
+        } => {
+            *command = "bash".to_string();
+            *args = vec!["-lc".to_string(), command_literal];
+            *stdin = None;
+        }
+        _ => {}
+    }
+}
+
+fn normalize_patch_build_verify_targeted_exec_tool(
+    tool: &mut AgentTool,
+    agent_state: &AgentState,
+    worker_assignment: Option<&WorkerAssignment>,
+) -> bool {
+    let Some(assignment) = worker_assignment else {
+        return false;
+    };
+    if assignment.workflow_id.as_deref().map(str::trim) != Some("patch_build_verify") {
+        return false;
+    }
+
+    let Some(command_literal) = first_goal_command_literal(&assignment.goal) else {
+        return false;
+    };
+    if command_history_contains_goal_command(&agent_state.command_history, &command_literal) {
+        return false;
+    }
+
+    let Some(preview) = tool_command_preview(tool) else {
+        return false;
+    };
+    let observed = normalize_whitespace(&preview);
+    let target = normalize_whitespace(&command_literal);
+    if observed == target || observed.contains(&target) {
+        return false;
+    }
+
+    rewrite_exec_tool_to_goal_command(tool, command_literal);
+    true
+}
 
 fn browser_tool_execution_timeout() -> Duration {
     const DEFAULT_TIMEOUT_SECS: u64 = 12;
@@ -99,6 +309,12 @@ pub async fn handle_action_execution(
             ));
         }
     }
+
+    normalize_patch_build_verify_targeted_exec_tool(
+        &mut tool,
+        agent_state,
+        worker_assignment.as_ref(),
+    );
 
     let mcp = service
         .mcp

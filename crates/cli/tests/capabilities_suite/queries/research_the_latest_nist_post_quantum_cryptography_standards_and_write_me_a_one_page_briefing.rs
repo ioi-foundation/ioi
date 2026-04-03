@@ -131,6 +131,22 @@ fn benchmark_briefing_summary_inventory_quality_met(
             || authority_only_optional_floor_met)
 }
 
+fn benchmark_selected_source_identifier_coverage_quality_met(
+    floor_met: bool,
+    identifier_evidence_required: bool,
+    identifier_bearing_sources: usize,
+    authority_identifier_sources: usize,
+    required_identifier_label_coverage: usize,
+    required_identifier_group_floor: usize,
+    source_independence_min: usize,
+) -> bool {
+    floor_met
+        && (!identifier_evidence_required
+            || (identifier_bearing_sources >= source_independence_min.max(1)
+                && required_identifier_label_coverage >= required_identifier_group_floor
+                && authority_identifier_sources >= 1))
+}
+
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let Some(web) = obs.web.as_ref() else {
         return LocalJudgeResult::from_checks(vec![
@@ -257,12 +273,15 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     )
     .unwrap_or(0);
     let selected_source_identifier_coverage_receipts_present =
-        selected_source_identifier_coverage_floor_met
-            && (!selected_source_identifier_evidence_required
-                || (selected_source_identifier_bearing_sources >= source_independence_min.max(1)
-                    && selected_source_required_identifier_label_coverage
-                        >= selected_source_required_identifier_group_floor.max(3)
-                    && selected_source_authority_identifier_sources >= 1));
+        benchmark_selected_source_identifier_coverage_quality_met(
+            selected_source_identifier_coverage_floor_met,
+            selected_source_identifier_evidence_required,
+            selected_source_identifier_bearing_sources,
+            selected_source_authority_identifier_sources,
+            selected_source_required_identifier_label_coverage,
+            selected_source_required_identifier_group_floor,
+            source_independence_min,
+        );
 
     let selected_official_nist_source_count = official_nist_source_count(&web.selected_source_urls);
     let selected_aligned_official_nist_source_count =
@@ -1328,7 +1347,8 @@ mod tests {
     use super::{
         benchmark_briefing_authority_standard_inventory_quality_met,
         benchmark_briefing_standard_inventory_quality_met,
-        benchmark_briefing_summary_inventory_quality_met, is_official_nist_source,
+        benchmark_briefing_summary_inventory_quality_met,
+        benchmark_selected_source_identifier_coverage_quality_met, is_official_nist_source,
         observe_terminal_artifact, official_nist_selected_alignment_evidence_present,
     };
     use crate::capabilities_suite::types::WebObservation;
@@ -1386,6 +1406,16 @@ mod tests {
         ));
         assert!(!benchmark_briefing_summary_inventory_quality_met(
             true, 1, 0, 1, 1, 3, 1
+        ));
+    }
+
+    #[test]
+    fn selected_source_identifier_coverage_quality_uses_dynamic_required_group_floor() {
+        assert!(benchmark_selected_source_identifier_coverage_quality_met(
+            true, true, 2, 1, 2, 2, 2
+        ));
+        assert!(!benchmark_selected_source_identifier_coverage_quality_met(
+            true, true, 2, 1, 1, 2, 2
         ));
     }
 

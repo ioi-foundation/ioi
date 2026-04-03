@@ -1,0 +1,320 @@
+{
+  "id": "inference-unavailable",
+  "prompt": "Create an interactive HTML artifact that explains a product rollout with charts for a productivity assistant",
+  "artifactDir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/inference-unavailable/artifact",
+  "stateRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/inference-unavailable/state",
+  "manifestPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/inference-unavailable/artifact/artifact-manifest.json",
+  "route": {
+    "requestId": "53b71039-36fb-4015-a2b4-4e9a7104ee99",
+    "rawPrompt": "Create an interactive HTML artifact that explains a product rollout with charts for a productivity assistant",
+    "activeArtifactId": null,
+    "outcomeKind": "artifact",
+    "confidence": 0,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "report_bundle",
+      "deliverableShape": "file_set",
+      "renderer": "bundle_manifest",
+      "presentationSurface": "side_panel",
+      "persistence": "artifact_scoped",
+      "executionSubstrate": "none",
+      "workspaceRecipeId": null,
+      "presentationVariantId": null,
+      "scope": {
+        "targetProject": null,
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "artifact"
+        ]
+      },
+      "verification": {
+        "requireRender": false,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": false,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "artifact operators",
+    "jobToBeDone": "surface the generation failure truthfully",
+    "subjectDomain": "Create an interactive HTML artifact that explains a product rollo...",
+    "artifactThesis": "Create an interactive HTML artifact that explains a product rollout with charts for a productivity assistant",
+    "requiredConcepts": [
+      "bundle_manifest"
+    ],
+    "requiredInteractions": [],
+    "visualTone": [
+      "truthful failure"
+    ],
+    "factualAnchors": [
+      "Studio cannot route or materialize artifacts because inference is unavailable."
+    ],
+    "styleDirectives": [],
+    "referenceHints": []
+  },
+  "blueprint": null,
+  "artifactIr": null,
+  "selectedSkills": [],
+  "retrievedExemplars": [],
+  "editIntent": null,
+  "candidateSetMetadata": [],
+  "winningCandidateId": null,
+  "winningCandidateRationale": null,
+  "renderEvaluation": null,
+  "manifest": {
+    "artifactId": "5b7ecea7-a394-49ff-9b02-1b9d763ef69f",
+    "title": "Create an interactive HTML artifact that explains a product rollo...",
+    "artifactClass": "report_bundle",
+    "renderer": "bundle_manifest",
+    "primaryTab": "evidence",
+    "tabs": [
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [],
+    "verification": {
+      "status": "blocked",
+      "lifecycleState": "blocked",
+      "summary": "Studio cannot route or materialize artifacts because inference is unavailable.",
+      "productionProvenance": {
+        "kind": "inference_unavailable",
+        "label": "inference unavailable",
+        "model": null,
+        "endpoint": null
+      },
+      "acceptanceProvenance": {
+        "kind": "inference_unavailable",
+        "label": "inference unavailable",
+        "model": null,
+        "endpoint": null
+      },
+      "failure": {
+        "kind": "inference_unavailable",
+        "code": "inference_unavailable",
+        "message": "Studio cannot route or materialize artifacts because inference is unavailable."
+      }
+    },
+    "storage": null
+  },
+  "verifiedReply": {
+    "status": "blocked",
+    "lifecycleState": "blocked",
+    "title": "Studio outcome: Create an interactive HTML artifact that explains a product rollo...",
+    "summary": "Create an interactive HTML artifact that explains a product rollo... Studio cannot route or materialize artifacts because inference is unavailable.",
+    "evidence": [
+      "production provenance: inference unavailable",
+      "acceptance provenance: inference unavailable",
+      "failure: Studio cannot route or materialize artifacts because inference is unavailable. (inference_unavailable)"
+    ],
+    "productionProvenance": {
+      "kind": "inference_unavailable",
+      "label": "inference unavailable",
+      "model": null,
+      "endpoint": null
+    },
+    "acceptanceProvenance": {
+      "kind": "inference_unavailable",
+      "label": "inference unavailable",
+      "model": null,
+      "endpoint": null
+    },
+    "failure": {
+      "kind": "inference_unavailable",
+      "code": "inference_unavailable",
+      "message": "Studio cannot route or materialize artifacts because inference is unavailable."
+    },
+    "updatedAt": "2026-04-02T23:27:49.681106257+00:00"
+  },
+  "rendererOutput": {
+    "primaryFile": null,
+    "capturePaths": []
+  },
+  "materializedFiles": [],
+  "inspect": {
+    "inspection": {
+      "artifact_id": "5b7ecea7-a394-49ff-9b02-1b9d763ef69f",
+      "title": "Create an interactive HTML artifact that explains a product rollo...",
+      "artifact_class": "report_bundle",
+      "renderer": "bundle_manifest",
+      "verification_status": "blocked",
+      "lifecycle_state": "blocked",
+      "verification_summary": "Studio cannot route or materialize artifacts because inference is unavailable.",
+      "primary_tab": "evidence",
+      "tab_count": 1,
+      "file_count": 0,
+      "renderable_file_count": 0,
+      "downloadable_file_count": 0,
+      "repo_centric_package": true,
+      "render_surface_available": false,
+      "preferred_stage_mode": "source",
+      "production_provenance": {
+        "kind": "inference_unavailable",
+        "label": "inference unavailable",
+        "model": null,
+        "endpoint": null
+      },
+      "acceptance_provenance": {
+        "kind": "inference_unavailable",
+        "label": "inference unavailable",
+        "model": null,
+        "endpoint": null
+      },
+      "failure": {
+        "kind": "inference_unavailable",
+        "code": "inference_unavailable",
+        "message": "Studio cannot route or materialize artifacts because inference is unavailable."
+      }
+    },
+    "valid": true,
+    "validation_errors": []
+  },
+  "validate": {
+    "args": [
+      "artifact",
+      "validate",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/inference-unavailable/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/inference-unavailable/artifact"
+    ],
+    "status": 0,
+    "stdout": "Artifact manifest 'Create an interactive HTML artifact that explains a product rollo...' is valid.\n",
+    "stderr": ""
+  },
+  "materialize": {
+    "args": [
+      "artifact",
+      "materialize",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/inference-unavailable/artifact/artifact-manifest.json",
+      "--source-root",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/inference-unavailable/artifact",
+      "--output",
+      "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/inference-unavailable/materialized",
+      "--force"
+    ],
+    "status": 0,
+    "stdout": "Materialized artifact package 'Create an interactive HTML artifact that explains a product rollo...' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/inference-unavailable/materialized'.\nPackaged 0 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-04-02/live-studio-lane/inference-unavailable/materialized/artifact-manifest.json'.\n",
+    "stderr": ""
+  },
+  "composeReply": {
+    "status": "blocked",
+    "lifecycleState": "blocked",
+    "title": "Studio outcome: Create an interactive HTML artifact that explains a product rollo...",
+    "summary": "Create an interactive HTML artifact that explains a product rollo... Studio cannot route or materialize artifacts because inference is unavailable.",
+    "evidence": [],
+    "productionProvenance": {
+      "kind": "inference_unavailable",
+      "label": "inference unavailable",
+      "model": null,
+      "endpoint": null
+    },
+    "acceptanceProvenance": {
+      "kind": "inference_unavailable",
+      "label": "inference unavailable",
+      "model": null,
+      "endpoint": null
+    },
+    "failure": {
+      "kind": "inference_unavailable",
+      "code": "inference_unavailable",
+      "message": "Studio cannot route or materialize artifacts because inference is unavailable."
+    }
+  },
+  "judge": {
+    "classification": "blocked",
+    "requestFaithfulness": 1,
+    "conceptCoverage": 1,
+    "interactionRelevance": 1,
+    "layoutCoherence": 1,
+    "visualHierarchy": 1,
+    "completeness": 1,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": false,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "issueClasses": [
+      "failure_session"
+    ],
+    "repairHints": [
+      "Resolve the upstream studio failure and rerun materialization before surfacing the artifact."
+    ],
+    "strengths": [],
+    "blockedReasons": [
+      "Studio cannot route or materialize artifacts because inference is unavailable."
+    ],
+    "fileFindings": [],
+    "aestheticVerdict": "not_evaluated_due_to_failure_session",
+    "interactionVerdict": "not_evaluated_due_to_failure_session",
+    "truthfulnessWarnings": [],
+    "recommendedNextPass": "generation_retry",
+    "strongestContradiction": "Studio cannot route or materialize artifacts because inference is unavailable.",
+    "rationale": "Studio cannot route or materialize artifacts because inference is unavailable."
+  },
+  "rubric": {
+    "classification": "blocked",
+    "requestFaithfulness": 1,
+    "conceptCoverage": 1,
+    "interactionRelevance": 1,
+    "layoutCoherence": 1,
+    "visualHierarchy": 1,
+    "completeness": 1,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": false,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "issueClasses": [
+      "failure_session"
+    ],
+    "repairHints": [
+      "Resolve the upstream studio failure and rerun materialization before surfacing the artifact."
+    ],
+    "strengths": [],
+    "blockedReasons": [
+      "Studio cannot route or materialize artifacts because inference is unavailable."
+    ],
+    "fileFindings": [],
+    "aestheticVerdict": "not_evaluated_due_to_failure_session",
+    "interactionVerdict": "not_evaluated_due_to_failure_session",
+    "truthfulnessWarnings": [],
+    "recommendedNextPass": "generation_retry",
+    "strongestContradiction": "Studio cannot route or materialize artifacts because inference is unavailable.",
+    "rationale": "Studio cannot route or materialize artifacts because inference is unavailable."
+  },
+  "classification": "pass",
+  "strongestContradiction": null,
+  "outputOrigin": "inference_unavailable",
+  "productionProvenance": {
+    "kind": "inference_unavailable",
+    "label": "inference unavailable",
+    "model": null,
+    "endpoint": null
+  },
+  "acceptanceProvenance": {
+    "kind": "inference_unavailable",
+    "label": "inference unavailable",
+    "model": null,
+    "endpoint": null
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "draft",
+  "failure": {
+    "kind": "inference_unavailable",
+    "code": "inference_unavailable",
+    "message": "Studio cannot route or materialize artifacts because inference is unavailable."
+  },
+  "notes": [
+    "This case intentionally verifies the product-path fail-fast contract when inference is unavailable."
+  ],
+  "proofPath": "full_studio_path",
+  "fullStudioPath": true
+}

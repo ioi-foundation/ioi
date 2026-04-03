@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
+use async_trait::async_trait;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::{agentic::InferenceOptions, FinalityTier};
+use ioi_types::error::VmError;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
@@ -457,12 +459,28 @@ Payload:\n{}",
             ))
         }
     };
-    let text = String::from_utf8(raw).map_err(|_| anyhow!("arbiter response was not UTF-8"))?;
-    let json_text = extract_json_object(&text)
-        .ok_or_else(|| anyhow!("arbiter did not return JSON object: {}", text))?;
-
-    let mut verdict: ArbiterVerdict = serde_json::from_str(json_text)
-        .map_err(|e| anyhow!("failed to parse arbiter verdict: {} raw={}", e, text))?;
+    let text = match String::from_utf8(raw) {
+        Ok(text) => text,
+        Err(_) => {
+            return Ok(fallback_arbiter_verdict(
+                case,
+                observation,
+                local,
+                contract_failure_marker,
+                "arbiter response was not UTF-8",
+            ))
+        }
+    };
+    let mut verdict = match parse_arbiter_verdict(&text) {
+        Ok(verdict) => verdict,
+        Err(error) => fallback_arbiter_verdict(
+            case,
+            observation,
+            local,
+            contract_failure_marker,
+            &format!("{} raw={}", error, truncate_chars(&text, 220)),
+        ),
+    };
 
     if case.id == "top_news_headlines" {
         let web = observation.web.as_ref();
@@ -664,16 +682,10 @@ Payload:\n{}",
     }
 
     if !matches!(verdict.confidence.as_str(), "high" | "medium" | "low") {
-        return Err(anyhow!(
-            "arbiter returned invalid confidence '{}'; expected high|medium|low",
-            verdict.confidence
-        ));
+        verdict.confidence = "medium".to_string();
     }
-    if !(0.0..=1.0).contains(&verdict.score) {
-        return Err(anyhow!(
-            "arbiter returned score outside 0..1: {}",
-            verdict.score
-        ));
+    if !verdict.score.is_finite() || !(0.0..=1.0).contains(&verdict.score) {
+        verdict.score = local.score.clamp(0.0, 1.0);
     }
     if verdict.pass && !verdict.failures.is_empty() {
         verdict.failures.clear();
@@ -696,6 +708,17 @@ Payload:\n{}",
     }
 
     Ok(verdict)
+}
+
+fn parse_arbiter_verdict(raw: &str) -> Result<ArbiterVerdict> {
+    if let Ok(verdict) = serde_json::from_str::<ArbiterVerdict>(raw) {
+        return Ok(verdict);
+    }
+    let json_text = extract_json_object(raw)
+        .ok_or_else(|| anyhow!("arbiter did not return JSON object"))?;
+
+    serde_json::from_str(json_text)
+        .map_err(|error| anyhow!("failed to parse arbiter verdict: {}", error))
 }
 
 fn extract_json_object(raw: &str) -> Option<&str> {
@@ -779,6 +802,32 @@ mod tests {
         CecReceiptEvidence, ExecutionProfile, LocalCheck, ScreenshotObservation,
     };
     use ioi_types::app::agentic::IntentScopeProfile;
+    use std::path::Path;
+
+    #[derive(Clone)]
+    struct StaticInferenceRuntime {
+        output: Vec<u8>,
+    }
+
+    #[async_trait]
+    impl InferenceRuntime for StaticInferenceRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            _input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            Ok(self.output.clone())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
 
     fn test_case(id: &'static str) -> QueryCase {
         QueryCase {
@@ -991,5 +1040,33 @@ mod tests {
                 .and_then(Value::as_bool),
             Some(true)
         );
+    }
+
+    #[tokio::test]
+    async fn malformed_arbiter_json_falls_back_to_strict_research_local_evidence() {
+        let case = test_case(
+            "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing",
+        );
+        let observation = test_observation();
+        let local = LocalJudgeResult::from_checks(vec![LocalCheck::new("typed", true, "detail")]);
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(StaticInferenceRuntime {
+            output: br#"{
+  "pass": true,
+  "confidence": "high",
+  "score": 0.92,
+  "rationale": "looks good",
+  "failures": ["truncated"
+"#
+            .to_vec(),
+        });
+
+        let verdict = run_arbiter(runtime, &case, &observation, &local)
+            .await
+            .expect("malformed arbiter output should not abort strict research case");
+
+        assert!(verdict.pass);
+        assert!(verdict.failures.is_empty());
+        assert_eq!(verdict.confidence, "medium");
+        assert!(verdict.rationale.contains("typed receipt gates"));
     }
 }

@@ -2,7 +2,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import type { CorpusCase } from "./types";
+import type { CorpusCase, RendererKind } from "./types";
 
 export const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -169,6 +169,20 @@ export const DEFAULT_OLLAMA_CHAT_ENDPOINT =
   "http://127.0.0.1:11434/v1/chat/completions";
 export const DEFAULT_OLLAMA_HEALTH_ENDPOINT =
   "http://127.0.0.1:11434/api/tags";
+export type OllamaSingleModelLaneOverride = {
+  renderer: RendererKind;
+  lane: "live" | "contract";
+  modelPreferences: string[];
+};
+// Keep benchmark lane overrides explicit in config so runtime selection stays
+// renderer/lane-driven rather than silently branching on model-family names.
+export const OLLAMA_SINGLE_MODEL_LANE_OVERRIDES: OllamaSingleModelLaneOverride[] = [
+  {
+    renderer: "html_iframe",
+    lane: "live",
+    modelPreferences: ["qwen3:8b"],
+  },
+];
 export const PREFERRED_OLLAMA_PRODUCTION_MODELS = [
   "qwen2.5:7b",
   "qwen2.5:14b",

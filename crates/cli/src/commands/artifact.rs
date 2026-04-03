@@ -25,13 +25,15 @@ use evidence::{
     load_refinement_evidence, run_judge, write_generated_payload,
 };
 #[cfg(test)]
-use generation::route_with_runtime;
+use generation::{route_with_runtime, select_generate_route_runtime};
 use generation::{run_generate, run_route};
 use manifest::{
     artifact_class_label, compose_verified_reply, outcome_kind_label, prepare_output_directory,
     renderer_label, run_compose_reply, run_inspect, run_materialize, run_validate,
 };
-use runtime::{build_acceptance_inference_runtime, build_inference_runtime};
+use runtime::{
+    build_acceptance_inference_runtime, build_inference_runtime, runtime_provenance_matches,
+};
 use types::{ArtifactCommandErrorEnvelope, GeneratedArtifactEvidence};
 use workspace::generate_workspace_artifact_bundle_with_runtimes;
 

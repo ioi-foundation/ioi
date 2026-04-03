@@ -7,8 +7,8 @@ use super::{normalize_web_research_tool_call, reconcile_pending_web_research_too
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
-    AgentMode, AgentState, AgentStatus, ExecutionTier, PendingSearchCompletion,
-    PendingSearchReadSummary,
+    AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier,
+    PendingSearchCompletion, PendingSearchReadSummary, WorkerAssignment,
 };
 use async_trait::async_trait;
 use ioi_api::state::StateScanIter;
@@ -1025,6 +1025,114 @@ fn does_not_rewrite_memory_search_for_workspace_local_goal() {
     );
 
     assert!(matches!(tool, AgentTool::MemorySearch { .. }));
+}
+
+#[test]
+fn patch_build_verify_rewrites_initial_mismatched_exec_to_targeted_check() {
+    let mut state = test_agent_state();
+    let assignment = WorkerAssignment {
+        step_key: "implement".to_string(),
+        budget: 32,
+        goal: "Implement the parity fix.\n\n[PARENT PLAYBOOK CONTEXT]\n- likely_files: path_utils.py; tests/test_path_utils.py\n- targeted_checks: python3 -m unittest tests.test_path_utils -v".to_string(),
+        success_criteria: "Run focused verification first.".to_string(),
+        max_retries: 2,
+        retries_used: 0,
+        assigned_session_id: None,
+        status: "running".to_string(),
+        playbook_id: Some("evidence_audited_patch".to_string()),
+        template_id: Some("coding_worker".to_string()),
+        workflow_id: Some("patch_build_verify".to_string()),
+        role: Some("Coding Worker".to_string()),
+        allowed_tools: vec!["sys__exec_session".to_string()],
+        completion_contract: Default::default(),
+    };
+    let mut tool = AgentTool::SysExecSession {
+        command: "python".to_string(),
+        args: vec![
+            "-c".to_string(),
+            "import sys; sys.path.append('/tmp/example'); import path_utils; path_utils.test_path_utils()".to_string(),
+        ],
+        stdin: None,
+    };
+
+    let changed = super::normalize_patch_build_verify_targeted_exec_tool(
+        &mut tool,
+        &state,
+        Some(&assignment),
+    );
+
+    assert!(changed);
+    match tool {
+        AgentTool::SysExecSession { command, args, .. } => {
+            assert_eq!(command, "bash");
+            assert_eq!(
+                args,
+                vec![
+                    "-lc".to_string(),
+                    "python3 -m unittest tests.test_path_utils -v".to_string()
+                ]
+            );
+        }
+        other => panic!("expected SysExecSession, got {:?}", other),
+    }
+}
+
+#[test]
+fn patch_build_verify_does_not_rewrite_after_targeted_command_history_exists() {
+    let mut state = test_agent_state();
+    state.command_history.push_back(CommandExecution {
+        command: "bash -lc python3 -m unittest tests.test_path_utils -v".to_string(),
+        exit_code: 1,
+        stdout: String::new(),
+        stderr: String::new(),
+        timestamp_ms: 1,
+        step_index: 2,
+    });
+    let assignment = WorkerAssignment {
+        step_key: "implement".to_string(),
+        budget: 32,
+        goal: "Implement the parity fix.\n\n[PARENT PLAYBOOK CONTEXT]\n- likely_files: path_utils.py; tests/test_path_utils.py\n- targeted_checks: python3 -m unittest tests.test_path_utils -v".to_string(),
+        success_criteria: "Run focused verification first.".to_string(),
+        max_retries: 2,
+        retries_used: 0,
+        assigned_session_id: None,
+        status: "running".to_string(),
+        playbook_id: Some("evidence_audited_patch".to_string()),
+        template_id: Some("coding_worker".to_string()),
+        workflow_id: Some("patch_build_verify".to_string()),
+        role: Some("Coding Worker".to_string()),
+        allowed_tools: vec!["sys__exec_session".to_string()],
+        completion_contract: Default::default(),
+    };
+    let mut tool = AgentTool::SysExecSession {
+        command: "python".to_string(),
+        args: vec![
+            "-c".to_string(),
+            "import sys; sys.path.append('/tmp/example'); import path_utils; path_utils.test_path_utils()".to_string(),
+        ],
+        stdin: None,
+    };
+
+    let changed = super::normalize_patch_build_verify_targeted_exec_tool(
+        &mut tool,
+        &state,
+        Some(&assignment),
+    );
+
+    assert!(!changed);
+    match tool {
+        AgentTool::SysExecSession { command, args, .. } => {
+            assert_eq!(command, "python");
+            assert_eq!(
+                args,
+                vec![
+                    "-c".to_string(),
+                    "import sys; sys.path.append('/tmp/example'); import path_utils; path_utils.test_path_utils()".to_string()
+                ]
+            );
+        }
+        other => panic!("expected SysExecSession, got {:?}", other),
+    }
 }
 
 #[derive(Default)]

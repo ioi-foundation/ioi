@@ -51,6 +51,56 @@ export function effectiveAcceptanceProvenance(
   );
 }
 
+export function normalizedRuntimeEndpoint(
+  endpoint: string | null | undefined,
+): string | null {
+  const trimmed = endpoint?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const [withoutFragment, fragment = ""] = trimmed.split("#", 2);
+  const queryIndex = withoutFragment.indexOf("?");
+  if (queryIndex === -1) {
+    return trimmed;
+  }
+
+  const base = withoutFragment.slice(0, queryIndex);
+  const query = withoutFragment.slice(queryIndex + 1);
+  const filteredPairs = query
+    .split("&")
+    .map((pair) => pair.trim())
+    .filter((pair) => pair.length > 0)
+    .filter((pair) => pair.split("=", 1)[0]?.trim().toLowerCase() !== "lane");
+
+  let normalized = base;
+  if (filteredPairs.length > 0) {
+    normalized += `?${filteredPairs.join("&")}`;
+  }
+  if (fragment.length > 0) {
+    normalized += `#${fragment}`;
+  }
+
+  return normalized;
+}
+
+export function runtimeProvenanceMatches(
+  left: RuntimeProvenance | null | undefined,
+  right: RuntimeProvenance | null | undefined,
+): boolean {
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.kind === right.kind &&
+    left.label === right.label &&
+    left.model === right.model &&
+    normalizedRuntimeEndpoint(left.endpoint) ===
+      normalizedRuntimeEndpoint(right.endpoint)
+  );
+}
+
 export function effectiveFailure(
   evidence: GeneratedArtifactEvidence,
   composeReply?: ComposedArtifactReply,
@@ -107,6 +157,10 @@ export function deriveCaseClassification(
   const failure = effectiveFailure(evidence);
   const surfacedStatus =
     evidence.manifest.verification?.status ?? evidence.verifiedReply.status;
+  const surfacedSummary =
+    evidence.manifest.verification?.summary ??
+    evidence.verifiedReply.summary ??
+    null;
   const surfacedReady =
     surfacedStatus === "ready" &&
     evidence.verifiedReply.status === "ready" &&
@@ -123,7 +177,9 @@ export function deriveCaseClassification(
       : (evidence.judge?.classification ?? "blocked");
   let contradiction = surfacedReady
     ? null
-    : (evidence.judge?.strongestContradiction ?? failure?.message ?? null);
+    : (evidence.judge?.strongestContradiction ??
+      failure?.message ??
+      (surfacedBlocked ? surfacedSummary : null));
 
   if (surfacedReady && evidence.judge?.classification !== "pass") {
     notes.push("surfaced lifecycle cleared a soft raw judge finding");

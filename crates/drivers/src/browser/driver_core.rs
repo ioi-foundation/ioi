@@ -575,7 +575,10 @@ impl BrowserDriver {
         let executable_path = Self::resolve_chromium_binary_path().await?;
         let base_args = chromium_launch_args(headless);
 
-        let run_launch_attempt = |bin: PathBuf, extra_args: Vec<String>, attempt_headless: bool| async move {
+        let run_launch_attempt = |bin: PathBuf,
+                                  profile_dir: PathBuf,
+                                  extra_args: Vec<String>,
+                                  attempt_headless: bool| async move {
             let args_owned = extra_args;
             let request_timeout = browser_request_timeout();
 
@@ -589,7 +592,8 @@ impl BrowserDriver {
             let config_res = {
                 let mut builder = BrowserConfig::builder()
                     .chrome_executable(&bin)
-                    .request_timeout(request_timeout);
+                    .request_timeout(request_timeout)
+                    .user_data_dir(&profile_dir);
 
                 if !attempt_headless {
                     builder = builder.with_head();
@@ -643,7 +647,8 @@ impl BrowserDriver {
 
             let mut fallback_builder = BrowserConfig::builder()
                 .chrome_executable(&bin)
-                .request_timeout(request_timeout);
+                .request_timeout(request_timeout)
+                .user_data_dir(&profile_dir);
             if !attempt_headless {
                 fallback_builder = fallback_builder.with_head();
             }
@@ -668,11 +673,14 @@ impl BrowserDriver {
 
                 for attempt_index in 0..LAUNCH_RETRY_ATTEMPTS {
                     let profile_dir = Self::create_profile_dir()?;
-                    let mut delta_args = base_args.clone();
-                    delta_args.push(format!("--user-data-dir={}", profile_dir.display()));
 
-                    match run_launch_attempt(executable_path.clone(), delta_args, attempt_headless)
-                        .await
+                    match run_launch_attempt(
+                        executable_path.clone(),
+                        profile_dir.clone(),
+                        base_args.clone(),
+                        attempt_headless,
+                    )
+                    .await
                     {
                         Ok((browser, handler)) => {
                             launched = Some((profile_dir, browser, handler));

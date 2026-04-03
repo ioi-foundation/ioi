@@ -1,0 +1,18 @@
+from=ollama-openai
+to=planner-grade-local-oss-qwen3-8b
+ps_status=0
+resident_before:
+NAME           ID              SIZE     PROCESSOR          CONTEXT    UNTIL               
+qwen2.5:14b    7cdf5a0187d5    10 GB    29%/71% CPU/GPU    4096       29 minutes from now    
+models_to_stop=qwen2.5:14b
+stop_model=qwen2.5:14b
+stop_status=0
+stop_stderr=[?25l[?2026h[?25l[?25h[?2026l[?25hwarmup_url=http://127.0.0.1:11434/api/generate
+warm_models=qwen3:8b
+warm_model=qwen3:8b
+warm_status=0
+warm_timed_out=false
+warm_stdout={"model":"qwen3:8b","created_at":"2026-04-03T04:31:09.414034917Z","response":"","done":true,"done_reason":"length","context":[151644,872,198,20841,448,10402,13,608,26865,151645,198,151644,77091,198,151667],"total_duration":1466952941,"load_duration":1424065764,"prompt_eval_count":14,"prompt_eval_duration":30053445,"eval_count":1}ps_after_warm_status=0
+resident_after_warm:
+NAME        ID              SIZE      PROCESSOR    CONTEXT    UNTIL              
+qwen3:8b    500a1f067a9f    6.0 GB    100% GPU     4096       9 minutes from now    

@@ -15,6 +15,7 @@ include!("search/planning.rs");
 #[cfg(test)]
 mod tests {
     use super::{
+        briefing_authority_link_expansion_required,
         briefing_authority_link_out_sources_from_html, briefing_authority_seed_admission,
         defer_search_planning_failure_while_recovery_actions_remain,
         deterministic_local_business_expansion_alignment_urls, effective_semantic_alignment_urls,
@@ -102,6 +103,98 @@ mod tests {
                 "https://example.com/two".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn briefing_authority_link_expansion_required_when_count_meets_floor_but_selection_is_not_quality_ready(
+    ) {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "nist-news".to_string(),
+                rank: Some(1),
+                url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards".to_string(),
+                title: Some(
+                    "NIST Releases First 3 Finalized Post-Quantum Encryption Standards".to_string(),
+                ),
+                snippet: Some(
+                    "National Institute of Standards and Technology (.gov) | source_url=https://www.nist.gov".to_string(),
+                ),
+                domain: Some("www.nist.gov".to_string()),
+            },
+            WebSource {
+                source_id: "nist-photonic".to_string(),
+                rank: Some(2),
+                url: "https://www.nist.gov/news-events/news/2026/03/nist-researchers-develop-photonic-chip-packaging-can-withstand-extreme".to_string(),
+                title: Some(
+                    "NIST Researchers Develop Photonic Chip Packaging That Can Withstand Extreme Environments"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "National Institute of Standards and Technology (.gov) | source_url=https://www.nist.gov".to_string(),
+                ),
+                domain: Some("www.nist.gov".to_string()),
+            },
+        ];
+
+        assert!(briefing_authority_link_expansion_required(
+            &retrieval_contract,
+            query,
+            &discovery_sources,
+            2,
+        ));
+    }
+
+    #[test]
+    fn briefing_authority_link_expansion_skips_when_query_is_not_document_briefing() {
+        let query =
+            "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "restaurant-a".to_string(),
+                rank: Some(1),
+                url: "https://www.restaurantji.com/sc/anderson/dolce-vita-italian-bistro-/"
+                    .to_string(),
+                title: Some(
+                    "Dolce Vita Italian Bistro, Anderson - Menu, Reviews (278), Photos (51) - Restaurantji"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "Italian bistro in Anderson, SC with pizza, pasta, calzones and dessert."
+                        .to_string(),
+                ),
+                domain: Some("www.restaurantji.com".to_string()),
+            },
+            WebSource {
+                source_id: "restaurant-b".to_string(),
+                rank: Some(2),
+                url: "https://www.restaurantji.com/sc/anderson/brothers-italian-cuisine-/"
+                    .to_string(),
+                title: Some(
+                    "Brothers Italian Cuisine, Anderson - Menu, Reviews (226), Photos (25) - Restaurantji"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "Italian restaurant in Anderson, SC serving pizza, pasta and subs."
+                        .to_string(),
+                ),
+                domain: Some("www.restaurantji.com".to_string()),
+            },
+        ];
+
+        assert!(!briefing_authority_link_expansion_required(
+            &retrieval_contract,
+            query,
+            &discovery_sources,
+            2,
+        ));
     }
 
     #[test]

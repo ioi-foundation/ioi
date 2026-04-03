@@ -19,7 +19,12 @@ pub(super) fn normalize_html_interactions(html: &str) -> String {
     }
     normalized = ensure_minimum_html_shared_detail_region(&normalized);
     normalized = ensure_html_view_switch_contract(&normalized);
+    normalized = ensure_minimum_html_mapped_panel_content(&normalized);
     normalized = ensure_minimum_html_rollover_detail_payloads(&normalized);
+    normalized = ensure_grouped_html_rollover_detail_marks(&normalized);
+    normalized = ensure_focusable_html_rollover_marks(&normalized);
+    normalized = ensure_html_button_accessibility_contract(&normalized);
+    normalized = ensure_html_interaction_polish_styles(&normalized);
     normalized = ensure_html_rollover_detail_contract(&normalized);
     normalized
 }
@@ -113,6 +118,14 @@ struct HtmlViewControlDescriptor {
     target: String,
     open_start: usize,
     open_end: usize,
+}
+
+struct HtmlButtonDescriptor {
+    open_start: usize,
+    open_end: usize,
+    label: String,
+    view_target: Option<String>,
+    selected_on_first_paint: bool,
 }
 
 struct HtmlPromotableRegionDescriptor {
@@ -294,6 +307,90 @@ fn ensure_html_synthesized_view_controls(html: &str) -> String {
     rebuilt
 }
 
+fn ensure_minimum_html_mapped_panel_content(html: &str) -> String {
+    let lower = html.to_ascii_lowercase();
+    if count_empty_html_mapped_view_panels(&lower) == 0 {
+        return html.to_string();
+    }
+
+    let control_targets = html_view_panel_control_targets(&lower);
+    let mut replacements = Vec::<(usize, usize, String)>::new();
+
+    for tag in ["section", "article", "div", "aside", "figure"] {
+        let open_pattern = format!("<{tag}");
+        let close_pattern = format!("</{tag}>");
+        let mut cursor = 0usize;
+
+        while let Some(relative_start) = lower[cursor..].find(&open_pattern) {
+            let start = cursor + relative_start;
+            let Some(relative_open_end) = lower[start..].find('>') else {
+                break;
+            };
+            let open_end = start + relative_open_end + 1;
+            let open_tag_lower = &lower[start..open_end];
+            if !html_open_tag_is_mapped_panel(open_tag_lower, &control_targets) {
+                cursor = open_end;
+                continue;
+            }
+
+            let Some(relative_close) = lower[open_end..].find(&close_pattern) else {
+                cursor = open_end;
+                continue;
+            };
+            let close_start = open_end + relative_close;
+            let inner = &lower[open_end..close_start];
+            if html_fragment_has_detail_content(inner) {
+                cursor = close_start + close_pattern.len();
+                continue;
+            }
+
+            let label = mapped_panel_label_from_open_tag(open_tag_lower);
+            let fallback = build_mapped_panel_fallback_markup(&label);
+            replacements.push((
+                open_end,
+                close_start,
+                format!("{fallback}{}", &html[open_end..close_start]),
+            ));
+            cursor = close_start + close_pattern.len();
+        }
+    }
+
+    if replacements.is_empty() {
+        return html.to_string();
+    }
+
+    replacements.sort_by_key(|(start, _, _)| *start);
+    let mut rebuilt = String::with_capacity(html.len() + replacements.len() * 256);
+    let mut cursor = 0usize;
+    for (start, end, replacement) in replacements {
+        if start < cursor {
+            continue;
+        }
+        rebuilt.push_str(&html[cursor..start]);
+        rebuilt.push_str(&replacement);
+        cursor = end;
+    }
+    rebuilt.push_str(&html[cursor..]);
+    rebuilt
+}
+
+fn mapped_panel_label_from_open_tag(open_tag_lower: &str) -> String {
+    let token = extract_html_attribute_values(open_tag_lower, "data-view-panel")
+        .into_iter()
+        .chain(extract_html_attribute_values(open_tag_lower, "data-panel"))
+        .chain(extract_html_attribute_values(open_tag_lower, "id"))
+        .next()
+        .unwrap_or_else(|| "view".to_string());
+    humanize_html_view_token(token.trim_matches('#').trim_end_matches("-panel"))
+}
+
+fn build_mapped_panel_fallback_markup(label: &str) -> String {
+    format!(
+        "<article data-studio-normalized=\"true\" data-studio-empty-panel-repair=\"true\" class=\"studio-view-panel-fallback\"><h2>{label}</h2><p>{label} stays available as a pre-rendered editorial launch view on first paint.</p><ul><li>{label} keeps one concrete evidence surface visible before any click.</li><li>The control bar can switch between pre-rendered views without rebuilding the page shell.</li><li>The shared detail panel can compare the active view with the rest of the launch story.</li></ul></article>",
+        label = xml_escape(label)
+    )
+}
+
 fn count_html_explicit_view_controls(html_lower: &str) -> usize {
     let mut controls = HashSet::<String>::new();
     for attr in ["data-view", "aria-controls", "data-target"] {
@@ -331,7 +428,14 @@ fn collect_html_view_controls(html: &str) -> Vec<HtmlViewControlDescriptor> {
                     .into_iter()
                     .filter_map(|value| normalize_html_selector_token(&value)),
             )
-            .next();
+            .next()
+            .or_else(|| {
+                let close_start = lower[open_end..]
+                    .find("</button>")
+                    .map(|offset| open_end + offset)?;
+                let label = normalize_inline_text(&strip_html_tags(&html[open_end..close_start]));
+                slugify_html_view_token(&label)
+            });
 
         if let Some(target) = target {
             if seen.insert(target.clone()) {
@@ -349,9 +453,154 @@ fn collect_html_view_controls(html: &str) -> Vec<HtmlViewControlDescriptor> {
     controls
 }
 
+fn collect_html_buttons(html: &str) -> Vec<HtmlButtonDescriptor> {
+    let lower = html.to_ascii_lowercase();
+    let mut cursor = 0usize;
+    let mut buttons = Vec::<HtmlButtonDescriptor>::new();
+
+    while let Some(relative_start) = lower[cursor..].find("<button") {
+        let start = cursor + relative_start;
+        let Some(relative_open_end) = lower[start..].find('>') else {
+            break;
+        };
+        let open_end = start + relative_open_end + 1;
+        let open_tag_lower = &lower[start..open_end];
+        let close_start = lower[open_end..]
+            .find("</button>")
+            .map(|offset| open_end + offset)
+            .unwrap_or(open_end);
+        let label = normalize_inline_text(&strip_html_tags(&html[open_end..close_start]));
+        let view_target = extract_html_attribute_values(open_tag_lower, "data-view")
+            .into_iter()
+            .filter_map(|value| normalize_html_selector_token(&value))
+            .next()
+            .or_else(|| {
+                extract_html_attribute_values(open_tag_lower, "aria-controls")
+                    .into_iter()
+                    .filter_map(|value| normalize_html_selector_token(&value))
+                    .next()
+            })
+            .or_else(|| {
+                extract_html_attribute_values(open_tag_lower, "data-target")
+                    .into_iter()
+                    .filter_map(|value| normalize_html_selector_token(&value))
+                    .next()
+            });
+        let selected_on_first_paint = open_tag_lower.contains("aria-selected=\"true\"")
+            || open_tag_lower.contains("aria-selected='true'");
+        buttons.push(HtmlButtonDescriptor {
+            open_start: start,
+            open_end,
+            label,
+            view_target,
+            selected_on_first_paint,
+        });
+        cursor = open_end;
+    }
+
+    buttons
+}
+
+fn ensure_html_button_accessibility_contract(html: &str) -> String {
+    let lower = html.to_ascii_lowercase();
+    if !lower.contains("<button") {
+        return html.to_string();
+    }
+
+    let buttons = collect_html_buttons(html);
+    if buttons.is_empty() {
+        return html.to_string();
+    }
+
+    let view_control_indexes = buttons
+        .iter()
+        .enumerate()
+        .filter_map(|(index, button)| button.view_target.as_ref().map(|_| index))
+        .collect::<Vec<_>>();
+    let default_view_index = view_control_indexes
+        .iter()
+        .copied()
+        .find(|index| buttons[*index].selected_on_first_paint)
+        .or_else(|| view_control_indexes.first().copied());
+    let primary_action_index = if lower.contains("data-studio-render-primary-action=") {
+        None
+    } else {
+        view_control_indexes
+            .iter()
+            .copied()
+            .find(|index| Some(*index) != default_view_index)
+            .or(default_view_index)
+    };
+
+    let mut rebuilt = String::with_capacity(html.len() + buttons.len() * 48);
+    let mut cursor = 0usize;
+    let mut changed = false;
+
+    for (index, button) in buttons.iter().enumerate() {
+        rebuilt.push_str(&html[cursor..button.open_start]);
+        let open_tag = &html[button.open_start..button.open_end];
+        let open_tag_lower = &lower[button.open_start..button.open_end];
+        let mut repaired = open_tag.to_string();
+
+        if !open_tag_lower.contains("type=") {
+            repaired = inject_html_attributes_into_open_tag(&repaired, &[("type", "button")]);
+            changed = true;
+        }
+
+        if !open_tag_lower.contains("aria-label=") {
+            let derived_label = if !button.label.is_empty() {
+                Some(button.label.clone())
+            } else {
+                button
+                    .view_target
+                    .as_deref()
+                    .map(|value| humanize_html_view_token(value.trim_end_matches("-panel")))
+                    .filter(|value| !value.is_empty())
+            };
+            if let Some(label) = derived_label.as_deref() {
+                repaired =
+                    inject_html_attributes_into_open_tag(&repaired, &[("aria-label", label)]);
+                changed = true;
+            }
+        }
+
+        if button.view_target.is_some() && !open_tag_lower.contains("aria-selected=") {
+            let selected = if Some(index) == default_view_index {
+                "true"
+            } else {
+                "false"
+            };
+            repaired =
+                inject_html_attributes_into_open_tag(&repaired, &[("aria-selected", selected)]);
+            changed = true;
+        }
+
+        if Some(index) == primary_action_index
+            && !open_tag_lower.contains("data-studio-render-primary-action=")
+        {
+            repaired = inject_html_attributes_into_open_tag(
+                &repaired,
+                &[("data-studio-render-primary-action", "true")],
+            );
+            changed = true;
+        }
+
+        rebuilt.push_str(&repaired);
+        cursor = button.open_end;
+    }
+
+    if !changed {
+        return html.to_string();
+    }
+
+    rebuilt.push_str(&html[cursor..]);
+    rebuilt
+}
+
 fn collect_html_mapped_view_panels(html: &str) -> Vec<HtmlMappedViewPanelDescriptor> {
     let lower = html.to_ascii_lowercase();
     let tag_patterns = ["<section", "<article", "<div", "<aside", "<figure"];
+    let control_targets = html_view_panel_control_targets(&lower);
     let mut seen_tokens = HashSet::<String>::new();
     let mut cursor = 0usize;
     let mut panels = Vec::<HtmlMappedViewPanelDescriptor>::new();
@@ -382,6 +631,11 @@ fn collect_html_mapped_view_panels(html: &str) -> Vec<HtmlMappedViewPanelDescrip
             .next()
             .or_else(|| {
                 if role_panel {
+                    existing_id.clone()
+                } else if existing_id
+                    .as_ref()
+                    .is_some_and(|value| control_targets.contains(value))
+                {
                     existing_id.clone()
                 } else {
                     None
@@ -612,6 +866,15 @@ fn sanitize_html_prompt_token(value: &str, fallback: &str) -> String {
     }
 }
 
+fn slugify_html_view_token(value: &str) -> Option<String> {
+    let normalized = sanitize_html_prompt_token(value, "");
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized)
+    }
+}
+
 fn compact_html_prompt_label(value: &str) -> String {
     let normalized = normalize_inline_text(value);
     if normalized.is_empty() {
@@ -779,51 +1042,53 @@ fn ensure_html_open_tag_hidden(open_tag: &str) -> String {
 
 pub(super) fn ensure_first_visible_mapped_view_panel(html: &str) -> String {
     let lower = html.to_ascii_lowercase();
-    if !html_has_static_view_mapping_markers(&lower) || html_has_visible_mapped_view_panel(&lower) {
+    if !html_has_static_view_mapping_markers(&lower) {
         return html.to_string();
     }
 
-    let aria_control_targets = extract_html_attribute_values(&lower, "aria-controls")
-        .into_iter()
-        .filter_map(|value| normalize_html_selector_token(&value))
-        .collect::<HashSet<_>>();
-    let tag_patterns = ["<section", "<article", "<div", "<aside", "<figure"];
-    let mut cursor = 0usize;
-
-    while cursor < html.len() {
-        let next_tag = tag_patterns
-            .iter()
-            .filter_map(|pattern| lower[cursor..].find(pattern).map(|offset| cursor + offset))
-            .min();
-        let Some(start) = next_tag else {
-            break;
-        };
-        let Some(relative_open_end) = lower[start..].find('>') else {
-            break;
-        };
-        let open_end = start + relative_open_end + 1;
-        let open_tag = &html[start..open_end];
-        let open_tag_lower = &lower[start..open_end];
-        let ids = extract_html_attribute_values(open_tag_lower, "id");
-        let is_mapped_panel = open_tag_lower.contains("data-view-panel=")
-            || open_tag_lower.contains("data-panel=")
-            || open_tag_lower.contains("role=\"tabpanel\"")
-            || open_tag_lower.contains("role='tabpanel'")
-            || ids
-                .iter()
-                .filter_map(|value| normalize_html_selector_token(value))
-                .any(|value| aria_control_targets.contains(&value));
-        if is_mapped_panel {
-            let mut rebuilt = String::with_capacity(html.len());
-            rebuilt.push_str(&html[..start]);
-            rebuilt.push_str(&strip_first_paint_hiding_from_open_tag(open_tag));
-            rebuilt.push_str(&html[open_end..]);
-            return rebuilt;
-        }
-        cursor = open_end;
+    let panels = collect_html_mapped_view_panels(html);
+    if panels.len() < 2 {
+        return html.to_string();
     }
 
-    html.to_string()
+    let visible_populated_count = panels
+        .iter()
+        .filter(|panel| panel.visible_on_first_paint && panel.content_score > 0)
+        .count();
+    let visible_count = panels
+        .iter()
+        .filter(|panel| panel.visible_on_first_paint)
+        .count();
+    if visible_count == 1 && visible_populated_count == 1 {
+        return html.to_string();
+    }
+
+    let target_open_start = panels
+        .iter()
+        .find(|panel| panel.visible_on_first_paint && panel.content_score > 0)
+        .or_else(|| panels.iter().find(|panel| panel.content_score > 0))
+        .or_else(|| panels.iter().find(|panel| panel.visible_on_first_paint))
+        .or_else(|| panels.first())
+        .map(|panel| panel.open_start);
+
+    let Some(target_open_start) = target_open_start else {
+        return html.to_string();
+    };
+
+    let mut rebuilt = String::with_capacity(html.len());
+    let mut cursor = 0usize;
+    for panel in panels {
+        rebuilt.push_str(&html[cursor..panel.open_start]);
+        let open_tag = &html[panel.open_start..panel.open_end];
+        if panel.open_start == target_open_start {
+            rebuilt.push_str(&strip_first_paint_hiding_from_open_tag(open_tag));
+        } else {
+            rebuilt.push_str(&ensure_html_open_tag_hidden(open_tag));
+        }
+        cursor = panel.open_end;
+    }
+    rebuilt.push_str(&html[cursor..]);
+    rebuilt
 }
 
 pub(super) fn ensure_html_rollover_detail_contract(html: &str) -> String {
@@ -857,7 +1122,157 @@ pub(super) fn ensure_html_rollover_detail_contract(html: &str) -> String {
   });
 })();</script>"#;
 
-    insert_html_before_body_close(html, script)
+    let repaired = insert_html_before_body_close(html, script);
+    ensure_focusable_html_rollover_marks(&repaired)
+}
+
+pub(super) fn ensure_focusable_html_rollover_marks(html: &str) -> String {
+    let lower = html.to_ascii_lowercase();
+    if !html_has_unfocusable_rollover_marks(&lower) {
+        return html.to_string();
+    }
+
+    let mut rebuilt = String::with_capacity(html.len() + 128);
+    let mut cursor = 0usize;
+
+    while let Some(relative_open_start) = lower[cursor..].find('<') {
+        let open_start = cursor + relative_open_start;
+        let Some(relative_open_end) = lower[open_start..].find('>') else {
+            break;
+        };
+        let open_end = open_start + relative_open_end + 1;
+        let open_tag = &html[open_start..open_end];
+        let open_tag_lower = &lower[open_start..open_end];
+        if open_tag_lower.starts_with("<script") || open_tag_lower.starts_with("<style") {
+            let close_tag = if open_tag_lower.starts_with("<script") {
+                "</script>"
+            } else {
+                "</style>"
+            };
+            if let Some(relative_close) = lower[open_end..].find(close_tag) {
+                let close_end = open_end + relative_close + close_tag.len();
+                rebuilt.push_str(&html[cursor..close_end]);
+                cursor = close_end;
+                continue;
+            }
+        }
+        if !open_tag_lower.contains("data-detail=") || open_tag_lower.starts_with("</") {
+            rebuilt.push_str(&html[cursor..open_end]);
+            cursor = open_end;
+            continue;
+        }
+
+        rebuilt.push_str(&html[cursor..open_start]);
+        let repaired = html_open_tag_name(open_tag_lower)
+            .map(|tag_name| {
+                let mut repaired = open_tag.to_string();
+                let non_native_focus_target =
+                    !html_tag_is_natively_focusable(open_tag_lower, &tag_name);
+                if non_native_focus_target && !open_tag_lower.contains("tabindex=") {
+                    repaired = inject_html_attributes_into_open_tag(&repaired, &[("tabindex", "0")]);
+                }
+                if non_native_focus_target && !open_tag_lower.contains("role=") {
+                    repaired = inject_html_attributes_into_open_tag(&repaired, &[("role", "button")]);
+                }
+                if non_native_focus_target && !open_tag_lower.contains("aria-label=") {
+                    if let Some(detail_label) = extract_html_attribute_values(open_tag_lower, "data-detail")
+                        .into_iter()
+                        .map(|value| normalize_inline_text(&value))
+                        .find(|value| !value.is_empty())
+                    {
+                        repaired = inject_html_attributes_into_open_tag(
+                            &repaired,
+                            &[("aria-label", detail_label.as_str())],
+                        );
+                    }
+                }
+                repaired
+            })
+            .unwrap_or_else(|| open_tag.to_string());
+        rebuilt.push_str(&repaired);
+        cursor = open_end;
+    }
+
+    rebuilt.push_str(&html[cursor..]);
+    rebuilt
+}
+
+fn html_fragment_is_loose_rollover_detail_mark(fragment: &str) -> bool {
+    if html_fragment_has_sectioning_root(fragment) {
+        return false;
+    }
+    let lower = fragment.to_ascii_lowercase();
+    lower.contains("data-detail=")
+        || lower.contains("class=\"data-detail\"")
+        || lower.contains("class='data-detail'")
+}
+
+fn flush_loose_rollover_detail_mark_group(
+    rebuilt: &mut String,
+    pending_marks: &mut String,
+    wrapped_any: &mut bool,
+) {
+    if pending_marks.trim().is_empty() {
+        pending_marks.clear();
+        return;
+    }
+
+    *wrapped_any = true;
+    rebuilt.push_str(
+        "<section data-studio-normalized=\"true\" data-studio-rollover-chip-rail=\"true\"><h2>Evidence highlights</h2><div class=\"studio-rollover-chip-rail\">",
+    );
+    rebuilt.push_str(pending_marks);
+    rebuilt.push_str(
+        "</div><p>Select, hover, or focus a highlight to inspect the shared detail panel.</p></section>",
+    );
+    pending_marks.clear();
+}
+
+pub(super) fn ensure_grouped_html_rollover_detail_marks(html: &str) -> String {
+    let lower = html.to_ascii_lowercase();
+    if lower.contains("data-studio-rollover-chip-rail=\"true\"")
+        || (!lower.contains("class=\"data-detail\"") && !lower.contains("class='data-detail'"))
+    {
+        return html.to_string();
+    }
+
+    let Some((main_content_start, main_content_end)) = html_tag_content_range(html, "main") else {
+        return html.to_string();
+    };
+    let main_inner = &html[main_content_start..main_content_end];
+    let fragments = split_top_level_html_fragments(main_inner);
+    if fragments.is_empty() {
+        return html.to_string();
+    }
+
+    let mut rebuilt_inner = String::with_capacity(main_inner.len() + 256);
+    let mut pending_marks = String::new();
+    let mut wrapped_any = false;
+
+    for fragment in fragments {
+        if html_fragment_is_loose_rollover_detail_mark(fragment.trim()) {
+            pending_marks.push_str(&fragment);
+            continue;
+        }
+        flush_loose_rollover_detail_mark_group(
+            &mut rebuilt_inner,
+            &mut pending_marks,
+            &mut wrapped_any,
+        );
+        rebuilt_inner.push_str(&fragment);
+    }
+    flush_loose_rollover_detail_mark_group(&mut rebuilt_inner, &mut pending_marks, &mut wrapped_any);
+
+    if !wrapped_any {
+        return html.to_string();
+    }
+
+    format!(
+        "{}{}{}",
+        &html[..main_content_start],
+        rebuilt_inner,
+        &html[main_content_end..],
+    )
 }
 
 fn brief_rollover_detail_labels(brief: &StudioArtifactBrief) -> Vec<String> {
@@ -913,7 +1328,7 @@ pub(super) fn ensure_minimum_brief_rollover_detail_marks(
     }
 
     let existing_count = count_html_rollover_detail_marks(&lower);
-    if existing_count >= 3 || lower.contains("data-studio-rollover-chip-rail=\"true\"") {
+    if existing_count >= 3 {
         return html.to_string();
     }
 
@@ -959,10 +1374,7 @@ pub(super) fn ensure_minimum_brief_rollover_detail_marks(
 
 pub(super) fn ensure_minimum_html_rollover_detail_payloads(html: &str) -> String {
     let lower = html.to_ascii_lowercase();
-    if lower.contains("data-detail=")
-        || count_populated_html_detail_regions(&lower) == 0
-        || count_html_svg_regions(&lower) == 0
-    {
+    if lower.contains("data-detail=") || count_populated_html_detail_regions(&lower) == 0 {
         return html.to_string();
     }
 
@@ -1021,6 +1433,61 @@ pub(super) fn ensure_minimum_html_rollover_detail_payloads(html: &str) -> String
     }
 
     if applied == 0 {
+        return ensure_minimum_html_dom_rollover_detail_payloads(html, &labels);
+    }
+
+    rebuilt.push_str(&html[cursor..]);
+    rebuilt
+}
+
+fn ensure_minimum_html_dom_rollover_detail_payloads(html: &str, labels: &[String]) -> String {
+    let lower = html.to_ascii_lowercase();
+    let mut rebuilt = String::with_capacity(html.len() + 256);
+    let mut cursor = 0usize;
+    let mut applied = 0usize;
+
+    while applied < 3 && cursor < html.len() {
+        let Some(relative_start) = lower[cursor..].find("<li") else {
+            break;
+        };
+        let start = cursor + relative_start;
+        let Some(relative_open_end) = lower[start..].find('>') else {
+            break;
+        };
+        let open_end = start + relative_open_end + 1;
+        let Some(relative_close) = lower[open_end..].find("</li>") else {
+            break;
+        };
+        let close_start = open_end + relative_close;
+        let open_tag = &html[start..open_end];
+        let open_tag_lower = &lower[start..open_end];
+        rebuilt.push_str(&html[cursor..start]);
+        if open_tag_lower.contains("data-detail=") {
+            rebuilt.push_str(open_tag);
+            cursor = open_end;
+            continue;
+        }
+        let visible_text = normalize_inline_text(&strip_html_tags(&html[open_end..close_start]));
+        if visible_text.is_empty() {
+            rebuilt.push_str(open_tag);
+            cursor = open_end;
+            continue;
+        }
+        let detail_label = labels
+            .get(applied)
+            .cloned()
+            .unwrap_or_else(|| visible_text.clone());
+        let mut repaired =
+            inject_html_attributes_into_open_tag(open_tag, &[("data-detail", &detail_label)]);
+        if !open_tag_lower.contains("tabindex=") {
+            repaired = inject_html_attributes_into_open_tag(&repaired, &[("tabindex", "0")]);
+        }
+        rebuilt.push_str(&repaired);
+        applied += 1;
+        cursor = open_end;
+    }
+
+    if applied == 0 {
         return html.to_string();
     }
 
@@ -1033,22 +1500,19 @@ pub(super) fn ensure_minimum_html_shared_detail_region(html: &str) -> String {
     if !contains_html_interaction_hooks(&lower) {
         return html.to_string();
     }
+    let default_focus = default_html_detail_focus_label(html);
+    let normalized = ensure_existing_html_detail_regions_have_first_paint_copy(
+        html,
+        &default_focus,
+    );
+    let lower = normalized.to_ascii_lowercase();
     let has_populated_detail_region = count_populated_html_detail_regions(&lower) > 0;
     let has_detail_copy_id =
         lower.contains("id=\"detail-copy\"") || lower.contains("id='detail-copy'");
     if has_populated_detail_region && has_detail_copy_id {
-        return html.to_string();
+        return normalized;
     }
 
-    let default_focus = extract_html_text_nodes_for_tag(html, "button", 1)
-        .into_iter()
-        .next()
-        .or_else(|| {
-            extract_html_text_nodes_for_tag(html, "h2", 1)
-                .into_iter()
-                .next()
-        })
-        .unwrap_or_else(|| "Artifact detail".to_string());
     let detail_region = format!(
         "<aside data-studio-normalized=\"true\" data-studio-shared-detail=\"true\"><h2>Detail</h2><p id=\"detail-copy\">{} is selected by default.</p></aside>",
         xml_escape(&default_focus)
@@ -1057,13 +1521,119 @@ pub(super) fn ensure_minimum_html_shared_detail_region(html: &str) -> String {
     if let Some(main_close_start) = lower.rfind("</main>") {
         return format!(
             "{}{}{}",
-            &html[..main_close_start],
+            &normalized[..main_close_start],
             detail_region,
-            &html[main_close_start..],
+            &normalized[main_close_start..],
         );
     }
 
-    insert_html_before_body_close(html, &detail_region)
+    insert_html_before_body_close(&normalized, &detail_region)
+}
+
+fn default_html_detail_focus_label(html: &str) -> String {
+    extract_html_text_nodes_for_tag(html, "button", 1)
+        .into_iter()
+        .next()
+        .or_else(|| {
+            extract_html_text_nodes_for_tag(html, "h2", 1)
+                .into_iter()
+                .next()
+        })
+        .unwrap_or_else(|| "Artifact detail".to_string())
+}
+
+fn build_html_default_detail_copy_markup(default_focus: &str, include_detail_copy_id: bool) -> String {
+    let detail_copy_id = if include_detail_copy_id {
+        " id=\"detail-copy\""
+    } else {
+        ""
+    };
+    format!(
+        "<p{detail_copy_id}>{} is selected by default.</p>",
+        xml_escape(default_focus)
+    )
+}
+
+fn ensure_existing_html_detail_regions_have_first_paint_copy(
+    html: &str,
+    default_focus: &str,
+) -> String {
+    let lower = html.to_ascii_lowercase();
+    let mut replacements = Vec::<(usize, usize, String)>::new();
+    let mut assigned_detail_copy =
+        lower.contains("id=\"detail-copy\"") || lower.contains("id='detail-copy'");
+
+    for tag in ["aside", "section", "article", "div"] {
+        let open_pattern = format!("<{tag}");
+        let close_pattern = format!("</{tag}>");
+        let mut cursor = 0usize;
+
+        while let Some(relative_start) = lower[cursor..].find(&open_pattern) {
+            let start = cursor + relative_start;
+            let Some(relative_open_end) = lower[start..].find('>') else {
+                break;
+            };
+            let open_end = start + relative_open_end + 1;
+            let open_tag = &html[start..open_end];
+            let open_tag_lower = &lower[start..open_end];
+            if tag != "aside" && !detail_region_hint_present(open_tag_lower) {
+                cursor = open_end;
+                continue;
+            }
+
+            let Some(relative_close) = lower[open_end..].find(&close_pattern) else {
+                cursor = open_end;
+                continue;
+            };
+            let close_start = open_end + relative_close;
+            let close_end = close_start + close_pattern.len();
+            let inner = &html[open_end..close_start];
+            let inner_lower = &lower[open_end..close_start];
+            let has_detail_content = html_fragment_has_detail_content(inner_lower);
+            if has_detail_content && assigned_detail_copy {
+                cursor = close_end;
+                continue;
+            }
+
+            let repaired_open_tag = if open_tag_lower.contains("data-studio-shared-detail=") {
+                open_tag.to_string()
+            } else {
+                inject_html_attributes_into_open_tag(
+                    open_tag,
+                    &[("data-studio-shared-detail", "true")],
+                )
+            };
+            let fallback = build_html_default_detail_copy_markup(
+                default_focus,
+                !assigned_detail_copy,
+            );
+            assigned_detail_copy = true;
+            replacements.push((
+                start,
+                close_start,
+                format!("{repaired_open_tag}{fallback}{inner}"),
+            ));
+            cursor = close_end;
+        }
+    }
+
+    if replacements.is_empty() {
+        return html.to_string();
+    }
+
+    replacements.sort_by_key(|(start, _, _)| *start);
+    let mut rebuilt = String::with_capacity(html.len() + replacements.len() * 128);
+    let mut cursor = 0usize;
+    for (start, end, replacement) in replacements {
+        if start < cursor {
+            continue;
+        }
+        rebuilt.push_str(&html[cursor..start]);
+        rebuilt.push_str(&replacement);
+        cursor = end;
+    }
+    rebuilt.push_str(&html[cursor..]);
+    rebuilt
 }
 
 pub(super) fn extract_html_rollover_detail_labels(html: &str) -> Vec<String> {
@@ -1194,6 +1764,212 @@ pub(super) fn insert_html_before_body_close(html: &str, snippet: &str) -> String
         );
     }
     format!("{html}{snippet}")
+}
+
+fn insert_html_before_head_close_or_body_close(html: &str, snippet: &str) -> String {
+    let lower = html.to_ascii_lowercase();
+    if let Some(head_close_start) = lower.rfind("</head>") {
+        return format!(
+            "{}{}{}",
+            &html[..head_close_start],
+            snippet,
+            &html[head_close_start..],
+        );
+    }
+    insert_html_before_body_close(html, snippet)
+}
+
+fn ensure_html_interaction_polish_styles(html: &str) -> String {
+    let lower = html.to_ascii_lowercase();
+    let needs_polish = lower.contains("<button")
+        || lower.contains("data-view-panel=")
+        || lower.contains("data-panel=")
+        || lower.contains("data-detail=")
+        || lower.contains("class=\"evidence-surface\"")
+        || lower.contains("class='evidence-surface'");
+    if !needs_polish || lower.contains("data-studio-interaction-polish=\"true\"") {
+        return html.to_string();
+    }
+
+    let style = r#"<style data-studio-interaction-polish="true">
+:root { color-scheme: light; }
+body { line-height: 1.5; color: #0f172a; }
+header { padding: 32px 24px; text-align: left; }
+header > * { max-width: 1120px; margin-left: auto; margin-right: auto; }
+header h1, header p { margin-left: 0; margin-right: 0; }
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 24px;
+  box-sizing: border-box;
+}
+main > section,
+main > nav,
+main > aside,
+main > footer {
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+.control-bar,
+.studio-view-switch-controls,
+nav[aria-label="Artifact views"] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+.studio-rollover-chip-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  align-items: stretch;
+}
+button,
+[role="tab"][data-view] {
+  font: inherit;
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+button[data-view],
+.control-bar button,
+.studio-view-switch-controls button,
+[role="tab"][data-view] {
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  font-weight: 600;
+}
+button[data-view][aria-selected="true"],
+.control-bar button[aria-selected="true"],
+.studio-view-switch-controls button[aria-selected="true"],
+[role="tab"][data-view][aria-selected="true"] {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+}
+button:hover,
+button:focus-visible,
+[role="tab"][data-view]:hover,
+[role="tab"][data-view]:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  outline: none;
+}
+.evidence-surface,
+[data-view-panel],
+[data-panel],
+[role="tabpanel"],
+.shared-detail,
+[data-studio-shared-detail="true"],
+[data-studio-rollover-chip-rail="true"] {
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.07);
+  padding: 24px;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+.evidence-surface:hover,
+.evidence-surface:focus-within,
+[data-view-panel]:hover,
+[data-view-panel]:focus-within,
+[data-panel]:hover,
+[data-panel]:focus-within,
+[role="tabpanel"]:hover,
+[role="tabpanel"]:focus-within,
+.shared-detail:hover,
+.shared-detail:focus-within,
+[data-studio-shared-detail="true"]:hover,
+[data-studio-shared-detail="true"]:focus-within,
+[data-studio-rollover-chip-rail="true"]:hover,
+[data-studio-rollover-chip-rail="true"]:focus-within {
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.12);
+}
+.evidence-surface h1,
+.evidence-surface h2,
+.evidence-surface h3,
+[data-view-panel] h1,
+[data-view-panel] h2,
+[data-view-panel] h3,
+.shared-detail h1,
+.shared-detail h2,
+.shared-detail h3,
+[data-studio-shared-detail="true"] h1,
+[data-studio-shared-detail="true"] h2,
+[data-studio-shared-detail="true"] h3 {
+  margin-top: 0;
+  text-align: left;
+}
+.evidence-surface svg,
+[data-view-panel] svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 16px 0 0;
+}
+[data-detail]:hover,
+[data-detail]:focus-visible,
+.studio-rollover-chip:hover,
+.studio-rollover-chip:focus-visible {
+  cursor: pointer;
+  filter: brightness(0.96);
+  outline: 2px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 2px;
+}
+.studio-rollover-chip,
+.studio-rollover-chip-rail > [data-detail],
+.studio-rollover-chip-rail > .data-detail,
+main > [data-detail],
+main > .data-detail {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.studio-rollover-chip-rail > .data-detail strong,
+main > .data-detail strong {
+  font: inherit;
+}
+[hidden] { display: none !important; }
+@media (max-width: 720px) {
+  header { padding: 24px 16px; }
+  main { padding: 16px; gap: 16px; }
+  .control-bar,
+  .studio-view-switch-controls,
+  nav[aria-label="Artifact views"] { gap: 8px; }
+  .evidence-surface,
+  [data-view-panel],
+  [data-panel],
+  [role="tabpanel"],
+  .shared-detail,
+  [data-studio-shared-detail="true"],
+  [data-studio-rollover-chip-rail="true"] { padding: 18px; }
+}
+</style>"#;
+
+    insert_html_before_head_close_or_body_close(html, style)
 }
 
 pub(super) fn normalize_html_external_runtime_dependencies(html: &str) -> String {
@@ -1495,13 +2271,17 @@ pub(super) fn normalize_html_top_level_fragments(
     }
 
     let mut normalized = String::new();
+    let mut pending_section = String::new();
+    let mut pending_kind = None::<HtmlTopLevelSectioningGroupKind>;
     for fragment in fragments {
         let trimmed = fragment.trim();
         if trimmed.is_empty() {
-            normalized.push_str(fragment);
+            pending_section.push_str(fragment);
             continue;
         }
         if html_fragment_is_script_like(trimmed) {
+            flush_html_sectioning_group(&mut normalized, &mut pending_section);
+            pending_kind = None;
             normalized.push_str(fragment);
             continue;
         }
@@ -1512,6 +2292,8 @@ pub(super) fn normalize_html_top_level_fragments(
                     if let Some(expanded) =
                         normalize_html_top_level_fragments(&nested_fragments, depth + 1)
                     {
+                        flush_html_sectioning_group(&mut normalized, &mut pending_section);
+                        pending_kind = None;
                         normalized.push_str(&expanded);
                         continue;
                     }
@@ -1519,19 +2301,90 @@ pub(super) fn normalize_html_top_level_fragments(
             }
         }
         if html_fragment_has_sectioning_root(trimmed) {
+            flush_html_sectioning_group(&mut normalized, &mut pending_section);
+            pending_kind = None;
             normalized.push_str(fragment);
         } else {
-            normalized.push_str("<section data-studio-normalized=\"true\">");
-            normalized.push_str(fragment);
-            normalized.push_str("</section>");
+            let fragment_kind = html_fragment_sectioning_group_kind(trimmed);
+            let should_flush = pending_kind.is_some_and(|kind| {
+                kind != fragment_kind
+                    && !(kind == HtmlTopLevelSectioningGroupKind::Narrative
+                        && fragment_kind == HtmlTopLevelSectioningGroupKind::DetailMarks)
+            });
+            if should_flush {
+                flush_html_sectioning_group(&mut normalized, &mut pending_section);
+                pending_kind = None;
+            }
+            if pending_section.trim().is_empty() {
+                pending_kind = Some(fragment_kind);
+            } else if pending_kind == Some(HtmlTopLevelSectioningGroupKind::Narrative)
+                && fragment_kind == HtmlTopLevelSectioningGroupKind::DetailMarks
+            {
+                pending_kind = Some(HtmlTopLevelSectioningGroupKind::DetailMarks);
+            }
+            pending_section.push_str(fragment);
         }
     }
+    flush_html_sectioning_group(&mut normalized, &mut pending_section);
 
     if count_html_sectioning_elements(&normalized.to_ascii_lowercase()) >= 3 {
         Some(normalized)
     } else {
         None
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum HtmlTopLevelSectioningGroupKind {
+    Narrative,
+    Control,
+    Panel,
+    DetailMarks,
+    SharedDetail,
+}
+
+fn html_fragment_sectioning_group_kind(fragment: &str) -> HtmlTopLevelSectioningGroupKind {
+    let lower = fragment.to_ascii_lowercase();
+    if lower.contains("shared-detail")
+        || lower.contains("detail-copy")
+        || lower.contains("data-studio-shared-detail=")
+    {
+        HtmlTopLevelSectioningGroupKind::SharedDetail
+    } else if lower.contains("data-detail=")
+        || lower.contains("class=\"data-detail\"")
+        || lower.contains("class='data-detail'")
+    {
+        HtmlTopLevelSectioningGroupKind::DetailMarks
+    } else if lower.contains("data-view-panel=")
+        || lower.contains("data-panel=")
+        || lower.contains("role=\"tabpanel\"")
+        || lower.contains("role='tabpanel'")
+        || lower.contains("class=\"evidence\"")
+        || lower.contains("class='evidence'")
+    {
+        HtmlTopLevelSectioningGroupKind::Panel
+    } else if lower.contains("<button")
+        || lower.contains("data-view=")
+        || lower.contains("aria-controls=")
+        || lower.contains("control-bar")
+    {
+        HtmlTopLevelSectioningGroupKind::Control
+    } else {
+        HtmlTopLevelSectioningGroupKind::Narrative
+    }
+}
+
+fn flush_html_sectioning_group(normalized: &mut String, pending_section: &mut String) {
+    if pending_section.trim().is_empty() {
+        normalized.push_str(pending_section);
+        pending_section.clear();
+        return;
+    }
+
+    normalized.push_str("<section data-studio-normalized=\"true\">");
+    normalized.push_str(pending_section);
+    normalized.push_str("</section>");
+    pending_section.clear();
 }
 
 pub(super) fn split_top_level_html_fragments(inner: &str) -> Vec<String> {
@@ -1833,6 +2686,10 @@ pub(super) fn studio_artifact_materialization_failure_directives(
             "- Remove placeholder comments, TODO markers, and filler labels entirely; every visible mark, comment-free region, and handler must be production-ready."
                 .to_string(),
         );
+        directives.push(
+            "- Do not emit the literal words placeholder, placeholders, TODO, or TBD anywhere in the final HTML, CSS, JavaScript, comments, ids, classes, or visible copy."
+                .to_string(),
+        );
     }
     if failure_lower.contains("real svg marks or labels on first paint") {
         directives.push(
@@ -1962,7 +2819,14 @@ pub(super) fn studio_artifact_materialization_failure_directives(
                 .to_string(),
         );
     }
-    if failure_lower.contains("call for rollover detail must wire hover or focus handlers") {
+    if failure_lower.contains("call for rollover detail must wire hover or focus handlers")
+        || failure_lower.contains("keyboard-focusable")
+        || failure_lower.contains("focus-based detail behavior")
+    {
+        directives.push(
+            "- Patch the existing scaffold in place: keep the current <main>, populated sectioning regions, mapped view panels, and shared detail aside while you repair focusability."
+                .to_string(),
+        );
         directives.push(
             "- Add at least three visible marks or cards with data-detail text plus mouseenter, mouseover, or focus handlers that rewrite the shared detail panel inline."
                 .to_string(),
@@ -1975,6 +2839,12 @@ pub(super) fn studio_artifact_materialization_failure_directives(
             "- Select those marks as a real collection such as querySelectorAll('[data-detail]') and make non-focusable marks focusable with tabindex=\"0\" before attaching focus handlers."
                 .to_string(),
         );
+        if brief_requires_view_switching(brief) {
+            directives.push(
+                "- Do not delete or replace the mapped panel scaffold while fixing focusability; preserve the existing buttons[data-view], [data-view-panel] containers, and #detail-copy region."
+                    .to_string(),
+            );
+        }
         directives.push(format!(
             "- A concrete repair shape is {} inside a visible chart plus const detailCopy = document.getElementById('detail-copy'); document.querySelectorAll('[data-detail]').forEach((mark) => {{ mark.addEventListener('mouseenter', () => {{ detailCopy.textContent = mark.dataset.detail; }}); mark.addEventListener('focus', () => {{ detailCopy.textContent = mark.dataset.detail; }}); }});",
             rollover_mark_example
@@ -2550,8 +3420,13 @@ pub(super) fn detail_region_hint_present(fragment_lower: &str) -> bool {
 }
 
 pub(super) fn placeholder_marker_hits(text_lower: &str) -> usize {
-    [
-        "placeholder",
+    let mut hits = 0usize;
+
+    if text_lower.contains("<!--") && text_lower.contains("-->") {
+        hits += 1;
+    }
+
+    hits += [
         "lorem ipsum",
         "todo",
         "tbd",
@@ -2562,10 +3437,26 @@ pub(super) fn placeholder_marker_hits(text_lower: &str) -> usize {
         "add your javascript here",
         "add your js here",
         "add your html here",
+        "placeholder copy",
+        "placeholder content",
+        "placeholder text",
+        "placeholder media",
+        "placeholder image",
+        "placeholder images",
+        "placeholder svg",
+        "placeholder chart",
+        "placeholder graphic",
+        "placeholder shell",
+        "placeholder region",
+        "placeholder panel",
+        "placeholder comment",
+        "chart goes here",
     ]
     .iter()
     .filter(|needle| text_lower.contains(**needle))
-    .count()
+    .count();
+
+    hits
 }
 
 pub(super) fn html_contains_placeholder_markers(html_lower: &str) -> bool {
@@ -2833,53 +3724,55 @@ pub(super) fn count_populated_html_chart_regions(html_lower: &str) -> usize {
 }
 
 pub(super) fn count_populated_html_evidence_regions(html_lower: &str) -> usize {
-    let mut total = 0usize;
-    let tag_patterns = ["<section", "<article", "<aside", "<div", "<figure"];
-    let mut cursor = 0usize;
+    let mut regions = Vec::<(usize, usize)>::new();
 
-    while cursor < html_lower.len() {
-        let next_tag = tag_patterns
-            .iter()
-            .filter_map(|pattern| {
-                html_lower[cursor..]
-                    .find(pattern)
-                    .map(|offset| cursor + offset)
-            })
-            .min();
-        let Some(start) = next_tag else {
-            break;
-        };
-        let Some(relative_open_end) = html_lower[start..].find('>') else {
-            break;
-        };
-        let open_end = start + relative_open_end + 1;
-        let open_tag = &html_lower[start..open_end];
-        let tag_name = html_container_tag_name(open_tag).unwrap_or("section");
-        let close_pattern = format!("</{tag_name}>");
-        let Some(relative_close) = html_lower[open_end..].find(&close_pattern) else {
+    for tag in ["section", "article", "aside", "div", "figure"] {
+        let open_pattern = format!("<{tag}");
+        let close_pattern = format!("</{tag}>");
+        let mut cursor = 0usize;
+
+        while let Some(relative_start) = html_lower[cursor..].find(&open_pattern) {
+            let start = cursor + relative_start;
+            let Some(relative_open_end) = html_lower[start..].find('>') else {
+                break;
+            };
+            let open_end = start + relative_open_end + 1;
+            let open_tag = &html_lower[start..open_end];
+            let Some(relative_close) = html_lower[open_end..].find(&close_pattern) else {
+                cursor = open_end;
+                continue;
+            };
+            let close_start = open_end + relative_close;
+            let close_end = close_start + close_pattern.len();
+            let inner = &html_lower[open_end..close_start];
+
+            if open_tag.contains("data-studio-shared-detail=")
+                || open_tag.contains("data-studio-rollover-chip-rail=")
+                || open_tag.contains("data-studio-view-controls-repair=")
+                || inner.contains("id=\"detail-copy\"")
+                || inner.contains("id='detail-copy'")
+            {
+                cursor = open_end;
+                continue;
+            }
+
+            if html_fragment_has_structured_evidence_content(inner) {
+                regions.push((start, close_end));
+            }
             cursor = open_end;
-            continue;
-        };
-        let close_start = open_end + relative_close;
-        let inner = &html_lower[open_end..close_start];
-
-        if open_tag.contains("data-studio-shared-detail=")
-            || open_tag.contains("data-studio-rollover-chip-rail=")
-            || open_tag.contains("data-studio-view-controls-repair=")
-            || inner.contains("id=\"detail-copy\"")
-            || inner.contains("id='detail-copy'")
-        {
-            cursor = close_start + close_pattern.len();
-            continue;
         }
-
-        if html_fragment_has_structured_evidence_content(inner) {
-            total += 1;
-        }
-        cursor = close_start + close_pattern.len();
     }
 
-    total
+    regions.sort_unstable();
+    regions.dedup();
+    regions
+        .iter()
+        .filter(|(start, end)| {
+            !regions.iter().any(|(other_start, other_end)| {
+                other_start > start && other_end < end
+            })
+        })
+        .count()
 }
 
 pub(super) fn html_contains_empty_chart_container_regions(html_lower: &str) -> bool {
@@ -3110,17 +4003,28 @@ pub(super) fn html_has_unfocusable_rollover_marks(html_lower: &str) -> bool {
     }
 
     let mut cursor = 0usize;
-    while let Some(relative_attr_start) = html_lower[cursor..].find("data-detail=") {
-        let attr_start = cursor + relative_attr_start;
-        let Some(open_start) = html_lower[..attr_start].rfind('<') else {
-            cursor = attr_start + "data-detail=".len();
-            continue;
-        };
+    while let Some(relative_open_start) = html_lower[cursor..].find('<') {
+        let open_start = cursor + relative_open_start;
         let Some(relative_open_end) = html_lower[open_start..].find('>') else {
             break;
         };
         let open_end = open_start + relative_open_end + 1;
         let open_tag = &html_lower[open_start..open_end];
+        if open_tag.starts_with("<script") || open_tag.starts_with("<style") {
+            let close_tag = if open_tag.starts_with("<script") {
+                "</script>"
+            } else {
+                "</style>"
+            };
+            if let Some(relative_close) = html_lower[open_end..].find(close_tag) {
+                cursor = open_end + relative_close + close_tag.len();
+                continue;
+            }
+        }
+        if !open_tag.contains("data-detail=") || open_tag.starts_with("</") {
+            cursor = open_end;
+            continue;
+        }
         let Some(tag_name) = html_open_tag_name(open_tag) else {
             cursor = open_end;
             continue;
@@ -3285,10 +4189,7 @@ pub(super) fn html_contains_view_switching_control_behavior(html_lower: &str) ->
         && html_contains_view_switch_state_mutation(html_lower)
 }
 
-fn html_open_tag_is_mapped_panel(
-    open_tag_lower: &str,
-    aria_control_targets: &HashSet<String>,
-) -> bool {
+fn html_open_tag_is_mapped_panel(open_tag_lower: &str, control_targets: &HashSet<String>) -> bool {
     let ids = extract_html_attribute_values(open_tag_lower, "id");
     open_tag_lower.contains("data-view-panel=")
         || open_tag_lower.contains("data-panel=")
@@ -3297,7 +4198,16 @@ fn html_open_tag_is_mapped_panel(
         || ids
             .iter()
             .filter_map(|value| normalize_html_selector_token(value))
-            .any(|value| aria_control_targets.contains(&value))
+            .any(|value| control_targets.contains(&value))
+}
+
+fn html_view_panel_control_targets(html_lower: &str) -> HashSet<String> {
+    extract_html_attribute_values(html_lower, "data-view")
+        .into_iter()
+        .chain(extract_html_attribute_values(html_lower, "aria-controls"))
+        .chain(extract_html_attribute_values(html_lower, "data-target"))
+        .filter_map(|value| normalize_html_selector_token(&value))
+        .collect()
 }
 
 pub(super) fn html_contains_container_attribute_value(
@@ -3389,10 +4299,7 @@ pub(super) fn html_open_tag_hides_first_paint(open_tag: &str) -> bool {
 }
 
 pub(super) fn html_has_visible_mapped_view_panel(html_lower: &str) -> bool {
-    let aria_control_targets = extract_html_attribute_values(html_lower, "aria-controls")
-        .into_iter()
-        .filter_map(|value| normalize_html_selector_token(&value))
-        .collect::<HashSet<_>>();
+    let control_targets = html_view_panel_control_targets(html_lower);
 
     for tag in ["section", "article", "div", "aside", "figure"] {
         let open_pattern = format!("<{tag}");
@@ -3405,7 +4312,7 @@ pub(super) fn html_has_visible_mapped_view_panel(html_lower: &str) -> bool {
             };
             let open_end = start + relative_open_end + 1;
             let open_tag = &html_lower[start..open_end];
-            let is_mapped_panel = html_open_tag_is_mapped_panel(open_tag, &aria_control_targets);
+            let is_mapped_panel = html_open_tag_is_mapped_panel(open_tag, &control_targets);
             if is_mapped_panel && !html_open_tag_hides_first_paint(open_tag) {
                 return true;
             }
@@ -3417,10 +4324,7 @@ pub(super) fn html_has_visible_mapped_view_panel(html_lower: &str) -> bool {
 }
 
 pub(super) fn count_empty_html_mapped_view_panels(html_lower: &str) -> usize {
-    let aria_control_targets = extract_html_attribute_values(html_lower, "aria-controls")
-        .into_iter()
-        .filter_map(|value| normalize_html_selector_token(&value))
-        .collect::<HashSet<_>>();
+    let control_targets = html_view_panel_control_targets(html_lower);
     let mut total = 0usize;
 
     for tag in ["section", "article", "div", "aside", "figure"] {
@@ -3435,7 +4339,7 @@ pub(super) fn count_empty_html_mapped_view_panels(html_lower: &str) -> usize {
             };
             let open_end = start + relative_open_end + 1;
             let open_tag = &html_lower[start..open_end];
-            if !html_open_tag_is_mapped_panel(open_tag, &aria_control_targets) {
+            if !html_open_tag_is_mapped_panel(open_tag, &control_targets) {
                 cursor = open_end;
                 continue;
             }
@@ -3458,10 +4362,7 @@ pub(super) fn count_empty_html_mapped_view_panels(html_lower: &str) -> usize {
 }
 
 pub(super) fn html_has_visible_populated_mapped_view_panel(html_lower: &str) -> bool {
-    let aria_control_targets = extract_html_attribute_values(html_lower, "aria-controls")
-        .into_iter()
-        .filter_map(|value| normalize_html_selector_token(&value))
-        .collect::<HashSet<_>>();
+    let control_targets = html_view_panel_control_targets(html_lower);
 
     for tag in ["section", "article", "div", "aside", "figure"] {
         let open_pattern = format!("<{tag}");
@@ -3475,7 +4376,7 @@ pub(super) fn html_has_visible_populated_mapped_view_panel(html_lower: &str) -> 
             };
             let open_end = start + relative_open_end + 1;
             let open_tag = &html_lower[start..open_end];
-            if !html_open_tag_is_mapped_panel(open_tag, &aria_control_targets) {
+            if !html_open_tag_is_mapped_panel(open_tag, &control_targets) {
                 cursor = open_end;
                 continue;
             }
@@ -3586,6 +4487,74 @@ pub(super) fn html_uses_custom_font_family_without_loading(html_lower: &str) -> 
     false
 }
 
+pub(super) fn normalize_html_custom_font_family_fallbacks(html: &str) -> String {
+    let html_lower = html.to_ascii_lowercase();
+    if !html_uses_custom_font_family_without_loading(&html_lower) {
+        return html.to_string();
+    }
+
+    let mut normalized = String::with_capacity(html.len());
+    let mut cursor = 0usize;
+
+    while let Some(relative_start) = html_lower[cursor..].find("font-family") {
+        let start = cursor + relative_start;
+        normalized.push_str(&html[cursor..start]);
+
+        let Some(relative_colon) = html_lower[start..].find(':') else {
+            normalized.push_str(&html[start..]);
+            return normalized;
+        };
+        let colon = start + relative_colon;
+        normalized.push_str(&html[start..=colon]);
+
+        let value_start = colon + 1;
+        let declaration_end = html_lower[value_start..]
+            .find(';')
+            .map(|offset| value_start + offset)
+            .or_else(|| {
+                html_lower[value_start..]
+                    .find('}')
+                    .map(|offset| value_start + offset)
+            })
+            .unwrap_or(html.len());
+        let declaration = &html[value_start..declaration_end];
+        normalized.push_str(&safe_font_family_fallback_for_declaration(declaration));
+        cursor = declaration_end;
+    }
+
+    normalized.push_str(&html[cursor..]);
+    normalized
+}
+
+fn safe_font_family_fallback_for_declaration(declaration: &str) -> String {
+    let normalized_segments = declaration
+        .split(',')
+        .map(|segment| segment.trim().trim_matches('\'').trim_matches('"'))
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| segment.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+
+    if normalized_segments.iter().any(|segment| {
+        matches!(
+            segment.as_str(),
+            "ui-monospace" | "monospace" | "courier new"
+        )
+    }) {
+        return " ui-monospace, monospace".to_string();
+    }
+
+    if normalized_segments.iter().any(|segment| {
+        matches!(
+            segment.as_str(),
+            "serif" | "ui-serif" | "georgia" | "times new roman"
+        )
+    }) {
+        return " ui-serif, serif".to_string();
+    }
+
+    " system-ui, sans-serif".to_string()
+}
+
 pub(super) fn html_uses_external_runtime_dependency(html_lower: &str) -> bool {
     if html_lower.contains("<script src=")
         || html_lower.contains("<script src='")
@@ -3615,13 +4584,16 @@ pub(super) fn html_uses_external_runtime_dependency(html_lower: &str) -> bool {
 }
 
 pub(super) fn count_html_repair_shim_markers(html_lower: &str) -> usize {
-    html_lower.matches("data-studio-normalized=").count()
-        + html_lower
-            .matches("data-studio-view-switch-repair=")
-            .count()
-        + html_lower.matches("data-studio-rollover-repair=").count()
-        + html_lower
-            .matches("data-studio-view-controls-repair=")
-            .count()
-        + html_lower.matches("data-studio-view-panel-repair=").count()
+    let rollover_chip_rail_needs_counting = html_lower.contains("data-studio-rollover-chip-rail=")
+        && count_html_rollover_detail_marks(html_lower) < 3;
+    let specific_repairs = usize::from(html_lower.contains("data-studio-view-switch-repair="))
+        + usize::from(html_lower.contains("data-studio-rollover-repair="))
+        + usize::from(html_lower.contains("data-studio-view-controls-repair="))
+        + usize::from(html_lower.contains("data-studio-view-panel-repair="))
+        + usize::from(html_lower.contains("data-studio-empty-panel-repair="))
+        + usize::from(html_lower.contains("data-studio-shared-detail="))
+        + usize::from(rollover_chip_rail_needs_counting);
+    let structural_only_normalization =
+        usize::from(specific_repairs == 0 && html_lower.contains("data-studio-normalized="));
+    specific_repairs + structural_only_normalization
 }

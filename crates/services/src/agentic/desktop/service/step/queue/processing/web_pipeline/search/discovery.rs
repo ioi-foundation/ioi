@@ -112,6 +112,57 @@ fn briefing_authority_seed_admission(
     }
 }
 
+fn briefing_authority_link_expansion_required(
+    retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
+    query_contract: &str,
+    discovery_sources: &[WebSource],
+    required_url_count: usize,
+) -> bool {
+    let required_url_count = required_url_count.max(1);
+    let authority_expansion_applicable = query_prefers_document_briefing_layout(query_contract)
+        && !query_requests_comparison(query_contract)
+        && crate::agentic::desktop::service::step::signals::analyze_query_facets(query_contract)
+            .grounded_external_required
+        && (retrieval_contract.currentness_required
+            || retrieval_contract.source_independence_min > 1);
+    if !authority_expansion_applicable {
+        return false;
+    }
+    if discovery_sources.len() < required_url_count {
+        return true;
+    }
+
+    let discovery_hints = discovery_source_hints(discovery_sources);
+    let candidate_urls = discovery_sources
+        .iter()
+        .map(|source| source.url.clone())
+        .collect::<Vec<_>>();
+    let deterministic_plan = pre_read_candidate_plan_with_contract(
+        Some(retrieval_contract),
+        query_contract,
+        required_url_count as u32,
+        candidate_urls,
+        discovery_hints,
+        None,
+        false,
+    );
+    let selected_urls = pre_read_batch_urls(&deterministic_plan.candidate_urls, required_url_count);
+    if selected_urls.len() < required_url_count {
+        return true;
+    }
+
+    let selection_quality =
+        crate::agentic::desktop::service::step::queue::support::selected_source_quality_observation_with_contract_and_locality_hint(
+            Some(retrieval_contract),
+            query_contract,
+            required_url_count as u32,
+            &selected_urls,
+            &deterministic_plan.candidate_source_hints,
+            None,
+        );
+    !selection_quality.quality_floor_met
+}
+
 fn briefing_authority_link_out_sources_from_html(
     retrieval_contract: &ioi_types::app::agentic::WebRetrievalContract,
     query_contract: &str,
@@ -266,6 +317,8 @@ fn briefing_authority_link_out_sources_from_html(
     let Ok(base_url) = Url::parse(page_url.trim()) else {
         return Vec::new();
     };
+    let semantic_alignment_required =
+        crate::agentic::web::contract_requires_semantic_source_alignment(retrieval_contract);
     let seed_host = base_url
         .host_str()
         .map(|host| host.trim_start_matches("www.").to_ascii_lowercase())
@@ -379,6 +432,15 @@ fn briefing_authority_link_out_sources_from_html(
         } else {
             title
         };
+        let same_host_locally_grounded = same_host
+            && crate::agentic::desktop::service::step::queue::support::excerpt_has_query_grounding_signal_with_contract(
+                Some(retrieval_contract),
+                query_contract,
+                min_sources.max(1),
+                &final_url,
+                title,
+                title,
+            );
         let external_link_locally_grounded = !same_host
             && crate::agentic::desktop::service::step::queue::support::excerpt_has_query_grounding_signal_with_contract(
                 Some(retrieval_contract),
@@ -446,7 +508,7 @@ fn briefing_authority_link_out_sources_from_html(
                 &snippet,
             );
         let candidate_query_grounded = if same_host {
-            admission.query_grounded
+            same_host_locally_grounded
         } else {
             external_link_locally_grounded
         };
@@ -455,6 +517,15 @@ fn briefing_authority_link_out_sources_from_html(
         } else {
             external_link_locally_identifier_bearing
         };
+        if semantic_alignment_required
+            && same_host
+            && !candidate_query_grounded
+            && !candidate_identifier_bearing
+            && !canonical_publication_artifact
+            && !publication_signal
+        {
+            continue;
+        }
         candidates.push(RankedAuthorityLinkCandidate {
             source: WebSource {
                 source_id: crate::agentic::web::source_id_for_url(&final_url),
@@ -552,13 +623,12 @@ async fn expand_briefing_authority_link_out_sources(
     required_url_count: usize,
     verification_checks: &mut Vec<String>,
 ) -> Result<Vec<WebSource>, String> {
-    let authority_expansion_applicable = query_prefers_document_briefing_layout(query_contract)
-        && !query_requests_comparison(query_contract)
-        && crate::agentic::desktop::service::step::signals::analyze_query_facets(query_contract)
-            .grounded_external_required
-        && (retrieval_contract.currentness_required
-            || retrieval_contract.source_independence_min > 1)
-        && discovery_sources.len() < required_url_count.max(1);
+    let authority_expansion_applicable = briefing_authority_link_expansion_required(
+        retrieval_contract,
+        query_contract,
+        &discovery_sources,
+        required_url_count,
+    );
     verification_checks.push(format!(
         "web_briefing_authority_link_expansion_attempted={}",
         authority_expansion_applicable
@@ -1083,6 +1153,63 @@ mod discovery_regression_tests {
         assert_eq!(
             sources[0].url,
             "https://nvlpubs.nist.gov/nistpubs/ir/2022/NIST.IR.8413-upd1.pdf"
+        );
+    }
+
+    #[test]
+    fn authority_link_expansion_filters_generic_same_host_authority_pages_for_semantic_briefings() {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("retrieval contract");
+        let html = r#"
+            <html>
+              <head>
+                <title>Cybersecurity and privacy | NIST</title>
+                <meta
+                  name="description"
+                  content="NIST develops cybersecurity and privacy standards, guidelines, best practices, and resources."
+                />
+              </head>
+              <body>
+                <a href="/about-nist">About NIST</a>
+                <a href="/about-nist/work-nist">Work at NIST</a>
+                <a href="/publications/search/topic/248731">Publications</a>
+                <a href="/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards">
+                  NIST Releases First 3 Finalized Post-Quantum Encryption Standards
+                </a>
+              </body>
+            </html>
+        "#;
+
+        let sources = briefing_authority_link_out_sources_from_html(
+            &retrieval_contract,
+            query,
+            "https://www.nist.gov/cybersecurity-and-privacy",
+            "https://www.nist.gov/cybersecurity-and-privacy",
+            html,
+            2,
+            4,
+        );
+        let urls = sources.iter().map(|source| source.url.as_str()).collect::<Vec<_>>();
+
+        assert!(
+            urls.iter().any(|url| url.eq_ignore_ascii_case(
+                "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+            )),
+            "{urls:?}"
+        );
+        assert!(
+            urls.iter()
+                .all(|url| !url.eq_ignore_ascii_case("https://www.nist.gov/about-nist")),
+            "{urls:?}"
+        );
+        assert!(
+            urls.iter().all(|url| !url.eq_ignore_ascii_case(
+                "https://www.nist.gov/about-nist/work-nist"
+            )),
+            "{urls:?}"
         );
     }
 }

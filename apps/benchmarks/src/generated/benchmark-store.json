@@ -1,32 +1,32 @@
 {
   "version": 3,
-  "updated_at_ms": 1775122899380,
+  "updated_at_ms": 1775218052772,
   "runs": [
     {
       "run_id": "artifacts",
       "mode": "agent",
       "task_set": "smoke",
-      "artifact_root": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts",
-      "updated_at_ms": 1775122899380,
-      "status": "completed",
-      "active_case_id": null,
+      "artifact_root": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T12-01-31-686Z/ollama-openai/computer-use-click-button-smoke/artifacts",
+      "updated_at_ms": 1775218052772,
+      "status": "running",
+      "active_case_id": "miniwob_click_button_smoke",
       "total_cases": 1,
-      "completed_cases": 1,
+      "completed_cases": 0,
       "cases": [
         {
           "suite": "MiniWoB++",
           "case_id": "miniwob_click_button_smoke",
           "env_id": "click-button",
-          "case_dir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke",
-          "summary_json_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.json",
-          "summary_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.md",
-          "diagnostic_json_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json",
-          "diagnostic_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.md",
-          "inference_calls_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_calls.json",
-          "inference_trace_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_trace.json",
-          "bridge_state_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
-          "trace_bundle_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/trace_bundle.json",
-          "trace_analysis_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-02T09-17-40-700Z/coding-executor-local-oss/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/trace_analysis.json"
+          "case_dir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke",
+          "summary_json_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.json",
+          "summary_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.md",
+          "diagnostic_json_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json",
+          "diagnostic_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.md",
+          "inference_calls_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_calls.json",
+          "inference_trace_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_trace.json",
+          "bridge_state_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+          "trace_bundle_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/trace_bundle.json",
+          "trace_analysis_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/trace_analysis.json"
         }
       ]
     },

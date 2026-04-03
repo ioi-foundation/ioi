@@ -9,6 +9,7 @@ import type {
   SourceBrowseRow,
   SourceSearchRow,
   SourceSummary,
+  ThoughtAgentSummary,
   ThoughtSummary,
 } from "../../../types";
 import {
@@ -171,6 +172,47 @@ function normalizeNarrativeLine(
   return `${compact.slice(0, maxChars - 3).trim()}...`;
 }
 
+function normalizeLookupToken(value: string | null | undefined): string | null {
+  const normalized = (value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized || null;
+}
+
+const VERIFIER_AGENT_KEYS = new Set([
+  "verifier",
+  "citation_audit",
+  "citation_verifier",
+  "targeted_test_audit",
+  "test_verifier",
+  "postcondition_audit",
+  "postcondition_verifier",
+  "browser_postcondition_audit",
+  "artifact_quality_audit",
+  "artifact_quality_verifier",
+]);
+
+const PATCH_SYNTHESIZER_AGENT_KEYS = new Set([
+  "patch_synthesizer",
+  "patch_synthesis_handoff",
+]);
+
+const ARTIFACT_GENERATOR_AGENT_KEYS = new Set([
+  "artifact_builder",
+  "artifact_generator",
+  "artifact_candidate_generation",
+  "artifact_generate_repair",
+]);
+
+const COMPUTER_USE_OPERATOR_AGENT_KEYS = new Set([
+  "perception_worker",
+  "browser_operator",
+  "ui_state_brief",
+  "browser_postcondition_pass",
+]);
+
 export function buildThoughtSummary(
   groups: ActivityGroup[],
 ): ThoughtSummary | null {
@@ -210,6 +252,7 @@ export function buildThoughtSummary(
     agents.push({
       agentLabel: identity.agentLabel,
       agentRole: identity.agentRole,
+      agentKind: thoughtAgentKind(group),
       stepIndex: group.stepIndex,
       notes,
     });
@@ -360,6 +403,44 @@ function thoughtAgentIdentity(
   };
 }
 
+function thoughtAgentKind(
+  group: ActivityGroup,
+): ThoughtAgentSummary["agentKind"] {
+  const entries = [...group.events].reverse();
+
+  for (const entry of entries) {
+    const digest = digestRecord(entry);
+    const details = detailsRecord(entry);
+    const candidateKeys = [
+      firstStringValue(digest.workflow_id),
+      firstStringValue(details.workflow_id),
+      firstStringValue(digest.template_id),
+      firstStringValue(details.template_id),
+      firstStringValue(digest.role),
+      firstStringValue(details.role),
+    ]
+      .map((value) => normalizeLookupToken(value))
+      .filter((value): value is string => !!value);
+
+    if (candidateKeys.some((value) => VERIFIER_AGENT_KEYS.has(value))) {
+      return "verifier";
+    }
+    if (candidateKeys.some((value) => PATCH_SYNTHESIZER_AGENT_KEYS.has(value))) {
+      return "patch_synthesizer";
+    }
+    if (candidateKeys.some((value) => ARTIFACT_GENERATOR_AGENT_KEYS.has(value))) {
+      return "artifact_generator";
+    }
+    if (
+      candidateKeys.some((value) => COMPUTER_USE_OPERATOR_AGENT_KEYS.has(value))
+    ) {
+      return "computer_use_operator";
+    }
+  }
+
+  return "worker";
+}
+
 function inferredRouteFamily(
   events: ActivityEventRef[],
 ): PlanSummary["routeFamily"] {
@@ -373,7 +454,6 @@ function inferredRouteFamily(
     const details = detailsRecord(entry);
     const toolName = (entry.toolName || "").trim().toLowerCase();
     const signal = normalizedSignalText(
-      entry.event.title,
       stringFromRecord(digest, "kind"),
       stringFromRecord(digest, "role"),
       stringFromRecord(digest, "phase"),
@@ -384,7 +464,6 @@ function inferredRouteFamily(
       stringFromRecord(digest, "selected_route"),
       stringFromRecord(digest, "route"),
       stringFromRecord(details, "step_label"),
-      stringFromRecord(details, "summary"),
       stringFromRecord(details, "selected_route"),
       stringFromRecord(details, "route"),
     );
@@ -394,7 +473,6 @@ function inferredRouteFamily(
       toolName.includes(WEB_READ_TOOL) ||
       signal.includes("research") ||
       signal.includes("citation") ||
-      signal.includes("source") ||
       signal.includes("live_research_brief")
     ) {
       sawResearchHint = true;
@@ -421,8 +499,7 @@ function inferredRouteFamily(
       toolName.includes("studio") ||
       signal.includes("artifact") ||
       signal.includes("render") ||
-      signal.includes("presentation") ||
-      signal.includes("judge")
+      signal.includes("presentation")
     ) {
       sawArtifactHint = true;
     }
@@ -454,27 +531,44 @@ function explicitRoutePrep(events: ActivityEventRef[]): {
   selectedSkills: string[];
   prepSummary: string | null;
 } {
+  const selectedSkills: string[] = [];
+  const seenSkills = new Set<string>();
+  let prepSummary: string | null = null;
+
   for (const entry of [...events].reverse()) {
     const digest = digestRecord(entry);
     const details = detailsRecord(entry);
-    const selectedSkills = Array.from(
-      new Set([
-        ...arrayFromRecord(details, "selected_skills"),
-        ...arrayFromRecord(digest, "selected_skills"),
-      ]),
-    );
-    const prepSummary =
-      stringFromRecord(details, "prep_summary") ||
-      stringFromRecord(digest, "prep_summary");
-    if (selectedSkills.length > 0 || prepSummary) {
-      return {
-        selectedSkills,
-        prepSummary: prepSummary?.trim() || null,
-      };
+
+    for (const skill of [
+      ...arrayFromRecord(details, "selected_skills"),
+      ...arrayFromRecord(digest, "selected_skills"),
+    ]) {
+      const trimmed = skill.trim();
+      if (!trimmed) {
+        continue;
+      }
+      const dedupeKey = trimmed.toLowerCase();
+      if (seenSkills.has(dedupeKey)) {
+        continue;
+      }
+      seenSkills.add(dedupeKey);
+      selectedSkills.push(trimmed);
+    }
+
+    if (!prepSummary) {
+      prepSummary =
+        stringFromRecord(details, "prep_summary") ||
+        stringFromRecord(digest, "prep_summary") ||
+        null;
+      prepSummary = prepSummary?.trim() || null;
+    }
+
+    if (selectedSkills.length > 0 && prepSummary) {
+      break;
     }
   }
 
-  return { selectedSkills: [], prepSummary: null };
+  return { selectedSkills, prepSummary };
 }
 
 function explicitArtifactGeneration(
@@ -804,7 +898,6 @@ function isVerifierEntry(entry: ActivityEventRef): boolean {
     stringFromRecord(digest, "workflow_id"),
     stringFromRecord(digest, "playbook_id"),
     stringFromRecord(details, "step_label"),
-    stringFromRecord(details, "summary"),
   );
   return (
     signal.includes("verifier") ||

@@ -1,0 +1,1059 @@
+{
+  "prompt": "Create an interactive HTML artifact for an AI tools editorial launch page",
+  "title": "an interactive HTML artifact for an AI tools editorial launch page",
+  "route": {
+    "outcomeKind": "artifact",
+    "confidence": 0.95,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "artifact": {
+      "artifactClass": "interactive_single_file",
+      "deliverableShape": "single_file",
+      "renderer": "html_iframe",
+      "presentationSurface": "side_panel",
+      "persistence": "shared_artifact_scoped",
+      "executionSubstrate": "client_sandbox",
+      "workspaceRecipeId": null,
+      "presentationVariantId": "product-launch",
+      "scope": {
+        "targetProject": "ai-tools-launch-page",
+        "createNewWorkspace": false,
+        "mutationBoundary": [
+          "html",
+          "css",
+          "javascript"
+        ]
+      },
+      "verification": {
+        "requireRender": false,
+        "requireBuild": false,
+        "requirePreview": false,
+        "requireExport": true,
+        "requireDiffReview": false
+      }
+    }
+  },
+  "artifactBrief": {
+    "audience": "AI tools editors and publishers",
+    "jobToBeDone": "launch an AI tools editorial with an interactive HTML artifact",
+    "subjectDomain": "AI tools editorial launch",
+    "artifactThesis": "an interactive HTML artifact that showcases AI tools for editorial use",
+    "requiredConcepts": [
+      "AI tools",
+      "editorial launch",
+      "interactive HTML"
+    ],
+    "requiredInteractions": [
+      "click to explore AI tools",
+      "hover to view tool features"
+    ],
+    "visualTone": [
+      "modern",
+      "clean",
+      "professional"
+    ],
+    "factualAnchors": [
+      "AI tools editorial launch page"
+    ],
+    "styleDirectives": [
+      "responsive design",
+      "user-friendly interface"
+    ],
+    "referenceHints": [
+      "HTML iframe integration"
+    ]
+  },
+  "blueprint": {
+    "version": 1,
+    "renderer": "html_iframe",
+    "narrativeArc": "Orient the user, stage the core concepts, surface evidence, and close with a request-faithful takeaway for launch an AI tools editorial with an interactive HTML artifact.",
+    "sectionPlan": [
+      {
+        "id": "hero",
+        "role": "hero",
+        "visiblePurpose": "Frame the artifact thesis and orient the user immediately.",
+        "contentRequirements": [
+          "an interactive HTML artifact that showcases AI tools for editorial use",
+          "launch an AI tools editorial with an interactive HTML artifact"
+        ],
+        "interactionHooks": [
+          "primary_controls"
+        ],
+        "firstPaintRequirements": [
+          "Show the title, thesis, and active control state before script execution."
+        ]
+      },
+      {
+        "id": "concept-foundation",
+        "role": "concept_foundation",
+        "visiblePurpose": "Keep the differentiating concepts explicit and readable.",
+        "contentRequirements": [
+          "AI tools",
+          "editorial launch",
+          "interactive HTML"
+        ],
+        "interactionHooks": [
+          "shared_detail_region"
+        ],
+        "firstPaintRequirements": [
+          "Render concrete concept labels rather than placeholder headings."
+        ]
+      },
+      {
+        "id": "evidence-surface",
+        "role": "evidence_surface",
+        "visiblePurpose": "Surface the artifact's primary evidence view on first paint.",
+        "contentRequirements": [
+          "AI tools editorial launch page"
+        ],
+        "interactionHooks": [
+          "evidence_marks",
+          "detail_panel"
+        ],
+        "firstPaintRequirements": [
+          "Show populated evidence marks with visible labels and a default selected state."
+        ]
+      },
+      {
+        "id": "interaction-lab",
+        "role": "interaction_lab",
+        "visiblePurpose": "Make the planned interaction families tangible.",
+        "contentRequirements": [
+          "click to explore AI tools",
+          "hover to view tool features"
+        ],
+        "interactionHooks": [
+          "view_switching",
+          "detail_inspection",
+          "sequence_browsing"
+        ],
+        "firstPaintRequirements": [
+          "Controls and response surfaces must already exist in the static markup."
+        ]
+      },
+      {
+        "id": "takeaways",
+        "role": "takeaways",
+        "visiblePurpose": "Close with summary and next-step framing.",
+        "contentRequirements": [
+          "Summarize what the artifact teaches or proves.",
+          "Leave the user with an accurate closing comparison or takeaway."
+        ],
+        "interactionHooks": [],
+        "firstPaintRequirements": [
+          "End with a visible conclusion section or footer."
+        ]
+      }
+    ],
+    "interactionPlan": [
+      {
+        "id": "interaction-1",
+        "family": "guided_response",
+        "sourceControls": [
+          "primary_controls"
+        ],
+        "targetSurfaces": [
+          "response_surface"
+        ],
+        "defaultState": "default_response_visible",
+        "requiredFirstPaintAffordances": [
+          "The response surface must already contain meaningful content."
+        ]
+      },
+      {
+        "id": "interaction-2",
+        "family": "view_switching",
+        "sourceControls": [
+          "control_bar",
+          "mapped_view_buttons"
+        ],
+        "targetSurfaces": [
+          "mapped_panels",
+          "shared_detail_region"
+        ],
+        "defaultState": "first_view_selected",
+        "requiredFirstPaintAffordances": [
+          "At least two mapped panels must be present in the raw markup.",
+          "Exactly one mapped panel is visible before script execution."
+        ]
+      }
+    ],
+    "evidencePlan": [
+      {
+        "id": "primary-evidence",
+        "kind": "primary_surface",
+        "purpose": "Carry the default evidence view that anchors the artifact.",
+        "conceptBindings": [
+          "AI tools",
+          "editorial launch",
+          "interactive HTML"
+        ],
+        "firstPaintElements": [
+          "labeled evidence marks",
+          "default selection",
+          "shared detail copy"
+        ],
+        "detailTargets": [
+          "AI tools editorial launch page"
+        ]
+      },
+      {
+        "id": "secondary-evidence",
+        "kind": "comparison_surface",
+        "purpose": "Provide a second evidence family so the artifact is not a one-chart shell.",
+        "conceptBindings": [
+          "AI tools",
+          "editorial launch",
+          "interactive HTML"
+        ],
+        "firstPaintElements": [
+          "secondary labels",
+          "comparison cues"
+        ],
+        "detailTargets": [
+          "AI tools editorial launch page"
+        ]
+      }
+    ],
+    "designSystem": {
+      "colorStrategy": "contrast-led editorial palette",
+      "typographyStrategy": "display plus annotation pairing",
+      "density": "balanced",
+      "motionStyle": "restrained staged reveal",
+      "emphasisModes": [
+        "modern",
+        "clean",
+        "professional",
+        "responsive design",
+        "user-friendly interface"
+      ]
+    },
+    "componentPlan": [
+      {
+        "id": "component-hero-frame",
+        "componentFamily": "hero_frame",
+        "role": "orientation",
+        "sectionIds": [
+          "hero"
+        ],
+        "interactionIds": []
+      },
+      {
+        "id": "component-shared-detail-panel",
+        "componentFamily": "shared_detail_panel",
+        "role": "shared_explanation",
+        "sectionIds": [
+          "evidence-surface"
+        ],
+        "interactionIds": [
+          "interaction-1",
+          "interaction-2"
+        ]
+      },
+      {
+        "id": "component-tabbed-evidence-rail",
+        "componentFamily": "tabbed_evidence_rail",
+        "role": "evidence_navigation",
+        "sectionIds": [
+          "hero",
+          "evidence-surface"
+        ],
+        "interactionIds": [
+          "interaction-2"
+        ]
+      },
+      {
+        "id": "component-comparison-table",
+        "componentFamily": "comparison_table",
+        "role": "structured_comparison",
+        "sectionIds": [
+          "evidence-surface",
+          "takeaways"
+        ],
+        "interactionIds": [
+          "interaction-2"
+        ]
+      },
+      {
+        "id": "component-metric-card-grid",
+        "componentFamily": "metric_card_grid",
+        "role": "evidence_summary",
+        "sectionIds": [
+          "concept-foundation",
+          "evidence-surface"
+        ],
+        "interactionIds": []
+      },
+      {
+        "id": "component-mapped-view-switcher",
+        "componentFamily": "mapped_view_switcher",
+        "role": "panel_switching",
+        "sectionIds": [
+          "interaction-lab",
+          "evidence-surface"
+        ],
+        "interactionIds": [
+          "interaction-2"
+        ]
+      }
+    ],
+    "accessibilityPlan": {
+      "obligations": [
+        "Use semantic sections and preserve heading order.",
+        "Keep interactive controls keyboard reachable.",
+        "Ensure shared detail updates remain perceivable after interaction."
+      ],
+      "focusOrder": [
+        "hero",
+        "primary_controls",
+        "shared_detail_region",
+        "concept-foundation",
+        "evidence-surface",
+        "interaction-lab",
+        "takeaways"
+      ],
+      "ariaExpectations": [
+        "Mapped controls expose selected state when applicable.",
+        "Evidence marks or diagrams expose labels or accessible names."
+      ]
+    },
+    "acceptanceTargets": {
+      "minimumSectionCount": 5,
+      "minimumInteractiveRegions": 2,
+      "requireFirstPaintEvidence": true,
+      "requirePersistentDetailRegion": true,
+      "requireDistinctTypography": true,
+      "requireKeyboardAffordances": true
+    },
+    "scaffoldFamily": "comparison_story",
+    "variationStrategy": "Preserve the scaffold family while varying composition through concept emphasis, evidence ordering, and motion restraint.",
+    "skillNeeds": [
+      {
+        "kind": "accessibility_review",
+        "priority": "required",
+        "rationale": "Persistent artifacts must keep keyboard, labeling, and readable structure obligations explicit."
+      },
+      {
+        "kind": "visual_art_direction",
+        "priority": "required",
+        "rationale": "Interactive renderer paths need explicit visual direction instead of generic default layout choices."
+      },
+      {
+        "kind": "interaction_copy_discipline",
+        "priority": "recommended",
+        "rationale": "Control labels, detail copy, and explanatory state changes should stay concise and request-faithful."
+      },
+      {
+        "kind": "editorial_layout",
+        "priority": "recommended",
+        "rationale": "Dense concept coverage benefits from a stronger narrative and section hierarchy spine."
+      },
+      {
+        "kind": "data_storytelling",
+        "priority": "recommended",
+        "rationale": "Multiple evidence views should stay legible and comparably narrated across shared detail surfaces."
+      }
+    ]
+  },
+  "artifactIr": {
+    "version": 1,
+    "renderer": "html_iframe",
+    "scaffoldFamily": "comparison_story",
+    "semanticStructure": [
+      {
+        "id": "main",
+        "kind": "root",
+        "parentId": null,
+        "sectionId": null,
+        "label": "an interactive HTML artifact that showcases AI tools for editorial use",
+        "bindings": [
+          "launch an AI tools editorial with an interactive HTML artifact"
+        ]
+      },
+      {
+        "id": "hero",
+        "kind": "hero",
+        "parentId": "main",
+        "sectionId": "hero",
+        "label": "Frame the artifact thesis and orient the user immediately.",
+        "bindings": [
+          "an interactive HTML artifact that showcases AI tools for editorial use",
+          "launch an AI tools editorial with an interactive HTML artifact"
+        ]
+      },
+      {
+        "id": "concept-foundation",
+        "kind": "concept_foundation",
+        "parentId": "main",
+        "sectionId": "concept-foundation",
+        "label": "Keep the differentiating concepts explicit and readable.",
+        "bindings": [
+          "AI tools",
+          "editorial launch",
+          "interactive HTML"
+        ]
+      },
+      {
+        "id": "evidence-surface",
+        "kind": "evidence_surface",
+        "parentId": "main",
+        "sectionId": "evidence-surface",
+        "label": "Surface the artifact's primary evidence view on first paint.",
+        "bindings": [
+          "AI tools editorial launch page"
+        ]
+      },
+      {
+        "id": "interaction-lab",
+        "kind": "interaction_lab",
+        "parentId": "main",
+        "sectionId": "interaction-lab",
+        "label": "Make the planned interaction families tangible.",
+        "bindings": [
+          "click to explore AI tools",
+          "hover to view tool features"
+        ]
+      },
+      {
+        "id": "takeaways",
+        "kind": "takeaways",
+        "parentId": "main",
+        "sectionId": "takeaways",
+        "label": "Close with summary and next-step framing.",
+        "bindings": [
+          "Summarize what the artifact teaches or proves.",
+          "Leave the user with an accurate closing comparison or takeaway."
+        ]
+      }
+    ],
+    "interactionGraph": [
+      {
+        "id": "interaction-1",
+        "family": "guided_response",
+        "controlNodeIds": [
+          "primary_controls"
+        ],
+        "targetNodeIds": [
+          "response_surface"
+        ],
+        "defaultState": "default_response_visible"
+      },
+      {
+        "id": "interaction-2",
+        "family": "view_switching",
+        "controlNodeIds": [
+          "control_bar",
+          "mapped_view_buttons"
+        ],
+        "targetNodeIds": [
+          "mapped_panels",
+          "shared_detail_region"
+        ],
+        "defaultState": "first_view_selected"
+      }
+    ],
+    "evidenceSurfaces": [
+      {
+        "id": "primary-evidence",
+        "kind": "primary_surface",
+        "sectionId": "evidence-surface",
+        "boundConcepts": [
+          "AI tools",
+          "editorial launch",
+          "interactive HTML"
+        ],
+        "firstPaintExpectations": [
+          "labeled evidence marks",
+          "default selection",
+          "shared detail copy"
+        ]
+      },
+      {
+        "id": "secondary-evidence",
+        "kind": "comparison_surface",
+        "sectionId": "evidence-surface",
+        "boundConcepts": [
+          "AI tools",
+          "editorial launch",
+          "interactive HTML"
+        ],
+        "firstPaintExpectations": [
+          "secondary labels",
+          "comparison cues"
+        ]
+      }
+    ],
+    "designTokens": [
+      {
+        "name": "color.strategy",
+        "category": "color",
+        "value": "contrast-led editorial palette"
+      },
+      {
+        "name": "type.strategy",
+        "category": "typography",
+        "value": "display plus annotation pairing"
+      },
+      {
+        "name": "layout.density",
+        "category": "layout",
+        "value": "balanced"
+      },
+      {
+        "name": "motion.style",
+        "category": "motion",
+        "value": "restrained staged reveal"
+      }
+    ],
+    "motionPlan": [
+      "restrained staged reveal",
+      "Reveal sections in narrative order instead of animating every element equally."
+    ],
+    "accessibilityObligations": [
+      "Use semantic sections and preserve heading order.",
+      "Keep interactive controls keyboard reachable.",
+      "Ensure shared detail updates remain perceivable after interaction."
+    ],
+    "responsiveLayoutRules": [
+      "Preserve one readable primary column on narrow viewports.",
+      "Collapse side-by-side evidence into stacked sections without dropping shared detail."
+    ],
+    "componentBindings": [
+      "hero_frame -> orientation",
+      "shared_detail_panel -> shared_explanation",
+      "tabbed_evidence_rail -> evidence_navigation",
+      "comparison_table -> structured_comparison",
+      "metric_card_grid -> evidence_summary",
+      "mapped_view_switcher -> panel_switching"
+    ],
+    "staticAuditExpectations": [
+      "Render at least 5 sections with semantic wrappers.",
+      "Keep first-paint evidence populated before scripts execute.",
+      "Keep one persistent detail or explanation region visible alongside interactions.",
+      "Interactive controls must expose keyboard-reachable affordances and visible selected state."
+    ],
+    "renderEvalChecklist": [
+      "Hero, primary evidence, and detail region remain readable at first paint.",
+      "Evidence surfaces show distinct visual families rather than duplicated shells.",
+      "Interactive affordances remain visible and coherent on both desktop and narrow widths."
+    ]
+  },
+  "selectedSkills": [],
+  "editIntent": null,
+  "candidateSummaries": [
+    {
+      "candidateId": "candidate-1",
+      "seed": 7555423378802501711,
+      "model": "qwen3:8b",
+      "temperature": 0.32,
+      "strategy": "request-grounded_html",
+      "origin": "live_inference",
+      "provenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen3:8b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "summary": "An interactive HTML artifact for an AI tools editorial launch page with a responsive, user-friendly interface showcasing AI tools for editorial use.",
+      "renderablePaths": [
+        "index.html"
+      ],
+      "selected": true,
+      "fallback": false,
+      "failure": null,
+      "rawOutputPreview": null,
+      "convergence": {
+        "lineageRootId": "candidate-1",
+        "parentCandidateId": null,
+        "passKind": "initial_generation",
+        "passIndex": 0,
+        "scoreTotal": 574,
+        "scoreDeltaFromParent": null,
+        "terminatedReason": "selected_after_primary_view_clear"
+      },
+      "renderEvaluation": {
+        "supported": true,
+        "firstPaintCaptured": true,
+        "interactionCaptureAttempted": true,
+        "captures": [
+          {
+            "viewport": "desktop",
+            "width": 1440,
+            "height": 960,
+            "screenshotSha256": "9ce6482ee0e1dbfe42c61a062aca9ea8b78bb7d5647d7ed0aec22b050643a5aa",
+            "screenshotByteCount": 169672,
+            "visibleElementCount": 22,
+            "visibleTextChars": 2324,
+            "interactiveElementCount": 2,
+            "screenshotChangedFromPrevious": false
+          },
+          {
+            "viewport": "mobile",
+            "width": 390,
+            "height": 844,
+            "screenshotSha256": "3c0c58b71a4be9cc37a0b83c71c4f398f7e69dcb35b91132b93a9bf8bfd24ff8",
+            "screenshotByteCount": 130325,
+            "visibleElementCount": 17,
+            "visibleTextChars": 2187,
+            "interactiveElementCount": 2,
+            "screenshotChangedFromPrevious": true
+          },
+          {
+            "viewport": "interaction",
+            "width": 1440,
+            "height": 960,
+            "screenshotSha256": "6ee2dcf0199185057d933756a6f8fbfc03eb9a84565396875a719bbba54b588c",
+            "screenshotByteCount": 160908,
+            "visibleElementCount": 18,
+            "visibleTextChars": 1532,
+            "interactiveElementCount": 2,
+            "screenshotChangedFromPrevious": true
+          }
+        ],
+        "layoutDensityScore": 4,
+        "spacingAlignmentScore": 3,
+        "typographyContrastScore": 4,
+        "visualHierarchyScore": 4,
+        "blueprintConsistencyScore": 5,
+        "overallScore": 20,
+        "findings": [],
+        "summary": "Render evaluation cleared desktop/mobile capture with an overall score of 20/25."
+      },
+      "judge": {
+        "classification": "pass",
+        "requestFaithfulness": 5,
+        "conceptCoverage": 5,
+        "interactionRelevance": 5,
+        "layoutCoherence": 4,
+        "visualHierarchy": 5,
+        "completeness": 5,
+        "genericShellDetected": false,
+        "trivialShellDetected": false,
+        "deservesPrimaryArtifactView": true,
+        "patchedExistingArtifact": null,
+        "continuityRevisionUx": null,
+        "issueClasses": [
+          "Missing hover states on some elements",
+          "Some text lacks visual emphasis"
+        ],
+        "repairHints": [
+          "Add hover states for better interactivity",
+          "Enhance text contrast for readability"
+        ],
+        "strengths": [
+          "Responsive and user-friendly interface",
+          "Interactive elements for exploring AI tools",
+          "Clean and modern design",
+          "Desktop and mobile render captures reinforced the surfaced hierarchy."
+        ],
+        "blockedReasons": [],
+        "fileFindings": [],
+        "aestheticVerdict": "Typography and layout feel deliberate enough to carry the artifact.",
+        "interactionVerdict": "Interaction model is visible and materially changes the page state.",
+        "truthfulnessWarnings": [],
+        "recommendedNextPass": "accept",
+        "strongestContradiction": null,
+        "rationale": "Add hover states for better interactivity Render evaluation: Render evaluation cleared desktop/mobile capture with an overall score of 20/25."
+      }
+    }
+  ],
+  "winningCandidateId": "candidate-1",
+  "winningCandidateRationale": "Add hover states for better interactivity Render evaluation: Render evaluation cleared desktop/mobile capture with an overall score of 20/25.",
+  "renderEvaluation": {
+    "supported": true,
+    "firstPaintCaptured": true,
+    "interactionCaptureAttempted": true,
+    "captures": [
+      {
+        "viewport": "desktop",
+        "width": 1440,
+        "height": 960,
+        "screenshotSha256": "9ce6482ee0e1dbfe42c61a062aca9ea8b78bb7d5647d7ed0aec22b050643a5aa",
+        "screenshotByteCount": 169672,
+        "visibleElementCount": 22,
+        "visibleTextChars": 2324,
+        "interactiveElementCount": 2,
+        "screenshotChangedFromPrevious": false
+      },
+      {
+        "viewport": "mobile",
+        "width": 390,
+        "height": 844,
+        "screenshotSha256": "3c0c58b71a4be9cc37a0b83c71c4f398f7e69dcb35b91132b93a9bf8bfd24ff8",
+        "screenshotByteCount": 130325,
+        "visibleElementCount": 17,
+        "visibleTextChars": 2187,
+        "interactiveElementCount": 2,
+        "screenshotChangedFromPrevious": true
+      },
+      {
+        "viewport": "interaction",
+        "width": 1440,
+        "height": 960,
+        "screenshotSha256": "6ee2dcf0199185057d933756a6f8fbfc03eb9a84565396875a719bbba54b588c",
+        "screenshotByteCount": 160908,
+        "visibleElementCount": 18,
+        "visibleTextChars": 1532,
+        "interactiveElementCount": 2,
+        "screenshotChangedFromPrevious": true
+      }
+    ],
+    "layoutDensityScore": 4,
+    "spacingAlignmentScore": 3,
+    "typographyContrastScore": 4,
+    "visualHierarchyScore": 4,
+    "blueprintConsistencyScore": 5,
+    "overallScore": 20,
+    "findings": [],
+    "summary": "Render evaluation cleared desktop/mobile capture with an overall score of 20/25."
+  },
+  "judge": {
+    "classification": "pass",
+    "requestFaithfulness": 5,
+    "conceptCoverage": 5,
+    "interactionRelevance": 5,
+    "layoutCoherence": 4,
+    "visualHierarchy": 5,
+    "completeness": 5,
+    "genericShellDetected": false,
+    "trivialShellDetected": false,
+    "deservesPrimaryArtifactView": true,
+    "patchedExistingArtifact": null,
+    "continuityRevisionUx": null,
+    "issueClasses": [
+      "Missing hover states on some elements",
+      "Some text lacks visual emphasis"
+    ],
+    "repairHints": [
+      "Add hover states for better interactivity",
+      "Enhance text contrast for readability"
+    ],
+    "strengths": [
+      "Responsive and user-friendly interface",
+      "Interactive elements for exploring AI tools",
+      "Clean and modern design",
+      "Desktop and mobile render captures reinforced the surfaced hierarchy."
+    ],
+    "blockedReasons": [],
+    "fileFindings": [],
+    "aestheticVerdict": "Typography and layout feel deliberate enough to carry the artifact.",
+    "interactionVerdict": "Interaction model is visible and materially changes the page state.",
+    "truthfulnessWarnings": [],
+    "recommendedNextPass": "accept",
+    "strongestContradiction": null,
+    "rationale": "Add hover states for better interactivity Render evaluation: Render evaluation cleared desktop/mobile capture with an overall score of 20/25."
+  },
+  "outputOrigin": "live_inference",
+  "runtimePolicy": {
+    "profile": "fully_local",
+    "stepPolicies": [
+      {
+        "step": "outcome_routing",
+        "preferredTier": "cost_effective",
+        "fallbackToGenerationRuntime": true,
+        "requireDistinctRuntime": false
+      },
+      {
+        "step": "blueprint_planning",
+        "preferredTier": "local",
+        "fallbackToGenerationRuntime": true,
+        "requireDistinctRuntime": false
+      },
+      {
+        "step": "candidate_generation",
+        "preferredTier": "local",
+        "fallbackToGenerationRuntime": false,
+        "requireDistinctRuntime": false
+      },
+      {
+        "step": "acceptance_judge",
+        "preferredTier": "local",
+        "fallbackToGenerationRuntime": true,
+        "requireDistinctRuntime": false
+      },
+      {
+        "step": "repair_planning",
+        "preferredTier": "local",
+        "fallbackToGenerationRuntime": true,
+        "requireDistinctRuntime": false
+      },
+      {
+        "step": "memory_distillation",
+        "preferredTier": "deterministic",
+        "fallbackToGenerationRuntime": true,
+        "requireDistinctRuntime": false
+      }
+    ],
+    "bindings": [
+      {
+        "step": "blueprint_planning",
+        "preferredTier": "local",
+        "selectedTier": "local",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3:8b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        }
+      },
+      {
+        "step": "candidate_generation",
+        "preferredTier": "local",
+        "selectedTier": "local",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3:8b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        }
+      },
+      {
+        "step": "acceptance_judge",
+        "preferredTier": "local",
+        "selectedTier": "local",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3:8b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        }
+      },
+      {
+        "step": "repair_planning",
+        "preferredTier": "local",
+        "selectedTier": "local",
+        "fallbackApplied": false,
+        "fallbackReason": null,
+        "provenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3:8b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        }
+      }
+    ]
+  },
+  "adaptiveSearchBudget": {
+    "initialCandidateCount": 1,
+    "maxCandidateCount": 1,
+    "shortlistLimit": 1,
+    "maxSemanticRefinementPasses": 1,
+    "plateauLimit": 1,
+    "minScoreDelta": 1,
+    "targetJudgeScoreForEarlyStop": 356,
+    "expansionScoreMargin": 18,
+    "signals": [
+      "local_generation_constraint",
+      "low_candidate_variance"
+    ]
+  },
+  "artifactLaneReceipts": [
+    {
+      "receiptId": "blueprint_family",
+      "kind": "blueprint_family",
+      "status": "success",
+      "title": "Blueprint family",
+      "summary": "comparison_story with 5 sections and 2 interaction contracts.",
+      "details": [
+        "narrative_arc=Orient the user, stage the core concepts, surface evidence, and close with a request-faithful takeaway for launch an AI tools editorial with an interactive HTML artifact.",
+        "variation_strategy=Preserve the scaffold family while varying composition through concept emphasis, evidence ordering, and motion restraint."
+      ]
+    },
+    {
+      "receiptId": "skill_discovery_evidence",
+      "kind": "skill_discovery_evidence",
+      "status": "warning",
+      "title": "Skill discovery evidence",
+      "summary": "No runtime-selected skills were retained for this artifact.",
+      "details": []
+    },
+    {
+      "receiptId": "scaffold_family",
+      "kind": "scaffold_family",
+      "status": "success",
+      "title": "Scaffold family",
+      "summary": "Scaffold 'comparison_story' governs the primary artifact surface.",
+      "details": [
+        "design_system=contrast-led editorial palette / display plus annotation pairing",
+        "accessibility_obligations=3"
+      ]
+    },
+    {
+      "receiptId": "component_pack_inventory",
+      "kind": "component_pack_inventory",
+      "status": "success",
+      "title": "Component pack inventory",
+      "summary": "6 component families were retained for composition.",
+      "details": [
+        "hero_frame",
+        "shared_detail_panel",
+        "tabbed_evidence_rail",
+        "comparison_table",
+        "metric_card_grid",
+        "mapped_view_switcher"
+      ]
+    },
+    {
+      "receiptId": "audit_findings",
+      "kind": "audit_findings",
+      "status": "warning",
+      "title": "Audit findings",
+      "summary": "2 issue classes and 0 truthfulness warnings retained.",
+      "details": [
+        "Missing hover states on some elements",
+        "Some text lacks visual emphasis"
+      ]
+    },
+    {
+      "receiptId": "judge_findings",
+      "kind": "judge_findings",
+      "status": "success",
+      "title": "Judge findings",
+      "summary": "Pass :: Add hover states for better interactivity Render evaluation: Render evaluation cleared desktop/mobile capture with an overall score of 20/25.",
+      "details": [
+        "Responsive and user-friendly interface",
+        "Interactive elements for exploring AI tools",
+        "Clean and modern design",
+        "Desktop and mobile render captures reinforced the surfaced hierarchy."
+      ]
+    },
+    {
+      "receiptId": "repair_passes",
+      "kind": "repair_passes",
+      "status": "warning",
+      "title": "Repair passes",
+      "summary": "1 targeted repair traces were retained.",
+      "details": [
+        "initial_generation pass 0 score 574"
+      ]
+    },
+    {
+      "receiptId": "presentation_gate",
+      "kind": "presentation_gate",
+      "status": "success",
+      "title": "Final presentation gate",
+      "summary": "Primary artifact eligibility=true with lifecycle Judged.",
+      "details": [
+        "classification=Pass",
+        "generic_shell_detected=false",
+        "trivial_shell_detected=false"
+      ]
+    }
+  ],
+  "productionProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen3:8b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "acceptanceProvenance": {
+    "kind": "real_local_runtime",
+    "label": "openai-compatible",
+    "model": "qwen3:8b",
+    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+  },
+  "fallbackUsed": false,
+  "uxLifecycle": "judged",
+  "failure": null,
+  "manifest": {
+    "artifactId": "33c08395-794c-4c57-a436-2627e9179991",
+    "title": "an interactive HTML artifact for an AI tools editorial launch page",
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "primaryTab": "render",
+    "tabs": [
+      {
+        "id": "render",
+        "label": "Render",
+        "kind": "render",
+        "renderer": "html_iframe",
+        "filePath": "index.html",
+        "lens": "render"
+      },
+      {
+        "id": "source",
+        "label": "Source",
+        "kind": "source",
+        "renderer": null,
+        "filePath": "index.html",
+        "lens": "source"
+      },
+      {
+        "id": "evidence",
+        "label": "Evidence",
+        "kind": "evidence",
+        "renderer": null,
+        "filePath": null,
+        "lens": "evidence"
+      }
+    ],
+    "files": [
+      {
+        "path": "index.html",
+        "mime": "text/html",
+        "role": "primary",
+        "renderable": true,
+        "downloadable": true,
+        "artifactId": "generated-index.html",
+        "externalUrl": null
+      }
+    ],
+    "verification": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "summary": "Add hover states for better interactivity Render evaluation: Render evaluation cleared desktop/mobile capture with an overall score of 20/25.",
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen3:8b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen3:8b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "failure": null
+    },
+    "storage": {
+      "mode": "artifact_scoped",
+      "apiLabel": "artifact storage"
+    }
+  },
+  "verifiedReply": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "title": "Studio outcome: an interactive HTML artifact for an AI tools editorial launch page",
+    "summary": "an interactive HTML artifact for an AI tools editorial launch page Add hover states for better interactivity Render evaluation: Render evaluation cleared desktop/mobile capture with an overall score of 20/25.",
+    "evidence": [
+      "index.html"
+    ],
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen3:8b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen3:8b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "failure": null
+  },
+  "materializedFiles": [
+    "index.html"
+  ],
+  "renderableFiles": [
+    "index.html"
+  ],
+  "refinement": null
+}

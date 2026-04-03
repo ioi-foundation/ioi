@@ -549,6 +549,12 @@ pub(crate) fn resolved_query_contract(query: &str) -> String {
     resolved_query_contract_with_locality_hint(query, None)
 }
 
+fn strip_parent_playbook_context(goal: &str) -> &str {
+    goal.split_once("[PARENT PLAYBOOK CONTEXT]")
+        .map(|(head, _)| head)
+        .unwrap_or(goal)
+}
+
 pub(crate) fn semantic_retrieval_query_contract_with_locality_hint(
     query: &str,
     locality_hint: Option<&str>,
@@ -701,7 +707,7 @@ pub(crate) fn semantic_retrieval_query_contract_with_contract_and_locality_hint(
 }
 
 pub(crate) fn select_web_pipeline_query_contract(goal: &str, retrieval_query: &str) -> String {
-    let goal_compact = compact_whitespace(goal);
+    let goal_compact = compact_whitespace(strip_parent_playbook_context(goal));
     let retrieval_compact = compact_whitespace(retrieval_query);
     let goal_trimmed = goal_compact.trim();
     let retrieval_trimmed = retrieval_compact.trim();

@@ -89,6 +89,84 @@ Relevant current anchors in the repo:
 
 `FQF` should build on that foundation, not fight it.
 
+## 3.1 Sharpest Practical Advantages Over Postgres-as-Authority
+
+The decisive advantages are not that `FQF` can imitate a database. They are
+that it changes what counts as canonical truth, what becomes protocol-visible,
+and what can move cleanly across serving nodes.
+
+1. Canonical truth becomes replayable and verifiable, not merely mutable.
+
+   `Postgres` is excellent at transactional row storage, but its native center
+   of gravity is still current mutable state. `FQF` instead treats the
+   deterministic operation log and deterministic object transitions as the
+   canonical authority, while app-facing state is derived through projections.
+   That is a better fit for receipts, audits, dispute resolution, historical
+   reconstruction, and deterministic replay.
+
+2. Projections become protocol-visible contracts instead of opaque internal
+   views.
+
+   In `FQF`, relational, graph, timeline, ranking, and capability read models
+   are explicit, versioned artifacts that clients can bind to directly. The
+   query surface therefore becomes part of the application contract instead of
+   remaining an ad hoc layer of hidden SQL views, indexes, and server-local
+   resolver logic.
+
+3. Multi-node portability becomes cleaner because continuity is rooted in
+   canonical state, portable authority artifacts, and resumable projection
+   streams.
+
+   Clients should be able to pair local replicas or caches with `FQF`
+   changefeeds, fail over across provider nodes, and resume subscriptions using
+   signed portable tokens and deterministic checkpoint or delta recovery. That
+   is materially better than relying on sticky sessions or one shared hosted SQL
+   authority for normal app continuity.
+
+4. Reads can be trust-graded instead of all-or-nothing.
+
+   `FQF` allows the runtime contract to distinguish trivial local reads,
+   checkpoint- or anchor-bound reads, and full proof-ready reads for
+   trust-sensitive or dispute-sensitive cases. This is stronger than the normal
+   `Postgres` model, where a query is usually either trusted operationally or
+   wrapped in bespoke audit logic outside the read contract.
+
+5. Capability-scoped application state fits the IOI security model more
+   naturally.
+
+   Projection scope, capability scope, and session or lease constraints can live
+   inside portable signed artifacts rather than being inferred from node-local
+   session lookups. That makes reads, subscriptions, and routine mutations align
+   with the same policy-bounded authority model used elsewhere in IOI.
+
+6. The object-first worldview maps better to agentic systems than row-first
+   authority.
+
+   IOI-native applications care about objects such as `Service`, `Version`,
+   `Run`, `Receipt`, `Approval`, and `CapabilityLease`. Treating those objects
+   as the semantic truth over canonical state is a better fit for approvals,
+   manifests, receipts, and long-running workflows than treating relational rows
+   as the deepest source of authority.
+
+7. The frontend architecture becomes more IOI-native instead of pretending the
+   product is a conventional SaaS stack with a chain bolted on later.
+
+   A React UI paired with a local-first store, an `FQF` client, resumable
+   subscriptions, and a runtime mutation path that writes canonical operations
+   into the log can consume protocol-derived state directly. That is a better
+   architectural match for `ai://` applications than centering the product on a
+   hosted `Postgres` backend and treating canonical state as a secondary export.
+
+8. Receipts and evidence become part of the substrate, not a separate audit
+   afterthought.
+
+   Because mutations, projections, queries, and artifacts can all be bound to
+   canonical state anchors and receipt surfaces, `FQF` is a stronger substrate
+   for agent receipts, evidence trails, governance workflows, and policy review.
+   In IOI, the important question is often not merely "what did the UI show?"
+   but "what canonical state, capability surface, and proof surface authorized
+   this action?"
+
 ## 4. Core Thesis
 
 Traditional application stacks treat:

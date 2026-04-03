@@ -121,3 +121,23 @@ fn web_pipeline_select_query_contract_rejects_semantic_fragment_as_scope() {
         "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus."
     );
 }
+
+#[test]
+fn web_pipeline_select_query_contract_ignores_parent_playbook_context() {
+    let selected = select_web_pipeline_query_contract(
+        "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.\n\n[PARENT PLAYBOOK CONTEXT]\n- prep_summary: Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+        "nist post quantum cryptography standards parent playbook context prep summary site:context.gov site:nist.gov",
+    );
+    let normalized = selected.to_ascii_lowercase();
+    assert!(
+        !normalized.contains("parent playbook context"),
+        "selected contract should ignore delegated parent context: {}",
+        selected
+    );
+    assert!(
+        !normalized.contains("prep_summary"),
+        "selected contract should ignore prep summary leakage: {}",
+        selected
+    );
+    assert!(normalized.contains("latest nist post-quantum cryptography standards"));
+}

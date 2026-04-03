@@ -7,7 +7,7 @@ use ioi_api::studio::{
     pdf_artifact_bytes, StudioArtifactJudgeClassification, StudioArtifactSelectionTarget,
     StudioGeneratedArtifactFile, StudioGeneratedArtifactPayload,
 };
-use ioi_api::vm::inference::mock::MockInferenceRuntime;
+use ioi_api::vm::inference::{mock::MockInferenceRuntime, HttpInferenceRuntime};
 use ioi_types::app::{
     StudioArtifactClass, StudioArtifactFailure, StudioArtifactFailureKind, StudioArtifactFileRole,
     StudioArtifactLifecycleState, StudioArtifactManifest, StudioArtifactManifestFile,
@@ -125,6 +125,26 @@ fn blocked_failure_manifest() -> StudioArtifactManifest {
 }
 
 #[test]
+fn runtime_provenance_matches_ignores_lane_only_endpoint_tags() {
+    let production = StudioRuntimeProvenance {
+        kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+        label: "openai-compatible".to_string(),
+        model: Some("qwen3:8b".to_string()),
+        endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+    };
+    let acceptance = StudioRuntimeProvenance {
+        kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+        label: "openai-compatible".to_string(),
+        model: Some("qwen3:8b".to_string()),
+        endpoint: Some(
+            "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance".to_string(),
+        ),
+    };
+
+    assert!(runtime_provenance_matches(&production, &acceptance));
+}
+
+#[test]
 fn validate_manifest_rejects_missing_primary_tab() {
     let mut manifest = sample_manifest();
     manifest.primary_tab = "source".to_string();
@@ -132,6 +152,29 @@ fn validate_manifest_rejects_missing_primary_tab() {
     assert!(errors
         .iter()
         .any(|error| error.contains("primaryTab 'source' does not match any tab id")));
+}
+
+#[test]
+fn generate_prefers_distinct_local_acceptance_runtime_for_route() {
+    let production_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
+        "http://127.0.0.1:11434/v1/chat/completions".to_string(),
+        "ollama".to_string(),
+        "qwen2.5:14b".to_string(),
+    ));
+    let acceptance_runtime: Arc<dyn InferenceRuntime> = Arc::new(HttpInferenceRuntime::new(
+        "http://127.0.0.1:11434/v1/chat/completions".to_string(),
+        "ollama".to_string(),
+        "qwen2.5:7b".to_string(),
+    ));
+
+    let selected = select_generate_route_runtime(&production_runtime, &acceptance_runtime);
+    let selected_provenance = selected.studio_runtime_provenance();
+
+    assert_eq!(
+        selected_provenance.kind,
+        StudioRuntimeProvenanceKind::RealLocalRuntime
+    );
+    assert_eq!(selected_provenance.model.as_deref(), Some("qwen2.5:7b"));
 }
 
 #[test]
@@ -1183,6 +1226,44 @@ fn write_generated_payload_compiles_pdf_bytes_without_mock_shell() -> Result<()>
     assert!(bytes.starts_with(b"%PDF-1.4\n"));
     assert!(bytes.len() > 800);
     assert!(!text.contains("Studio mock PDF"));
+    Ok(())
+}
+
+#[test]
+fn write_generated_payload_unwraps_nested_html_payload_envelopes() -> Result<()> {
+    let root = tempdir()?;
+    let nested_html = "<!doctype html><html><body><main><section><h1>AI tools editorial launch</h1><p>Interactive launch evidence stays visible.</p></section><aside><h2>Detail</h2><p id=\"detail-copy\">Overview is selected by default.</p></aside><footer><p>Footer note.</p></footer></main></body></html>";
+    let payload = StudioGeneratedArtifactPayload {
+        summary: "Launch page".to_string(),
+        notes: Vec::new(),
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: true,
+            encoding: Some(ioi_api::studio::StudioGeneratedArtifactEncoding::Utf8),
+            body: json!({
+                "summary": "Nested launch page",
+                "notes": ["wrapped once"],
+                "files": [{
+                    "path": "launch-page.html",
+                    "mime": "text/html",
+                    "role": "primary",
+                    "renderable": true,
+                    "downloadable": true,
+                    "encoding": "utf8",
+                    "body": nested_html
+                }]
+            })
+            .to_string(),
+        }],
+    };
+
+    write_generated_payload(root.path(), "Launch page", &payload)?;
+
+    let written = fs::read_to_string(root.path().join("index.html"))?;
+    assert_eq!(written, nested_html);
     Ok(())
 }
 

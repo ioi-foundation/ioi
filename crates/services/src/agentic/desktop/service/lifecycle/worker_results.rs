@@ -52,6 +52,7 @@ fn now_ms() -> u64 {
 
 const PARENT_PLAYBOOK_CONTEXT_MARKER: &str = "[PARENT PLAYBOOK CONTEXT]";
 const MAX_AWAIT_CHILD_BURST_STEPS: usize = 6;
+const LIVE_RESEARCH_AWAIT_BURST_STEPS: usize = 4;
 // Post-edit follow-through commonly needs a reread, a focused rerun, and a final handoff.
 const PATCH_BUILD_VERIFY_POST_EDIT_BURST_GRACE_STEPS: usize = 3;
 
@@ -145,6 +146,18 @@ fn tool_name_allows_local_await_burst(tool_name: &str) -> bool {
             | "model__rerank"
             | "sys__change_directory"
             | "sys__exec_session"
+    )
+}
+
+fn tool_name_allows_research_await_burst(tool_name: &str) -> bool {
+    matches!(
+        tool_name,
+        "agent__complete"
+            | "agent__await_result"
+            | "memory__search"
+            | "memory__inspect"
+            | "web__search"
+            | "web__read"
     )
 }
 
@@ -440,6 +453,9 @@ fn await_child_burst_step_limit(
     };
     if patch_build_verify_post_edit_followup_due(child_state, &assignment) {
         return Ok(MAX_AWAIT_CHILD_BURST_STEPS + PATCH_BUILD_VERIFY_POST_EDIT_BURST_GRACE_STEPS);
+    }
+    if assignment.workflow_id.as_deref().map(str::trim) == Some("live_research_brief") {
+        return Ok(LIVE_RESEARCH_AWAIT_BURST_STEPS);
     }
     Ok(MAX_AWAIT_CHILD_BURST_STEPS)
 }
@@ -2909,6 +2925,28 @@ fn inject_parent_playbook_context(
             ));
         }
     }
+    if run.playbook_id.trim() == "evidence_audited_patch"
+        && next_step.worker_workflow_id.trim() == "patch_synthesis_handoff"
+    {
+        if let Some(implement_handoff) = load_step_raw_output(state, run, "implement")
+            .map(|value| compact_parent_playbook_context(&value, 2400))
+            .filter(|value| !value.trim().is_empty())
+        {
+            dependency_lines.push(format!(
+                "- Patch the workspace full_handoff (implement_full):\n{}",
+                implement_handoff
+            ));
+        }
+        if let Some(verify_handoff) = load_step_raw_output(state, run, "verify")
+            .map(|value| compact_parent_playbook_context(&value, 2400))
+            .filter(|value| !value.trim().is_empty())
+        {
+            dependency_lines.push(format!(
+                "- Verify targeted tests full_handoff (verify_full):\n{}",
+                verify_handoff
+            ));
+        }
+    }
 
     format!(
         "{}\n\n{}\n{}",
@@ -2971,6 +3009,47 @@ fn parent_playbook_completion_output(
         .unwrap_or_else(|| result.merged_output.clone())
 }
 
+fn mark_parent_playbook_step_completed_from_result(
+    state: &dyn StateAccess,
+    run: &mut ParentPlaybookRun,
+    playbook: &AgentPlaybookDefinition,
+    step_idx: usize,
+    result: &WorkerSessionResult,
+    timestamp_ms: u64,
+) {
+    let artifact_generation = build_artifact_generation_summary(run, playbook, step_idx, result);
+    let computer_use_perception =
+        build_computer_use_perception_summary(state, run, playbook, step_idx, result);
+    let research_scorecard = build_research_verification_scorecard(state, run, playbook, step_idx, result);
+    let artifact_quality = build_artifact_quality_scorecard(run, playbook, step_idx, result);
+    let computer_use_verification =
+        build_computer_use_verification_scorecard(state, run, playbook, step_idx, result);
+    let coding_scorecard = build_coding_verification_scorecard(state, run, playbook, step_idx, result);
+    let patch_synthesis = build_patch_synthesis_summary(state, run, playbook, step_idx, result);
+    let artifact_repair = build_artifact_repair_summary(run, playbook, step_idx, result);
+    let computer_use_recovery =
+        build_computer_use_recovery_summary(state, run, playbook, step_idx, result);
+    if let Some(step) = run.steps.get_mut(step_idx) {
+        step.status = ParentPlaybookStepStatus::Completed;
+        step.output_preview = Some(summarize_parent_playbook_text(&result.merged_output));
+        step.error = result.error.clone();
+        step.artifact_generation = artifact_generation;
+        step.computer_use_perception = computer_use_perception;
+        step.research_scorecard = research_scorecard;
+        step.artifact_quality = artifact_quality;
+        step.computer_use_verification = computer_use_verification;
+        step.coding_scorecard = coding_scorecard;
+        step.patch_synthesis = patch_synthesis;
+        step.artifact_repair = artifact_repair;
+        step.computer_use_recovery = computer_use_recovery;
+        step.completed_at_ms = Some(result.completed_at_ms);
+        step.merged_at_ms = Some(timestamp_ms);
+    }
+    run.current_step_index = step_idx as u32;
+    run.active_child_session_id = None;
+    run.updated_at_ms = timestamp_ms;
+}
+
 async fn advance_parent_playbook_after_worker_merge(
     service: &DesktopAgentService,
     state: &mut dyn StateAccess,
@@ -2994,136 +3073,180 @@ async fn advance_parent_playbook_after_worker_merge(
     else {
         return Ok(None);
     };
-    let Some(step_idx) = find_run_step_index_by_child(&run, result.child_session_id) else {
-        return Ok(None);
-    };
-    let timestamp_ms = now_ms();
-    let artifact_generation = build_artifact_generation_summary(&run, &playbook, step_idx, result);
-    let computer_use_perception =
-        build_computer_use_perception_summary(state, &run, &playbook, step_idx, result);
-    let research_scorecard =
-        build_research_verification_scorecard(state, &run, &playbook, step_idx, result);
-    let artifact_quality = build_artifact_quality_scorecard(&run, &playbook, step_idx, result);
-    let computer_use_verification =
-        build_computer_use_verification_scorecard(state, &run, &playbook, step_idx, result);
-    let coding_scorecard =
-        build_coding_verification_scorecard(state, &run, &playbook, step_idx, result);
-    let patch_synthesis = build_patch_synthesis_summary(state, &run, &playbook, step_idx, result);
-    let artifact_repair = build_artifact_repair_summary(&run, &playbook, step_idx, result);
-    let computer_use_recovery =
-        build_computer_use_recovery_summary(state, &run, &playbook, step_idx, result);
-    if let Some(step) = run.steps.get_mut(step_idx) {
-        step.status = ParentPlaybookStepStatus::Completed;
-        step.output_preview = Some(summarize_parent_playbook_text(&result.merged_output));
-        step.error = result.error.clone();
-        step.artifact_generation = artifact_generation;
-        step.computer_use_perception = computer_use_perception;
-        step.research_scorecard = research_scorecard;
-        step.artifact_quality = artifact_quality;
-        step.computer_use_verification = computer_use_verification;
-        step.coding_scorecard = coding_scorecard;
-        step.patch_synthesis = patch_synthesis;
-        step.artifact_repair = artifact_repair;
-        step.computer_use_recovery = computer_use_recovery;
-        step.completed_at_ms = Some(result.completed_at_ms);
-        step.merged_at_ms = Some(timestamp_ms);
-    }
-    run.current_step_index = step_idx as u32;
-    run.active_child_session_id = None;
-    run.updated_at_ms = timestamp_ms;
-    persist_parent_playbook_run(state, &run)?;
-    if let Some(step) = run.steps.get(step_idx) {
-        emit_parent_playbook_step_completed_receipt(
-            service,
-            &run,
+    let mut current_result = result.clone();
+    let mut updates = Vec::new();
+
+    loop {
+        let Some(step_idx) = find_run_step_index_by_child(&run, current_result.child_session_id) else {
+            return Ok((!updates.is_empty()).then(|| updates.join("\n\n")));
+        };
+        let timestamp_ms = now_ms();
+        mark_parent_playbook_step_completed_from_result(
+            state,
+            &mut run,
             &playbook,
-            step,
-            parent_step_index,
+            step_idx,
+            &current_result,
+            timestamp_ms,
         );
-    }
-
-    let Some(next_step_idx) = next_ready_playbook_step_index(&playbook, &run) else {
-        run.status = ParentPlaybookStatus::Completed;
-        run.completed_at_ms = Some(timestamp_ms);
-        run.updated_at_ms = timestamp_ms;
         persist_parent_playbook_run(state, &run)?;
-        parent_state.status = AgentStatus::Completed(Some(parent_playbook_completion_output(
-            state, &run, &playbook, result,
-        )));
-        emit_parent_playbook_completed_receipt(service, &run, &playbook, parent_step_index);
-        return Ok(Some(format!(
-            "Parent playbook '{}' completed.",
-            run.playbook_label
-        )));
-    };
-
-    let next_step = playbook.steps.get(next_step_idx).cloned().ok_or_else(|| {
-        "ERROR_CLASS=UnexpectedState Next parent playbook step was missing.".to_string()
-    })?;
-    let topic = run.topic.trim();
-    let goal = next_step.goal_template.replace(
-        "{topic}",
-        if topic.is_empty() {
-            parent_state.goal.trim()
-        } else {
-            topic
-        },
-    );
-    let goal = inject_parent_playbook_context(state, &goal, &playbook, &run, &next_step);
-    let tool_hash = synthesize_parent_playbook_tool_hash(
-        parent_state.session_id,
-        &run.playbook_id,
-        &next_step.step_id,
-        parent_step_index,
-    )?;
-    match spawn_delegated_child_session(
-        service,
-        state,
-        parent_state,
-        tool_hash,
-        &goal,
-        playbook.default_budget,
-        Some(&run.playbook_id),
-        Some(&next_step.worker_template_id),
-        Some(&next_step.worker_workflow_id),
-        None,
-        None,
-        None,
-        None,
-        parent_step_index,
-        block_height,
-    )
-    .await
-    {
-        Ok(spawned) => Ok(Some(format!(
-            "Parent playbook '{}' advanced to '{}' (child {}).",
-            run.playbook_label,
-            next_step.label,
-            hex::encode(spawned.child_session_id)
-        ))),
-        Err(error) => {
-            let error_text = error.to_string();
-            run.status = ParentPlaybookStatus::Blocked;
-            run.current_step_index = next_step_idx as u32;
-            run.updated_at_ms = now_ms();
-            parent_state.status = parent_playbook_terminal_status_for_block(&error_text, None);
-            if let Some(step) = run.steps.get_mut(next_step_idx) {
-                step.status = ParentPlaybookStepStatus::Blocked;
-                step.error = Some(error_text.clone());
-            }
-            persist_parent_playbook_run(state, &run)?;
-            emit_parent_playbook_blocked_receipt(
+        if let Some(step) = run.steps.get(step_idx) {
+            emit_parent_playbook_step_completed_receipt(
                 service,
                 &run,
                 &playbook,
-                run.steps.get(next_step_idx),
+                step,
                 parent_step_index,
-                &error_text,
             );
-            Ok(Some(format!(
-                "Parent playbook '{}' blocked while advancing to '{}': {}",
-                run.playbook_label, next_step.label, error_text
-            )))
+        }
+
+        let Some(next_step_idx) = next_ready_playbook_step_index(&playbook, &run) else {
+            run.status = ParentPlaybookStatus::Completed;
+            run.completed_at_ms = Some(timestamp_ms);
+            run.updated_at_ms = timestamp_ms;
+            persist_parent_playbook_run(state, &run)?;
+            parent_state.status = AgentStatus::Completed(Some(parent_playbook_completion_output(
+                state,
+                &run,
+                &playbook,
+                &current_result,
+            )));
+            emit_parent_playbook_completed_receipt(service, &run, &playbook, parent_step_index);
+            updates.push(format!("Parent playbook '{}' completed.", run.playbook_label));
+            return Ok(Some(updates.join("\n\n")));
+        };
+
+        let next_step = playbook.steps.get(next_step_idx).cloned().ok_or_else(|| {
+            "ERROR_CLASS=UnexpectedState Next parent playbook step was missing.".to_string()
+        })?;
+        let topic = run.topic.trim();
+        let goal = next_step.goal_template.replace(
+            "{topic}",
+            if topic.is_empty() {
+                parent_state.goal.trim()
+            } else {
+                topic
+            },
+        );
+        let goal = inject_parent_playbook_context(state, &goal, &playbook, &run, &next_step);
+        let tool_hash = synthesize_parent_playbook_tool_hash(
+            parent_state.session_id,
+            &run.playbook_id,
+            &next_step.step_id,
+            parent_step_index,
+        )?;
+        match spawn_delegated_child_session(
+            service,
+            state,
+            parent_state,
+            tool_hash,
+            &goal,
+            playbook.default_budget,
+            Some(&run.playbook_id),
+            Some(&next_step.worker_template_id),
+            Some(&next_step.worker_workflow_id),
+            None,
+            None,
+            None,
+            None,
+            parent_step_index,
+            block_height,
+        )
+        .await
+        {
+            Ok(spawned) => {
+                let advanced = format!(
+                    "Parent playbook '{}' advanced to '{}' (child {}).",
+                    run.playbook_label,
+                    next_step.label,
+                    hex::encode(spawned.child_session_id)
+                );
+                updates.push(advanced);
+                let child_session_id_hex = hex::encode(spawned.child_session_id);
+                let child_state = load_child_state(
+                    state,
+                    service.memory_runtime.as_ref(),
+                    spawned.child_session_id,
+                    &child_session_id_hex,
+                )?;
+                if !matches!(child_state.status, AgentStatus::Completed(_)) {
+                    return Ok(Some(updates.join("\n\n")));
+                }
+
+                let mut child_result = load_or_materialize_worker_result(
+                    service,
+                    state,
+                    &child_state,
+                    spawned.child_session_id,
+                )?;
+                if child_result.parent_session_id != parent_state.session_id {
+                    return Err(format!(
+                        "ERROR_CLASS=UnexpectedState Child session '{}' does not belong to the awaiting parent session.",
+                        child_session_id_hex
+                    ));
+                }
+                merge_child_pending_search_completion_into_parent(parent_state, &child_state);
+                if child_result.merged_at_ms.is_none() {
+                    child_result.merged_at_ms = Some(now_ms());
+                    child_result.merged_step_index = Some(parent_step_index);
+                    persist_worker_session_result(state, &child_result)?;
+                    emit_worker_merge_receipt(service, &child_result, parent_step_index);
+                }
+                if !child_result.success {
+                    if let Some(playbook_update) = block_parent_playbook_after_worker_failure(
+                        service,
+                        state,
+                        parent_state,
+                        parent_step_index,
+                        &child_result,
+                    )? {
+                        updates.push(playbook_update);
+                        return Ok(Some(updates.join("\n\n")));
+                    }
+                    return Err(format!(
+                        "ERROR_CLASS={} Child agent failed: {}",
+                        extract_error_class_token(child_result.error.as_deref())
+                            .unwrap_or("UnexpectedState"),
+                        child_result
+                            .error
+                            .as_deref()
+                            .unwrap_or("worker step failed")
+                    ));
+                }
+
+                updates.push(child_result.merged_output.clone());
+                run = load_parent_playbook_run(state, parent_state.session_id, playbook_id)?
+                    .ok_or_else(|| {
+                        "ERROR_CLASS=UnexpectedState Parent playbook disappeared after child spawn."
+                            .to_string()
+                    })?;
+                current_result = child_result;
+            }
+            Err(error) => {
+                let error_text = error.to_string();
+                run.status = ParentPlaybookStatus::Blocked;
+                run.current_step_index = next_step_idx as u32;
+                run.updated_at_ms = now_ms();
+                parent_state.status = parent_playbook_terminal_status_for_block(&error_text, None);
+                if let Some(step) = run.steps.get_mut(next_step_idx) {
+                    step.status = ParentPlaybookStepStatus::Blocked;
+                    step.error = Some(error_text.clone());
+                }
+                persist_parent_playbook_run(state, &run)?;
+                emit_parent_playbook_blocked_receipt(
+                    service,
+                    &run,
+                    &playbook,
+                    run.steps.get(next_step_idx),
+                    parent_step_index,
+                    &error_text,
+                );
+                updates.push(format!(
+                    "Parent playbook '{}' blocked while advancing to '{}': {}",
+                    run.playbook_label, next_step.label, error_text
+                ));
+                return Ok(Some(updates.join("\n\n")));
+            }
         }
     }
 }
@@ -3567,6 +3690,13 @@ fn child_allows_await_burst(
         return Ok(false);
     }
 
+    if assignment.workflow_id.as_deref().map(str::trim) == Some("live_research_brief") {
+        return Ok(assignment
+            .allowed_tools
+            .iter()
+            .all(|tool_name| tool_name_allows_research_await_burst(tool_name)));
+    }
+
     Ok(assignment
         .allowed_tools
         .iter()
@@ -3757,6 +3887,28 @@ pub(crate) async fn await_child_worker_result(
         } else {
             MAX_AWAIT_CHILD_BURST_STEPS
         };
+        let retry_blocked_reason = match &child_state.status {
+            AgentStatus::Paused(reason) if retry_blocked_pause_reason(reason) => {
+                Some(reason.to_string())
+            }
+            _ => None,
+        };
+        if retry_blocked_reason.is_some() {
+            if let Some(merged_output) = maybe_merge_observed_patch_build_verify_completion(
+                service,
+                state,
+                parent_state,
+                parent_step_index,
+                block_height,
+                &active_child_session_id_hex,
+                &mut child_state,
+            )
+            .await?
+            {
+                merged_updates.push(merged_output);
+                return Ok(merged_updates.join("\n\n"));
+            }
+        }
 
         let should_drive = matches!(
             &child_state.status,
@@ -3812,12 +3964,45 @@ pub(crate) async fn await_child_worker_result(
             }
             AgentStatus::Paused(reason) if retry_blocked_pause_reason(reason) => {
                 if !allow_burst || burst_steps >= burst_limit {
+                    let paused_reason = reason.to_string();
+                    if let Some(merged_output) = maybe_merge_observed_patch_build_verify_completion(
+                        service,
+                        state,
+                        parent_state,
+                        parent_step_index,
+                        block_height,
+                        &active_child_session_id_hex,
+                        &mut child_state,
+                    )
+                    .await?
+                    {
+                        merged_updates.push(merged_output);
+                        return Ok(merged_updates.join("\n\n"));
+                    }
                     return Ok(merged_updates
                         .pop()
-                        .unwrap_or_else(|| format!("Running (paused: {})", reason)));
+                        .unwrap_or_else(|| format!("Running (paused: {})", paused_reason)));
                 }
             }
-            AgentStatus::Paused(reason) => {
+            AgentStatus::Paused(_) => {
+                let paused_reason = match &child_state.status {
+                    AgentStatus::Paused(reason) => reason.to_string(),
+                    _ => String::new(),
+                };
+                if let Some(merged_output) = maybe_merge_observed_patch_build_verify_completion(
+                    service,
+                    state,
+                    parent_state,
+                    parent_step_index,
+                    block_height,
+                    &active_child_session_id_hex,
+                    &mut child_state,
+                )
+                .await?
+                {
+                    merged_updates.push(merged_output);
+                    return Ok(merged_updates.join("\n\n"));
+                }
                 if allow_burst {
                     let merged_output = merge_blocked_child_worker_result(
                         service,
@@ -3833,7 +4018,7 @@ pub(crate) async fn await_child_worker_result(
                 }
                 return Ok(merged_updates
                     .pop()
-                    .unwrap_or_else(|| format!("Running (paused: {})", reason)));
+                    .unwrap_or_else(|| format!("Running (paused: {})", paused_reason)));
             }
             AgentStatus::Completed(_) | AgentStatus::Failed(_) | AgentStatus::Terminated => {
                 let merged_output = merge_terminal_child_worker_result(
@@ -3858,13 +4043,14 @@ mod tests {
     use super::{
         await_child_burst_step_limit, await_child_worker_result as await_child_worker_result_impl,
         build_parent_playbook_run, child_allows_await_burst, execution_receipt_value,
-        inject_parent_playbook_context, latest_failed_goal_command_step, load_parent_playbook_run,
-        load_worker_session_result, materialize_worker_result, merged_worker_output,
-        patch_build_verify_post_edit_followup_due, persist_parent_playbook_run,
-        persist_worker_assignment, persist_worker_session_result, resolve_worker_assignment,
-        resolve_worker_goal, retry_blocked_pause_reason,
-        synthesize_observed_patch_build_verify_completion, MAX_AWAIT_CHILD_BURST_STEPS,
-        PARENT_PLAYBOOK_CONTEXT_MARKER, PATCH_BUILD_VERIFY_POST_EDIT_BURST_GRACE_STEPS,
+        inject_parent_playbook_context, latest_failed_goal_command_step, load_child_state,
+        load_parent_playbook_run, load_worker_session_result, materialize_worker_result,
+        merged_worker_output, patch_build_verify_post_edit_followup_due,
+        persist_parent_playbook_run, persist_worker_assignment, persist_worker_session_result,
+        resolve_worker_assignment, resolve_worker_goal, retry_blocked_pause_reason,
+        synthesize_observed_patch_build_verify_completion, LIVE_RESEARCH_AWAIT_BURST_STEPS,
+        MAX_AWAIT_CHILD_BURST_STEPS, PARENT_PLAYBOOK_CONTEXT_MARKER,
+        PATCH_BUILD_VERIFY_POST_EDIT_BURST_GRACE_STEPS,
     };
     use crate::agentic::desktop::agent_playbooks::builtin_agent_playbook;
     use crate::agentic::desktop::keys::{get_state_key, AGENT_POLICY_PREFIX};
@@ -4301,6 +4487,82 @@ mod tests {
         .expect("persist skill record");
     }
 
+    async fn seed_runtime_computer_use_skill(
+        service: &DesktopAgentService,
+        state: &mut dyn StateAccess,
+        query_anchor: &str,
+    ) {
+        let memory_runtime = service
+            .memory_runtime
+            .as_ref()
+            .expect("memory runtime should be configured");
+        let skill = AgentMacro {
+            definition: LlmToolDefinition {
+                name: "computer_use__ui_state_spine".to_string(),
+                description:
+                    "Prime the computer-use perception lane to identify the live target state, approval risk, and next safe action."
+                        .to_string(),
+                parameters: r#"{"type":"object","properties":{"topic":{"type":"string"}},"required":["topic"]}"#
+                    .to_string(),
+            },
+            steps: vec![ActionRequest {
+                target: ActionTarget::BrowserInteract,
+                params: br#"{"__ioi_tool_name":"browser__snapshot"}"#.to_vec(),
+                context: ActionContext {
+                    agent_id: "macro".to_string(),
+                    session_id: None,
+                    window_id: None,
+                },
+                nonce: 0,
+            }],
+            source_trace_hash: [0x35; 32],
+            fitness: 1.0,
+        };
+        let skill_hash = canonical_skill_hash(&skill).expect("skill hash");
+        let content = format!(
+            "{} {}",
+            skill_archival_content(&skill.definition),
+            query_anchor
+        );
+        let archival_record_id = memory_runtime
+            .insert_archival_record(&NewArchivalMemoryRecord {
+                scope: SKILL_ARCHIVAL_SCOPE.to_string(),
+                thread_id: None,
+                kind: SKILL_ARCHIVAL_KIND.to_string(),
+                content: content.clone(),
+                metadata_json: build_skill_archival_metadata_json(skill_hash, &skill)
+                    .expect("skill metadata"),
+            })
+            .expect("insert skill archival record")
+            .expect("archival store available");
+        let embedding = service
+            .reasoning_inference
+            .embed_text(&content)
+            .await
+            .expect("embed skill");
+        memory_runtime
+            .upsert_archival_embedding(archival_record_id, &embedding)
+            .expect("index skill embedding");
+
+        upsert_skill_record(
+            state,
+            &SkillRecord {
+                skill_hash,
+                archival_record_id,
+                macro_body: skill,
+                lifecycle_state: SkillLifecycleState::Validated,
+                source_type: SkillSourceType::Imported,
+                source_session_id: None,
+                source_evidence_hash: None,
+                benchmark: None,
+                publication: None,
+                created_at: 1,
+                updated_at: 1,
+            },
+        )
+        .expect("persist skill record");
+    }
+
     async fn seed_runtime_fact(service: &DesktopAgentService, content: &str) {
         let memory_runtime = service
             .memory_runtime
@@ -4471,7 +4733,7 @@ mod tests {
         let (tx, _rx) = tokio::sync::broadcast::channel(16);
         let (service, _temp_dir) = build_test_service(tx);
         let mut state = IAVLTree::new(HashCommitmentScheme::new());
-        let mut parent_state = build_parent_state_with_goal("Patch the workspace", 128);
+        let mut parent_state = build_parent_state_with_goal("Patch the workspace", 256);
 
         let spawned = spawn_delegated_child_session(
             &service,
@@ -4631,7 +4893,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn research_worker_disables_await_burst_for_web_workflow() {
+    async fn research_worker_uses_bounded_await_burst_for_web_workflow() {
         let (tx, _rx) = tokio::sync::broadcast::channel(16);
         let (service, _temp_dir) = build_test_service(tx);
         let mut state = IAVLTree::new(HashCommitmentScheme::new());
@@ -4658,9 +4920,21 @@ mod tests {
         .expect("research child should spawn");
 
         assert!(
-            !child_allows_await_burst(&state, spawned.child_session_id)
+            child_allows_await_burst(&state, spawned.child_session_id)
                 .expect("research burst gating should load"),
-            "web-facing research worker should not monopolize the parent await burst"
+            "web-facing research worker should stay eligible for a bounded await burst"
+        );
+        let child_state = load_child_state(
+            &state,
+            service.memory_runtime.as_ref(),
+            spawned.child_session_id,
+            &hex::encode(spawned.child_session_id),
+        )
+        .expect("research child state should load");
+        assert_eq!(
+            await_child_burst_step_limit(&state, spawned.child_session_id, &child_state)
+                .expect("research burst limit should load"),
+            LIVE_RESEARCH_AWAIT_BURST_STEPS
         );
     }
 
@@ -4749,6 +5023,117 @@ mod tests {
             ),
             "retry-blocked child should leave the retry-block pause after awaited resume"
         );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn await_child_worker_result_merges_observed_patch_completion_from_retry_blocked_pause() {
+        let (tx, _rx) = tokio::sync::broadcast::channel(16);
+        let (service, temp_dir) = build_test_service(tx);
+        let mut state = IAVLTree::new(HashCommitmentScheme::new());
+        let mut parent_state = build_parent_state_with_goal("Patch the workspace", 256);
+
+        let repo = temp_dir.path().join("path-normalizer-fixture");
+        std::fs::create_dir_all(repo.join("tests")).expect("fixture tests directory should exist");
+        std::fs::write(
+            repo.join("path_utils.py"),
+            concat!(
+                "def normalize_fixture_path(raw_path: str) -> str:\n",
+                "    \"\"\"Normalize a repo-relative path coming from mixed slash inputs.\"\"\"\n",
+                "    return raw_path.strip().replace(\"\\\\\", \"/\")\n"
+            ),
+        )
+        .expect("fixture source should exist");
+        std::fs::write(repo.join("tests/test_path_utils.py"), "import unittest\n")
+            .expect("fixture test should exist");
+
+        let goal = format!(
+            "Port the path-normalization parity fix into the repo at \"{}\". Work inside that repo root, patch only `path_utils.py`, keep `tests/test_path_utils.py` unchanged, and return touched files plus command results.\n\n[PARENT PLAYBOOK CONTEXT]\n- likely_files: path_utils.py; tests/test_path_utils.py\n- targeted_checks: python3 -m unittest tests.test_path_utils -v",
+            repo.display()
+        );
+        let spawned = spawn_delegated_child_session(
+            &service,
+            &mut state,
+            &mut parent_state,
+            [0x73; 32],
+            &goal,
+            96,
+            Some("evidence_audited_patch"),
+            Some("coder"),
+            Some("patch_build_verify"),
+            None,
+            None,
+            None,
+            None,
+            2,
+            0,
+        )
+        .await
+        .expect("patch child should spawn");
+
+        let child_key = get_state_key(&spawned.child_session_id);
+        let child_bytes = state
+            .get(&child_key)
+            .expect("child lookup should succeed")
+            .expect("child state should exist");
+        let mut child_state: AgentState =
+            codec::from_bytes_canonical(&child_bytes).expect("child state should decode");
+        child_state.status =
+            AgentStatus::Paused("Retry blocked: unchanged AttemptKey for UnexpectedState".into());
+        child_state.command_history.push_back(CommandExecution {
+            command: "python3 -m unittest tests.test_path_utils -v".to_string(),
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: "FAILED (failures=2)".to_string(),
+            timestamp_ms: 1,
+            step_index: 2,
+        });
+        child_state.command_history.push_back(CommandExecution {
+            command: "python3 -m unittest tests.test_path_utils -v".to_string(),
+            exit_code: 0,
+            stdout: "OK".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 2,
+            step_index: 5,
+        });
+        child_state.tool_execution_log.insert(
+            "receipt::workspace_edit_applied=true".to_string(),
+            crate::agentic::desktop::types::ToolCallStatus::Executed(format!(
+                "step=4;tool=filesystem__write_file;path={}",
+                repo.join("path_utils.py").display()
+            )),
+        );
+        persist_agent_state(
+            &mut state,
+            &child_key,
+            &child_state,
+            service.memory_runtime.as_ref(),
+        )
+        .expect("child state update should persist");
+
+        let merged = await_child_worker_result(
+            &service,
+            &mut state,
+            &mut parent_state,
+            3,
+            0,
+            &hex::encode(spawned.child_session_id),
+        )
+        .await
+        .expect("await should merge observed completion from retry-blocked pause");
+
+        assert!(merged.contains("Touched files: path_utils.py"), "{merged}");
+        assert!(
+            merged.contains("advanced to 'Verify targeted tests'"),
+            "{merged}"
+        );
+
+        let child_bytes = state
+            .get(&child_key)
+            .expect("child lookup should succeed")
+            .expect("child state should exist");
+        let updated_child: AgentState =
+            codec::from_bytes_canonical(&child_bytes).expect("child state should decode");
+        assert!(matches!(updated_child.status, AgentStatus::Completed(_)));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -6148,7 +6533,7 @@ mod tests {
         let (service, _temp_dir) = build_test_service(tx);
         let mut state = IAVLTree::new(HashCommitmentScheme::new());
         let topic = "Patch only the targeted repo file and verify the focused test first.";
-        let mut parent_state = build_parent_state_with_goal(topic, 192);
+        let mut parent_state = build_parent_state_with_goal(topic, 256);
 
         let context = spawn_delegated_child_session(
             &service,
@@ -6314,6 +6699,164 @@ mod tests {
         assert!(
             saw_playbook_blocked,
             "parent playbook should emit a blocked receipt for the paused worker"
+        );
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn evidence_audited_patch_recovers_paused_refusal_worker_after_successful_verification()
+    {
+        let (tx, _rx) = tokio::sync::broadcast::channel(32);
+        let (service, _temp_dir) = build_test_service(tx);
+        let mut state = IAVLTree::new(HashCommitmentScheme::new());
+        let topic = "Patch only the targeted repo file and verify the focused test first.";
+        let mut parent_state = build_parent_state_with_goal(topic, 256);
+
+        let context = spawn_delegated_child_session(
+            &service,
+            &mut state,
+            &mut parent_state,
+            [0x67; 32],
+            topic,
+            96,
+            Some("evidence_audited_patch"),
+            Some("context_worker"),
+            Some("repo_context_brief"),
+            None,
+            None,
+            None,
+            None,
+            2,
+            0,
+        )
+        .await
+        .expect("context step should spawn");
+
+        let context_key = get_state_key(&context.child_session_id);
+        let context_bytes = state
+            .get(&context_key)
+            .expect("context state lookup should succeed")
+            .expect("context state should exist");
+        let mut context_state: AgentState =
+            codec::from_bytes_canonical(&context_bytes).expect("context state should decode");
+        context_state.status = AgentStatus::Completed(Some(
+            "Likely files: path_utils.py; tests/test_path_utils.py\nTargeted checks: python3 -m unittest tests.test_path_utils -v"
+                .to_string(),
+        ));
+        persist_agent_state(
+            &mut state,
+            &context_key,
+            &context_state,
+            service.memory_runtime.as_ref(),
+        )
+        .expect("context state update should persist");
+
+        let merged_context = await_child_worker_result(
+            &service,
+            &mut state,
+            &mut parent_state,
+            3,
+            0,
+            &hex::encode(context.child_session_id),
+        )
+        .await
+        .expect("context merge should advance to implement");
+        assert!(merged_context.contains("advanced to 'Patch the workspace'"));
+
+        let run_after_context =
+            load_parent_playbook_run(&state, parent_state.session_id, "evidence_audited_patch")
+                .expect("playbook run lookup should succeed")
+                .expect("playbook run should exist");
+        let implement_id = run_after_context
+            .active_child_session_id
+            .expect("implement child should be active");
+        let implement_key = get_state_key(&implement_id);
+        let implement_bytes = state
+            .get(&implement_key)
+            .expect("implement state lookup should succeed")
+            .expect("implement state should exist");
+        let mut implement_state: AgentState =
+            codec::from_bytes_canonical(&implement_bytes).expect("implement state should decode");
+        implement_state.status =
+            AgentStatus::Paused("Model Refusal: Empty content (reason: length)".to_string());
+        implement_state.command_history.push_back(CommandExecution {
+            command: "python3 -m unittest tests.test_path_utils -v".to_string(),
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: "FAILED (failures=2)".to_string(),
+            timestamp_ms: 1,
+            step_index: 2,
+        });
+        implement_state.command_history.push_back(CommandExecution {
+            command: "python3 -m unittest tests.test_path_utils -v".to_string(),
+            exit_code: 0,
+            stdout: "OK".to_string(),
+            stderr: String::new(),
+            timestamp_ms: 2,
+            step_index: 5,
+        });
+        implement_state.tool_execution_log.insert(
+            "receipt::workspace_edit_applied=true".to_string(),
+            crate::agentic::desktop::types::ToolCallStatus::Executed(
+                "step=4;tool=filesystem__write_file;path=path_utils.py".to_string(),
+            ),
+        );
+        persist_agent_state(
+            &mut state,
+            &implement_key,
+            &implement_state,
+            service.memory_runtime.as_ref(),
+        )
+        .expect("implement state update should persist");
+
+        let merged_implement = await_child_worker_result(
+            &service,
+            &mut state,
+            &mut parent_state,
+            4,
+            0,
+            &hex::encode(implement_id),
+        )
+        .await
+        .expect("paused refusal with successful verification should merge");
+
+        assert!(
+            merged_implement.contains("advanced to 'Verify targeted tests'"),
+            "unexpected implement merge output: {}",
+            merged_implement
+        );
+
+        let run_after_implement =
+            load_parent_playbook_run(&state, parent_state.session_id, "evidence_audited_patch")
+                .expect("playbook run lookup should succeed")
+                .expect("playbook run should exist");
+        assert_eq!(run_after_implement.status, ParentPlaybookStatus::Completed);
+        assert_eq!(
+            run_after_implement.steps[1].status,
+            ParentPlaybookStepStatus::Completed
+        );
+        assert_eq!(
+            run_after_implement.steps[2].status,
+            ParentPlaybookStepStatus::Completed
+        );
+        assert_eq!(
+            run_after_implement.steps[3].status,
+            ParentPlaybookStepStatus::Completed
+        );
+        assert!(run_after_implement.active_child_session_id.is_none());
+
+        let materialized = load_worker_session_result(&state, implement_id)
+            .expect("worker result lookup should succeed")
+            .expect("worker result should exist");
+        assert_eq!(materialized.status, "Completed");
+        assert!(materialized.success);
+        let raw_output = materialized
+            .raw_output
+            .as_deref()
+            .expect("completed worker should synthesize raw output");
+        assert!(raw_output.contains("Touched files: path_utils.py"), "{raw_output}");
+        assert!(
+            raw_output.contains("Verification: python3 -m unittest tests.test_path_utils -v (passed)"),
+            "{raw_output}"
         );
     }
 
@@ -7309,9 +7852,13 @@ mod tests {
             .expect("child state should exist");
         let mut child_state: AgentState =
             codec::from_bytes_canonical(&child_bytes).expect("child state should decode");
+        assert!(child_state.goal.contains(
+            "Patch the parser regression, run focused verification, and summarize the outcome."
+        ));
+        assert!(child_state.goal.contains(PARENT_PLAYBOOK_CONTEXT_MARKER));
         assert!(child_state
             .goal
-            .contains("run focused verification commands"));
+            .contains("- delegated_task_contract: Parent orchestration goal"));
 
         child_state.status = AgentStatus::Completed(Some(
             "Touched files: crates/services/src/parser.rs\nVerification: cargo test -p ioi-services parser_regression -- --nocapture (passed)\nResidual risk: broader parser edge cases still need coverage."
@@ -7575,6 +8122,8 @@ mod tests {
         .expect("verify merge should advance playbook");
         assert!(merged_verify.contains("Playbook: Targeted Test Audit (targeted_test_audit)"));
         assert!(merged_verify.contains("advanced to 'Synthesize final patch'"));
+        assert!(merged_verify.contains("Patch Synthesis Handoff (patch_synthesis_handoff)"));
+        assert!(merged_verify.contains("Parent playbook 'Evidence-Audited Patch' completed."));
 
         let run_after_verify =
             load_parent_playbook_run(&state, parent_state.session_id, "evidence_audited_patch")
@@ -7600,47 +8149,9 @@ mod tests {
         );
         assert_eq!(
             run_after_verify.steps[3].status,
-            ParentPlaybookStepStatus::Running
+            ParentPlaybookStepStatus::Completed
         );
-        let synth_id = run_after_verify
-            .active_child_session_id
-            .expect("synth child should be active");
-
-        let synth_key = get_state_key(&synth_id);
-        let synth_bytes = state
-            .get(&synth_key)
-            .expect("synth state lookup should succeed")
-            .expect("synth state should exist");
-        let mut synth_state: AgentState =
-            codec::from_bytes_canonical(&synth_bytes).expect("synth state should decode");
-        assert!(synth_state.goal.contains("final handoff"));
-        assert!(synth_state.goal.contains("coding_verification=passed"));
-        synth_state.status = AgentStatus::Completed(Some(
-            "- status: ready\n- touched_file_count: 2\n- verification_ready: yes\n- notes: Final handoff aligns the diff with the targeted verifier result."
-                .to_string(),
-        ));
-        persist_agent_state(
-            &mut state,
-            &synth_key,
-            &synth_state,
-            service.memory_runtime.as_ref(),
-        )
-        .expect("synth state update should persist");
-
-        let merged_synth = await_child_worker_result(
-            &service,
-            &mut state,
-            &mut parent_state,
-            6,
-            0,
-            &hex::encode(synth_id),
-        )
-        .await
-        .expect("synth merge should complete playbook");
-        assert!(
-            merged_synth.contains("Playbook: Patch Synthesis Handoff (patch_synthesis_handoff)")
-        );
-        assert!(merged_synth.contains("Parent playbook 'Evidence-Audited Patch' completed."));
+        assert!(run_after_verify.active_child_session_id.is_none());
 
         let final_run =
             load_parent_playbook_run(&state, parent_state.session_id, "evidence_audited_patch")
@@ -7872,39 +8383,32 @@ mod tests {
             load_parent_playbook_run(&state, parent_state.session_id, "evidence_audited_patch")
                 .expect("playbook run lookup should succeed")
                 .expect("playbook run should exist");
-        let verify_id = run_after_implement
-            .active_child_session_id
-            .expect("verify child should be active");
-        let verify_key = get_state_key(&verify_id);
-        let verify_bytes = state
-            .get(&verify_key)
-            .expect("verify state lookup should succeed")
-            .expect("verify state should exist");
-        let verify_state: AgentState =
-            codec::from_bytes_canonical(&verify_bytes).expect("verify state should decode");
-        assert!(verify_state.goal.contains("Touched files: path_utils.py"));
-        assert!(verify_state
-            .goal
-            .contains("Verification: python3 -m unittest tests.test_path_utils -v (passed)"));
-        let verify_result = match &verify_state.status {
-            AgentStatus::Completed(Some(result)) => result.as_str(),
-            other => panic!("expected verifier bootstrap completion, got {:?}", other),
-        };
-        assert!(verify_result.contains("- verdict: passed"));
-        assert!(verify_result.contains("- targeted_command_count: 1"));
-        assert!(verify_result.contains("- targeted_pass_count: 1"));
-
-        let merged_verify = await_child_worker_result(
-            &service,
-            &mut state,
-            &mut parent_state,
-            5,
-            0,
-            &hex::encode(verify_id),
-        )
-        .await
-        .expect("verify merge should advance playbook");
-        assert!(merged_verify.contains("advanced to 'Synthesize final patch'"));
+        assert_eq!(run_after_implement.status, ParentPlaybookStatus::Completed);
+        assert_eq!(
+            run_after_implement.steps[1].status,
+            ParentPlaybookStepStatus::Completed
+        );
+        assert_eq!(
+            run_after_implement.steps[2].status,
+            ParentPlaybookStepStatus::Completed
+        );
+        assert_eq!(
+            run_after_implement.steps[3].status,
+            ParentPlaybookStepStatus::Completed
+        );
+        assert!(run_after_implement.active_child_session_id.is_none());
+        assert!(
+            merged_implement.contains("Playbook: Targeted Test Audit (targeted_test_audit)"),
+            "{merged_implement}"
+        );
+        assert!(
+            merged_implement.contains("Playbook: Patch Synthesis Handoff (patch_synthesis_handoff)"),
+            "{merged_implement}"
+        );
+        assert!(
+            merged_implement.contains("Parent playbook 'Evidence-Audited Patch' completed."),
+            "{merged_implement}"
+        );
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -8104,6 +8608,136 @@ mod tests {
         );
         assert_eq!(final_run.steps[1].status, ParentPlaybookStepStatus::Running);
         assert!(final_run.completed_at_ms.is_none());
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn browser_postcondition_gate_surfaces_selected_skills_and_prep_summary() {
+        let (tx, mut rx) = tokio::sync::broadcast::channel(32);
+        let (service, _temp_dir) = build_test_service(tx);
+        let mut state = IAVLTree::new(HashCommitmentScheme::new());
+        let topic =
+            "Inspect the billing flow, identify the next safe UI action, and call out approval risk before acting.";
+        let preview_assignment = resolve_worker_assignment(
+            [0x90; 32],
+            7,
+            96,
+            topic,
+            Some("browser_postcondition_gate"),
+            Some("perception_worker"),
+            Some("ui_state_brief"),
+            None,
+            None,
+            None,
+            None,
+        );
+        let retrieval_anchor = format!(
+            "{} Prior note: reliable browser runs identify the active target and modal risk before clicking.",
+            preview_assignment.goal
+        );
+        seed_runtime_computer_use_skill(&service, &mut state, &preview_assignment.goal).await;
+        seed_runtime_fact(&service, &retrieval_anchor).await;
+
+        let mut parent_state = build_parent_state_with_goal(topic, 192);
+        let spawned = spawn_delegated_child_session(
+            &service,
+            &mut state,
+            &mut parent_state,
+            [0x91; 32],
+            topic,
+            160,
+            Some("browser_postcondition_gate"),
+            Some("perception_worker"),
+            Some("ui_state_brief"),
+            None,
+            None,
+            None,
+            None,
+            7,
+            0,
+        )
+        .await
+        .expect("computer-use perception step should spawn");
+        assert_eq!(
+            spawned.assignment.playbook_id.as_deref(),
+            Some("browser_postcondition_gate")
+        );
+        assert_eq!(
+            spawned.assignment.workflow_id.as_deref(),
+            Some("ui_state_brief")
+        );
+
+        let run = load_parent_playbook_run(
+            &state,
+            parent_state.session_id,
+            "browser_postcondition_gate",
+        )
+        .expect("browser playbook run lookup should succeed")
+        .expect("browser playbook run should exist");
+        assert_eq!(run.steps[0].status, ParentPlaybookStepStatus::Running);
+        assert!(run.steps[0]
+            .selected_skills
+            .iter()
+            .any(|skill| skill == "computer_use__ui_state_spine"));
+        assert!(run.steps[0]
+            .prep_summary
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|summary| !summary.is_empty()));
+
+        let mut saw_memory_receipt = false;
+        let mut saw_parent_started = false;
+        let mut saw_parent_step_spawn = false;
+        while let Ok(event) = rx.try_recv() {
+            if let KernelEvent::WorkloadReceipt(receipt_event) = event {
+                match receipt_event.receipt {
+                    WorkloadReceipt::MemoryRetrieve(receipt) => {
+                        assert_eq!(receipt.tool_name, "memory__search");
+                        saw_memory_receipt = true;
+                    }
+                    WorkloadReceipt::ParentPlaybook(receipt) => {
+                        if receipt.phase == "started" {
+                            assert_eq!(receipt.playbook_id, "browser_postcondition_gate");
+                            assert!(receipt
+                                .selected_skills
+                                .iter()
+                                .any(|skill| skill == "computer_use__ui_state_spine"));
+                            assert!(receipt
+                                .prep_summary
+                                .as_deref()
+                                .map(str::trim)
+                                .is_some_and(|summary| !summary.is_empty()));
+                            saw_parent_started = true;
+                        } else if receipt.phase == "step_spawned" {
+                            assert_eq!(receipt.playbook_id, "browser_postcondition_gate");
+                            assert!(receipt
+                                .selected_skills
+                                .iter()
+                                .any(|skill| skill == "computer_use__ui_state_spine"));
+                            assert!(receipt
+                                .prep_summary
+                                .as_deref()
+                                .map(str::trim)
+                                .is_some_and(|summary| !summary.is_empty()));
+                            saw_parent_step_spawn = true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        assert!(
+            saw_memory_receipt,
+            "computer-use prep should emit a memory receipt"
+        );
+        assert!(
+            saw_parent_started,
+            "started receipt should carry selected skills and prep summary"
+        );
+        assert!(
+            saw_parent_step_spawn,
+            "step_spawned receipt should carry selected skills and prep summary"
+        );
     }
 
     #[tokio::test(flavor = "current_thread")]
