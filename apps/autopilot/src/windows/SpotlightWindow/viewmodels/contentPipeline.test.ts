@@ -385,6 +385,7 @@ function thoughtSummaryTest(): void {
     presentation.thoughtSummary?.agents[0]?.agentRole,
     "Gather Sources",
   );
+  assert.equal(presentation.thoughtSummary?.agents[0]?.agentKind, "worker");
   assert.equal(
     presentation.thoughtSummary?.agents[0]?.notes[0],
     "Compare source agreement and provide concise answer.",
@@ -394,6 +395,7 @@ function thoughtSummaryTest(): void {
     presentation.thoughtSummary?.agents[1]?.agentRole,
     "Citation Audit",
   );
+  assert.equal(presentation.thoughtSummary?.agents[1]?.agentKind, "verifier");
 }
 
 function planSummaryCapturesTypedHierarchyTest(): void {
@@ -987,6 +989,103 @@ function planSummaryCarriesPrepContextFromCompletionOnlyReceipt(): void {
     presentation.planSummary?.prepSummary,
     "Prior note: keep the hero contrast crisp and the mobile CTA stack stable.",
   );
+}
+
+function planSummaryMergesPrepContextAcrossSplitReceipts(): void {
+  const spawnedRoute: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-research-split-prep-start",
+    step_index: 61,
+    event_type: "RECEIPT",
+    title: "Research route spawned",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__delegate",
+      phase: "step_spawned",
+      playbook_id: "citation_grounded_brief",
+      route_family: "research",
+      topology: "planner_specialist_verifier",
+      verifier_state: "queued",
+      selected_skills: ["research__benchmark_scorecard"],
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-research-split-prep",
+      step_label: "Research the topic",
+      workflow_id: "live_research_brief",
+      selected_skills: ["research__benchmark_scorecard"],
+      summary: "Spawned research step with skill selection only.",
+    },
+  };
+
+  const blockedRoute: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-research-split-prep-blocked",
+    step_index: 62,
+    event_type: "RECEIPT",
+    title: "Research route paused",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await_result",
+      phase: "blocked",
+      playbook_id: "citation_grounded_brief",
+      route_family: "research",
+      topology: "planner_specialist_verifier",
+      verifier_state: "queued",
+      prep_summary:
+        "Planner chose the benchmark scorecard skill before verifier handoff.",
+      status: "blocked",
+      success: false,
+    },
+    details: {
+      parent_session_id: "session-research-split-prep",
+      step_label: "Research the topic",
+      workflow_id: "live_research_brief",
+      prep_summary:
+        "Planner chose the benchmark scorecard skill before verifier handoff.",
+      summary: "Blocked receipt carried the remaining prep context.",
+    },
+  };
+
+  const presentation = buildRunPresentation([], [spawnedRoute, blockedRoute], []);
+
+  assert.ok(presentation.planSummary);
+  assert.deepEqual(presentation.planSummary?.selectedSkills, [
+    "research__benchmark_scorecard",
+  ]);
+  assert.equal(
+    presentation.planSummary?.prepSummary,
+    "Planner chose the benchmark scorecard skill before verifier handoff.",
+  );
+}
+
+function planSummaryKeepsUnknownNarrativeRouteGeneral(): void {
+  const unknownRoute: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-unknown-route-narrative",
+    step_index: 63,
+    event_type: "RECEIPT",
+    title: "Route step spawned",
+    digest: {
+      kind: "worker",
+      tool_name: "agent__delegate",
+      phase: "step_spawned",
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-unknown-route",
+      step_label: "Do work",
+      summary: "Collect source notes before a later judge call.",
+    },
+  };
+
+  const presentation = buildRunPresentation([], [unknownRoute], []);
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "general");
+  assert.equal(presentation.planSummary?.verifierState, "not_engaged");
 }
 
 function planSummaryCarriesResearchVerificationScorecard(): void {
@@ -1698,11 +1797,13 @@ planSummaryCarriesResearchPrepContext();
 planSummaryUsesBuiltinPlaybookContractWhenRouteFieldsAreMissing();
 planSummaryUsesBuiltinWorkflowContractWhenPlaybookFieldsAreMissing();
 planSummaryCarriesPrepContextFromCompletionOnlyReceipt();
+planSummaryMergesPrepContextAcrossSplitReceipts();
 planSummaryCarriesResearchVerificationScorecard();
 planSummaryCarriesCodingVerificationAndPatchSynthesis();
 planSummaryCarriesArtifactGenerationQualityAndRepair();
 planSummaryCarriesStageProgressAndPause();
 executionMomentsCaptureBranchApprovalAndVerification();
 executionMomentsShowArtifactVerifierWarning();
+planSummaryKeepsUnknownNarrativeRouteGeneral();
 chatContractParsingTest();
 invalidContractFallbackTest();

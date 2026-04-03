@@ -1,0 +1,29 @@
+{
+  "command": [
+    "/home/heathledger/Documents/ioi/repos/ioi/target/debug/cli",
+    "artifact",
+    "generate",
+    "Create an interactive HTML artifact for an AI tools editorial launch page",
+    "--output",
+    "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T04-45-01-629Z/ollama-openai/artifact-editorial-launch-page/artifact",
+    "--force",
+    "--local",
+    "--api-url",
+    "http://127.0.0.1:11434/v1/chat/completions",
+    "--api-key",
+    "ollama",
+    "--model-name",
+    "llama3.2:3b",
+    "--acceptance-api-url",
+    "http://127.0.0.1:11434/v1/chat/completions",
+    "--acceptance-api-key",
+    "ollama",
+    "--acceptance-model-name",
+    "qwen2.5:14b",
+    "--json"
+  ],
+  "exitStatus": 1,
+  "elapsedMs": 120103,
+  "timedOut": true,
+  "timeoutMs": 120000
+}

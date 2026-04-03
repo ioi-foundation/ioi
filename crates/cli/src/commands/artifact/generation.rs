@@ -119,6 +119,21 @@ async fn route_with_runtime(
         })
 }
 
+pub(super) fn select_generate_route_runtime(
+    production_runtime: &Arc<dyn InferenceRuntime>,
+    acceptance_runtime: &Arc<dyn InferenceRuntime>,
+) -> Arc<dyn InferenceRuntime> {
+    let production_provenance = production_runtime.studio_runtime_provenance();
+    let acceptance_provenance = acceptance_runtime.studio_runtime_provenance();
+    if production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        && acceptance_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        && !runtime_provenance_matches(&production_provenance, &acceptance_provenance)
+    {
+        return acceptance_runtime.clone();
+    }
+    production_runtime.clone()
+}
+
 pub(super) fn parse_selected_targets(
     selected_target_json: &[String],
 ) -> Result<Vec<StudioArtifactSelectionTarget>> {
@@ -238,11 +253,12 @@ pub(super) async fn run_generate(
         acceptance_model_name,
     )?;
     let acceptance_provenance = acceptance_runtime.studio_runtime_provenance();
+    let route_runtime = select_generate_route_runtime(&runtime, &acceptance_runtime);
     let selected_targets = parse_selected_targets(selected_target_json)?;
     let (refinement, refinement_context) =
         load_selected_refinement(refinement_path, selected_targets.as_slice())?;
     let route = match route_with_runtime(
-        runtime.clone(),
+        route_runtime,
         prompt,
         active_artifact_id,
         refinement_context.as_ref(),

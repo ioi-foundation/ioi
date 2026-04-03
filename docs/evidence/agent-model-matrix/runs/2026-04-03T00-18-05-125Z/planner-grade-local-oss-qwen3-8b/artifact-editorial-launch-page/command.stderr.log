@@ -1,0 +1,1 @@
+Error: Failed to generate Studio artifact bundle: Studio artifact generation did not produce a valid candidate. candidate-1: HTML iframe artifacts that wire focus-based detail behavior must make their data-detail marks keyboard-focusable.; repair attempt 1 failed: HTML iframe artifacts must contain a <main> region.

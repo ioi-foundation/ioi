@@ -1,0 +1,847 @@
+{
+  "benchmarkId": "coding-path-normalizer-fixture",
+  "caseId": "fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests",
+  "title": "Coding path normalizer fixture",
+  "workload": "coding",
+  "presetId": "planner-grade-local-oss",
+  "outcome": {
+    "case_id": "fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests",
+    "query": "Port the path-normalization parity fix into the repo at \"/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normalize_fixture_path` so it converts backslashes to forward slashes, collapses duplicate separators, and preserves a leading `./` or `/`. Run the focused verification command `python3 -m unittest tests.test_path_utils -v` first, widen only if needed, verify the final postcondition, and report the touched files plus command results.",
+    "expected_pass": true,
+    "observed_pass": false,
+    "completed": false,
+    "final_status": "Running",
+    "local": {
+      "pass": false,
+      "score": 0.25,
+      "checks": [
+        {
+          "name": "coding_fixture_receipts_present",
+          "passed": true,
+          "detail": "fixture_mode=coding_path_normalizer_fixture_v1 fixture_satisfied=true cleanup_satisfied=true"
+        },
+        {
+          "name": "coding_postconditions_hold",
+          "passed": false,
+          "detail": "targeted_exit=1 targeted_ok=false hidden_probe=./tmp/logs///latest.txt hidden_ok=false tests_unchanged=true source_mentions_function=true scope_satisfied=false"
+        },
+        {
+          "name": "coding_route_selected",
+          "passed": false,
+          "detail": "playbook=evidence_audited_patch route_family=coding topology=planner_specialist_verifier verifier_state=queued summary=Spawned 'Capture repo context' step for playbook 'Evidence-Audited Patch' with child 8cd8c897b04867eaef4c5005705003b75ac8dbbfc19038a06ecc8b7..."
+        },
+        {
+          "name": "coding_verifier_scorecard_passed",
+          "passed": false,
+          "detail": "missing coding scorecard"
+        },
+        {
+          "name": "coding_patch_synthesis_ready",
+          "passed": false,
+          "detail": "missing patch synthesis summary"
+        },
+        {
+          "name": "coding_targeted_command_recorded",
+          "passed": false,
+          "detail": "targeted_command_recorded=false executor_tools_present=false commands="
+        },
+        {
+          "name": "coding_cec_and_completion_present",
+          "passed": false,
+          "detail": "cec_phase_receipts_present=false completed=false failed=false final_status=Running"
+        },
+        {
+          "name": "coding_contract_failures_absent",
+          "passed": true,
+          "detail": "contract_failure=false action_error_classes=[] routing_failure_classes=[]"
+        }
+      ],
+      "failures": [
+        "coding_postconditions_hold",
+        "coding_route_selected",
+        "coding_verifier_scorecard_passed",
+        "coding_patch_synthesis_ready",
+        "coding_targeted_command_recorded",
+        "coding_cec_and_completion_present"
+      ]
+    },
+    "arbiter": {
+      "pass": false,
+      "confidence": "medium",
+      "rationale": "The local_judge checks indicate that the postconditions hold, route selection, verifier scorecard, patch synthesis readiness, targeted command recording, and CEC and completion presence are not satisfied. These failures prevent the completion of the query objective as specified in the success definition.",
+      "score": 0.25,
+      "failures": [
+        "coding_postconditions_hold",
+        "coding_route_selected",
+        "coding_verifier_scorecard_passed",
+        "coding_patch_synthesis_ready",
+        "coding_targeted_command_recorded",
+        "coding_cec_and_completion_present"
+      ]
+    }
+  },
+  "observation": {
+    "case_id": "fix_the_fixture_repo_path_normalizer_and_verify_the_targeted_tests",
+    "query": "Port the path-normalization parity fix into the repo at \"/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normalize_fixture_path` so it converts backslashes to forward slashes, collapses duplicate separators, and preserves a leading `./` or `/`. Run the focused verification command `python3 -m unittest tests.test_path_utils -v` first, widen only if needed, verify the final postcondition, and report the touched files plus command results.",
+    "run_timestamp_ms": 1775135277455,
+    "run_timestamp_iso_utc": "2026-04-02T13:07:57Z",
+    "elapsed_ms": 150005,
+    "completed": false,
+    "failed": false,
+    "final_status": "Running",
+    "terminal_pause_reason": "case_sla_timeout_waiting_for_step_completion elapsed_ms=150005 deadline_ms=150000 step_budget_ms=149903",
+    "terminal_failure_reason": null,
+    "final_reply": "",
+    "chat_reply_count": 0,
+    "action_tools": [],
+    "planned_tool_calls": [],
+    "routing_tools": [
+      "agent__delegate"
+    ],
+    "workload_tools": [
+      "agent__delegate",
+      "memory__search"
+    ],
+    "routing_policy_decisions": [
+      "allowed"
+    ],
+    "routing_failure_classes": [],
+    "routing_stop_condition_hits": 0,
+    "verification_checks": [
+      "awaiting_clarification=false",
+      "awaiting_sudo_password=false",
+      "env_receipt::coding_path_normalizer_cleanup_probe_source=harness.coding_path_normalizer_fixture.cleanup_probe",
+      "env_receipt::coding_path_normalizer_cleanup_satisfied=true",
+      "env_receipt::coding_path_normalizer_cleanup_timestamp_ms=1775135428285",
+      "env_receipt::coding_path_normalizer_fixture_mode=coding_path_normalizer_fixture_v1",
+      "env_receipt::coding_path_normalizer_fixture_probe_source=harness.coding_path_normalizer_fixture",
+      "env_receipt::coding_path_normalizer_fixture_satisfied=true",
+      "env_receipt::coding_path_normalizer_fixture_timestamp_ms=1775135277455",
+      "env_receipt::coding_path_normalizer_function_name=normalize_fixture_path",
+      "env_receipt::coding_path_normalizer_hidden_probe_command=python3 -c \"from path_utils import normalize_fixture_path; print(normalize_fixture_path('./tmp\\\\logs///latest.txt'))\"",
+      "env_receipt::coding_path_normalizer_hidden_probe_output=./tmp/logs///latest.txt",
+      "env_receipt::coding_path_normalizer_hidden_probe_output_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_hidden_probe_output_satisfied=false",
+      "env_receipt::coding_path_normalizer_hidden_probe_output_timestamp_ms=1775135428223",
+      "env_receipt::coding_path_normalizer_hidden_probe_runner=python3",
+      "env_receipt::coding_path_normalizer_hidden_probe_runner_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_hidden_probe_runner_satisfied=true",
+      "env_receipt::coding_path_normalizer_hidden_probe_runner_timestamp_ms=1775135428223",
+      "env_receipt::coding_path_normalizer_repo_root=/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture",
+      "env_receipt::coding_path_normalizer_scope_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_scope_satisfied=false",
+      "env_receipt::coding_path_normalizer_scope_timestamp_ms=1775135428223",
+      "env_receipt::coding_path_normalizer_source_file=/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture/path_utils.py",
+      "env_receipt::coding_path_normalizer_source_mentions_function_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_source_mentions_function_satisfied=true",
+      "env_receipt::coding_path_normalizer_source_mentions_function_timestamp_ms=1775135428223",
+      "env_receipt::coding_path_normalizer_targeted_test_command=python3 -m unittest tests.test_path_utils -v",
+      "env_receipt::coding_path_normalizer_targeted_test_runner=python3",
+      "env_receipt::coding_path_normalizer_targeted_test_runner_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_targeted_test_runner_satisfied=true",
+      "env_receipt::coding_path_normalizer_targeted_test_runner_timestamp_ms=1775135428223",
+      "env_receipt::coding_path_normalizer_targeted_tests_exit_code=1",
+      "env_receipt::coding_path_normalizer_targeted_tests_exit_code_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_targeted_tests_exit_code_satisfied=false",
+      "env_receipt::coding_path_normalizer_targeted_tests_exit_code_timestamp_ms=1775135428223",
+      "env_receipt::coding_path_normalizer_targeted_tests_stderr=test_collapses_duplicate_separators (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_duplicate_separators) ... FAIL test_collapses_mixed_duplicate_runs (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_mixed_dup...",
+      "env_receipt::coding_path_normalizer_targeted_tests_stderr_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_targeted_tests_stderr_satisfied=false",
+      "env_receipt::coding_path_normalizer_targeted_tests_stderr_timestamp_ms=1775135428223",
+      "env_receipt::coding_path_normalizer_targeted_tests_stdout=",
+      "env_receipt::coding_path_normalizer_targeted_tests_stdout_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_targeted_tests_stdout_satisfied=false",
+      "env_receipt::coding_path_normalizer_targeted_tests_stdout_timestamp_ms=1775135428223",
+      "env_receipt::coding_path_normalizer_test_file=/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture/tests/test_path_utils.py",
+      "env_receipt::coding_path_normalizer_tests_unchanged_probe_source=harness.coding_path_normalizer_fixture.fs_probe",
+      "env_receipt::coding_path_normalizer_tests_unchanged_satisfied=true",
+      "env_receipt::coding_path_normalizer_tests_unchanged_timestamp_ms=1775135428223",
+      "incident_active=false",
+      "policy_decision=allowed",
+      "remediation_queued=false",
+      "routing_reason_code=tool_first_default",
+      "routing_source_failure=None",
+      "routing_tier_matches_pre_state=true",
+      "routing_tier_selected=ToolFirst",
+      "stop_condition_hit=false",
+      "terminal_pause_reason=case_sla_timeout_waiting_for_step_completion elapsed_ms=150005 deadline_ms=150000 step_budget_ms=149903",
+      "was_gated=false",
+      "was_queue=true"
+    ],
+    "verification_facts": [
+      {
+        "key": "awaiting_clarification",
+        "value": "false"
+      },
+      {
+        "key": "awaiting_sudo_password",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_cleanup_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.cleanup_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_cleanup_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_cleanup_timestamp_ms",
+        "value": "1775135428285"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_fixture_mode",
+        "value": "coding_path_normalizer_fixture_v1"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_fixture_probe_source",
+        "value": "harness.coding_path_normalizer_fixture"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_fixture_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_fixture_timestamp_ms",
+        "value": "1775135277455"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_function_name",
+        "value": "normalize_fixture_path"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_command",
+        "value": "python3 -c \"from path_utils import normalize_fixture_path; print(normalize_fixture_path('./tmp\\\\logs///latest.txt'))\""
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_output",
+        "value": "./tmp/logs///latest.txt"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_output_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_output_satisfied",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_output_timestamp_ms",
+        "value": "1775135428223"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_runner",
+        "value": "python3"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_runner_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_runner_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_hidden_probe_runner_timestamp_ms",
+        "value": "1775135428223"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_repo_root",
+        "value": "/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_scope_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_scope_satisfied",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_scope_timestamp_ms",
+        "value": "1775135428223"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_source_file",
+        "value": "/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture/path_utils.py"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_source_mentions_function_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_source_mentions_function_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_source_mentions_function_timestamp_ms",
+        "value": "1775135428223"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_test_command",
+        "value": "python3 -m unittest tests.test_path_utils -v"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_test_runner",
+        "value": "python3"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_test_runner_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_test_runner_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_test_runner_timestamp_ms",
+        "value": "1775135428223"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_exit_code",
+        "value": "1"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_exit_code_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_exit_code_satisfied",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_exit_code_timestamp_ms",
+        "value": "1775135428223"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stderr",
+        "value": "test_collapses_duplicate_separators (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_duplicate_separators) ... FAIL test_collapses_mixed_duplicate_runs (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_mixed_dup..."
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stderr_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stderr_satisfied",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stderr_timestamp_ms",
+        "value": "1775135428223"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stdout",
+        "value": ""
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stdout_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stdout_satisfied",
+        "value": "false"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_targeted_tests_stdout_timestamp_ms",
+        "value": "1775135428223"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_test_file",
+        "value": "/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture/tests/test_path_utils.py"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_tests_unchanged_probe_source",
+        "value": "harness.coding_path_normalizer_fixture.fs_probe"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_tests_unchanged_satisfied",
+        "value": "true"
+      },
+      {
+        "key": "env_receipt::coding_path_normalizer_tests_unchanged_timestamp_ms",
+        "value": "1775135428223"
+      },
+      {
+        "key": "incident_active",
+        "value": "false"
+      },
+      {
+        "key": "policy_decision",
+        "value": "allowed"
+      },
+      {
+        "key": "remediation_queued",
+        "value": "false"
+      },
+      {
+        "key": "routing_reason_code",
+        "value": "tool_first_default"
+      },
+      {
+        "key": "routing_source_failure",
+        "value": "None"
+      },
+      {
+        "key": "routing_tier_matches_pre_state",
+        "value": "true"
+      },
+      {
+        "key": "routing_tier_selected",
+        "value": "ToolFirst"
+      },
+      {
+        "key": "stop_condition_hit",
+        "value": "false"
+      },
+      {
+        "key": "terminal_pause_reason",
+        "value": "case_sla_timeout_waiting_for_step_completion elapsed_ms=150005 deadline_ms=150000 step_budget_ms=149903"
+      },
+      {
+        "key": "was_gated",
+        "value": "false"
+      },
+      {
+        "key": "was_queue",
+        "value": "true"
+      }
+    ],
+    "approval_required_events": 0,
+    "parent_playbook_receipts": [
+      {
+        "tool_name": "agent__delegate",
+        "phase": "started",
+        "playbook_id": "evidence_audited_patch",
+        "playbook_label": "Evidence-Audited Patch",
+        "status": "running",
+        "success": true,
+        "route_family": "coding",
+        "topology": "planner_specialist_verifier",
+        "verifier_state": "queued",
+        "step_id": null,
+        "step_label": null,
+        "template_id": null,
+        "workflow_id": null,
+        "selected_skills": [],
+        "prep_summary": "Port the path-normalization parity fix into the repo at \"/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normal...",
+        "research_scorecard": null,
+        "coding_scorecard": null,
+        "patch_synthesis": null,
+        "summary": "Started parent playbook 'Evidence-Audited Patch' for topic 'Port the path-normalization parity fix into the repo at \"/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture\". Work inside that repo root, patch onl...",
+        "error_class": null
+      },
+      {
+        "tool_name": "agent__delegate",
+        "phase": "step_spawned",
+        "playbook_id": "evidence_audited_patch",
+        "playbook_label": "Evidence-Audited Patch",
+        "status": "running",
+        "success": true,
+        "route_family": "coding",
+        "topology": "planner_specialist_verifier",
+        "verifier_state": "queued",
+        "step_id": "context",
+        "step_label": "Capture repo context",
+        "template_id": "context_worker",
+        "workflow_id": "repo_context_brief",
+        "selected_skills": [],
+        "prep_summary": "Port the path-normalization parity fix into the repo at \"/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normal...",
+        "research_scorecard": null,
+        "coding_scorecard": null,
+        "patch_synthesis": null,
+        "summary": "Spawned 'Capture repo context' step for playbook 'Evidence-Audited Patch' with child 8cd8c897b04867eaef4c5005705003b75ac8dbbfc19038a06ecc8b7392ee3213.",
+        "error_class": null
+      }
+    ],
+    "action_evidence": [],
+    "action_error_classes": [],
+    "command_history_evidence": [],
+    "cec_receipts": [
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_prepare_tool",
+        "satisfied": true,
+        "timestamp_ms": 1775135278222,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":1,\"finished_at_ms\":1775135278222,\"foreground_window_bound\":true,\"started_at_ms\":1775135278221,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"Custom(\\\"agent__delegate\\\")\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_determinism_context",
+        "satisfied": true,
+        "timestamp_ms": 1775135278225,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":2,\"finished_at_ms\":1775135278225,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"Custom(\\\"agent__delegate\\\")\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1775135278223,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "policy_hash_binding",
+        "satisfied": true,
+        "timestamp_ms": 1775135278225,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "capability_lease",
+        "satisfied": true,
+        "timestamp_ms": 1775135278225,
+        "probe_source": "workload_spec.evaluate_lease.v1",
+        "observed_value": "target=agent__delegate;runtime_target=control_plane;net_mode=disabled",
+        "evidence_type": "scalar",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "firewall_decision_receipt",
+        "satisfied": true,
+        "timestamp_ms": 1775135278245,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "determinism_commit",
+        "satisfied": true,
+        "timestamp_ms": 1775135278246,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_policy_gate",
+        "satisfied": true,
+        "timestamp_ms": 1775135278246,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":20,\"finished_at_ms\":1775135278246,\"net_mode\":\"disabled\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1775135278226,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_prepare_tool",
+        "satisfied": true,
+        "timestamp_ms": 1775135278317,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":1,\"finished_at_ms\":1775135278317,\"foreground_window_bound\":true,\"started_at_ms\":1775135278316,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"Custom(\\\"agent__await_result\\\")\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_determinism_context",
+        "satisfied": true,
+        "timestamp_ms": 1775135278320,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":2,\"finished_at_ms\":1775135278320,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"Custom(\\\"agent__await_result\\\")\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1775135278318,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "policy_hash_binding",
+        "satisfied": true,
+        "timestamp_ms": 1775135278320,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "capability_lease",
+        "satisfied": true,
+        "timestamp_ms": 1775135278320,
+        "probe_source": "workload_spec.evaluate_lease.v1",
+        "observed_value": "target=agent__await_result;runtime_target=control_plane;net_mode=disabled",
+        "evidence_type": "scalar",
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "firewall_decision_receipt",
+        "satisfied": true,
+        "timestamp_ms": 1775135278341,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "determinism_commit",
+        "satisfied": true,
+        "timestamp_ms": 1775135278341,
+        "probe_source": null,
+        "observed_value": null,
+        "evidence_type": null,
+        "provider_id": null
+      },
+      {
+        "contract_version": "cec.v0.4",
+        "stage": "execution",
+        "key": "service_policy_gate",
+        "satisfied": true,
+        "timestamp_ms": 1775135278341,
+        "probe_source": "service_action_execution",
+        "observed_value": "{\"elapsed_ms\":21,\"finished_at_ms\":1775135278341,\"net_mode\":\"disabled\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1775135278320,\"status\":\"completed\"}",
+        "evidence_type": "json",
+        "provider_id": null
+      }
+    ],
+    "intent_resolution_evidence": [],
+    "environment_receipts": [
+      {
+        "key": "coding_path_normalizer_fixture_mode",
+        "observed_values": [
+          "coding_path_normalizer_fixture_v1"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_repo_root",
+        "observed_values": [
+          "/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_source_file",
+        "observed_values": [
+          "/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture/path_utils.py"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_test_file",
+        "observed_values": [
+          "/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture/tests/test_path_utils.py"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_function_name",
+        "observed_values": [
+          "normalize_fixture_path"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_targeted_test_command",
+        "observed_values": [
+          "python3 -m unittest tests.test_path_utils -v"
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_hidden_probe_command",
+        "observed_values": [
+          "python3 -c \"from path_utils import normalize_fixture_path; print(normalize_fixture_path('./tmp\\\\logs///latest.txt'))\""
+        ],
+        "probe_source": null,
+        "timestamp_ms": null,
+        "satisfied": null
+      },
+      {
+        "key": "coding_path_normalizer_fixture",
+        "observed_values": [],
+        "probe_source": "harness.coding_path_normalizer_fixture",
+        "timestamp_ms": 1775135277455,
+        "satisfied": true
+      },
+      {
+        "key": "coding_path_normalizer_targeted_test_runner",
+        "observed_values": [
+          "python3"
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1775135428223,
+        "satisfied": true
+      },
+      {
+        "key": "coding_path_normalizer_targeted_tests_exit_code",
+        "observed_values": [
+          "1"
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1775135428223,
+        "satisfied": false
+      },
+      {
+        "key": "coding_path_normalizer_targeted_tests_stdout",
+        "observed_values": [
+          ""
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1775135428223,
+        "satisfied": false
+      },
+      {
+        "key": "coding_path_normalizer_targeted_tests_stderr",
+        "observed_values": [
+          "test_collapses_duplicate_separators (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_duplicate_separators) ... FAIL test_collapses_mixed_duplicate_runs (tests.test_path_utils.NormalizeFixturePathTests.test_collapses_mixed_dup..."
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1775135428223,
+        "satisfied": false
+      },
+      {
+        "key": "coding_path_normalizer_hidden_probe_runner",
+        "observed_values": [
+          "python3"
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1775135428223,
+        "satisfied": true
+      },
+      {
+        "key": "coding_path_normalizer_hidden_probe_output",
+        "observed_values": [
+          "./tmp/logs///latest.txt"
+        ],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1775135428223,
+        "satisfied": false
+      },
+      {
+        "key": "coding_path_normalizer_tests_unchanged",
+        "observed_values": [],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1775135428223,
+        "satisfied": true
+      },
+      {
+        "key": "coding_path_normalizer_source_mentions_function",
+        "observed_values": [],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1775135428223,
+        "satisfied": true
+      },
+      {
+        "key": "coding_path_normalizer_scope",
+        "observed_values": [],
+        "probe_source": "harness.coding_path_normalizer_fixture.fs_probe",
+        "timestamp_ms": 1775135428223,
+        "satisfied": false
+      },
+      {
+        "key": "coding_path_normalizer_cleanup",
+        "observed_values": [],
+        "probe_source": "harness.coding_path_normalizer_fixture.cleanup_probe",
+        "timestamp_ms": 1775135428285,
+        "satisfied": true
+      }
+    ],
+    "web": null,
+    "screenshot": null,
+    "mail": null,
+    "google": null,
+    "event_excerpt": [
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"work...",
+      "workload other",
+      "workload other",
+      "workload other",
+      "event(other) payload=AgentSpawn { parent_session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], new_session_id: [140, 216, 200, 151, 176, 72, 103, 234, 239, 76, 80, 5, 112, 80, 3, 183, 90, 200, ...",
+      "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0...",
+      "routing tool=agent__delegate decision=allowed success=true checks=incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,was_queue=true,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=N...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"work...",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"work...",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([140, 216, 200, 151, 176, 72, 103, 234, 239, 76, 80, 5, 112, 80, 3, 183, 90, 200, 219, 191, 193, 144, 56, 160, 110, 204, 139, 115, 146, 238, 50, 19]), target: \"cloud_inference::intent_resolver::inference.execute_infere...",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([140, 216, 200, 151, 176, 72, 103, 234, 239, 76, 80, 5, 112, 80, 3, 183, 90, 200, 219, 191, 193, 144, 56, 160, 110, 204, 139, 115, 146, 238, 50, 19]), target: \"cloud_inference::intent_resolver::inference.execute_infere..."
+    ],
+    "kernel_event_count": 22,
+    "kernel_log_lines": [
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1775135278222, evidence_commit_hash: \"sha256:34da2ad04ae4ce98d32d9770b20b73429f881b6acf5c55f285c3da16bd280613\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":1,\\\"finished_at_ms\\\":1775135278222,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1775135278221,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"Custom(\\\\\\\"agent__delegate\\\\\\\")\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1775135278225, evidence_commit_hash: \"sha256:7c58bcc9744eb7bfa62466992778d4035e6ee444c11e8435e01de32baedd25b8\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":2,\\\"finished_at_ms\\\":1775135278225,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"Custom(\\\\\\\"agent__delegate\\\\\\\")\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1775135278223,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"policy_hash_binding\", satisfied: true, timestamp_ms: 1775135278225, evidence_commit_hash: \"sha256:51768c924f1a71489f30eac7a7651cc65b00b6d45d21ddbc3b6e16e9474d69e9\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"capability_lease\", satisfied: true, timestamp_ms: 1775135278225, evidence_commit_hash: \"sha256:d35a99e6b66da06c902dd45440792c9070d15a01474d89ede6d9ef1e25d5bccf\", verifier_command_commit_hash: None, probe_source: Some(\"workload_spec.evaluate_lease.v1\"), observed_value: Some(\"target=agent__delegate;runtime_target=control_plane;net_mode=disabled\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"firewall_decision_receipt\", satisfied: true, timestamp_ms: 1775135278245, evidence_commit_hash: \"sha256:b51971c369b2bf33b5952ef368fd1a67aa83358be2e05478ce3f05f2e2a26648\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"determinism_commit\", satisfied: true, timestamp_ms: 1775135278246, evidence_commit_hash: \"sha256:93820ab07a6c1d03db8eff490b4c7394e0123bfbead6d74564c1d9c4732f2d0b\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_policy_gate\", satisfied: true, timestamp_ms: 1775135278246, evidence_commit_hash: \"sha256:2f9577f88fc6bb19193795a29e9d9d839fd9ad31718d5ea0d8a8db66d7a74085\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":20,\\\"finished_at_ms\\\":1775135278246,\\\"net_mode\\\":\\\"disabled\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1775135278226,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "workload other",
+      "workload other",
+      "workload other",
+      "event(other) payload=AgentSpawn { parent_session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], new_session_id: [140, 216, 200, 151, 176, 72, 103, 234, 239, 76, 80, 5, 112, 80, 3, 183, 90, 200, 219, 191, 193, 144, 56, 160, 110, 204, 139, 115, 146, 238, 50, 19], name: \"Context-Worker-8cd8\", role: \"Context Worker\", budget: 48, goal: \"Inspect repo context for Port the path-normalization parity fix into the repo at \\\"/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture\\\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normalize_fixture_path` so it converts backslashes to forward slashes, collapses duplicate separators, and preserves a leading `./` or `/`. Run the focused verification command `python3 -m unittest tests.test_path_utils -v` first, widen only if needed, verify the final postcondition, and report the touched files plus command results, identify the most relevant files and skills, then return a bounded context brief with targeted validation suggestions and open questions.\\n\\n[PARENT PLAYBOOK CONTEXT]\\n- prep_summary: Port the path-normalization parity fix into the repo at \\\"/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture\\\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normal...\" }",
+      "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Macro Step] Executing queued action\", raw_output: \"{\\\"budget\\\":48,\\\"child_session_id_hex\\\":\\\"8cd8c897b04867eaef4c5005705003b75ac8dbbfc19038a06ecc8b7392ee3213\\\",\\\"expected_output\\\":\\\"Repo context brief with likely files, skill cues, targeted checks, and open questions.\\\",\\\"merge_mode\\\":\\\"append_as_evidence\\\",\\\"playbook_id\\\":\\\"evidence_audited_patch\\\",\\\"role\\\":\\\"Context Worker\\\",\\\"success_criteria\\\":\\\"Return a deterministic repo context brief with likely files, selected skills, targeted verification ideas, and explicit unknowns.\\\",\\\"template_id\\\":\\\"context_worker\\\",\\\"workflow_id\\\":\\\"repo_context_brief\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1775135278 })",
+      "routing tool=agent__delegate decision=allowed success=true checks=incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,was_queue=true,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1775135278317, evidence_commit_hash: \"sha256:6267ad2a38ef3efc4252da2a340ac076416a4f305e95bcca28e86ffd0e8a10d0\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":1,\\\"finished_at_ms\\\":1775135278317,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1775135278316,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"Custom(\\\\\\\"agent__await_result\\\\\\\")\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1775135278320, evidence_commit_hash: \"sha256:83969ab39875b0cef4b2ab077fd2456772a1521e0704b4e2a3611b1bbe6211e7\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":2,\\\"finished_at_ms\\\":1775135278320,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"Custom(\\\\\\\"agent__await_result\\\\\\\")\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1775135278318,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"policy_hash_binding\", satisfied: true, timestamp_ms: 1775135278320, evidence_commit_hash: \"sha256:6bb7d430f68867905b77275ecb48d534a4328592b55ac976d69fd0771a30a90a\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"capability_lease\", satisfied: true, timestamp_ms: 1775135278320, evidence_commit_hash: \"sha256:6bef8a526e9dce56b17f1e9d2fae875ad7c902cb0d3857386e28ffd68697d5b1\", verifier_command_commit_hash: None, probe_source: Some(\"workload_spec.evaluate_lease.v1\"), observed_value: Some(\"target=agent__await_result;runtime_target=control_plane;net_mode=disabled\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"firewall_decision_receipt\", satisfied: true, timestamp_ms: 1775135278341, evidence_commit_hash: \"sha256:f32a9ec65d03b8e31a10ecf57b30781f6b619218521611b9709c2da1893a614d\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"determinism_commit\", satisfied: true, timestamp_ms: 1775135278341, evidence_commit_hash: \"sha256:09eb81a9e92452bde9cbe43da8cda6f5e29ad00fa99f524d18c1f4801f0f9808\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"workspace.ops\", stage: \"execution\", key: \"service_policy_gate\", satisfied: true, timestamp_ms: 1775135278341, evidence_commit_hash: \"sha256:5411d9a60ea34a6a2d83d02723dfcd53ce428b4374e1598c58b62231c3dd5727\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":21,\\\"finished_at_ms\\\":1775135278341,\\\"net_mode\\\":\\\"disabled\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1775135278320,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([140, 216, 200, 151, 176, 72, 103, 234, 239, 76, 80, 5, 112, 80, 3, 183, 90, 200, 219, 191, 193, 144, 56, 160, 110, 204, 139, 115, 146, 238, 50, 19]), target: \"cloud_inference::intent_resolver::inference.execute_inference\", target_id: Some(CloudInference { provider: \"intent_resolver\", model: \"inference.execute_inference\" }), risk_surface: \"egress\", decision_hash: [173, 167, 76, 181, 241, 161, 150, 37, 195, 164, 131, 250, 73, 32, 60, 144, 69, 140, 148, 41, 57, 112, 228, 9, 53, 64, 222, 105, 240, 179, 119, 58], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [246, 199, 216, 191, 71, 39, 209, 232, 213, 134, 208, 30, 53, 89, 24, 189, 188, 161, 26, 246, 239, 86, 232, 246, 207, 200, 152, 163, 46, 106, 160, 230], assist_output_graph_hash: [246, 199, 216, 191, 71, 39, 209, 232, 213, 134, 208, 30, 53, 89, 24, 189, 188, 161, 26, 246, 239, 86, 232, 246, 207, 200, 152, 163, 46, 106, 160, 230] })",
+      "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([140, 216, 200, 151, 176, 72, 103, 234, 239, 76, 80, 5, 112, 80, 3, 183, 90, 200, 219, 191, 193, 144, 56, 160, 110, 204, 139, 115, 146, 238, 50, 19]), target: \"cloud_inference::intent_resolver::inference.execute_inference\", target_id: Some(CloudInference { provider: \"intent_resolver\", model: \"inference.execute_inference\" }), risk_surface: \"egress\", decision_hash: [214, 43, 93, 152, 85, 78, 161, 118, 208, 231, 245, 143, 70, 79, 182, 121, 228, 1, 79, 140, 139, 240, 20, 124, 82, 211, 191, 100, 144, 172, 195, 152], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [177, 201, 80, 35, 179, 114, 75, 107, 209, 109, 84, 3, 131, 215, 151, 178, 138, 125, 162, 72, 249, 166, 104, 25, 246, 155, 231, 10, 90, 205, 185, 176], assist_output_graph_hash: [177, 201, 80, 35, 179, 114, 75, 107, 209, 109, 84, 3, 131, 215, 151, 178, 138, 125, 162, 72, 249, 166, 104, 25, 246, 155, 231, 10, 90, 205, 185, 176] })"
+    ]
+  },
+  "suiteSummary": null,
+  "playbook": {
+    "tool_name": "agent__delegate",
+    "phase": "step_spawned",
+    "playbook_id": "evidence_audited_patch",
+    "playbook_label": "Evidence-Audited Patch",
+    "status": "running",
+    "success": true,
+    "route_family": "coding",
+    "topology": "planner_specialist_verifier",
+    "verifier_state": "queued",
+    "step_id": "context",
+    "step_label": "Capture repo context",
+    "template_id": "context_worker",
+    "workflow_id": "repo_context_brief",
+    "selected_skills": [],
+    "prep_summary": "Port the path-normalization parity fix into the repo at \"/tmp/.tmpUGJyXq/ioi_coding_path_normalizer_1775135277455001/path-normalizer-fixture\". Work inside that repo root, patch only `path_utils.py`, and keep `tests/test_path_utils.py` unchanged. Update `normal...",
+    "research_scorecard": null,
+    "coding_scorecard": null,
+    "patch_synthesis": null,
+    "summary": "Spawned 'Capture repo context' step for playbook 'Evidence-Audited Patch' with child 8cd8c897b04867eaef4c5005705003b75ac8dbbfc19038a06ecc8b7392ee3213.",
+    "error_class": null
+  }
+}

@@ -99,6 +99,13 @@ pub(crate) async fn attempt_refusal_repair(
         .iter()
         .map(|tool| tool.name.clone())
         .collect::<BTreeSet<_>>();
+    let deterministic_allowed_tool_names = patch_build_verify_deterministic_allowed_tool_names(
+        agent_state,
+        worker_assignment.as_ref(),
+        &allowed_tool_names,
+        &mut verification_checks,
+        "refusal_repair",
+    );
     verification_checks.push("refusal_repair_attempted=true".to_string());
     verification_checks.push(format!(
         "refusal_repair_tool_count={}",
@@ -131,6 +138,29 @@ pub(crate) async fn attempt_refusal_repair(
             repaired_tool: Some(repaired_tool),
             verification_checks,
         });
+    }
+
+    if let Some(outcome) = attempt_patch_build_verify_deterministic_edit_repair(
+        agent_state,
+        worker_assignment.as_ref(),
+        &deterministic_allowed_tool_names,
+        refusal_reason,
+        &mut verification_checks,
+    )
+    .await?
+    {
+        if let DeterministicEditRepairValidation::Accepted(repaired_tool) = outcome {
+            verification_checks.push("refusal_repair_succeeded=true".to_string());
+            verification_checks.push(format!(
+                "refusal_repair_tool={}",
+                repaired_tool.name_string()
+            ));
+            verification_checks.push("refusal_repair_runtime=deterministic".to_string());
+            return Ok(InvalidToolRepairAttempt {
+                repaired_tool: Some(repaired_tool),
+                verification_checks,
+            });
+        }
     }
 
     if let Some(repaired_tool) = attempt_patch_build_verify_refusal_edit_repair(
@@ -2223,15 +2253,21 @@ fn synthesize_patch_build_verify_targeted_exec_repair(
     raw_tool_output: &str,
     verification_checks: &mut Vec<String>,
 ) -> Option<AgentTool> {
-    let command_retry_ready_after_edit = worker_assignment
-        .and_then(|assignment| {
-            (assignment.workflow_id.as_deref().map(str::trim) == Some("patch_build_verify"))
-                .then_some(assignment)
-        })
-        .and_then(|assignment| first_goal_command_literal(&assignment.goal))
-        .map(|command| goal_command_retry_ready_after_workspace_edit(agent_state, &command))
-        .unwrap_or(false);
-    if !command_retry_ready_after_edit && !looks_like_planning_restatement(raw_tool_output) {
+    let assignment = worker_assignment.and_then(|assignment| {
+        (assignment.workflow_id.as_deref().map(str::trim) == Some("patch_build_verify"))
+            .then_some(assignment)
+    })?;
+    let command_literal = first_goal_command_literal(&assignment.goal)?;
+    let command_already_ran = command_history_contains_goal_command(agent_state, &command_literal);
+    let command_retry_ready_after_edit =
+        goal_command_retry_ready_after_workspace_edit(agent_state, &command_literal);
+    let initial_targeted_command_due = !command_already_ran
+        && matches!(latest_failure, Some(FailureClass::NoEffectAfterAction))
+        && matches!(effective_failure, Some(FailureClass::NoEffectAfterAction));
+    if !command_retry_ready_after_edit
+        && !initial_targeted_command_due
+        && !looks_like_planning_restatement(raw_tool_output)
+    {
         return None;
     }
 
@@ -4691,6 +4727,84 @@ mod tests {
             .verification_checks
             .iter()
             .any(|check| { check == "invalid_tool_call_repair_runtime=deterministic" }));
+        assert_eq!(
+            runtime
+                .seen_inputs
+                .lock()
+                .expect("seen_inputs mutex poisoned")
+                .len(),
+            0
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn patch_build_verify_invalid_tool_repair_synthesizes_targeted_exec_after_initial_duplicate_read_guidance(
+    ) {
+        let runtime = Arc::new(RepairRecordingRuntime::default());
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let service = DesktopAgentService::new_hybrid(
+            gui,
+            Arc::new(TerminalDriver::new()),
+            Arc::new(BrowserDriver::new()),
+            runtime.clone(),
+            runtime.clone(),
+        );
+
+        let mut state = IAVLTree::new(HashCommitmentScheme::new());
+        let session_id = [0x54; 32];
+        let key = get_state_key(&session_id);
+        let mut worker_state = build_worker_state(session_id);
+        worker_state.working_directory = ".".to_string();
+        worker_state.recent_actions = vec!["attempt::NoEffectAfterAction::first".to_string()];
+        state
+            .insert(
+                &key,
+                &codec::to_bytes_canonical(&worker_state).expect("encode worker state"),
+            )
+            .expect("insert worker state");
+        persist_worker_assignment(
+            &mut state,
+            session_id,
+            &patch_assignment_with_path_parity_goal(),
+        )
+        .expect("persist worker assignment");
+
+        let repair = attempt_invalid_tool_call_repair(
+            &service,
+            &mut state,
+            &worker_state,
+            session_id,
+            r#"{"arguments":{"content":"tool: def normalize_fixture_path(raw_path: str) -> str:\n return raw_path.strip().replace(\"\\\\\", \"/\")","line_number":"0","path":"path_utils.py"},"name":"filesystem__edit_line"}"#,
+            "Failed to parse tool call: filesystem__edit_line requires integer 'line_number' (or alias 'line')",
+        )
+        .await
+        .expect("repair attempt should succeed");
+
+        match repair.repaired_tool.expect("expected repaired tool") {
+            AgentTool::SysExecSession {
+                command,
+                args,
+                stdin,
+            } => {
+                assert_eq!(command, "bash");
+                assert_eq!(
+                    args,
+                    vec![
+                        "-lc".to_string(),
+                        "python3 -m unittest tests.test_path_utils -v".to_string()
+                    ]
+                );
+                assert_eq!(stdin, None);
+            }
+            other => panic!("expected sys__exec_session, got {:?}", other),
+        }
+        assert!(repair.verification_checks.iter().any(|check| {
+            check == "invalid_tool_call_repair_deterministic_recovery=targeted_exec"
+        }));
+        assert!(repair
+            .verification_checks
+            .iter()
+            .any(|check| check == "invalid_tool_call_repair_runtime=deterministic"));
         assert_eq!(
             runtime
                 .seen_inputs
@@ -7806,6 +7920,103 @@ mod tests {
             .verification_checks
             .iter()
             .any(|check| check == "refusal_repair_skipped=no_deterministic_followup"));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn refusal_repair_uses_goal_snapshot_write_after_command_failure() {
+        let fast_runtime = Arc::new(RepairRecordingRuntime::default());
+        let reasoning_runtime = Arc::new(RepairRecordingRuntime::default());
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        let service = DesktopAgentService::new_hybrid(
+            gui,
+            Arc::new(TerminalDriver::new()),
+            Arc::new(BrowserDriver::new()),
+            fast_runtime.clone(),
+            reasoning_runtime.clone(),
+        );
+
+        let repo = tempdir().expect("tempdir should succeed");
+        let path_utils = repo.path().join("path_utils.py");
+        let original = concat!(
+            "def normalize_fixture_path(raw_path: str) -> str:\n",
+            "    \"\"\"Normalize a repo-relative path coming from mixed slash inputs.\"\"\"\n",
+            "    return raw_path.strip().replace(\"\\\\\", \"/\")\n"
+        );
+        fs::write(&path_utils, original).expect("write fixture source");
+
+        let mut state = IAVLTree::new(HashCommitmentScheme::new());
+        let session_id = [0x6a; 32];
+        let key = get_state_key(&session_id);
+        let mut worker_state = build_worker_state(session_id);
+        worker_state.working_directory = repo.path().to_string_lossy().to_string();
+        record_targeted_check_failure(&mut worker_state);
+        state
+            .insert(
+                &key,
+                &codec::to_bytes_canonical(&worker_state).expect("encode worker state"),
+            )
+            .expect("insert worker state");
+        persist_worker_assignment(
+            &mut state,
+            session_id,
+            &patch_assignment_with_path_parity_goal(),
+        )
+        .expect("persist worker assignment");
+
+        let repair = attempt_refusal_repair(
+            &service,
+            &mut state,
+            &worker_state,
+            session_id,
+            "Empty content (reason: stop)",
+        )
+        .await
+        .expect("refusal repair should complete");
+
+        match repair.repaired_tool.expect("expected repaired tool") {
+            AgentTool::FsWrite {
+                path,
+                content,
+                line_number,
+            } => {
+                assert_eq!(path, "path_utils.py");
+                assert_eq!(line_number, None);
+                assert!(content.contains("while \"//\" in normalized"));
+                assert!(content.contains("prefix = \"./\""));
+            }
+            other => panic!("expected filesystem__write_file, got {:?}", other),
+        }
+        assert!(repair
+            .verification_checks
+            .iter()
+            .any(|check| check == "refusal_repair_succeeded=true"));
+        assert!(repair
+            .verification_checks
+            .iter()
+            .any(|check| check == "refusal_repair_runtime=deterministic"));
+        assert!(repair.verification_checks.iter().any(|check| {
+            check == "invalid_tool_call_repair_deterministic_source=goal_constrained_snapshot"
+        }));
+        assert!(repair.verification_checks.iter().any(|check| {
+            check
+                == "invalid_tool_call_repair_deterministic_recovery=goal_constrained_snapshot_write"
+        }));
+        assert_eq!(
+            fast_runtime
+                .seen_inputs
+                .lock()
+                .expect("seen_inputs mutex poisoned")
+                .len(),
+            0
+        );
+        assert_eq!(
+            reasoning_runtime
+                .seen_inputs
+                .lock()
+                .expect("seen_inputs mutex poisoned")
+                .len(),
+            0
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]

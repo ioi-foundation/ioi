@@ -1,0 +1,1 @@
+Error: Failed to generate Studio artifact bundle: Studio artifact generation did not produce a valid candidate. candidate-1: HTML iframe artifacts that include shared detail or comparison regions must populate them on first paint.; repair attempt 1 failed: HTML iframe artifacts that include shared detail or comparison regions must populate them on first paint.

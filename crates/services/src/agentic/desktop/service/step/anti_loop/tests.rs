@@ -1,9 +1,15 @@
 use super::*;
+use crate::agentic::desktop::keys::get_state_key;
 use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier,
 };
+use ioi_api::state::StateAccess;
+use ioi_state::primitives::hash::HashCommitmentScheme;
+use ioi_state::tree::iavl::IAVLTree;
+use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
 use ioi_types::app::RoutingFailureClass;
+use ioi_types::codec;
 use std::collections::BTreeMap;
 
 fn test_agent_state() -> AgentState {
@@ -310,6 +316,63 @@ fn attempt_window_fingerprint_is_stable_for_command_scope_and_no_effect_failures
     let retained_window =
         canonical_attempt_window_fingerprint(FailureClass::TargetNotFound, false, Some("abcd1234"));
     assert_eq!(retained_window, Some("abcd1234".to_string()));
+}
+
+#[test]
+fn specialized_attempt_target_id_tracks_awaited_child_progress() {
+    let child_session_id = [0x44; 32];
+    let child_key = get_state_key(&child_session_id);
+    let await_tool = AgentTool::AgentAwait {
+        child_session_id_hex: hex::encode(child_session_id),
+    };
+    let await_tool_jcs =
+        serde_json::to_vec(&await_tool).expect("agent__await_result tool should encode");
+
+    let mut state = IAVLTree::new(HashCommitmentScheme::new());
+    let mut child_state = test_agent_state();
+    child_state.session_id = child_session_id;
+    child_state.step_count = 1;
+    child_state.status = AgentStatus::Running;
+    state
+        .insert(
+            &child_key,
+            &codec::to_bytes_canonical(&child_state).expect("child state should encode"),
+        )
+        .expect("child state insert should succeed");
+
+    let first = specialized_attempt_target_id(
+        &state,
+        None,
+        "agent__await_result",
+        Some(&await_tool_jcs),
+    )
+    .expect("await target should be fingerprinted");
+    assert_eq!(
+        first,
+        format!("await_child={};step=1;status=running", hex::encode(child_session_id))
+    );
+
+    child_state.step_count = 2;
+    child_state.status = AgentStatus::Paused("Retry blocked".to_string());
+    state
+        .insert(
+            &child_key,
+            &codec::to_bytes_canonical(&child_state).expect("child state should re-encode"),
+        )
+        .expect("child state update should succeed");
+
+    let second = specialized_attempt_target_id(
+        &state,
+        None,
+        "agent__await_result",
+        Some(&await_tool_jcs),
+    )
+    .expect("await target should update");
+    assert_eq!(
+        second,
+        format!("await_child={};step=2;status=paused", hex::encode(child_session_id))
+    );
+    assert_ne!(first, second);
 }
 
 #[test]

@@ -159,6 +159,7 @@ Resolver logic MUST NOT:
 - fallback to lower-ranked intents dynamically based on downstream execution failures.
 - introduce domain-named or provider-named ontology symbols to avoid proper structural modeling.
 - emit provider IDs, provider orderings, or provider-family hints directly from query interpretation.
+- emit model IDs, model families, or downstream execution-policy exceptions directly from query interpretation; concrete model choice belongs to explicit preset/lane policy outside semantic ranking.
 - let provider availability or adapter presence alter semantic ranking scores.
 
 ### 5.3 Allowed Patterns
@@ -167,6 +168,7 @@ Resolver logic MAY:
 - include deterministic post-ranking feasibility filtering.
 - produce typed structural retrieval requirements after intent selection, provided those outputs are provider-agnostic.
 - use connector/provider registries that map tools to provider families and expose discovery-backed provider candidates, provided those registries are query-agnostic and versioned.
+- consume explicit, query-agnostic preset or lane policy after intent selection, provided that policy is versioned and does not change semantic ranking or inject model-family shortcuts into query interpretation.
 
 ## 6. Determinism and Replayability
 Resolver receipts MUST commit to model and policy state so selection is replayable.

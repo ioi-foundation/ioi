@@ -138,7 +138,9 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
         {
             judge.issue_classes.push("render_eval".to_string());
         }
-        if judge.recommended_next_pass.is_none() {
+        if judge.recommended_next_pass.is_none()
+            || judge.recommended_next_pass.as_deref() == Some("accept")
+        {
             judge.recommended_next_pass = Some("polish_pass".to_string());
         }
         if judge.strongest_contradiction.is_none() {

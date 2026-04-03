@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use ioi_api::studio::{
-    pdf_artifact_bytes, StudioArtifactBlueprint, StudioArtifactCandidateSummary,
-    StudioArtifactJudgeClassification, StudioArtifactJudgeResult, StudioArtifactSelectedSkill,
-    StudioArtifactTasteMemory, StudioArtifactUxLifecycle, StudioGeneratedArtifactFile,
-    StudioGeneratedArtifactPayload,
+    parse_studio_generated_artifact_payload, pdf_artifact_bytes, StudioArtifactBlueprint,
+    StudioArtifactCandidateSummary, StudioArtifactJudgeClassification, StudioArtifactJudgeResult,
+    StudioArtifactSelectedSkill, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    StudioGeneratedArtifactFile, StudioGeneratedArtifactPayload,
 };
 use ioi_types::app::{
     StudioArtifactFailure, StudioArtifactFileRole, StudioArtifactLifecycleState,
@@ -303,6 +303,8 @@ pub(super) fn write_generated_payload(
             || file.path.to_ascii_lowercase().ends_with(".pdf")
         {
             pdf_artifact_bytes(title, &file.body)
+        } else if let Some(unwrapped_html) = unwrap_nested_html_artifact_body(file) {
+            unwrapped_html.into_bytes()
         } else {
             file.body.as_bytes().to_vec()
         };
@@ -310,6 +312,38 @@ pub(super) fn write_generated_payload(
             .with_context(|| format!("Failed to write '{}'.", target_path.display()))?;
     }
     Ok(())
+}
+
+fn unwrap_nested_html_artifact_body(file: &StudioGeneratedArtifactFile) -> Option<String> {
+    if !(file.mime.eq_ignore_ascii_case("text/html")
+        || file.path.to_ascii_lowercase().ends_with(".html"))
+    {
+        return None;
+    }
+
+    let trimmed = file.body.trim();
+    if trimmed.is_empty() || (!trimmed.starts_with('{') && !trimmed.starts_with("```")) {
+        return None;
+    }
+
+    let nested_payload = parse_studio_generated_artifact_payload(trimmed).ok()?;
+    let nested_primary = nested_payload.files.iter().find(|nested_file| {
+        matches!(
+            nested_file.role,
+            StudioArtifactFileRole::Primary | StudioArtifactFileRole::Export
+        ) && (nested_file.mime.eq_ignore_ascii_case("text/html")
+            || nested_file.path.to_ascii_lowercase().ends_with(".html"))
+    })?;
+    let nested_body = nested_primary.body.trim();
+    let nested_lower = nested_body.to_ascii_lowercase();
+    if nested_body.is_empty()
+        || nested_body == trimmed
+        || !(nested_lower.contains("<html") || nested_lower.contains("<!doctype html"))
+    {
+        return None;
+    }
+
+    Some(nested_body.to_string())
 }
 
 pub(super) fn generated_tabs_for_request(

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-04-02T10:04:37.176Z",
+  "generatedAt": "2026-04-03T12:12:47.790Z",
   "summaryPath": "corpus-summary.json",
   "benchmarkCatalogPath": "benchmark-suite.catalog.json",
   "pairwiseMatchesPath": "arena/pairwise-matches.json",
@@ -474,26 +474,26 @@
       "provisionalLeader": {
         "participant": "stack:local_runtime_unspecified",
         "label": "html-ai-tools-editorial",
-        "executionId": "html-editorial-launch-page:html-ai-tools-editorial:2026_03_28",
+        "executionId": "html-editorial-launch-page:html-ai-tools-editorial:2026_04_02",
         "caseId": "html-ai-tools-editorial",
-        "classification": "pass",
-        "judgeScore": 1,
-        "screenshotQualityScore": null,
-        "responsivenessScore": null,
+        "classification": "repairable",
+        "judgeScore": 0.933,
+        "screenshotQualityScore": 0.72,
+        "responsivenessScore": 0.94,
         "shimDependent": true
       },
       "blindWinner": null,
       "executions": [
         {
-          "executionId": "html-editorial-launch-page:html-ai-tools-editorial:2026_03_28",
+          "executionId": "html-editorial-launch-page:html-ai-tools-editorial:2026_04_02",
           "caseId": "html-ai-tools-editorial",
-          "dateRoot": "2026-03-28",
+          "dateRoot": "2026-04-02",
           "label": "html-ai-tools-editorial",
-          "classification": "pass",
-          "judgeScore": 1,
-          "firstPaintEvidenceScore": 1,
-          "screenshotQualityScore": null,
-          "responsivenessScore": null,
+          "classification": "repairable",
+          "judgeScore": 0.933,
+          "firstPaintEvidenceScore": 0.9,
+          "screenshotQualityScore": 0.72,
+          "responsivenessScore": 0.94,
           "shimDependent": true,
           "generatorStackId": "generator:local_runtime",
           "judgeStackId": "judge:local_runtime",
@@ -502,7 +502,7 @@
           "componentPackProfileId": "component_profile:none",
           "skillSpineId": "skill_spine:none",
           "compositeStackId": "stack:local_runtime_unspecified",
-          "summaryPath": "2026-03-28/live_studio/html-ai-tools-editorial/case-summary.json"
+          "summaryPath": "2026-04-02/live_studio/html-ai-tools-editorial/case-summary.json"
         }
       ],
       "externalReferences": [],

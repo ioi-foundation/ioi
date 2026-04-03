@@ -1,0 +1,66 @@
+{
+  "artifactId": "33c08395-794c-4c57-a436-2627e9179991",
+  "title": "an interactive HTML artifact for an AI tools editorial launch page",
+  "artifactClass": "interactive_single_file",
+  "renderer": "html_iframe",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "html_iframe",
+      "filePath": "index.html",
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": "index.html",
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "index.html",
+      "mime": "text/html",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": true,
+      "artifactId": "generated-index.html",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "ready",
+    "lifecycleState": "ready",
+    "summary": "Add hover states for better interactivity Render evaluation: Render evaluation cleared desktop/mobile capture with an overall score of 20/25.",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen3:8b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen3:8b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

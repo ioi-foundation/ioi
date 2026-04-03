@@ -7,6 +7,8 @@ use super::judging::{
 };
 use super::*;
 use std::collections::HashSet;
+use std::path::Path;
+use std::time::Duration;
 
 fn studio_generation_trace(message: impl AsRef<str>) {
     if std::env::var_os("IOI_STUDIO_PROOF_TRACE").is_some() {
@@ -42,12 +44,136 @@ fn truncate_candidate_failure_preview(raw: &str, max_chars: usize) -> Option<Str
     Some(preview)
 }
 
+fn trace_html_contract_state(
+    stage: &str,
+    request: &StudioOutcomeArtifactRequest,
+    candidate_id: &str,
+    payload: &StudioGeneratedArtifactPayload,
+) {
+    if request.renderer != StudioRendererKind::HtmlIframe {
+        return;
+    }
+
+    let Some(primary_html) = payload.files.iter().find(|file| {
+        matches!(
+            file.role,
+            StudioArtifactFileRole::Primary | StudioArtifactFileRole::Export
+        ) && (file.mime == "text/html" || file.path.ends_with(".html"))
+    }) else {
+        return;
+    };
+
+    let lower = primary_html.body.to_ascii_lowercase();
+    studio_generation_trace(format!(
+        "{stage} id={} rollover_marks={} detail_regions={} has_rollover_behavior={} unfocusable_rollover={} rollover_chip_rail={} repair_shims={}",
+        candidate_id,
+        count_html_rollover_detail_marks(&lower),
+        count_populated_html_detail_regions(&lower),
+        html_contains_rollover_detail_behavior(&lower),
+        html_has_unfocusable_rollover_marks(&lower),
+        lower.contains("data-studio-rollover-chip-rail=\"true\""),
+        count_html_repair_shim_markers(&lower),
+    ));
+}
+
 fn compact_local_html_materialization_prompt(
     renderer: StudioRendererKind,
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> bool {
     renderer == StudioRendererKind::HtmlIframe
         && runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+}
+
+pub(crate) fn effective_candidate_generation_temperature(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+    configured_temperature: f32,
+) -> f32 {
+    // Keep local HTML stability policy tied to runtime shape and prompt budget,
+    // not to a particular model family label.
+    if compact_local_html_materialization_prompt(renderer, runtime_kind) {
+        return configured_temperature.min(0.32);
+    }
+
+    configured_temperature
+}
+
+pub(crate) fn materialization_max_tokens_for_runtime(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> u32 {
+    if compact_local_html_materialization_prompt(renderer, runtime_kind) {
+        return 1600;
+    }
+
+    materialization_max_tokens(renderer)
+}
+
+pub(crate) fn materialization_repair_runtime_for_request(
+    request: &StudioOutcomeArtifactRequest,
+    production_runtime: &Arc<dyn InferenceRuntime>,
+    repair_runtime: Option<&Arc<dyn InferenceRuntime>>,
+) -> Arc<dyn InferenceRuntime> {
+    let production_provenance = production_runtime.studio_runtime_provenance();
+    if request.renderer == StudioRendererKind::HtmlIframe
+        && production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+    {
+        if let Some(runtime) = repair_runtime {
+            let repair_provenance = runtime.studio_runtime_provenance();
+            if repair_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+                && !studio_runtime_provenance_matches(&repair_provenance, &production_provenance)
+            {
+                return runtime.clone();
+            }
+        }
+    }
+
+    production_runtime.clone()
+}
+
+fn should_warm_local_html_generation_runtime(
+    request: &StudioOutcomeArtifactRequest,
+    planning_runtime: &Arc<dyn InferenceRuntime>,
+    production_runtime: &Arc<dyn InferenceRuntime>,
+) -> bool {
+    if request.renderer != StudioRendererKind::HtmlIframe {
+        return false;
+    }
+
+    let planning_provenance = planning_runtime.studio_runtime_provenance();
+    let production_provenance = production_runtime.studio_runtime_provenance();
+    production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        && planning_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        && !studio_runtime_provenance_matches(&planning_provenance, &production_provenance)
+}
+
+async fn warm_local_html_generation_runtime_if_needed(
+    request: &StudioOutcomeArtifactRequest,
+    planning_runtime: &Arc<dyn InferenceRuntime>,
+    production_runtime: &Arc<dyn InferenceRuntime>,
+) {
+    if !should_warm_local_html_generation_runtime(request, planning_runtime, production_runtime) {
+        return;
+    }
+
+    let production_provenance = production_runtime.studio_runtime_provenance();
+    studio_generation_trace(format!(
+        "artifact_generation:generation_warmup:start model={:?}",
+        production_provenance.model
+    ));
+    match production_runtime
+        .load_model([0u8; 32], Path::new(""))
+        .await
+    {
+        Ok(()) => studio_generation_trace(format!(
+            "artifact_generation:generation_warmup:ok model={:?}",
+            production_provenance.model
+        )),
+        Err(error) => studio_generation_trace(format!(
+            "artifact_generation:generation_warmup:error model={:?} error={}",
+            production_provenance.model, error
+        )),
+    }
 }
 
 fn serialize_materialization_prompt_json<T: serde::Serialize>(
@@ -61,6 +187,229 @@ fn serialize_materialization_prompt_json<T: serde::Serialize>(
     } else {
         serde_json::to_string_pretty(value)
             .map_err(|error| format!("Failed to serialize {label}: {error}"))
+    }
+}
+
+fn truncate_materialization_focus_text(raw: &str, max_chars: usize) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let mut clipped = trimmed.chars().take(max_chars).collect::<String>();
+    if trimmed.chars().count() > max_chars {
+        clipped.push_str("...");
+    }
+    clipped
+}
+
+fn compact_local_html_materialization_request_focus(
+    request: &StudioOutcomeArtifactRequest,
+) -> serde_json::Value {
+    json!({
+        "artifactClass": request.artifact_class,
+        "renderer": request.renderer,
+        "presentationSurface": request.presentation_surface,
+        "executionSubstrate": request.execution_substrate,
+        "presentationVariantId": request.presentation_variant_id,
+        "verification": {
+            "requireRender": request.verification.require_render,
+            "requireExport": request.verification.require_export,
+        },
+    })
+}
+
+fn compact_local_html_materialization_brief_focus(
+    brief: &StudioArtifactBrief,
+) -> serde_json::Value {
+    json!({
+        "audience": truncate_materialization_focus_text(&brief.audience, 80),
+        "jobToBeDone": truncate_materialization_focus_text(&brief.job_to_be_done, 120),
+        "subjectDomain": truncate_materialization_focus_text(&brief.subject_domain, 120),
+        "artifactThesis": truncate_materialization_focus_text(&brief.artifact_thesis, 160),
+        "requiredConcepts": brief
+            .required_concepts
+            .iter()
+            .take(4)
+            .map(|concept| truncate_materialization_focus_text(concept, 80))
+            .collect::<Vec<_>>(),
+        "requiredInteractions": brief
+            .required_interactions
+            .iter()
+            .take(3)
+            .map(|interaction| truncate_materialization_focus_text(interaction, 100))
+            .collect::<Vec<_>>(),
+        "visualTone": brief
+            .visual_tone
+            .iter()
+            .take(3)
+            .map(|tone| truncate_materialization_focus_text(tone, 48))
+            .collect::<Vec<_>>(),
+        "factualAnchors": brief
+            .factual_anchors
+            .iter()
+            .take(3)
+            .map(|anchor| truncate_materialization_focus_text(anchor, 120))
+            .collect::<Vec<_>>(),
+        "styleDirectives": brief
+            .style_directives
+            .iter()
+            .take(3)
+            .map(|directive| truncate_materialization_focus_text(directive, 120))
+            .collect::<Vec<_>>(),
+        "referenceHints": brief
+            .reference_hints
+            .iter()
+            .take(2)
+            .map(|hint| truncate_materialization_focus_text(hint, 120))
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn compact_local_html_refinement_context_focus(
+    refinement: Option<&StudioArtifactRefinementContext>,
+) -> serde_json::Value {
+    let Some(refinement) = refinement else {
+        return serde_json::Value::Null;
+    };
+
+    json!({
+        "artifactId": refinement.artifact_id,
+        "revisionId": refinement.revision_id,
+        "title": truncate_materialization_focus_text(&refinement.title, 120),
+        "summary": truncate_materialization_focus_text(&refinement.summary, 200),
+        "renderer": refinement.renderer,
+        "files": refinement
+            .files
+            .iter()
+            .take(2)
+            .map(|file| {
+                json!({
+                    "path": file.path,
+                    "mime": file.mime,
+                    "role": file.role,
+                    "renderable": file.renderable,
+                    "downloadable": file.downloadable,
+                    "bodyChars": file.body.chars().count(),
+                    "lineCount": file.body.lines().count(),
+                })
+            })
+            .collect::<Vec<_>>(),
+        "selectedTargets": refinement
+            .selected_targets
+            .iter()
+            .take(3)
+            .map(|target| {
+                json!({
+                    "sourceSurface": target.source_surface,
+                    "path": target.path,
+                    "label": truncate_materialization_focus_text(&target.label, 80),
+                    "snippet": truncate_materialization_focus_text(&target.snippet, 160),
+                })
+            })
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn compact_local_html_refinement_candidate_focus(
+    candidate: &StudioGeneratedArtifactPayload,
+) -> serde_json::Value {
+    json!({
+        "summary": truncate_materialization_focus_text(&candidate.summary, 160),
+        "notes": candidate
+            .notes
+            .iter()
+            .take(2)
+            .map(|note| truncate_materialization_focus_text(note, 160))
+            .collect::<Vec<_>>(),
+        "files": candidate
+            .files
+            .iter()
+            .take(2)
+            .map(|file| {
+                json!({
+                    "path": file.path,
+                    "mime": file.mime,
+                    "role": file.role,
+                    "renderable": file.renderable,
+                    "downloadable": file.downloadable,
+                    "encoding": file.encoding,
+                    "bodyChars": file.body.chars().count(),
+                    "lineCount": file.body.lines().count(),
+                    "bodyPreview": truncate_materialization_focus_text(&file.body, 1200),
+                })
+            })
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn compact_local_html_refinement_judge_focus(
+    judge: &StudioArtifactJudgeResult,
+) -> serde_json::Value {
+    json!({
+        "classification": judge.classification,
+        "requestFaithfulness": judge.request_faithfulness,
+        "conceptCoverage": judge.concept_coverage,
+        "interactionRelevance": judge.interaction_relevance,
+        "layoutCoherence": judge.layout_coherence,
+        "visualHierarchy": judge.visual_hierarchy,
+        "completeness": judge.completeness,
+        "issueClasses": judge
+            .issue_classes
+            .iter()
+            .take(3)
+            .map(|item| truncate_materialization_focus_text(item, 80))
+            .collect::<Vec<_>>(),
+        "repairHints": judge
+            .repair_hints
+            .iter()
+            .take(3)
+            .map(|item| truncate_materialization_focus_text(item, 120))
+            .collect::<Vec<_>>(),
+        "strengths": judge
+            .strengths
+            .iter()
+            .take(2)
+            .map(|item| truncate_materialization_focus_text(item, 120))
+            .collect::<Vec<_>>(),
+        "fileFindings": judge
+            .file_findings
+            .iter()
+            .take(2)
+            .map(|item| truncate_materialization_focus_text(item, 140))
+            .collect::<Vec<_>>(),
+        "recommendedNextPass": judge.recommended_next_pass,
+        "strongestContradiction": judge
+            .strongest_contradiction
+            .as_ref()
+            .map(|value| truncate_materialization_focus_text(value, 140)),
+        "rationale": truncate_materialization_focus_text(&judge.rationale, 160),
+    })
+}
+
+fn compact_local_html_directives_text(directives: &str) -> String {
+    directives
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .take(10)
+        .map(|line| truncate_materialization_focus_text(line, 200))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn compact_local_html_materialization_repair_candidate_focus(
+    raw_output: &str,
+    request: &StudioOutcomeArtifactRequest,
+) -> serde_json::Value {
+    match super::parse_studio_generated_artifact_payload(raw_output) {
+        Ok(mut candidate) => {
+            super::normalize_generated_artifact_payload(&mut candidate, request);
+            compact_local_html_refinement_candidate_focus(&candidate)
+        }
+        Err(_) => json!({
+            "rawOutputPreview": truncate_candidate_failure_preview(raw_output, 1600),
+        }),
     }
 }
 
@@ -195,6 +544,38 @@ fn studio_runtime_available(runtime: &Arc<dyn InferenceRuntime>) -> bool {
     runtime.studio_runtime_provenance().kind != StudioRuntimeProvenanceKind::InferenceUnavailable
 }
 
+fn normalized_runtime_endpoint(endpoint: Option<&str>) -> Option<String> {
+    let endpoint = endpoint?.trim();
+    if endpoint.is_empty() {
+        return None;
+    }
+
+    let (without_fragment, fragment) = endpoint.split_once('#').unwrap_or((endpoint, ""));
+    let Some((base, query)) = without_fragment.split_once('?') else {
+        return Some(endpoint.to_string());
+    };
+
+    let filtered_pairs = query
+        .split('&')
+        .filter(|pair| {
+            let key = pair.split_once('=').map(|(key, _)| key).unwrap_or(*pair).trim();
+            !key.is_empty() && !key.eq_ignore_ascii_case("lane")
+        })
+        .collect::<Vec<_>>();
+
+    let mut normalized = base.to_string();
+    if !filtered_pairs.is_empty() {
+        normalized.push('?');
+        normalized.push_str(&filtered_pairs.join("&"));
+    }
+    if !fragment.is_empty() {
+        normalized.push('#');
+        normalized.push_str(fragment);
+    }
+
+    Some(normalized)
+}
+
 fn studio_runtime_provenance_matches(
     left: &StudioRuntimeProvenance,
     right: &StudioRuntimeProvenance,
@@ -202,7 +583,8 @@ fn studio_runtime_provenance_matches(
     left.kind == right.kind
         && left.label == right.label
         && left.model == right.model
-        && left.endpoint == right.endpoint
+        && normalized_runtime_endpoint(left.endpoint.as_deref())
+            == normalized_runtime_endpoint(right.endpoint.as_deref())
 }
 
 fn generation_runtime_tier(provenance: &StudioRuntimeProvenance) -> StudioArtifactRuntimeTier {
@@ -326,6 +708,62 @@ fn runtime_step_policies(
     ]
 }
 
+fn compact_local_specialist_generation_renderer(renderer: StudioRendererKind) -> bool {
+    matches!(
+        renderer,
+        StudioRendererKind::Markdown
+            | StudioRendererKind::DownloadCard
+            | StudioRendererKind::BundleManifest
+    )
+}
+
+fn compact_local_specialist_planning_renderer(renderer: StudioRendererKind) -> bool {
+    compact_local_specialist_generation_renderer(renderer)
+        || renderer == StudioRendererKind::HtmlIframe
+}
+
+fn prefers_distinct_local_specialist_generation_runtime(
+    profile: StudioArtifactRuntimePolicyProfile,
+    request: &StudioOutcomeArtifactRequest,
+    generation_provenance: &StudioRuntimeProvenance,
+    acceptance_runtime: Option<&Arc<dyn InferenceRuntime>>,
+) -> bool {
+    if profile != StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance
+        || !compact_local_specialist_generation_renderer(request.renderer)
+        || generation_provenance.kind != StudioRuntimeProvenanceKind::RealLocalRuntime
+    {
+        return false;
+    }
+
+    let Some(runtime) = acceptance_runtime else {
+        return false;
+    };
+    let acceptance_provenance = runtime.studio_runtime_provenance();
+    acceptance_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        && !studio_runtime_provenance_matches(&acceptance_provenance, generation_provenance)
+}
+
+fn prefers_distinct_local_specialist_planning_runtime(
+    profile: StudioArtifactRuntimePolicyProfile,
+    request: &StudioOutcomeArtifactRequest,
+    generation_provenance: &StudioRuntimeProvenance,
+    acceptance_runtime: Option<&Arc<dyn InferenceRuntime>>,
+) -> bool {
+    if profile != StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance
+        || !compact_local_specialist_planning_renderer(request.renderer)
+        || generation_provenance.kind != StudioRuntimeProvenanceKind::RealLocalRuntime
+    {
+        return false;
+    }
+
+    let Some(runtime) = acceptance_runtime else {
+        return false;
+    };
+    let acceptance_provenance = runtime.studio_runtime_provenance();
+    acceptance_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        && !studio_runtime_provenance_matches(&acceptance_provenance, generation_provenance)
+}
+
 fn fallback_reason_for_premium_lane(
     acceptance_runtime: Option<&Arc<dyn InferenceRuntime>>,
     generation_provenance: &StudioRuntimeProvenance,
@@ -416,7 +854,19 @@ pub fn resolve_studio_artifact_runtime_plan(
         .find(|policy| policy.step == StudioArtifactRuntimeStep::RepairPlanning)
         .cloned()
         .expect("repair policy");
-
+    let compact_local_specialist_generation = prefers_distinct_local_specialist_generation_runtime(
+        resolved_profile,
+        request,
+        &generation_provenance,
+        acceptance_runtime.as_ref(),
+    );
+    let compact_local_specialist_acceptance = compact_local_specialist_generation;
+    let compact_local_specialist_planning = prefers_distinct_local_specialist_planning_runtime(
+        resolved_profile,
+        request,
+        &generation_provenance,
+        acceptance_runtime.as_ref(),
+    );
     let planning_prefers_premium = matches!(
         resolved_profile,
         StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration
@@ -434,33 +884,46 @@ pub fn resolve_studio_artifact_runtime_plan(
     } else {
         None
     };
-    let (planning_runtime, planning_binding) =
-        if planning_prefers_premium && planning_fallback_reason.is_none() {
-            let runtime = acceptance_runtime
-                .as_ref()
-                .expect("premium planning requires acceptance runtime");
-            (
-                runtime.clone(),
-                build_runtime_binding(
-                    StudioArtifactRuntimeStep::BlueprintPlanning,
-                    planning_policy.preferred_tier,
-                    StudioArtifactRuntimeTier::Premium,
-                    runtime,
-                    None,
-                ),
-            )
-        } else {
-            (
-                generation_runtime.clone(),
-                build_runtime_binding(
-                    StudioArtifactRuntimeStep::BlueprintPlanning,
-                    planning_policy.preferred_tier,
-                    generation_tier,
-                    &generation_runtime,
-                    planning_fallback_reason,
-                ),
-            )
-        };
+    let (planning_runtime, planning_binding) = if compact_local_specialist_planning {
+        let runtime = acceptance_runtime
+            .as_ref()
+            .expect("compact local specialist planning requires acceptance runtime");
+        (
+            runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::BlueprintPlanning,
+                planning_policy.preferred_tier,
+                StudioArtifactRuntimeTier::Local,
+                runtime,
+                None,
+            ),
+        )
+    } else if planning_prefers_premium && planning_fallback_reason.is_none() {
+        let runtime = acceptance_runtime
+            .as_ref()
+            .expect("premium planning requires acceptance runtime");
+        (
+            runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::BlueprintPlanning,
+                planning_policy.preferred_tier,
+                StudioArtifactRuntimeTier::Premium,
+                runtime,
+                None,
+            ),
+        )
+    } else {
+        (
+            generation_runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::BlueprintPlanning,
+                planning_policy.preferred_tier,
+                generation_tier,
+                &generation_runtime,
+                planning_fallback_reason,
+            ),
+        )
+    };
 
     let generation_fallback_reason = if matches!(
         resolved_profile,
@@ -470,11 +933,24 @@ pub fn resolve_studio_artifact_runtime_plan(
     } else {
         None
     };
-    let (resolved_generation_runtime, generation_binding) = if matches!(
+    let (resolved_generation_runtime, generation_binding) = if compact_local_specialist_generation {
+        let runtime = acceptance_runtime
+            .as_ref()
+            .expect("compact local specialist generation requires acceptance runtime");
+        (
+            runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::CandidateGeneration,
+                generation_policy.preferred_tier,
+                StudioArtifactRuntimeTier::Local,
+                runtime,
+                None,
+            ),
+        )
+    } else if matches!(
         resolved_profile,
         StudioArtifactRuntimePolicyProfile::PremiumEndToEnd
-    ) && generation_fallback_reason
-        .is_none()
+    ) && generation_fallback_reason.is_none()
     {
         let runtime = acceptance_runtime
             .as_ref()
@@ -501,6 +977,7 @@ pub fn resolve_studio_artifact_runtime_plan(
             ),
         )
     };
+    let resolved_generation_provenance = resolved_generation_runtime.studio_runtime_provenance();
 
     let acceptance_fallback_reason = if matches!(
         resolved_profile,
@@ -510,15 +987,25 @@ pub fn resolve_studio_artifact_runtime_plan(
     } else {
         fallback_reason_for_premium_lane(
             acceptance_runtime.as_ref(),
-            &generation_provenance,
+            &resolved_generation_provenance,
             acceptance_policy.require_distinct_runtime,
         )
     };
-    let (resolved_acceptance_runtime, acceptance_binding) = if matches!(
+    let (resolved_acceptance_runtime, acceptance_binding) = if compact_local_specialist_acceptance {
+        (
+            resolved_generation_runtime.clone(),
+            build_runtime_binding(
+                StudioArtifactRuntimeStep::AcceptanceJudge,
+                acceptance_policy.preferred_tier,
+                StudioArtifactRuntimeTier::Local,
+                &resolved_generation_runtime,
+                Some("compact_local_specialist_acceptance".to_string()),
+            ),
+        )
+    } else if matches!(
         resolved_profile,
         StudioArtifactRuntimePolicyProfile::FullyLocal
-    ) || acceptance_fallback_reason
-        .is_some()
+    ) || acceptance_fallback_reason.is_some()
     {
         (
             generation_runtime.clone(),
@@ -563,7 +1050,7 @@ pub fn resolve_studio_artifact_runtime_plan(
         ) {
         fallback_reason_for_premium_lane(
             acceptance_runtime.as_ref(),
-            &generation_provenance,
+            &resolved_generation_provenance,
             repair_policy.require_distinct_runtime,
         )
     } else {
@@ -760,9 +1247,12 @@ fn blocked_candidate_generation_judge(message: &str) -> StudioArtifactJudgeResul
     }
 }
 
-fn failed_render_evaluation(message: &str) -> StudioArtifactRenderEvaluation {
+fn failed_render_evaluation(
+    request: &StudioOutcomeArtifactRequest,
+    message: &str,
+) -> StudioArtifactRenderEvaluation {
     StudioArtifactRenderEvaluation {
-        supported: true,
+        supported: render_evaluation_required(request),
         first_paint_captured: false,
         interaction_capture_attempted: false,
         captures: Vec::new(),
@@ -781,7 +1271,15 @@ fn failed_render_evaluation(message: &str) -> StudioArtifactRenderEvaluation {
     }
 }
 
-async fn evaluate_candidate_render_with_fallback(
+pub(crate) fn render_evaluation_required(request: &StudioOutcomeArtifactRequest) -> bool {
+    request.verification.require_render
+        || matches!(
+            request.renderer,
+            StudioRendererKind::HtmlIframe | StudioRendererKind::Svg
+        )
+}
+
+pub(crate) async fn evaluate_candidate_render_with_fallback(
     render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
@@ -789,24 +1287,86 @@ async fn evaluate_candidate_render_with_fallback(
     artifact_ir: Option<&StudioArtifactIR>,
     edit_intent: Option<&StudioArtifactEditIntent>,
     candidate: &StudioGeneratedArtifactPayload,
+    runtime_kind: StudioRuntimeProvenanceKind,
 ) -> Option<StudioArtifactRenderEvaluation> {
-    match evaluate_studio_artifact_render_if_configured(
-        render_evaluator,
-        request,
-        brief,
-        blueprint,
-        artifact_ir,
-        edit_intent,
-        candidate,
-    )
-    .await
-    {
-        Ok(render_evaluation) => render_evaluation,
-        Err(error) => Some(failed_render_evaluation(&format!(
-            "Render evaluation failed before Studio could verify the surfaced first paint: {}",
-            error
-        ))),
+    if !render_evaluation_required(request) {
+        studio_generation_trace(format!(
+            "artifact_generation:render_eval:skip renderer={:?} reason=not_required",
+            request.renderer
+        ));
+        return None;
     }
+    let timeout = render_eval_timeout_for_runtime(request.renderer, runtime_kind);
+    studio_generation_trace(format!(
+        "artifact_generation:render_eval:start renderer={:?} timeout_ms={}",
+        request.renderer,
+        timeout.map(|value| value.as_millis()).unwrap_or(0)
+    ));
+    let evaluation = match timeout {
+        Some(limit) => match tokio::time::timeout(
+            limit,
+            evaluate_studio_artifact_render_if_configured(
+                render_evaluator,
+                request,
+                brief,
+                blueprint,
+                artifact_ir,
+                edit_intent,
+                candidate,
+            ),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => Err(format!(
+                "Render evaluation timed out after {} seconds.",
+                limit.as_secs()
+            )),
+        },
+        None => {
+            evaluate_studio_artifact_render_if_configured(
+                render_evaluator,
+                request,
+                brief,
+                blueprint,
+                artifact_ir,
+                edit_intent,
+                candidate,
+            )
+            .await
+        }
+    };
+
+    match evaluation {
+        Ok(render_evaluation) => {
+            studio_generation_trace(format!(
+                "artifact_generation:render_eval:ok renderer={:?} present={}",
+                request.renderer,
+                render_evaluation.is_some()
+            ));
+            render_evaluation
+        }
+        Err(error) => Some(failed_render_evaluation(
+            request,
+            &format!(
+                "Render evaluation failed before Studio could verify the surfaced first paint: {}",
+                error
+            ),
+        )),
+    }
+}
+
+pub(crate) fn render_eval_timeout_for_runtime(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> Option<Duration> {
+    if renderer == StudioRendererKind::HtmlIframe
+        && runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+    {
+        return Some(Duration::from_secs(20));
+    }
+
+    None
 }
 
 async fn judge_candidate_with_runtime_and_render_eval(
@@ -836,6 +1396,7 @@ async fn judge_candidate_with_runtime_and_render_eval(
 
 async fn materialize_and_locally_judge_candidate(
     production_runtime: Arc<dyn InferenceRuntime>,
+    repair_runtime: Arc<dyn InferenceRuntime>,
     render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
     title: &str,
     intent: &str,
@@ -867,6 +1428,7 @@ async fn materialize_and_locally_judge_candidate(
     ));
     let payload = match materialize_studio_artifact_candidate_with_runtime_detailed(
         production_runtime.clone(),
+        Some(repair_runtime),
         title,
         intent,
         request,
@@ -922,10 +1484,6 @@ async fn materialize_and_locally_judge_candidate(
         }
     };
 
-    studio_generation_trace(format!(
-        "artifact_generation:candidate_judge:start id={}",
-        candidate_id
-    ));
     let render_evaluation = evaluate_candidate_render_with_fallback(
         render_evaluator,
         request,
@@ -934,8 +1492,57 @@ async fn materialize_and_locally_judge_candidate(
         artifact_ir,
         edit_intent,
         &payload,
+        production_provenance.kind,
     )
     .await;
+
+    if production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        && matches!(
+            request.renderer,
+            StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest
+        )
+    {
+        let judge = local_download_bundle_candidate_prejudge(request, brief, &payload);
+        studio_generation_trace(format!(
+            "artifact_generation:candidate_judge:deterministic id={} classification={:?}",
+            candidate_id, judge.classification
+        ));
+        return Ok((
+            StudioArtifactCandidateSummary {
+                candidate_id: candidate_id.to_string(),
+                seed,
+                model: model.to_string(),
+                temperature,
+                strategy: strategy.to_string(),
+                origin,
+                provenance: Some(production_provenance.clone()),
+                summary: payload.summary.clone(),
+                renderable_paths: payload
+                    .files
+                    .iter()
+                    .filter(|file| file.renderable)
+                    .map(|file| file.path.clone())
+                    .collect(),
+                selected: false,
+                fallback: false,
+                failure: None,
+                raw_output_preview: None,
+                convergence: Some(initial_candidate_convergence_trace(
+                    candidate_id,
+                    "initial_generation",
+                    judge_total_score(&judge),
+                )),
+                render_evaluation,
+                judge,
+            },
+            payload,
+        ));
+    }
+
+    studio_generation_trace(format!(
+        "artifact_generation:candidate_judge:start id={}",
+        candidate_id
+    ));
     let judge = match judge_candidate_with_runtime_and_render_eval(
         production_runtime,
         render_evaluation.as_ref(),
@@ -1022,15 +1629,137 @@ async fn materialize_and_locally_judge_candidate(
     ))
 }
 
+fn local_download_bundle_candidate_prejudge(
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    payload: &StudioGeneratedArtifactPayload,
+) -> StudioArtifactJudgeResult {
+    let has_readme = payload
+        .files
+        .iter()
+        .any(|file| file.path.eq_ignore_ascii_case("README.md") && !file.body.trim().is_empty());
+    let export_files = payload
+        .files
+        .iter()
+        .filter(|file| file.downloadable)
+        .collect::<Vec<_>>();
+    let has_csv_export = export_files.iter().any(|file| {
+        (file.path.to_ascii_lowercase().ends_with(".csv") || file.mime == "text/csv")
+            && file.body.lines().count() >= 2
+            && file.body.contains(',')
+    });
+    let required_terms = brief
+        .required_concepts
+        .iter()
+        .map(|value| value.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    let body = payload
+        .files
+        .iter()
+        .map(|file| file.body.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let body_lower = body.to_ascii_lowercase();
+    let concept_hits = required_terms
+        .iter()
+        .filter(|term| !term.is_empty() && body_lower.contains(term.as_str()))
+        .count();
+    let all_downloadable = payload.files.iter().all(|file| file.downloadable);
+    let classification = if has_readme && has_csv_export && all_downloadable {
+        StudioArtifactJudgeClassification::Pass
+    } else if has_readme || has_csv_export {
+        StudioArtifactJudgeClassification::Repairable
+    } else {
+        StudioArtifactJudgeClassification::Blocked
+    };
+    let request_faithfulness = if has_readme && has_csv_export { 4 } else { 2 };
+    let concept_coverage = if concept_hits >= brief.required_concepts.len().min(2).max(1) {
+        4
+    } else if has_readme && has_csv_export {
+        3
+    } else {
+        2
+    };
+    let completeness = if has_readme && has_csv_export { 4 } else { 2 };
+    let deserves_primary_artifact_view = classification == StudioArtifactJudgeClassification::Pass;
+    let mut strengths = Vec::new();
+    if has_readme {
+        strengths.push("README.md is present for bundle guidance.".to_string());
+    }
+    if has_csv_export {
+        strengths.push("CSV export is present with tabular rows.".to_string());
+    }
+    let mut blocked_reasons = Vec::new();
+    if !has_readme {
+        blocked_reasons.push("Bundle is missing a usable README.md.".to_string());
+    }
+    if !has_csv_export {
+        blocked_reasons.push("Bundle is missing a usable CSV export.".to_string());
+    }
+    if !all_downloadable {
+        blocked_reasons.push("All bundle files must remain downloadable.".to_string());
+    }
+    let rationale = match &classification {
+        StudioArtifactJudgeClassification::Pass => {
+            "Download bundle includes the required files with usable contents.".to_string()
+        }
+        StudioArtifactJudgeClassification::Repairable => {
+            "Download bundle is close, but a required file is thin or incomplete.".to_string()
+        }
+        StudioArtifactJudgeClassification::Blocked => {
+            "Download bundle is missing a required usable file.".to_string()
+        }
+    };
+
+    let recommended_next_pass = match &classification {
+        StudioArtifactJudgeClassification::Pass => "accept",
+        StudioArtifactJudgeClassification::Repairable => "structural_repair",
+        StudioArtifactJudgeClassification::Blocked => "hold_block",
+    }
+    .to_string();
+
+    super::enforce_renderer_judge_contract(
+        request,
+        brief,
+        payload,
+        StudioArtifactJudgeResult {
+            classification,
+            request_faithfulness,
+            concept_coverage,
+            interaction_relevance: 4,
+            layout_coherence: 4,
+            visual_hierarchy: 4,
+            completeness,
+            generic_shell_detected: false,
+            trivial_shell_detected: !(has_readme || has_csv_export),
+            deserves_primary_artifact_view,
+            patched_existing_artifact: None,
+            continuity_revision_ux: None,
+            issue_classes: Vec::new(),
+            repair_hints: Vec::new(),
+            strengths,
+            blocked_reasons,
+            file_findings: Vec::new(),
+            aesthetic_verdict: String::new(),
+            interaction_verdict: String::new(),
+            truthfulness_warnings: Vec::new(),
+            recommended_next_pass: Some(recommended_next_pass),
+            strongest_contradiction: None,
+            rationale,
+        },
+    )
+}
+
 fn local_draft_fast_path_enabled(
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
-    production_kind: StudioRuntimeProvenanceKind,
-    acceptance_kind: StudioRuntimeProvenanceKind,
+    production_provenance: &StudioRuntimeProvenance,
+    acceptance_provenance: &StudioRuntimeProvenance,
 ) -> bool {
     refinement.is_none()
-        && production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
-        && acceptance_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        && production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        && acceptance_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+        && !studio_runtime_provenance_matches(production_provenance, acceptance_provenance)
         && matches!(
             request.renderer,
             StudioRendererKind::HtmlIframe
@@ -1182,7 +1911,9 @@ pub(crate) fn derive_studio_adaptive_search_budget(
     if matches!(
         request.renderer,
         StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox | StudioRendererKind::Svg
-    ) {
+    ) && !(request.renderer == StudioRendererKind::HtmlIframe
+        && production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime)
+    {
         record_adaptive_search_signal(&mut signals, StudioAdaptiveSearchSignal::RendererComplexity);
         max_candidate_count += 1;
         shortlist_limit = shortlist_limit.max(2);
@@ -1459,19 +2190,39 @@ fn semantic_convergence_budget(
     }
 }
 
-fn requested_follow_up_pass(judge: &StudioArtifactJudgeResult) -> Option<&'static str> {
+pub(super) fn requested_follow_up_pass(judge: &StudioArtifactJudgeResult) -> Option<&'static str> {
+    if judge.classification == StudioArtifactJudgeClassification::Repairable {
+        let render_warning_only = judge
+            .issue_classes
+            .iter()
+            .any(|value| value == "render_eval")
+            && judge.blocked_reasons.is_empty()
+            && !judge.generic_shell_detected
+            && !judge.trivial_shell_detected;
+        if judge.recommended_next_pass.as_deref() == Some("polish_pass")
+            && render_warning_only
+        {
+            return Some("polish_pass");
+        }
+        if judge.recommended_next_pass.as_deref() == Some("accept")
+            && render_warning_only
+        {
+            return Some("polish_pass");
+        }
+        return Some("structural_repair");
+    }
+    if judge.classification == StudioArtifactJudgeClassification::Pass
+        && !judge_clears_primary_view(judge)
+        && (judge.visual_hierarchy < 5 || judge.layout_coherence < 5)
+    {
+        return Some("polish_pass");
+    }
+
     match judge.recommended_next_pass.as_deref() {
         Some("structural_repair") => Some("structural_repair"),
         Some("polish_pass") => Some("polish_pass"),
         Some("accept") | Some("hold_block") => None,
         _ => match judge.classification {
-            StudioArtifactJudgeClassification::Pass
-                if !judge_clears_primary_view(judge)
-                    && (judge.visual_hierarchy < 5 || judge.layout_coherence < 5) =>
-            {
-                Some("polish_pass")
-            }
-            StudioArtifactJudgeClassification::Repairable => Some("structural_repair"),
             _ => None,
         },
     }
@@ -1697,6 +2448,7 @@ async fn attempt_semantic_refinement_for_candidate(
             artifact_ir,
             edit_intent,
             &refined_payload,
+            repair_provenance.kind,
         )
         .await;
         let refined_acceptance_judge = judge_candidate_with_runtime_and_render_eval(
@@ -2016,8 +2768,15 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
         "artifact_generation:edit_intent_ready present={}",
         edit_intent.is_some()
     ));
-    let (_, temperature, strategy) =
+    warm_local_html_generation_runtime_if_needed(request, &planning_runtime, &production_runtime)
+        .await;
+    let (_, configured_temperature, strategy) =
         candidate_generation_config(request.renderer, production_provenance.kind);
+    let temperature = effective_candidate_generation_temperature(
+        request.renderer,
+        production_provenance.kind,
+        configured_temperature,
+    );
     let mut adaptive_search_budget = derive_studio_adaptive_search_budget(
         request,
         &brief,
@@ -2029,12 +2788,13 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
         production_provenance.kind,
     );
     studio_generation_trace(format!(
-        "artifact_generation:candidate_config initial_count={} max_count={} shortlist_limit={} max_refine={} temperature={} strategy={}",
+        "artifact_generation:candidate_config initial_count={} max_count={} shortlist_limit={} max_refine={} temperature={} configured_temperature={} strategy={}",
         adaptive_search_budget.initial_candidate_count,
         adaptive_search_budget.max_candidate_count,
         adaptive_search_budget.shortlist_limit,
         adaptive_search_budget.max_semantic_refinement_passes,
         temperature,
+        configured_temperature,
         strategy
     ));
     let mut candidate_rows = Vec::<(
@@ -2051,6 +2811,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
             let seed = candidate_seed_for(title, intent, next_candidate_index);
             match materialize_and_locally_judge_candidate(
                 production_runtime.clone(),
+                repair_runtime.clone(),
                 render_evaluator,
                 title,
                 intent,
@@ -2151,8 +2912,8 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
     if local_draft_fast_path_enabled(
         request,
         refinement,
-        production_provenance.kind,
-        acceptance_provenance.kind,
+        &production_provenance,
+        &acceptance_provenance,
     ) {
         if let Some(winner_index) = ranked_candidate_indices.iter().copied().find(|index| {
             candidate_summaries
@@ -2566,6 +3327,7 @@ pub async fn materialize_studio_artifact_with_runtime(
 
 async fn materialize_studio_artifact_candidate_with_runtime_detailed(
     runtime: Arc<dyn InferenceRuntime>,
+    repair_runtime: Option<Arc<dyn InferenceRuntime>>,
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
@@ -2586,7 +3348,19 @@ async fn materialize_studio_artifact_candidate_with_runtime_detailed(
         StudioCandidateMaterializationError,
     > {
         let mut generated = super::parse_and_validate_generated_artifact_payload(raw, request)?;
+        trace_html_contract_state(
+            "artifact_generation:materialization_contract_state:parsed",
+            request,
+            candidate_id,
+            &generated,
+        );
         super::enrich_generated_artifact_payload(&mut generated, request, brief);
+        trace_html_contract_state(
+            "artifact_generation:materialization_contract_state:enriched",
+            request,
+            candidate_id,
+            &generated,
+        );
         super::validate_generated_artifact_payload_against_brief_with_edit_intent(
             &generated,
             request,
@@ -2622,11 +3396,13 @@ async fn materialize_studio_artifact_candidate_with_runtime_detailed(
             ),
             raw_output_preview: None,
         })?;
+    let runtime_kind = runtime.studio_runtime_provenance().kind;
     studio_generation_trace(format!(
-        "artifact_generation:materialization_inference:start id={} temperature={} max_tokens={}",
+        "artifact_generation:materialization_inference:start id={} prompt_bytes={} temperature={} max_tokens={}",
         candidate_id,
+        input.len(),
         temperature,
-        materialization_max_tokens(request.renderer)
+        materialization_max_tokens_for_runtime(request.renderer, runtime_kind)
     ));
     let output = runtime
         .clone()
@@ -2636,7 +3412,7 @@ async fn materialize_studio_artifact_candidate_with_runtime_detailed(
             InferenceOptions {
                 temperature,
                 json_mode: true,
-                max_tokens: materialization_max_tokens(request.renderer),
+                max_tokens: materialization_max_tokens_for_runtime(request.renderer, runtime_kind),
                 ..Default::default()
             },
         )
@@ -2663,18 +3439,25 @@ async fn materialize_studio_artifact_candidate_with_runtime_detailed(
     match parse_candidate(&raw) {
         Ok(generated) => Ok(generated),
         Err(first_error) => {
+            studio_generation_trace(format!(
+                "artifact_generation:materialization_parse_error id={} error={} preview={}",
+                candidate_id,
+                first_error.message,
+                truncate_candidate_failure_preview(&raw, 4000)
+                    .unwrap_or_else(|| "(empty)".to_string())
+            ));
             let mut latest_error = first_error.message;
             let mut latest_raw = raw;
 
-            let runtime_kind = runtime.studio_runtime_provenance().kind;
+            let repair_runtime = materialization_repair_runtime_for_request(
+                request,
+                &runtime,
+                repair_runtime.as_ref(),
+            );
+            let repair_runtime_kind = repair_runtime.studio_runtime_provenance().kind;
             for repair_attempt in
-                0..materialization_repair_pass_limit(request.renderer, runtime_kind)
+                0..materialization_repair_pass_limit(request.renderer, repair_runtime_kind)
             {
-                studio_generation_trace(format!(
-                    "artifact_generation:materialization_repair:start id={} attempt={}",
-                    candidate_id,
-                    repair_attempt + 1
-                ));
                 let repair_payload =
                     build_studio_artifact_materialization_repair_prompt_for_runtime(
                         title,
@@ -2691,7 +3474,7 @@ async fn materialize_studio_artifact_candidate_with_runtime_detailed(
                         candidate_seed,
                         &latest_raw,
                         &latest_error,
-                        runtime_kind,
+                        repair_runtime_kind,
                     )
                     .map_err(|message| {
                         StudioCandidateMaterializationError {
@@ -2711,14 +3494,28 @@ async fn materialize_studio_artifact_candidate_with_runtime_detailed(
                         raw_output_preview: truncate_candidate_failure_preview(&latest_raw, 2000),
                     }
                 })?;
-                let repair_output = runtime
+                studio_generation_trace(format!(
+                    "artifact_generation:materialization_repair:start id={} attempt={} model={:?} prompt_bytes={} max_tokens={}",
+                    candidate_id,
+                    repair_attempt + 1,
+                    repair_runtime.studio_runtime_provenance().model,
+                    repair_input.len(),
+                    materialization_max_tokens_for_runtime(
+                        request.renderer,
+                        repair_runtime_kind,
+                    )
+                ));
+                let repair_output = repair_runtime
                     .execute_inference(
                         [0u8; 32],
                         &repair_input,
                         InferenceOptions {
                             temperature: 0.0,
                             json_mode: true,
-                            max_tokens: materialization_max_tokens(request.renderer),
+                            max_tokens: materialization_max_tokens_for_runtime(
+                                request.renderer,
+                                repair_runtime_kind,
+                            ),
                             ..Default::default()
                         },
                     )
@@ -2748,6 +3545,14 @@ async fn materialize_studio_artifact_candidate_with_runtime_detailed(
                 match parse_candidate(&repair_raw) {
                     Ok(generated) => return Ok(generated),
                     Err(repair_error) => {
+                        studio_generation_trace(format!(
+                            "artifact_generation:materialization_repair_parse_error id={} attempt={} error={} preview={}",
+                            candidate_id,
+                            repair_attempt + 1,
+                            repair_error.message,
+                            truncate_candidate_failure_preview(&repair_raw, 4000)
+                                .unwrap_or_else(|| "(empty)".to_string())
+                        ));
                         latest_raw = repair_raw;
                         latest_error = format!(
                             "{latest_error}; repair attempt {} failed: {}",
@@ -2780,6 +3585,7 @@ pub async fn materialize_studio_artifact_candidate_with_runtime(
 ) -> Result<StudioGeneratedArtifactPayload, String> {
     materialize_studio_artifact_candidate_with_runtime_detailed(
         runtime,
+        None,
         title,
         intent,
         request,
@@ -2819,7 +3625,19 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
     let runtime_kind = runtime.studio_runtime_provenance().kind;
     let parse_candidate = |raw: &str| -> Result<StudioGeneratedArtifactPayload, String> {
         let mut generated = super::parse_and_validate_generated_artifact_payload(raw, request)?;
+        trace_html_contract_state(
+            "artifact_generation:refine_contract_state:parsed",
+            request,
+            candidate_id,
+            &generated,
+        );
         super::enrich_generated_artifact_payload(&mut generated, request, brief);
+        trace_html_contract_state(
+            "artifact_generation:refine_contract_state:enriched",
+            request,
+            candidate_id,
+            &generated,
+        );
         super::validate_generated_artifact_payload_against_brief_with_edit_intent(
             &generated,
             request,
@@ -2847,6 +3665,14 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
     )?;
     let input = serde_json::to_vec(&payload)
         .map_err(|error| format!("Failed to encode Studio artifact refinement prompt: {error}"))?;
+    let runtime_kind = runtime.studio_runtime_provenance().kind;
+    studio_generation_trace(format!(
+        "artifact_generation:refine_inference:start id={} prompt_bytes={} temperature={} max_tokens={}",
+        candidate_id,
+        input.len(),
+        refinement_temperature,
+        materialization_max_tokens_for_runtime(request.renderer, runtime_kind)
+    ));
     let output = runtime
         .execute_inference(
             [0u8; 32],
@@ -2854,21 +3680,32 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
             InferenceOptions {
                 temperature: refinement_temperature,
                 json_mode: true,
-                max_tokens: materialization_max_tokens(request.renderer),
+                max_tokens: materialization_max_tokens_for_runtime(request.renderer, runtime_kind),
                 ..Default::default()
             },
         )
         .await
         .map_err(|error| format!("Studio artifact refinement inference failed: {error}"))?;
+    studio_generation_trace(format!(
+        "artifact_generation:refine_inference:ok id={} bytes={}",
+        candidate_id,
+        output.len()
+    ));
     let raw = String::from_utf8(output)
         .map_err(|error| format!("Studio artifact refinement utf8 decode failed: {error}"))?;
     match parse_candidate(&raw) {
         Ok(generated) => Ok(generated),
         Err(first_error) => {
+            studio_generation_trace(format!(
+                "artifact_generation:refine_parse_error id={} error={} preview={}",
+                candidate_id,
+                first_error,
+                truncate_candidate_failure_preview(&raw, 1200)
+                    .unwrap_or_else(|| "(empty)".to_string())
+            ));
             let mut latest_error = first_error;
             let mut latest_raw = raw;
 
-            let runtime_kind = runtime.studio_runtime_provenance().kind;
             for repair_attempt in
                 0..materialization_repair_pass_limit(request.renderer, runtime_kind)
             {
@@ -2895,6 +3732,12 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
                 let repair_input = serde_json::to_vec(&repair_payload).map_err(|error| {
                     format!("Failed to encode Studio artifact refinement repair prompt: {error}")
                 })?;
+                studio_generation_trace(format!(
+                    "artifact_generation:refine_repair:start id={} attempt={} prompt_bytes={}",
+                    candidate_id,
+                    repair_attempt + 1,
+                    repair_input.len()
+                ));
                 let repair_output = runtime
                     .execute_inference(
                         [0u8; 32],
@@ -2902,7 +3745,10 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
                         InferenceOptions {
                             temperature: 0.0,
                             json_mode: true,
-                            max_tokens: materialization_max_tokens(request.renderer),
+                            max_tokens: materialization_max_tokens_for_runtime(
+                                request.renderer,
+                                runtime_kind,
+                            ),
                             ..Default::default()
                         },
                     )
@@ -2913,6 +3759,12 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
                             repair_attempt + 1
                         )
                     })?;
+                studio_generation_trace(format!(
+                    "artifact_generation:refine_repair:ok id={} attempt={} bytes={}",
+                    candidate_id,
+                    repair_attempt + 1,
+                    repair_output.len()
+                ));
                 let repair_raw = String::from_utf8(repair_output).map_err(|error| {
                     format!(
                         "{latest_error}; refinement repair attempt {} utf8 decode failed: {error}",
@@ -2922,6 +3774,14 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
                 match parse_candidate(&repair_raw) {
                     Ok(generated) => return Ok(generated),
                     Err(repair_error) => {
+                        studio_generation_trace(format!(
+                            "artifact_generation:refine_repair_parse_error id={} attempt={} error={} preview={}",
+                            candidate_id,
+                            repair_attempt + 1,
+                            repair_error,
+                            truncate_candidate_failure_preview(&repair_raw, 1200)
+                                .unwrap_or_else(|| "(empty)".to_string())
+                        ));
                         latest_raw = repair_raw;
                         latest_error = format!(
                             "{latest_error}; refinement repair attempt {} failed: {repair_error}",
@@ -2979,7 +3839,7 @@ pub fn build_studio_artifact_materialization_prompt(
     )
 }
 
-fn build_studio_artifact_materialization_prompt_for_runtime(
+pub(crate) fn build_studio_artifact_materialization_prompt_for_runtime(
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
@@ -3001,6 +3861,93 @@ fn build_studio_artifact_materialization_prompt_for_runtime(
     let resolved_artifact_ir = artifact_ir
         .cloned()
         .unwrap_or_else(|| compile_studio_artifact_ir(request, brief, &resolved_blueprint));
+    let surface_contracts = studio_surface_contract_prompt_bundle(
+        brief,
+        &resolved_blueprint,
+        &resolved_artifact_ir,
+        selected_skills,
+        candidate_seed,
+    );
+    let edit_intent_json = serialize_materialization_prompt_json(
+        &edit_intent,
+        "Studio artifact edit intent",
+        compact_prompt,
+    )?;
+    let refinement_json = serialize_materialization_prompt_json(
+        &studio_artifact_refinement_context_view(refinement),
+        "Studio refinement context",
+        compact_prompt,
+    )?;
+    let interaction_contract_json = serialize_materialization_prompt_json(
+        &super::studio_artifact_interaction_contract(brief),
+        "Studio interaction contract",
+        compact_prompt,
+    )?;
+    let renderer_guidance = studio_artifact_renderer_authoring_guidance_for_runtime(
+        request,
+        brief,
+        candidate_seed,
+        runtime_kind,
+    );
+    let scaffold_execution_digest = surface_contracts.execution_digest.clone();
+    let scaffold_execution_block = if scaffold_execution_digest.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\nScaffold execution digest:\n{}",
+            if compact_prompt {
+                truncate_materialization_focus_text(&scaffold_execution_digest, 280)
+            } else {
+                scaffold_execution_digest
+            }
+        )
+    };
+    let refinement_wrapper_directive = if refinement.is_some() {
+        "\n\nRefinement output contract:\nReturn the patched artifact inside the exact JSON schema below; do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object."
+    } else {
+        ""
+    };
+    let schema_contract =
+        studio_artifact_materialization_schema_contract_for_runtime(request.renderer, runtime_kind);
+    if compact_prompt {
+        let request_focus_json = serialize_materialization_prompt_json(
+            &compact_local_html_materialization_request_focus(request),
+            "Studio artifact request focus",
+            true,
+        )?;
+        let brief_focus_json = serialize_materialization_prompt_json(
+            &compact_local_html_materialization_brief_focus(brief),
+            "Studio artifact brief focus",
+            true,
+        )?;
+
+        return Ok(json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed artifact materializer. Produce exactly one JSON object. The typed brief, edit intent, and current artifact context are authoritative. Do not emit prose outside JSON."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief focus JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n{}{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
+                    title,
+                    intent,
+                    request_focus_json,
+                    brief_focus_json,
+                    interaction_contract_json,
+                    edit_intent_json,
+                    refinement_json,
+                    candidate_id,
+                    candidate_seed,
+                    refinement_wrapper_directive,
+                    scaffold_execution_block,
+                    renderer_guidance,
+                    schema_contract,
+                )
+            }
+        ]));
+    }
+
     let request_json =
         serialize_materialization_prompt_json(request, "Studio artifact request", compact_prompt)?;
     let brief_json =
@@ -3025,13 +3972,6 @@ fn build_studio_artifact_materialization_prompt_for_runtime(
         "Studio retrieved exemplars",
         compact_prompt,
     )?;
-    let surface_contracts = studio_surface_contract_prompt_bundle(
-        brief,
-        &resolved_blueprint,
-        &resolved_artifact_ir,
-        selected_skills,
-        candidate_seed,
-    );
     let promoted_design_spine_json = serialize_materialization_prompt_json(
         &surface_contracts.design_spine,
         surface_contracts.design_label,
@@ -3047,46 +3987,9 @@ fn build_studio_artifact_materialization_prompt_for_runtime(
         surface_contracts.component_label,
         compact_prompt,
     )?;
-    let edit_intent_json = serialize_materialization_prompt_json(
-        &edit_intent,
-        "Studio artifact edit intent",
-        compact_prompt,
-    )?;
-    let refinement_json = serialize_materialization_prompt_json(
-        &studio_artifact_refinement_context_view(refinement),
-        "Studio refinement context",
-        compact_prompt,
-    )?;
-    let interaction_contract_json = serialize_materialization_prompt_json(
-        &super::studio_artifact_interaction_contract(brief),
-        "Studio interaction contract",
-        compact_prompt,
-    )?;
-    let renderer_guidance = studio_artifact_renderer_authoring_guidance_for_runtime(
-        request,
-        brief,
-        candidate_seed,
-        runtime_kind,
-    );
     let design_label = format!("{} JSON", surface_contracts.design_label);
     let scaffold_label = format!("{} JSON", surface_contracts.scaffold_label);
     let component_label = format!("{} JSON", surface_contracts.component_label);
-    let scaffold_execution_digest = surface_contracts.execution_digest;
-    let scaffold_execution_block = if scaffold_execution_digest.is_empty() {
-        String::new()
-    } else {
-        format!(
-            "\n\nScaffold execution digest:\n{}",
-            scaffold_execution_digest
-        )
-    };
-    let refinement_wrapper_directive = if refinement.is_some() {
-        "\n\nRefinement output contract:\nReturn the patched artifact inside the exact JSON schema below; do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object."
-    } else {
-        ""
-    };
-    let schema_contract =
-        studio_artifact_materialization_schema_contract_for_runtime(request.renderer, runtime_kind);
     Ok(json!([
         {
             "role": "system",
@@ -3125,7 +4028,7 @@ fn build_studio_artifact_materialization_prompt_for_runtime(
 }
 
 fn studio_artifact_materialization_schema_contract() -> &'static str {
-    "Return exactly one JSON object with this camelCase schema:\n{\n  \"summary\": <string>,\n  \"notes\": [<string>],\n  \"files\": [\n    {\n      \"path\": <string>,\n      \"mime\": <string>,\n      \"role\": \"primary\" | \"source\" | \"export\" | \"supporting\",\n      \"renderable\": <boolean>,\n      \"downloadable\": <boolean>,\n      \"encoding\": null | \"utf8\" | \"base64\",\n      \"body\": <string>\n    }\n  ]\n}\nRules:\n1) Respect the typed renderer exactly.\n2) markdown => one renderable .md file.\n3) html_iframe => one renderable .html file with inline CSS/JS only.\n4) html_iframe must use semantic HTML structure: include <main> plus at least three sectioning elements drawn from <section>, <article>, <nav>, <aside>, or <footer>.\n5) html_iframe must ground requiredInteractions in real controls or interactive regions, not just static headings.\n6) html_iframe must realize required interactions as on-page state changes, revealed detail, filtering, comparison, tutorial stepping, or comparable DOM behavior.\n7) html_iframe must ship interactive regions with actual first-paint content and data; empty containers, comment-only handlers, or explanation-only scripts do not count as implementation.\n8) html_iframe must include a first-paint control set plus a shared detail, comparison, or explanation region when requiredInteractions are non-empty.\n9) html_iframe view-switching or navigation interactions must change inline content or shared detail state; anchor-only jump links do not count as sufficient implementation.\n10) html_iframe must render the default selected chart, label, and detail state directly in the markup before any script runs; scripts may enhance or switch it, but must not create the only visible first-paint content from empty shells.\n11) html_iframe must not use alert(), dead buttons, submit-to-nowhere forms, or navigation-only controls as the main interaction.\n12) html_iframe must not invent custom element tags like <toolbox> or <demo>; use standard HTML elements, classes, and data-* attributes.\n13) html_iframe must not depend on external libraries, undefined globals, or remote placeholder media; render charts and diagrams with inline SVG, canvas, or DOM/CSS.\n14) html_iframe must prefer inline SVG or DOM data marks over blank canvas shells; a canvas-only placeholder does not count as first-paint implementation.\n15) html_iframe chart or diagram regions rendered with SVG must contain real marks plus visible labels, legend text, or accessible labels on first paint; abstract geometry alone does not count.\n16) html_iframe chart or diagram controls should update a shared detail, comparison, or explanation region instead of acting as decorative navigation.\n17) html_iframe must not include placeholder comments, TODO markers, or script references to DOM ids that do not exist in the document.\n18) jsx_sandbox => one renderable .jsx file with a default export.\n19) svg => one renderable .svg file.\n20) mermaid => one renderable .mermaid file.\n21) pdf_embed => one .pdf file whose body is the document text that Studio will compile into PDF bytes, and the document text must still be returned inside this JSON object as files[0].body rather than as raw prose outside JSON.\n22) download_card => downloadable export files only; do not mark them renderable.\n23) bundle_manifest => a .json manifest plus any supporting files required by the bundle.\n24) workspace_surface must not be used here.\n25) The visible composition must surface the differentiating request concepts from artifactThesis and requiredConcepts, not just the broad category.\n26) Do not use placeholder image URLs, placeholder copy, or generic stock filler. Prefer typographic, diagrammatic, or CSS-native composition over fake media placeholders.\n27) If the artifact could fit many unrelated prompts by only swapping the heading, it is not acceptable.\n28) Honor refinement continuity when editIntent.mode is patch or branch.\n29) Prefer truthful partial output over invented completion.\n30) html_iframe controls that iterate across multiple buttons, cards, or marks must target collections correctly; use querySelectorAll or an equivalent collection before calling forEach or similar methods, and keep every referenced view present in the markup.\n31) html_iframe clickable navigation should use explicit static control-to-panel mappings such as data-view plus data-view-panel, aria-controls, or data-target tied to pre-rendered views. Use the literal data-view-panel attribute on the panel element itself; a CSS class like class=\"data-view-panel\" does not satisfy this contract. Do not synthesize target ids by concatenating button ids or other runtime strings.\n32) html_iframe briefs that call for charts, diagrams, metrics, or comparisons must surface at least two distinct first-paint evidence views or chart families tied to different requiredConcepts or referenceHints; one chart plus generic prose is insufficient, and blank mount divs like <div id=\"usage-chart\"></div> do not count as evidence views.\n33) html_iframe briefs that require both clickable view switching and rollover detail must satisfy both in the same document: keep at least two pre-rendered panels plus visible data-detail marks that update one shared detail region on click and hover/focus. Do not repair one interaction by deleting the other.\n34) html_iframe marks that rely on focus handlers must be focusable, such as via tabindex=\"0\" or naturally focusable elements.\n35) html_iframe view-switching briefs must not point multiple controls only at one shared detail region; each switchable control needs its own pre-rendered panel container. If you emit controls like data-view=\"overview\", data-view=\"comparison\", and data-view=\"details\", emit matching containers like <section data-view-panel=\"overview\">...</section>, <section data-view-panel=\"comparison\" hidden>...</section>, and <section data-view-panel=\"details\" hidden>...</section>, keep the literal data-view-panel attribute on those panel elements, and then toggle them through a panels collection like querySelectorAll('[data-view-panel]').\n36) Keep visible markup first: place the script tag after the closing </main> or at the end of <body>, not as a long head script before the surfaced sections.\n37) Prefer dataset comparisons such as panel.dataset.viewPanel !== button.dataset.view instead of building a querySelector string with nested quoted fragments.\n38) Static data-view, aria-controls, or data-target attributes do not satisfy clickable navigation by themselves; wire click or change handlers that toggle hidden, aria-selected, aria-hidden, data-active, or comparable state on the mapped panel wrappers.\n39) Class names like class=\"overview-panel\" or class=\"data-view-panel\" do not establish a mapped panel; put the mapping on the wrapper itself with literal attributes such as id=\"overview-panel\" and data-view-panel=\"overview\".\n40) Apply sequence-browsing requirements only when interactionContract.sequenceBrowsingRequired is true. In that case, expose a visible progression control on first paint such as a stepper, previous/next controls, a scrubber, or a scroll-snap evidence rail. A static chart plus unrelated panel toggles does not satisfy sequence browsing."
+    "Return exactly one JSON object with this camelCase schema:\n{\n  \"summary\": <string>,\n  \"notes\": [<string>],\n  \"files\": [\n    {\n      \"path\": <string>,\n      \"mime\": <string>,\n      \"role\": \"primary\" | \"source\" | \"export\" | \"supporting\",\n      \"renderable\": <boolean>,\n      \"downloadable\": <boolean>,\n      \"encoding\": null | \"utf8\" | \"base64\",\n      \"body\": <string>\n    }\n  ]\n}\nRules:\n1) Respect the typed renderer exactly.\n2) markdown => one renderable .md file.\n3) html_iframe => one renderable .html file with inline CSS/JS only.\n4) html_iframe must use semantic HTML structure: include <main> plus at least three sectioning elements drawn from <section>, <article>, <nav>, <aside>, or <footer>.\n5) html_iframe must ground requiredInteractions in real controls or interactive regions, not just static headings.\n6) html_iframe must realize required interactions as on-page state changes, revealed detail, filtering, comparison, tutorial stepping, or comparable DOM behavior.\n7) html_iframe must ship interactive regions with actual first-paint content and data; empty containers, comment-only handlers, or explanation-only scripts do not count as implementation.\n8) html_iframe must include a first-paint control set plus a shared detail, comparison, or explanation region when requiredInteractions are non-empty.\n9) html_iframe view-switching or navigation interactions must change inline content or shared detail state; anchor-only jump links do not count as sufficient implementation.\n10) html_iframe must render the default selected chart, label, and detail state directly in the markup before any script runs; scripts may enhance or switch it, but must not create the only visible first-paint content from empty shells.\n11) html_iframe must not use alert(), dead buttons, submit-to-nowhere forms, or navigation-only controls as the main interaction.\n12) html_iframe must not invent custom element tags like <toolbox> or <demo>; use standard HTML elements, classes, and data-* attributes.\n13) html_iframe must not depend on external libraries, undefined globals, or remote placeholder media; render charts and diagrams with inline SVG, canvas, or DOM/CSS.\n14) html_iframe must prefer inline SVG or DOM data marks over blank canvas shells; a canvas-only placeholder does not count as first-paint implementation.\n15) html_iframe chart or diagram regions rendered with SVG must contain real marks plus visible labels, legend text, or accessible labels on first paint; abstract geometry alone does not count.\n16) html_iframe chart or diagram controls should update a shared detail, comparison, or explanation region instead of acting as decorative navigation.\n17) html_iframe must not include HTML comments, placeholder comments, TODO markers, or script references to DOM ids that do not exist in the document.\n18) html_iframe must not emit the literal words placeholder, placeholders, TODO, or TBD anywhere in the final HTML, CSS, JavaScript, comments, ids, classes, or visible copy.\n19) jsx_sandbox => one renderable .jsx file with a default export.\n20) svg => one renderable .svg file.\n21) mermaid => one renderable .mermaid file.\n22) pdf_embed => one .pdf file whose body is the document text that Studio will compile into PDF bytes, and the document text must still be returned inside this JSON object as files[0].body rather than as raw prose outside JSON.\n23) download_card => downloadable export files only; do not mark them renderable.\n24) bundle_manifest => a .json manifest plus any supporting files required by the bundle.\n25) workspace_surface must not be used here.\n26) The visible composition must surface the differentiating request concepts from artifactThesis and requiredConcepts, not just the broad category.\n27) Do not use placeholder image URLs, placeholder copy, generic stock filler, or fake media placeholders. Prefer typographic, diagrammatic, or CSS-native composition over fake media placeholders.\n28) If the artifact could fit many unrelated prompts by only swapping the heading, it is not acceptable.\n29) Honor refinement continuity when editIntent.mode is patch or branch.\n30) Prefer truthful partial output over invented completion.\n31) html_iframe controls that iterate across multiple buttons, cards, or marks must target collections correctly; use querySelectorAll or an equivalent collection before calling forEach or similar methods, and keep every referenced view present in the markup.\n32) html_iframe clickable navigation should use explicit static control-to-panel mappings such as data-view plus data-view-panel, aria-controls, or data-target tied to pre-rendered views. Use the literal data-view-panel attribute on the panel element itself; a CSS class like class=\"data-view-panel\" does not satisfy this contract. Do not synthesize target ids by concatenating button ids or other runtime strings.\n33) html_iframe briefs that call for charts, diagrams, metrics, or comparisons must surface at least two distinct first-paint evidence views or chart families tied to different requiredConcepts or referenceHints; one chart plus generic prose is insufficient, and blank mount divs like <div id=\"usage-chart\"></div> do not count as evidence views.\n34) html_iframe briefs that require both clickable view switching and rollover detail must satisfy both in the same document: keep at least two pre-rendered panels plus visible data-detail marks that update one shared detail region on click and hover/focus. Do not repair one interaction by deleting the other.\n35) html_iframe marks that rely on focus handlers must be focusable, such as via tabindex=\"0\" or naturally focusable elements.\n36) html_iframe view-switching briefs must not point multiple controls only at one shared detail region; each switchable control needs its own pre-rendered panel container. If you emit controls like data-view=\"overview\", data-view=\"comparison\", and data-view=\"details\", emit matching containers like <section data-view-panel=\"overview\">...</section>, <section data-view-panel=\"comparison\" hidden>...</section>, and <section data-view-panel=\"details\" hidden>...</section>, keep the literal data-view-panel attribute on those panel elements, and then toggle them through a panels collection like querySelectorAll('[data-view-panel]').\n37) Keep visible markup first: place the script tag after the closing </main> or at the end of <body>, not as a long head script before the surfaced sections.\n38) Prefer dataset comparisons such as panel.dataset.viewPanel !== button.dataset.view instead of building a querySelector string with nested quoted fragments.\n39) Static data-view, aria-controls, or data-target attributes do not satisfy clickable navigation by themselves; wire click or change handlers that toggle hidden, aria-selected, aria-hidden, data-active, or comparable state on the mapped panel wrappers.\n40) Class names like class=\"overview-panel\" or class=\"data-view-panel\" do not establish a mapped panel; put the mapping on the wrapper itself with literal attributes such as id=\"overview-panel\" and data-view-panel=\"overview\".\n41) Apply sequence-browsing requirements only when interactionContract.sequenceBrowsingRequired is true. In that case, expose a visible progression control on first paint such as a stepper, previous/next controls, a scrubber, or a scroll-snap evidence rail. A static chart plus unrelated panel toggles does not satisfy sequence browsing."
 }
 
 fn studio_artifact_materialization_schema_contract_for_runtime(
@@ -3133,7 +4036,7 @@ fn studio_artifact_materialization_schema_contract_for_runtime(
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> &'static str {
     if compact_local_html_materialization_prompt(renderer, runtime_kind) {
-        return "Return exactly one JSON object with this camelCase schema:\n{\n  \"summary\": <string>,\n  \"notes\": [<string>],\n  \"files\": [\n    {\n      \"path\": <string>,\n      \"mime\": <string>,\n      \"role\": \"primary\" | \"source\" | \"export\" | \"supporting\",\n      \"renderable\": <boolean>,\n      \"downloadable\": <boolean>,\n      \"encoding\": null | \"utf8\" | \"base64\",\n      \"body\": <string>\n    }\n  ]\n}\nRules:\n1) Respect the typed renderer exactly.\n2) html_iframe => one self-contained renderable .html file with inline CSS/JS only.\n3) Use standard HTML with <main> plus at least three sectioning elements.\n4) First paint must already show real controls, a shared detail/comparison region, and request-specific evidence content.\n5) Chart, diagram, metric, or comparison briefs must show at least two populated first-paint evidence views or evidence families tied to different brief concepts.\n6) View-switching controls must toggle pre-rendered mapped panels through literal attributes such as data-view plus data-view-panel or aria-controls; do not synthesize target ids at runtime.\n7) If rollover detail is required, include visible focusable [data-detail] marks that update the shared detail region on hover/focus while preserving any required clickable view switching.\n8) Render the default selected view, chart labels, and detail text directly in the HTML before any script runs.\n9) Use inline SVG or DOM/CSS evidence with visible labels and multiple marks/rows/items; no blank shells, placeholders, TODOs, nonexistent ids, or external libraries.\n10) Keep the artifact request-specific, refinement-faithful, and truthful rather than inventing completion.";
+        return "Return exactly one JSON object with this camelCase schema:\n{\n  \"summary\": <string>,\n  \"notes\": [<string>],\n  \"files\": [\n    {\n      \"path\": <string>,\n      \"mime\": <string>,\n      \"role\": \"primary\" | \"source\" | \"export\" | \"supporting\",\n      \"renderable\": <boolean>,\n      \"downloadable\": <boolean>,\n      \"encoding\": null | \"utf8\" | \"base64\",\n      \"body\": <string>\n    }\n  ]\n}\nRules:\n1) Respect the typed renderer exactly.\n2) html_iframe => one self-contained renderable .html file with inline CSS/JS only.\n3) Use standard HTML with <main> plus at least three sectioning elements.\n4) First paint must already show a real control set, two populated evidence surfaces, and one shared detail or comparison region.\n5) View-switching controls must toggle pre-rendered mapped panels through literal attributes such as data-view plus data-view-panel or aria-controls; do not synthesize target ids at runtime.\n6) If rollover detail is required, include visible [data-detail] marks that update the shared detail region on hover/focus, and make every such mark keyboard-focusable with tabindex=\"0\" or a naturally focusable element.\n7) If you include a shared detail, comparison, or explanation region, populate its default state directly in the HTML before any script runs; do not leave it empty on first paint.\n8) Render the default selected view and evidence directly in the HTML before any script runs.\n9) Use inline SVG or DOM/CSS evidence with visible labels; no blank shells, placeholders, HTML comments, TODOs, nonexistent ids, or external libraries.\n10) Do not emit the literal words placeholder, placeholders, TODO, or TBD anywhere in the final HTML, CSS, JavaScript, comments, ids, classes, or visible copy.\n11) Keep the artifact request-specific, refinement-faithful, and truthful rather than inventing completion.";
     }
     studio_artifact_materialization_schema_contract()
 }
@@ -3165,9 +4068,7 @@ fn studio_artifact_renderer_authoring_guidance_for_runtime(
             ""
         };
         return format!(
-            "- Use the candidate seed to vary this layout recipe: {layout_recipe}.\n- Keep the artifact visibly grounded in these request concepts: {concept_focus}.\n- Make these interaction families tangible on first paint: {interaction_focus}.{sequence_browsing_directive}\n- Ship one self-contained .html file with inline CSS/JS, <main>, and at least three sectioning elements.\n- First paint must include a request-specific hero, a real control bar, one primary evidence surface, a second populated evidence surface, and a shared detail or comparison aside.\n- Use pre-rendered mapped panels such as {} and keep exactly one mapped panel visible in the raw HTML before script runs.\n- A valid two-view first paint can pair {}.\n- Render the default selected view, chart labels, and detail text directly in the HTML; scripts should only switch or annotate existing content.\n- Use inline SVG or DOM/CSS evidence with visible labels and at least three labeled marks, rows, or items per evidence surface.\n- Controls must toggle existing panels or rewrite the shared detail region; no jump-link navigation, placeholder media, TODOs, nonexistent ids, or external libraries.{rollover_directive}",
-            super::html_prompt_exact_view_scaffold(brief),
-            super::html_prompt_two_view_example(brief),
+            "- Use the candidate seed to vary this layout recipe: {layout_recipe}.\n- Keep the artifact visibly grounded in these request concepts: {concept_focus}.\n- Make these interaction families tangible on first paint: {interaction_focus}.{sequence_browsing_directive}\n- Ship one self-contained .html file with inline CSS/JS, <main>, and at least three sectioning elements.\n- First paint must include a request-specific hero, a real control bar, two populated evidence surfaces, and one shared detail or comparison aside.\n- Any shared detail, comparison, or explanation region must contain request-grounded default content in the raw HTML before script runs; do not leave it empty until interaction.\n- Keep exactly one mapped panel visible in the raw HTML before script runs; controls should toggle pre-rendered panels or rewrite the shared detail region.\n- Render the default selected view and evidence directly in the HTML; scripts may switch or annotate existing content but must not create the only first-paint content.\n- Use inline SVG or DOM/CSS evidence with visible labels and multiple marks, rows, or items per evidence surface.\n- Every visible [data-detail] mark should be keyboard-focusable through tabindex=\"0\" or a naturally focusable element such as a button.\n- Do not emit the literal words placeholder, placeholders, TODO, or TBD anywhere in the final HTML, CSS, JavaScript, comments, ids, classes, or visible copy.\n- No jump-link navigation, placeholder media, HTML comments, TODOs, nonexistent ids, or external libraries.{rollover_directive}",
         );
     }
 
@@ -3474,7 +4375,7 @@ pub fn build_studio_artifact_materialization_repair_prompt(
     )
 }
 
-fn build_studio_artifact_materialization_repair_prompt_for_runtime(
+pub(super) fn build_studio_artifact_materialization_repair_prompt_for_runtime(
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
@@ -3554,6 +4455,88 @@ fn build_studio_artifact_materialization_repair_prompt_for_runtime(
         "Studio refinement context",
         compact_prompt,
     )?;
+    let renderer_guidance = studio_artifact_renderer_authoring_guidance_for_runtime(
+        request,
+        brief,
+        candidate_seed,
+        runtime_kind,
+    );
+    let scaffold_execution_digest = surface_contracts.execution_digest;
+    let scaffold_execution_block = if scaffold_execution_digest.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\nScaffold execution digest:\n{}",
+            if compact_prompt {
+                truncate_materialization_focus_text(&scaffold_execution_digest, 180)
+            } else {
+                scaffold_execution_digest
+            }
+        )
+    };
+    let failure_directives =
+        super::studio_artifact_materialization_failure_directives(request, brief, failure);
+    let schema_contract =
+        studio_artifact_materialization_schema_contract_for_runtime(request.renderer, runtime_kind);
+    if compact_prompt {
+        let request_focus_json = serialize_materialization_prompt_json(
+            &compact_local_html_materialization_request_focus(request),
+            "Studio artifact request focus",
+            true,
+        )?;
+        let brief_focus_json = serialize_materialization_prompt_json(
+            &compact_local_html_materialization_brief_focus(brief),
+            "Studio artifact brief focus",
+            true,
+        )?;
+        let interaction_contract_json = serialize_materialization_prompt_json(
+            &super::studio_artifact_interaction_contract(brief),
+            "Studio interaction contract",
+            true,
+        )?;
+        let edit_intent_focus_json = serialize_materialization_prompt_json(
+            &edit_intent,
+            "Studio artifact edit intent focus",
+            true,
+        )?;
+        let refinement_focus_json = serialize_materialization_prompt_json(
+            &compact_local_html_refinement_context_focus(refinement),
+            "Studio refinement context focus",
+            true,
+        )?;
+        let previous_candidate_focus_json = serialize_materialization_prompt_json(
+            &compact_local_html_materialization_repair_candidate_focus(raw_output, request),
+            "Studio artifact repair candidate focus",
+            true,
+        )?;
+        return Ok(json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed artifact materialization repairer. Patch the previous candidate into a schema-valid JSON artifact payload. Preserve the strongest valid request-specific structure instead of restarting from a fresh shell. Output JSON only."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief focus JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent focus JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nPrevious candidate focus JSON:\n{}\n\nThe previous artifact payload was rejected.\nFailure:\n{}\n\nFailure-specific repair directives:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\nRepair the payload so it is fully schema-valid, keeps the strongest working structure, and remains request-faithful. Return JSON only.\n\n{}",
+                    title,
+                    intent,
+                    request_focus_json,
+                    brief_focus_json,
+                    interaction_contract_json,
+                    edit_intent_focus_json,
+                    refinement_focus_json,
+                    candidate_id,
+                    candidate_seed,
+                    previous_candidate_focus_json,
+                    compact_local_html_directives_text(failure),
+                    compact_local_html_directives_text(&failure_directives),
+                    scaffold_execution_block,
+                    renderer_guidance,
+                    schema_contract,
+                )
+            }
+        ]));
+    }
     let previous_candidate_json = serialize_materialization_prompt_json(
         &materialization_repair_candidate_view(raw_output, request),
         "Studio artifact repair candidate view",
@@ -3561,28 +4544,9 @@ fn build_studio_artifact_materialization_repair_prompt_for_runtime(
     )?;
     let raw_output_preview = truncate_candidate_failure_preview(raw_output, 3600)
         .unwrap_or_else(|| "(empty)".to_string());
-    let renderer_guidance = studio_artifact_renderer_authoring_guidance_for_runtime(
-        request,
-        brief,
-        candidate_seed,
-        runtime_kind,
-    );
     let design_label = format!("{} JSON", surface_contracts.design_label);
     let scaffold_label = format!("{} JSON", surface_contracts.scaffold_label);
     let component_label = format!("{} JSON", surface_contracts.component_label);
-    let scaffold_execution_digest = surface_contracts.execution_digest;
-    let scaffold_execution_block = if scaffold_execution_digest.is_empty() {
-        String::new()
-    } else {
-        format!(
-            "\n\nScaffold execution digest:\n{}",
-            scaffold_execution_digest
-        )
-    };
-    let failure_directives =
-        super::studio_artifact_materialization_failure_directives(request, brief, failure);
-    let schema_contract =
-        studio_artifact_materialization_schema_contract_for_runtime(request.renderer, runtime_kind);
     Ok(json!([
         {
             "role": "system",
@@ -3653,7 +4617,7 @@ pub fn build_studio_artifact_candidate_refinement_prompt(
     )
 }
 
-fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
+pub(crate) fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
@@ -3728,48 +4692,120 @@ fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
         "Studio interaction contract",
         compact_prompt,
     )?;
-    let edit_intent_json = serialize_materialization_prompt_json(
-        &edit_intent,
-        "Studio artifact edit intent",
-        compact_prompt,
-    )?;
-    let refinement_json = serialize_materialization_prompt_json(
-        &studio_artifact_refinement_context_view(refinement),
-        "Studio refinement context",
-        compact_prompt,
-    )?;
-    let candidate_json = serialize_materialization_prompt_json(
-        &studio_artifact_refinement_candidate_view(candidate),
-        "Studio artifact candidate",
-        compact_prompt,
-    )?;
-    let judge_json = serialize_materialization_prompt_json(
-        judge,
-        "Studio artifact judge result",
-        compact_prompt,
-    )?;
+    let edit_intent_json = if compact_prompt {
+        serialize_materialization_prompt_json(
+            &edit_intent,
+            "Studio artifact edit intent focus",
+            true,
+        )?
+    } else {
+        serialize_materialization_prompt_json(&edit_intent, "Studio artifact edit intent", false)?
+    };
+    let refinement_json = if compact_prompt {
+        serialize_materialization_prompt_json(
+            &compact_local_html_refinement_context_focus(refinement),
+            "Studio refinement context focus",
+            true,
+        )?
+    } else {
+        serialize_materialization_prompt_json(
+            &studio_artifact_refinement_context_view(refinement),
+            "Studio refinement context",
+            false,
+        )?
+    };
+    let candidate_json = if compact_prompt {
+        serialize_materialization_prompt_json(
+            &compact_local_html_refinement_candidate_focus(candidate),
+            "Studio artifact candidate focus",
+            true,
+        )?
+    } else {
+        serialize_materialization_prompt_json(
+            &studio_artifact_refinement_candidate_view(candidate),
+            "Studio artifact candidate",
+            false,
+        )?
+    };
+    let judge_json = if compact_prompt {
+        serialize_materialization_prompt_json(
+            &compact_local_html_refinement_judge_focus(judge),
+            "Studio artifact judge focus",
+            true,
+        )?
+    } else {
+        serialize_materialization_prompt_json(judge, "Studio artifact judge result", false)?
+    };
     let renderer_guidance = studio_artifact_renderer_authoring_guidance_for_runtime(
         request,
         brief,
         candidate_seed,
         runtime_kind,
     );
-    let design_label = format!("{} JSON", surface_contracts.design_label);
-    let scaffold_label = format!("{} JSON", surface_contracts.scaffold_label);
-    let component_label = format!("{} JSON", surface_contracts.component_label);
     let scaffold_execution_digest = surface_contracts.execution_digest;
     let scaffold_execution_block = if scaffold_execution_digest.is_empty() {
         String::new()
     } else {
         format!(
             "\n\nScaffold execution digest:\n{}",
-            scaffold_execution_digest
+            if compact_prompt {
+                truncate_materialization_focus_text(&scaffold_execution_digest, 180)
+            } else {
+                scaffold_execution_digest
+            }
         )
     };
     let refinement_directives =
         super::studio_artifact_candidate_refinement_directives(request, brief, judge);
+    let refinement_directives = if compact_prompt {
+        compact_local_html_directives_text(&refinement_directives)
+    } else {
+        refinement_directives
+    };
     let schema_contract =
         studio_artifact_materialization_schema_contract_for_runtime(request.renderer, runtime_kind);
+    if compact_prompt {
+        let request_focus_json = serialize_materialization_prompt_json(
+            &compact_local_html_materialization_request_focus(request),
+            "Studio artifact request focus",
+            true,
+        )?;
+        let brief_focus_json = serialize_materialization_prompt_json(
+            &compact_local_html_materialization_brief_focus(brief),
+            "Studio artifact brief focus",
+            true,
+        )?;
+        return Ok(json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed artifact refiner. Patch the current candidate in place to resolve the judge's cited contradictions while preserving working structure and strong request-specific content. Output JSON only."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief focus JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent focus JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate focus JSON:\n{}\n\nAcceptance judgment focus JSON:\n{}\n\nPatch the current candidate so it keeps the strongest working structure, but fixes the cited request-faithfulness, interaction, hierarchy, and completeness gaps. Preserve file paths unless they are actively wrong.\n\nRefinement output contract:\nReturn the patched artifact inside the exact JSON schema below; do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object.\n\nRefinement directives:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
+                    title,
+                    intent,
+                    request_focus_json,
+                    brief_focus_json,
+                    interaction_contract_json,
+                    edit_intent_json,
+                    refinement_json,
+                    candidate_id,
+                    candidate_seed,
+                    candidate_json,
+                    judge_json,
+                    refinement_directives,
+                    scaffold_execution_block,
+                    renderer_guidance,
+                    schema_contract,
+                )
+            }
+        ]));
+    }
+    let design_label = format!("{} JSON", surface_contracts.design_label);
+    let scaffold_label = format!("{} JSON", surface_contracts.scaffold_label);
+    let component_label = format!("{} JSON", surface_contracts.component_label);
     Ok(json!([
         {
             "role": "system",
@@ -3921,48 +4957,118 @@ fn build_studio_artifact_candidate_refinement_repair_prompt_for_runtime(
         "Studio interaction contract",
         compact_prompt,
     )?;
-    let edit_intent_json = serialize_materialization_prompt_json(
-        &edit_intent,
-        "Studio artifact edit intent",
-        compact_prompt,
-    )?;
-    let refinement_json = serialize_materialization_prompt_json(
-        &studio_artifact_refinement_context_view(refinement),
-        "Studio refinement context",
-        compact_prompt,
-    )?;
-    let candidate_json = serialize_materialization_prompt_json(
-        &studio_artifact_refinement_candidate_view(candidate),
-        "Studio artifact candidate",
-        compact_prompt,
-    )?;
-    let judge_json = serialize_materialization_prompt_json(
-        judge,
-        "Studio artifact judge result",
-        compact_prompt,
-    )?;
+    let edit_intent_json = if compact_prompt {
+        serialize_materialization_prompt_json(
+            &edit_intent,
+            "Studio artifact edit intent focus",
+            true,
+        )?
+    } else {
+        serialize_materialization_prompt_json(&edit_intent, "Studio artifact edit intent", false)?
+    };
+    let refinement_json = if compact_prompt {
+        serialize_materialization_prompt_json(
+            &compact_local_html_refinement_context_focus(refinement),
+            "Studio refinement context focus",
+            true,
+        )?
+    } else {
+        serialize_materialization_prompt_json(
+            &studio_artifact_refinement_context_view(refinement),
+            "Studio refinement context",
+            false,
+        )?
+    };
+    let candidate_json = if compact_prompt {
+        serialize_materialization_prompt_json(
+            &compact_local_html_refinement_candidate_focus(candidate),
+            "Studio artifact candidate focus",
+            true,
+        )?
+    } else {
+        serialize_materialization_prompt_json(
+            &studio_artifact_refinement_candidate_view(candidate),
+            "Studio artifact candidate",
+            false,
+        )?
+    };
+    let judge_json = if compact_prompt {
+        serialize_materialization_prompt_json(
+            &compact_local_html_refinement_judge_focus(judge),
+            "Studio artifact judge focus",
+            true,
+        )?
+    } else {
+        serialize_materialization_prompt_json(judge, "Studio artifact judge result", false)?
+    };
     let renderer_guidance = studio_artifact_renderer_authoring_guidance_for_runtime(
         request,
         brief,
         candidate_seed,
         runtime_kind,
     );
-    let design_label = format!("{} JSON", surface_contracts.design_label);
-    let scaffold_label = format!("{} JSON", surface_contracts.scaffold_label);
-    let component_label = format!("{} JSON", surface_contracts.component_label);
     let scaffold_execution_digest = surface_contracts.execution_digest;
     let scaffold_execution_block = if scaffold_execution_digest.is_empty() {
         String::new()
     } else {
         format!(
             "\n\nScaffold execution digest:\n{}",
-            scaffold_execution_digest
+            if compact_prompt {
+                truncate_materialization_focus_text(&scaffold_execution_digest, 320)
+            } else {
+                scaffold_execution_digest
+            }
         )
     };
     let failure_directives =
         super::studio_artifact_materialization_failure_directives(request, brief, failure);
     let schema_contract =
         studio_artifact_materialization_schema_contract_for_runtime(request.renderer, runtime_kind);
+    if compact_prompt {
+        let request_focus_json = serialize_materialization_prompt_json(
+            &compact_local_html_materialization_request_focus(request),
+            "Studio artifact request focus",
+            true,
+        )?;
+        let brief_focus_json = serialize_materialization_prompt_json(
+            &compact_local_html_materialization_brief_focus(brief),
+            "Studio artifact brief focus",
+            true,
+        )?;
+        return Ok(json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed artifact refinement repairer. Repair the refined candidate into a schema-valid patch that resolves the cited contradictions while preserving the current artifact's strongest valid structure. Output JSON only."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief focus JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent focus JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate focus JSON:\n{}\n\nAcceptance judgment focus JSON:\n{}\n\nThe previous refinement payload was rejected.\nFailure:\n{}\n\nPrevious raw refinement output:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\nFailure-specific repair directives:\n{}\n\nRepair the refinement payload so it stays request-faithful, preserves working structure, and fully validates.\n\n{}",
+                    title,
+                    intent,
+                    request_focus_json,
+                    brief_focus_json,
+                    interaction_contract_json,
+                    edit_intent_json,
+                    refinement_json,
+                    candidate_id,
+                    candidate_seed,
+                    candidate_json,
+                    judge_json,
+                    failure,
+                    truncate_candidate_failure_preview(raw_output, 1600)
+                        .unwrap_or_else(|| "(empty)".to_string()),
+                    scaffold_execution_block,
+                    renderer_guidance,
+                    failure_directives,
+                    schema_contract,
+                )
+            }
+        ]));
+    }
+    let design_label = format!("{} JSON", surface_contracts.design_label);
+    let scaffold_label = format!("{} JSON", surface_contracts.scaffold_label);
+    let component_label = format!("{} JSON", surface_contracts.component_label);
     Ok(json!([
         {
             "role": "system",

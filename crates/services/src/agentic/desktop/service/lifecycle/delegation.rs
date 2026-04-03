@@ -288,6 +288,69 @@ fn enrich_delegated_child_goal(
     }
 }
 
+fn enrich_delegated_child_goal_with_prep(
+    parent_goal: &str,
+    raw_goal: &str,
+    workflow_id: Option<&str>,
+    prep_bundle: &DelegatedChildPrepBundle,
+) -> String {
+    let enriched_goal = enrich_delegated_child_goal(parent_goal, raw_goal, workflow_id);
+    let prep_summary = prep_bundle
+        .prep_summary
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if prep_bundle.selected_skills.is_empty() && prep_summary.is_none() {
+        return enriched_goal;
+    }
+
+    let (raw_head, raw_context) = split_parent_playbook_context(&enriched_goal);
+    let raw_context_text = raw_context.unwrap_or("");
+    let mut context_lines = raw_context
+        .map(|text| {
+            text.lines()
+                .map(str::trim_end)
+                .filter(|line| !line.trim().is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let mut added = false;
+
+    if extract_worker_context_field(raw_context_text, &["selected_skills"]).is_none()
+        && !prep_bundle.selected_skills.is_empty()
+    {
+        context_lines.push(format!(
+            "- selected_skills: {}",
+            prep_bundle.selected_skills.join(", ")
+        ));
+        added = true;
+    }
+
+    if extract_worker_context_field(raw_context_text, &["prep_summary"]).is_none() {
+        if let Some(summary) = prep_summary {
+            context_lines.push(format!("- prep_summary: {summary}"));
+            added = true;
+        }
+    }
+
+    if !added {
+        return enriched_goal;
+    }
+
+    let head = if raw_head.is_empty() {
+        enriched_goal.trim()
+    } else {
+        raw_head
+    };
+    format!(
+        "{}\n\n{}\n{}",
+        head,
+        PARENT_PLAYBOOK_CONTEXT_MARKER,
+        context_lines.join("\n")
+    )
+}
+
 fn normalize_existing_goal_path(candidate: &str) -> Option<PathBuf> {
     let trimmed = candidate
         .trim()
@@ -328,6 +391,7 @@ enum DelegatedPrepMode {
     Research,
     Coding,
     Artifact,
+    ComputerUse,
 }
 
 fn delegated_prep_mode(assignment: &WorkerAssignment) -> Option<DelegatedPrepMode> {
@@ -341,10 +405,10 @@ fn delegated_prep_mode(assignment: &WorkerAssignment) -> Option<DelegatedPrepMod
         Some("coding")
             if matches!(
                 assignment.workflow_id.as_deref().map(str::trim),
-                Some("repo_context_brief")
+                Some("repo_context_brief" | "patch_build_verify")
             ) || matches!(
                 assignment.template_id.as_deref().map(str::trim),
-                Some("context_worker")
+                Some("context_worker" | "coder")
             ) =>
         {
             return Some(DelegatedPrepMode::Coding);
@@ -352,13 +416,24 @@ fn delegated_prep_mode(assignment: &WorkerAssignment) -> Option<DelegatedPrepMod
         Some("artifacts")
             if matches!(
                 assignment.workflow_id.as_deref().map(str::trim),
-                Some("artifact_context_brief")
+                Some("artifact_context_brief" | "artifact_generate_repair")
             ) || matches!(
                 assignment.template_id.as_deref().map(str::trim),
-                Some("context_worker")
+                Some("context_worker" | "artifact_builder")
             ) =>
         {
             return Some(DelegatedPrepMode::Artifact);
+        }
+        Some("computer_use")
+            if matches!(
+                assignment.workflow_id.as_deref().map(str::trim),
+                Some("ui_state_brief" | "browser_postcondition_pass")
+            ) || matches!(
+                assignment.template_id.as_deref().map(str::trim),
+                Some("perception_worker" | "browser_operator")
+            ) =>
+        {
+            return Some(DelegatedPrepMode::ComputerUse);
         }
         _ => {}
     }
@@ -375,19 +450,32 @@ fn delegated_prep_mode(assignment: &WorkerAssignment) -> Option<DelegatedPrepMod
 
     if matches!(
         assignment.workflow_id.as_deref().map(str::trim),
-        Some("repo_context_brief")
+        Some("repo_context_brief" | "patch_build_verify")
     ) || matches!(
         assignment.template_id.as_deref().map(str::trim),
-        Some("context_worker")
+        Some("context_worker" | "coder")
     ) {
         return Some(DelegatedPrepMode::Coding);
     }
 
     if matches!(
         assignment.workflow_id.as_deref().map(str::trim),
-        Some("artifact_context_brief")
+        Some("artifact_context_brief" | "artifact_generate_repair")
+    ) || matches!(
+        assignment.template_id.as_deref().map(str::trim),
+        Some("artifact_builder")
     ) {
         return Some(DelegatedPrepMode::Artifact);
+    }
+
+    if matches!(
+        assignment.workflow_id.as_deref().map(str::trim),
+        Some("ui_state_brief" | "browser_postcondition_pass")
+    ) || matches!(
+        assignment.template_id.as_deref().map(str::trim),
+        Some("perception_worker" | "browser_operator")
+    ) {
+        return Some(DelegatedPrepMode::ComputerUse);
     }
 
     None
@@ -438,6 +526,7 @@ fn prep_workload_id(
         DelegatedPrepMode::Research => "research-prep",
         DelegatedPrepMode::Coding => "coding-prep",
         DelegatedPrepMode::Artifact => "artifact-prep",
+        DelegatedPrepMode::ComputerUse => "computer-use-prep",
     };
     workload::compute_workload_id(
         parent_session_id,
@@ -471,6 +560,14 @@ fn fallback_prep_summary(mode: DelegatedPrepMode, retrieval_succeeded: bool) -> 
             "Artifact memory retrieval unavailable before spawn; the context worker will rely on direct brief inspection."
                 .to_string()
         }
+        (DelegatedPrepMode::ComputerUse, true) => {
+            "No matching UI-state memory retrieved before spawn; the perception worker will inspect the live surface directly."
+                .to_string()
+        }
+        (DelegatedPrepMode::ComputerUse, false) => {
+            "UI-state memory retrieval unavailable before spawn; the perception worker will rely on direct surface inspection."
+                .to_string()
+        }
     }
 }
 
@@ -479,11 +576,17 @@ fn prep_log_label(mode: DelegatedPrepMode) -> &'static str {
         DelegatedPrepMode::Research => "research",
         DelegatedPrepMode::Coding => "coding",
         DelegatedPrepMode::Artifact => "artifact",
+        DelegatedPrepMode::ComputerUse => "computer-use",
     }
 }
 
 fn delegated_research_bootstrap_query(goal: &str) -> Option<String> {
-    let trimmed = goal.trim().trim_end_matches(['.', '!', '?']);
+    let trimmed = goal
+        .split_once(PARENT_PLAYBOOK_CONTEXT_MARKER)
+        .map(|(head, _)| head)
+        .unwrap_or(goal)
+        .trim()
+        .trim_end_matches(['.', '!', '?']);
     if trimmed.is_empty() {
         return None;
     }
@@ -504,6 +607,13 @@ fn delegated_research_bootstrap_query(goal: &str) -> Option<String> {
 
     let lowercase = topic.to_ascii_lowercase();
     for marker in [
+        " and write me a ",
+        " and write a ",
+        " and write an ",
+        " and prepare a ",
+        " and prepare an ",
+        " and draft a ",
+        " and draft an ",
         " using current web",
         " using web",
         " and local memory",
@@ -522,6 +632,15 @@ fn delegated_research_bootstrap_query(goal: &str) -> Option<String> {
 
     let normalized = topic.trim().trim_end_matches(['.', '!', '?']).trim();
     (!normalized.is_empty()).then(|| normalized.to_string())
+}
+
+fn delegated_research_query_contract(goal: &str) -> Option<String> {
+    let trimmed = goal
+        .split_once(PARENT_PLAYBOOK_CONTEXT_MARKER)
+        .map(|(head, _)| head)
+        .unwrap_or(goal)
+        .trim();
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
 fn delegated_child_contract_slot(slot: &str, value: &str) -> InstructionSlotBinding {
@@ -932,7 +1051,10 @@ fn seed_delegated_child_execution_queue(
         .map(|workflow| workflow.workflow_id.as_str());
 
     if matches!(workflow_id, Some("live_research_brief")) {
-        let Some(query) = delegated_research_bootstrap_query(&assignment.goal) else {
+        let Some(query_contract) = delegated_research_query_contract(&assignment.goal) else {
+            return Ok(());
+        };
+        let Some(query) = delegated_research_bootstrap_query(&query_contract) else {
             return Ok(());
         };
 
@@ -940,7 +1062,7 @@ fn seed_delegated_child_execution_queue(
             child_state,
             child_session_id,
             &query,
-            &assignment.goal,
+            &query_contract,
         )?;
         return Ok(());
     }
@@ -1296,7 +1418,7 @@ pub async fn spawn_delegated_child_session(
     }
 
     let enriched_goal = enrich_delegated_child_goal(&parent_state.goal, goal, workflow_id);
-    let assignment = resolve_worker_assignment(
+    let mut assignment = resolve_worker_assignment(
         child_session_id,
         step_index,
         budget,
@@ -1325,6 +1447,12 @@ pub async fn spawn_delegated_child_session(
         &assignment,
     )
     .await;
+    assignment.goal = enrich_delegated_child_goal_with_prep(
+        &parent_state.goal,
+        &assignment.goal,
+        assignment.workflow_id.as_deref(),
+        &prep_bundle,
+    );
 
     let target = infer_interaction_target(&assignment.goal);
 
@@ -1474,10 +1602,12 @@ pub async fn spawn_delegated_child_session(
 #[cfg(test)]
 mod tests {
     use super::{
-        delegated_child_preset_resolved_intent, delegated_research_bootstrap_query,
-        enrich_patch_build_verify_goal_with_parent_context,
+        delegated_child_preset_resolved_intent, delegated_prep_mode,
+        delegated_research_bootstrap_query, delegated_research_query_contract,
+        enrich_delegated_child_goal_with_prep, enrich_patch_build_verify_goal_with_parent_context,
         infer_delegated_child_working_directory, resolve_worker_name, resolve_worker_role,
-        seed_delegated_child_execution_queue, PARENT_PLAYBOOK_CONTEXT_MARKER,
+        seed_delegated_child_execution_queue, DelegatedChildPrepBundle, DelegatedPrepMode,
+        PARENT_PLAYBOOK_CONTEXT_MARKER,
     };
     use crate::agentic::desktop::types::{
         AgentMode, AgentState, AgentStatus, ExecutionTier, WorkerAssignment,
@@ -1711,6 +1841,66 @@ mod tests {
         }
     }
 
+    fn browser_postcondition_pass_assignment(goal: &str) -> WorkerAssignment {
+        WorkerAssignment {
+            step_key: "delegate:5:babe".to_string(),
+            budget: 72,
+            goal: goal.to_string(),
+            success_criteria:
+                "Return a deterministic browser execution handoff with the observed postcondition."
+                    .to_string(),
+            max_retries: 1,
+            retries_used: 0,
+            assigned_session_id: Some([6u8; 32]),
+            status: "running".to_string(),
+            playbook_id: Some("browser_postcondition_gate".to_string()),
+            template_id: Some("browser_operator".to_string()),
+            workflow_id: Some("browser_postcondition_pass".to_string()),
+            role: Some("Browser Operator".to_string()),
+            allowed_tools: vec![
+                "browser__navigate".to_string(),
+                "browser__snapshot".to_string(),
+                "browser__click_element".to_string(),
+                "browser__synthetic_click".to_string(),
+                "browser__type".to_string(),
+                "browser__wait".to_string(),
+                "agent__complete".to_string(),
+            ],
+            completion_contract: Default::default(),
+        }
+    }
+
+    fn artifact_generate_repair_assignment(goal: &str) -> WorkerAssignment {
+        WorkerAssignment {
+            step_key: "delegate:6:face".to_string(),
+            budget: 108,
+            goal: goal.to_string(),
+            success_criteria:
+                "Return a deterministic artifact handoff with produced files and presentation status."
+                    .to_string(),
+            max_retries: 1,
+            retries_used: 0,
+            assigned_session_id: Some([7u8; 32]),
+            status: "running".to_string(),
+            playbook_id: Some("artifact_generation_gate".to_string()),
+            template_id: Some("artifact_builder".to_string()),
+            workflow_id: Some("artifact_generate_repair".to_string()),
+            role: Some("Artifact Builder".to_string()),
+            allowed_tools: vec![
+                "filesystem__read_file".to_string(),
+                "filesystem__list_directory".to_string(),
+                "filesystem__search".to_string(),
+                "filesystem__patch".to_string(),
+                "filesystem__write_file".to_string(),
+                "sys__change_directory".to_string(),
+                "sys__exec_session".to_string(),
+                "model__responses".to_string(),
+                "agent__complete".to_string(),
+            ],
+            completion_contract: Default::default(),
+        }
+    }
+
     #[test]
     fn delegated_research_bootstrap_query_strips_worker_template_suffixes() {
         let query = delegated_research_bootstrap_query(
@@ -1719,6 +1909,29 @@ mod tests {
         .expect("query should be derived");
 
         assert_eq!(query, "the latest NIST post-quantum cryptography standards");
+    }
+
+    #[test]
+    fn delegated_research_bootstrap_query_ignores_parent_context_and_briefing_clause() {
+        let query = delegated_research_bootstrap_query(
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.\n\n[PARENT PLAYBOOK CONTEXT]\n- prep_summary: Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+        )
+        .expect("query should be derived");
+
+        assert_eq!(query, "the latest NIST post-quantum cryptography standards");
+    }
+
+    #[test]
+    fn delegated_research_query_contract_ignores_parent_context() {
+        let contract = delegated_research_query_contract(
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.\n\n[PARENT PLAYBOOK CONTEXT]\n- prep_summary: Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
+        )
+        .expect("contract should be derived");
+
+        assert_eq!(
+            contract,
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks."
+        );
     }
 
     #[test]
@@ -1741,6 +1954,35 @@ mod tests {
         assert_eq!(
             args.get("query").and_then(|value| value.as_str()),
             Some("the latest NIST post-quantum cryptography standards")
+        );
+        assert_eq!(
+            args.get("query_contract").and_then(|value| value.as_str()),
+            Some(goal)
+        );
+    }
+
+    #[test]
+    fn live_research_worker_seeded_search_ignores_parent_context() {
+        let goal = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.\n\n[PARENT PLAYBOOK CONTEXT]\n- prep_summary: Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.";
+        let mut child_state = test_agent_state(goal);
+        let assignment = research_assignment(goal);
+
+        seed_delegated_child_execution_queue(&mut child_state, [1u8; 32], &assignment)
+            .expect("seed should succeed");
+
+        assert_eq!(child_state.execution_queue.len(), 1);
+        let args: serde_json::Value =
+            serde_json::from_slice(&child_state.execution_queue[0].params)
+                .expect("seeded search params should decode");
+        assert_eq!(
+            args.get("query").and_then(|value| value.as_str()),
+            Some("the latest NIST post-quantum cryptography standards")
+        );
+        assert_eq!(
+            args.get("query_contract").and_then(|value| value.as_str()),
+            Some(
+                "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks."
+            )
         );
     }
 
@@ -2175,5 +2417,120 @@ mod tests {
         );
         assert!(enriched.contains("converts backslashes to forward slashes"));
         assert!(enriched.contains("preserves a leading `./` or `/`"));
+    }
+
+    #[test]
+    fn delegated_worker_execution_and_context_prep_modes_cover_remaining_guided_lanes() {
+        assert!(matches!(
+            delegated_prep_mode(&patch_build_verify_assignment(
+                "Patch the parser regression."
+            )),
+            Some(DelegatedPrepMode::Coding)
+        ));
+        assert!(matches!(
+            delegated_prep_mode(&artifact_generate_repair_assignment(
+                "Generate the launch page artifact."
+            )),
+            Some(DelegatedPrepMode::Artifact)
+        ));
+        assert!(matches!(
+            delegated_prep_mode(&browser_postcondition_pass_assignment(
+                "Click the confirmation button."
+            )),
+            Some(DelegatedPrepMode::ComputerUse)
+        ));
+        assert!(delegated_prep_mode(&targeted_test_audit_assignment(
+            "Verify the coding result with targeted checks."
+        ))
+        .is_none());
+    }
+
+    #[test]
+    fn patch_build_verify_goal_enrichment_inherits_selected_skills_and_prep_summary() {
+        let parent_goal = "Patch the workspace in \"/tmp/example\" and run `python3 -m unittest tests.test_path_utils -v`.";
+        let raw_goal = "Implement the path-normalization fix as a narrow workspace patch.";
+        let prep_bundle = DelegatedChildPrepBundle {
+            selected_skills: vec![
+                "coding__repo_diff_minimizer".to_string(),
+                "coding__targeted_test_first".to_string(),
+            ],
+            prep_summary: Some(
+                "Repo memory highlights the path-normalizer tests and a narrow string-normalization helper."
+                    .to_string(),
+            ),
+        };
+
+        let enriched = enrich_delegated_child_goal_with_prep(
+            parent_goal,
+            raw_goal,
+            Some("patch_build_verify"),
+            &prep_bundle,
+        );
+
+        assert!(enriched.contains(PARENT_PLAYBOOK_CONTEXT_MARKER));
+        assert!(enriched.contains(
+            "- selected_skills: coding__repo_diff_minimizer, coding__targeted_test_first"
+        ));
+        assert!(
+            enriched.contains("- prep_summary: Repo memory highlights the path-normalizer tests")
+        );
+        assert!(
+            enriched.contains("- targeted_checks: python3 -m unittest tests.test_path_utils -v")
+        );
+    }
+
+    #[test]
+    fn artifact_generate_repair_goal_enrichment_adds_artifact_prep_hints() {
+        let prep_bundle = DelegatedChildPrepBundle {
+            selected_skills: vec!["artifact__frontend_judge_spine".to_string()],
+            prep_summary: Some(
+                "Artifact memory favors a restrained editorial hero with a single dominant CTA."
+                    .to_string(),
+            ),
+        };
+
+        let enriched = enrich_delegated_child_goal_with_prep(
+            "Create an editorial launch page for the new release.",
+            "Generate the launch page artifact and retain the important output files.",
+            Some("artifact_generate_repair"),
+            &prep_bundle,
+        );
+
+        assert!(enriched.contains(PARENT_PLAYBOOK_CONTEXT_MARKER));
+        assert!(enriched.contains("- selected_skills: artifact__frontend_judge_spine"));
+        assert!(enriched.contains(
+            "- prep_summary: Artifact memory favors a restrained editorial hero with a single dominant CTA."
+        ));
+    }
+
+    #[test]
+    fn browser_postcondition_pass_goal_enrichment_preserves_existing_context_and_adds_ui_prep() {
+        let prep_bundle = DelegatedChildPrepBundle {
+            selected_skills: vec!["computer_use__button_targeting".to_string()],
+            prep_summary: Some(
+                "UI memory suggests the primary confirmation button sits below the explanatory copy."
+                    .to_string(),
+            ),
+        };
+        let raw_goal = concat!(
+            "Carry out the confirmation click in the browser.\n\n",
+            "[PARENT PLAYBOOK CONTEXT]\n",
+            "- next_action: click the primary confirmation button\n",
+            "- approval_risk: low"
+        );
+
+        let enriched = enrich_delegated_child_goal_with_prep(
+            "Confirm the action in the current browser tab.",
+            raw_goal,
+            Some("browser_postcondition_pass"),
+            &prep_bundle,
+        );
+
+        assert!(enriched.contains("- next_action: click the primary confirmation button"));
+        assert!(enriched.contains("- approval_risk: low"));
+        assert!(enriched.contains("- selected_skills: computer_use__button_targeting"));
+        assert!(enriched.contains(
+            "- prep_summary: UI memory suggests the primary confirmation button sits below the explanatory copy."
+        ));
     }
 }

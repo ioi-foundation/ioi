@@ -1894,9 +1894,17 @@ export interface SourceSummary {
   browses: SourceBrowseRow[];
 }
 
+export type ThoughtAgentKind =
+  | "worker"
+  | "verifier"
+  | "patch_synthesizer"
+  | "artifact_generator"
+  | "computer_use_operator";
+
 export interface ThoughtAgentSummary {
   agentLabel: string;
   agentRole: string | null;
+  agentKind: ThoughtAgentKind;
   stepIndex: number;
   notes: string[];
 }

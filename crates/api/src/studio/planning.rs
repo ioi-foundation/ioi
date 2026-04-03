@@ -1,5 +1,6 @@
 use super::judging::studio_artifact_refinement_context_view;
 use super::*;
+use std::collections::BTreeSet;
 
 fn studio_planning_trace(message: impl AsRef<str>) {
     if std::env::var_os("IOI_STUDIO_PROOF_TRACE").is_some() {
@@ -19,19 +20,78 @@ fn truncate_planning_preview(raw: &str, max_chars: usize) -> String {
     preview
 }
 
+fn compact_local_html_brief_prompt(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> bool {
+    renderer == StudioRendererKind::HtmlIframe
+        && runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+}
+
+pub(crate) fn brief_planner_max_tokens_for_runtime(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> u32 {
+    if compact_local_html_brief_prompt(renderer, runtime_kind) {
+        return 320;
+    }
+
+    448
+}
+
+fn brief_repair_max_tokens_for_runtime(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> u32 {
+    if compact_local_html_brief_prompt(renderer, runtime_kind) {
+        return 320;
+    }
+
+    448
+}
+
+fn brief_field_repair_max_tokens_for_runtime(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> u32 {
+    if compact_local_html_brief_prompt(renderer, runtime_kind) {
+        return 256;
+    }
+
+    320
+}
+
 pub async fn plan_studio_outcome_with_runtime(
     runtime: Arc<dyn InferenceRuntime>,
     intent: &str,
     active_artifact_id: Option<&str>,
     active_artifact: Option<&StudioArtifactRefinementContext>,
 ) -> Result<StudioOutcomePlanningPayload, String> {
-    let payload = build_studio_outcome_router_prompt(intent, active_artifact_id, active_artifact);
+    let runtime_provenance = runtime.studio_runtime_provenance();
+    let router_max_tokens =
+        if runtime_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
+            384
+        } else {
+            768
+        };
+    let payload = build_studio_outcome_router_prompt_for_runtime(
+        intent,
+        active_artifact_id,
+        active_artifact,
+        runtime_provenance.kind,
+    );
     let input = serde_json::to_vec(&payload).map_err(|error| {
         format!(
             "Failed to encode Studio outcome planning payload: {}",
             error
         )
     })?;
+    studio_planning_trace(format!(
+        "outcome_route:start runtime_kind={:?} prompt_bytes={} max_tokens={}",
+        runtime_provenance.kind,
+        input.len(),
+        router_max_tokens
+    ));
     let output = runtime
         .execute_inference(
             [0u8; 32],
@@ -39,7 +99,7 @@ pub async fn plan_studio_outcome_with_runtime(
             InferenceOptions {
                 temperature: 0.0,
                 json_mode: true,
-                max_tokens: 768,
+                max_tokens: router_max_tokens,
                 ..Default::default()
             },
         )
@@ -47,8 +107,22 @@ pub async fn plan_studio_outcome_with_runtime(
         .map_err(|error| format!("Studio outcome planning inference failed: {}", error))?;
     let raw = String::from_utf8(output)
         .map_err(|error| format!("Studio outcome planning utf8 decode failed: {}", error))?;
+    studio_planning_trace(format!(
+        "outcome_route:raw bytes={} preview={}",
+        raw.len(),
+        truncate_planning_preview(&raw, 240)
+    ));
     let mut planning = parse_studio_outcome_planning_payload(&raw)?;
-    planning.artifact = planning.artifact.map(canonicalize_artifact_request);
+    planning.artifact = planning
+        .artifact
+        .map(|request| reconcile_outcome_artifact_request_with_intent(intent, request));
+    studio_planning_trace(format!(
+        "outcome_route:parsed outcome={:?} confidence={} needs_clarification={} artifact_present={}",
+        planning.outcome_kind,
+        planning.confidence,
+        planning.needs_clarification,
+        planning.artifact.is_some()
+    ));
     Ok(planning)
 }
 
@@ -57,23 +131,126 @@ pub fn build_studio_outcome_router_prompt(
     active_artifact_id: Option<&str>,
     active_artifact: Option<&StudioArtifactRefinementContext>,
 ) -> serde_json::Value {
+    build_studio_outcome_router_prompt_for_runtime(
+        intent,
+        active_artifact_id,
+        active_artifact,
+        StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
+    )
+}
+
+pub(crate) fn build_studio_outcome_router_prompt_for_runtime(
+    intent: &str,
+    active_artifact_id: Option<&str>,
+    active_artifact: Option<&StudioArtifactRefinementContext>,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> serde_json::Value {
     let active_artifact_context_json =
         studio_artifact_refinement_context_view(active_artifact).to_string();
+    let compact_local_contract = runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime;
+    let system_content = if compact_local_contract {
+        "You are Studio's typed outcome router. Return exactly one JSON object choosing conversation, tool_widget, visualizer, or artifact. Artifact means a persistent work product. If confidence is low, set needsClarification true. Continue the active artifact for follow-up edits when context is supplied. Output JSON only."
+    } else {
+        "You are Studio's typed outcome router. Route a user request to exactly one outcome kind: conversation, tool_widget, visualizer, or artifact. Do not guess. If confidence is low, set needsClarification true. Workspace is only one artifact renderer, not the default. Artifact output must be chosen when the request should become a persistent work product. When an active artifact context is supplied, continue that artifact by default for under-specified follow-up edits instead of switching renderer families. Output JSON only."
+    };
+    let user_content = if compact_local_contract {
+        format!(
+            "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireExport\": <boolean>\n    }}\n  }}\n}}\nDerived automatically from renderer when omitted: deliverableShape, presentationSurface, persistence, executionSubstrate, createNewWorkspace, requireBuild, requirePreview, requireDiffReview.\nRenderer rules:\n- markdown = single renderable .md document.\n- html_iframe = single self-contained .html document.\n- jsx_sandbox = single .jsx source module with a default export.\n- svg = single .svg visual artifact.\n- mermaid = single .mermaid diagram source artifact.\n- pdf_embed = document artifact compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = the only multi-file workspace renderer.\nRules:\n1) artifact is for persistent work products.\n2) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n3) Build, preview, and diff review are only valid for workspace_surface.\n4) Explicit medium-plus-deliverable requests are sufficiently specified artifact work.\n5) If active artifact context exists and the request is a follow-up, continue that artifact by default.\n6) Do not use lexical fallbacks or benchmark phrase maps.\n7) If a required constraint is missing, keep confidence low and ask clarification.",
+            intent,
+            active_artifact_id.unwrap_or("<none>"),
+            active_artifact_context_json,
+        )
+    } else {
+        format!(
+            "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"deliverableShape\": \"single_file\" | \"file_set\" | \"workspace_project\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"presentationSurface\": \"inline\" | \"side_panel\" | \"overlay\" | \"tabbed_panel\",\n    \"persistence\": \"ephemeral\" | \"artifact_scoped\" | \"shared_artifact_scoped\" | \"workspace_filesystem\",\n    \"executionSubstrate\": \"none\" | \"client_sandbox\" | \"binary_generator\" | \"workspace_runtime\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"createNewWorkspace\": <boolean>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireRender\": <boolean>,\n      \"requireBuild\": <boolean>,\n      \"requirePreview\": <boolean>,\n      \"requireExport\": <boolean>,\n      \"requireDiffReview\": <boolean>\n    }}\n  }}\n}}\nRenderer contracts:\n- markdown = a single renderable .md document.\n- html_iframe = a single self-contained .html document for browser presentation. Choose this when the final artifact should be HTML itself, such as a landing page, explainer, launch page, editorial page, or browser-native interactive document.\n- jsx_sandbox = a single .jsx source module with a default export. Choose this only when the final artifact should be JSX/React source as the work product rather than a plain HTML document.\n- svg = a single .svg visual artifact.\n- mermaid = a single .mermaid diagram source artifact.\n- pdf_embed = a document artifact that will be compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = a real multi-file workspace with supervised build/preview.\nCoherence rules:\n- html_iframe and jsx_sandbox are interactive_single_file artifacts with single_file deliverableShape and client_sandbox executionSubstrate.\n- workspace_surface is the only renderer that may use workspace_project deliverableShape, workspace_runtime executionSubstrate, createNewWorkspace=true, requireBuild=true, or requirePreview=true.\n- Non-workspace artifact renderers should not request build or preview verification.\nRules:\n1) conversation is for plain reply only.\n2) tool_widget is for first-party tool display surfaces.\n3) visualizer is for ephemeral inline visuals.\n4) artifact is for persistent work products.\n5) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n6) Treat explicit medium-plus-deliverable requests as sufficiently specified artifact work. If the user already asked for an HTML artifact, landing page, launch page, editorial page, markdown document, SVG concept, Mermaid diagram, PDF artifact, downloadable bundle, or workspace project, do not ask clarification merely to restate that same deliverable form.\n7) For example, \"Create an interactive HTML artifact for an AI tools editorial launch page\" is already an artifact request for html_iframe, not a clarification request.\n8) When active artifact context JSON is not null and the request is a follow-up refinement, patch or branch the current artifact by default instead of switching renderer, artifactClass, or deliverableShape unless the user explicitly asks for a different deliverable form.\n9) Under-specified follow-up requests should continue the active artifact rather than restarting as a new artifact kind.\n10) Do not use lexical fallbacks or benchmark phrase maps.\n11) When uncertainty remains about a required missing constraint, keep confidence low and ask clarification.",
+            intent,
+            active_artifact_id.unwrap_or("<none>"),
+            active_artifact_context_json,
+        )
+    };
     json!([
         {
             "role": "system",
-            "content": "You are Studio's typed outcome router. Route a user request to exactly one outcome kind: conversation, tool_widget, visualizer, or artifact. Do not guess. If confidence is low, set needsClarification true. Workspace is only one artifact renderer, not the default. Artifact output must be chosen when the request should become a persistent work product. When an active artifact context is supplied, continue that artifact by default for under-specified follow-up edits instead of switching renderer families. Output JSON only."
+            "content": system_content
         },
         {
             "role": "user",
-            "content": format!(
-                "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"deliverableShape\": \"single_file\" | \"file_set\" | \"workspace_project\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"presentationSurface\": \"inline\" | \"side_panel\" | \"overlay\" | \"tabbed_panel\",\n    \"persistence\": \"ephemeral\" | \"artifact_scoped\" | \"shared_artifact_scoped\" | \"workspace_filesystem\",\n    \"executionSubstrate\": \"none\" | \"client_sandbox\" | \"binary_generator\" | \"workspace_runtime\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"createNewWorkspace\": <boolean>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireRender\": <boolean>,\n      \"requireBuild\": <boolean>,\n      \"requirePreview\": <boolean>,\n      \"requireExport\": <boolean>,\n      \"requireDiffReview\": <boolean>\n    }}\n  }}\n}}\nRenderer contracts:\n- markdown = a single renderable .md document.\n- html_iframe = a single self-contained .html document for browser presentation. Choose this when the final artifact should be HTML itself, such as a landing page, explainer, launch page, editorial page, or browser-native interactive document.\n- jsx_sandbox = a single .jsx source module with a default export. Choose this only when the final artifact should be JSX/React source as the work product rather than a plain HTML document.\n- svg = a single .svg visual artifact.\n- mermaid = a single .mermaid diagram source artifact.\n- pdf_embed = a document artifact that will be compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = a real multi-file workspace with supervised build/preview.\nCoherence rules:\n- html_iframe and jsx_sandbox are interactive_single_file artifacts with single_file deliverableShape and client_sandbox executionSubstrate.\n- workspace_surface is the only renderer that may use workspace_project deliverableShape, workspace_runtime executionSubstrate, createNewWorkspace=true, requireBuild=true, or requirePreview=true.\n- Non-workspace artifact renderers should not request build or preview verification.\nRules:\n1) conversation is for plain reply only.\n2) tool_widget is for first-party tool display surfaces.\n3) visualizer is for ephemeral inline visuals.\n4) artifact is for persistent work products.\n5) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n6) Treat explicit medium-plus-deliverable requests as sufficiently specified artifact work. If the user already asked for an HTML artifact, landing page, launch page, editorial page, markdown document, SVG concept, Mermaid diagram, PDF artifact, downloadable bundle, or workspace project, do not ask clarification merely to restate that same deliverable form.\n7) For example, \"Create an interactive HTML artifact for an AI tools editorial launch page\" is already an artifact request for html_iframe, not a clarification request.\n8) When active artifact context JSON is not null and the request is a follow-up refinement, patch or branch the current artifact by default instead of switching renderer, artifactClass, or deliverableShape unless the user explicitly asks for a different deliverable form.\n9) Under-specified follow-up requests should continue the active artifact rather than restarting as a new artifact kind.\n10) Do not use lexical fallbacks or benchmark phrase maps.\n11) When uncertainty remains about a required missing constraint, keep confidence low and ask clarification.",
-                intent,
-                active_artifact_id.unwrap_or("<none>"),
-                active_artifact_context_json,
-            )
+            "content": user_content
         }
     ])
+}
+
+#[derive(Clone, Copy)]
+struct StudioOutcomeArtifactRendererDefaults {
+    artifact_class: &'static str,
+    deliverable_shape: &'static str,
+    presentation_surface: &'static str,
+    persistence: &'static str,
+    execution_substrate: &'static str,
+}
+
+fn outcome_artifact_renderer_defaults(
+    renderer: &str,
+) -> Option<StudioOutcomeArtifactRendererDefaults> {
+    match renderer {
+        "markdown" => Some(StudioOutcomeArtifactRendererDefaults {
+            artifact_class: "document",
+            deliverable_shape: "single_file",
+            presentation_surface: "side_panel",
+            persistence: "shared_artifact_scoped",
+            execution_substrate: "none",
+        }),
+        "html_iframe" => Some(StudioOutcomeArtifactRendererDefaults {
+            artifact_class: "interactive_single_file",
+            deliverable_shape: "single_file",
+            presentation_surface: "side_panel",
+            persistence: "shared_artifact_scoped",
+            execution_substrate: "client_sandbox",
+        }),
+        "jsx_sandbox" => Some(StudioOutcomeArtifactRendererDefaults {
+            artifact_class: "interactive_single_file",
+            deliverable_shape: "single_file",
+            presentation_surface: "side_panel",
+            persistence: "shared_artifact_scoped",
+            execution_substrate: "client_sandbox",
+        }),
+        "svg" | "mermaid" => Some(StudioOutcomeArtifactRendererDefaults {
+            artifact_class: "visual",
+            deliverable_shape: "single_file",
+            presentation_surface: "side_panel",
+            persistence: "shared_artifact_scoped",
+            execution_substrate: "client_sandbox",
+        }),
+        "pdf_embed" => Some(StudioOutcomeArtifactRendererDefaults {
+            artifact_class: "document",
+            deliverable_shape: "single_file",
+            presentation_surface: "side_panel",
+            persistence: "shared_artifact_scoped",
+            execution_substrate: "binary_generator",
+        }),
+        "download_card" => Some(StudioOutcomeArtifactRendererDefaults {
+            artifact_class: "downloadable_file",
+            deliverable_shape: "file_set",
+            presentation_surface: "side_panel",
+            persistence: "shared_artifact_scoped",
+            execution_substrate: "none",
+        }),
+        "workspace_surface" => Some(StudioOutcomeArtifactRendererDefaults {
+            artifact_class: "workspace_project",
+            deliverable_shape: "workspace_project",
+            presentation_surface: "tabbed_panel",
+            persistence: "workspace_filesystem",
+            execution_substrate: "workspace_runtime",
+        }),
+        "bundle_manifest" => Some(StudioOutcomeArtifactRendererDefaults {
+            artifact_class: "compound_bundle",
+            deliverable_shape: "file_set",
+            presentation_surface: "side_panel",
+            persistence: "artifact_scoped",
+            execution_substrate: "none",
+        }),
+        _ => None,
+    }
 }
 
 fn canonicalize_artifact_request(
@@ -170,6 +347,95 @@ fn canonicalize_artifact_request(
     }
 }
 
+fn intent_terms(intent: &str) -> Vec<String> {
+    intent
+        .split(|ch: char| !ch.is_alphanumeric())
+        .filter(|term| !term.is_empty())
+        .map(|term| term.to_ascii_lowercase())
+        .collect()
+}
+
+fn intent_requests_downloadable_fileset(intent: &str) -> bool {
+    const FILE_TARGET_TERMS: &[&str] = &[
+        "csv",
+        "tsv",
+        "xlsx",
+        "json",
+        "yaml",
+        "yml",
+        "pdf",
+        "png",
+        "jpg",
+        "jpeg",
+        "svg",
+        "txt",
+        "md",
+        "markdown",
+        "readme",
+        "license",
+        "changelog",
+    ];
+    const TRANSPORT_TERMS: &[&str] = &[
+        "download",
+        "downloadable",
+        "export",
+        "exports",
+        "bundle",
+        "archive",
+        "package",
+        "pack",
+    ];
+    const BUNDLE_TERMS: &[&str] = &["bundle", "archive", "package", "pack"];
+
+    let terms = intent_terms(intent);
+    let normalized = normalize_inline_whitespace(&intent.to_ascii_lowercase());
+    let referenced_files = terms
+        .iter()
+        .filter(|term| FILE_TARGET_TERMS.contains(&term.as_str()))
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let requests_transport = terms
+        .iter()
+        .any(|term| TRANSPORT_TERMS.contains(&term.as_str()))
+        || normalized.contains("file set")
+        || normalized.contains("fileset");
+    let requests_bundle = terms
+        .iter()
+        .any(|term| BUNDLE_TERMS.contains(&term.as_str()))
+        || normalized.contains("file set")
+        || normalized.contains("fileset");
+
+    requests_transport
+        && (referenced_files.len() >= 2 || (requests_bundle && !referenced_files.is_empty()))
+}
+
+fn reconcile_outcome_artifact_request_with_intent(
+    intent: &str,
+    mut request: StudioOutcomeArtifactRequest,
+) -> StudioOutcomeArtifactRequest {
+    if intent_requests_downloadable_fileset(intent) {
+        request.verification.require_export = true;
+        if !matches!(
+            request.renderer,
+            StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest
+        ) {
+            let original_renderer = request.renderer;
+            request.renderer = StudioRendererKind::DownloadCard;
+            request.verification.require_build = false;
+            request.verification.require_preview = false;
+            request.verification.require_diff_review = false;
+            let request = canonicalize_artifact_request(request);
+            studio_planning_trace(format!(
+                "outcome_route:renderer_reconciled from={original_renderer:?} to={:?} reason=explicit_downloadable_fileset_intent",
+                request.renderer
+            ));
+            return request;
+        }
+    }
+
+    canonicalize_artifact_request(request)
+}
+
 pub fn parse_studio_outcome_planning_payload(
     raw: &str,
 ) -> Result<StudioOutcomePlanningPayload, String> {
@@ -190,6 +456,7 @@ pub async fn plan_studio_artifact_brief_with_runtime(
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
 ) -> Result<StudioArtifactBrief, String> {
+    let runtime_provenance = runtime.studio_runtime_provenance();
     let parse_and_validate = |raw: &str| -> Result<StudioArtifactBrief, String> {
         let brief = canonicalize_studio_artifact_brief_for_request(
             parse_studio_artifact_brief(raw)?,
@@ -198,9 +465,31 @@ pub async fn plan_studio_artifact_brief_with_runtime(
         validate_studio_artifact_brief_against_request(&brief, request, refinement)?;
         Ok(brief)
     };
-    let payload = build_studio_artifact_brief_prompt(title, intent, request, refinement)?;
+    let empty_core_fields_error = "Studio artifact brief fields must not be empty.";
+    let salvage_and_validate = |raw: &str| -> Result<StudioArtifactBrief, String> {
+        let brief = salvage_studio_artifact_brief_core_fields(raw, title, intent, request)?;
+        validate_studio_artifact_brief_against_request(&brief, request, refinement)?;
+        Ok(brief)
+    };
+    let planner_max_tokens =
+        brief_planner_max_tokens_for_runtime(request.renderer, runtime_provenance.kind);
+    let payload = build_studio_artifact_brief_prompt_for_runtime(
+        title,
+        intent,
+        request,
+        refinement,
+        runtime_provenance.kind,
+    )?;
     let input = serde_json::to_vec(&payload)
         .map_err(|error| format!("Failed to encode Studio artifact brief prompt: {error}"))?;
+    studio_planning_trace(format!(
+        "artifact_brief:start renderer={:?} runtime={} model={:?} prompt_bytes={} max_tokens={}",
+        request.renderer,
+        runtime_provenance.label,
+        runtime_provenance.model,
+        input.len(),
+        planner_max_tokens
+    ));
     let output = runtime
         .execute_inference(
             [0u8; 32],
@@ -208,7 +497,7 @@ pub async fn plan_studio_artifact_brief_with_runtime(
             InferenceOptions {
                 temperature: 0.0,
                 json_mode: true,
-                max_tokens: 448,
+                max_tokens: planner_max_tokens,
                 ..Default::default()
             },
         )
@@ -224,17 +513,35 @@ pub async fn plan_studio_artifact_brief_with_runtime(
         Ok(brief) => Ok(brief),
         Err(first_error) => {
             studio_planning_trace(format!("artifact_brief:planner_rejected {first_error}"));
-            let repair_payload = build_studio_artifact_brief_repair_prompt(
+            if first_error.contains(empty_core_fields_error) {
+                if let Ok(brief) = salvage_and_validate(&raw) {
+                    studio_planning_trace("artifact_brief:planner_salvaged");
+                    return Ok(brief);
+                }
+            }
+            let repair_payload = build_studio_artifact_brief_repair_prompt_for_runtime(
                 title,
                 intent,
                 request,
                 refinement,
                 &raw,
                 &first_error,
+                runtime_provenance.kind,
             )?;
             let repair_input = serde_json::to_vec(&repair_payload).map_err(|error| {
                 format!("Failed to encode Studio artifact brief repair prompt: {error}")
             })?;
+            let repair_max_tokens =
+                brief_repair_max_tokens_for_runtime(request.renderer, runtime_provenance.kind);
+            studio_planning_trace(format!(
+                "artifact_brief:repair_start renderer={:?} runtime={} model={:?} prompt_bytes={} max_tokens={} failure={}",
+                request.renderer,
+                runtime_provenance.label,
+                runtime_provenance.model,
+                repair_input.len(),
+                repair_max_tokens,
+                truncate_planning_preview(&first_error, 240)
+            ));
             let repair_output = runtime
                 .execute_inference(
                     [0u8; 32],
@@ -242,7 +549,7 @@ pub async fn plan_studio_artifact_brief_with_runtime(
                     InferenceOptions {
                         temperature: 0.0,
                         json_mode: true,
-                        max_tokens: 448,
+                        max_tokens: repair_max_tokens,
                         ..Default::default()
                     },
                 )
@@ -261,21 +568,50 @@ pub async fn plan_studio_artifact_brief_with_runtime(
                 Ok(brief) => Ok(brief),
                 Err(repair_error) => {
                     studio_planning_trace(format!("artifact_brief:repair_rejected {repair_error}"));
-                    let field_repair_payload = build_studio_artifact_brief_field_repair_prompt(
-                        title,
-                        intent,
-                        request,
-                        refinement,
-                        &raw,
-                        &repair_raw,
-                        &repair_error,
-                    )?;
+                    let field_repair_payload = if compact_local_html_brief_prompt(
+                        request.renderer,
+                        runtime_provenance.kind,
+                    ) {
+                        build_studio_artifact_brief_field_repair_prompt_for_runtime(
+                            title,
+                            intent,
+                            request,
+                            refinement,
+                            &raw,
+                            &repair_raw,
+                            &repair_error,
+                            runtime_provenance.kind,
+                        )?
+                    } else {
+                        build_studio_artifact_brief_field_repair_prompt(
+                            title,
+                            intent,
+                            request,
+                            refinement,
+                            &raw,
+                            &repair_raw,
+                            &repair_error,
+                        )?
+                    };
                     let field_repair_input =
                         serde_json::to_vec(&field_repair_payload).map_err(|error| {
                             format!(
                                 "Failed to encode Studio artifact brief field repair prompt: {error}"
                             )
                         })?;
+                    let field_repair_max_tokens = brief_field_repair_max_tokens_for_runtime(
+                        request.renderer,
+                        runtime_provenance.kind,
+                    );
+                    studio_planning_trace(format!(
+                        "artifact_brief:field_repair_start renderer={:?} runtime={} model={:?} prompt_bytes={} max_tokens={} failure={}",
+                        request.renderer,
+                        runtime_provenance.label,
+                        runtime_provenance.model,
+                        field_repair_input.len(),
+                        field_repair_max_tokens,
+                        truncate_planning_preview(&repair_error, 240)
+                    ));
                     let field_repair_output = runtime
                         .execute_inference(
                             [0u8; 32],
@@ -283,7 +619,7 @@ pub async fn plan_studio_artifact_brief_with_runtime(
                             InferenceOptions {
                                 temperature: 0.0,
                                 json_mode: true,
-                                max_tokens: 320,
+                                max_tokens: field_repair_max_tokens,
                                 ..Default::default()
                             },
                         )
@@ -303,14 +639,17 @@ pub async fn plan_studio_artifact_brief_with_runtime(
                         "artifact_brief:field_repair_output {}",
                         truncate_planning_preview(&field_repair_raw, 1200)
                     ));
-                    parse_and_validate(&field_repair_raw).map_err(|field_repair_error| {
-                        format!(
-                            "{first_error}; brief repair attempt failed: {repair_error}; brief field repair attempt also failed: {field_repair_error}; planner output preview: {}; repair output preview: {}; field repair output preview: {}",
-                            truncate_planning_preview(&raw, 600),
-                            truncate_planning_preview(&repair_raw, 600),
-                            truncate_planning_preview(&field_repair_raw, 600),
-                        )
-                    })
+                    parse_and_validate(&field_repair_raw)
+                        .or_else(|field_repair_error| {
+                            salvage_and_validate(&field_repair_raw).map_err(|salvage_error| {
+                                format!(
+                                    "{first_error}; brief repair attempt failed: {repair_error}; brief field repair attempt also failed: {field_repair_error}; deterministic salvage also failed: {salvage_error}; planner output preview: {}; repair output preview: {}; field repair output preview: {}",
+                                    truncate_planning_preview(&raw, 600),
+                                    truncate_planning_preview(&repair_raw, 600),
+                                    truncate_planning_preview(&field_repair_raw, 600),
+                                )
+                            })
+                        })
                 }
             }
         }
@@ -323,11 +662,73 @@ pub fn build_studio_artifact_brief_prompt(
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
 ) -> Result<serde_json::Value, String> {
+    build_studio_artifact_brief_prompt_for_runtime(
+        title,
+        intent,
+        request,
+        refinement,
+        StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
+    )
+}
+
+fn studio_artifact_brief_request_focus(
+    request: &StudioOutcomeArtifactRequest,
+) -> serde_json::Value {
+    json!({
+        "artifactClass": request.artifact_class,
+        "deliverableShape": request.deliverable_shape,
+        "renderer": request.renderer,
+        "presentationSurface": request.presentation_surface,
+        "persistence": request.persistence,
+        "executionSubstrate": request.execution_substrate,
+        "verification": {
+            "requireRender": request.verification.require_render,
+            "requireExport": request.verification.require_export,
+        },
+    })
+}
+
+pub(crate) fn build_studio_artifact_brief_prompt_for_runtime(
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> Result<serde_json::Value, String> {
+    let compact_prompt = compact_local_html_brief_prompt(request.renderer, runtime_kind);
     let request_json = serde_json::to_string(request)
         .map_err(|error| format!("Failed to serialize Studio artifact request: {error}"))?;
     let refinement_json =
         serde_json::to_string(&studio_artifact_refinement_context_view(refinement))
             .map_err(|error| format!("Failed to serialize Studio refinement context: {error}"))?;
+    if compact_prompt {
+        let request_focus_json = serde_json::to_string(&studio_artifact_brief_request_focus(
+            request,
+        ))
+        .map_err(|error| format!("Failed to serialize Studio artifact request focus: {error}"))?;
+        let continuity_rule = if refinement.is_some() {
+            "Preserve stable concepts, interactions, and structure from the current artifact context when they still fit the request."
+        } else {
+            "No current artifact context is available, so derive the brief directly from the request."
+        };
+        return Ok(json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed artifact brief planner. Return exactly one request-grounded artifact brief JSON object. Output JSON only."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) audience, jobToBeDone, subjectDomain, and artifactThesis must be non-empty request-grounded strings.\n2) Preserve the differentiating nouns and framing words from the request.\n3) For html_iframe, requiredConcepts must include at least three concrete request-grounded concepts.\n4) For html_iframe, requiredInteractions must include at least two concrete multi-word on-page interactions with visible response.\n5) Provide at least one factualAnchors or referenceHints entry tied to visible evidence.\n6) {}\n7) Use empty arrays instead of filler or generic synonyms.",
+                    title,
+                    intent,
+                    request_focus_json,
+                    refinement_json,
+                    continuity_rule,
+                )
+            }
+        ]));
+    }
     let renderer_guidance = studio_artifact_brief_planning_guidance(request);
     let validation_contract = studio_artifact_brief_validation_contract(request);
     Ok(json!([
@@ -457,6 +858,30 @@ fn normalize_studio_outcome_artifact_request_value(value: &mut serde_json::Value
     let Some(object) = value.as_object_mut() else {
         return;
     };
+    let renderer_defaults = object
+        .get("renderer")
+        .and_then(serde_json::Value::as_str)
+        .and_then(outcome_artifact_renderer_defaults);
+
+    if let Some(defaults) = renderer_defaults {
+        for (field, default) in [
+            ("artifactClass", defaults.artifact_class),
+            ("deliverableShape", defaults.deliverable_shape),
+            ("presentationSurface", defaults.presentation_surface),
+            ("persistence", defaults.persistence),
+            ("executionSubstrate", defaults.execution_substrate),
+        ] {
+            object
+                .entry(field.to_string())
+                .or_insert_with(|| serde_json::Value::String(default.to_string()));
+        }
+    }
+    if !object.contains_key("workspaceRecipeId") {
+        object.insert("workspaceRecipeId".to_string(), serde_json::Value::Null);
+    }
+    if !object.contains_key("presentationVariantId") {
+        object.insert("presentationVariantId".to_string(), serde_json::Value::Null);
+    }
 
     let scope = object.entry("scope").or_insert_with(|| {
         json!({
@@ -531,6 +956,184 @@ fn normalize_studio_outcome_planning_value(value: &mut serde_json::Value) {
 
 fn normalize_inline_whitespace(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn parse_studio_artifact_brief_lenient(raw: &str) -> Result<StudioArtifactBrief, String> {
+    let mut value = parse_studio_json_object_value(
+        raw,
+        "Studio artifact brief output missing JSON payload",
+        "Failed to parse Studio artifact brief",
+    )?;
+    normalize_studio_artifact_brief_value(&mut value);
+    serde_json::from_value::<StudioArtifactBrief>(value)
+        .map_err(|error| format!("Failed to parse Studio artifact brief: {error}"))
+}
+
+fn trim_sentence_terminal(value: &str) -> String {
+    value
+        .trim()
+        .trim_end_matches(|ch: char| matches!(ch, '.' | ':' | ';'))
+        .trim()
+        .to_string()
+}
+
+fn trim_leading_article(value: &str) -> String {
+    let trimmed = trim_sentence_terminal(value);
+    let lowered = trimmed.to_ascii_lowercase();
+    for prefix in ["a ", "an ", "the "] {
+        if lowered.starts_with(prefix) {
+            return trimmed[prefix.len()..].trim().to_string();
+        }
+    }
+    trimmed
+}
+
+fn title_is_too_generic_for_subject_domain(title: &str) -> bool {
+    let generic_terms = [
+        "artifact",
+        "artifacts",
+        "bundle",
+        "bundles",
+        "card",
+        "checklist",
+        "document",
+        "download",
+        "downloads",
+        "file",
+        "files",
+        "launch",
+        "page",
+        "report",
+    ];
+    let terms = title
+        .split(|ch: char| !ch.is_alphanumeric())
+        .filter(|term| !term.is_empty())
+        .map(|term| term.to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    !terms.is_empty()
+        && terms
+            .iter()
+            .all(|term| generic_terms.iter().any(|candidate| candidate == term))
+}
+
+fn derive_brief_subject_domain(
+    brief: &StudioArtifactBrief,
+    title: &str,
+    intent: &str,
+) -> Option<String> {
+    let title_candidate = trim_sentence_terminal(title);
+    if !title_candidate.is_empty() && !title_is_too_generic_for_subject_domain(&title_candidate) {
+        return Some(title_candidate);
+    }
+
+    let thesis_candidate = trim_leading_article(&brief.artifact_thesis);
+    if !thesis_candidate.is_empty() {
+        return Some(thesis_candidate);
+    }
+
+    if !brief.required_concepts.is_empty() {
+        let concepts = brief
+            .required_concepts
+            .iter()
+            .map(|concept| trim_sentence_terminal(concept))
+            .filter(|concept| !concept.is_empty())
+            .take(2)
+            .collect::<Vec<_>>();
+        if !concepts.is_empty() {
+            return Some(match concepts.as_slice() {
+                [only] => only.clone(),
+                [first, second] => format!("{first} and {second}"),
+                _ => concepts.join(", "),
+            });
+        }
+    }
+
+    let intent_candidate = trim_sentence_terminal(intent);
+    if intent_candidate.is_empty() {
+        None
+    } else {
+        Some(intent_candidate)
+    }
+}
+
+fn derive_brief_audience(
+    request: &StudioOutcomeArtifactRequest,
+    subject_domain: &str,
+) -> Option<String> {
+    if subject_domain.trim().is_empty() {
+        return None;
+    }
+
+    let prefix = match request.renderer {
+        StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed => "people reviewing the",
+        StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest => {
+            "people downloading the"
+        }
+        StudioRendererKind::HtmlIframe
+        | StudioRendererKind::JsxSandbox
+        | StudioRendererKind::Svg
+        | StudioRendererKind::Mermaid => "people exploring the",
+        StudioRendererKind::WorkspaceSurface => "people implementing the",
+    };
+    Some(format!("{prefix} {subject_domain}"))
+}
+
+fn derive_brief_artifact_thesis(
+    request: &StudioOutcomeArtifactRequest,
+    subject_domain: &str,
+) -> Option<String> {
+    if subject_domain.trim().is_empty() {
+        return None;
+    }
+
+    let thesis = match request.renderer {
+        StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed => {
+            format!("A {subject_domain} document")
+        }
+        StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest => {
+            format!("A downloadable {subject_domain} bundle")
+        }
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => {
+            format!("An interactive {subject_domain} artifact")
+        }
+        StudioRendererKind::Svg | StudioRendererKind::Mermaid => {
+            format!("A {subject_domain} visual artifact")
+        }
+        StudioRendererKind::WorkspaceSurface => {
+            format!("A workspace implementation for {subject_domain}")
+        }
+    };
+    Some(thesis)
+}
+
+fn salvage_studio_artifact_brief_core_fields(
+    raw: &str,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+) -> Result<StudioArtifactBrief, String> {
+    let mut brief = parse_studio_artifact_brief_lenient(raw)?;
+    let subject_domain = derive_brief_subject_domain(&brief, title, intent).unwrap_or_default();
+    if brief.subject_domain.trim().is_empty() {
+        brief.subject_domain = subject_domain.clone();
+    }
+    if brief.job_to_be_done.trim().is_empty() {
+        brief.job_to_be_done = trim_sentence_terminal(intent);
+    }
+    if brief.audience.trim().is_empty() {
+        brief.audience = derive_brief_audience(request, &brief.subject_domain).unwrap_or_default();
+    }
+    if brief.artifact_thesis.trim().is_empty() {
+        brief.artifact_thesis =
+            derive_brief_artifact_thesis(request, &brief.subject_domain).unwrap_or_default();
+    }
+    if brief.required_concepts.is_empty() && !brief.subject_domain.trim().is_empty() {
+        brief.required_concepts = vec![brief.subject_domain.clone()];
+    }
+
+    Ok(canonicalize_studio_artifact_brief_for_request(
+        brief, request,
+    ))
 }
 
 fn split_interaction_identifier_terms(value: &str) -> Vec<String> {
@@ -654,6 +1257,125 @@ fn canonicalize_brief_interactions(
     normalized
 }
 
+fn concise_interaction_focus_phrase(value: &str) -> Option<String> {
+    let normalized = trim_sentence_terminal(&normalize_inline_whitespace(value));
+    if normalized.is_empty() {
+        return None;
+    }
+
+    let words = normalized.split_whitespace().collect::<Vec<_>>();
+    let phrase = if words.len() > 6 {
+        words[..6].join(" ")
+    } else {
+        normalized
+    };
+    Some(phrase)
+}
+
+fn html_brief_interaction_focus_phrases(brief: &StudioArtifactBrief) -> Vec<String> {
+    let mut phrases = Vec::<String>::new();
+    for value in brief
+        .required_concepts
+        .iter()
+        .chain(brief.factual_anchors.iter())
+        .chain(brief.reference_hints.iter())
+        .map(String::as_str)
+        .chain(std::iter::once(brief.subject_domain.as_str()))
+    {
+        let Some(phrase) = concise_interaction_focus_phrase(value) else {
+            continue;
+        };
+        if phrases
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(&phrase))
+        {
+            continue;
+        }
+        phrases.push(phrase);
+        if phrases.len() >= 3 {
+            break;
+        }
+    }
+    phrases
+}
+
+fn derived_grounded_html_interaction(
+    family: &str,
+    primary_focus: &str,
+    secondary_focus: &str,
+) -> String {
+    match family {
+        "view_switching" => {
+            format!("switch {primary_focus} sections to update the visible comparison panel")
+        }
+        "detail_inspection" => {
+            format!("inspect {secondary_focus} details in the shared detail panel")
+        }
+        "sequence_browsing" => {
+            format!("step through {primary_focus} examples to update the visible detail panel")
+        }
+        _ => format!("compare {secondary_focus} callouts in the shared detail panel"),
+    }
+}
+
+fn ground_html_brief_interactions(
+    interactions: Vec<String>,
+    brief: &StudioArtifactBrief,
+) -> Vec<String> {
+    let grounding_terms = interaction_grounding_terms_for_validation(brief, None);
+    let focus_phrases = html_brief_interaction_focus_phrases(brief);
+    let primary_focus = focus_phrases
+        .first()
+        .map(String::as_str)
+        .unwrap_or("request");
+    let secondary_focus = focus_phrases
+        .get(1)
+        .or_else(|| focus_phrases.first())
+        .map(String::as_str)
+        .unwrap_or(primary_focus);
+    let mut grounded = Vec::<String>::new();
+
+    for interaction in interactions {
+        let entry = if interaction_has_grounded_terms(&interaction, &grounding_terms)
+            && interaction_has_behavior_terms(&interaction)
+        {
+            interaction
+        } else {
+            derived_grounded_html_interaction(
+                blueprint_interaction_family(&interaction),
+                primary_focus,
+                secondary_focus,
+            )
+        };
+        if grounded
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(&entry))
+        {
+            continue;
+        }
+        grounded.push(entry);
+    }
+
+    let defaults = [
+        format!("switch {primary_focus} sections to update the visible comparison panel"),
+        format!("inspect {secondary_focus} details in the shared detail panel"),
+    ];
+    for entry in defaults {
+        if grounded.len() >= 2 {
+            break;
+        }
+        if grounded
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(&entry))
+        {
+            continue;
+        }
+        grounded.push(entry);
+    }
+
+    grounded
+}
+
 pub(crate) fn canonicalize_studio_artifact_brief_for_request(
     mut brief: StudioArtifactBrief,
     request: &StudioOutcomeArtifactRequest,
@@ -663,12 +1385,18 @@ pub(crate) fn canonicalize_studio_artifact_brief_for_request(
     brief.subject_domain = normalize_inline_whitespace(&brief.subject_domain);
     brief.artifact_thesis = normalize_inline_whitespace(&brief.artifact_thesis);
     brief.required_concepts = canonicalize_brief_list(brief.required_concepts);
-    brief.required_interactions =
-        canonicalize_brief_interactions(brief.required_interactions, request);
     brief.visual_tone = canonicalize_brief_list(brief.visual_tone);
     brief.factual_anchors = canonicalize_brief_list(brief.factual_anchors);
     brief.style_directives = canonicalize_brief_list(brief.style_directives);
     brief.reference_hints = canonicalize_brief_list(brief.reference_hints);
+    brief.required_interactions =
+        canonicalize_brief_interactions(std::mem::take(&mut brief.required_interactions), request);
+    if request.renderer == StudioRendererKind::HtmlIframe {
+        brief.required_interactions = ground_html_brief_interactions(
+            std::mem::take(&mut brief.required_interactions),
+            &brief,
+        );
+    }
     brief
 }
 
@@ -888,6 +1616,13 @@ fn interaction_has_grounded_terms(interaction: &str, grounding_terms: &[String])
     terms.iter().any(|term| {
         interaction_behavior_term(term) || grounding_terms.iter().any(|grounding| grounding == term)
     })
+}
+
+fn interaction_has_behavior_terms(interaction: &str) -> bool {
+    split_interaction_identifier_terms(interaction)
+        .into_iter()
+        .filter(|term| term.len() >= 3 && !interaction_grounding_noise_term(term))
+        .any(|term| interaction_behavior_term(&term))
 }
 
 pub fn build_studio_artifact_exemplar_query(
@@ -1970,11 +2705,56 @@ pub fn build_studio_artifact_brief_repair_prompt(
     raw_output: &str,
     failure: &str,
 ) -> Result<serde_json::Value, String> {
+    build_studio_artifact_brief_repair_prompt_for_runtime(
+        title,
+        intent,
+        request,
+        refinement,
+        raw_output,
+        failure,
+        StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
+    )
+}
+
+fn build_studio_artifact_brief_repair_prompt_for_runtime(
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    raw_output: &str,
+    failure: &str,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> Result<serde_json::Value, String> {
+    let compact_prompt = compact_local_html_brief_prompt(request.renderer, runtime_kind);
     let request_json = serde_json::to_string(request)
         .map_err(|error| format!("Failed to serialize Studio artifact request: {error}"))?;
     let refinement_json =
         serde_json::to_string(&studio_artifact_refinement_context_view(refinement))
             .map_err(|error| format!("Failed to serialize Studio refinement context: {error}"))?;
+    if compact_prompt {
+        let request_focus_json = serde_json::to_string(&studio_artifact_brief_request_focus(
+            request,
+        ))
+        .map_err(|error| format!("Failed to serialize Studio artifact request focus: {error}"))?;
+        return Ok(json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed artifact brief repairer. Repair the previous brief into one schema-valid request-grounded artifact brief JSON object. Output JSON only."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nFailure:\n{}\n\nPrevious raw output excerpt:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) Use arrays for every list field, even for one item.\n2) The four core string fields must be non-empty and request-grounded.\n3) Preserve the differentiating nouns and framing words from the request.\n4) For html_iframe, keep at least three concrete concepts, at least two concrete multi-word interactions, and at least one evidence anchor or reference hint.\n5) Use empty arrays instead of filler.",
+                    title,
+                    intent,
+                    request_focus_json,
+                    refinement_json,
+                    failure,
+                    truncate_planning_preview(raw_output, 1600),
+                )
+            }
+        ]));
+    }
     let renderer_guidance = studio_artifact_brief_planning_guidance(request);
     let validation_contract = studio_artifact_brief_validation_contract(request);
     Ok(json!([
@@ -2008,11 +2788,59 @@ pub fn build_studio_artifact_brief_field_repair_prompt(
     repair_raw_output: &str,
     failure: &str,
 ) -> Result<serde_json::Value, String> {
+    build_studio_artifact_brief_field_repair_prompt_for_runtime(
+        title,
+        intent,
+        request,
+        refinement,
+        first_raw_output,
+        repair_raw_output,
+        failure,
+        StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
+    )
+}
+
+fn build_studio_artifact_brief_field_repair_prompt_for_runtime(
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    first_raw_output: &str,
+    repair_raw_output: &str,
+    failure: &str,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> Result<serde_json::Value, String> {
+    let compact_prompt = compact_local_html_brief_prompt(request.renderer, runtime_kind);
     let request_json = serde_json::to_string(request)
         .map_err(|error| format!("Failed to serialize Studio artifact request: {error}"))?;
     let refinement_json =
         serde_json::to_string(&studio_artifact_refinement_context_view(refinement))
             .map_err(|error| format!("Failed to serialize Studio refinement context: {error}"))?;
+    if compact_prompt {
+        let request_focus_json = serde_json::to_string(&studio_artifact_brief_request_focus(
+            request,
+        ))
+        .map_err(|error| format!("Failed to serialize Studio artifact request focus: {error}"))?;
+        return Ok(json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed artifact brief field repairer. Replace invalid or empty fields with the shortest request-grounded schema-valid brief JSON object. Output JSON only."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nFailure:\n{}\n\nPlanner output preview:\n{}\n\nRepair output preview:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) Every string field must be non-empty and request-grounded.\n2) Preserve the differentiating subject nouns from the request.\n3) Keep list items short, concrete, and schema-valid arrays.\n4) For html_iframe, keep at least three concepts, at least two multi-word interactions, and at least one evidence anchor or reference hint.\n5) Do not leave required strings blank.",
+                    title,
+                    intent,
+                    request_focus_json,
+                    refinement_json,
+                    failure,
+                    truncate_planning_preview(first_raw_output, 420),
+                    truncate_planning_preview(repair_raw_output, 420),
+                )
+            }
+        ]));
+    }
     let renderer_guidance = studio_artifact_brief_planning_guidance(request);
     let validation_contract = studio_artifact_brief_validation_contract(request);
     Ok(json!([

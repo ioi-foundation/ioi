@@ -1,0 +1,41 @@
+{
+  "artifactId": "5b7ecea7-a394-49ff-9b02-1b9d763ef69f",
+  "title": "Create an interactive HTML artifact that explains a product rollo...",
+  "artifactClass": "report_bundle",
+  "renderer": "bundle_manifest",
+  "primaryTab": "evidence",
+  "tabs": [
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [],
+  "verification": {
+    "status": "blocked",
+    "lifecycleState": "blocked",
+    "summary": "Studio cannot route or materialize artifacts because inference is unavailable.",
+    "productionProvenance": {
+      "kind": "inference_unavailable",
+      "label": "inference unavailable",
+      "model": null,
+      "endpoint": null
+    },
+    "acceptanceProvenance": {
+      "kind": "inference_unavailable",
+      "label": "inference unavailable",
+      "model": null,
+      "endpoint": null
+    },
+    "failure": {
+      "kind": "inference_unavailable",
+      "code": "inference_unavailable",
+      "message": "Studio cannot route or materialize artifacts because inference is unavailable."
+    }
+  },
+  "storage": null
+}

@@ -60,6 +60,36 @@
       ]
     },
     {
+      "id": "planner-grade-local-oss-qwen3-8b",
+      "label": "Planner-grade local OSS (Qwen3 8B)",
+      "role": "planner_verifier",
+      "benchmarkTier": "tier1",
+      "runtimeKind": "local_http",
+      "family": "ollama_openai",
+      "shippedDefault": false,
+      "experimental": true,
+      "routingIntent": "Single-model planner/verifier challenger for artifact reliability when the split 7B/14B lane is runtime-bound by local prefill or residency churn.",
+      "runtimeUrl": "http://127.0.0.1:11434/v1/chat/completions",
+      "runtimeHealthUrl": "http://127.0.0.1:11434/api/tags",
+      "runtimeModel": "qwen3:8b",
+      "cognitionInferenceTimeoutSecs": 60,
+      "embeddingModel": "nomic-embed-text",
+      "backendId": "ollama-openai",
+      "backendSource": "dev/local-backends/ollama-openai",
+      "backendAutostart": true,
+      "artifactAcceptanceModel": "qwen3:8b",
+      "workloadIntents": [
+        "planning",
+        "verification",
+        "artifact_judging"
+      ],
+      "notes": [
+        "This challenger stays experimental and does not affect the shipped default.",
+        "The lane intentionally uses one official 8B model for both generation and acceptance first, so the benchmark isolates model quality versus the current 7B/14B residency and prefill blocker.",
+        "Only retained wins across required workload coverage can justify any future promotion."
+      ]
+    },
+    {
       "id": "coding-executor-local-oss",
       "label": "Coding executor local OSS",
       "role": "coding_executor",

@@ -15,7 +15,7 @@ pub use attempts::{
     attempt_key_hash, build_attempt_key, canonical_attempt_window_fingerprint,
     failure_attempt_fingerprint, latest_failure_class, register_attempt, register_failure_attempt,
     retry_budget_remaining, should_block_retry_without_change, should_trip_retry_guard,
-    trailing_repetition_count,
+    specialized_attempt_target_id, trailing_repetition_count,
 };
 pub use classify::{classify_failure, requires_wait_for_clarification, to_routing_failure_class};
 pub use model::{

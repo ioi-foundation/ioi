@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "-p",
+    "ioi-cli",
+    "--test",
+    "computer_use_suite_e2e",
+    "computer_use_suite_from_env",
+    "--",
+    "--ignored",
+    "--exact",
+    "--nocapture"
+  ],
+  "exitStatus": 0,
+  "elapsedMs": 20251,
+  "timedOut": false,
+  "timeoutMs": 180000
+}

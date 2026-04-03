@@ -65,6 +65,10 @@ That means:
 - no lexical routing hacks
 - no domain-bucket fallbacks
 - no post-execution heuristic thrashing
+- no hidden model-family-conditioned execution policy in generation, runtime,
+  or harness paths; explicit model choices belong in presets or benchmark
+  config, while execution behavior should key off typed runtime shape,
+  renderer, or declared lane
 - no product theater that hides verification truth
 - no "swarm" that is really just an unbounded cloud of agents with unclear
   authority

@@ -1,0 +1,24 @@
+{
+  "status": "blocked",
+  "lifecycleState": "blocked",
+  "title": "Studio outcome: Create an interactive HTML artifact that explains a product rollo...",
+  "summary": "Create an interactive HTML artifact that explains a product rollo... Studio cannot route or materialize artifacts because inference is unavailable.",
+  "evidence": [],
+  "productionProvenance": {
+    "kind": "inference_unavailable",
+    "label": "inference unavailable",
+    "model": null,
+    "endpoint": null
+  },
+  "acceptanceProvenance": {
+    "kind": "inference_unavailable",
+    "label": "inference unavailable",
+    "model": null,
+    "endpoint": null
+  },
+  "failure": {
+    "kind": "inference_unavailable",
+    "code": "inference_unavailable",
+    "message": "Studio cannot route or materialize artifacts because inference is unavailable."
+  }
+}

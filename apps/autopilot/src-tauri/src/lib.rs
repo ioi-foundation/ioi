@@ -107,10 +107,43 @@ fn runtime_provenance_matches(
     left: &StudioRuntimeProvenance,
     right: &StudioRuntimeProvenance,
 ) -> bool {
+    fn normalized_runtime_endpoint(endpoint: Option<&str>) -> Option<String> {
+        let endpoint = endpoint?.trim();
+        if endpoint.is_empty() {
+            return None;
+        }
+
+        let (without_fragment, fragment) = endpoint.split_once('#').unwrap_or((endpoint, ""));
+        let Some((base, query)) = without_fragment.split_once('?') else {
+            return Some(endpoint.to_string());
+        };
+
+        let filtered_pairs = query
+            .split('&')
+            .filter(|pair| {
+                let key = pair.split_once('=').map(|(key, _)| key).unwrap_or(*pair).trim();
+                !key.is_empty() && !key.eq_ignore_ascii_case("lane")
+            })
+            .collect::<Vec<_>>();
+
+        let mut normalized = base.to_string();
+        if !filtered_pairs.is_empty() {
+            normalized.push('?');
+            normalized.push_str(&filtered_pairs.join("&"));
+        }
+        if !fragment.is_empty() {
+            normalized.push('#');
+            normalized.push_str(fragment);
+        }
+
+        Some(normalized)
+    }
+
     left.kind == right.kind
         && left.label == right.label
         && left.model == right.model
-        && left.endpoint == right.endpoint
+        && normalized_runtime_endpoint(left.endpoint.as_deref())
+            == normalized_runtime_endpoint(right.endpoint.as_deref())
 }
 
 pub(crate) fn create_inference_runtime() -> Arc<dyn InferenceRuntime> {

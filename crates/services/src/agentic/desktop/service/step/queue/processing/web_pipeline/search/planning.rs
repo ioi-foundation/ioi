@@ -636,7 +636,7 @@ fn briefing_authority_hint_read_recovery_urls(
         query_contract,
         min_sources,
         candidate_urls.clone(),
-        merged_hints,
+        merged_hints.clone(),
         locality_hint,
         true,
     );
@@ -666,6 +666,42 @@ fn briefing_authority_hint_read_recovery_urls(
             recovery_urls.insert(0, preferred_url);
         }
     }
+    let support_priority_urls = merged_hints
+        .iter()
+        .filter_map(|hint| {
+            let trimmed = hint.url.trim();
+            if trimmed.is_empty() {
+                return None;
+            }
+            let title = hint.title.as_deref().unwrap_or_default();
+            let excerpt = hint.excerpt.as_str();
+            let grounded_primary_authority =
+                crate::agentic::desktop::service::step::queue::support::source_has_grounded_primary_authority(
+                    query_contract,
+                    trimmed,
+                    title,
+                    excerpt,
+                );
+            let identifier_bearing =
+                crate::agentic::desktop::service::step::queue::support::source_has_briefing_standard_identifier_signal(
+                    query_contract,
+                    trimmed,
+                    title,
+                    excerpt,
+                );
+            let query_grounded =
+                crate::agentic::desktop::service::step::queue::support::excerpt_has_query_grounding_signal_with_contract(
+                    Some(retrieval_contract),
+                    query_contract,
+                    min_sources as usize,
+                    trimmed,
+                    title,
+                    excerpt,
+                );
+            (!grounded_primary_authority && (identifier_bearing || query_grounded))
+                .then(|| trimmed.to_string())
+        })
+        .collect::<Vec<_>>();
     let distinct_domain_floor =
         crate::agentic::desktop::service::step::queue::support::retrieval_contract_required_distinct_domain_floor(
             Some(retrieval_contract),
@@ -682,11 +718,17 @@ fn briefing_authority_hint_read_recovery_urls(
         return selected;
     }
 
+    let recovery_backfill_urls = if authority_batch_target == 1 && !support_priority_urls.is_empty()
+    {
+        merge_url_sequence(support_priority_urls, recovery_urls.clone())
+    } else {
+        recovery_urls.clone()
+    };
     let mut seen_domains = selected
         .iter()
         .filter_map(|url| domain_key_for_url(url))
         .collect::<BTreeSet<_>>();
-    for url in recovery_urls {
+    for url in &recovery_backfill_urls {
         if selected.len() >= required_url_count || seen_domains.len() >= distinct_domain_floor {
             break;
         }
@@ -703,7 +745,24 @@ fn briefing_authority_hint_read_recovery_urls(
             continue;
         }
         seen_domains.insert(domain_key);
-        selected.push(url);
+        selected.push(url.clone());
+    }
+
+    if selected.len() >= required_url_count {
+        return selected;
+    }
+
+    for url in &recovery_backfill_urls {
+        if selected.len() >= required_url_count {
+            break;
+        }
+        if selected.iter().any(|existing| {
+            existing.eq_ignore_ascii_case(url.as_str())
+                || crate::agentic::desktop::service::step::queue::support::url_structurally_equivalent(existing, &url)
+        }) {
+            continue;
+        }
+        selected.push(url.clone());
     }
 
     selected
@@ -3628,6 +3687,97 @@ mod planning_regression_tests {
     }
 
     #[test]
+    fn briefing_authority_hint_read_recovery_urls_fill_recovery_batch_after_single_authority_slot()
+    {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).unwrap();
+        let deterministic_plan = PreReadCandidatePlan {
+            candidate_urls: vec![
+                "https://www.nist.gov/cybersecurity-and-privacy".to_string(),
+                "https://www.nist.gov/about-nist".to_string(),
+                "https://www.nist.gov/standards".to_string(),
+                "https://www.nist.gov/publications".to_string(),
+                "https://www.nist.gov/standards-measurements".to_string(),
+                "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+                    .to_string(),
+                "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                "https://csrc.nist.gov/pubs/fips/205/final".to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://www.nist.gov/cybersecurity-and-privacy".to_string(),
+                    title: Some("Cybersecurity and privacy | NIST".to_string()),
+                    excerpt:
+                        "NIST advances standards, guidelines, best practices, and resources for cybersecurity."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+                        .to_string(),
+                    title: Some(
+                        "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "NIST released FIPS 203, FIPS 204, and FIPS 205 as finalized post-quantum standards."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                    title: Some(
+                        "FIPS 203, Module-Lattice-Based Key-Encapsulation Mechanism Standard"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Finalized NIST FIPS 203 post-quantum cryptography standard.".to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
+                    title: Some(
+                        "FIPS 204, Module-Lattice-Based Digital Signature Standard".to_string(),
+                    ),
+                    excerpt:
+                        "Finalized NIST FIPS 204 post-quantum cryptography standard.".to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/fips/205/final".to_string(),
+                    title: Some(
+                        "FIPS 205, Stateless Hash-Based Digital Signature Standard".to_string(),
+                    ),
+                    excerpt:
+                        "Finalized NIST FIPS 205 post-quantum cryptography standard.".to_string(),
+                },
+            ],
+            requires_constraint_search_probe: true,
+            ..PreReadCandidatePlan::default()
+        };
+
+        let urls = briefing_authority_hint_read_recovery_urls(
+            &retrieval_contract,
+            query,
+            2,
+            &deterministic_plan,
+            &[],
+            &deterministic_plan.candidate_source_hints,
+            None,
+            2,
+        );
+
+        assert_eq!(urls.len(), 2, "{urls:?}");
+        assert!(
+            urls.iter().any(|url| {
+                url.eq_ignore_ascii_case(
+                    "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+                ) || url.starts_with("https://csrc.nist.gov/pubs/fips/20")
+            }),
+            "{urls:?}"
+        );
+    }
+
+    #[test]
     fn distinct_domain_preserving_selected_urls_promotes_official_support_into_initial_briefing_batch(
     ) {
         let query = "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
@@ -3765,5 +3915,102 @@ mod planning_regression_tests {
         assert!(aligned.contains(&"https://csrc.nist.gov/pubs/fips/203/final".to_string()));
         assert!(aligned.contains(&"https://csrc.nist.gov/pubs/fips/204/final".to_string()));
         assert!(aligned.contains(&"https://csrc.nist.gov/pubs/fips/205/final".to_string()));
+    }
+
+    #[test]
+    fn briefing_authority_hint_read_recovery_urls_prefer_grounded_support_over_generic_same_host_neighbors(
+    ) {
+        let query =
+            "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).unwrap();
+        let deterministic_plan = PreReadCandidatePlan {
+            candidate_urls: vec![
+                "https://www.nist.gov/cybersecurity-and-privacy".to_string(),
+                "https://www.nist.gov/about-nist".to_string(),
+                "https://www.nist.gov/standards".to_string(),
+                "https://www.nist.gov/publications".to_string(),
+                "https://www.nist.gov/standards-measurements".to_string(),
+                "https://www.nist.gov/cybersecurity-and-privacy/what-post-quantum-cryptography"
+                    .to_string(),
+                "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+                    .to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://www.nist.gov/cybersecurity-and-privacy".to_string(),
+                    title: Some("Cybersecurity and privacy | NIST".to_string()),
+                    excerpt:
+                        "NIST advances standards, guidelines, best practices, and resources for cybersecurity."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.nist.gov/about-nist".to_string(),
+                    title: Some("About NIST".to_string()),
+                    excerpt: "Overview of the National Institute of Standards and Technology."
+                        .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.nist.gov/cybersecurity-and-privacy/what-post-quantum-cryptography"
+                        .to_string(),
+                    title: Some("What Is Post-Quantum Cryptography? | NIST".to_string()),
+                    excerpt:
+                        "Overview of post-quantum cryptography and why NIST is standardizing new algorithms."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
+                    title: Some(
+                        "FIPS 203, Module-Lattice-Based Key-Encapsulation Mechanism Standard"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Finalized NIST FIPS 203 post-quantum cryptography standard.".to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+                        .to_string(),
+                    title: Some(
+                        "NIST Releases First 3 Finalized Post-Quantum Encryption Standards"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "NIST released FIPS 203, FIPS 204, and FIPS 205 as finalized post-quantum standards."
+                            .to_string(),
+                },
+            ],
+            requires_constraint_search_probe: true,
+            ..PreReadCandidatePlan::default()
+        };
+
+        let urls = briefing_authority_hint_read_recovery_urls(
+            &retrieval_contract,
+            query,
+            2,
+            &deterministic_plan,
+            &[],
+            &deterministic_plan.candidate_source_hints,
+            None,
+            2,
+        );
+
+        assert_eq!(urls.len(), 2, "{urls:?}");
+        assert!(
+            urls.iter()
+                .all(|url| !url.eq_ignore_ascii_case("https://www.nist.gov/about-nist")),
+            "{urls:?}"
+        );
+        assert!(
+            urls.iter().any(|url| {
+                url.eq_ignore_ascii_case(
+                    "https://www.nist.gov/cybersecurity-and-privacy/what-post-quantum-cryptography"
+                ) || url.eq_ignore_ascii_case("https://csrc.nist.gov/pubs/fips/203/final")
+                    || url.eq_ignore_ascii_case(
+                        "https://www.nist.gov/news-events/news/2024/08/nist-releases-first-3-finalized-post-quantum-encryption-standards"
+                    )
+            }),
+            "{urls:?}"
+        );
     }
 }

@@ -25,6 +25,33 @@ fn renderer_uses_document_judge_context(renderer: StudioRendererKind) -> bool {
     )
 }
 
+fn compact_local_document_judge_prompt(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> bool {
+    renderer_uses_document_judge_context(renderer)
+        && runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+}
+
+fn ultra_compact_local_markdown_judge_prompt(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> bool {
+    renderer == StudioRendererKind::Markdown
+        && runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+}
+
+fn compact_local_download_bundle_judge_prompt(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> bool {
+    compact_local_document_judge_prompt(renderer, runtime_kind)
+        && matches!(
+            renderer,
+            StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest
+        )
+}
+
 fn compact_studio_judge_json<T: serde::Serialize>(
     value: &T,
     label: &str,
@@ -71,6 +98,124 @@ fn studio_artifact_judge_brief_focus(brief: &StudioArtifactBrief) -> serde_json:
     })
 }
 
+fn studio_artifact_compact_document_brief_focus(brief: &StudioArtifactBrief) -> serde_json::Value {
+    json!({
+        "jobToBeDone": truncate_studio_judge_text(&brief.job_to_be_done, 120),
+        "subjectDomain": truncate_studio_judge_text(&brief.subject_domain, 80),
+        "artifactThesis": truncate_studio_judge_text(&brief.artifact_thesis, 120),
+        "requiredConcepts": brief
+            .required_concepts
+            .iter()
+            .take(3)
+            .map(|concept| truncate_studio_judge_text(concept, 36))
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn studio_artifact_compact_document_brief_text(brief: &StudioArtifactBrief) -> String {
+    let concepts = brief
+        .required_concepts
+        .iter()
+        .take(3)
+        .map(|concept| truncate_studio_judge_text(concept, 36))
+        .collect::<Vec<_>>()
+        .join(", ");
+    [
+        format!(
+            "job: {}",
+            truncate_studio_judge_text(&brief.job_to_be_done, 80)
+        ),
+        format!(
+            "domain: {}",
+            truncate_studio_judge_text(&brief.subject_domain, 64)
+        ),
+        format!(
+            "thesis: {}",
+            truncate_studio_judge_text(&brief.artifact_thesis, 96)
+        ),
+        format!("concepts: {}", concepts),
+    ]
+    .join("\n")
+}
+
+fn studio_artifact_compact_document_candidate_text(
+    candidate: &StudioGeneratedArtifactPayload,
+) -> String {
+    let mut lines = Vec::new();
+    if !candidate.summary.trim().is_empty() {
+        lines.push(format!(
+            "summary: {}",
+            truncate_studio_judge_text(&candidate.summary, 120)
+        ));
+    }
+    if let Some(note) = candidate.notes.first() {
+        let note = truncate_studio_judge_text(note, 72);
+        if !note.is_empty() {
+            lines.push(format!("note: {note}"));
+        }
+    }
+    for (index, file) in candidate.files.iter().take(3).enumerate() {
+        lines.push(format!(
+            "file{}: path={} mime={} role={:?} renderable={} downloadable={} chars={} lines={} preview={}",
+            index + 1,
+            file.path,
+            file.mime,
+            file.role,
+            file.renderable,
+            file.downloadable,
+            file.body.chars().count(),
+            file.body.lines().count(),
+            truncate_studio_judge_text(&file.body, 80),
+        ));
+    }
+    lines.join("\n")
+}
+
+fn studio_artifact_ultra_compact_markdown_candidate_text(
+    candidate: &StudioGeneratedArtifactPayload,
+) -> String {
+    let mut lines = Vec::new();
+    if !candidate.summary.trim().is_empty() {
+        lines.push(format!(
+            "summary: {}",
+            truncate_studio_judge_text(&candidate.summary, 96)
+        ));
+    }
+    for (index, file) in candidate.files.iter().take(2).enumerate() {
+        lines.push(format!(
+            "file{}: {} lines={} preview={}",
+            index + 1,
+            file.path,
+            file.body.lines().count(),
+            truncate_studio_judge_text(&file.body, 56),
+        ));
+    }
+    lines.join("\n")
+}
+
+fn studio_artifact_compact_download_bundle_candidate_text(
+    candidate: &StudioGeneratedArtifactPayload,
+) -> String {
+    candidate
+        .files
+        .iter()
+        .take(3)
+        .enumerate()
+        .map(|(index, file)| {
+            format!(
+                "file{}: path={} mime={} downloadable={} lines={} preview={}",
+                index + 1,
+                file.path,
+                file.mime,
+                file.downloadable,
+                file.body.lines().count(),
+                truncate_studio_judge_text(&file.body, 56),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn studio_artifact_judge_edit_focus(
     edit_intent: Option<&StudioArtifactEditIntent>,
 ) -> serde_json::Value {
@@ -100,22 +245,35 @@ pub async fn judge_studio_artifact_candidate_with_runtime(
     candidate: &StudioGeneratedArtifactPayload,
 ) -> Result<StudioArtifactJudgeResult, String> {
     let runtime_provenance = runtime.studio_runtime_provenance();
+    let compact_local_document_prompt =
+        compact_local_document_judge_prompt(request.renderer, runtime_provenance.kind);
     studio_judge_trace(format!(
         "artifact_judge:start renderer={:?} runtime={} model={:?}",
         request.renderer, runtime_provenance.label, runtime_provenance.model
     ));
-    let payload =
-        build_studio_artifact_judge_prompt(title, request, brief, edit_intent, candidate)?;
+    let payload = build_studio_artifact_judge_prompt_for_runtime(
+        title,
+        request,
+        brief,
+        edit_intent,
+        candidate,
+        runtime_provenance.kind,
+    )?;
     let input = serde_json::to_vec(&payload)
         .map_err(|error| format!("Failed to encode Studio artifact judge prompt: {error}"))?;
+    studio_judge_trace(format!(
+        "artifact_judge:prompt_bytes runtime={} bytes={}",
+        runtime_provenance.label,
+        input.len()
+    ));
     let output = runtime
         .execute_inference(
             [0u8; 32],
             &input,
             InferenceOptions {
                 temperature: 0.0,
-                json_mode: true,
-                max_tokens: judge_max_tokens(request.renderer),
+                json_mode: !compact_local_document_prompt,
+                max_tokens: judge_max_tokens_for_runtime(request.renderer, runtime_provenance.kind),
                 ..Default::default()
             },
         )
@@ -166,8 +324,11 @@ pub async fn judge_studio_artifact_candidate_with_runtime(
                     &repair_input,
                     InferenceOptions {
                         temperature: 0.0,
-                        json_mode: true,
-                        max_tokens: judge_repair_max_tokens(request.renderer),
+                        json_mode: !compact_local_document_prompt,
+                        max_tokens: judge_repair_max_tokens_for_runtime(
+                            request.renderer,
+                            runtime_provenance.kind,
+                        ),
                         ..Default::default()
                     },
                 )
@@ -210,15 +371,76 @@ pub fn build_studio_artifact_judge_prompt(
     edit_intent: Option<&StudioArtifactEditIntent>,
     candidate: &StudioGeneratedArtifactPayload,
 ) -> Result<serde_json::Value, String> {
+    build_studio_artifact_judge_prompt_for_runtime(
+        title,
+        request,
+        brief,
+        edit_intent,
+        candidate,
+        StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
+    )
+}
+
+pub(crate) fn build_studio_artifact_judge_prompt_for_runtime(
+    title: &str,
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    edit_intent: Option<&StudioArtifactEditIntent>,
+    candidate: &StudioGeneratedArtifactPayload,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> Result<serde_json::Value, String> {
+    let compact_document_prompt =
+        compact_local_document_judge_prompt(request.renderer, runtime_kind);
+    let ultra_compact_markdown_prompt =
+        ultra_compact_local_markdown_judge_prompt(request.renderer, runtime_kind);
+    let schema_contract =
+        studio_artifact_judge_schema_contract_for_runtime(request.renderer, runtime_kind);
+    if compact_document_prompt && renderer_uses_document_judge_context(request.renderer) {
+        let candidate_text =
+            if compact_local_download_bundle_judge_prompt(request.renderer, runtime_kind) {
+                studio_artifact_compact_download_bundle_candidate_text(candidate)
+            } else if ultra_compact_markdown_prompt {
+                studio_artifact_ultra_compact_markdown_candidate_text(candidate)
+            } else {
+                studio_artifact_compact_document_candidate_text(candidate)
+            };
+        let title_limit = if ultra_compact_markdown_prompt {
+            72
+        } else {
+            96
+        };
+        return Ok(json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed artifact judge. Judge only the candidate files and the typed brief."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title: {}\n\nBrief:\n{}\n\nCandidate:\n{}\n\n{}",
+                    truncate_studio_judge_text(title, title_limit),
+                    studio_artifact_compact_document_brief_text(brief),
+                    candidate_text,
+                    schema_contract,
+                )
+            }
+        ]));
+    }
+
     let candidate_json = compact_studio_judge_json(
-        &studio_artifact_judge_candidate_view(candidate),
+        &studio_artifact_judge_candidate_view_for_runtime(
+            candidate,
+            request.renderer,
+            runtime_kind,
+        ),
         "Studio artifact candidate",
     )?;
-    let schema_contract = studio_artifact_judge_schema_contract(request.renderer);
-    let brief_focus_json = compact_studio_judge_json(
-        &studio_artifact_judge_brief_focus(brief),
-        "Studio artifact brief focus",
-    )?;
+    let brief_focus = if compact_document_prompt {
+        studio_artifact_compact_document_brief_focus(brief)
+    } else {
+        studio_artifact_judge_brief_focus(brief)
+    };
+    let brief_focus_json = compact_studio_judge_json(&brief_focus, "Studio artifact brief focus")?;
     if renderer_uses_document_judge_context(request.renderer) {
         return Ok(json!([
             {
@@ -272,6 +494,25 @@ pub fn build_studio_artifact_judge_prompt(
 }
 
 fn studio_artifact_judge_schema_contract(renderer: StudioRendererKind) -> &'static str {
+    studio_artifact_judge_schema_contract_for_runtime(
+        renderer,
+        StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
+    )
+}
+
+fn studio_artifact_judge_schema_contract_for_runtime(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> &'static str {
+    if ultra_compact_local_markdown_judge_prompt(renderer, runtime_kind) {
+        return "Return exactly these plain-text lines:\nverdict: pass|repairable|blocked\nfaithfulness: 1-5\ncoverage: 1-5\ncomplete: 1-5\ngeneric: true|false\ntrivial: true|false\nprimary: true|false\nnext: accept|repair|block\nwhy: short sentence\nRules:\n1) No JSON or fences.\n2) Pass only if the markdown is request-specific and materially usable.\n3) Use repairable for thin but fixable drafts.\n4) Use blocked for missing or unusable files.";
+    }
+    if compact_local_download_bundle_judge_prompt(renderer, runtime_kind) {
+        return "Return exactly these plain-text lines:\nclassification: pass|repairable|blocked\nrecommendedNextPass: accept|structural_repair|hold_block\nstrengths: item; item\nblockedReasons: item; item\nrationale: short sentence\nRules:\n1) Judge only whether this is a usable downloadable bundle for the request.\n2) Pass only if the required files exist and their contents are non-placeholder and usable.\n3) Use repairable when the files exist but content is thin, generic, or partly incomplete.\n4) Use blocked when required files are missing or unusable.\n5) No JSON or markdown fences.";
+    }
+    if compact_local_document_judge_prompt(renderer, runtime_kind) {
+        return "Return exactly these plain-text lines:\nclassification: pass|repairable|blocked\nrequestFaithfulness: 1-5\nconceptCoverage: 1-5\ncompleteness: 1-5\ngenericShellDetected: true|false\ntrivialShellDetected: true|false\ndeservesPrimaryArtifactView: true|false\nstrengths: item; item\nblockedReasons: item; item\nrecommendedNextPass: accept|structural_repair|polish_pass|hold_block\nrationale: short sentence\nRules:\n1) No JSON or markdown fences.\n2) Keep strengths and blockedReasons to 0-2 short items.\n3) Set genericShellDetected for nearby-prompt generic shells.\n4) Set trivialShellDetected for empty or placeholder artifacts.\n5) Set deservesPrimaryArtifactView=false unless classification is pass.";
+    }
     match renderer {
         StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => {
             "Return exactly one JSON object with this camelCase schema:\n{\n  \"classification\": \"pass\" | \"repairable\" | \"blocked\",\n  \"requestFaithfulness\": <1_to_5_integer>,\n  \"conceptCoverage\": <1_to_5_integer>,\n  \"interactionRelevance\": <1_to_5_integer>,\n  \"layoutCoherence\": <1_to_5_integer>,\n  \"visualHierarchy\": <1_to_5_integer>,\n  \"completeness\": <1_to_5_integer>,\n  \"genericShellDetected\": <boolean>,\n  \"trivialShellDetected\": <boolean>,\n  \"deservesPrimaryArtifactView\": <boolean>,\n  \"patchedExistingArtifact\": null | <boolean>,\n  \"continuityRevisionUx\": null | <1_to_5_integer>,\n  \"issueClasses\": [<string>],\n  \"repairHints\": [<string>],\n  \"strengths\": [<string>],\n  \"blockedReasons\": [<string>],\n  \"fileFindings\": [<string>],\n  \"aestheticVerdict\": <string>,\n  \"interactionVerdict\": <string>,\n  \"truthfulnessWarnings\": [<string>],\n  \"recommendedNextPass\": null | \"accept\" | \"structural_repair\" | \"polish_pass\" | \"hold_block\",\n  \"strongestContradiction\": null | <string>,\n  \"rationale\": <string>\n}\nRules:\n1) Start with '{' and end with '}'. Do not emit markdown fences, prose prefaces, or trailing commentary.\n2) Every score field must be an integer from 1 through 5.\n3) issueClasses, repairHints, strengths, blockedReasons, fileFindings, and truthfulnessWarnings should each contain 0 to 3 terse entries.\n4) Penalize generic shells, placeholder output, or request-thin artifacts.\n5) requestFaithfulness and conceptCoverage must drop sharply when the candidate omits or weakens differentiating request concepts from subjectDomain, artifactThesis, or requiredConcepts.\n6) A candidate that could fit many nearby prompts by only changing the headline should set genericShellDetected=true and deservesPrimaryArtifactView=false.\n7) Placeholder image URLs, placeholder media, lorem ipsum, fake stock filler, or empty chart regions should set trivialShellDetected=true and classification must not be pass.\n8) html_iframe candidates that rely on a thin div shell, omit semantic sectioning, use invented custom tags instead of standard HTML, fail to realize required interactions, or leave SVG/canvas chart regions empty on first paint must not be pass.\n9) When the brief calls for multiple charts, data visualizations, metrics, or comparisons, a single chart plus generic prose is insufficient and classification must not be pass.\n10) Broken control wiring that targets nonexistent views or uses collection-style iteration on a single selected element should reduce interactionRelevance and completeness.\n11) Apply sequence-browsing penalties only when interactionContract.sequenceBrowsingRequired is true. In that case, a static timeline illustration without a visible progression mechanism such as prev/next controls, a scrubber, or a scrollable evidence rail must reduce interactionRelevance and completeness.\n12) Judge requiredInteractions by the visible response behavior and interactionContract, not by literal widget nouns alone; equivalent truthful inline controls or state changes may satisfy the interaction.\n13) Explicitly critique typography and design intentionality in aestheticVerdict, first-paint evidence density in issueClasses or repairHints, interaction truthfulness in interactionVerdict, and continuity with refinement context when patchedExistingArtifact is relevant.\n14) A refinement that restarts unnecessarily should fail patchedExistingArtifact.\n15) If the candidate should not lead the stage, classification must not be pass.\n16) Keep strongestContradiction, aestheticVerdict, interactionVerdict, and rationale terse: one sentence each."
@@ -509,6 +750,52 @@ fn normalize_studio_artifact_judge_value(value: &mut serde_json::Value) {
     }
     if let Some(entry) = object.get_mut("continuityRevisionUx") {
         normalize_optional_judge_score_field(entry);
+    }
+
+    let classification = object
+        .get("classification")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
+    let default_score = classification
+        .as_deref()
+        .map(default_plaintext_judge_score)
+        .unwrap_or(3);
+    for field in [
+        "requestFaithfulness",
+        "conceptCoverage",
+        "interactionRelevance",
+        "layoutCoherence",
+        "visualHierarchy",
+        "completeness",
+    ] {
+        object
+            .entry(field.to_string())
+            .or_insert_with(|| serde_json::Value::Number(default_score.into()));
+    }
+    object
+        .entry("genericShellDetected".to_string())
+        .or_insert(serde_json::Value::Bool(false));
+    object
+        .entry("trivialShellDetected".to_string())
+        .or_insert(serde_json::Value::Bool(false));
+    object
+        .entry("deservesPrimaryArtifactView".to_string())
+        .or_insert_with(|| serde_json::Value::Bool(classification.as_deref() == Some("pass")));
+    if !object.contains_key("rationale") {
+        let rationale = match classification.as_deref() {
+            Some("pass") => {
+                "Candidate satisfies the typed request well enough to lead.".to_string()
+            }
+            Some("blocked") => {
+                "Candidate remains too incomplete or contradictory to lead.".to_string()
+            }
+            Some(_) => "Candidate needs repair before it should lead.".to_string(),
+            None => "Judge returned a compact artifact verdict.".to_string(),
+        };
+        object.insert(
+            "rationale".to_string(),
+            serde_json::Value::String(rationale),
+        );
     }
 }
 
@@ -923,11 +1210,11 @@ fn parse_plaintext_judge_next_pass(value: &str) -> Option<&'static str> {
     }
 
     let normalized = normalize_plaintext_judge_label(trimmed);
-    if normalized.contains("structural repair") {
+    if normalized.contains("structural repair") || normalized == "repair" {
         Some("structural_repair")
     } else if normalized.contains("polish pass") || normalized == "polish" {
         Some("polish_pass")
-    } else if normalized.contains("hold block") || normalized == "hold" {
+    } else if normalized.contains("hold block") || normalized == "hold" || normalized == "block" {
         Some("hold_block")
     } else if normalized.contains("accept") {
         Some("accept")
@@ -993,17 +1280,22 @@ fn map_plaintext_judge_field(label: &str) -> Option<(&'static str, bool)> {
         "classification" | "overall classification" | "overall verdict" | "verdict" => {
             Some(("classification", false))
         }
-        "request faithfulness" => Some(("requestFaithfulness", false)),
-        "concept coverage" => Some(("conceptCoverage", false)),
+        "request faithfulness" | "faithfulness" => Some(("requestFaithfulness", false)),
+        "concept coverage" | "coverage" => Some(("conceptCoverage", false)),
         "interaction relevance" => Some(("interactionRelevance", false)),
         "layout coherence" => Some(("layoutCoherence", false)),
         "visual hierarchy" => Some(("visualHierarchy", false)),
-        "completeness" => Some(("completeness", false)),
-        "generic shell detected" | "generic shell" => Some(("genericShellDetected", false)),
-        "trivial shell detected" | "trivial shell" => Some(("trivialShellDetected", false)),
+        "completeness" | "complete" => Some(("completeness", false)),
+        "generic shell detected" | "generic shell" | "generic" => {
+            Some(("genericShellDetected", false))
+        }
+        "trivial shell detected" | "trivial shell" | "trivial" => {
+            Some(("trivialShellDetected", false))
+        }
         "deserves primary artifact view" | "deserves primary view" | "primary artifact view" => {
             Some(("deservesPrimaryArtifactView", false))
         }
+        "primary" => Some(("deservesPrimaryArtifactView", false)),
         "patched existing artifact" => Some(("patchedExistingArtifact", false)),
         "continuity revision ux" | "continuity ux" => Some(("continuityRevisionUx", false)),
         "issue classes" | "issues" => Some(("issueClasses", true)),
@@ -1018,11 +1310,11 @@ fn map_plaintext_judge_field(label: &str) -> Option<(&'static str, bool)> {
         "truthfulness warnings" | "truthfulness warning" | "warnings" => {
             Some(("truthfulnessWarnings", true))
         }
-        "recommended next pass" | "next pass" | "recommended action" => {
+        "recommended next pass" | "next pass" | "recommended action" | "next" => {
             Some(("recommendedNextPass", false))
         }
         "strongest contradiction" | "contradiction" => Some(("strongestContradiction", false)),
-        "rationale" | "reasoning" | "summary" => Some(("rationale", false)),
+        "rationale" | "reasoning" | "summary" | "why" => Some(("rationale", false)),
         _ => None,
     }
 }
@@ -1303,7 +1595,7 @@ pub(crate) fn candidate_generation_config(
         StudioRendererKind::HtmlIframe
             if production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime =>
         {
-            (2, 0.62, "request-grounded_html")
+            (1, 0.54, "request-grounded_html")
         }
         StudioRendererKind::HtmlIframe => (3, 0.6, "request-grounded_html"),
         StudioRendererKind::JsxSandbox => (2, 0.5, "interaction-first_jsx"),
@@ -1341,12 +1633,28 @@ pub(crate) fn candidate_generation_config(
 fn studio_artifact_judge_candidate_view(
     candidate: &StudioGeneratedArtifactPayload,
 ) -> serde_json::Value {
+    studio_artifact_judge_candidate_view_for_runtime(
+        candidate,
+        StudioRendererKind::HtmlIframe,
+        StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
+    )
+}
+
+fn studio_artifact_judge_candidate_view_for_runtime(
+    candidate: &StudioGeneratedArtifactPayload,
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> serde_json::Value {
+    let compact_document_prompt = compact_local_document_judge_prompt(renderer, runtime_kind);
+    let note_limit = if compact_document_prompt { 1 } else { 6 };
+    let summary_limit = if compact_document_prompt { 120 } else { 320 };
+    let body_preview_limit = if compact_document_prompt { 80 } else { 1200 };
     json!({
-        "summary": truncate_studio_judge_text(&candidate.summary, 320),
+        "summary": truncate_studio_judge_text(&candidate.summary, summary_limit),
         "notes": candidate
             .notes
             .iter()
-            .take(6)
+            .take(note_limit)
             .map(|note| truncate_studio_judge_text(note, 220))
             .collect::<Vec<_>>(),
         "files": candidate
@@ -1362,7 +1670,7 @@ fn studio_artifact_judge_candidate_view(
                     "encoding": file.encoding,
                     "bodyChars": file.body.chars().count(),
                     "lineCount": file.body.lines().count(),
-                    "bodyPreview": truncate_studio_judge_text(&file.body, 1200),
+                    "bodyPreview": truncate_studio_judge_text(&file.body, body_preview_limit),
                 })
             })
             .collect::<Vec<_>>(),
@@ -1586,7 +1894,7 @@ pub(crate) fn materialization_max_tokens(renderer: StudioRendererKind) -> u32 {
         StudioRendererKind::Markdown => 900,
         StudioRendererKind::Mermaid => 700,
         StudioRendererKind::PdfEmbed => 1200,
-        StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest => 900,
+        StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest => 420,
         StudioRendererKind::WorkspaceSurface => 2000,
     }
 }
@@ -1605,6 +1913,21 @@ fn judge_max_tokens(renderer: StudioRendererKind) -> u32 {
     }
 }
 
+fn judge_max_tokens_for_runtime(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> u32 {
+    if ultra_compact_local_markdown_judge_prompt(renderer, runtime_kind) {
+        48
+    } else if compact_local_download_bundle_judge_prompt(renderer, runtime_kind) {
+        56
+    } else if compact_local_document_judge_prompt(renderer, runtime_kind) {
+        80
+    } else {
+        judge_max_tokens(renderer)
+    }
+}
+
 fn judge_repair_max_tokens(renderer: StudioRendererKind) -> u32 {
     match renderer {
         StudioRendererKind::HtmlIframe
@@ -1616,6 +1939,21 @@ fn judge_repair_max_tokens(renderer: StudioRendererKind) -> u32 {
         | StudioRendererKind::DownloadCard
         | StudioRendererKind::BundleManifest
         | StudioRendererKind::WorkspaceSurface => 224,
+    }
+}
+
+fn judge_repair_max_tokens_for_runtime(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> u32 {
+    if ultra_compact_local_markdown_judge_prompt(renderer, runtime_kind) {
+        64
+    } else if compact_local_download_bundle_judge_prompt(renderer, runtime_kind) {
+        72
+    } else if compact_local_document_judge_prompt(renderer, runtime_kind) {
+        96
+    } else {
+        judge_repair_max_tokens(renderer)
     }
 }
 

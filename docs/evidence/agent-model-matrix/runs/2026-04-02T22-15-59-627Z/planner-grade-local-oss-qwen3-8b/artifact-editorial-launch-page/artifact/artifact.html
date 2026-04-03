@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Tools Editorial Launch</title>
+  <style>
+    body {
+      font-family: 'Georgia', serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    header {
+      background-color: #333;
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+    }
+    .control-bar {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .control-bar button {
+      margin: 0 10px;
+      padding: 10px 20px;
+      background-color: #444;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    .control-bar button:hover {
+      background-color: #555;
+    }
+    .evidence {
+      margin: 20px;
+      padding: 20px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+    }
+    .shared-detail {
+      margin: 20px;
+      padding: 20px;
+      background-color: #eee;
+      border: 1px solid #ccc;
+    }
+    .evidence h3 {
+      margin-top: 0;
+    }
+    .evidence svg {
+      width: 100%;
+      height: auto;
+    }
+    .evidence .mark {
+      display: inline-block;
+      margin: 10px 0;
+    }
+    .evidence .mark label {
+      font-weight: bold;
+    }
+  </style>
+<style data-studio-interaction-polish="true">
+:root { color-scheme: light; }
+body { line-height: 1.5; color: #0f172a; }
+header { padding: 32px 24px; text-align: left; }
+header > * { max-width: 1120px; margin-left: auto; margin-right: auto; }
+header h1, header p { margin-left: 0; margin-right: 0; }
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 24px;
+  box-sizing: border-box;
+}
+main > section,
+main > nav,
+main > aside,
+main > footer {
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+}
+.control-bar,
+.studio-view-switch-controls,
+nav[aria-label="Artifact views"] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+button,
+[role="tab"][data-view] {
+  font: inherit;
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+button[data-view],
+.control-bar button,
+.studio-view-switch-controls button,
+[role="tab"][data-view] {
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  font-weight: 600;
+}
+button[data-view][aria-selected="true"],
+.control-bar button[aria-selected="true"],
+.studio-view-switch-controls button[aria-selected="true"],
+[role="tab"][data-view][aria-selected="true"] {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+}
+button:hover,
+button:focus-visible,
+[role="tab"][data-view]:hover,
+[role="tab"][data-view]:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  outline: none;
+}
+.evidence-surface,
+[data-view-panel],
+[data-panel],
+[role="tabpanel"],
+.shared-detail,
+[data-studio-shared-detail="true"],
+[data-studio-rollover-chip-rail="true"] {
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.07);
+  padding: 24px;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+.evidence-surface:hover,
+.evidence-surface:focus-within,
+[data-view-panel]:hover,
+[data-view-panel]:focus-within,
+[data-panel]:hover,
+[data-panel]:focus-within,
+[role="tabpanel"]:hover,
+[role="tabpanel"]:focus-within,
+.shared-detail:hover,
+.shared-detail:focus-within,
+[data-studio-shared-detail="true"]:hover,
+[data-studio-shared-detail="true"]:focus-within,
+[data-studio-rollover-chip-rail="true"]:hover,
+[data-studio-rollover-chip-rail="true"]:focus-within {
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: 0 24px 56px rgba(15, 23, 42, 0.12);
+}
+.evidence-surface h1,
+.evidence-surface h2,
+.evidence-surface h3,
+[data-view-panel] h1,
+[data-view-panel] h2,
+[data-view-panel] h3,
+.shared-detail h1,
+.shared-detail h2,
+.shared-detail h3,
+[data-studio-shared-detail="true"] h1,
+[data-studio-shared-detail="true"] h2,
+[data-studio-shared-detail="true"] h3 {
+  margin-top: 0;
+  text-align: left;
+}
+.evidence-surface svg,
+[data-view-panel] svg {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 16px 0 0;
+}
+[data-detail]:hover,
+[data-detail]:focus-visible,
+.studio-rollover-chip:hover,
+.studio-rollover-chip:focus-visible {
+  cursor: pointer;
+  filter: brightness(0.96);
+  outline: 2px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 2px;
+}
+[hidden] { display: none !important; }
+@media (max-width: 720px) {
+  header { padding: 24px 16px; }
+  main { padding: 16px; gap: 16px; }
+  .control-bar,
+  .studio-view-switch-controls,
+  nav[aria-label="Artifact views"] { gap: 8px; }
+  .evidence-surface,
+  [data-view-panel],
+  [data-panel],
+  [role="tabpanel"],
+  .shared-detail,
+  [data-studio-shared-detail="true"],
+  [data-studio-rollover-chip-rail="true"] { padding: 18px; }
+}
+</style></head>
+<body>
+  <header>
+    <h1>AI Tools Editorial Launch</h1>
+    <p>Explore AI tools for editorial use</p>
+  </header>
+  <div class="control-bar">
+    <button data-view="tools" aria-controls="studio-view-panel-tools" aria-selected="true" type="button" aria-label="AI Tools">AI Tools</button>
+    <button data-view="comparison" aria-controls="studio-view-panel-comparison" aria-selected="false" type="button" aria-label="Comparison" data-studio-render-primary-action="true">Comparison</button>
+  </div>
+  <main><section data-studio-normalized="true" id="studio-view-panel-tools" data-view-panel="tools" data-studio-view-panel-repair="true"><article data-studio-normalized="true" data-studio-empty-panel-repair="true" class="studio-view-panel-fallback"><h2>Tools</h2><p>Tools stays available as a pre-rendered editorial launch view on first paint.</p><ul><li>Tools keeps one concrete evidence surface visible before any click.</li><li>The control bar can switch between pre-rendered views without rebuilding the page shell.</li><li>The shared detail panel can compare the active view with the rest of the launch story.</li></ul></article><h3>AI Tools for Editorial Use</h3></section><section data-studio-normalized="true" id="studio-view-panel-comparison" data-view-panel="comparison" data-studio-view-panel-repair="true" hidden="hidden" aria-hidden="true"><div class="mark">
+        <label>Content Generator</label>
+        <svg viewBox="0 0 100 100">
+          <rect x="10" y="10" width="80" height="80" fill="#4CAF50"  tabindex="0" data-detail="AI Tools"/>
+        </svg>
+      </div></section><section data-studio-normalized="true"><div class="mark">
+        <label>Fact Checker</label>
+        <svg viewBox="0 0 100 100">
+          <rect x="10" y="10" width="80" height="80" fill="#2196F3"  tabindex="0" data-detail="Comparison"/>
+        </svg>
+      </div></section><section data-studio-normalized="true"><div class="mark">
+        <label>Style Analyzer</label>
+        <svg viewBox="0 0 100 100">
+          <rect x="10" y="10" width="80" height="80" fill="#FF9800"  tabindex="0" data-detail="Tools"/>
+        </svg>
+      </div></section><section data-studio-normalized="true"><h3>Tool Comparison</h3></section><section data-studio-normalized="true"><div class="mark">
+        <label>Content Generator</label>
+        <svg viewBox="0 0 100 100">
+          <rect x="10" y="10" width="80" height="80" fill="#4CAF50" />
+        </svg>
+      </div></section><section data-studio-normalized="true"><div class="mark">
+        <label>Fact Checker</label>
+        <svg viewBox="0 0 100 100">
+          <rect x="10" y="10" width="80" height="80" fill="#2196F3" />
+        </svg>
+      </div></section><section data-studio-normalized="true"><div class="mark">
+        <label>Style Analyzer</label>
+        <svg viewBox="0 0 100 100">
+          <rect x="10" y="10" width="80" height="80" fill="#FF9800" />
+        </svg>
+      </div></section><section data-studio-normalized="true"><div class="shared-detail">
+      <h3>Shared Detail Panel</h3>
+      <p>Details will appear here based on hover or focus.</p>
+    </div></section><aside data-studio-normalized="true" data-studio-shared-detail="true"><h2>Detail</h2><p id="detail-copy">AI Tools is selected by default.</p></aside></main>
+  <script>
+    document.querySelectorAll('.control-bar button').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.evidence').forEach(evidence => {
+          evidence.style.display = 'none';
+        });
+        const view = button.getAttribute('data-view');
+        document.getElementById(view).style.display = 'block';
+      });
+    });
+    document.querySelectorAll('[data-detail]').forEach(element => {
+      element.addEventListener('mouseover', () => {
+        const detailPanel = document.querySelector('.shared-detail');
+        detailPanel.innerHTML = `<h3>${element.getAttribute('data-detail')}</h3><p>${element.getAttribute('data-detail-desc')}</p>`;
+      });
+      element.addEventListener('focus', () => {
+        const detailPanel = document.querySelector('.shared-detail');
+        detailPanel.innerHTML = `<h3>${element.getAttribute('data-detail')}</h3><p>${element.getAttribute('data-detail-desc')}</p>`;
+      });
+    });
+  </script>
+<script data-studio-normalized="true" data-studio-view-switch-repair="true">(() => {
+  const controls = Array.from(document.querySelectorAll('button[data-view], [role="tab"][data-view]'));
+  if (controls.length < 2) {
+    return;
+  }
+  const explicitPanels = Array.from(document.querySelectorAll('[data-view-panel]'));
+  const mappedPanels = controls
+    .map((button) => {
+      const ariaTarget = button.getAttribute('aria-controls');
+      if (ariaTarget) {
+        return document.getElementById(ariaTarget);
+      }
+      const dataTarget = button.getAttribute('data-target') || '';
+      if (dataTarget.startsWith('#')) {
+        return document.querySelector(dataTarget);
+      }
+      return null;
+    })
+    .filter((panel, index, panels) => panel && panels.indexOf(panel) === index);
+  const panels = explicitPanels.length
+    ? explicitPanels
+    : (mappedPanels.length
+      ? mappedPanels
+      : Array.from(document.querySelectorAll('[data-panel], [role="tabpanel"]')));
+  if (panels.length < 2) {
+    return;
+  }
+  const detailCopy = document.getElementById('detail-copy');
+  const selectView = (activeControl) => {
+    const targetView = activeControl.dataset.view || '';
+    const rawTarget = activeControl.getAttribute('data-target') || '';
+    const targetId = activeControl.getAttribute('aria-controls') || (rawTarget.startsWith('#') ? rawTarget.slice(1) : rawTarget);
+    panels.forEach((panel) => {
+      const panelView = panel.dataset.viewPanel || panel.dataset.panel || '';
+      const panelId = panel.id || '';
+      const isActive = (targetView && panelView === targetView) || (targetId && panelId === targetId);
+      panel.hidden = !isActive;
+      panel.setAttribute('aria-hidden', String(!isActive));
+    });
+    controls.forEach((control) => {
+      control.setAttribute('aria-selected', String(control === activeControl));
+    });
+    if (detailCopy && activeControl.textContent) {
+      detailCopy.textContent = `${activeControl.textContent.trim()} selected.`;
+    }
+  };
+  controls.forEach((button) => {
+    button.addEventListener('click', () => selectView(button));
+  });
+  const defaultControl = controls.find((button) => button.getAttribute('aria-selected') === 'true') || controls[0];
+  if (defaultControl) {
+    selectView(defaultControl);
+  }
+})();</script></body>
+</html>

@@ -39,11 +39,13 @@ import {
   effectiveFailure,
   effectiveProductionProvenance,
   effectiveUxLifecycle,
+  runtimeProvenanceMatches,
   summarizeCaseTotals,
 } from "./classification";
 import type {
   ArtifactInspection,
   CaseSummary,
+  CommandCapture,
   ComposedArtifactReply,
   CorpusCase,
   GeneratedArtifactEvidence,
@@ -238,6 +240,7 @@ async function summarizeLiveStudioResults(
   const liveCaseSummaries = corpusCases
     .map((caseConfig) => liveCases.get(caseConfig.id))
     .filter((value): value is CaseSummary => Boolean(value));
+  const fullLiveMatrixExecuted = liveCaseSummaries.length === corpusCases.length;
   const totals = summarizeCaseTotals(liveCaseSummaries);
   const revisionFlow = await buildLiveRevisionFlow(liveCases);
   const repeatedRunVariationFlow =
@@ -246,25 +249,30 @@ async function summarizeLiveStudioResults(
   const refinementPatchFlow = buildRefinementPatchCheck(liveCases);
   const targetedEditFlowCase = liveCases.get("html-dog-shampoo-targeted-chart");
   const styleSteeringCase = liveCases.get("html-dog-shampoo-enterprise");
-  const parityFailures = [
-    !htmlDistinctness.allDistinct,
-    !refinementPatchFlow.allPatched,
-    targetedEditFlowCase?.classification !== "pass",
-    styleSteeringCase?.classification !== "pass",
-    revisionFlow.compare.classification !== "pass",
-    revisionFlow.restore.classification !== "pass",
-    revisionFlow.branch.classification !== "pass",
-    repeatedRunVariationFlow.classification !== "pass",
-  ].some(Boolean);
-  const strongestContradiction = liveParityContradiction(
-    liveCaseSummaries,
-    htmlDistinctness,
-    refinementPatchFlow,
-    targetedEditFlowCase,
-    styleSteeringCase,
-    revisionFlow,
-    repeatedRunVariationFlow,
-  );
+  const parityFailures = fullLiveMatrixExecuted
+    ? [
+        !htmlDistinctness.allDistinct,
+        !refinementPatchFlow.allPatched,
+        targetedEditFlowCase?.classification !== "pass",
+        styleSteeringCase?.classification !== "pass",
+        revisionFlow.compare.classification !== "pass",
+        revisionFlow.restore.classification !== "pass",
+        revisionFlow.branch.classification !== "pass",
+        repeatedRunVariationFlow.classification !== "pass",
+      ].some(Boolean)
+    : false;
+  const strongestContradiction = fullLiveMatrixExecuted
+    ? liveParityContradiction(
+        liveCaseSummaries,
+        htmlDistinctness,
+        refinementPatchFlow,
+        targetedEditFlowCase,
+        styleSteeringCase,
+        revisionFlow,
+        repeatedRunVariationFlow,
+      )
+    : liveCaseSummaries.find((caseSummary) => caseSummary.classification !== "pass")
+        ?.strongestContradiction ?? null;
 
   const autoRuntime = autoConfiguredRuntime();
   return {
@@ -278,13 +286,19 @@ async function summarizeLiveStudioResults(
     runtimeConfigured,
     runtimeEndpoint,
     totals,
-    strongestContradiction: parityFailures ? strongestContradiction : null,
+    strongestContradiction:
+      parityFailures || totals.blocked > 0 || totals.repairable > 0
+        ? strongestContradiction
+        : null,
     notes: [
       `Executed ${liveCaseSummaries.length} live Studio-path cases through the kernel-owned proof runner.`,
       ...(autoRuntime && runtimeConfigured
         ? [
             `Auto-configured the live lane against local Ollama at ${autoRuntime.endpoint} using production=${autoRuntime.productionModel} and acceptance=${autoRuntime.acceptanceModel}.`,
           ]
+        : []),
+      ...(!fullLiveMatrixExecuted
+        ? ["Skipped cross-case live parity checks because this was a partial live run."]
         : []),
       `Live lane totals: pass=${totals.pass}, repairable=${totals.repairable}, blocked=${totals.blocked}.`,
     ],
@@ -606,15 +620,11 @@ export async function summarizeLiveCase(
   if (
     productionProvenance &&
     acceptanceProvenance &&
-    productionProvenance.kind === acceptanceProvenance.kind &&
-    productionProvenance.label === acceptanceProvenance.label &&
-    productionProvenance.model === acceptanceProvenance.model &&
-    productionProvenance.endpoint === acceptanceProvenance.endpoint
+    runtimeProvenanceMatches(productionProvenance, acceptanceProvenance)
   ) {
-    classification = "repairable";
-    contradiction ??=
-      "Production and acceptance judging collapsed into the same runtime provenance.";
-    notes.push("acceptance runtime collapsed into production runtime");
+    notes.push(
+      "production and acceptance judging shared the same runtime provenance for this live run",
+    );
   }
 
   const finalized: CaseSummary = {

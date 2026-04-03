@@ -1,0 +1,860 @@
+{
+  "version": 1,
+  "trace_id": "artifacts:miniwob_click_button_smoke",
+  "run_id": "artifacts",
+  "case_id": "miniwob_click_button_smoke",
+  "env_id": "click-button",
+  "suite": "MiniWoB++",
+  "generated_at_ms": 1775193287230,
+  "summary": {
+    "backend": "live_http",
+    "effective_reward": 1.0,
+    "env_id": "click-button",
+    "episode_step": 1,
+    "expected_reward_floor": 1.0,
+    "final_last_event": "click target=#area > button:nth-of-type(2) x=0 y=0 at=1775193286951",
+    "final_trigger": "end_episode",
+    "model": "qwen3:8b",
+    "provider_calls": 1,
+    "query_text": "Click on the \"Okay\" button.",
+    "raw_reward": 1.0,
+    "result_label": "pass",
+    "reward": 0.6329,
+    "reward_floor_met": true,
+    "sync_count": 32,
+    "terminated": true,
+    "truncated": false
+  },
+  "findings": [
+    "First grounded target arrived only after 3670 ms from bootstrap."
+  ],
+  "source_artifacts": {
+    "benchmark_summary_json": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.json",
+    "benchmark_summary_markdown": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.md",
+    "bridge_state": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+    "case_dir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke",
+    "diagnostic_json": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json",
+    "diagnostic_markdown": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.md",
+    "inference_calls": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_calls.json",
+    "inference_trace": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_trace.json"
+  },
+  "spans": [
+    {
+      "id": "case",
+      "lane": "case",
+      "parent_span_id": null,
+      "step_index": null,
+      "capability_tags": [
+        "overall_case_outcome"
+      ],
+      "ts_start_ms": 1775193268441,
+      "ts_end_ms": 1775193287104,
+      "duration_ms": 18663,
+      "status": "pass",
+      "summary": "Click on the \"Okay\" button. | reward=0.6329 effective_reward=1 floor_met=true | First grounded target arrived only after 3670 ms from bootstrap.",
+      "attributes": {},
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "phase:browser_launch",
+      "lane": "runtime",
+      "parent_span_id": "case",
+      "step_index": null,
+      "capability_tags": [
+        "startup_latency"
+      ],
+      "ts_start_ms": 1775193268441,
+      "ts_end_ms": 1775193283034,
+      "duration_ms": 14593,
+      "status": "completed",
+      "summary": "Browser launch",
+      "attributes": {
+        "source": "phase_timing"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_trace.json"
+      ]
+    },
+    {
+      "id": "phase:browser_navigation",
+      "lane": "browser",
+      "parent_span_id": "case",
+      "step_index": null,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193283177,
+      "ts_end_ms": 1775193283306,
+      "duration_ms": 129,
+      "status": "completed",
+      "summary": "Browser navigation",
+      "attributes": {
+        "source": "phase_timing"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_trace.json"
+      ]
+    },
+    {
+      "id": "phase:first_step_service",
+      "lane": "executor",
+      "parent_span_id": "case",
+      "step_index": null,
+      "capability_tags": [
+        "execution_runtime"
+      ],
+      "ts_start_ms": 1775193286939,
+      "ts_end_ms": 1775193287103,
+      "duration_ms": 164,
+      "status": "completed",
+      "summary": "First step service",
+      "attributes": {
+        "source": "phase_timing"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_trace.json"
+      ]
+    },
+    {
+      "id": "phase:first_inference",
+      "lane": "inference",
+      "parent_span_id": "case",
+      "step_index": null,
+      "capability_tags": [
+        "planning_contract"
+      ],
+      "ts_start_ms": 1775193283311,
+      "ts_end_ms": 1775193286938,
+      "duration_ms": 3627,
+      "status": "completed",
+      "summary": "First inference",
+      "attributes": {
+        "source": "phase_timing"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_trace.json"
+      ]
+    },
+    {
+      "id": "inference:0",
+      "lane": "inference",
+      "parent_span_id": "case",
+      "step_index": null,
+      "capability_tags": [
+        "planning_contract"
+      ],
+      "ts_start_ms": 1775193283311,
+      "ts_end_ms": 1775193286938,
+      "duration_ms": 3627,
+      "status": "completed",
+      "summary": "chat_completions_tool_call {\"arguments\":{\"selector\":\"#area > button:nth-of-type(2)\"},\"name\":\"browser__click\"}",
+      "attributes": {
+        "elapsed_ms": 3627,
+        "tool_name": null
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_calls.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_trace.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:0",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193283281,
+      "ts_end_ms": 1775193283281,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "bootstrap reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 10 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:1",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193283400,
+      "ts_end_ms": 1775193283400,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 10 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:2",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193283520,
+      "ts_end_ms": 1775193283520,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 10 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:3",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193283640,
+      "ts_end_ms": 1775193283640,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 10 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:4",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193283761,
+      "ts_end_ms": 1775193283761,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 10 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:5",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193283881,
+      "ts_end_ms": 1775193283881,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 10 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:6",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193284000,
+      "ts_end_ms": 1775193284000,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 10 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:7",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193284121,
+      "ts_end_ms": 1775193284121,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 10 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:8",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193284240,
+      "ts_end_ms": 1775193284240,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 10 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:9",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193284360,
+      "ts_end_ms": 1775193284360,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 9 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:10",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193284480,
+      "ts_end_ms": 1775193284480,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 9 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:11",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193284601,
+      "ts_end_ms": 1775193284601,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 9 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:12",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193284721,
+      "ts_end_ms": 1775193284721,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 9 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:13",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193284840,
+      "ts_end_ms": 1775193284840,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 9 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:14",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193284960,
+      "ts_end_ms": 1775193284960,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 9 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:15",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193285080,
+      "ts_end_ms": 1775193285080,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 9 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:16",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193285200,
+      "ts_end_ms": 1775193285200,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 9 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:17",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193285320,
+      "ts_end_ms": 1775193285320,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 8 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:18",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193285440,
+      "ts_end_ms": 1775193285440,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 8 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:19",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193285561,
+      "ts_end_ms": 1775193285561,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 8 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:20",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193285680,
+      "ts_end_ms": 1775193285680,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 8 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:21",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193285800,
+      "ts_end_ms": 1775193285800,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 8 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:22",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193285921,
+      "ts_end_ms": 1775193285921,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 8 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:23",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193286041,
+      "ts_end_ms": 1775193286041,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 8 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:24",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193286160,
+      "ts_end_ms": 1775193286160,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 8 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:25",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193286281,
+      "ts_end_ms": 1775193286281,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 7 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:26",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193286400,
+      "ts_end_ms": 1775193286400,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 7 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:27",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193286520,
+      "ts_end_ms": 1775193286520,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 7 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:28",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193286641,
+      "ts_end_ms": 1775193286641,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 7 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:29",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193286761,
+      "ts_end_ms": 1775193286761,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 7 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:30",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 0,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193286880,
+      "ts_end_ms": 1775193286880,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "heartbeat reward=0 terminated=false",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: - Last 10 average: - Time left: 7 / 10sec Episodes done: 0"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    },
+    {
+      "id": "bridge_sync:31",
+      "lane": "bridge",
+      "parent_span_id": "case",
+      "step_index": 1,
+      "capability_tags": [
+        "bridge_sync_observability"
+      ],
+      "ts_start_ms": 1775193286952,
+      "ts_end_ms": 1775193286952,
+      "duration_ms": 0,
+      "status": "observed",
+      "summary": "end_episode reward=0.6329 terminated=true",
+      "attributes": {
+        "visible_text_excerpt": "Click on the \"Okay\" button. neque et adipiscing proin ac nulla dictum amet facilisis Previous eu id non: Okay Last reward: 0.63 Last 10 average: 0.63 Time left: - Episodes done: 1 START"
+      },
+      "artifact_refs": [
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+        "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T05-01-30-814Z/planner-grade-local-oss-qwen3-8b/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json"
+      ]
+    }
+  ],
+  "bookmarks": [
+    {
+      "id": "first_inference",
+      "label": "First inference",
+      "span_id": "inference:0",
+      "kind": "milestone"
+    },
+    {
+      "id": "terminal_sync",
+      "label": "Terminal sync",
+      "span_id": "bridge_sync:0",
+      "kind": "milestone"
+    },
+    {
+      "id": "case_outcome",
+      "label": "Case outcome",
+      "span_id": "case",
+      "kind": "summary"
+    }
+  ]
+}

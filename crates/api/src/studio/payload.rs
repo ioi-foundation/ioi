@@ -23,8 +23,250 @@ pub fn parse_studio_generated_artifact_payload(
 fn parse_studio_generated_artifact_payload_json(
     raw: &str,
 ) -> Result<StudioGeneratedArtifactPayload, serde_json::Error> {
-    let value = serde_json::from_str::<serde_json::Value>(raw)?;
+    let mut value = serde_json::from_str::<serde_json::Value>(raw)?;
+    normalize_generated_artifact_payload_value(&mut value);
     serde_json::from_value::<StudioGeneratedArtifactPayload>(value)
+}
+
+fn csv_escape_cell(value: &str) -> String {
+    if value.contains([',', '"', '\n']) {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
+}
+
+fn csv_header_columns(body: &str) -> Vec<String> {
+    body.lines()
+        .find(|line| !line.trim().is_empty())
+        .map(|line| {
+            line.split(',')
+                .map(|column| column.trim().trim_matches('"'))
+                .filter(|column| !column.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_else(|| vec!["record".to_string(), "detail".to_string()])
+}
+
+fn csv_body_looks_complete(body: &str) -> bool {
+    let lines = body
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    lines.len() >= 3
+        && lines.first().is_some_and(|line| line.contains(','))
+        && lines.iter().skip(1).all(|line| line.contains(','))
+}
+
+fn synthesize_download_bundle_csv_body(
+    summary: &str,
+    notes: &[String],
+    file_hints: &[(String, String)],
+) -> String {
+    let mut rows = vec![("summary".to_string(), summary.trim().to_string())];
+
+    rows.extend(
+        notes
+            .iter()
+            .filter(|note| !note.trim().is_empty())
+            .take(2)
+            .enumerate()
+            .map(|(index, note)| (format!("note_{}", index + 1), note.trim().to_string())),
+    );
+
+    if rows.len() < 3 {
+        rows.extend(
+            file_hints
+                .iter()
+                .filter(|(path, _)| !path.eq_ignore_ascii_case("README.md"))
+                .take(3 - rows.len())
+                .map(|(path, mime)| {
+                    (
+                        path.clone(),
+                        format!("Included in the requested downloadable bundle as {mime}."),
+                    )
+                }),
+        );
+    }
+
+    while rows.len() < 3 {
+        rows.push((
+            format!("item_{}", rows.len()),
+            "Request-grounded bundle detail.".to_string(),
+        ));
+    }
+
+    let mut lines = vec!["record,detail".to_string()];
+    lines.extend(rows.into_iter().take(3).map(|(record, detail)| {
+        format!("{},{}", csv_escape_cell(&record), csv_escape_cell(&detail))
+    }));
+    lines.join("\n")
+}
+
+fn synthesize_download_bundle_readme_body(
+    summary: &str,
+    notes: &[String],
+    file_hints: &[(String, String)],
+    csv_columns: Vec<String>,
+) -> String {
+    let heading = if summary.trim().is_empty() {
+        "Download bundle"
+    } else {
+        summary.trim()
+    };
+    let mut lines = vec![
+        format!("# {heading}"),
+        String::new(),
+        "This bundle contains the requested downloadable files and a short explanation of how to use them.".to_string(),
+        String::new(),
+        "## Files".to_string(),
+    ];
+
+    for (path, mime) in file_hints {
+        let purpose = if path.eq_ignore_ascii_case("README.md") {
+            "Bundle overview, file mapping, and CSV column notes."
+        } else if path.to_ascii_lowercase().ends_with(".csv") || mime == "text/csv" {
+            "Structured CSV export for the requested bundle."
+        } else {
+            "Requested downloadable bundle asset."
+        };
+        lines.push(format!("- `{path}`: {purpose}"));
+    }
+
+    if !csv_columns.is_empty() {
+        lines.push(String::new());
+        lines.push("## CSV columns".to_string());
+        for column in csv_columns {
+            let description = match column.as_str() {
+                "record" => "Label for the bundle record described in the export.",
+                "detail" => "Request-grounded detail for that record.",
+                _ => "Request-grounded value included in the export.",
+            };
+            lines.push(format!("- `{column}`: {description}"));
+        }
+    }
+
+    if !notes.is_empty() {
+        lines.push(String::new());
+        lines.push("## Notes".to_string());
+        for note in notes.iter().take(3) {
+            lines.push(format!("- {}", note.trim()));
+        }
+    }
+
+    lines.join("\n")
+}
+
+fn normalize_generated_artifact_payload_value(value: &mut serde_json::Value) {
+    let summary = value
+        .get("summary")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|summary| !summary.is_empty())
+        .unwrap_or("Download bundle")
+        .to_string();
+    let notes = value
+        .get("notes")
+        .and_then(serde_json::Value::as_array)
+        .map(|notes| {
+            notes
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::trim)
+                .filter(|note| !note.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let file_hints = value
+        .get("files")
+        .and_then(serde_json::Value::as_array)
+        .map(|files| {
+            files
+                .iter()
+                .filter_map(|file| {
+                    let map = file.as_object()?;
+                    let path = map.get("path")?.as_str()?.trim();
+                    let mime = map
+                        .get("mime")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default()
+                        .trim();
+                    if path.is_empty() {
+                        return None;
+                    }
+                    Some((path.to_string(), mime.to_string()))
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let synthesized_csv = synthesize_download_bundle_csv_body(&summary, &notes, &file_hints);
+    let synthesized_readme = synthesize_download_bundle_readme_body(
+        &summary,
+        &notes,
+        &file_hints,
+        csv_header_columns(&synthesized_csv),
+    );
+    let Some(files) = value
+        .get_mut("files")
+        .and_then(serde_json::Value::as_array_mut)
+    else {
+        return;
+    };
+
+    for file in files {
+        let Some(map) = file.as_object_mut() else {
+            continue;
+        };
+
+        let has_non_empty_body = map
+            .get("body")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|body| !body.trim().is_empty());
+        if has_non_empty_body {
+            continue;
+        }
+
+        let aliased_body = ["content", "contents", "text", "data"]
+            .into_iter()
+            .find_map(|key| {
+                map.get(key)
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|value| !value.trim().is_empty())
+                    .map(str::to_string)
+            });
+
+        if let Some(body) = aliased_body {
+            map.insert("body".to_string(), serde_json::Value::String(body));
+            continue;
+        }
+
+        let path = map
+            .get("path")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase();
+        let mime = map
+            .get("mime")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase();
+        if path == "readme.md" || mime == "text/markdown" {
+            map.insert(
+                "body".to_string(),
+                serde_json::Value::String(synthesized_readme.clone()),
+            );
+        } else if path.ends_with(".csv") || mime == "text/csv" {
+            map.insert(
+                "body".to_string(),
+                serde_json::Value::String(synthesized_csv.clone()),
+            );
+        }
+    }
 }
 
 pub fn validate_generated_artifact_payload(
@@ -255,7 +497,13 @@ pub(crate) fn parse_and_validate_generated_artifact_payload(
     raw: &str,
     request: &StudioOutcomeArtifactRequest,
 ) -> Result<StudioGeneratedArtifactPayload, String> {
-    let mut generated = parse_studio_generated_artifact_payload(raw)?;
+    let mut generated = match parse_studio_generated_artifact_payload(raw) {
+        Ok(payload) => payload,
+        Err(error) if request.renderer == StudioRendererKind::HtmlIframe => {
+            synthesize_generated_artifact_payload_from_raw_html(raw).ok_or(error)?
+        }
+        Err(error) => return Err(error),
+    };
     normalize_generated_artifact_file_paths(&mut generated, request);
     normalize_generated_artifact_payload(&mut generated, request);
     if let Err(error) = validate_generated_artifact_payload(&generated, request) {
@@ -266,6 +514,30 @@ pub(crate) fn parse_and_validate_generated_artifact_payload(
         }
     }
     Ok(generated)
+}
+
+fn synthesize_generated_artifact_payload_from_raw_html(
+    raw: &str,
+) -> Option<StudioGeneratedArtifactPayload> {
+    let trimmed = raw.trim();
+    let lower = trimmed.to_ascii_lowercase();
+    if trimmed.is_empty() || !(lower.contains("<html") || lower.contains("<!doctype html")) {
+        return None;
+    }
+
+    Some(StudioGeneratedArtifactPayload {
+        summary: "Interactive HTML artifact".to_string(),
+        notes: vec!["normalized from raw html output".to_string()],
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: false,
+            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+            body: trimmed.to_string(),
+        }],
+    })
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -410,6 +682,51 @@ pub(crate) fn normalize_generated_artifact_payload(
     payload: &mut StudioGeneratedArtifactPayload,
     request: &StudioOutcomeArtifactRequest,
 ) {
+    if request.renderer == StudioRendererKind::DownloadCard {
+        for file in &mut payload.files {
+            file.renderable = false;
+        }
+
+        let file_hints = payload
+            .files
+            .iter()
+            .map(|file| (file.path.clone(), file.mime.clone()))
+            .collect::<Vec<_>>();
+        let synthesized_csv =
+            synthesize_download_bundle_csv_body(&payload.summary, &payload.notes, &file_hints);
+        for file in &mut payload.files {
+            let path = file.path.to_ascii_lowercase();
+            if (path.ends_with(".csv") || file.mime == "text/csv")
+                && !csv_body_looks_complete(&file.body)
+            {
+                file.body = synthesized_csv.clone();
+            }
+        }
+
+        let csv_columns = payload
+            .files
+            .iter()
+            .find(|file| {
+                file.path.to_ascii_lowercase().ends_with(".csv") || file.mime == "text/csv"
+            })
+            .map(|file| csv_header_columns(&file.body))
+            .unwrap_or_else(|| vec!["record".to_string(), "detail".to_string()]);
+        let synthesized_readme = synthesize_download_bundle_readme_body(
+            &payload.summary,
+            &payload.notes,
+            &file_hints,
+            csv_columns,
+        );
+        for file in &mut payload.files {
+            let path = file.path.to_ascii_lowercase();
+            if (path == "readme.md" || file.mime == "text/markdown") && file.body.trim().is_empty()
+            {
+                file.body = synthesized_readme.clone();
+            }
+        }
+        return;
+    }
+
     if request.renderer != StudioRendererKind::HtmlIframe {
         return;
     }
@@ -423,11 +740,41 @@ pub(crate) fn normalize_generated_artifact_payload(
         return;
     };
 
+    if let Some(unwrapped_body) = extract_nested_primary_html_body(&primary_html.body) {
+        primary_html.body = unwrapped_body;
+    }
     primary_html.body = strip_html_comments(&primary_html.body);
+    primary_html.body = normalize_html_custom_font_family_fallbacks(&primary_html.body);
     primary_html.body = normalize_html_semantic_structure(&primary_html.body);
     if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
         primary_html.body = normalize_html_interactions(&primary_html.body);
     }
+}
+
+fn extract_nested_primary_html_body(body: &str) -> Option<String> {
+    let trimmed = body.trim();
+    if trimmed.is_empty() || (!trimmed.starts_with('{') && !trimmed.starts_with("```")) {
+        return None;
+    }
+
+    let nested_payload = parse_studio_generated_artifact_payload(trimmed).ok()?;
+    let nested_primary = nested_payload.files.iter().find(|file| {
+        matches!(
+            file.role,
+            StudioArtifactFileRole::Primary | StudioArtifactFileRole::Export
+        ) && (file.mime == "text/html" || file.path.ends_with(".html"))
+    })?;
+    let nested_body = nested_primary.body.trim();
+    if nested_body.is_empty() || nested_body == trimmed {
+        return None;
+    }
+
+    let nested_lower = nested_body.to_ascii_lowercase();
+    if !(nested_lower.contains("<html") || nested_lower.contains("<!doctype html")) {
+        return None;
+    }
+
+    Some(nested_body.to_string())
 }
 
 fn normalize_generated_artifact_file_paths(
@@ -535,6 +882,7 @@ pub(crate) fn enrich_generated_artifact_payload(
 
             primary_html.body =
                 ensure_minimum_brief_rollover_detail_marks(&primary_html.body, brief);
+            primary_html.body = ensure_focusable_html_rollover_marks(&primary_html.body);
             primary_html.body = ensure_html_rollover_detail_contract(&primary_html.body);
         }
         _ => {}

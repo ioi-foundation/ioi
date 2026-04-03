@@ -86,7 +86,14 @@ const SCORECARD_SCHEMA = {
 const DEFAULT_ARTIFACT_TIMEOUT_MS = 120_000;
 const DEFAULT_COMPUTER_USE_TIMEOUT_MS = 180_000;
 const DEFAULT_CAPABILITIES_TIMEOUT_MS = 240_000;
+const DEFAULT_PRESET_WARMUP_TIMEOUT_MS = 60_000;
+const DEFAULT_PRESET_TRANSITION_SETTLE_TIMEOUT_MS = 45_000;
+const DEFAULT_PRESET_TRANSITION_POLL_INTERVAL_MS = 1_000;
+const DEFAULT_EARLY_ABORT_TIMEOUT_COUNT = 2;
 const DEFAULT_CAPABILITIES_MIN_STACK_BYTES = "33554432";
+const REQUIRED_RETAINED_PROMOTION_WINS = 2;
+const DEFAULT_OLLAMA_CONTEXT_LENGTH = "8192";
+const LIVE_HTML_ARTIFACT_OLLAMA_CONTEXT_LENGTH = "4096";
 const MINIWOB_SOURCE_REPO = "https://github.com/Farama-Foundation/miniwob-plusplus.git";
 const RESEARCH_SOURCE_FLOOR = 2;
 const RESEARCH_DOMAIN_FLOOR = 2;
@@ -137,7 +144,11 @@ function readJsonIfExists(targetPath) {
   if (!targetPath || !fs.existsSync(targetPath)) {
     return null;
   }
-  return JSON.parse(fs.readFileSync(targetPath, "utf8"));
+  try {
+    return JSON.parse(fs.readFileSync(targetPath, "utf8"));
+  } catch {
+    return null;
+  }
 }
 
 function ensureDir(targetPath) {
@@ -199,6 +210,17 @@ function rate(numerator, denominator) {
   return round(numerator / denominator);
 }
 
+function sleepMs(durationMs) {
+  if (
+    typeof durationMs !== "number" ||
+    !Number.isFinite(durationMs) ||
+    durationMs <= 0
+  ) {
+    return;
+  }
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, durationMs);
+}
+
 function clampedRatio(value, floor) {
   if (
     typeof value !== "number" ||
@@ -251,12 +273,133 @@ function benchmarkResultFromClassification(classification) {
   return "unknown";
 }
 
+function ollamaContextLengthForArtifactBenchmark(benchmark) {
+  return benchmark?.expectedRenderer === "html_iframe"
+    ? LIVE_HTML_ARTIFACT_OLLAMA_CONTEXT_LENGTH
+    : DEFAULT_OLLAMA_CONTEXT_LENGTH;
+}
+
+function isManagedLocalOllamaPreset(preset) {
+  return preset?.runtimeKind === "local_http" && preset?.family === "ollama_openai";
+}
+
+function ollamaManagedModelNamesForPreset(preset) {
+  if (!isManagedLocalOllamaPreset(preset)) {
+    return [];
+  }
+  return [...new Set(
+    [preset.runtimeModel, artifactAcceptanceModelForPreset(preset)]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean),
+  )];
+}
+
+function ollamaResidentModelNamesFromPsOutput(output) {
+  return [...new Set(
+    ollamaResidentEntriesFromPsOutput(output).map((entry) => entry.name),
+  )];
+}
+
+function ollamaResidentEntriesFromPsOutput(output) {
+  return String(output || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(/^(\S+)\s+(.*)$/);
+      if (!match) {
+        return null;
+      }
+      const [, name, remainder] = match;
+      const parts = remainder
+        .split(/\s{2,}/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+      return {
+        name,
+        id: parts[0] || null,
+        size: parts[1] || null,
+        processor: parts[2] || null,
+        context: parts[3] || null,
+        until: parts[4] || null,
+      };
+    })
+    .filter((entry) => entry && entry.name && entry.name !== "NAME");
+}
+
+function shouldIsolatePresetTransition(currentPreset, nextPreset) {
+  return (
+    isManagedLocalOllamaPreset(currentPreset) &&
+    isManagedLocalOllamaPreset(nextPreset) &&
+    currentPreset.family === nextPreset.family
+  );
+}
+
+function ollamaModelsToStopForTransition(currentPreset, nextPreset, psOutput) {
+  if (!shouldIsolatePresetTransition(currentPreset, nextPreset)) {
+    return [];
+  }
+  const resident = ollamaResidentModelNamesFromPsOutput(psOutput);
+  const keepResident = new Set(ollamaManagedModelNamesForPreset(nextPreset));
+  return resident.filter((name) => !keepResident.has(name));
+}
+
 function stripAnsi(value) {
   return String(value || "").replace(
     // eslint-disable-next-line no-control-regex
     /\u001B\[[0-9;]*[A-Za-z]/g,
     "",
   );
+}
+
+function ollamaGenerateUrlForPreset(preset) {
+  const base =
+    preset?.runtimeHealthUrl ||
+    preset?.runtimeUrl ||
+    "http://127.0.0.1:11434/api/tags";
+  try {
+    return new URL("/api/generate", base).toString();
+  } catch {
+    return null;
+  }
+}
+
+function ollamaWarmupPayloadForModel(model) {
+  return JSON.stringify({
+    model,
+    prompt: "Reply with OK.",
+    stream: false,
+    keep_alive: "10m",
+    options: {
+      num_predict: 1,
+      temperature: 0,
+    },
+  });
+}
+
+function ollamaTransitionStatusForPsOutput(nextPreset, psOutput) {
+  const residentEntries = ollamaResidentEntriesFromPsOutput(psOutput);
+  const warmModels = ollamaManagedModelNamesForPreset(nextPreset);
+  const keepResident = new Set(warmModels);
+  const blockingModels = residentEntries
+    .filter((entry) => !keepResident.has(entry.name))
+    .map((entry) => entry.name);
+  const warmedEntries = residentEntries.filter((entry) => keepResident.has(entry.name));
+  const missingWarmModels = warmModels.filter(
+    (model) => !warmedEntries.some((entry) => entry.name === model),
+  );
+  const stoppingWarmModels = warmedEntries
+    .filter((entry) => String(entry.until || "").toLowerCase().includes("stopping"))
+    .map((entry) => entry.name);
+  return {
+    ready:
+      blockingModels.length === 0 &&
+      missingWarmModels.length === 0 &&
+      stoppingWarmModels.length === 0,
+    blockingModels,
+    missingWarmModels,
+    stoppingWarmModels,
+  };
 }
 
 function runCommand(command, args, options = {}) {
@@ -297,6 +440,11 @@ function compactText(value, limit = 280) {
     return text;
   }
   return `${text.slice(0, limit - 3)}...`;
+}
+
+function appendText(targetPath, value) {
+  ensureDir(path.dirname(targetPath));
+  fs.appendFileSync(targetPath, value);
 }
 
 function extractJsonMarkerValues(output, marker) {
@@ -564,6 +712,190 @@ function probeOllamaModel(preset) {
   return probe;
 }
 
+function isolateOllamaPresetTransition({
+  currentPreset,
+  nextPreset,
+  runRoot,
+}) {
+  if (!shouldIsolatePresetTransition(currentPreset, nextPreset)) {
+    return { ok: true };
+  }
+  const transitionRoot = path.join(runRoot, "_preset_transitions");
+  const logPath = path.join(
+    transitionRoot,
+    `${currentPreset.id}--to--${nextPreset.id}.log`,
+  );
+  const ps = runCommand("ollama", ["ps"], { timeout: 15_000 });
+  appendText(
+    logPath,
+    [
+      `from=${currentPreset.id}`,
+      `to=${nextPreset.id}`,
+      `ps_status=${ps.status}`,
+      ps.error ? `ps_error=${ps.error}` : null,
+      "resident_before:",
+      ps.stdout || "(empty)",
+      "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  );
+  if (ps.status !== 0) {
+    return;
+  }
+  const modelsToStop = ollamaModelsToStopForTransition(
+    currentPreset,
+    nextPreset,
+    ps.stdout,
+  );
+  appendText(
+    logPath,
+    `models_to_stop=${modelsToStop.length > 0 ? modelsToStop.join(",") : "(none)"}\n`,
+  );
+  for (const model of modelsToStop) {
+    const stop = runCommand("ollama", ["stop", model], { timeout: 30_000 });
+    appendText(
+      logPath,
+      [
+        `stop_model=${model}`,
+        `stop_status=${stop.status}`,
+        stop.error ? `stop_error=${stop.error}` : null,
+        stop.stdout ? `stop_stdout=${compactText(stop.stdout, 400)}` : null,
+        stop.stderr ? `stop_stderr=${compactText(stop.stderr, 400)}` : null,
+        "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+  }
+  const warmupUrl = ollamaGenerateUrlForPreset(nextPreset);
+  const warmModels = ollamaManagedModelNamesForPreset(nextPreset);
+  appendText(
+    logPath,
+    `warmup_url=${warmupUrl || "(invalid)"}\n` +
+      `warm_models=${warmModels.length > 0 ? warmModels.join(",") : "(none)"}\n`,
+  );
+  if (!warmupUrl) {
+    appendText(logPath, "warmup_skipped=invalid_url\n");
+    return {
+      ok: false,
+      summary:
+        `Ollama preset transition from '${currentPreset.id}' to '${nextPreset.id}' could not warm the target models because the runtime generate URL is invalid. See ${logPath}.`,
+    };
+  }
+  for (const model of warmModels) {
+    const warm = runCommand(
+      "curl",
+      [
+        "-fsS",
+        warmupUrl,
+        "-H",
+        "Content-Type: application/json",
+        "-d",
+        ollamaWarmupPayloadForModel(model),
+      ],
+      { timeout: DEFAULT_PRESET_WARMUP_TIMEOUT_MS },
+    );
+    appendText(
+      logPath,
+      [
+        `warm_model=${model}`,
+        `warm_status=${warm.status}`,
+        `warm_timed_out=${warm.timedOut === true}`,
+        warm.error ? `warm_error=${warm.error}` : null,
+        warm.stdout ? `warm_stdout=${compactText(warm.stdout, 400)}` : null,
+        warm.stderr ? `warm_stderr=${compactText(warm.stderr, 400)}` : null,
+        "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+  }
+  const settleDeadline =
+    Date.now() + DEFAULT_PRESET_TRANSITION_SETTLE_TIMEOUT_MS;
+  let lastStatus = {
+    ready: false,
+    blockingModels: modelsToStop,
+    missingWarmModels: warmModels,
+    stoppingWarmModels: [],
+  };
+  let lastPs = null;
+  let attempt = 0;
+  while (Date.now() <= settleDeadline) {
+    attempt += 1;
+    const postWarmPs = runCommand("ollama", ["ps"], { timeout: 15_000 });
+    lastPs = postWarmPs;
+    lastStatus =
+      postWarmPs.status === 0
+        ? ollamaTransitionStatusForPsOutput(nextPreset, postWarmPs.stdout)
+        : {
+            ready: false,
+            blockingModels: [],
+            missingWarmModels: warmModels,
+            stoppingWarmModels: [],
+          };
+    appendText(
+      logPath,
+      [
+        `settle_attempt=${attempt}`,
+        `ps_after_warm_status=${postWarmPs.status}`,
+        postWarmPs.error ? `ps_after_warm_error=${postWarmPs.error}` : null,
+        "resident_after_warm:",
+        postWarmPs.stdout || "(empty)",
+        `blocking_models=${
+          lastStatus.blockingModels.length > 0
+            ? lastStatus.blockingModels.join(",")
+            : "(none)"
+        }`,
+        `missing_warm_models=${
+          lastStatus.missingWarmModels.length > 0
+            ? lastStatus.missingWarmModels.join(",")
+            : "(none)"
+        }`,
+        `stopping_warm_models=${
+          lastStatus.stoppingWarmModels.length > 0
+            ? lastStatus.stoppingWarmModels.join(",")
+            : "(none)"
+        }`,
+        "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+    if (postWarmPs.status === 0 && lastStatus.ready) {
+      appendText(logPath, "transition_ready=true\n");
+      return { ok: true };
+    }
+    if (Date.now() < settleDeadline) {
+      sleepMs(DEFAULT_PRESET_TRANSITION_POLL_INTERVAL_MS);
+    }
+  }
+  appendText(logPath, "transition_ready=false\n");
+  const blockingSummaryParts = [];
+  if (lastStatus.blockingModels.length > 0) {
+    blockingSummaryParts.push(
+      `non-target residents remained loaded (${lastStatus.blockingModels.join(", ")})`,
+    );
+  }
+  if (lastStatus.missingWarmModels.length > 0) {
+    blockingSummaryParts.push(
+      `target warmup did not materialize (${lastStatus.missingWarmModels.join(", ")})`,
+    );
+  }
+  if (lastStatus.stoppingWarmModels.length > 0) {
+    blockingSummaryParts.push(
+      `target models were still stopping (${lastStatus.stoppingWarmModels.join(", ")})`,
+    );
+  }
+  return {
+    ok: false,
+    summary:
+      `Ollama preset transition from '${currentPreset.id}' to '${nextPreset.id}' did not reach a clean resident state: ${
+        blockingSummaryParts.join("; ") || "post-warm residency stayed unstable"
+      }. See ${logPath}.`,
+  };
+}
+
 function probeRemotePreset(preset) {
   const url = process.env[preset.runtimeUrlEnv || ""];
   const apiKey = process.env[preset.apiKeyEnv || ""];
@@ -612,6 +944,31 @@ function artifactAcceptanceModelForPreset(preset) {
 
 function benchmarkAttempted(caseResult) {
   return caseResult?.status && caseResult.status !== "blocked";
+}
+
+function runAbortReasonForShippedDefaultTimeouts({
+  options,
+  selectedPresets,
+  preset,
+  caseResults,
+}) {
+  if (!preset?.shippedDefault || preset?.runtimeKind !== "local_http") {
+    return null;
+  }
+  if (!Array.isArray(selectedPresets) || selectedPresets.length < 2) {
+    return null;
+  }
+  if (Array.isArray(options?.benchmarks) || options?.skipComputerUse === true) {
+    return null;
+  }
+  const attemptedCases = caseResults.filter(benchmarkAttempted);
+  if (attemptedCases.length < DEFAULT_EARLY_ABORT_TIMEOUT_COUNT) {
+    return null;
+  }
+  if (attemptedCases.some((entry) => entry.timedOut !== true)) {
+    return null;
+  }
+  return `Shipped default preset '${preset.id}' timed out on the first ${attemptedCases.length} attempted benchmarks, so the local retained environment is unstable for a benchmark-honest comparison.`;
 }
 
 function runArtifactBenchmark(preset, benchmark, benchmarkRoot) {
@@ -666,6 +1023,9 @@ function runArtifactBenchmark(preset, benchmark, benchmarkRoot) {
       AUTOPILOT_LOCAL_RUNTIME_MODEL: preset.runtimeModel,
       AUTOPILOT_ACCEPTANCE_RUNTIME_URL: preset.runtimeUrl,
       AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL: artifactAcceptanceModelForPreset(preset),
+      OLLAMA_CONTEXT_LENGTH:
+        process.env.OLLAMA_CONTEXT_LENGTH ||
+        ollamaContextLengthForArtifactBenchmark(benchmark),
     },
     timeout: timeoutMs,
   });
@@ -1270,6 +1630,41 @@ function presetHasRequiredCoverage(preset) {
   );
 }
 
+function loadPresetSummariesForHistoricalRun(runRoot) {
+  if (!runRoot || !fs.existsSync(runRoot)) {
+    return [];
+  }
+  return fs
+    .readdirSync(runRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("_"))
+    .map((entry) =>
+      readJsonIfExists(path.join(runRoot, entry.name, "summary.json")),
+    )
+    .filter(
+      (summary) =>
+        summary
+        && typeof summary === "object"
+        && typeof summary.presetId === "string"
+        && summary.scorecards
+        && typeof summary.scorecards === "object",
+    );
+}
+
+function loadHistoricalPromotionRuns(runsRoot, currentRunId) {
+  if (!runsRoot || !fs.existsSync(runsRoot)) {
+    return [];
+  }
+  return fs
+    .readdirSync(runsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== currentRunId)
+    .map((entry) => ({
+      runId: entry.name,
+      presets: loadPresetSummariesForHistoricalRun(path.join(runsRoot, entry.name)),
+    }))
+    .filter((run) => run.presets.length > 0)
+    .sort((left, right) => left.runId.localeCompare(right.runId));
+}
+
 function comparePresetCategory(leftPreset, rightPreset, categoryId) {
   const leftMetrics = leftPreset.scorecards[categoryId]?.metrics ?? {};
   const rightMetrics = rightPreset.scorecards[categoryId]?.metrics ?? {};
@@ -1373,7 +1768,7 @@ function compareChallengerAgainstDefault(leftPreset, rightPreset, defaultPreset)
   );
 }
 
-function decisionForRun(presets) {
+function promotionContextForRun(presets) {
   const defaultPreset = presets.find((preset) => preset.shippedDefault);
   const artifactLeader = [...presets]
     .filter((preset) => preset.scorecards.artifactQuality.available)
@@ -1423,6 +1818,42 @@ function decisionForRun(presets) {
       : [];
   const leadChallenger = eligibleChallengers[0] || null;
 
+  return {
+    defaultPreset,
+    artifactLeader,
+    missingCoverage,
+    leadChallenger,
+  };
+}
+
+function decisionForRun(
+  presets,
+  {
+    previousRuns = [],
+    currentRunId = null,
+    requiredRetainedPromotionWins = REQUIRED_RETAINED_PROMOTION_WINS,
+  } = {},
+) {
+  const { defaultPreset, artifactLeader, missingCoverage, leadChallenger } =
+    promotionContextForRun(presets);
+
+  const retainedPromotionRunIds = leadChallenger
+    ? [
+        ...previousRuns
+          .filter(
+            (run) =>
+              promotionContextForRun(run.presets).leadChallenger?.presetId
+                === leadChallenger.presetId,
+          )
+          .map((run) => run.runId),
+        ...(currentRunId ? [currentRunId] : []),
+      ]
+    : [];
+  const retainedPromotionWinCount = retainedPromotionRunIds.length;
+  const promotionReady =
+    leadChallenger != null
+    && retainedPromotionWinCount >= requiredRetainedPromotionWins;
+
   if (!artifactLeader) {
     return {
       outcome: "keep_default",
@@ -1431,6 +1862,10 @@ function decisionForRun(presets) {
       leaderPresetId: defaultPreset?.presetId ?? null,
       artifactLeaderPresetId: null,
       missingCoverage,
+      requiredRetainedPromotionWins,
+      retainedPromotionWinCount,
+      retainedPromotionRunIds,
+      promotionReady,
     };
   }
 
@@ -1441,16 +1876,38 @@ function decisionForRun(presets) {
       leaderPresetId: defaultPreset?.presetId ?? null,
       artifactLeaderPresetId: artifactLeader.presetId,
       missingCoverage,
+      requiredRetainedPromotionWins,
+      retainedPromotionWinCount,
+      retainedPromotionRunIds,
+      promotionReady,
+    };
+  }
+
+  if (promotionReady) {
+    return {
+      outcome: "promote_challenger",
+      summary: `${leadChallenger.label} has ${retainedPromotionWinCount} retained full-coverage wins (${retainedPromotionRunIds.join(", ")}), clearing the ${requiredRetainedPromotionWins}-run promotion gate over the shipped default.`,
+      leaderPresetId: leadChallenger.presetId,
+      artifactLeaderPresetId: artifactLeader.presetId,
+      missingCoverage,
+      requiredRetainedPromotionWins,
+      retainedPromotionWinCount,
+      retainedPromotionRunIds,
+      promotionReady,
     };
   }
 
   if (leadChallenger) {
     return {
       outcome: "keep_default",
-      summary: `${leadChallenger.label} leads the fully covered scorecard on this comparison pass, but the shipped default stays in place until a challenger wins repeatedly across retained runs.`,
+      summary: `${leadChallenger.label} leads the fully covered scorecard on this comparison pass and now has ${retainedPromotionWinCount}/${requiredRetainedPromotionWins} retained wins toward promotion, so the shipped default stays in place for now.`,
       leaderPresetId: leadChallenger.presetId,
       artifactLeaderPresetId: artifactLeader.presetId,
       missingCoverage,
+      requiredRetainedPromotionWins,
+      retainedPromotionWinCount,
+      retainedPromotionRunIds,
+      promotionReady,
     };
   }
 
@@ -1463,6 +1920,10 @@ function decisionForRun(presets) {
     leaderPresetId: defaultPreset?.presetId ?? artifactLeader.presetId,
     artifactLeaderPresetId: artifactLeader.presetId,
     missingCoverage,
+    requiredRetainedPromotionWins,
+    retainedPromotionWinCount,
+    retainedPromotionRunIds,
+    promotionReady,
   };
 }
 
@@ -1498,16 +1959,29 @@ function main() {
   });
 
   const presetSummaries = [];
-  for (const preset of selectedPresets) {
+  const presetTransitionFailures = new Map();
+  let runAbortReason = null;
+  for (let presetIndex = 0; presetIndex < selectedPresets.length; presetIndex += 1) {
+    const preset = selectedPresets[presetIndex];
     const presetRoot = path.join(runRoot, preset.id);
     ensureDir(presetRoot);
-    const availability = availabilityForPreset(preset);
+    const transitionFailure = presetTransitionFailures.get(preset.id) || null;
+    const availability = transitionFailure
+      ? {
+          availabilityStatus: "blocked",
+          availabilitySummary: transitionFailure.summary,
+          processorKind: null,
+          residentModelBytes: null,
+          modelSizeBytes: null,
+        }
+      : availabilityForPreset(preset);
     const caseResults = [];
     if (
       availability.availabilityStatus === "ready" &&
       preset.runtimeKind === "local_http"
     ) {
-      for (const benchmark of selectedBenchmarks) {
+      for (let benchmarkIndex = 0; benchmarkIndex < selectedBenchmarks.length; benchmarkIndex += 1) {
+        const benchmark = selectedBenchmarks[benchmarkIndex];
         const benchmarkRoot = path.join(presetRoot, benchmark.benchmarkId);
         ensureDir(benchmarkRoot);
         let caseResult;
@@ -1534,6 +2008,37 @@ function main() {
           };
         }
         caseResults.push(caseResult);
+        const earlyAbortReason = runAbortReasonForShippedDefaultTimeouts({
+          options,
+          selectedPresets,
+          preset,
+          caseResults,
+        });
+        if (earlyAbortReason) {
+          runAbortReason = earlyAbortReason;
+          for (
+            let remainingIndex = benchmarkIndex + 1;
+            remainingIndex < selectedBenchmarks.length;
+            remainingIndex += 1
+          ) {
+            const remainingBenchmark = selectedBenchmarks[remainingIndex];
+            caseResults.push({
+              benchmarkId: remainingBenchmark.benchmarkId,
+              title: remainingBenchmark.title,
+              workload: remainingBenchmark.workload,
+              runner: remainingBenchmark.runner,
+              status: "blocked",
+              result: "unknown",
+              elapsedMs: null,
+              summary: earlyAbortReason,
+              evidencePath: null,
+              evidenceRoot: path.join(presetRoot, remainingBenchmark.benchmarkId),
+              stdoutPath: null,
+              stderrPath: null,
+            });
+          }
+          break;
+        }
       }
     }
     if (availability.availabilityStatus !== "ready") {
@@ -1557,12 +2062,39 @@ function main() {
     const summary = summarizePreset(preset, availability, caseResults, presetRoot);
     writeJson(summary.summaryPath, summary);
     presetSummaries.push(summary);
+    if (runAbortReason) {
+      break;
+    }
+    const transitionResult = isolateOllamaPresetTransition({
+      currentPreset: preset,
+      nextPreset: selectedPresets[presetIndex + 1] || null,
+      runRoot,
+    });
+    if (
+      transitionResult &&
+      transitionResult.ok === false &&
+      selectedPresets[presetIndex + 1]
+    ) {
+      presetTransitionFailures.set(
+        selectedPresets[presetIndex + 1].id,
+        transitionResult,
+      );
+    }
   }
 
-  const decision = decisionForRun(presetSummaries);
+  const baseDecision = decisionForRun(presetSummaries, {
+    previousRuns: loadHistoricalPromotionRuns(paths.runsRoot, runId),
+    currentRunId: runId,
+  });
+  const decision = runAbortReason
+    ? {
+        ...baseDecision,
+        summary: `${baseDecision.summary} Run blocked: ${runAbortReason}`,
+      }
+    : baseDecision;
   const latestSummary = {
     version: 1,
-    status: "ready",
+    status: runAbortReason ? "blocked" : "ready",
     runId,
     generatedAt: new Date().toISOString(),
     presetCatalogPath: paths.presetCatalogPath,
@@ -1576,6 +2108,7 @@ function main() {
     preservedDefault: decision.outcome !== "promote_challenger",
     scorecardSchema: SCORECARD_SCHEMA,
     decision,
+    runAbortReason,
     presets: presetSummaries,
   };
 
@@ -1590,4 +2123,15 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
   main();
 }
 
-export { decisionForRun };
+export {
+  decisionForRun,
+  ollamaManagedModelNamesForPreset,
+  ollamaGenerateUrlForPreset,
+  ollamaResidentEntriesFromPsOutput,
+  ollamaModelsToStopForTransition,
+  ollamaResidentModelNamesFromPsOutput,
+  ollamaTransitionStatusForPsOutput,
+  ollamaWarmupPayloadForModel,
+  runAbortReasonForShippedDefaultTimeouts,
+  shouldIsolatePresetTransition,
+};
