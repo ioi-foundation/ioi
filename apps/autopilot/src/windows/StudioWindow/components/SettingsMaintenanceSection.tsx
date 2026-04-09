@@ -11,6 +11,8 @@ export function SettingsMaintenanceSection({
     summary,
     error,
     isResetting,
+    resetConfirmOpen,
+    setResetConfirmOpen,
     handleReset,
     diagnostics,
     engineSnapshot,
@@ -86,12 +88,45 @@ export function SettingsMaintenanceSection({
             className="studio-settings-danger"
             disabled={isResetting}
             onClick={() => {
-              void handleReset();
+              setResetConfirmOpen(true);
             }}
           >
             {isResetting ? "Resetting..." : "Reset Autopilot data"}
           </button>
         </div>
+
+        {resetConfirmOpen ? (
+          <div className="studio-settings-callout">
+            <strong>Confirm local reset</strong>
+            <p>
+              This clears local history, cached context state, connector
+              policy, and browser-side app storage. Identity is preserved, so
+              remote session history may still rehydrate after reload.
+            </p>
+            <div className="studio-settings-actions">
+              <button
+                type="button"
+                className="studio-settings-danger"
+                disabled={isResetting}
+                onClick={() => {
+                  void handleReset();
+                }}
+              >
+                {isResetting ? "Resetting..." : "Confirm reset"}
+              </button>
+              <button
+                type="button"
+                className="studio-settings-secondary"
+                disabled={isResetting}
+                onClick={() => {
+                  setResetConfirmOpen(false);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
       </article>
     );
   }
@@ -99,6 +134,11 @@ export function SettingsMaintenanceSection({
   if (selectedSection !== "diagnostics") {
     return null;
   }
+
+  const latestConfigMigration =
+    engineSnapshot?.controlPlaneMigrations
+      .slice()
+      .sort((left, right) => right.appliedAtMs - left.appliedAtMs)[0] ?? null;
 
   return (
     <div className="studio-settings-stack">
@@ -142,6 +182,39 @@ export function SettingsMaintenanceSection({
               <strong>Recent receipts</strong>
               <span>{engineSnapshot.recentActivity.length}</span>
             </article>
+            <article className="studio-settings-subcard">
+              <strong>Config profile</strong>
+              <span>{engineSnapshot.controlPlaneProfileId}</span>
+            </article>
+            <article className="studio-settings-subcard">
+              <strong>Config schema</strong>
+              <span>v{engineSnapshot.controlPlaneSchemaVersion}</span>
+            </article>
+          </div>
+
+          <div className="studio-settings-callout">
+            <strong>
+              {engineSnapshot.controlPlaneMigrations.length > 0
+                ? "Migration history retained"
+                : "Native config profile"}
+            </strong>
+            <p>
+              Profile <strong>{engineSnapshot.controlPlaneProfileId}</strong>{" "}
+              is currently persisted as schema v
+              {engineSnapshot.controlPlaneSchemaVersion}.
+              {latestConfigMigration
+                ? ` Latest upgrade: ${latestConfigMigration.summary} (${formatSettingsTime(
+                    latestConfigMigration.appliedAtMs,
+                  )}).`
+                : " No legacy upgrades were needed for the current document."}
+            </p>
+            {latestConfigMigration?.details.length ? (
+              <ul className="studio-settings-list">
+                {latestConfigMigration.details.map((detail) => (
+                  <li key={detail}>{detail}</li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         </article>
       ) : null}

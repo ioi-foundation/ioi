@@ -1,6 +1,52 @@
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 use std::fs;
 use std::path::PathBuf;
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum NumberishU64 {
+    U64(u64),
+    F64(f64),
+    String(String),
+}
+
+fn parse_numberish_u64(value: NumberishU64) -> Result<u64, String> {
+    match value {
+        NumberishU64::U64(value) => Ok(value),
+        NumberishU64::F64(value) => {
+            if !value.is_finite() || value < 0.0 || value > u64::MAX as f64 {
+                return Err(format!(
+                    "value '{}' is outside the supported u64 range",
+                    value
+                ));
+            }
+            Ok(value.round() as u64)
+        }
+        NumberishU64::String(value) => value
+            .trim()
+            .parse::<u64>()
+            .map_err(|error| format!("failed to parse '{}' as u64: {}", value, error)),
+    }
+}
+
+fn deserialize_u64_from_numberish<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = NumberishU64::deserialize(deserializer)?;
+    parse_numberish_u64(value).map_err(D::Error::custom)
+}
+
+fn deserialize_option_u64_from_numberish<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<NumberishU64>::deserialize(deserializer)?;
+    value
+        .map(parse_numberish_u64)
+        .transpose()
+        .map_err(D::Error::custom)
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -16,6 +62,7 @@ pub struct BenchmarkTraceCaseView {
     pub suite: String,
     pub case_id: String,
     pub run_id: String,
+    #[serde(deserialize_with = "deserialize_u64_from_numberish")]
     pub run_sort: u64,
     #[serde(default)]
     pub result: String,
@@ -67,9 +114,9 @@ pub struct BenchmarkTraceMetricView {
 pub struct BenchmarkTraceReplayView {
     #[serde(default)]
     pub source: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_u64_from_numberish")]
     pub range_start_ms: u64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_u64_from_numberish")]
     pub range_end_ms: u64,
     #[serde(default)]
     pub span_count: usize,
@@ -103,11 +150,11 @@ pub struct BenchmarkTraceSpanView {
     pub status: String,
     #[serde(default)]
     pub summary: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_u64_from_numberish")]
     pub start_ms: u64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_u64_from_numberish")]
     pub end_ms: u64,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_option_u64_from_numberish")]
     pub duration_ms: Option<u64>,
     #[serde(default)]
     pub capability_tags: Vec<String>,

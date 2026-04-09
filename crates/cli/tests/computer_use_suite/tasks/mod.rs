@@ -1,6 +1,6 @@
+mod baseline;
 mod catalog;
 mod core;
-mod smoke;
 mod stress;
 mod workflow;
 mod workflow_audit;
@@ -37,7 +37,7 @@ pub fn cases_for_task_set(
         return Ok(workflow_reorder::cases());
     }
 
-    let mut out = smoke::cases();
+    let mut out = baseline::cases();
     if matches!(task_set, TaskSet::Core | TaskSet::Stress) {
         out.extend(core::cases());
     }

@@ -200,7 +200,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
             || is_waiting_for_identity_clarification_step(&t.current_step);
 
         if password_required {
-            t.phase = AgentPhase::Complete;
+            t.phase = AgentPhase::Running;
             t.current_step = "Waiting for sudo password".to_string();
             t.gate_info = None;
             t.pending_request_hash = None;
@@ -238,7 +238,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         }
 
         if clarification_required {
-            t.phase = AgentPhase::Complete;
+            t.phase = AgentPhase::Running;
             t.current_step = clarification_wait_step.to_string();
             t.gate_info = None;
             t.pending_request_hash = None;

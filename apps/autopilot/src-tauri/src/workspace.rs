@@ -1,3 +1,4 @@
+use crate::kernel::lsp;
 use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
 use serde_json::Value;
@@ -105,6 +106,15 @@ pub struct WorkspaceSourceControlState {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct WorkspaceCommitResult {
+    pub state: WorkspaceSourceControlState,
+    pub committed_file_count: usize,
+    pub remaining_change_count: usize,
+    pub commit_summary: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkspaceDiffDocument {
     pub id: String,
     pub path: String,
@@ -169,6 +179,11 @@ pub struct WorkspaceTerminalReadResult {
 #[derive(Default)]
 pub struct WorkspaceTerminalManager {
     sessions: Mutex<HashMap<String, Arc<WorkspaceTerminalHandle>>>,
+}
+
+#[derive(Clone)]
+pub(crate) struct WorkspaceTerminalBridge {
+    session: Arc<WorkspaceTerminalHandle>,
 }
 
 struct WorkspaceTerminalHandle {
@@ -471,6 +486,126 @@ fn spawn_terminal_session(
     Ok(session)
 }
 
+fn terminal_read_result(
+    session_id: String,
+    session: &Arc<WorkspaceTerminalHandle>,
+    cursor: u64,
+) -> Result<WorkspaceTerminalReadResult, String> {
+    let chunks = session
+        .output
+        .lock()
+        .map_err(|_| "Failed to lock terminal output.".to_string())?
+        .iter()
+        .filter(|chunk| chunk.sequence > cursor)
+        .cloned()
+        .collect::<Vec<_>>();
+    let next_cursor = chunks.last().map(|chunk| chunk.sequence).unwrap_or(cursor);
+    let exit_code = *session
+        .exit_code
+        .lock()
+        .map_err(|_| "Failed to lock terminal exit state.".to_string())?;
+
+    Ok(WorkspaceTerminalReadResult {
+        session_id,
+        cursor: next_cursor,
+        chunks,
+        running: session.running.load(Ordering::Relaxed),
+        exit_code,
+    })
+}
+
+fn terminal_write_bytes(session: &Arc<WorkspaceTerminalHandle>, data: &[u8]) -> Result<(), String> {
+    let mut writer = session
+        .writer
+        .lock()
+        .map_err(|_| "Failed to lock terminal writer.".to_string())?;
+    writer
+        .write_all(data)
+        .map_err(|error| format!("Failed to write to terminal: {}", error))?;
+    writer
+        .flush()
+        .map_err(|error| format!("Failed to flush terminal input: {}", error))?;
+    Ok(())
+}
+
+fn terminal_write_input(session: &Arc<WorkspaceTerminalHandle>, data: &str) -> Result<(), String> {
+    terminal_write_bytes(session, data.as_bytes())
+}
+
+fn terminal_resize(
+    session: &Arc<WorkspaceTerminalHandle>,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    session
+        .master
+        .lock()
+        .map_err(|_| "Failed to lock terminal PTY.".to_string())?
+        .resize(PtySize {
+            rows: rows.max(12),
+            cols: cols.max(40),
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|error| format!("Failed to resize terminal: {}", error))?;
+    Ok(())
+}
+
+fn terminal_close(session: Arc<WorkspaceTerminalHandle>) -> Result<(), String> {
+    session.running.store(false, Ordering::Relaxed);
+    let kill_result = session
+        .killer
+        .lock()
+        .map_err(|_| "Failed to lock terminal killer.".to_string())?
+        .kill();
+    if let Err(error) = kill_result {
+        push_terminal_output(
+            &session,
+            format!(
+                "\r\n[autopilot] failed to close shell cleanly: {}\r\n",
+                error
+            ),
+        );
+    }
+    Ok(())
+}
+
+impl WorkspaceTerminalBridge {
+    pub(crate) fn open(root: &str, cols: u16, rows: u16) -> Result<Self, String> {
+        let root_path = resolve_root_path(root)?;
+        let session = spawn_terminal_session(&root_path, cols.max(40), rows.max(12))?;
+        Ok(Self { session })
+    }
+
+    pub(crate) fn session(&self) -> WorkspaceTerminalSession {
+        self.session.session.clone()
+    }
+
+    pub(crate) fn read(&self, cursor: u64) -> Result<WorkspaceTerminalReadResult, String> {
+        terminal_read_result(
+            self.session.session.session_id.clone(),
+            &self.session,
+            cursor,
+        )
+    }
+
+    pub(crate) fn write(&self, data: &str) -> Result<(), String> {
+        terminal_write_input(&self.session, data)
+    }
+
+    pub(crate) fn write_bytes(&self, data: &[u8]) -> Result<(), String> {
+        terminal_write_bytes(&self.session, data)
+    }
+
+    pub(crate) fn resize(&self, cols: u16, rows: u16) -> Result<(), String> {
+        terminal_resize(&self.session, cols, rows)
+    }
+
+    pub(crate) fn close(&self) -> Result<(), String> {
+        terminal_close(Arc::clone(&self.session))
+    }
+}
+
 fn sort_paths(a: &PathBuf, b: &PathBuf) -> std::cmp::Ordering {
     match (a.is_dir(), b.is_dir()) {
         (true, false) => std::cmp::Ordering::Less,
@@ -577,7 +712,16 @@ fn run_git(root: &PathBuf, args: &[&str]) -> Result<String, String> {
         .map_err(|error| format!("Failed to launch git: {}", error))?;
 
     if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let message = if stderr.is_empty() {
+            stdout
+        } else if stdout.is_empty() {
+            stderr
+        } else {
+            format!("{}\n{}", stderr, stdout)
+        };
+        return Err(message);
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -855,6 +999,57 @@ fn source_control_state(root: &PathBuf) -> WorkspaceSourceControlState {
     WorkspaceSourceControlState { git, entries }
 }
 
+fn staged_commit_count(root: &PathBuf) -> usize {
+    run_git(root, &["diff", "--cached", "--name-only", "--"])
+        .ok()
+        .map(|value| value.lines().filter(|line| !line.trim().is_empty()).count())
+        .unwrap_or(0)
+}
+
+fn commit_workspace(
+    root: &PathBuf,
+    headline: &str,
+    body: Option<&str>,
+) -> Result<WorkspaceCommitResult, String> {
+    let trimmed_headline = headline.trim();
+    if trimmed_headline.is_empty() {
+        return Err("Enter a commit headline before committing.".to_string());
+    }
+
+    let before_state = source_control_state(root);
+    if !before_state.git.is_repo {
+        return Err("Open a git-backed workspace before committing.".to_string());
+    }
+
+    let committed_file_count = staged_commit_count(root);
+    if committed_file_count == 0 {
+        return Err("Stage at least one change before committing.".to_string());
+    }
+
+    let trimmed_body = body.map(str::trim).filter(|value| !value.is_empty());
+    let mut args = vec!["commit", "-m", trimmed_headline];
+    if let Some(body) = trimmed_body {
+        args.push("-m");
+        args.push(body);
+    }
+    run_git(root, &args)?;
+
+    let state = source_control_state(root);
+    let commit_summary = state
+        .git
+        .last_commit
+        .clone()
+        .unwrap_or_else(|| trimmed_headline.to_string());
+    let remaining_change_count = state.entries.len();
+
+    Ok(WorkspaceCommitResult {
+        state,
+        committed_file_count,
+        remaining_change_count,
+        commit_summary,
+    })
+}
+
 fn git_blob_at(root: &PathBuf, spec: &str) -> Option<Vec<u8>> {
     run_git_bytes(root, &["show", spec]).ok()
 }
@@ -1025,6 +1220,162 @@ pub fn studio_workspace_read_file(
     path: String,
 ) -> Result<WorkspaceFileDocument, String> {
     workspace_read_file(root, path)
+}
+
+#[tauri::command]
+pub async fn workspace_lsp_snapshot(
+    root: String,
+    path: String,
+    content: Option<String>,
+) -> Result<lsp::WorkspaceLspSnapshot, String> {
+    let root_path = resolve_root_path(&root)?;
+    let relative_path = safe_relative_input(&path)?;
+    let rendered_path = if relative_path.as_os_str().is_empty() {
+        return Err("A file path is required for workspace intelligence.".to_string());
+    } else {
+        relative_path.to_string_lossy().replace('\\', "/")
+    };
+
+    tokio::task::spawn_blocking(move || {
+        lsp::snapshot_workspace_file(&root_path, &rendered_path, content)
+    })
+    .await
+    .map_err(|error| format!("Workspace language service task failed: {}", error))?
+}
+
+#[tauri::command]
+pub async fn studio_workspace_lsp_snapshot(
+    root: String,
+    path: String,
+    content: Option<String>,
+) -> Result<lsp::WorkspaceLspSnapshot, String> {
+    workspace_lsp_snapshot(root, path, content).await
+}
+
+#[tauri::command]
+pub async fn workspace_lsp_definition(
+    root: String,
+    path: String,
+    line: u32,
+    column: u32,
+    content: Option<String>,
+) -> Result<Vec<lsp::WorkspaceLspLocation>, String> {
+    let root_path = resolve_root_path(&root)?;
+    let relative_path = safe_relative_input(&path)?;
+    let rendered_path = if relative_path.as_os_str().is_empty() {
+        return Err("A file path is required for workspace intelligence.".to_string());
+    } else {
+        relative_path.to_string_lossy().replace('\\', "/")
+    };
+
+    tokio::task::spawn_blocking(move || {
+        lsp::definition_locations_for_workspace_file(
+            &root_path,
+            &rendered_path,
+            line,
+            column,
+            content,
+        )
+    })
+    .await
+    .map_err(|error| format!("Workspace language service task failed: {}", error))?
+}
+
+#[tauri::command]
+pub async fn studio_workspace_lsp_definition(
+    root: String,
+    path: String,
+    line: u32,
+    column: u32,
+    content: Option<String>,
+) -> Result<Vec<lsp::WorkspaceLspLocation>, String> {
+    workspace_lsp_definition(root, path, line, column, content).await
+}
+
+#[tauri::command]
+pub async fn workspace_lsp_references(
+    root: String,
+    path: String,
+    line: u32,
+    column: u32,
+    content: Option<String>,
+) -> Result<Vec<lsp::WorkspaceLspLocation>, String> {
+    let root_path = resolve_root_path(&root)?;
+    let relative_path = safe_relative_input(&path)?;
+    let rendered_path = if relative_path.as_os_str().is_empty() {
+        return Err("A file path is required for workspace intelligence.".to_string());
+    } else {
+        relative_path.to_string_lossy().replace('\\', "/")
+    };
+
+    tokio::task::spawn_blocking(move || {
+        lsp::reference_locations_for_workspace_file(
+            &root_path,
+            &rendered_path,
+            line,
+            column,
+            content,
+        )
+    })
+    .await
+    .map_err(|error| format!("Workspace language service task failed: {}", error))?
+}
+
+#[tauri::command]
+pub async fn studio_workspace_lsp_references(
+    root: String,
+    path: String,
+    line: u32,
+    column: u32,
+    content: Option<String>,
+) -> Result<Vec<lsp::WorkspaceLspLocation>, String> {
+    workspace_lsp_references(root, path, line, column, content).await
+}
+
+#[tauri::command]
+pub async fn workspace_lsp_code_actions(
+    root: String,
+    path: String,
+    line: u32,
+    column: u32,
+    end_line: u32,
+    end_column: u32,
+    content: Option<String>,
+) -> Result<Vec<lsp::WorkspaceLspCodeAction>, String> {
+    let root_path = resolve_root_path(&root)?;
+    let relative_path = safe_relative_input(&path)?;
+    let rendered_path = if relative_path.as_os_str().is_empty() {
+        return Err("A file path is required for workspace intelligence.".to_string());
+    } else {
+        relative_path.to_string_lossy().replace('\\', "/")
+    };
+
+    tokio::task::spawn_blocking(move || {
+        lsp::code_actions_for_workspace_file(
+            &root_path,
+            &rendered_path,
+            line,
+            column,
+            end_line,
+            end_column,
+            content,
+        )
+    })
+    .await
+    .map_err(|error| format!("Workspace language service task failed: {}", error))?
+}
+
+#[tauri::command]
+pub async fn studio_workspace_lsp_code_actions(
+    root: String,
+    path: String,
+    line: u32,
+    column: u32,
+    end_line: u32,
+    end_column: u32,
+    content: Option<String>,
+) -> Result<Vec<lsp::WorkspaceLspCodeAction>, String> {
+    workspace_lsp_code_actions(root, path, line, column, end_line, end_column, content).await
 }
 
 #[tauri::command]
@@ -1258,6 +1609,25 @@ pub fn studio_workspace_git_diff(
 }
 
 #[tauri::command]
+pub fn workspace_git_commit(
+    root: String,
+    headline: String,
+    body: Option<String>,
+) -> Result<WorkspaceCommitResult, String> {
+    let root_path = resolve_root_path(&root)?;
+    commit_workspace(&root_path, &headline, body.as_deref())
+}
+
+#[tauri::command]
+pub fn studio_workspace_git_commit(
+    root: String,
+    headline: String,
+    body: Option<String>,
+) -> Result<WorkspaceCommitResult, String> {
+    workspace_git_commit(root, headline, body)
+}
+
+#[tauri::command]
 pub fn workspace_git_stage(
     root: String,
     paths: Vec<String>,
@@ -1326,14 +1696,13 @@ pub fn workspace_terminal_create(
     rows: u16,
     manager: State<'_, WorkspaceTerminalManager>,
 ) -> Result<WorkspaceTerminalSession, String> {
-    let root_path = resolve_root_path(&root)?;
-    let session = spawn_terminal_session(&root_path, cols.max(40), rows.max(12))?;
-    let descriptor = session.session.clone();
+    let bridge = WorkspaceTerminalBridge::open(&root, cols, rows)?;
+    let descriptor = bridge.session();
     let mut sessions = manager
         .sessions
         .lock()
         .map_err(|_| "Failed to lock terminal session registry.".to_string())?;
-    sessions.insert(descriptor.session_id.clone(), session);
+    sessions.insert(descriptor.session_id.clone(), bridge.session);
     Ok(descriptor)
 }
 
@@ -1362,27 +1731,7 @@ pub fn workspace_terminal_read(
     };
     drop(sessions);
 
-    let chunks = session
-        .output
-        .lock()
-        .map_err(|_| "Failed to lock terminal output.".to_string())?
-        .iter()
-        .filter(|chunk| chunk.sequence > cursor)
-        .cloned()
-        .collect::<Vec<_>>();
-    let next_cursor = chunks.last().map(|chunk| chunk.sequence).unwrap_or(cursor);
-    let exit_code = *session
-        .exit_code
-        .lock()
-        .map_err(|_| "Failed to lock terminal exit state.".to_string())?;
-
-    Ok(WorkspaceTerminalReadResult {
-        session_id,
-        cursor: next_cursor,
-        chunks,
-        running: session.running.load(Ordering::Relaxed),
-        exit_code,
-    })
+    terminal_read_result(session_id, &session, cursor)
 }
 
 #[tauri::command]
@@ -1409,17 +1758,7 @@ pub fn workspace_terminal_write(
     };
     drop(sessions);
 
-    let mut writer = session
-        .writer
-        .lock()
-        .map_err(|_| "Failed to lock terminal writer.".to_string())?;
-    writer
-        .write_all(data.as_bytes())
-        .map_err(|error| format!("Failed to write to terminal: {}", error))?;
-    writer
-        .flush()
-        .map_err(|error| format!("Failed to flush terminal input: {}", error))?;
-    Ok(())
+    terminal_write_input(&session, &data)
 }
 
 #[tauri::command]
@@ -1447,18 +1786,7 @@ pub fn workspace_terminal_resize(
     };
     drop(sessions);
 
-    session
-        .master
-        .lock()
-        .map_err(|_| "Failed to lock terminal PTY.".to_string())?
-        .resize(PtySize {
-            rows: rows.max(12),
-            cols: cols.max(40),
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|error| format!("Failed to resize terminal: {}", error))?;
-    Ok(())
+    terminal_resize(&session, cols, rows)
 }
 
 #[tauri::command]
@@ -1488,22 +1816,7 @@ pub fn workspace_terminal_close(
         return Ok(());
     };
 
-    session.running.store(false, Ordering::Relaxed);
-    let kill_result = session
-        .killer
-        .lock()
-        .map_err(|_| "Failed to lock terminal killer.".to_string())?
-        .kill();
-    if let Err(error) = kill_result {
-        push_terminal_output(
-            &session,
-            format!(
-                "\r\n[autopilot] failed to close shell cleanly: {}\r\n",
-                error
-            ),
-        );
-    }
-    Ok(())
+    terminal_close(session)
 }
 
 #[tauri::command]
@@ -1517,17 +1830,47 @@ pub fn studio_workspace_terminal_close(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::time::{Duration, Instant};
 
+    fn unique_temp_repo_path(name: &str) -> PathBuf {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("timestamp")
+            .as_nanos();
+        std::env::temp_dir().join(format!("autopilot-workspace-{name}-{timestamp}"))
+    }
+
+    fn run_git_test(root: &PathBuf, args: &[&str]) {
+        run_git(root, args).unwrap_or_else(|error| {
+            panic!("git {:?} failed in {}: {}", args, root.display(), error)
+        });
+    }
+
+    fn init_test_repo(name: &str) -> PathBuf {
+        let root = unique_temp_repo_path(name);
+        fs::create_dir_all(&root).expect("create temp repo");
+        run_git_test(&root, &["init"]);
+        run_git_test(&root, &["config", "user.name", "Autopilot Test"]);
+        run_git_test(
+            &root,
+            &["config", "user.email", "autopilot-test@example.com"],
+        );
+        fs::write(root.join("tracked.txt"), "initial\n").expect("write tracked file");
+        run_git_test(&root, &["add", "--", "tracked.txt"]);
+        run_git_test(&root, &["commit", "-m", "Initial commit"]);
+        root
+    }
+
     #[test]
-    fn workspace_terminal_smoke() {
+    fn workspace_terminal_validation() {
         let root = std::env::current_dir().expect("current directory");
         let session = spawn_terminal_session(&root, 80, 24).expect("spawn terminal session");
 
         {
             let mut writer = session.writer.lock().expect("terminal writer");
             writer
-                .write_all(b"printf 'autopilot-terminal-smoke\\n'\nexit\n")
+                .write_all(b"printf 'autopilot-terminal-validation\\n'\nexit\n")
                 .expect("write terminal commands");
             writer.flush().expect("flush terminal commands");
         }
@@ -1544,7 +1887,7 @@ mod tests {
                 .map(|chunk| chunk.text.as_str())
                 .collect::<String>();
 
-            if transcript.contains("autopilot-terminal-smoke")
+            if transcript.contains("autopilot-terminal-validation")
                 && !session.running.load(Ordering::Relaxed)
             {
                 break;
@@ -1556,9 +1899,47 @@ mod tests {
         let _ = session.killer.lock().expect("terminal killer").kill();
 
         assert!(
-            transcript.contains("autopilot-terminal-smoke"),
-            "expected PTY transcript to contain smoke marker, got:\n{}",
+            transcript.contains("autopilot-terminal-validation"),
+            "expected PTY transcript to contain validation marker, got:\n{}",
             transcript
         );
+    }
+
+    #[test]
+    fn workspace_commit_requires_staged_changes() {
+        let root = init_test_repo("commit-requires-staging");
+        fs::write(root.join("tracked.txt"), "updated without staging\n")
+            .expect("update tracked file");
+
+        let error = commit_workspace(&root, "Unstaged edit", None).expect_err("commit should fail");
+        assert!(
+            error.contains("Stage at least one change before committing."),
+            "unexpected error: {}",
+            error
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn workspace_commit_records_latest_summary() {
+        let root = init_test_repo("commit-success");
+        fs::write(root.join("tracked.txt"), "updated and staged\n").expect("update tracked file");
+        run_git_test(&root, &["add", "--", "tracked.txt"]);
+
+        let receipt = commit_workspace(&root, "Stage success", Some("Body copy"))
+            .expect("commit should succeed");
+
+        assert_eq!(receipt.committed_file_count, 1);
+        assert_eq!(receipt.remaining_change_count, 0);
+        assert!(receipt.state.entries.is_empty());
+        assert!(receipt.state.git.branch.is_some());
+        assert!(
+            receipt.commit_summary.contains("Stage success"),
+            "commit summary missing headline: {}",
+            receipt.commit_summary
+        );
+
+        let _ = fs::remove_dir_all(&root);
     }
 }

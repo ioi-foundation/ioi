@@ -1,7 +1,11 @@
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import type { TauriRuntime } from "../../../services/TauriRuntime";
+import { safelyDisposeTauriListener } from "../../../services/tauriListeners";
 import type {
   AssistantUserProfile,
+  SessionHookSnapshot,
   KnowledgeCollectionEntryContent,
   KnowledgeCollectionRecord,
   KnowledgeCollectionSearchHit,
@@ -10,6 +14,16 @@ import type {
   ResetAutopilotDataResult,
   SkillSourceRecord,
 } from "../../../types";
+import {
+  applySessionPermissionProfileToRuntime,
+  fetchShieldRememberedApprovalSnapshotFromRuntime,
+  onShieldPolicyStateUpdated,
+  resolveSessionPermissionProfileId,
+  type CapabilityGovernanceRequest,
+  type SessionPermissionProfileId,
+  type ShieldPolicyState,
+  type ShieldRememberedApprovalSnapshot,
+} from "../policyCenter";
 import { cloneLocalEngineControlPlane, humanize } from "./capabilities/model";
 import { SettingsViewBody } from "./SettingsViewBody";
 import { type SettingsSection } from "./SettingsView.shared";
@@ -37,17 +51,26 @@ interface SettingsViewProps {
     | "updateSkillSource"
     | "getLocalEngineSnapshot"
     | "saveLocalEngineControlPlane"
+    | "refreshLocalEngineManagedSettings"
+    | "clearLocalEngineManagedSettingsOverrides"
   >;
   profile: AssistantUserProfile;
   profileDraft: AssistantUserProfile;
   profileSaving: boolean;
   profileError: string | null;
+  policyState: ShieldPolicyState;
+  governanceRequest?: CapabilityGovernanceRequest | null;
+  seedSection?: SettingsSection | null;
+  onConsumeSeedSection?: () => void;
   onProfileDraftChange: <K extends keyof AssistantUserProfile>(
     key: K,
     value: AssistantUserProfile[K],
   ) => void;
   onResetProfileDraft: () => void;
   onSaveProfile: () => Promise<void>;
+  onPolicyChange: (next: ShieldPolicyState) => void;
+  onOpenPolicySurface: () => void;
+  onOpenConnections: () => void;
 }
 
 export function SettingsView({
@@ -56,13 +79,21 @@ export function SettingsView({
   profileDraft,
   profileSaving,
   profileError,
+  policyState,
+  governanceRequest,
+  seedSection,
+  onConsumeSeedSection,
   onProfileDraftChange,
   onResetProfileDraft,
   onSaveProfile,
+  onPolicyChange,
+  onOpenPolicySurface,
+  onOpenConnections,
 }: SettingsViewProps) {
   const [selectedSection, setSelectedSection] =
     useState<SettingsSection>("identity");
   const [isResetting, setIsResetting] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ResetAutopilotDataResult | null>(
     null,
@@ -114,9 +145,39 @@ export function SettingsView({
   const [selectedSkillSourceId, setSelectedSkillSourceId] = useState<
     string | null
   >(null);
+  const [authorityHookSnapshot, setAuthorityHookSnapshot] =
+    useState<SessionHookSnapshot | null>(null);
+  const [authorityRememberedApprovals, setAuthorityRememberedApprovals] =
+    useState<ShieldRememberedApprovalSnapshot | null>(null);
+  const [authorityStatus, setAuthorityStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [authorityError, setAuthorityError] = useState<string | null>(null);
+  const [authorityApplyingProfileId, setAuthorityApplyingProfileId] =
+    useState<SessionPermissionProfileId | null>(null);
+  const [authorityMessage, setAuthorityMessage] = useState<string | null>(null);
 
   const profileDirty = JSON.stringify(profileDraft) !== JSON.stringify(profile);
   const controlPlane = engineDraft ?? engineSnapshot?.controlPlane ?? null;
+  const authorityActiveOverrideCount = useMemo(
+    () =>
+      Object.values(policyState.overrides).filter(
+        (override) => !override.inheritGlobal,
+      ).length,
+    [policyState.overrides],
+  );
+  const authorityCurrentProfileId = useMemo(
+    () => resolveSessionPermissionProfileId(policyState),
+    [policyState],
+  );
+
+  useEffect(() => {
+    if (!seedSection) {
+      return;
+    }
+    setSelectedSection(seedSection);
+    onConsumeSeedSection?.();
+  }, [onConsumeSeedSection, seedSection]);
   const engineDirty =
     !!engineSnapshot &&
     !!engineDraft &&
@@ -174,11 +235,86 @@ export function SettingsView({
     }
   };
 
+  const loadAuthorityInputs = async (showLoading = false) => {
+    if (showLoading) {
+      setAuthorityStatus("loading");
+    }
+    setAuthorityError(null);
+
+    const [hookSnapshotResult, rememberedApprovalsResult] = await Promise.allSettled([
+      invoke<SessionHookSnapshot>("get_session_hook_snapshot", {
+        sessionId: null,
+        workspaceRoot: null,
+      }),
+      fetchShieldRememberedApprovalSnapshotFromRuntime(),
+    ]);
+
+    const nextHookSnapshot =
+      hookSnapshotResult.status === "fulfilled" ? hookSnapshotResult.value : null;
+    const nextRememberedApprovals =
+      rememberedApprovalsResult.status === "fulfilled"
+        ? rememberedApprovalsResult.value
+        : null;
+    const failures = [hookSnapshotResult, rememberedApprovalsResult].filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+
+    setAuthorityHookSnapshot(nextHookSnapshot);
+    setAuthorityRememberedApprovals(nextRememberedApprovals);
+
+    if (failures.length > 0) {
+      setAuthorityStatus("error");
+      setAuthorityError(
+        failures
+          .map((failure) =>
+            failure.reason instanceof Error
+              ? failure.reason.message
+              : String(failure.reason),
+          )
+          .join(" | "),
+      );
+      return;
+    }
+
+    setAuthorityStatus("ready");
+  };
+
   useEffect(() => {
     void loadEngineSnapshot();
     void loadKnowledgeCollections();
     void loadSkillSources();
+    void loadAuthorityInputs(true);
   }, [runtime]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const projectionPromise = listen("session-projection-updated", () => {
+      if (cancelled) {
+        return;
+      }
+      void loadAuthorityInputs(false);
+    });
+    const governancePromise = listen("capability-governance-request-updated", () => {
+      if (cancelled) {
+        return;
+      }
+      void loadAuthorityInputs(false);
+    });
+    const unlistenPolicy = onShieldPolicyStateUpdated(() => {
+      if (cancelled) {
+        return;
+      }
+      void loadAuthorityInputs(false);
+    });
+
+    return () => {
+      cancelled = true;
+      safelyDisposeTauriListener(projectionPromise);
+      safelyDisposeTauriListener(governancePromise);
+      unlistenPolicy();
+    };
+  }, []);
 
   const selectedKnowledgeCollection = useMemo(() => {
     if (!selectedKnowledgeCollectionId) {
@@ -282,6 +418,52 @@ export function SettingsView({
         tone: controlPlane ? "normal" : "muted",
       },
       {
+        label: "Config profile",
+        value: engineSnapshot
+          ? engineSnapshot.controlPlaneProfileId
+          : engineLoading
+            ? "Loading"
+            : "Unavailable",
+        tone: engineSnapshot ? "normal" : "muted",
+      },
+      {
+        label: "Config schema",
+        value: engineSnapshot
+          ? engineSnapshot.controlPlaneMigrations.length > 0
+            ? `v${engineSnapshot.controlPlaneSchemaVersion} / ${engineSnapshot.controlPlaneMigrations.length} migration${engineSnapshot.controlPlaneMigrations.length === 1 ? "" : "s"}`
+            : `v${engineSnapshot.controlPlaneSchemaVersion} / native`
+          : engineLoading
+            ? "Loading"
+            : "Unavailable",
+        tone: engineSnapshot ? "normal" : "muted",
+      },
+      {
+        label: "Managed settings",
+        value: engineSnapshot
+          ? humanize(engineSnapshot.managedSettings.syncStatus)
+          : engineLoading
+            ? "Loading"
+            : "Unavailable",
+        tone:
+          engineSnapshot?.managedSettings.syncStatus === "degraded"
+            ? "warning"
+            : engineSnapshot?.managedSettings.syncStatus === "managed"
+              ? "normal"
+              : "muted",
+      },
+      {
+        label: "Managed overrides",
+        value: engineSnapshot
+          ? `${engineSnapshot.managedSettings.localOverrideCount}`
+          : engineLoading
+            ? "Loading"
+            : "Unavailable",
+        tone:
+          engineSnapshot && engineSnapshot.managedSettings.localOverrideCount > 0
+            ? "warning"
+            : "normal",
+      },
+      {
         label: "Knowledge collections",
         value: knowledgeLoading
           ? "Loading"
@@ -367,12 +549,8 @@ export function SettingsView({
   };
 
   const handleReset = async () => {
-    const confirmed = window.confirm(
-      "Reset Autopilot local data?\n\nThis clears local history, cached context state, connector policy, and browser-side app storage. Identity is preserved, so remote session history may still rehydrate.",
-    );
-    if (!confirmed) return;
-
     setIsResetting(true);
+    setResetConfirmOpen(false);
     setError(null);
 
     try {
@@ -403,6 +581,70 @@ export function SettingsView({
       setEngineError(String(nextError));
     } finally {
       setEngineSaving(false);
+    }
+  };
+
+  const handleRefreshManagedSettings = async () => {
+    setEngineSaving(true);
+    setEngineMessage(null);
+    setEngineError(null);
+    try {
+      await runtime.refreshLocalEngineManagedSettings();
+      const snapshot = await runtime.getLocalEngineSnapshot();
+      setEngineSnapshot(snapshot);
+      setEngineDraft(cloneLocalEngineControlPlane(snapshot.controlPlane));
+      setEngineMessage(
+        "Signed managed settings channels refreshed into the kernel control plane.",
+      );
+    } catch (nextError) {
+      setEngineError(String(nextError));
+    } finally {
+      setEngineSaving(false);
+    }
+  };
+
+  const handleClearManagedSettingsOverrides = async () => {
+    setEngineSaving(true);
+    setEngineMessage(null);
+    setEngineError(null);
+    try {
+      await runtime.clearLocalEngineManagedSettingsOverrides();
+      const snapshot = await runtime.getLocalEngineSnapshot();
+      setEngineSnapshot(snapshot);
+      setEngineDraft(cloneLocalEngineControlPlane(snapshot.controlPlane));
+      setEngineMessage(
+        "Local managed-settings overrides were cleared and the signed baseline is active again.",
+      );
+    } catch (nextError) {
+      setEngineError(String(nextError));
+    } finally {
+      setEngineSaving(false);
+    }
+  };
+
+  const handleApplyAuthorityProfile = async (
+    profileId: SessionPermissionProfileId,
+  ) => {
+    setAuthorityApplyingProfileId(profileId);
+    setAuthorityMessage(null);
+    setAuthorityError(null);
+
+    try {
+      const nextPolicy = await applySessionPermissionProfileToRuntime(
+        profileId,
+        policyState,
+      );
+      onPolicyChange(nextPolicy);
+      await loadAuthorityInputs(false);
+      setAuthorityMessage(
+        `Applied the ${profileId.replace(/_/g, " ")} authority profile from Studio settings.`,
+      );
+    } catch (nextError) {
+      setAuthorityError(
+        nextError instanceof Error ? nextError.message : String(nextError),
+      );
+    } finally {
+      setAuthorityApplyingProfileId(null);
     }
   };
 
@@ -471,7 +713,7 @@ export function SettingsView({
     );
   };
 
-  const view = { runtime, profile, profileDraft, profileSaving, profileError, onProfileDraftChange, onResetProfileDraft, onSaveProfile, selectedSection, setSelectedSection, isResetting, setIsResetting, error, setError, lastResult, setLastResult, engineSnapshot, setEngineSnapshot, engineDraft, setEngineDraft, engineLoading, setEngineLoading, engineSaving, setEngineSaving, engineMessage, setEngineMessage, engineError, setEngineError, knowledgeCollections, setKnowledgeCollections, knowledgeLoading, setKnowledgeLoading, knowledgeBusy, setKnowledgeBusy, knowledgeError, setKnowledgeError, knowledgeMessage, setKnowledgeMessage, knowledgeCollectionName, setKnowledgeCollectionName, knowledgeCollectionDescription, setKnowledgeCollectionDescription, selectedKnowledgeCollectionId, setSelectedKnowledgeCollectionId, knowledgeEntryTitle, setKnowledgeEntryTitle, knowledgeEntryContent, setKnowledgeEntryContent, knowledgeImportPath, setKnowledgeImportPath, knowledgeSourceUri, setKnowledgeSourceUri, knowledgeSourceInterval, setKnowledgeSourceInterval, knowledgeSearchQuery, setKnowledgeSearchQuery, knowledgeSearchResults, setKnowledgeSearchResults, knowledgeSearchLoading, setKnowledgeSearchLoading, knowledgeEntryLoading, setKnowledgeEntryLoading, selectedKnowledgeEntryContent, setSelectedKnowledgeEntryContent, skillSources, setSkillSources, skillSourcesLoading, setSkillSourcesLoading, skillSourcesBusy, setSkillSourcesBusy, skillSourcesError, setSkillSourcesError, skillSourcesMessage, setSkillSourcesMessage, skillSourceLabel, setSkillSourceLabel, skillSourceUri, setSkillSourceUri, selectedSkillSourceId, setSelectedSkillSourceId, profileDirty, controlPlane, engineDirty, loadEngineSnapshot, loadKnowledgeCollections, loadSkillSources, selectedKnowledgeCollection, selectedSkillSource, summary, diagnostics, runKnowledgeAction, runSkillSourceAction, updateEngineDraft, handleReset, handleSaveEngine, renderEngineControls };
+  const view = { runtime, profile, profileDraft, profileSaving, profileError, policyState, governanceRequest, onProfileDraftChange, onResetProfileDraft, onSaveProfile, selectedSection, setSelectedSection, isResetting, setIsResetting, resetConfirmOpen, setResetConfirmOpen, error, setError, lastResult, setLastResult, engineSnapshot, setEngineSnapshot, engineDraft, setEngineDraft, engineLoading, setEngineLoading, engineSaving, setEngineSaving, engineMessage, setEngineMessage, engineError, setEngineError, knowledgeCollections, setKnowledgeCollections, knowledgeLoading, setKnowledgeLoading, knowledgeBusy, setKnowledgeBusy, knowledgeError, setKnowledgeError, knowledgeMessage, setKnowledgeMessage, knowledgeCollectionName, setKnowledgeCollectionName, knowledgeCollectionDescription, setKnowledgeCollectionDescription, selectedKnowledgeCollectionId, setSelectedKnowledgeCollectionId, knowledgeEntryTitle, setKnowledgeEntryTitle, knowledgeEntryContent, setKnowledgeEntryContent, knowledgeImportPath, setKnowledgeImportPath, knowledgeSourceUri, setKnowledgeSourceUri, knowledgeSourceInterval, setKnowledgeSourceInterval, knowledgeSearchQuery, setKnowledgeSearchQuery, knowledgeSearchResults, setKnowledgeSearchResults, knowledgeSearchLoading, setKnowledgeSearchLoading, knowledgeEntryLoading, setKnowledgeEntryLoading, selectedKnowledgeEntryContent, setSelectedKnowledgeEntryContent, skillSources, setSkillSources, skillSourcesLoading, setSkillSourcesLoading, skillSourcesBusy, setSkillSourcesBusy, skillSourcesError, setSkillSourcesError, skillSourcesMessage, setSkillSourcesMessage, skillSourceLabel, setSkillSourceLabel, skillSourceUri, setSkillSourceUri, selectedSkillSourceId, setSelectedSkillSourceId, authorityHookSnapshot, authorityRememberedApprovals, authorityStatus, authorityError, authorityApplyingProfileId, authorityMessage, authorityCurrentProfileId, authorityActiveOverrideCount, handleApplyAuthorityProfile, onOpenPolicySurface, onOpenConnections, profileDirty, controlPlane, engineDirty, loadEngineSnapshot, loadKnowledgeCollections, loadSkillSources, selectedKnowledgeCollection, selectedSkillSource, summary, diagnostics, runKnowledgeAction, runSkillSourceAction, updateEngineDraft, handleReset, handleSaveEngine, handleRefreshManagedSettings, handleClearManagedSettingsOverrides, renderEngineControls };
 
   return (
     <div className="studio-settings-view">

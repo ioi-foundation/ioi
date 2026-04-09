@@ -626,6 +626,10 @@ mod tests {
                 session_id: "session-parent".to_string(),
                 title: "Parent playbook session".to_string(),
                 timestamp: 1_000,
+                phase: None,
+                current_step: None,
+                resume_hint: None,
+                workspace_root: None,
             }];
             orchestrator::save_local_session_summary(&runtime, sessions[0].clone());
             orchestrator::append_event(

@@ -270,19 +270,21 @@ fn fixture_html() -> &'static str {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "live external inference required for browser runtime smoke"]
-async fn browser_live_http_runtime_smoke() -> Result<()> {
+#[ignore = "live external inference required for browser runtime validation"]
+async fn browser_live_http_runtime_validation() -> Result<()> {
     build_test_artifacts();
     live_inference_support::load_env_from_workspace_dotenv_if_present();
 
     let artifact_root = artifact_root()?;
     let fixture_dir = tempdir()?;
-    let fixture_path = fixture_dir.path().join("browser_live_runtime_smoke.html");
+    let fixture_path = fixture_dir
+        .path()
+        .join("browser_live_runtime_validation.html");
     std::fs::write(&fixture_path, fixture_html())?;
     let fixture_url = format!("file://{}", fixture_path.display());
 
     let openai_api_key = std::env::var("OPENAI_API_KEY")
-        .map_err(|_| anyhow!("OPENAI_API_KEY is required for browser runtime smoke"))?;
+        .map_err(|_| anyhow!("OPENAI_API_KEY is required for browser runtime validation"))?;
     let api_url = std::env::var("OPENAI_API_URL")
         .unwrap_or_else(|_| live_inference_support::OPENAI_CHAT_COMPLETIONS_URL.to_string());
     let model_candidates = live_inference_support::configured_model_candidates(
@@ -409,7 +411,7 @@ async fn browser_live_http_runtime_smoke() -> Result<()> {
                         Err(_) => {
                             paused_reason = Some(reason.clone());
                             service_error = Some(
-                                "browser runtime smoke timed out while resuming approval"
+                                "browser runtime validation timed out while resuming approval"
                                     .to_string(),
                             );
                             break;
@@ -440,7 +442,8 @@ async fn browser_live_http_runtime_smoke() -> Result<()> {
                 break;
             }
             Err(_) => {
-                service_error = Some("browser runtime smoke timed out while stepping".to_string());
+                service_error =
+                    Some("browser runtime validation timed out while stepping".to_string());
                 break;
             }
         }
@@ -502,7 +505,7 @@ async fn browser_live_http_runtime_smoke() -> Result<()> {
 
     anyhow::ensure!(
         service_error.is_none(),
-        "browser runtime smoke service call failed; summary={}",
+        "browser runtime validation service call failed; summary={}",
         serde_json::to_string_pretty(&summary)?
     );
     anyhow::ensure!(
@@ -512,7 +515,7 @@ async fn browser_live_http_runtime_smoke() -> Result<()> {
     );
     anyhow::ensure!(
         dom_contains_done,
-        "typed postcondition failed for browser runtime smoke; summary={}",
+        "typed postcondition failed for browser runtime validation; summary={}",
         serde_json::to_string_pretty(&summary)?
     );
 

@@ -1,7 +1,20 @@
 # Benchmarks App
 
-`apps/benchmarks` is the living React operator surface for computer-use
-benchmark work in this repo.
+`apps/benchmarks` is the living React benchmark surface for this repo.
+
+It currently combines:
+
+- cross-vertical benchmark scorecards and retained matrix evidence
+- live computer-use suite status
+- case-level triage and trace inspection
+
+The product direction is a scorecard-first benchmark app with triage as a
+downstream drilldown mode, not a triage-first console with score panels mixed
+in.
+
+Companion UX spec:
+
+- `docs/specs/benchmarks-scorecard-ux.md`
 
 It mirrors:
 
@@ -9,8 +22,9 @@ It mirrors:
   `apps/benchmarks/src/generated/benchmark-store.json`
 - latest linked run artifacts for the retained window
 
-The app exists to make live suite status, latest retained slices, and
-case-level diagnostics readable for both human operators and autonomous agents.
+The app exists to make benchmark decisions, live suite status, retained slices,
+and case-level diagnostics readable for both human operators and autonomous
+agents.
 
 ## Commands
 

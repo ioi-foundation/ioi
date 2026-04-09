@@ -526,6 +526,11 @@ export function useWorkspaceTerminalSession({
     setError(null);
   }, []);
 
+  const stop = useCallback(() => {
+    setRequestedEnabled(false);
+    setError(null);
+  }, []);
+
   useEffect(() => {
     if (!enabled) {
       return;
@@ -723,10 +728,11 @@ export function useWorkspaceTerminalSession({
       subscribe,
       subscribeState,
       start,
+      stop,
       write,
       resize,
     };
-  }, [getHistory, resize, start, subscribe, subscribeState, write]);
+  }, [getHistory, resize, start, stop, subscribe, subscribeState, write]);
 
   return controller;
 }

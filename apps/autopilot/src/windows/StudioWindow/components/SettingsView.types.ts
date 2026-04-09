@@ -1,6 +1,7 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type {
   AssistantUserProfile,
+  SessionHookSnapshot,
   KnowledgeCollectionEntryContent,
   KnowledgeCollectionRecord,
   KnowledgeCollectionSearchHit,
@@ -8,6 +9,12 @@ import type {
   LocalEngineSnapshot,
   SkillSourceRecord,
 } from "../../../types";
+import type {
+  CapabilityGovernanceRequest,
+  SessionPermissionProfileId,
+  ShieldPolicyState,
+  ShieldRememberedApprovalSnapshot,
+} from "../policyCenter";
 import type { SettingsSection } from "./SettingsView.shared";
 
 export type SettingsViewBodyView = {
@@ -23,6 +30,8 @@ export type SettingsViewBodyView = {
   onResetProfileDraft: () => void;
   onSaveProfile: () => Promise<void>;
   profileDirty: boolean;
+  policyState: ShieldPolicyState;
+  governanceRequest?: CapabilityGovernanceRequest | null;
   controlPlane: LocalEngineControlPlane | null;
   updateEngineDraft: (
     updater: (current: LocalEngineControlPlane) => LocalEngineControlPlane,
@@ -76,6 +85,19 @@ export type SettingsViewBodyView = {
   setSelectedSkillSourceId: Dispatch<SetStateAction<string | null>>;
   selectedKnowledgeCollection: KnowledgeCollectionRecord | null;
   selectedSkillSource: SkillSourceRecord | null;
+  authorityHookSnapshot: SessionHookSnapshot | null;
+  authorityRememberedApprovals: ShieldRememberedApprovalSnapshot | null;
+  authorityStatus: "idle" | "loading" | "ready" | "error";
+  authorityError: string | null;
+  authorityApplyingProfileId: SessionPermissionProfileId | null;
+  authorityMessage: string | null;
+  authorityCurrentProfileId: SessionPermissionProfileId | null;
+  authorityActiveOverrideCount: number;
+  handleApplyAuthorityProfile: (
+    profileId: SessionPermissionProfileId,
+  ) => Promise<void>;
+  onOpenPolicySurface: () => void;
+  onOpenConnections: () => void;
   summary: string | null;
   diagnostics: ReadonlyArray<{ label: string; value: string; tone: string }>;
   runKnowledgeAction: (
@@ -88,6 +110,8 @@ export type SettingsViewBodyView = {
   ) => Promise<void>;
   handleReset: () => Promise<void>;
   isResetting: boolean;
+  resetConfirmOpen: boolean;
+  setResetConfirmOpen: Dispatch<SetStateAction<boolean>>;
   error: string | null;
   [key: string]: any;
 };

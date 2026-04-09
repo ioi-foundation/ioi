@@ -33,6 +33,14 @@ fn compact_local_document_judge_prompt(
         && runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
 }
 
+fn compact_local_html_judge_prompt(
+    renderer: StudioRendererKind,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> bool {
+    renderer == StudioRendererKind::HtmlIframe
+        && runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+}
+
 fn ultra_compact_local_markdown_judge_prompt(
     renderer: StudioRendererKind,
     runtime_kind: StudioRuntimeProvenanceKind,
@@ -171,6 +179,40 @@ fn studio_artifact_compact_document_candidate_text(
     lines.join("\n")
 }
 
+fn studio_artifact_compact_html_candidate_text(
+    candidate: &StudioGeneratedArtifactPayload,
+) -> String {
+    let mut lines = Vec::new();
+    if !candidate.summary.trim().is_empty() {
+        lines.push(format!(
+            "summary: {}",
+            truncate_studio_judge_text(&candidate.summary, 120)
+        ));
+    }
+    if let Some(file) = candidate.files.iter().find(|file| {
+        matches!(
+            file.role,
+            StudioArtifactFileRole::Primary | StudioArtifactFileRole::Export
+        )
+    }) {
+        let lower = file.body.to_ascii_lowercase();
+        lines.push(format!(
+            "file: path={} chars={} lines={} sections={} buttons={} inputs={} details={} scripts={} renderable={} preview={}",
+            file.path,
+            file.body.chars().count(),
+            file.body.lines().count(),
+            lower.matches("<section").count(),
+            lower.matches("<button").count(),
+            lower.matches("<input").count(),
+            lower.matches("<details").count(),
+            lower.matches("<script").count(),
+            file.renderable,
+            truncate_studio_judge_text(&file.body, 120),
+        ));
+    }
+    lines.join("\n")
+}
+
 fn studio_artifact_ultra_compact_markdown_candidate_text(
     candidate: &StudioGeneratedArtifactPayload,
 ) -> String {
@@ -244,20 +286,44 @@ pub async fn judge_studio_artifact_candidate_with_runtime(
     edit_intent: Option<&StudioArtifactEditIntent>,
     candidate: &StudioGeneratedArtifactPayload,
 ) -> Result<StudioArtifactJudgeResult, String> {
+    judge_studio_artifact_candidate_with_runtime_and_render_eval(
+        runtime,
+        title,
+        request,
+        brief,
+        edit_intent,
+        candidate,
+        None,
+    )
+    .await
+}
+
+pub(crate) async fn judge_studio_artifact_candidate_with_runtime_and_render_eval(
+    runtime: Arc<dyn InferenceRuntime>,
+    title: &str,
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    edit_intent: Option<&StudioArtifactEditIntent>,
+    candidate: &StudioGeneratedArtifactPayload,
+    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
+) -> Result<StudioArtifactJudgeResult, String> {
     let runtime_provenance = runtime.studio_runtime_provenance();
     let compact_local_document_prompt =
         compact_local_document_judge_prompt(request.renderer, runtime_provenance.kind);
+    let compact_local_html_prompt =
+        compact_local_html_judge_prompt(request.renderer, runtime_provenance.kind);
     studio_judge_trace(format!(
         "artifact_judge:start renderer={:?} runtime={} model={:?}",
         request.renderer, runtime_provenance.label, runtime_provenance.model
     ));
-    let payload = build_studio_artifact_judge_prompt_for_runtime(
+    let payload = build_studio_artifact_judge_prompt_with_render_eval_for_runtime(
         title,
         request,
         brief,
         edit_intent,
         candidate,
         runtime_provenance.kind,
+        render_evaluation,
     )?;
     let input = serde_json::to_vec(&payload)
         .map_err(|error| format!("Failed to encode Studio artifact judge prompt: {error}"))?;
@@ -272,7 +338,7 @@ pub async fn judge_studio_artifact_candidate_with_runtime(
             &input,
             InferenceOptions {
                 temperature: 0.0,
-                json_mode: !compact_local_document_prompt,
+                json_mode: !(compact_local_document_prompt || compact_local_html_prompt),
                 max_tokens: judge_max_tokens_for_runtime(request.renderer, runtime_provenance.kind),
                 ..Default::default()
             },
@@ -324,7 +390,7 @@ pub async fn judge_studio_artifact_candidate_with_runtime(
                     &repair_input,
                     InferenceOptions {
                         temperature: 0.0,
-                        json_mode: !compact_local_document_prompt,
+                        json_mode: !(compact_local_document_prompt || compact_local_html_prompt),
                         max_tokens: judge_repair_max_tokens_for_runtime(
                             request.renderer,
                             runtime_provenance.kind,
@@ -389,12 +455,37 @@ pub(crate) fn build_studio_artifact_judge_prompt_for_runtime(
     candidate: &StudioGeneratedArtifactPayload,
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> Result<serde_json::Value, String> {
+    build_studio_artifact_judge_prompt_with_render_eval_for_runtime(
+        title,
+        request,
+        brief,
+        edit_intent,
+        candidate,
+        runtime_kind,
+        None,
+    )
+}
+
+pub(crate) fn build_studio_artifact_judge_prompt_with_render_eval_for_runtime(
+    title: &str,
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    edit_intent: Option<&StudioArtifactEditIntent>,
+    candidate: &StudioGeneratedArtifactPayload,
+    runtime_kind: StudioRuntimeProvenanceKind,
+    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
+) -> Result<serde_json::Value, String> {
     let compact_document_prompt =
         compact_local_document_judge_prompt(request.renderer, runtime_kind);
+    let compact_html_prompt = compact_local_html_judge_prompt(request.renderer, runtime_kind);
     let ultra_compact_markdown_prompt =
         ultra_compact_local_markdown_judge_prompt(request.renderer, runtime_kind);
     let schema_contract =
         studio_artifact_judge_schema_contract_for_runtime(request.renderer, runtime_kind);
+    let render_eval_focus_json = compact_studio_judge_json(
+        &studio_artifact_judge_render_eval_focus(render_evaluation),
+        "Studio artifact render evaluation focus",
+    )?;
     if compact_document_prompt && renderer_uses_document_judge_context(request.renderer) {
         let candidate_text =
             if compact_local_download_bundle_judge_prompt(request.renderer, runtime_kind) {
@@ -417,11 +508,31 @@ pub(crate) fn build_studio_artifact_judge_prompt_for_runtime(
             {
                 "role": "user",
                 "content": format!(
-                    "Title: {}\n\nBrief:\n{}\n\nCandidate:\n{}\n\n{}",
+                    "Title: {}\n\nBrief:\n{}\n\nCandidate:\n{}\n\nRender evaluation JSON:\n{}\n\n{}",
                     truncate_studio_judge_text(title, title_limit),
                     studio_artifact_compact_document_brief_text(brief),
                     candidate_text,
+                    render_eval_focus_json,
                     schema_contract,
+                )
+            }
+        ]));
+    }
+
+    if compact_html_prompt {
+        return Ok(json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed artifact judge. Judge only the candidate files and the typed brief."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title: {}\n\nBrief:\n{}\n\nCandidate:\n{}\n\nRender evaluation JSON:\n{}\n\nReturn exactly these plain-text lines:\nclassification: pass|repairable|blocked\nrequestFaithfulness: 1-5\nconceptCoverage: 1-5\ninteractionRelevance: 1-5\nlayoutCoherence: 1-5\nvisualHierarchy: 1-5\ncompleteness: 1-5\ngenericShellDetected: true|false\ntrivialShellDetected: true|false\ndeservesPrimaryArtifactView: true|false\nstrengths: item; item\nblockedReasons: item; item\nrecommendedNextPass: accept|structural_repair|polish_pass|hold_block\nrationale: short sentence\nRules:\n1) No JSON or markdown fences.\n2) Pass only if the artifact is request-specific, visibly interactive, materially complete, and strong enough to lead.\n3) Set genericShellDetected=true for nearby-prompt shells or generic dashboard chrome.\n4) Set trivialShellDetected=true for empty, placeholder, or barely interactive artifacts.\n5) Keep strengths and blockedReasons to 0-2 short items.\n6) If it should not lead the stage, classification must not be pass.",
+                    truncate_studio_judge_text(title, 96),
+                    studio_artifact_compact_document_brief_text(brief),
+                    studio_artifact_compact_html_candidate_text(candidate),
+                    render_eval_focus_json,
                 )
             }
         ]));
@@ -450,10 +561,11 @@ pub(crate) fn build_studio_artifact_judge_prompt_for_runtime(
             {
                 "role": "user",
                 "content": format!(
-                    "Title:\n{}\n\nBrief focus JSON:\n{}\n\nCandidate JSON:\n{}\n\n{}",
+                    "Title:\n{}\n\nBrief focus JSON:\n{}\n\nCandidate JSON:\n{}\n\nRender evaluation JSON:\n{}\n\n{}",
                     title,
                     brief_focus_json,
                     candidate_json,
+                    render_eval_focus_json,
                     schema_contract,
                 )
             }
@@ -480,17 +592,54 @@ pub(crate) fn build_studio_artifact_judge_prompt_for_runtime(
         {
             "role": "user",
             "content": format!(
-                "Title:\n{}\n\nRequest focus JSON:\n{}\n\nBrief focus JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent focus JSON:\n{}\n\nCandidate JSON:\n{}\n\n{}",
+                "Title:\n{}\n\nRequest focus JSON:\n{}\n\nBrief focus JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent focus JSON:\n{}\n\nCandidate JSON:\n{}\n\nRender evaluation JSON:\n{}\n\n{}",
                 title,
                 request_focus_json,
                 brief_focus_json,
                 interaction_contract_json,
                 edit_focus_json,
                 candidate_json,
+                render_eval_focus_json,
                 schema_contract,
             )
         }
     ]))
+}
+
+fn studio_artifact_judge_render_eval_focus(
+    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
+) -> serde_json::Value {
+    match render_evaluation {
+        Some(render_evaluation) => json!({
+            "supported": render_evaluation.supported,
+            "firstPaintCaptured": render_evaluation.first_paint_captured,
+            "interactionCaptureAttempted": render_evaluation.interaction_capture_attempted,
+            "layoutDensityScore": render_evaluation.layout_density_score,
+            "spacingAlignmentScore": render_evaluation.spacing_alignment_score,
+            "typographyContrastScore": render_evaluation.typography_contrast_score,
+            "visualHierarchyScore": render_evaluation.visual_hierarchy_score,
+            "blueprintConsistencyScore": render_evaluation.blueprint_consistency_score,
+            "overallScore": render_evaluation.overall_score,
+            "summary": truncate_studio_judge_text(&render_evaluation.summary, 220),
+            "findings": render_evaluation.findings.iter().map(|finding| {
+                json!({
+                    "code": finding.code,
+                    "severity": finding.severity,
+                    "summary": truncate_studio_judge_text(&finding.summary, 180),
+                })
+            }).collect::<Vec<_>>(),
+            "captures": render_evaluation.captures.iter().map(|capture| {
+                json!({
+                    "viewport": capture.viewport,
+                    "visibleElementCount": capture.visible_element_count,
+                    "visibleTextChars": capture.visible_text_chars,
+                    "interactiveElementCount": capture.interactive_element_count,
+                    "screenshotChangedFromPrevious": capture.screenshot_changed_from_previous,
+                })
+            }).collect::<Vec<_>>(),
+        }),
+        None => serde_json::Value::Null,
+    }
 }
 
 fn studio_artifact_judge_schema_contract(renderer: StudioRendererKind) -> &'static str {
@@ -515,10 +664,13 @@ fn studio_artifact_judge_schema_contract_for_runtime(
     }
     match renderer {
         StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => {
-            "Return exactly one JSON object with this camelCase schema:\n{\n  \"classification\": \"pass\" | \"repairable\" | \"blocked\",\n  \"requestFaithfulness\": <1_to_5_integer>,\n  \"conceptCoverage\": <1_to_5_integer>,\n  \"interactionRelevance\": <1_to_5_integer>,\n  \"layoutCoherence\": <1_to_5_integer>,\n  \"visualHierarchy\": <1_to_5_integer>,\n  \"completeness\": <1_to_5_integer>,\n  \"genericShellDetected\": <boolean>,\n  \"trivialShellDetected\": <boolean>,\n  \"deservesPrimaryArtifactView\": <boolean>,\n  \"patchedExistingArtifact\": null | <boolean>,\n  \"continuityRevisionUx\": null | <1_to_5_integer>,\n  \"issueClasses\": [<string>],\n  \"repairHints\": [<string>],\n  \"strengths\": [<string>],\n  \"blockedReasons\": [<string>],\n  \"fileFindings\": [<string>],\n  \"aestheticVerdict\": <string>,\n  \"interactionVerdict\": <string>,\n  \"truthfulnessWarnings\": [<string>],\n  \"recommendedNextPass\": null | \"accept\" | \"structural_repair\" | \"polish_pass\" | \"hold_block\",\n  \"strongestContradiction\": null | <string>,\n  \"rationale\": <string>\n}\nRules:\n1) Start with '{' and end with '}'. Do not emit markdown fences, prose prefaces, or trailing commentary.\n2) Every score field must be an integer from 1 through 5.\n3) issueClasses, repairHints, strengths, blockedReasons, fileFindings, and truthfulnessWarnings should each contain 0 to 3 terse entries.\n4) Penalize generic shells, placeholder output, or request-thin artifacts.\n5) requestFaithfulness and conceptCoverage must drop sharply when the candidate omits or weakens differentiating request concepts from subjectDomain, artifactThesis, or requiredConcepts.\n6) A candidate that could fit many nearby prompts by only changing the headline should set genericShellDetected=true and deservesPrimaryArtifactView=false.\n7) Placeholder image URLs, placeholder media, lorem ipsum, fake stock filler, or empty chart regions should set trivialShellDetected=true and classification must not be pass.\n8) html_iframe candidates that rely on a thin div shell, omit semantic sectioning, use invented custom tags instead of standard HTML, fail to realize required interactions, or leave SVG/canvas chart regions empty on first paint must not be pass.\n9) When the brief calls for multiple charts, data visualizations, metrics, or comparisons, a single chart plus generic prose is insufficient and classification must not be pass.\n10) Broken control wiring that targets nonexistent views or uses collection-style iteration on a single selected element should reduce interactionRelevance and completeness.\n11) Apply sequence-browsing penalties only when interactionContract.sequenceBrowsingRequired is true. In that case, a static timeline illustration without a visible progression mechanism such as prev/next controls, a scrubber, or a scrollable evidence rail must reduce interactionRelevance and completeness.\n12) Judge requiredInteractions by the visible response behavior and interactionContract, not by literal widget nouns alone; equivalent truthful inline controls or state changes may satisfy the interaction.\n13) Explicitly critique typography and design intentionality in aestheticVerdict, first-paint evidence density in issueClasses or repairHints, interaction truthfulness in interactionVerdict, and continuity with refinement context when patchedExistingArtifact is relevant.\n14) A refinement that restarts unnecessarily should fail patchedExistingArtifact.\n15) If the candidate should not lead the stage, classification must not be pass.\n16) Keep strongestContradiction, aestheticVerdict, interactionVerdict, and rationale terse: one sentence each."
+            if renderer == StudioRendererKind::HtmlIframe && studio_modal_first_html_enabled() {
+                return "Return exactly one JSON object with this camelCase schema:\n{\n  \"classification\": \"pass\" | \"repairable\" | \"blocked\",\n  \"requestFaithfulness\": <1_to_5_integer>,\n  \"conceptCoverage\": <1_to_5_integer>,\n  \"interactionRelevance\": <1_to_5_integer>,\n  \"layoutCoherence\": <1_to_5_integer>,\n  \"visualHierarchy\": <1_to_5_integer>,\n  \"completeness\": <1_to_5_integer>,\n  \"genericShellDetected\": <boolean>,\n  \"trivialShellDetected\": <boolean>,\n  \"deservesPrimaryArtifactView\": <boolean>,\n  \"patchedExistingArtifact\": null | <boolean>,\n  \"continuityRevisionUx\": null | <1_to_5_integer>,\n  \"issueClasses\": [<string>],\n  \"repairHints\": [<string>],\n  \"strengths\": [<string>],\n  \"blockedReasons\": [<string>],\n  \"fileFindings\": [<string>],\n  \"aestheticVerdict\": <string>,\n  \"interactionVerdict\": <string>,\n  \"truthfulnessWarnings\": [<string>],\n  \"recommendedNextPass\": null | \"accept\" | \"structural_repair\" | \"polish_pass\" | \"hold_block\",\n  \"strongestContradiction\": null | <string>,\n  \"rationale\": <string>\n}\nRules:\n1) Start with '{' and end with '}'. Do not emit markdown fences, prose prefaces, or trailing commentary.\n2) Every score field must be an integer from 1 through 5.\n3) issueClasses, repairHints, strengths, blockedReasons, fileFindings, and truthfulnessWarnings should each contain 0 to 3 terse entries.\n4) Penalize generic shells, placeholder output, or request-thin artifacts.\n5) requestFaithfulness and conceptCoverage must drop sharply when the candidate omits or weakens differentiating request concepts from subjectDomain, artifactThesis, or requiredConcepts.\n6) A candidate that could fit many nearby prompts by only changing the headline should set genericShellDetected=true and deservesPrimaryArtifactView=false.\n7) Placeholder image URLs, placeholder media, lorem ipsum, fake stock filler, or obviously incomplete artifacts should set trivialShellDetected=true and classification must not be pass.\n8) Educational or explanatory html_iframe candidates that default to a generic document shell, stacked concept sections, repeated paragraph-plus-box rhythm, or default browser styling must not be pass.\n9) One isolated button, lone slider, or decorative toggle is insufficient for an interactive artifact; interactionRelevance and completeness must drop unless multiple linked state changes update visible evidence and explanation.\n10) html_iframe controls that only rewrite a label while leaving the surrounding evidence effectively static should not be pass.\n11) Judge requiredInteractions by the visible response behavior and interactionContract, not by literal widget nouns; equivalent truthful inline controls or state changes may satisfy the interaction.\n12) For html_iframe, do not require a shared detail panel or mapped panels unless the candidate itself chooses that pattern. Judge the chosen interaction grammar on whether it produces a truthful visible state change.\n13) Apply sequence-browsing penalties only when interactionContract.sequenceBrowsingRequired is true. In that case, a static illustration without a visible progression mechanic should reduce interactionRelevance and completeness.\n14) Explicitly critique typography, design intentionality, and evidence density in aestheticVerdict or repairHints, interaction truthfulness in interactionVerdict, and continuity with refinement context when patchedExistingArtifact is relevant.\n15) A refinement that restarts unnecessarily should fail patchedExistingArtifact.\n16) If the candidate should not lead the stage, classification must not be pass.\n17) Keep strongestContradiction, aestheticVerdict, interactionVerdict, and rationale terse: one sentence each.\n18) When Render evaluation JSON is present, treat it as surfaced evidence from the actual first paint. If it reports weak hierarchy, sparse density, low overallScore, or weak interaction change, classification must not be pass unless you can clearly justify why those findings are outweighed.\n19) Use recommendedNextPass to signal whether another stochastic repair or polish pass is worthwhile. Reserve hold_block for hard-stop cases such as missing essential content, broken rendering, placeholder output, or contradictions that should not be patched forward.";
+            }
+            "Return exactly one JSON object with this camelCase schema:\n{\n  \"classification\": \"pass\" | \"repairable\" | \"blocked\",\n  \"requestFaithfulness\": <1_to_5_integer>,\n  \"conceptCoverage\": <1_to_5_integer>,\n  \"interactionRelevance\": <1_to_5_integer>,\n  \"layoutCoherence\": <1_to_5_integer>,\n  \"visualHierarchy\": <1_to_5_integer>,\n  \"completeness\": <1_to_5_integer>,\n  \"genericShellDetected\": <boolean>,\n  \"trivialShellDetected\": <boolean>,\n  \"deservesPrimaryArtifactView\": <boolean>,\n  \"patchedExistingArtifact\": null | <boolean>,\n  \"continuityRevisionUx\": null | <1_to_5_integer>,\n  \"issueClasses\": [<string>],\n  \"repairHints\": [<string>],\n  \"strengths\": [<string>],\n  \"blockedReasons\": [<string>],\n  \"fileFindings\": [<string>],\n  \"aestheticVerdict\": <string>,\n  \"interactionVerdict\": <string>,\n  \"truthfulnessWarnings\": [<string>],\n  \"recommendedNextPass\": null | \"accept\" | \"structural_repair\" | \"polish_pass\" | \"hold_block\",\n  \"strongestContradiction\": null | <string>,\n  \"rationale\": <string>\n}\nRules:\n1) Start with '{' and end with '}'. Do not emit markdown fences, prose prefaces, or trailing commentary.\n2) Every score field must be an integer from 1 through 5.\n3) issueClasses, repairHints, strengths, blockedReasons, fileFindings, and truthfulnessWarnings should each contain 0 to 3 terse entries.\n4) Penalize generic shells, placeholder output, or request-thin artifacts.\n5) requestFaithfulness and conceptCoverage must drop sharply when the candidate omits or weakens differentiating request concepts from subjectDomain, artifactThesis, or requiredConcepts.\n6) A candidate that could fit many nearby prompts by only changing the headline should set genericShellDetected=true and deservesPrimaryArtifactView=false.\n7) Placeholder image URLs, placeholder media, lorem ipsum, fake stock filler, or empty chart regions should set trivialShellDetected=true and classification must not be pass.\n8) html_iframe candidates that rely on a thin div shell, omit semantic sectioning, use invented custom tags instead of standard HTML, fail to realize required interactions, or leave SVG/canvas chart regions empty on first paint must not be pass.\n9) When the brief calls for multiple charts, data visualizations, metrics, or comparisons, a single chart plus generic prose is insufficient and classification must not be pass.\n10) Broken control wiring that targets nonexistent views or uses collection-style iteration on a single selected element should reduce interactionRelevance and completeness.\n11) Apply sequence-browsing penalties only when interactionContract.sequenceBrowsingRequired is true. In that case, a static timeline illustration without a visible progression mechanism such as prev/next controls, a scrubber, or a scrollable evidence rail must reduce interactionRelevance and completeness.\n12) Judge requiredInteractions by the visible response behavior and interactionContract, not by literal widget nouns alone; equivalent truthful inline controls or state changes may satisfy the interaction.\n13) Explicitly critique typography and design intentionality in aestheticVerdict, first-paint evidence density in issueClasses or repairHints, interaction truthfulness in interactionVerdict, and continuity with refinement context when patchedExistingArtifact is relevant.\n14) A refinement that restarts unnecessarily should fail patchedExistingArtifact.\n15) If the candidate should not lead the stage, classification must not be pass.\n16) Keep strongestContradiction, aestheticVerdict, interactionVerdict, and rationale terse: one sentence each.\n17) Use recommendedNextPass to signal whether another stochastic repair or polish pass is worthwhile. Reserve hold_block for hard-stop cases such as missing essential content, broken rendering, placeholder output, or contradictions that should not be patched forward."
         }
         _ => {
-            "Return exactly one JSON object with this camelCase schema:\n{\n  \"classification\": \"pass\" | \"repairable\" | \"blocked\",\n  \"requestFaithfulness\": <1_to_5_integer>,\n  \"conceptCoverage\": <1_to_5_integer>,\n  \"interactionRelevance\": <1_to_5_integer>,\n  \"layoutCoherence\": <1_to_5_integer>,\n  \"visualHierarchy\": <1_to_5_integer>,\n  \"completeness\": <1_to_5_integer>,\n  \"genericShellDetected\": <boolean>,\n  \"trivialShellDetected\": <boolean>,\n  \"deservesPrimaryArtifactView\": <boolean>,\n  \"patchedExistingArtifact\": null | <boolean>,\n  \"continuityRevisionUx\": null | <1_to_5_integer>,\n  \"issueClasses\": [<string>],\n  \"repairHints\": [<string>],\n  \"strengths\": [<string>],\n  \"blockedReasons\": [<string>],\n  \"fileFindings\": [<string>],\n  \"aestheticVerdict\": <string>,\n  \"interactionVerdict\": <string>,\n  \"truthfulnessWarnings\": [<string>],\n  \"recommendedNextPass\": null | \"accept\" | \"structural_repair\" | \"polish_pass\" | \"hold_block\",\n  \"strongestContradiction\": null | <string>,\n  \"rationale\": <string>\n}\nRules:\n1) Start with '{' and end with '}'. Do not emit markdown fences, prose prefaces, or trailing commentary.\n2) Every score field must be an integer from 1 through 5.\n3) issueClasses, repairHints, strengths, blockedReasons, fileFindings, and truthfulnessWarnings should each contain 0 to 3 terse entries.\n4) Penalize generic shells, placeholder output, or request-thin artifacts.\n5) requestFaithfulness and conceptCoverage must drop sharply when the candidate omits or weakens differentiating request concepts from subjectDomain, artifactThesis, or requiredConcepts.\n6) A candidate that could fit many nearby prompts by only changing the headline should set genericShellDetected=true and deservesPrimaryArtifactView=false.\n7) Empty deliverables, placeholder filler, or obviously incomplete artifacts should set trivialShellDetected=true and classification must not be pass.\n8) Explicitly record strengths, blockedReasons when blocked, and a recommendedNextPass that tells Studio whether to accept, repair, polish, or hold the block.\n9) A refinement that restarts unnecessarily should fail patchedExistingArtifact.\n10) If the candidate should not lead the stage, classification must not be pass.\n11) Keep strongestContradiction, aestheticVerdict, interactionVerdict, and rationale terse: one sentence each."
+            "Return exactly one JSON object with this camelCase schema:\n{\n  \"classification\": \"pass\" | \"repairable\" | \"blocked\",\n  \"requestFaithfulness\": <1_to_5_integer>,\n  \"conceptCoverage\": <1_to_5_integer>,\n  \"interactionRelevance\": <1_to_5_integer>,\n  \"layoutCoherence\": <1_to_5_integer>,\n  \"visualHierarchy\": <1_to_5_integer>,\n  \"completeness\": <1_to_5_integer>,\n  \"genericShellDetected\": <boolean>,\n  \"trivialShellDetected\": <boolean>,\n  \"deservesPrimaryArtifactView\": <boolean>,\n  \"patchedExistingArtifact\": null | <boolean>,\n  \"continuityRevisionUx\": null | <1_to_5_integer>,\n  \"issueClasses\": [<string>],\n  \"repairHints\": [<string>],\n  \"strengths\": [<string>],\n  \"blockedReasons\": [<string>],\n  \"fileFindings\": [<string>],\n  \"aestheticVerdict\": <string>,\n  \"interactionVerdict\": <string>,\n  \"truthfulnessWarnings\": [<string>],\n  \"recommendedNextPass\": null | \"accept\" | \"structural_repair\" | \"polish_pass\" | \"hold_block\",\n  \"strongestContradiction\": null | <string>,\n  \"rationale\": <string>\n}\nRules:\n1) Start with '{' and end with '}'. Do not emit markdown fences, prose prefaces, or trailing commentary.\n2) Every score field must be an integer from 1 through 5.\n3) issueClasses, repairHints, strengths, blockedReasons, fileFindings, and truthfulnessWarnings should each contain 0 to 3 terse entries.\n4) Penalize generic shells, placeholder output, or request-thin artifacts.\n5) requestFaithfulness and conceptCoverage must drop sharply when the candidate omits or weakens differentiating request concepts from subjectDomain, artifactThesis, or requiredConcepts.\n6) A candidate that could fit many nearby prompts by only changing the headline should set genericShellDetected=true and deservesPrimaryArtifactView=false.\n7) Empty deliverables, placeholder filler, or obviously incomplete artifacts should set trivialShellDetected=true and classification must not be pass.\n8) Explicitly record strengths, blockedReasons when blocked, and a recommendedNextPass that tells Studio whether to accept, repair, polish, or hold the block.\n9) A refinement that restarts unnecessarily should fail patchedExistingArtifact.\n10) If the candidate should not lead the stage, classification must not be pass.\n11) Keep strongestContradiction, aestheticVerdict, interactionVerdict, and rationale terse: one sentence each.\n12) Use recommendedNextPass to signal whether another stochastic repair or polish pass is worthwhile. Reserve hold_block for hard-stop cases such as missing essential content, broken rendering, placeholder output, or contradictions that should not be patched forward."
         }
     }
 }
@@ -869,7 +1021,11 @@ fn hydrate_studio_artifact_judge_result(result: &mut StudioArtifactJudgeResult) 
         if result.interaction_relevance <= 3 {
             push_unique_string(
                 &mut result.repair_hints,
-                "Keep visible first-paint controls wired to pre-rendered panels or detail targets instead of decorative navigation.",
+                if studio_modal_first_html_enabled() {
+                    "Keep the chosen interaction grammar visibly responsive on first paint instead of falling back to decorative navigation."
+                } else {
+                    "Keep visible first-paint controls wired to pre-rendered panels or detail targets instead of decorative navigation."
+                },
             );
         }
         if result.completeness <= 3 || result.trivial_shell_detected {
@@ -1595,7 +1751,11 @@ pub(crate) fn candidate_generation_config(
         StudioRendererKind::HtmlIframe
             if production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime =>
         {
-            (1, 0.54, "request-grounded_html")
+            if studio_modal_first_html_enabled() {
+                (1, 0.72, "request-grounded_html")
+            } else {
+                (2, 0.54, "request-grounded_html")
+            }
         }
         StudioRendererKind::HtmlIframe => (3, 0.6, "request-grounded_html"),
         StudioRendererKind::JsxSandbox => (2, 0.5, "interaction-first_jsx"),
@@ -1919,6 +2079,8 @@ fn judge_max_tokens_for_runtime(
 ) -> u32 {
     if ultra_compact_local_markdown_judge_prompt(renderer, runtime_kind) {
         48
+    } else if compact_local_html_judge_prompt(renderer, runtime_kind) {
+        96
     } else if compact_local_download_bundle_judge_prompt(renderer, runtime_kind) {
         56
     } else if compact_local_document_judge_prompt(renderer, runtime_kind) {
@@ -1948,6 +2110,8 @@ fn judge_repair_max_tokens_for_runtime(
 ) -> u32 {
     if ultra_compact_local_markdown_judge_prompt(renderer, runtime_kind) {
         64
+    } else if compact_local_html_judge_prompt(renderer, runtime_kind) {
+        112
     } else if compact_local_download_bundle_judge_prompt(renderer, runtime_kind) {
         72
     } else if compact_local_document_judge_prompt(renderer, runtime_kind) {
@@ -1965,7 +2129,11 @@ pub(crate) fn semantic_refinement_pass_limit(
         StudioRendererKind::HtmlIframe
             if production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime =>
         {
-            1
+            if studio_modal_first_html_enabled() {
+                1
+            } else {
+                2
+            }
         }
         StudioRendererKind::HtmlIframe => 2,
         StudioRendererKind::JsxSandbox | StudioRendererKind::Svg => 1,
@@ -2056,6 +2224,12 @@ pub(crate) fn html_first_paint_section_blueprint(brief: &StudioArtifactBrief) ->
         })
         .unwrap_or("the main rollout evidence");
 
+    if studio_modal_first_html_enabled() {
+        return format!(
+            "1) overview section that states {overview_focus}; 2) one interaction seam that lets the audience inspect {control_focus}; 3) primary evidence section that visualizes {primary_evidence} with visible marks, labels, or comparative values on first paint; 4) secondary evidence section or comparison article that surfaces {secondary_evidence}; 5) contextual annotations, captions, callouts, or inline detail that explain {detail_focus}; 6) supporting footer/aside callouts grounded in {anchor_focus}"
+        );
+    }
+
     format!(
         "1) overview section that states {overview_focus}; 2) named control bar that lets the audience inspect {control_focus}; 3) primary evidence section that visualizes {primary_evidence} with visible marks, labels, or comparative values on first paint; 4) secondary evidence section or comparison article that surfaces {secondary_evidence}; 5) shared detail/comparison aside that reacts to controls and explains {detail_focus}; 6) supporting footer/aside callouts grounded in {anchor_focus}"
     )
@@ -2092,7 +2266,22 @@ pub(crate) fn judge_total_score(judge: &StudioArtifactJudgeResult) -> i32 {
 }
 
 pub(crate) fn judge_clears_primary_view(judge: &StudioArtifactJudgeResult) -> bool {
-    judge.classification == StudioArtifactJudgeClassification::Pass
+    let strong_repairable_primary = judge.classification
+        == StudioArtifactJudgeClassification::Repairable
+        && judge.deserves_primary_artifact_view
+        && judge.request_faithfulness >= 4
+        && judge.concept_coverage >= 4
+        && judge.interaction_relevance >= 3
+        && judge.layout_coherence >= 4
+        && judge.visual_hierarchy >= 4
+        && judge.completeness >= 4
+        && !judge.issue_classes.is_empty()
+        && judge
+            .issue_classes
+            .iter()
+            .all(|issue| issue == "interaction_change_weak");
+
+    (judge.classification == StudioArtifactJudgeClassification::Pass || strong_repairable_primary)
         && judge.deserves_primary_artifact_view
         && !judge.generic_shell_detected
         && !judge.trivial_shell_detected

@@ -1,0 +1,87 @@
+[studio-proof-trace] outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2802 max_tokens=384
+[studio-proof-trace] outcome_route:raw bytes=399 preview={
+  "outcomeKind": "artifact",
+  "confidence": 0.8,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "document",
+    "renderer": "markdown",
+    "workspaceRecipeId": null,
+    "presentation...
+[studio-proof-trace] outcome_route:parsed outcome=Artifact confidence=0.8 needs_clarification=false artifact_present=true
+[studio-proof-trace] artifact_generation:start renderer=Markdown profile=LocalGenerationRemoteAcceptance planning_model=Some("qwen2.5:7b") production_model=Some("qwen2.5:7b") acceptance_model=Some("qwen2.5:7b") repair_model=Some("qwen2.5:14b") refinement=false
+[studio-proof-trace] artifact_brief:start renderer=Markdown runtime=openai-compatible model=Some("qwen2.5:7b") prompt_bytes=2210 max_tokens=448
+[studio-proof-trace] artifact_brief:planner_output {
+  "audience": "Development team members responsible for software releases",
+  "jobToBeDone": "Ensure all necessary steps are completed before releasing new software versions",
+  "subjectDomain": "Software release management and checklist documentation",
+  "artifactThesis": "Create a comprehensive markdown document that serves as a release checklist to streamline the software deployment process",
+  "requiredConcepts": ["release checklist", "software development lifecycle", "version control", "deployment procedures", "quality assurance"],
+  "requiredInteractions": ["Reviewing current version status", "Updating checklist items", "Collaborating on checklist content"],
+  "visualTone": [],
+  "factualAnchors": ["Common release issues and their prevention methods", "Best practices in software deployment"],
+  "styleDirectives": ["Clear and concise language", "Structured format with headings and subheadings", "Use bullet points for easy readability"],
+  "referenceHints": []
+}
+[studio-proof-trace] artifact_generation:brief_ready
+[studio-proof-trace] artifact_generation:edit_intent_ready present=false
+[studio-proof-trace] artifact_generation:candidate_config initial_count=1 max_count=1 shortlist_limit=1 max_refine=0 temperature=0.22 configured_temperature=0.22 strategy=outline-first_markdown
+[studio-proof-trace] artifact_generation:candidate_materialize:start id=candidate-1 seed=7947757025476516963
+[studio-proof-trace] artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=24344 temperature=0.22 max_tokens=900
+[studio-proof-trace] artifact_generation:materialization_inference:ok id=candidate-1 bytes=1966
+[studio-proof-trace] artifact_generation:materialization_parse_error id=candidate-1 error=Failed to parse Studio artifact materialization payload: Studio artifact materialization output missing JSON payload preview={
+  "summary": "This markdown document provides an interactive exploration of the key concepts related to interaction design and development, including first-paint implementation, semantic HTML structure, and real interactions.",
+  "notes": [
+    "Ensure that all required interactions are implemented with on-page state changes or revealed detail.",
+    "Use semantic HTML5 elements for structural markup.",
+    "Implement a default selected chart, label, and detail state directly in the markup before any script runs.",
+    "Include interactive controls and shared detail regions as specified in the brief."
+  ],
+  "files": [
+    {
+      "path": "candidate-1.md",
+      "mime": "text/markdown",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": false,
+      "encoding": null,
+      "body": "# Interactive Exploration of Interaction Design\n\n## Introduction\n\nThis document provides an interactive exploration of key concepts related to interaction design and development, focusing on first-paint implementation, semantic HTML structure, and real interactions.\n\n## Semantic HTML Structure\n\nUse semantic HTML5 elements for structural markup. For example:\n- `<main>`: The main content of the page.\n- `<section>`, `<article>`, `<nav>`, `<aside>`, `<footer>`: Sectioning elements to organize content.\n\n## First-Paint Implementation\n\nEnsure that all required interactions are implemented with on-page state changes or revealed detail. For instance, use interactive controls and shared detail regions as specified in the brief.\n\n## Real Interactions\n\nImplement real interactions such as view switching, navigation, and detailed explanations directly within the document.\n\n### Example: View Switching\n\nUse explicit static control-to-panel mappings such as `data-view` plus `data-view-panel`, `aria-controls`, or `data-target` tied to pre-rendered views. For example:\n- `<button data-view="
+[studio-proof-trace] artifact_generation:materialization_repair:start id=candidate-1 attempt=1 model=Some("qwen2.5:7b") prompt_bytes=29100 max_tokens=900
+[studio-proof-trace] artifact_generation:materialization_repair:ok id=candidate-1 attempt=1 bytes=2103
+[studio-proof-trace] artifact_generation:candidate_materialize:ok id=candidate-1 files=1
+[studio-proof-trace] artifact_generation:render_eval:skip renderer=Markdown reason=not_required
+[studio-proof-trace] artifact_generation:candidate_judge:start id=candidate-1
+[studio-proof-trace] artifact_judge:start renderer=Markdown runtime=openai-compatible model=Some("qwen2.5:7b")
+[studio-proof-trace] artifact_judge:prompt_bytes runtime=openai-compatible bytes=1163
+[studio-proof-trace] artifact_judge:raw_ok runtime=openai-compatible bytes=163
+[studio-proof-trace] artifact_judge:raw_preview runtime=openai-compatible preview=verdict: repairable
+faithfulness: 3
+coverage: 2
+complete: 1
+generic: false
+trivial: false
+primary: true
+next: repair
+why: The provided markdown does not align with
+[studio-proof-trace] artifact_judge:plaintext_recovery
+[studio-proof-trace] artifact_judge:parse_ok runtime=openai-compatible classification=Repairable
+[studio-proof-trace] artifact_generation:candidate_judge:ok id=candidate-1 classification=Repairable
+[studio-proof-trace] artifact_generation:shortlist size=1 limit=1 signals=[BriefInteractionLoad, BriefConceptLoad, LocalGenerationConstraint, LowCandidateVariance]
+[studio-proof-trace] artifact_generation:acceptance:start id=candidate-1
+[studio-proof-trace] artifact_judge:start renderer=Markdown runtime=openai-compatible model=Some("qwen2.5:7b")
+[studio-proof-trace] artifact_judge:prompt_bytes runtime=openai-compatible bytes=1163
+[studio-proof-trace] artifact_judge:raw_ok runtime=openai-compatible bytes=163
+[studio-proof-trace] artifact_judge:raw_preview runtime=openai-compatible preview=verdict: repairable
+faithfulness: 3
+coverage: 2
+complete: 2
+generic: false
+trivial: false
+primary: true
+next: repair
+why: The provided markdown does not align with
+[studio-proof-trace] artifact_judge:plaintext_recovery
+[studio-proof-trace] artifact_judge:parse_ok runtime=openai-compatible classification=Repairable
+[studio-proof-trace] artifact_generation:acceptance:ok id=candidate-1 classification=Repairable
+[studio-proof-trace] artifact_generation:winner id=candidate-1

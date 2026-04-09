@@ -19,6 +19,7 @@ import "./styles/theme.css";
 export interface AgentEditorProps {
   runtime: AgentRuntime;
   initialFile?: any;
+  onInitialFileLoaded?: () => void;
   onOpenSystemSettings?: () => void;
 }
 
@@ -79,6 +80,7 @@ const CONSOLE_HEIGHT = 220;
 function AgentEditorContent({
   runtime,
   initialFile,
+  onInitialFileLoaded,
   onOpenSystemSettings,
 }: AgentEditorProps) {
   const { 
@@ -120,7 +122,8 @@ function AgentEditorContent({
   useEffect(() => {
     if (!initialFile) return;
     loadProjectIntoEditor(initialFile as ProjectFile);
-  }, [initialFile, loadProjectIntoEditor]);
+    onInitialFileLoaded?.();
+  }, [initialFile, loadProjectIntoEditor, onInitialFileLoaded]);
 
   return (
     <div className="agent-ide-root">

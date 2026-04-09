@@ -56,7 +56,7 @@ Target selection policy
    slice from the playbook and discovery docs.
 2. If the integrated benchmark is blocked by the local environment, attack the
    smallest blocker chain on the highest-maturity bridge benchmark
-   (`bridge_alpha`) using preflight first, then smoke, prepare, or validate.
+   (`bridge_alpha`) using preflight first, then validate or prepare.
 3. Do not widen scope until the exact target is either passed, honestly
    plateaued, or blocked by an external dependency you cannot resolve locally.
 4. If status docs and code disagree, trust fresh executable evidence and update
@@ -113,8 +113,8 @@ Benchmark proof rules
   - full artifacts present
 - Deterministic `oracle`, `runtime`, and deterministic agent paths are
   regression-only.
-- Preflight green is not enough for bridge benchmarks; you still need smoke,
-  prepare, or validate evidence against the real benchmark surface.
+- Preflight green is not enough for bridge benchmarks; you still need prepare
+  or validate evidence against the real benchmark surface.
 
 Command policy
 - Prefer existing repo entrypoints and wrappers.
@@ -122,10 +122,10 @@ Command policy
   `cargo test -p ioi-cli --test computer_use_suite_e2e computer_use_suite_from_env -- --ignored --exact --nocapture`
   pattern with narrow `COMPUTER_USE_SUITE_CASES`.
 - For OSWorld, use
-  `python3 tools/osworld/osworld_desktop_env_bridge.py preflight` and `smoke`.
+  `python3 tools/osworld/osworld_desktop_env_bridge.py preflight` and `validate`.
 - For WorkArena, use
   `python3 tools/browsergym/workarena_cdp_bridge.py preflight`, then `prepare`
-  and `validate` or the existing Rust smoke path.
+  and `validate` or the existing Rust baseline path.
 - Always choose the narrowest command that can validate the current hypothesis
   honestly.
 

@@ -117,6 +117,24 @@
   color: var(--text-primary);
 }
 
+.fleet-toolbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fleet-toolbar-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
 .btn-secondary {
   background: transparent;
   border: 1px solid var(--border-default);
@@ -289,6 +307,36 @@
   color: var(--text-primary);
   overflow-y: auto;
   line-height: 1.4;
+}
+
+.fleet-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fleet-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.fleet-detail-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.fleet-detail-label {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fleet-detail-value {
+  color: var(--text-primary);
 }
 
 .log-ts {

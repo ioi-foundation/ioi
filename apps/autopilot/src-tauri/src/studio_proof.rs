@@ -542,7 +542,7 @@ fn state_file(state_root: &Path) -> PathBuf {
 }
 
 fn empty_task(intent: &str) -> AgentTask {
-    AgentTask {
+    let mut task = AgentTask {
         id: "studio-proof-task".to_string(),
         intent: intent.trim().to_string(),
         agent: "Autopilot".to_string(),
@@ -557,6 +557,8 @@ fn empty_task(intent: &str) -> AgentTask {
         session_id: Some("studio-proof-task".to_string()),
         credential_request: None,
         clarification_request: None,
+        session_checklist: Vec::new(),
+        background_tasks: Vec::new(),
         history: Vec::new(),
         events: Vec::new(),
         artifacts: Vec::new(),
@@ -570,7 +572,9 @@ fn empty_task(intent: &str) -> AgentTask {
         generation: 0,
         lineage_id: "genesis".to_string(),
         fitness_score: 0.0,
-    }
+    };
+    task.sync_runtime_views();
+    task
 }
 
 fn apply_revision_to_session(

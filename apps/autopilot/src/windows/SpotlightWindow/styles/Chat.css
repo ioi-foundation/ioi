@@ -5,11 +5,11 @@
 
 /* Chat Container */
 .spot-chat {
-  flex: 1;
+  flex: 1 1 auto;
   /* [FIX] Critical for scrolling: overflow-y auto + min-height 0 prevents flex child explosion */
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px 0 120px;
+  padding: 20px 0 24px;
   display: grid;
   grid-template-columns: var(
     --spot-content-lane-template,
@@ -23,7 +23,7 @@
 
   /* [FIX] Ensure container shrinks to fit parent bounds */
   min-height: 0;
-  height: 100%;
+  height: auto;
 
   /* Refined scrollbar */
   scrollbar-width: thin;
@@ -1066,19 +1066,57 @@
   max-width: min(94%, 1100px);
 }
 
+.spot-message--pending {
+  align-self: flex-start;
+  width: min(100%, 760px);
+  max-width: min(100%, 760px);
+}
+
+.spot-message--pending-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--spot-border-subtle);
+  background: var(--spot-bg-secondary);
+  box-shadow: none;
+}
+
+.spot-message--pending-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--spot-text-muted);
+}
+
+.spot-message--pending-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--spot-accent);
+  box-shadow: 0 0 0 0 rgba(var(--cb-accent-rgb), 0.22);
+  animation: thinkingPulse 1.4s ease-in-out infinite;
+}
+
+.spot-message--pending-shell p {
+  margin: 0;
+  color: var(--spot-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .answer-card {
   align-self: flex-start;
   width: min(100%, 1100px);
   border-radius: 16px;
   border: 1px solid var(--spot-border-strong);
-  background:
-    linear-gradient(
-      180deg,
-      rgba(250, 248, 244, 0.05),
-      rgba(250, 248, 244, 0.01)
-    ),
-    rgba(33, 32, 28, 0.92);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+  background: var(--spot-bg-secondary);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
   padding: 14px 14px 12px;
   animation: messageSlide 220ms ease;
 }
@@ -1682,6 +1720,61 @@
   line-height: 1.5;
 }
 
+.spot-execution-card-capability-list {
+  display: grid;
+  gap: 10px;
+}
+
+.spot-execution-card-capability {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--interactive-selected-border);
+  background: var(--interactive-selected-bg);
+}
+
+.spot-execution-card-capability-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spot-execution-card-capability-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.spot-execution-card-capability-copy strong {
+  color: var(--spot-text-primary);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.spot-execution-card-capability-copy span {
+  color: var(--spot-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.spot-execution-card-capability-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--interactive-selected-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--spot-text-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .spot-execution-moments {
   align-self: flex-start;
   width: min(100%, 760px);
@@ -1832,6 +1925,114 @@
   color: var(--spot-text-muted);
 }
 
+.spot-conversation-artifacts {
+  align-self: flex-start;
+  width: min(100%, 540px);
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--spot-border-subtle);
+  background: var(--spot-bg-secondary);
+  box-shadow: none;
+}
+
+.spot-conversation-artifacts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.spot-conversation-artifacts-head span,
+.spot-conversation-artifacts-head small {
+  color: var(--spot-text-secondary);
+  font-size: 12px;
+}
+
+.spot-conversation-artifacts-head span {
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--spot-text-primary);
+}
+
+.spot-conversation-artifact-list {
+  display: grid;
+  gap: 8px;
+}
+
+.spot-conversation-artifact-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--spot-border-subtle);
+  background: var(--spot-bg-tertiary);
+  color: var(--spot-text-primary);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background var(--spot-transition-fast),
+    border-color var(--spot-transition-fast),
+    transform var(--spot-transition-fast);
+}
+
+.spot-conversation-artifact-card:hover {
+  background: var(--spot-bg-elevated);
+  border-color: var(--spot-border-focus);
+  transform: translateY(-1px);
+}
+
+.spot-conversation-artifact-card.is-active {
+  border-color: var(--interactive-selected-border);
+  background: var(--spot-bg-elevated);
+}
+
+.spot-conversation-artifact-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--spot-bg-primary);
+  color: var(--spot-text-primary);
+  flex-shrink: 0;
+}
+
+.spot-conversation-artifact-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.spot-conversation-artifact-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.spot-conversation-artifact-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.spot-conversation-artifact-copy span,
+.spot-conversation-artifact-meta {
+  color: var(--spot-text-secondary);
+  font-size: 12px;
+}
+
+.spot-conversation-artifact-meta {
+  white-space: nowrap;
+}
+
 @media (max-width: 720px) {
   .spot-execution-card-actions {
     flex-direction: column;
@@ -1841,17 +2042,25 @@
   .spot-execution-card-action {
     width: 100%;
   }
+
+  .spot-conversation-artifact-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .spot-conversation-artifact-meta {
+    grid-column: 2;
+  }
 }
 
 @keyframes thinkingPulse {
   0%,
   100% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(90, 140, 236, 0.18);
+    box-shadow: 0 0 0 0 rgba(var(--cb-accent-rgb), 0.18);
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0 0 0 6px rgba(90, 140, 236, 0);
+    box-shadow: 0 0 0 6px rgba(var(--cb-accent-rgb), 0);
   }
 }
 

@@ -33,7 +33,7 @@ as successful in Studio.
 - Confirm the release branch is frozen and tagged.
 - Verify migration notes, dependency updates, and environment changes.
 - Validate the primary render output in Studio and confirm evidence is attached.
-- Confirm rollback instructions, smoke tests, and monitoring thresholds are current.
+- Confirm rollback instructions, validation checks, and monitoring thresholds are current.
 
 ## Launch Sequence
 1. Announce the release window to support and go-to-market partners.
@@ -136,9 +136,7 @@ fn runtime_provenance_matches_ignores_lane_only_endpoint_tags() {
         kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
         label: "openai-compatible".to_string(),
         model: Some("qwen3:8b".to_string()),
-        endpoint: Some(
-            "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance".to_string(),
-        ),
+        endpoint: Some("http://127.0.0.1:11434/v1/chat/completions?lane=acceptance".to_string()),
     };
 
     assert!(runtime_provenance_matches(&production, &acceptance));

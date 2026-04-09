@@ -1,9 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   WorkspaceAdapter,
+  WorkspaceCommitResult,
   WorkspaceDeleteResult,
   WorkspaceDiffDocument,
   WorkspaceFileDocument,
+  WorkspaceLanguageCodeAction,
+  WorkspaceLanguageLocation,
+  WorkspaceLanguageServiceSnapshot,
   WorkspaceNode,
   WorkspacePathMutationResult,
   WorkspacePathStat,
@@ -23,6 +27,42 @@ export const tauriWorkspaceAdapter: WorkspaceAdapter = {
   },
   readFile(root, path) {
     return invoke<WorkspaceFileDocument>("studio_workspace_read_file", { root, path });
+  },
+  getLanguageServiceSnapshot(root, path, content) {
+    return invoke<WorkspaceLanguageServiceSnapshot>("studio_workspace_lsp_snapshot", {
+      root,
+      path,
+      content,
+    });
+  },
+  getLanguageDefinition(root, path, line, column, content) {
+    return invoke<WorkspaceLanguageLocation[]>("studio_workspace_lsp_definition", {
+      root,
+      path,
+      line,
+      column,
+      content,
+    });
+  },
+  getLanguageReferences(root, path, line, column, content) {
+    return invoke<WorkspaceLanguageLocation[]>("studio_workspace_lsp_references", {
+      root,
+      path,
+      line,
+      column,
+      content,
+    });
+  },
+  getLanguageCodeActions(root, path, line, column, endLine, endColumn, content) {
+    return invoke<WorkspaceLanguageCodeAction[]>("studio_workspace_lsp_code_actions", {
+      root,
+      path,
+      line,
+      column,
+      endLine,
+      endColumn,
+      content,
+    });
   },
   writeFile(root, path, content) {
     return invoke<WorkspaceFileDocument>("studio_workspace_write_file", {
@@ -64,6 +104,13 @@ export const tauriWorkspaceAdapter: WorkspaceAdapter = {
   },
   getDiff(root, path, staged) {
     return invoke<WorkspaceDiffDocument>("studio_workspace_git_diff", { root, path, staged });
+  },
+  commitChanges(root, message) {
+    return invoke<WorkspaceCommitResult>("studio_workspace_git_commit", {
+      root,
+      headline: message.headline,
+      body: message.body ?? null,
+    });
   },
   stagePaths(root, paths) {
     return invoke<WorkspaceSourceControlState>("studio_workspace_git_stage", { root, paths });

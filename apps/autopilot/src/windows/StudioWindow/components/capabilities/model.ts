@@ -1,18 +1,35 @@
 import type {
+  ConnectorActionDefinition,
   ConnectorConfigureResult,
   ConnectorSummary,
 } from "@ioi/agent-ide";
 import type {
+  ExtensionManifestRecord,
+  SkillSourceRecord,
   LocalEngineControlPlane,
   LocalEngineSnapshot,
   SkillCatalogEntry,
   SkillDetailView,
 } from "../../../../types";
-import type { ConnectionCatalogItem } from "../capabilitiesCatalog";
+import {
+  createDefaultShieldPolicyState,
+  resolveConnectorPolicy,
+  type AutomationPolicyMode,
+  type PolicyDecisionMode,
+  type ShieldPolicyState,
+} from "../../policyCenter";
 
 export type CapabilitySurface = "engine" | "skills" | "connections" | "extensions";
-export type SkillOrigin = "starter" | "runtime";
-export type ConnectionOrigin = "runtime" | "workspace";
+export type SkillOrigin = "runtime" | "filesystem";
+export type SkillDetailStatus = "idle" | "loading" | "ready" | "error";
+export type ConnectionOrigin = "runtime";
+export type ConnectionTemplateOrigin = "workspace_template";
+export type ConnectionDetailSection =
+  | "overview"
+  | "setup"
+  | "actions"
+  | "policy";
+export type RuntimeConnectorActionStatus = "idle" | "loading" | "ready" | "error";
 export type EngineDetailSection =
   | "overview"
   | "runtime"
@@ -21,23 +38,93 @@ export type EngineDetailSection =
   | "registry"
   | "activity"
   | "families";
+export type ExtensionDetailSection =
+  | "overview"
+  | "manifest"
+  | "contributions";
 
 export interface WorkspaceSkill {
   hash: string;
+  registryEntryId?: string | null;
   catalog: SkillCatalogEntry;
-  detail: SkillDetailView;
+  detail: SkillDetailView | null;
+  detailStatus: SkillDetailStatus;
+  detailError: string | null;
   origin: SkillOrigin;
   addedBy: string;
   invokedBy: string;
+  sourceId?: string | null;
+  sourceLabel?: string | null;
+  sourceUri?: string | null;
+  sourceKind?: string | null;
+  syncStatus?: string | null;
+  relativePath?: string | null;
+  extensionId?: string | null;
+  extensionDisplayName?: string | null;
+}
+
+export interface RuntimeSkillDetailState {
+  status: SkillDetailStatus;
+  detail: SkillDetailView | null;
+  error: string | null;
 }
 
 export interface WorkspaceExtension {
   id: string;
   name: string;
   description: string;
-  status: string;
+  displayName?: string | null;
+  version?: string | null;
+  statusLabel: string;
   meta: string;
   surfaces: string[];
+  sourceId?: string | null;
+  sourceLabel: string;
+  sourceUri: string;
+  sourceKind: string;
+  manifestKind: string;
+  manifestPath: string;
+  rootPath: string;
+  enabled: boolean;
+  trustPosture: string;
+  governedProfile: string;
+  developerName?: string | null;
+  authorName?: string | null;
+  authorEmail?: string | null;
+  authorUrl?: string | null;
+  category?: string | null;
+  homepage?: string | null;
+  repository?: string | null;
+  license?: string | null;
+  keywords: string[];
+  defaultPrompts: string[];
+  contributionCount: number;
+  filesystemSkillCount: number;
+  contributions: ExtensionManifestRecord["contributions"];
+  marketplaceName?: string | null;
+  marketplaceDisplayName?: string | null;
+  marketplaceCategory?: string | null;
+  marketplaceInstallationPolicy?: string | null;
+  marketplaceAuthenticationPolicy?: string | null;
+  marketplaceProducts: string[];
+}
+
+export type CapabilityTrustTierId =
+  | "planning_only"
+  | "contained_local"
+  | "governed"
+  | "automation"
+  | "expert"
+  | "blocked";
+
+export interface CapabilityTrustProfile {
+  tierId: CapabilityTrustTierId;
+  tierLabel: string;
+  governedProfileId: string;
+  governedProfileLabel: string;
+  summary: string;
+  detail: string;
+  signals: string[];
 }
 
 export interface LocalEnginePanel {
@@ -59,8 +146,29 @@ export interface StoredConnectionDraft {
   description: string;
   authMode: ConnectorSummary["authMode"];
   scopes: string[];
+  availabilityLabel?: string;
   notes?: string;
   endpoint?: string;
+}
+
+export interface WorkspaceConnectionRecord {
+  connector: ConnectorSummary;
+  origin: ConnectionOrigin;
+}
+
+export interface RuntimeConnectorActionState {
+  status: RuntimeConnectorActionStatus;
+  actions: ConnectorActionDefinition[];
+  error: string | null;
+}
+
+export type WorkspaceTemplateSource = "custom";
+
+export interface WorkspaceConnectionTemplateRecord {
+  connector: ConnectorSummary;
+  draft: StoredConnectionDraft;
+  origin: ConnectionTemplateOrigin;
+  source: WorkspaceTemplateSource;
 }
 
 export interface CapabilityTreeEntry {
@@ -74,8 +182,6 @@ export interface CapabilityTreeEntry {
 
 export const CUSTOM_CONNECTIONS_STORAGE_KEY =
   "autopilot.capabilities.custom-connections";
-export const SKILL_SWITCH_STORAGE_KEY =
-  "autopilot.capabilities.enabled-skills";
 
 export function humanize(value: string): string {
   return value
@@ -121,6 +227,302 @@ export function connectorStatusLabel(
   }
 }
 
+function decisionLabel(value: PolicyDecisionMode): string {
+  switch (value) {
+    case "auto":
+      return "Auto";
+    case "confirm":
+      return "Confirm";
+    case "block":
+      return "Block";
+    default:
+      return humanize(value);
+  }
+}
+
+function automationLabel(value: AutomationPolicyMode): string {
+  switch (value) {
+    case "confirm_on_create":
+      return "Confirm on create";
+    case "confirm_on_run":
+      return "Confirm on run";
+    case "manual_only":
+      return "Manual only";
+    default:
+      return humanize(value);
+  }
+}
+
+export function governedProfileLabel(value: string): string {
+  switch (value) {
+    case "workspace_template":
+      return "Workspace planning template";
+    case "observe_only_connector":
+      return "Read-biased connector";
+    case "governed_connector":
+      return "Governed connector";
+    case "automation_connector":
+      return "Automation-capable connector";
+    case "expert_connector":
+      return "Expert-capable connector";
+    case "blocked_connector":
+      return "Blocked connector";
+    case "governed_marketplace":
+      return "Governed marketplace package";
+    case "automation_bridge":
+      return "Automation bridge";
+    case "runtime_bridge":
+      return "Runtime bridge";
+    case "local_skill_bundle":
+      return "Local skill bundle";
+    case "local_manifest":
+      return "Local manifest";
+    case "disabled_source":
+      return "Disabled source";
+    default:
+      return humanize(value);
+  }
+}
+
+function connectorHasAutomationSurface(connector: ConnectorSummary): boolean {
+  return connector.scopes.some((scope) =>
+    /(workflow|event|automation|watch|subscribe)/i.test(scope),
+  );
+}
+
+function connectorHasExpertSurface(connector: ConnectorSummary): boolean {
+  return connector.scopes.some((scope) => /(expert|raw)/i.test(scope));
+}
+
+export function buildConnectorTrustProfile(
+  connector: ConnectorSummary,
+  policyState: ShieldPolicyState = createDefaultShieldPolicyState(),
+  options?: { template?: boolean },
+): CapabilityTrustProfile {
+  if (options?.template) {
+    return {
+      tierId: "planning_only",
+      tierLabel: "Planning only",
+      governedProfileId: "workspace_template",
+      governedProfileLabel: governedProfileLabel("workspace_template"),
+      summary:
+        "This connector is still a workspace planning template, so it has no live runtime authority yet.",
+      detail:
+        "Use this draft to decide expected scopes, ownership, and guardrails before a real runtime adapter exists.",
+      signals: [
+        "No live auth attached",
+        `${connector.scopes.length} planned scope${connector.scopes.length === 1 ? "" : "s"}`,
+        `Auth path: ${formatAuthMode(connector.authMode)}`,
+      ],
+    };
+  }
+
+  const effective = resolveConnectorPolicy(policyState, connector.id).effective;
+  const hasAutomationSurface = connectorHasAutomationSurface(connector);
+  const hasExpertSurface = connectorHasExpertSurface(connector);
+
+  if (effective.reads === "block" && effective.writes === "block" && effective.admin === "block") {
+    return {
+      tierId: "blocked",
+      tierLabel: "Blocked",
+      governedProfileId: "blocked_connector",
+      governedProfileLabel: governedProfileLabel("blocked_connector"),
+      summary:
+        "Current policy blocks the connector's live read, write, and admin paths before execution starts.",
+      detail:
+        "Operators would need to widen Shield policy before this connector can do meaningful work.",
+      signals: [
+        `Reads ${decisionLabel(effective.reads)}`,
+        `Writes ${decisionLabel(effective.writes)}`,
+        `Admin ${decisionLabel(effective.admin)}`,
+      ],
+    };
+  }
+
+  if (hasExpertSurface && effective.expert !== "block") {
+    return {
+      tierId: "expert",
+      tierLabel: "Expert / raw",
+      governedProfileId: "expert_connector",
+      governedProfileLabel: governedProfileLabel("expert_connector"),
+      summary:
+        effective.expert === "auto"
+          ? "This connector can reach expert or raw actions without a per-run confirmation gate."
+          : "This connector exposes expert or raw actions, but current policy still gates them before execution.",
+      detail:
+        "Expert-capable connectors carry the widest authority class because they can bypass higher-level convenience affordances.",
+      signals: [
+        `Expert ${decisionLabel(effective.expert)}`,
+        `Auth path: ${formatAuthMode(connector.authMode)}`,
+        connector.status === "connected"
+          ? "Runtime auth attached"
+          : `Status: ${connectorStatusLabel(connector.status)}`,
+      ],
+    };
+  }
+
+  if (hasAutomationSurface) {
+    return {
+      tierId: "automation",
+      tierLabel: "Durable automation",
+      governedProfileId: "automation_connector",
+      governedProfileLabel: governedProfileLabel("automation_connector"),
+      summary:
+        "This connector can host durable automation surfaces such as event- or workflow-driven execution.",
+      detail:
+        "Shield policy still governs create/run posture, but the connector itself sits in the automation authority class.",
+      signals: [
+        `Automations ${automationLabel(effective.automations)}`,
+        `Writes ${decisionLabel(effective.writes)}`,
+        `Admin ${decisionLabel(effective.admin)}`,
+      ],
+    };
+  }
+
+  if (effective.writes !== "block" || effective.admin !== "block") {
+    return {
+      tierId: "governed",
+      tierLabel: "Governed write",
+      governedProfileId: "governed_connector",
+      governedProfileLabel: governedProfileLabel("governed_connector"),
+      summary:
+        "This connector can mutate state, but its write/admin paths remain explicitly governed by current policy.",
+      detail:
+        "Use this class for reply drafts, file mutations, and other state-changing work that should remain operator-steerable.",
+      signals: [
+        `Writes ${decisionLabel(effective.writes)}`,
+        `Admin ${decisionLabel(effective.admin)}`,
+        `Reads ${decisionLabel(effective.reads)}`,
+      ],
+    };
+  }
+
+  return {
+    tierId: "contained_local",
+    tierLabel: "Observe / contained",
+    governedProfileId: "observe_only_connector",
+    governedProfileLabel: governedProfileLabel("observe_only_connector"),
+    summary:
+      "This connector is effectively constrained to read-biased or tightly governed access before execution starts.",
+    detail:
+      "It can help the operator inspect context without opening broad write, automation, or expert authority.",
+    signals: [
+      `Reads ${decisionLabel(effective.reads)}`,
+      `Writes ${decisionLabel(effective.writes)}`,
+      `Auth path: ${formatAuthMode(connector.authMode)}`,
+    ],
+  };
+}
+
+export function buildExtensionTrustProfile(
+  extension: WorkspaceExtension,
+): CapabilityTrustProfile {
+  if (!extension.enabled) {
+    return {
+      tierId: "blocked",
+      tierLabel: "Disabled source",
+      governedProfileId: "disabled_source",
+      governedProfileLabel: governedProfileLabel("disabled_source"),
+      summary:
+        "This extension is present on disk, but its tracked source is currently disabled.",
+      detail:
+        "Re-enable the source before its packaged skills or contributions can shape runtime behavior again.",
+      signals: [
+        `Source ${humanize(extension.sourceKind)}`,
+        `Trust posture ${humanize(extension.trustPosture)}`,
+        `${extension.contributionCount} contribution${extension.contributionCount === 1 ? "" : "s"}`,
+      ],
+    };
+  }
+
+  switch (extension.governedProfile) {
+    case "governed_marketplace":
+      return {
+        tierId: "governed",
+        tierLabel: "Governed package",
+        governedProfileId: extension.governedProfile,
+        governedProfileLabel: governedProfileLabel(extension.governedProfile),
+        summary:
+          "This extension carries explicit installation or authentication policy from the runtime catalog/marketplace layer.",
+        detail:
+          "Operators should review marketplace policy before widening authority because this package already declares governance expectations.",
+        signals: [
+          extension.marketplaceInstallationPolicy
+            ? `Install ${humanize(extension.marketplaceInstallationPolicy)}`
+            : "Install policy inherited",
+          extension.marketplaceAuthenticationPolicy
+            ? `Auth ${humanize(extension.marketplaceAuthenticationPolicy)}`
+            : "Auth policy inherited",
+          extension.marketplaceDisplayName ?? extension.sourceLabel,
+        ],
+      };
+    case "automation_bridge":
+      return {
+        tierId: "automation",
+        tierLabel: "Automation bridge",
+        governedProfileId: extension.governedProfile,
+        governedProfileLabel: governedProfileLabel(extension.governedProfile),
+        summary:
+          "This extension contributes hooks or other automation-facing surfaces that can shape durable runtime behavior.",
+        detail:
+          "Treat automation-capable extensions as higher-authority packages because they can influence behavior beyond a one-shot skill selection.",
+        signals: [
+          `${extension.contributionCount} contribution${extension.contributionCount === 1 ? "" : "s"}`,
+          `${extension.filesystemSkillCount} filesystem skill${extension.filesystemSkillCount === 1 ? "" : "s"}`,
+          `Source ${humanize(extension.sourceKind)}`,
+        ],
+      };
+    case "runtime_bridge":
+      return {
+        tierId: "governed",
+        tierLabel: "Runtime bridge",
+        governedProfileId: extension.governedProfile,
+        governedProfileLabel: governedProfileLabel(extension.governedProfile),
+        summary:
+          "This extension contributes runtime bridge surfaces such as MCP servers or apps in addition to local metadata.",
+        detail:
+          "Bridge packages deserve policy review because they can expand what the runtime can call, not just what it can describe.",
+        signals: [
+          `${extension.contributionCount} contribution${extension.contributionCount === 1 ? "" : "s"}`,
+          extension.sourceLabel,
+          `Trust posture ${humanize(extension.trustPosture)}`,
+        ],
+      };
+    case "local_skill_bundle":
+      return {
+        tierId: "contained_local",
+        tierLabel: "Contained local",
+        governedProfileId: extension.governedProfile,
+        governedProfileLabel: governedProfileLabel(extension.governedProfile),
+        summary:
+          "This extension is currently a local skill bundle without additional runtime bridge surfaces.",
+        detail:
+          "Contained local bundles stay closest to the source registry and mostly expand reusable instructions rather than network-facing authority.",
+        signals: [
+          `${extension.filesystemSkillCount} filesystem skill${extension.filesystemSkillCount === 1 ? "" : "s"}`,
+          extension.sourceLabel,
+          `Trust posture ${humanize(extension.trustPosture)}`,
+        ],
+      };
+    default:
+      return {
+        tierId: "contained_local",
+        tierLabel: "Contained local",
+        governedProfileId: extension.governedProfile,
+        governedProfileLabel: governedProfileLabel(extension.governedProfile),
+        summary:
+          "This extension is a local manifest with limited packaged authority beyond its own files and metadata.",
+        detail:
+          "It stays in the lowest extension-authority class until it adds governed marketplace posture or runtime bridge contributions.",
+        signals: [
+          `${extension.contributionCount} contribution${extension.contributionCount === 1 ? "" : "s"}`,
+          extension.sourceLabel,
+          `Trust posture ${humanize(extension.trustPosture)}`,
+        ],
+      };
+  }
+}
+
 export function loadStoredConnectionDrafts(): StoredConnectionDraft[] {
   if (typeof window === "undefined") return [];
   try {
@@ -133,70 +535,10 @@ export function loadStoredConnectionDrafts(): StoredConnectionDraft[] {
   }
 }
 
-export function loadStoredSkillSwitches(): Record<string, boolean> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(SKILL_SWITCH_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object"
-      ? (parsed as Record<string, boolean>)
-      : {};
-  } catch {
-    return {};
-  }
-}
-
 export function cloneLocalEngineControlPlane(
   controlPlane: LocalEngineControlPlane,
 ): LocalEngineControlPlane {
   return JSON.parse(JSON.stringify(controlPlane)) as LocalEngineControlPlane;
-}
-
-export function skillDetailFromCatalog(
-  entry: SkillCatalogEntry,
-): SkillDetailView {
-  return {
-    skill_hash: entry.skill_hash,
-    name: entry.name,
-    description: entry.description,
-    lifecycle_state: entry.lifecycle_state,
-    source_type: entry.source_type,
-    archival_record_id: entry.archival_record_id,
-    success_rate_bps: entry.success_rate_bps,
-    sample_size: entry.sample_size,
-    source_session_id: entry.source_session_id,
-    source_evidence_hash: entry.source_evidence_hash,
-    relative_path: entry.relative_path,
-    source_registry_id: null,
-    source_registry_label: null,
-    source_registry_uri: null,
-    source_registry_kind: null,
-    source_registry_sync_status: null,
-    source_registry_relative_path: null,
-    stale: entry.stale,
-    used_tools: [entry.definition.name],
-    steps: [],
-    benchmark: {
-      sample_size: entry.sample_size,
-      success_rate_bps: entry.success_rate_bps,
-      intervention_rate_bps: 0,
-      policy_incident_rate_bps: 0,
-      avg_cost: 0,
-      avg_latency_ms: 0,
-      passed: !entry.stale,
-      last_evaluated_height: 0,
-    },
-    markdown: `# ${entry.name}\n\n${entry.description}`,
-    neighborhood: {
-      lens: "skills",
-      title: entry.name,
-      summary: entry.description,
-      focus_id: `skill:${entry.skill_hash}`,
-      nodes: [],
-      edges: [],
-    },
-  };
 }
 
 export function patchMailConnectorFromConfiguredAccount(
@@ -236,50 +578,14 @@ export function patchConnectorFromConfigurationResult(
   );
 }
 
-export function connectionDraftFromCatalog(
-  item: ConnectionCatalogItem,
-): StoredConnectionDraft {
-  if (item.id === "google_workspace") {
-    return {
-      id: "google.workspace",
-      pluginId: "google_workspace",
-      name: item.name,
-      provider: item.provider,
-      category: item.category,
-      description: item.description,
-      authMode: item.authMode,
-      scopes: item.scopes,
-      notes:
-        "Added from the connection catalog. Authorize to activate the full Google capability surface.",
-    };
-  }
-
-  if (item.id === "wallet_mail") {
-    return {
-      id: "mail.primary",
-      pluginId: "wallet_mail",
-      name: item.name,
-      provider: item.provider,
-      category: item.category,
-      description: item.description,
-      authMode: item.authMode,
-      scopes: item.scopes,
-      notes:
-        "Added from the connection catalog. Connect one or more mailbox accounts to activate.",
-    };
-  }
-
+export function templateRecordFromDraft(
+  draft: StoredConnectionDraft,
+): WorkspaceConnectionTemplateRecord {
   return {
-    id: `catalog.${item.id}`,
-    pluginId: item.id,
-    name: item.name,
-    provider: item.provider,
-    category: item.category,
-    description: item.description,
-    authMode: item.authMode,
-    scopes: item.scopes,
-    notes:
-      "Catalog connection staged in the workspace shell. Install or wire the adapter to activate runtime actions.",
+    connector: connectorFromDraft(draft),
+    draft,
+    origin: "workspace_template",
+    source: "custom",
   };
 }
 
@@ -323,28 +629,144 @@ export function providerAccent(provider: string): string {
   }
 }
 
-export function extensionStatusFromConnectors(
-  connectors: ConnectorSummary[],
-  pluginId: string,
+function syntheticFilesystemCatalogEntry(params: {
+  hash: string;
+  name: string;
+  description?: string | null;
+  relativePath?: string | null;
+  stale?: boolean;
+  sourceType: string;
+  lifecycleState: string;
+}): SkillCatalogEntry {
+  return {
+    skill_hash: params.hash,
+    name: params.name,
+    description: params.description ?? "",
+    lifecycle_state: params.lifecycleState,
+    source_type: params.sourceType,
+    success_rate_bps: 0,
+    sample_size: 0,
+    archival_record_id: 0,
+    source_session_id: null,
+    source_evidence_hash: null,
+    relative_path: params.relativePath ?? null,
+    stale: params.stale ?? false,
+    definition: {
+      name: params.name,
+      description: params.description ?? "",
+      parameters: "",
+    },
+  };
+}
+
+export function workspaceSkillFromSkillSource(
+  source: SkillSourceRecord,
+  skill: SkillSourceRecord["discoveredSkills"][number],
+): WorkspaceSkill {
+  const hash = `filesystem:${source.sourceId}:${skill.relativePath}`;
+  const registryEntryId = `filesystem_skill:source:${source.sourceId}:${skill.relativePath
+    .replace(/\\/g, "/")
+    .replace(/^\.?\//, "")
+    .replace(/\/+$/, "")}`;
+  return {
+    hash,
+    registryEntryId,
+    catalog: syntheticFilesystemCatalogEntry({
+      hash,
+      name: skill.name,
+      description: skill.description,
+      relativePath: skill.relativePath,
+      sourceType: "filesystem_source",
+      lifecycleState: source.syncStatus,
+    }),
+    detail: null,
+    detailStatus: "idle",
+    detailError: null,
+    origin: "filesystem",
+    addedBy: source.label,
+    invokedBy: source.enabled
+      ? "Available once the runtime attaches this source"
+      : "Source disabled",
+    sourceId: source.sourceId,
+    sourceLabel: source.label,
+    sourceUri: source.uri,
+    sourceKind: source.kind,
+    syncStatus: source.syncStatus,
+    relativePath: skill.relativePath,
+  };
+}
+
+export function workspaceSkillFromExtensionManifest(
+  manifest: ExtensionManifestRecord,
+  skill: ExtensionManifestRecord["filesystemSkills"][number],
+  sourceId?: string | null,
+): WorkspaceSkill {
+  const hash = `filesystem:${manifest.extensionId}:${skill.relativePath}`;
+  const registryEntryId = `filesystem_skill:extension:${manifest.extensionId}:${skill.relativePath
+    .replace(/\\/g, "/")
+    .replace(/^\.?\//, "")
+    .replace(/\/+$/, "")}`;
+  return {
+    hash,
+    registryEntryId,
+    catalog: syntheticFilesystemCatalogEntry({
+      hash,
+      name: skill.name,
+      description: skill.description ?? manifest.description,
+      relativePath: skill.relativePath,
+      sourceType: "extension_manifest",
+      lifecycleState: manifest.enabled ? "discovered" : "disabled",
+    }),
+    detail: null,
+    detailStatus: "idle",
+    detailError: null,
+    origin: "filesystem",
+    addedBy: manifest.displayName ?? manifest.name,
+    invokedBy: manifest.enabled
+      ? "Packaged in a local extension manifest"
+      : "Extension source disabled",
+    sourceId,
+    sourceLabel: manifest.sourceLabel,
+    sourceUri: manifest.sourceUri,
+    sourceKind: manifest.sourceKind,
+    syncStatus: manifest.enabled ? "ready" : "disabled",
+    relativePath: skill.relativePath,
+    extensionId: manifest.extensionId,
+    extensionDisplayName: manifest.displayName ?? manifest.name,
+  };
+}
+
+export function extensionStatusLabel(
+  manifest: ExtensionManifestRecord,
 ): string {
-  const matching = connectors.filter(
-    (connector) => connector.pluginId === pluginId,
-  );
-  if (matching.some((connector) => connector.status === "connected")) {
-    return "Installed";
+  if (!manifest.enabled) {
+    return "Source disabled";
   }
-  if (matching.some((connector) => connector.status === "degraded")) {
-    return "Needs attention";
+  if (manifest.marketplaceInstallationPolicy) {
+    const installation = humanize(manifest.marketplaceInstallationPolicy);
+    const authentication = manifest.marketplaceAuthenticationPolicy
+      ? humanize(manifest.marketplaceAuthenticationPolicy)
+      : null;
+    return authentication
+      ? `${installation} · ${authentication}`
+      : installation;
   }
-  return "Ready";
+  if (manifest.filesystemSkills.length > 0) {
+    return `${manifest.filesystemSkills.length} filesystem skill${manifest.filesystemSkills.length === 1 ? "" : "s"}`;
+  }
+  return humanize(manifest.trustPosture);
 }
 
 export function groupLabelForConnection(
   connector: ConnectorSummary,
-  origin: ConnectionOrigin,
 ): string {
-  if (origin === "workspace") return "Workspace planned";
   if (connector.status === "connected") return "Connected";
   if (connector.status === "degraded") return "Needs attention";
   return "Not connected";
+}
+
+export function templateLabelForConnection(
+  template: WorkspaceConnectionTemplateRecord,
+): string {
+  return template.draft.availabilityLabel ?? "Planning template";
 }

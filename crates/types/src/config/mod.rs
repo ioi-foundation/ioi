@@ -937,6 +937,7 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         "connector_auth_list@v1",
         "connector_auth_export@v1",
         "connector_auth_import@v1",
+        "upsert_policy_rule@v1",
         "mail_connector_upsert@v1",
         "mail_connector_get@v1",
         "mail_connector_ensure_binding@v1",
@@ -1173,6 +1174,25 @@ fn default_round_robin_view_timeout_secs() -> u64 {
 fn default_query_gas_limit() -> u64 {
     1_000_000_000
 }
+
+#[cfg(test)]
+mod tests {
+    use super::default_service_policies;
+
+    #[test]
+    fn wallet_network_policy_exposes_policy_rule_upsert() {
+        let policies = default_service_policies();
+        let wallet = policies
+            .get("wallet_network")
+            .expect("wallet_network service policy should exist");
+
+        assert!(
+            wallet.methods.contains_key("upsert_policy_rule@v1"),
+            "wallet_network ActiveServiceMeta must advertise upsert_policy_rule@v1",
+        );
+    }
+}
+
 fn default_tls_transcript_version() -> u32 {
     1
 }

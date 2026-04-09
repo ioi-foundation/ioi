@@ -22,6 +22,7 @@ It is:
 - a kernel-native fabric for canonical operations and object state
 - a projection system that materializes app-facing read models
 - a receiptable query surface for agentic and user-facing applications
+- a shared substrate for runs, tasks, approvals, artifacts, promotions, and durable knowledge
 - the durable authority layer for IOI-native apps that would otherwise default to Postgres/Supabase
 - when anchored on IOI mainnet, part of a larger `L0` story for global `ai://` registry, publication, and trust roots
 
@@ -45,7 +46,11 @@ This spec adopts the following position:
 
 - `Yes`: build `FQF` as the shared canonical state and projection fabric for IOI-native apps.
 - `No`: do not reintroduce `SCS` as a separate context plane; live product memory uses `ioi-memory`.
+- `Yes`: let shared durable knowledge evolve toward wiki-shaped canonical objects, artifact references, and projections where that materially improves portability, provenance, and cumulative value.
+- `Yes`: support artifact privacy classes where public availability of ciphertext is separable from plaintext readability.
 - `Yes`: support React apps via local-first app stores plus `FQF` sync/query/mutation.
+- `No`: do not put working-memory scratch state, execution-local caches, or enrichment internals on the canonical hot path.
+- `No`: do not silently promote ephemeral gig/task data into shared canonical wiki state.
 - `No`: do not make every query, cache, or UI interaction part of canonical state.
 - `No`: do not turn `FQF` into a universal replacement for every database workload.
 
@@ -167,6 +172,105 @@ and what can move cleanly across serving nodes.
    but "what canonical state, capability surface, and proof surface authorized
    this action?"
 
+## 3.2 Why This Gets Stronger For Wiki-Shaped Knowledge Systems
+
+A living knowledge base built by agents has a different shape than ordinary CRUD
+software.
+
+It wants:
+
+- raw source files to remain inspectable artifacts
+- compiled wiki pages to accumulate rather than disappear into transient chat
+- backlinks, citations, and lineage to remain first-class
+- every answer, report, slide deck, or plot to be fileable back into the corpus
+- large derived views and retrieval indexes to move across nodes without hidden glue
+
+`FQF` becomes stronger when viewed through that lens because:
+
+1. Knowledge becomes canonical as objects plus artifacts, not as opaque prompt
+   residue.
+
+   Raw sources, wiki documents, wiki revisions, generated reports, and filed-back
+   answers can all share one authority model: immutable artifacts referenced by
+   canonical objects with explicit lineage.
+
+2. The "every answer makes the wiki smarter" loop becomes structurally native.
+
+   Outputs do not need to terminate as terminal text. They can become new
+   artifacts and revisions with explicit provenance, subscriptions, and
+   visibility policy.
+
+3. Backlinks, citation graphs, topic indexes, and stale-page queues become
+   normal projections instead of one-off product glue.
+
+   The wiki therefore benefits directly from the same projection portability,
+   resumable subscriptions, and checkpoint transport that make `FQF` attractive
+   for other IOI-native applications.
+
+4. Enrichment fits the design doctrine cleanly if it stays derived.
+
+   Chunking, summaries, embeddings, link suggestion, contradiction scans, and
+   retrieval candidate generation belong on the near-hot or async derived path,
+   not on the canonical commit path.
+
+5. Multi-node knowledge serving becomes more credible.
+
+   Large wiki-shaped corpora can move across nodes through shared artifacts,
+   projection checkpoints, and delta replay rather than full recomputation from
+   raw history on every serving node.
+
+## 3.3 Why This Must Be Broader Than A Knowledge Base
+
+The wiki-shaped knowledge story is powerful, but it is not sufficient by itself.
+
+If `FQF` is going to become the default authority layer for IOI-native
+applications, it must model general agentic work just as naturally as it models
+durable knowledge.
+
+That means treating these as first-class concerns too:
+
+- tasks and work orders
+- runs and long-lived execution state
+- approvals, reviews, and checkpoints
+- branches, drafts, and promotion requests
+- evidence bundles, generated outputs, and export artifacts
+- recurring automations, gig executions, and marketplace work products
+
+The broader architectural claim is:
+
+1. The same substrate should support both "do work" and "remember work."
+
+   Agentic systems do not divide cleanly into operational state on one side and
+   knowledge state on the other. Runs produce artifacts, artifacts become
+   evidence, evidence becomes reusable knowledge, and reusable knowledge shapes
+   future runs.
+
+2. Promotion between scopes is a general primitive, not a wiki-only primitive.
+
+   Local scratch output, session collaboration output, reviewed shared work
+   products, and durable published knowledge should all use one consistent
+   promotion model governed by policy.
+
+3. Artifact-native execution is a broader advantage than knowledge management.
+
+   Reports, traces, notebooks, generated code bundles, spreadsheets, screenshots,
+   receipts, and compiled wiki pages are all better modeled as artifacts plus
+   canonical references than as oversized row payloads or opaque blob sidecars.
+
+4. Projection-backed work surfaces are as important as knowledge surfaces.
+
+   Task queues, approval inboxes, run timelines, review lanes, branch views,
+   operator dashboards, and deployment boards should be normal `FQF`
+   projections, not bespoke backend glue.
+
+5. The architecture should make it easy to stay ephemeral, become collaborative,
+   or become durable.
+
+   A private gig can remain local. A collaborative run can live at session
+   scope. A reviewed output can be promoted to shared operational state. A
+   durable result can later become shared knowledge. That progression is the
+   real power of the fabric.
+
 ## 4. Core Thesis
 
 Traditional application stacks treat:
@@ -239,19 +343,39 @@ The storage crate already separates:
 - canonical durability and projection durability may have different cadences so long as replay and checkpoint semantics remain sound
 - compaction, checkpointing, and archival must not sacrifice canonical reproducibility, replay integrity, or auditability
 
-## 5.3 SCS
+## 5.3 `ioi-memory` and the Path to `ioi-wiki`
 
-`SCS` remains the context plane.
+`ioi-memory` is the live runtime-backed memory substrate today.
 
-It already owns:
+It currently owns or stages:
 
-- append-only memory frames
-- `ContextSlice`
-- mHNSW retrieval
-- retrieval proof/certification
-- scrub-on-export / PII airlock semantics
+- thread checkpoints and transcript hydration
+- working/core memory sections
+- archival records and retrieval inputs
+- local artifact and evidence blobs
+- enrichment job staging and execution-local caches
 
-`FQF` must reference SCS interactions, not absorb SCS itself.
+Important subsets of that surface may evolve into broader shared work and
+wiki-shaped knowledge subsystems over time.
+
+That future shape would promote shared, durable, inspectable work and knowledge into:
+
+- task, run, review, and promotion objects
+- wiki spaces, documents, and revisions
+- source manifests and ingestion lineage
+- citation, backlink, and derived-from edges
+- generated reports, slide decks, plots, and filed-back answers
+- knowledge-oriented projection checkpoints and sync surfaces
+
+Boundary rule:
+
+- local working memory, transient execution state, and execution-local caches remain runtime-owned
+- shared durable work or knowledge that must survive across nodes should graduate into canonical `FQF` objects plus artifact references and projections
+- enrichment outputs such as summaries, embeddings, link suggestions, contradiction scans, and retrieval candidate sets remain derived artifacts unless explicitly promoted by policy
+
+`FQF` should therefore integrate cleanly with `ioi-memory` as it exists today
+while leaving room for a future `ioi-wiki` evolution that makes wiki-shaped
+knowledge a first-class product surface.
 
 ## 6. Performance Design Doctrine
 
@@ -306,6 +430,7 @@ Should not include by default:
 - expensive proof construction
 - analytical aggregation
 - semantic candidate generation
+- wiki compilation from raw sources
 - broad cache invalidation sweeps
 
 ### Near-Hot Path
@@ -318,6 +443,8 @@ Examples:
 - lightweight index updates
 - changefeed publication
 - checkpoint scheduling
+- backlink/citation delta application
+- source-ingest metadata updates
 
 ### Async Derived Path
 
@@ -329,6 +456,10 @@ Examples:
 - graph recomputation
 - ranking refreshes
 - recommendation candidate generation
+- wiki page compilation and refiling
+- summary, entity, and fact extraction
+- embedding refresh and retrieval candidate generation
+- link suggestion and inconsistency scans
 - proof-ready export bundles
 - analytical summaries
 
@@ -416,15 +547,20 @@ It should be the authority for:
 
 - service publication
 - version activation
+- task and recurring-work definitions
+- execution intents, requests, and receipts
+- run and workflow state
+- branch and promotion state
 - deployment pointers
 - install events
-- run state
 - approvals and capability leases
+- policy definitions and important policy decisions
 - billing events
 - moderation events
 - listing and marketplace state
 - tenant bindings
 - artifact references
+- artifact bundles and evidence sets
 - projection definitions and checkpoints
 - subscription definitions
 
@@ -467,13 +603,27 @@ Example object classes:
 
 - `Service`
 - `Version`
+- `Task`
+- `Intent`
+- `Workspace`
 - `Run`
+- `Worker`
 - `Receipt`
+- `ExecutionRequest`
+- `ExecutionLease`
+- `ExecutionReceipt`
 - `Approval`
+- `Review`
+- `SessionBranch`
 - `CapabilityLease`
+- `PolicyDecision`
 - `TenantBinding`
 - `Listing`
 - `ArtifactRef`
+- `ArtifactBundle`
+- `EvidenceSet`
+- `PromotionRequest`
+- `RepairTicket`
 - `DeploymentPointer`
 - `ProjectionDefinition`
 - `ProjectionCheckpoint`
@@ -482,6 +632,132 @@ Example object classes:
 Primary property:
 
 - object-first truth, not row-first truth
+
+### Concurrency and Merge Classes
+
+`FQF` should not leave concurrency semantics implicit at the application layer.
+
+Every canonical object class should declare one of a small number of explicit
+concurrency classes:
+
+- `append_only`: facts and events accumulate without in-place overwrite
+- `compare_and_set_head`: a canonical head advances only from an expected prior
+  version or anchor
+- `lease_governed`: mutation requires a valid claim, approval, or exclusive
+  lease for a bounded time window
+- `branch_and_merge`: drafts may diverge and later merge through explicit merge
+  policy
+- `proposal_and_promotion`: state may be proposed freely, but shared canonical
+  adoption requires review or promotion policy
+
+Default architectural rule:
+
+- high-value work and knowledge objects must not silently rely on generic
+  last-write-wins semantics
+
+Examples:
+
+- run events, source-ingest events, and receipts are usually `append_only`
+- task heads, run heads, deployment pointers, and wiki page heads are usually
+  `compare_and_set_head`
+- approvals, execution claims, and worker ownership are usually
+  `lease_governed`
+- drafts, plans, wiki revisions, and collaborative outputs may be
+  `branch_and_merge`
+- local/session artifacts and proposed outputs that want to become shared truth
+  are `proposal_and_promotion`
+
+Conflict material should be explicit:
+
+- expected prior head or version
+- branch lineage or merge base
+- conflict policy id
+- actor capability scope
+- review or approval references when required
+
+The point is not to eliminate conflict. The point is to make conflict handling a
+protocol property instead of hidden backend behavior.
+
+### Promotion Protocol
+
+Promotion between scopes should be a first-class protocol, not an application
+convention.
+
+Any movement from:
+
+- local to session
+- local or session to shared operational state
+- local or session to shared wiki knowledge
+- private to shared encrypted
+- shared work product to durable published knowledge
+
+should be modeled as an explicit promotion flow.
+
+A promotion request should bind:
+
+- source scope
+- target scope
+- source object refs and/or artifact bundle refs
+- requested canonical mutations
+- requested privacy-class or retention changes
+- policy hash
+- requested reviewers or approvers when required
+- reason, automation source, or upstream run reference
+
+Promotion results should be explicit:
+
+- accepted
+- rejected
+- needs review
+- needs additional evidence
+- expired
+
+Promotion rule:
+
+- shared canonical work state and shared durable knowledge must not be created
+  by silent scope leakage
+- promotion is the protocol boundary that turns useful local/session work into
+  durable shared truth
+
+When important, promotion should emit a receipt that explains:
+
+- what moved
+- why it was admissible
+- what policy authorized it
+- what new shared objects or heads were created
+
+### Bundle and Evidence Model
+
+Agentic work rarely produces only one file at a time.
+
+`FQF` should therefore treat bundles and evidence sets as first-class objects
+above individual artifact refs.
+
+`ArtifactBundle` is the portable grouping object for related immutable payloads,
+such as:
+
+- screenshots, traces, and logs from one run
+- notebook, report, and chart outputs from one analysis
+- draft wiki revisions plus source excerpts and generated images
+- export packages for delivery or handoff
+
+An `ArtifactBundle` should bind:
+
+- stable bundle id
+- member artifact refs by role
+- manifest or index artifact when present
+- source run/task/review/promotion refs
+- privacy class and serving policy
+
+`EvidenceSet` is the semantic binding object that says which bundles, receipts,
+and references support a claim, execution result, review, or promotion.
+
+Design rule:
+
+- reviews, exports, promotions, and high-value outputs should point at bundles
+  or evidence sets rather than loose file lists
+- bundle transport and verification should reuse the same artifact-by-hash
+  discipline as single artifacts
 
 ## L2. Blob / Artifact Substrate
 
@@ -506,6 +782,73 @@ The kernel stores:
 Primary property:
 
 - artifacts are verified by hash, not trusted by provider
+
+### Artifact Privacy Classes
+
+`FQF` should treat artifact privacy as a first-class contract, not an
+application afterthought.
+
+At minimum, artifact refs should support these privacy classes:
+
+- `local_ephemeral`: runtime-local artifacts used for scratch work, private gigs,
+  or teardown-oriented execution; not replicated or promoted by default
+- `scoped_private`: encrypted artifacts intended for one runtime, tenant, or
+  bounded collaboration scope
+- `shared_encrypted`: ciphertext may be fetched, cached, mirrored, or served
+  widely by hash, while plaintext remains restricted by access policy and key
+  release policy
+- `public_plaintext`: readable by anyone with the artifact reference
+
+Core rule:
+
+- artifact availability and artifact readability are separate concerns
+- public or semi-public availability of ciphertext must not be mistaken for
+  public readability of plaintext
+
+### Key Release and Decryption Semantics
+
+Artifact privacy should compose with the IOI capability plane rather than
+inventing a separate secret model.
+
+Implementation direction:
+
+- canonical state binds the artifact hash, privacy class, access policy, and
+  key-envelope or equivalent decryption policy reference
+- decryption rights should be released through capability-, lease-, or
+  approval-bound flows rather than static node-local session memory
+- trusted runtimes should prefer transient unwrap or operation-scoped decrypt
+  capability over exporting long-lived raw keys to untrusted agents
+- revocation should govern future key release even though it cannot revoke
+  plaintext already disclosed to an authorized reader
+
+This is where `wallet.network`-style capability control becomes particularly
+useful: the artifact can be durable and portable while plaintext access remains
+policy-bounded, auditable, and revocable for future reads.
+
+### Metadata Leakage and Privacy Limits
+
+Encrypted artifacts still leak some things unless the system explicitly works to
+hide them.
+
+Likely residual leakage includes:
+
+- artifact existence
+- rough size
+- creation/update timing
+- linkage between repeated references to the same ciphertext
+- access-pattern hints from reads or checkpoint movement
+
+Therefore:
+
+- `FQF` should support metadata classes and minimal-metadata artifact refs
+- size padding and delayed publication should be available for sensitive domains
+- the architecture must not overclaim privacy just because payload bytes are encrypted
+
+V1 recommendation:
+
+- do not require searchable encryption or public proof of hidden plaintext
+- instead allow authorized runtimes to decrypt within policy and build scoped
+  projections or retrieval views from plaintext when necessary
 
 ## L3. FQF Core
 
@@ -537,8 +880,10 @@ Exposes:
 
 - typed queries
 - typed mutations
+- typed execution requests
 - subscriptions/changefeeds
 - capability-scoped reads
+- policy and promotion explanations
 - provenance-aware reads
 - optional SQL compatibility
 - optional GraphQL-like adapters
@@ -546,6 +891,72 @@ Exposes:
 Primary property:
 
 - developer and agent ergonomics
+
+### Unified Policy Decision Surface
+
+`FQF` should not fragment policy evaluation across unrelated subsystems.
+
+The same decision surface should govern:
+
+- read visibility
+- execution authorization
+- decryption and key release
+- promotion eligibility
+- export or share permissions
+- retention and teardown obligations
+- repair permissions for sensitive domains
+
+When a decision matters, the system should be able to surface a structured
+`PolicyDecision` binding:
+
+- subject or actor
+- action
+- resource or object set
+- scope
+- policy hash
+- constraints and approvals considered
+- decision result
+- expiry or reevaluation horizon
+
+Design rule:
+
+- if an action can be denied, promoted, decrypted, exported, or billed, it
+  should be explainable through the same policy surface
+
+### Execution and Side-Effect Model
+
+General agentic systems do not stop at data mutation. They request and perform
+side effects.
+
+`FQF` should treat side-effecting work as a first-class protocol flow:
+
+1. declare intent
+2. create an `ExecutionRequest`
+3. obtain any required approvals or `ExecutionLease`
+4. perform the attempt under idempotency and budget rules
+5. emit an `ExecutionReceipt`
+6. optionally promote the result into shared operational state or knowledge
+
+An execution request should bind:
+
+- target service, tool, or capability
+- idempotency key
+- effect class and risk class
+- input object refs and/or bundle refs
+- budget class
+- expected output refs or output policy
+- rollback hint or compensation strategy when applicable
+
+Execution rule:
+
+- canonical mutation and external side effect must not be conflated
+- sensitive execution should require narrow approval or lease artifacts even
+  when normal reads and subscriptions use portable runtime tokens
+- side effects should be idempotent, compensatable, or receipted strongly
+  enough that replay and retry behavior are well-defined
+
+This is one of the main differences between a good state fabric and a superior
+agentic runtime.
 
 ## L5. Extensibility Layer
 
@@ -562,20 +973,25 @@ Primary property:
 
 - extensibility without turning the kernel into "just another contract host"
 
-## Separate Plane. SCS
+## Separate Plane. Runtime Working Memory and Knowledge Enrichment
 
 Owns:
 
-- semantic memory
-- context slices
-- retrieval proofs
-- redaction lineage
-- retention classes
-- tombstones and key shredding semantics
+- thread checkpoints and transcript hydration
+- working/core memory sections and runtime registers
+- execution-local cache entries
+- local mirrors, compaction state, and transient worker state
+- enrichment staging, embeddings, and retrieval inputs before promotion
+- local privacy and redaction handling for runtime-owned data
 
 Primary property:
 
-- what the agent can know
+- what the runtime is currently doing and what the agent is working on right now
+
+Boundary note:
+
+- shared durable wiki knowledge may graduate into `FQF`
+- local working memory must not be forced into canonical truth just because it is useful to the runtime
 
 ## 12. Fractal Scope Model
 
@@ -592,6 +1008,9 @@ Examples:
 - local receipts
 - local dashboards
 - local projections
+- local run branches
+- private gig/task execution
+- local encrypted artifacts pending teardown
 
 ## 12.2 Session Scope
 
@@ -602,12 +1021,15 @@ Examples:
 - session-scoped projections
 - short-lived subscriptions
 - shared task state
+- collaborative run and review state
+- bounded private collaboration over encrypted artifacts
 
 ## 12.3 Global Scope
 
 Examples:
 
 - service publication
+- published automations and marketplace gigs
 - marketplace state
 - version anchors
 - billing commitments
@@ -623,6 +1045,7 @@ The semantics should remain stable across scopes; only these vary:
 - latency profile
 - proof requirements
 - serving topology
+- promotion policy
 
 ## 13. Projection Families
 
@@ -702,8 +1125,8 @@ For:
 
 Note:
 
-- semantic memory itself stays in `SCS`
-- `FQF` may still maintain semantic projections over canonical object metadata
+- embeddings, semantic candidate sets, and retrieval inputs may live in `ioi-memory` or a successor runtime knowledge layer until explicitly promoted
+- `FQF` may still maintain semantic projections over canonical object metadata, artifact manifests, and promoted knowledge nodes
 
 ## 13.5 Capability Projections
 
@@ -734,6 +1157,42 @@ For:
 - install status
 - cross-device synchronization views
 
+## 13.8 Workflow / Workcell Projections
+
+For:
+
+- task queues and work boards
+- run and worker timelines
+- approval/review inboxes
+- branch and promotion views
+- operator and supervisor dashboards
+- deployment and handoff surfaces
+
+Doctrine:
+
+- the same projection runtime that serves wiki views should also serve work
+  execution views
+- operational projections should remain portable, resumable, and policy-scoped
+
+## 13.9 Wiki / Knowledge Projections
+
+For:
+
+- wiki page and revision heads
+- backlink and citation views
+- concept/topic indexes
+- source coverage and lineage dashboards
+- stale-page queues
+- output filing and review views
+- wiki synchronization feeds
+
+Doctrine:
+
+- raw files live as artifacts
+- shared wiki documents and revisions become canonical objects when they matter as shared truth
+- retrieval, search, recommendation, and enrichment views over the wiki remain projections unless promoted by policy
+- private or gig-oriented outputs should remain local or session-scoped unless explicitly promoted
+
 ## 14. Query Model
 
 ## 14.1 Query Families
@@ -762,6 +1221,33 @@ Examples:
 - which artifacts are visible to this tenant
 - which actions are allowed under this lease
 
+### Workflow-Native Queries
+
+Examples:
+
+- what is blocked, pending review, or ready to run
+- what changed in this branch since the last approval
+- which artifacts and receipts were produced by this run
+- what should be promoted from session scope to shared scope
+
+### Execution-Native Queries
+
+Examples:
+
+- which execution requests are runnable under current policy and budget
+- why did this run stall, retry, or require escalation
+- what side effects were attempted, committed, compensated, or abandoned
+- which outputs belong to this execution receipt or evidence set
+
+### Policy and Promotion Queries
+
+Examples:
+
+- why was this action, decrypt, or export denied
+- why was this promotion rejected or held for review
+- which approvals or leases are still missing
+- what would change if this bundle were promoted to shared scope
+
 ### Hybrid Symbolic + Semantic Queries
 
 Examples:
@@ -769,6 +1255,15 @@ Examples:
 - exact filters plus semantic ranking
 - structured lookup plus candidate expansion
 - deterministic constraints plus retrieval shortlist
+
+### Knowledge-Native Queries
+
+Examples:
+
+- what sources support this page or answer
+- what changed since this wiki revision
+- which pages should be updated because this source changed
+- find contradictions, missing links, or stale summaries
 
 ### Subscription-Native Queries
 
@@ -854,8 +1349,8 @@ Prove the query execution or critical ranking result.
 
 Important alignment note:
 
-- current `SCS` retrieval is stricter than this and already certifying by default
-- `FQF` should not weaken the `SCS` retrieval contract
+- parts of the repo's retrieval history have explored stricter certifying modes for proof-sensitive cases
+- `FQF` should not weaken any retrieval mode that explicitly claims certification, evidence binding, or proof-sensitive semantics
 
 ## 16. Indexes as Protocol Objects
 
@@ -891,8 +1386,39 @@ Guidance:
 - the protocol should avoid requiring repeated full-payload serialization for large projection snapshots or replay windows
 - canonical mutations should carry bounded metadata and references to large artifacts rather than embedding large payloads directly in the hot path
 - projection computation, checkpoint restore, ranking refresh, and read-heavy serving should preferentially execute where required canonical batches, checkpoints, or artifacts are already available
+- encrypted artifact payloads should move independently of decryption rights
+- decryption material or unwrap grants should travel only through the capability-controlled path, not inside bulk artifact transport
 
 This discipline matters if `FQF` wants to preserve the kernel's transport gains instead of wrapping them in expensive serialization ceremony.
+
+### Workload Scheduling and Budget Discipline
+
+`FQF` also needs explicit workload control if it wants to be a better runtime,
+not just a richer storage model.
+
+At minimum, these work classes should have independently observable queues,
+budgets, and degradation rules:
+
+- canonical ingress
+- projection maintenance
+- subscription delivery
+- checkpoint publication and restore
+- enrichment and semantic indexing
+- execution attempts
+- proof-heavy queries
+- decryption and key release
+- export and promotion work
+- teardown and repair work
+
+Budget rule:
+
+- execution requests and heavy queries should declare a budget class
+- overload should degrade enrichment, rebuild, export, and proof-heavy work
+  before it compromises canonical correctness or basic subscription continuity
+- budget exhaustion must be visible to operators and explainable to agents
+
+This keeps the system honest under pressure instead of pretending every queue is
+equally important.
 
 ## 18. React Application Model
 
@@ -928,6 +1454,12 @@ The local store owns:
 - subscriptions
 - capabilities and receipts
 
+Promotion and privacy rule:
+
+- local work should remain local by default
+- private gig/task flows may complete entirely in local or session scope
+- moving outputs into shared wiki state or shared encrypted artifacts must be an explicit promotion step
+
 Client continuity rule:
 
 - the local-first client store should be treated as the first read replica for interactive UX
@@ -942,7 +1474,7 @@ The replacement stack is:
 - kernel runtime
 - `FQF` for canonical authority
 - blob/artifact substrate for immutable assets
-- optional `SCS` for agent memory
+- runtime working memory via `ioi-memory` or its successor knowledge-runtime surface
 
 That is the right substitution target, not "Postgres for everything."
 
@@ -953,9 +1485,13 @@ This only works if all apps share one app-facing runtime:
 - typed schemas
 - query client
 - mutation queue
+- execution client
+- promotion client
 - subscription client
 - optimistic update support
 - invalidation and sync rules
+- bundle hydration and materialization rules
+- policy explanation surfaces
 - auth/capability scoping
 
 Without that, each app will rebuild ad hoc client infrastructure and the paradigm shift will fail operationally.
@@ -1327,6 +1863,85 @@ Failover path:
 5. Otherwise it serves a verified checkpoint rebase and then continues the live stream.
 6. User keeps the same logical app session without depending on one runtime node or one Postgres instance.
 
+## 21.6 Repair, Reconciliation, and Drift Control
+
+Portable projections and artifact-backed execution make repair a normal part of
+the runtime, not an embarrassment to hide.
+
+Failure and drift surfaces include:
+
+- projection lag or corruption
+- stuck or replay-expired subscriptions
+- missing artifact replicas or incomplete bundles
+- failed decrypt or key-release paths
+- promotion requests that lost required evidence or approvals
+- local/session teardown that did not complete on schedule
+- divergent local caches after reconnect
+
+The architecture should support explicit repair flows such as:
+
+- replay missing deltas
+- rebase from checkpoint
+- rebuild projection from canonical history
+- rehydrate missing bundle members
+- reevaluate policy or approval state
+- retry, cancel, or expire promotion requests
+- garbage collect expired local artifacts and execution-local state
+
+When repair matters operationally, it should be visible as a protocol object or
+ticket, not only as a hidden log line.
+
+Each serving domain should expose:
+
+- repair backlog by class
+- oldest unresolved drift age
+- last successful checkpoint validation
+- last successful teardown sweep
+- artifact completeness by bundle class
+
+Rule:
+
+- the system should be able to explain not only normal reads and writes, but
+  also why a degraded surface is degraded and what repair path is in flight
+
+## 21.7 Compatibility Profiles and Rolling Upgrades
+
+The spec is now broad enough that it should distinguish mandatory core behavior
+from optional extension profiles.
+
+Core portable profile:
+
+- canonical objects and operation replay
+- artifact refs and bundle refs
+- projection definitions, checkpoints, and resumable subscriptions
+- portable session/capability tokens
+- promotion protocol
+- execution requests and receipts
+- policy decision explanations
+
+Optional extension profiles:
+
+- encrypted artifact and key-release profile
+- proof-sensitive query and receipt profile
+- semantic or enrichment-heavy projection profile
+- large-checkpoint and bulk-transport profile
+
+Every runtime node should advertise:
+
+- supported protocol version
+- supported profile set
+- projection and query family versions
+- incompatible feature gates, if any
+
+Rolling upgrade rule:
+
+- nodes may serve the same logical instance only when their overlapping profile
+  set is sufficient for the requested operation
+- profile mismatches must fail explicitly rather than silently misinterpreting
+  checkpoints, tokens, or bundle semantics
+- upgrade boundaries should prefer checkpoint publish and version pinning over
+  ad hoc mixed semantics
+
 ## 22. What FQF Replaces
 
 ## 22.1 Canonical Domains
@@ -1335,14 +1950,25 @@ These should move into kernel-native canonical object state:
 
 - service publication
 - version activation
+- task templates and recurring-work definitions
+- execution intents, requests, leases, and receipts
+- run state and workflow checkpoints
 - installs
 - approvals
 - capability leases
+- policy definitions and important policy decisions
+- branch, review, and promotion state
 - billing events
 - moderation decisions
 - deployment pointers
 - marketplace listing state
 - tenant bindings
+- wiki spaces and knowledge namespaces
+- wiki document identities and revision heads
+- source manifests and ingestion lineage
+- citation/backlink/derived-from edges
+- bundle and evidence-set identities
+- output filing and publication state
 
 ## 22.2 Derived Read Models
 
@@ -1350,11 +1976,21 @@ These should be maintained as `FQF` projections:
 
 - dashboards
 - search/filter views
+- task queues and approval inboxes
+- run timelines and worker views
+- execution queues and attempt views
+- branch and promotion boards
+- policy explanation and promotion review views
 - billing summaries
 - moderation queues
 - ranking/search outputs
 - provider/admin views
 - cross-device sync views
+- backlink and citation views
+- topic and lineage graphs
+- stale-page and review queues
+- source coverage dashboards
+- knowledge sync and recent-changes feeds
 
 ## 22.3 Blobs
 
@@ -1366,7 +2002,13 @@ These stay in the artifact substrate:
 - screenshots
 - generated reports
 - evidence bundles
+- execution traces and delivery packages
 - media
+- source articles, papers, datasets, and downloaded media
+- wiki markdown revisions
+- generated slide decks and plots
+- notebooks, code bundles, and structured work products
+- encrypted gig/task outputs that are portable but not publicly readable
 
 ## 23. Performance-Sensitive Canonical Mutation Classes
 
@@ -1379,10 +2021,13 @@ Not all canonical mutations should be treated as the same throughput class.
 Examples:
 
 - run events
+- task state transitions
 - billing events
 - moderation events
 - subscription changes
 - activity feeds
+- wiki revision events
+- source-ingest events
 
 Target behavior:
 
@@ -1396,9 +2041,14 @@ Examples:
 
 - service state
 - version activation
+- task heads
+- run heads
 - tenant bindings
 - approvals
 - capability leases
+- wiki page heads
+- publication pointers
+- merge and review state
 
 Target behavior:
 
@@ -1425,8 +2075,11 @@ Target behavior:
 
 - local UI stores
 - temporary offline caches
+- runtime working-memory sections and transcript checkpoints
+- execution-local caches and staging queues
+- the actual external systems invoked by execution requests
+- the capability-control plane that governs key release and sensitive approvals
 - specialized low-level analytics engines where appropriate
-- `SCS`
 - all forms of object/blob storage
 
 ## 25. Applicability
@@ -1486,6 +2139,46 @@ Potential projections:
 - billing views
 - admin and moderation screens
 
+## 25.4 General Agentic Workflows
+
+Potential canonical state:
+
+- task definitions and run state
+- execution requests and receipts
+- branch, review, and promotion state
+- approvals and capability leases
+- operator handoff state
+- output artifact refs and export state
+
+Potential projections:
+
+- task queues and kanban-style work boards
+- run histories and worker timelines
+- execution queues, receipts, and escalation views
+- approval/review inboxes
+- branch, diff, and promotion views
+- operator dashboards and escalation views
+
+## 25.5 Wiki-Shaped Knowledge Bases
+
+Potential canonical state:
+
+- wiki spaces and access policy
+- document identities and revision heads
+- source manifests and ingestion lineage
+- citation/backlink/derived-from edges
+- output filing and review state
+- promotion policies for private vs shared artifacts
+
+Potential projections:
+
+- compiled wiki page views
+- backlink and citation graphs
+- concept/topic maps
+- stale-page and contradiction queues
+- source coverage dashboards
+- hybrid symbolic + semantic knowledge views
+
 ## 26. Migration Strategy
 
 ## 26.1 Phase 1. Canonical Truth First
@@ -1493,10 +2186,15 @@ Potential projections:
 Move durable business truth to kernel-native state for:
 
 - services and versions
+- tasks, runs, branches, and approvals
+- execution requests, receipts, and policy decisions
 - approvals and leases
 - receipts
 - installs
 - billing and moderation events
+- wiki space and document identities
+- revision heads and source manifests
+- artifact privacy-class and promotion-policy bindings
 
 Use simple derived query layers initially.
 
@@ -1509,12 +2207,18 @@ Introduce:
 - projection checkpoints
 - subscriptions/changefeeds
 - typed React bindings
+- task, run, approval, and promotion projections
+- execution, policy, and repair projections
+- wiki index, backlink, and lineage projections
+- knowledge-oriented sync feeds
+- privacy-class-aware artifact refs and transport
 
 Target:
 
 - `Autopilot`
 - `aiagent.xyz`
 - `sas.xyz`
+- emerging wiki-shaped knowledge surfaces
 
 ## 26.3 Phase 3. Supabase/Postgres Authority Displacement
 
@@ -1524,6 +2228,8 @@ At this point:
 
 - Postgres may still exist as compatibility or reporting infrastructure
 - but it is no longer the primary source of truth
+- `ioi-memory` becomes increasingly local/runtime-facing as shared durable knowledge moves into canonical wiki objects, artifact refs, and projections
+- private gig/task flows can stay local or session-scoped without creating durable shared wiki residue unless promoted
 
 ## 26.4 Phase 4. Proof-Sensitive Views
 
@@ -1534,6 +2240,8 @@ Add stronger receipt/proof support for:
 - billing exports
 - dispute-sensitive reports
 - high-stakes agent routing or recommendation views
+- citation-sensitive knowledge exports
+- knowledge lineage and source-support views
 
 ## 27. Performance Success Metrics
 
@@ -1547,6 +2255,8 @@ Required metrics include:
 - per-domain write contention
 - projection freshness lag
 - projection backlog by family
+- knowledge-enrichment backlog by kind
+- wiki compilation lag from source ingest to filed revision
 - subscription resume latency
 - checkpoint restore latency
 - checkpoint debt
@@ -1558,6 +2268,11 @@ Required metrics include:
 - hot-key contention degradation
 - hot-partition skew
 - memory overhead per active projection or subscription
+- private-artifact key-release latency
+- policy-decision latency by class
+- execution admission latency by budget class
+- repair backlog and mean time to recovery
+- teardown completion latency for ephemeral gig/task runs
 
 Observability rule:
 
@@ -1578,10 +2293,18 @@ Design rule:
 4. subscribe to realtime canonical changes
 5. serve the same logical app instance across multiple nodes
 6. package and resolve applications via `ai://` artifacts and manifests
-7. keep `SCS` separate as the context plane
-8. emit receipts for important queries and projections
-9. preserve a minimal canonical hot path while allowing richer projections to lag within declared freshness bounds
-10. restore or move hot projections from verified checkpoints instead of forcing raw-history recomputation on every node
+7. model tasks, runs, approvals, branches, promotions, and artifacts as first-class shared state
+8. support wiki-shaped shared knowledge where raw sources, compiled pages, and filed-back outputs accumulate in one artifact and projection fabric
+9. keep runtime working memory and enrichment staging separate from canonical shared knowledge
+10. support artifact privacy classes where ciphertext availability and plaintext readability are not conflated
+11. allow private gig/task flows to run, export, and tear down without implicit promotion into shared canonical wiki state
+12. treat promotion across scopes as a formal protocol rather than ad hoc app logic
+13. treat side-effecting execution as a first-class, receipted, policy-bound flow
+14. unify read, execute, decrypt, export, and promote decisions behind one explainable policy surface
+15. emit receipts for important queries, executions, promotions, and projections
+16. preserve a minimal canonical hot path while allowing richer projections to lag within declared freshness bounds
+17. restore or move hot projections from verified checkpoints instead of forcing raw-history recomputation on every node
+18. expose repair, drift, and rolling-upgrade behavior as explicit runtime concerns instead of hidden operator folklore
 
 ## 29. Performance Anti-Goals
 
@@ -1595,13 +2318,16 @@ Design rule:
 - rebuild portable projections from raw history on every node restart when verified checkpoints are available
 - imply that replicas increase write throughput for a single ordering domain
 - hide cross-partition or proof-heavy work behind local-read abstractions
+- make promotion or side-effect execution semantics application-specific guesswork
+- let every app invent its own policy explanation or retry model
 
 ## 30. Failure Modes
 
 `FQF` fails if:
 
 - it tries to make every query canonical
-- it collapses `SCS` into general app state
+- it collapses runtime working memory or enrichment staging into general app state
+- it confuses public ciphertext availability with public plaintext readability
 - it ignores local-first client ergonomics
 - it becomes slower or more complex than a normal app stack without compensating gains
 - it forces proof-heavy costs on every read path
@@ -1609,22 +2335,30 @@ Design rule:
 - it reintroduces unnecessary global serialization for unrelated workloads
 - it launches a high-volume canonical domain without partition semantics
 - it confuses read scale or projection scale with per-domain write scale
+- it treats every embedding, summary, or enrichment result as canonical hot-path truth
+- it files private gig/task outputs into shared wiki state by default
+- it becomes a knowledge-only niche and fails to model general operational agent state cleanly
 - each app has to invent its own cache, sync, and subscription model
+- side-effecting execution remains a bespoke app-layer concern without shared receipts, idempotency, or approval semantics
+- promotion across scopes remains implicit and leaks private/session work into shared state
+- repair and upgrade behavior are too implicit for operators or agents to reason about safely
 
 ## 31. Sharpest One-Line Definition
 
-**Fractal Query Fabric is a kernel-native high-throughput canonical state and projection fabric for agentic applications, where operations are truth, the canonical hot path stays minimal, projections are portable derived artifacts, queries are capability-scoped and selectively receiptable, and React apps pair local-first stores with shared canonical state instead of relying on Postgres as authority.**
+**Fractal Query Fabric is a kernel-native high-throughput canonical state and projection fabric for agentic applications, where operations are truth, the canonical hot path stays minimal, runs/tasks/executions/approvals/artifacts/knowledge all share one object-first substrate, promotions and side effects are formal protocol flows, projections are portable derived artifacts, policy is explainable, and React apps pair local-first stores with shared canonical state instead of relying on Postgres as authority.**
 
 ## 32. Bottom Line
 
 This is a credible paradigm shift if and only if:
 
-- `SCS` remains the context plane
+- runtime working memory and enrichment staging remain separate from shared canonical knowledge
 - chain/object state remains canonical truth
-- `FQF` becomes the shared app-state and projection authority
+- `FQF` becomes the shared app-state, work-state, wiki-state, and projection authority
+- promotions, executions, and policy decisions become protocol-visible instead of bespoke backend glue
 - canonical commit stays append-first, replayable, and narrower than derived read-model work
 - React apps get excellent local-first client tooling
 - multiple nodes can serve the same app instance from the same roots, projections, and artifacts
+- repair, budget, and upgrade behavior stay explicit enough for operators and agents to trust the runtime
 
 Under those conditions, `FQF` is not a database novelty.
 

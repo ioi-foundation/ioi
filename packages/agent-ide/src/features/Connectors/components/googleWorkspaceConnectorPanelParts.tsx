@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import type {
   ConnectorActionDefinition,
   ConnectorSubscriptionStatus,
   ConnectorSubscriptionSummary,
   ConnectorSummary,
 } from "../../../runtime/agent-runtime";
+import { getConnectorFocusedFormRecommendation } from "./connectorActionPatterns";
 import type { GoogleWorkspaceConnectorState } from "../hooks/useGoogleWorkspaceConnector";
 import {
   GOOGLE_SCOPE_BUNDLES,
@@ -163,14 +164,16 @@ export function mergedFieldDescription(
 
 export function renderActionField(
   action: ConnectorActionDefinition,
-  workspace: GoogleWorkspaceConnectorState
+  workspace: GoogleWorkspaceConnectorState,
+  firstFieldRef?: RefObject<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>
 ) {
-  return action.fields.map((field) => {
+  return action.fields.map((field, index) => {
     const value = workspace.input[field.id] ?? "";
     const fieldProfile = workspace.fieldProfiles[field.id];
     const fieldDescription = mergedFieldDescription(field.description, fieldProfile?.description);
     const profileOptions = fieldProfile?.options ?? [];
     const profileSuggestions = fieldProfile?.suggestions ?? [];
+    const sharedRef = index === 0 ? firstFieldRef : undefined;
     const useProfileSelect =
       field.type !== "select" &&
       fieldProfile?.inputMode === "select" &&
@@ -181,6 +184,7 @@ export function renderActionField(
         <label key={field.id} className="workspace-field textarea">
           {field.label}
           <textarea
+            ref={sharedRef as RefObject<HTMLTextAreaElement> | undefined}
             value={value}
             onChange={(event) => workspace.setInputValue(field.id, event.target.value)}
             placeholder={field.placeholder}
@@ -211,6 +215,7 @@ export function renderActionField(
         <label key={field.id} className="workspace-field">
           {field.label}
           <select
+            ref={sharedRef as RefObject<HTMLSelectElement> | undefined}
             value={value}
             onChange={(event) => workspace.setInputValue(field.id, event.target.value)}
           >
@@ -229,6 +234,7 @@ export function renderActionField(
       <label key={field.id} className="workspace-field">
         {field.label}
         <input
+          ref={sharedRef as RefObject<HTMLInputElement> | undefined}
           type={field.type === "number" ? "number" : field.type === "email" ? "email" : "text"}
           value={value}
           onChange={(event) => workspace.setInputValue(field.id, event.target.value)}
@@ -258,10 +264,16 @@ export function WorkspaceActionComposer({
   action,
   workspace,
   eyebrow,
+  showFocusedFormButton = false,
+  onOpenFocusedForm,
+  pinActionControls = false,
 }: {
   action: ConnectorActionDefinition | null;
   workspace: GoogleWorkspaceConnectorState;
   eyebrow: string;
+  showFocusedFormButton?: boolean;
+  onOpenFocusedForm?: () => void;
+  pinActionControls?: boolean;
 }) {
   if (!action) {
     return (
@@ -272,11 +284,71 @@ export function WorkspaceActionComposer({
     );
   }
 
+  const composerRef = useRef<HTMLDivElement | null>(null);
+  const firstFieldRef = useRef<
+    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null
+  >(null);
+  const approvalPrimaryButtonRef = useRef<HTMLButtonElement | null>(null);
+  const focusedFormRecommendation = getConnectorFocusedFormRecommendation(action);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      composerRef.current?.scrollIntoView({
+        block: "start",
+        inline: "nearest",
+        behavior: "auto",
+      });
+      const firstField = firstFieldRef.current;
+      firstField?.focus({ preventScroll: false });
+      if (
+        firstField &&
+        (firstField instanceof HTMLInputElement ||
+          firstField instanceof HTMLTextAreaElement)
+      ) {
+        firstField.select();
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [action.id]);
+
+  useEffect(() => {
+    if (!workspace.pendingRunApproval) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      approvalPrimaryButtonRef.current?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+        behavior: "auto",
+      });
+      approvalPrimaryButtonRef.current?.focus({ preventScroll: false });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [workspace.pendingRunApproval]);
+
   return (
-    <div className="workspace-action-panel workspace-composer-card">
-      <div className="workspace-panel-heading">
-        <span>{eyebrow}</span>
-        <strong>{action.label}</strong>
+    <div
+      ref={composerRef}
+      className={`workspace-action-panel workspace-composer-card ${
+        pinActionControls ? "pinned-actions" : ""
+      }`}
+    >
+      <div className="workspace-panel-heading-row">
+        <div className="workspace-panel-heading">
+          <span>{eyebrow}</span>
+          <strong>{action.label}</strong>
+        </div>
+        {showFocusedFormButton ? (
+          <button
+            type="button"
+            className={`btn-secondary workspace-focus-form-button ${
+              focusedFormRecommendation.recommended ? "recommended" : ""
+            }`}
+            onClick={onOpenFocusedForm}
+          >
+            {focusedFormRecommendation.buttonLabel}
+          </button>
+        ) : null}
       </div>
       <div className="workspace-action-summary">
         <span className={`workspace-action-kind kind-${action.kind}`}>
@@ -286,6 +358,11 @@ export function WorkspaceActionComposer({
         {action.confirmBeforeRun ? (
           <p className="workspace-inline-note">
             This action requests confirmation before making changes in Google Workspace.
+          </p>
+        ) : null}
+        {showFocusedFormButton && focusedFormRecommendation.note ? (
+          <p className="workspace-inline-note">
+            {focusedFormRecommendation.note}
           </p>
         ) : null}
         {action.requiredScopes?.length ? (
@@ -298,12 +375,70 @@ export function WorkspaceActionComposer({
       </div>
 
       {action.fields.length > 0 ? (
-        <div className="workspace-action-grid">{renderActionField(action, workspace)}</div>
+        <div className="workspace-action-grid">
+          {renderActionField(action, workspace, firstFieldRef)}
+        </div>
       ) : (
         <p className="workspace-auth-note">No additional input is required for this action.</p>
       )}
 
-      <div className="workspace-action-actions">
+      {workspace.pendingRunApproval ? (
+        <div
+          className={`workspace-approval-card ${
+            pinActionControls ? "sticky-approval-card" : ""
+          }`}
+        >
+          <div className="workspace-approval-card-head">
+            <strong>
+              {workspace.pendingRunApproval.kind === "shield_policy"
+                ? "Shield approval required"
+                : "Confirm action"}
+            </strong>
+            <span>{workspace.pendingRunApproval.actionLabel}</span>
+          </div>
+          <p>{workspace.pendingRunApproval.message}</p>
+          {workspace.pendingRunApproval.request ? (
+            <div className="workspace-required-scopes">
+              <code>{workspace.pendingRunApproval.request.connectorId}</code>
+              <code>{workspace.pendingRunApproval.request.actionId}</code>
+            </div>
+          ) : null}
+          <div className="workspace-action-actions">
+            <button
+              ref={approvalPrimaryButtonRef}
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                void workspace.approvePendingRun();
+              }}
+              disabled={workspace.busy || !workspace.runtimeReady}
+              aria-label={
+                workspace.pendingRunApproval.kind === "shield_policy"
+                  ? `Approve and run ${workspace.pendingRunApproval.actionLabel}`
+                  : `Confirm and run ${workspace.pendingRunApproval.actionLabel}`
+              }
+            >
+              {workspace.pendingRunApproval.kind === "shield_policy"
+                ? "Approve and run"
+                : "Confirm and run"}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={workspace.cancelPendingRun}
+              disabled={workspace.busy}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        className={`workspace-action-actions workspace-primary-run-actions ${
+          pinActionControls ? "sticky-run-actions" : ""
+        }`}
+      >
         <button
           type="button"
           className="btn-primary"

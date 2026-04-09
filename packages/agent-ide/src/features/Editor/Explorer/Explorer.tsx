@@ -135,6 +135,23 @@ export function Explorer({ runtime, onDragStart, onLoadProject }: ExplorerProps)
     return haystack.includes(searchQuery.toLowerCase());
   });
 
+  function workflowScheduleLabel(workflow: InstalledWorkflowSummary): string {
+    if (workflow.triggerKind === "interval") {
+      return `every ${workflow.pollIntervalSeconds}s`;
+    }
+    return workflow.triggerLabel;
+  }
+
+  function workflowSecondaryMeta(workflow: InstalledWorkflowSummary): string | null {
+    if (workflow.remoteTriggerId) {
+      return `Remote trigger ${workflow.remoteTriggerId}`;
+    }
+    if (workflow.waitUntilMs) {
+      return `Wait until ${new Date(workflow.waitUntilMs).toLocaleString()}`;
+    }
+    return null;
+  }
+
   async function refreshWorkflows() {
     if (!runtime.listInstalledWorkflows) return;
     try {
@@ -161,10 +178,14 @@ export function Explorer({ runtime, onDragStart, onLoadProject }: ExplorerProps)
   }
 
   async function runWorkflow(workflow: InstalledWorkflowSummary) {
-    if (!runtime.runWorkflowNow) return;
+    const action =
+      workflow.triggerKind === "remote" && runtime.triggerRemoteWorkflow
+        ? runtime.triggerRemoteWorkflow
+        : runtime.runWorkflowNow;
+    if (!action) return;
     try {
       setWorkflowBusyId(workflow.workflowId);
-      const receipt: WorkflowRunReceipt = await runtime.runWorkflowNow(workflow.workflowId);
+      const receipt: WorkflowRunReceipt = await action(workflow.workflowId);
       setWorkflowMessage(
         `Ran ${workflow.title}: ${receipt.status} at ${new Date(receipt.completedAtMs).toLocaleTimeString()}`
       );
@@ -284,7 +305,7 @@ export function Explorer({ runtime, onDragStart, onLoadProject }: ExplorerProps)
                   <div>
                     <div className="workflow-title">{workflow.title}</div>
                     <div className="workflow-meta">
-                      {workflow.status} • every {workflow.pollIntervalSeconds}s
+                      {workflow.status} • {workflowScheduleLabel(workflow)}
                     </div>
                   </div>
                   <div className={`workflow-status ${workflow.status}`}>
@@ -293,6 +314,11 @@ export function Explorer({ runtime, onDragStart, onLoadProject }: ExplorerProps)
                 </div>
                 <div className="workflow-description">{workflow.description}</div>
                 <div className="workflow-meta-line">{workflow.sourceLabel}</div>
+                {workflowSecondaryMeta(workflow) ? (
+                  <div className="workflow-meta-line">
+                    {workflowSecondaryMeta(workflow)}
+                  </div>
+                ) : null}
                 <div className="workflow-keywords">
                   {workflow.keywords.map((keyword) => (
                     <span key={keyword} className="workflow-keyword">
@@ -310,10 +336,14 @@ export function Explorer({ runtime, onDragStart, onLoadProject }: ExplorerProps)
                   </button>
                   <button
                     className="workflow-action"
-                    disabled={workflowBusyId === workflow.workflowId || !runtime.runWorkflowNow}
+                    disabled={
+                      workflowBusyId === workflow.workflowId ||
+                      (!runtime.runWorkflowNow &&
+                        !(workflow.triggerKind === "remote" && runtime.triggerRemoteWorkflow))
+                    }
                     onClick={() => void runWorkflow(workflow)}
                   >
-                    Run now
+                    {workflow.triggerKind === "remote" ? "Trigger" : "Run now"}
                   </button>
                   <button
                     className="workflow-action"

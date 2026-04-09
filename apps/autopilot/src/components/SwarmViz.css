@@ -449,7 +449,7 @@
 @keyframes avatarGlow {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(90, 140, 236, 0);
+    box-shadow: 0 0 0 0 rgba(var(--cb-accent-rgb), 0);
   }
   50% {
     box-shadow: 0 0 0 4px var(--accent-blue-dim);
@@ -685,7 +685,7 @@
   margin-top: 8px;
   margin-bottom: 8px;
   border: 1px dashed var(--accent-blue-ring);
-  background: rgba(90, 140, 236, 0.04);
+  background: rgba(var(--cb-accent-rgb), 0.04);
   border-radius: 8px;
   position: relative;
   overflow: hidden;

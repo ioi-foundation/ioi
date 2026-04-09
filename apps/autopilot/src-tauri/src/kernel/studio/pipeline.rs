@@ -1,11 +1,14 @@
 use crate::models::{
     BuildArtifactSession, StudioArtifactLifecycleState, StudioArtifactManifest,
     StudioArtifactMaterializationCommandIntent, StudioArtifactMaterializationContract,
-    StudioArtifactMaterializationVerificationStep, StudioArtifactPipelineStage,
-    StudioArtifactPipelineStep, StudioArtifactSession, StudioOutcomeArtifactRequest,
-    StudioRendererKind,
+    StudioArtifactMaterializationVerificationStep, StudioArtifactPipelineStep,
+    StudioArtifactSession, StudioOutcomeArtifactRequest, StudioOutcomeKind, StudioRendererKind,
 };
-use ioi_api::studio::{StudioArtifactJudgeClassification, StudioArtifactTasteMemory};
+use ioi_api::studio::{
+    ExecutionStage, StudioArtifactJudgeClassification, StudioArtifactTasteMemory,
+    StudioArtifactWorkItemStatus, StudioArtifactWorkerRole,
+};
+use ioi_types::app::StudioExecutionStrategy;
 
 use super::{
     artifact_class_id_for_request, persistence_mode_id, presentation_surface_id, renderer_kind_id,
@@ -26,7 +29,7 @@ pub(super) fn verification_step(
 
 fn pipeline_step(
     id: &str,
-    stage: StudioArtifactPipelineStage,
+    stage: ExecutionStage,
     label: &str,
     status: &str,
     summary: impl Into<String>,
@@ -44,19 +47,110 @@ fn pipeline_step(
     }
 }
 
-fn pipeline_status_for_stage(
-    stage: StudioArtifactPipelineStage,
+fn execution_stage_for_pipeline_phase(phase_id: &str) -> ExecutionStage {
+    match phase_id {
+        "intake" | "requirements" | "specification" | "planner" => ExecutionStage::Plan,
+        "routing" => ExecutionStage::Dispatch,
+        "swarm_execution" => ExecutionStage::Work,
+        "materialization" | "execution" | "repair" => ExecutionStage::Mutate,
+        "merge" => ExecutionStage::Merge,
+        "verification" => ExecutionStage::Verify,
+        "presentation" | "reply" => ExecutionStage::Finalize,
+        _ => ExecutionStage::Work,
+    }
+}
+
+fn format_status_label(value: &str) -> String {
+    value
+        .split('_')
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| {
+            let mut chars = segment.chars();
+            match chars.next() {
+                Some(first) => format!(
+                    "{}{}",
+                    first.to_ascii_uppercase(),
+                    chars.as_str().to_ascii_lowercase()
+                ),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn pipeline_execution_strategy_id(strategy: StudioExecutionStrategy) -> &'static str {
+    match strategy {
+        StudioExecutionStrategy::SinglePass => "single_pass",
+        StudioExecutionStrategy::DirectAuthor => "direct_author",
+        StudioExecutionStrategy::PlanExecute => "plan_execute",
+        StudioExecutionStrategy::MicroSwarm => "micro_swarm",
+        StudioExecutionStrategy::AdaptiveWorkGraph => "adaptive_work_graph",
+    }
+}
+
+fn worker_role_id(role: StudioArtifactWorkerRole) -> &'static str {
+    match role {
+        StudioArtifactWorkerRole::Planner => "planner",
+        StudioArtifactWorkerRole::Coordinator => "coordinator",
+        StudioArtifactWorkerRole::Responder => "responder",
+        StudioArtifactWorkerRole::Skeleton => "skeleton",
+        StudioArtifactWorkerRole::SectionContent => "section_content",
+        StudioArtifactWorkerRole::StyleSystem => "style_system",
+        StudioArtifactWorkerRole::Interaction => "interaction",
+        StudioArtifactWorkerRole::Integrator => "integrator",
+        StudioArtifactWorkerRole::Judge => "judge",
+        StudioArtifactWorkerRole::Repair => "repair",
+    }
+}
+
+fn work_item_status_id(status: StudioArtifactWorkItemStatus) -> &'static str {
+    match status {
+        StudioArtifactWorkItemStatus::Pending => "pending",
+        StudioArtifactWorkItemStatus::Blocked => "blocked",
+        StudioArtifactWorkItemStatus::Running => "running",
+        StudioArtifactWorkItemStatus::Succeeded => "succeeded",
+        StudioArtifactWorkItemStatus::Failed => "failed",
+        StudioArtifactWorkItemStatus::Skipped => "skipped",
+        StudioArtifactWorkItemStatus::Rejected => "rejected",
+    }
+}
+
+fn pipeline_status_for_phase(
+    phase_id: &str,
     renderer: StudioRendererKind,
     lifecycle_state: StudioArtifactLifecycleState,
     has_files: bool,
     preview_ready: bool,
 ) -> &'static str {
-    match stage {
-        StudioArtifactPipelineStage::Intake
-        | StudioArtifactPipelineStage::Routing
-        | StudioArtifactPipelineStage::Requirements
-        | StudioArtifactPipelineStage::Specification => "complete",
-        StudioArtifactPipelineStage::Materialization => match lifecycle_state {
+    match phase_id {
+        "intake" | "routing" | "requirements" | "specification" | "planner" => "complete",
+        "swarm_execution" | "merge" => match lifecycle_state {
+            StudioArtifactLifecycleState::Draft | StudioArtifactLifecycleState::Planned => {
+                "pending"
+            }
+            StudioArtifactLifecycleState::Materializing
+            | StudioArtifactLifecycleState::Rendering
+            | StudioArtifactLifecycleState::Implementing => "active",
+            StudioArtifactLifecycleState::Verifying
+            | StudioArtifactLifecycleState::Ready
+            | StudioArtifactLifecycleState::Partial => "complete",
+            StudioArtifactLifecycleState::Blocked => {
+                if has_files {
+                    "complete"
+                } else {
+                    "blocked"
+                }
+            }
+            StudioArtifactLifecycleState::Failed => {
+                if has_files {
+                    "complete"
+                } else {
+                    "failed"
+                }
+            }
+        },
+        "materialization" => match lifecycle_state {
             StudioArtifactLifecycleState::Draft | StudioArtifactLifecycleState::Planned => {
                 "pending"
             }
@@ -81,7 +175,7 @@ fn pipeline_status_for_stage(
                 }
             }
         },
-        StudioArtifactPipelineStage::Execution => {
+        "execution" => {
             if renderer == StudioRendererKind::WorkspaceSurface {
                 match lifecycle_state {
                     StudioArtifactLifecycleState::Draft
@@ -123,7 +217,7 @@ fn pipeline_status_for_stage(
                 }
             }
         }
-        StudioArtifactPipelineStage::Verification => match lifecycle_state {
+        "verification" => match lifecycle_state {
             StudioArtifactLifecycleState::Draft
             | StudioArtifactLifecycleState::Planned
             | StudioArtifactLifecycleState::Materializing
@@ -136,7 +230,20 @@ fn pipeline_status_for_stage(
             }
             StudioArtifactLifecycleState::Failed => "failed",
         },
-        StudioArtifactPipelineStage::Presentation => {
+        "repair" => match lifecycle_state {
+            StudioArtifactLifecycleState::Draft
+            | StudioArtifactLifecycleState::Planned
+            | StudioArtifactLifecycleState::Materializing => "pending",
+            StudioArtifactLifecycleState::Rendering
+            | StudioArtifactLifecycleState::Implementing
+            | StudioArtifactLifecycleState::Verifying => "active",
+            StudioArtifactLifecycleState::Ready | StudioArtifactLifecycleState::Partial => {
+                "complete"
+            }
+            StudioArtifactLifecycleState::Blocked => "blocked",
+            StudioArtifactLifecycleState::Failed => "failed",
+        },
+        "presentation" => {
             if renderer == StudioRendererKind::WorkspaceSurface {
                 match lifecycle_state {
                     StudioArtifactLifecycleState::Ready if preview_ready => "complete",
@@ -166,7 +273,7 @@ fn pipeline_status_for_stage(
                 }
             }
         }
-        StudioArtifactPipelineStage::Reply => match lifecycle_state {
+        "reply" => match lifecycle_state {
             StudioArtifactLifecycleState::Ready => "complete",
             StudioArtifactLifecycleState::Partial | StudioArtifactLifecycleState::Blocked => {
                 "blocked"
@@ -174,7 +281,30 @@ fn pipeline_status_for_stage(
             StudioArtifactLifecycleState::Failed => "failed",
             _ => "pending",
         },
+        _ => "pending",
     }
+}
+
+fn pipeline_step_for_phase(
+    id: &str,
+    label: &str,
+    renderer: StudioRendererKind,
+    lifecycle_state: StudioArtifactLifecycleState,
+    has_files: bool,
+    preview_ready: bool,
+    summary: impl Into<String>,
+    outputs: Vec<String>,
+    verification_gate: Option<&str>,
+) -> StudioArtifactPipelineStep {
+    pipeline_step(
+        id,
+        execution_stage_for_pipeline_phase(id),
+        label,
+        pipeline_status_for_phase(id, renderer, lifecycle_state, has_files, preview_ready),
+        summary,
+        outputs,
+        verification_gate,
+    )
 }
 
 fn truncate_pipeline_output(value: impl AsRef<str>, limit: usize) -> String {
@@ -206,6 +336,159 @@ fn judge_classification_id(classification: StudioArtifactJudgeClassification) ->
     }
 }
 
+fn outcome_kind_label(kind: StudioOutcomeKind) -> &'static str {
+    match kind {
+        StudioOutcomeKind::Conversation => "conversation",
+        StudioOutcomeKind::ToolWidget => "tool_widget",
+        StudioOutcomeKind::Visualizer => "visualizer",
+        StudioOutcomeKind::Artifact => "artifact",
+    }
+}
+
+fn pipeline_steps_for_non_artifact_route(
+    studio_session: &StudioArtifactSession,
+) -> Vec<StudioArtifactPipelineStep> {
+    let materialization = &studio_session.materialization;
+    let outcome_request = &studio_session.outcome_request;
+    let route_kind = outcome_kind_label(outcome_request.outcome_kind);
+    let lifecycle_state = studio_session.lifecycle_state;
+    let status = match lifecycle_state {
+        StudioArtifactLifecycleState::Ready | StudioArtifactLifecycleState::Partial => "complete",
+        StudioArtifactLifecycleState::Blocked => "blocked",
+        StudioArtifactLifecycleState::Failed => "failed",
+        StudioArtifactLifecycleState::Draft
+        | StudioArtifactLifecycleState::Planned
+        | StudioArtifactLifecycleState::Materializing
+        | StudioArtifactLifecycleState::Rendering
+        | StudioArtifactLifecycleState::Implementing
+        | StudioArtifactLifecycleState::Verifying => "active",
+    };
+    let prompt_excerpt = truncate_pipeline_output(&materialization.normalized_intent, 88);
+    let has_swarm_execution = materialization
+        .swarm_execution
+        .as_ref()
+        .map(|summary| summary.enabled)
+        .unwrap_or(false);
+    let verification_gate = "Verification state, not worker prose, authorizes Studio replies.";
+
+    let mut steps = vec![
+        pipeline_step(
+            "intake",
+            execution_stage_for_pipeline_phase("intake"),
+            "Intake",
+            "complete",
+            "Studio captured the request and preserved it as a typed outcome turn.",
+            vec![prompt_excerpt],
+            None,
+        ),
+        pipeline_step(
+            "routing",
+            execution_stage_for_pipeline_phase("routing"),
+            "Outcome routing",
+            status,
+            format!(
+                "The typed router intentionally kept this request on the {} surface.",
+                route_kind.replace('_', " ")
+            ),
+            vec![
+                route_kind.to_string(),
+                materialization.request_kind.clone(),
+                materialization
+                    .swarm_execution
+                    .as_ref()
+                    .map(|summary| format!("strategy:{}", summary.strategy))
+                    .unwrap_or_else(|| "strategy:plan_execute".to_string()),
+            ],
+            None,
+        ),
+    ];
+
+    if let Some(plan) = materialization.swarm_plan.as_ref() {
+        steps.push(pipeline_step(
+            "planner",
+            execution_stage_for_pipeline_phase("planner"),
+            "Planner",
+            status,
+            "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+            vec![
+                plan.strategy.clone(),
+                format!("work_items:{}", plan.work_items.len()),
+                plan.parallelism_mode.clone(),
+            ],
+            None,
+        ));
+    }
+
+    if has_swarm_execution {
+        steps.push(pipeline_step(
+            "swarm_execution",
+            execution_stage_for_pipeline_phase("swarm_execution"),
+            "Shared execution",
+            status,
+            "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+            {
+                let mut outputs = vec![format!(
+                    "worker_receipts:{}",
+                    materialization.swarm_worker_receipts.len()
+                )];
+                if let Some(summary) = materialization.swarm_execution.as_ref() {
+                    outputs.push(format!(
+                        "progress:{}/{}",
+                        summary.completed_work_items, summary.total_work_items
+                    ));
+                    outputs.push(format!("adapter:{}", summary.adapter_label));
+                }
+                if let Some(envelope) = materialization.execution_envelope.as_ref() {
+                    if !envelope.dispatch_batches.is_empty() {
+                        outputs.push(format!(
+                            "dispatch_batches:{}",
+                            envelope.dispatch_batches.len()
+                        ));
+                    }
+                    if !envelope.graph_mutation_receipts.is_empty() {
+                        outputs.push(format!(
+                            "graph_mutations:{}",
+                            envelope.graph_mutation_receipts.len()
+                        ));
+                    }
+                    if !envelope.replan_receipts.is_empty() {
+                        outputs.push(format!("replans:{}", envelope.replan_receipts.len()));
+                    }
+                }
+                outputs
+            },
+            Some("Shared execution receipts must remain truthful about the active outcome surface."),
+        ));
+    }
+
+    steps.extend([
+        pipeline_step(
+            "verification",
+            execution_stage_for_pipeline_phase("verification"),
+            "Verification",
+            status,
+            "Studio verified the selected non-artifact route before composing the reply state.",
+            materialization
+                .swarm_verification_receipts
+                .iter()
+                .map(|receipt| format!("{} ({})", receipt.kind, receipt.status))
+                .collect::<Vec<_>>(),
+            Some(verification_gate),
+        ),
+        pipeline_step(
+            "reply",
+            execution_stage_for_pipeline_phase("reply"),
+            "Reply",
+            status,
+            "Studio composes the user-facing summary from shared execution state, not from an implied artifact renderer.",
+            vec![studio_session.verified_reply.summary.clone()],
+            Some(verification_gate),
+        ),
+    ]);
+
+    steps
+}
+
 pub(super) fn pipeline_steps_for_state(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
@@ -229,6 +512,39 @@ pub(super) fn pipeline_steps_for_state(
         trimmed_intent.to_string()
     };
     let has_files = !manifest.files.is_empty() || !materialization.file_writes.is_empty();
+    let execution_strategy = materialization
+        .execution_envelope
+        .as_ref()
+        .and_then(|envelope| envelope.strategy)
+        .unwrap_or(StudioExecutionStrategy::PlanExecute);
+    let mode_decision = materialization
+        .execution_envelope
+        .as_ref()
+        .and_then(|envelope| envelope.mode_decision.as_ref());
+    let completion_invariant = materialization
+        .execution_envelope
+        .as_ref()
+        .and_then(|envelope| envelope.completion_invariant.as_ref());
+    let has_swarm_execution = matches!(
+        execution_strategy,
+        StudioExecutionStrategy::MicroSwarm | StudioExecutionStrategy::AdaptiveWorkGraph
+    ) || materialization
+        .swarm_execution
+        .as_ref()
+        .map(|summary| summary.enabled)
+        .unwrap_or(false);
+    let show_execution_step = request.renderer == StudioRendererKind::WorkspaceSurface
+        || build_session.is_some()
+        || has_swarm_execution
+        || materialization
+            .execution_envelope
+            .as_ref()
+            .map(|envelope| {
+                !envelope.worker_receipts.is_empty()
+                    || !envelope.dispatch_batches.is_empty()
+                    || !envelope.live_previews.is_empty()
+            })
+            .unwrap_or(false);
     let preview_ready = build_session
         .and_then(|session| session.preview_url.as_ref())
         .is_some()
@@ -283,6 +599,11 @@ pub(super) fn pipeline_steps_for_state(
     };
     let candidate_count = materialization.candidate_summaries.len();
     let repair_passes = repair_pass_count(materialization);
+    let show_repair_step = has_swarm_execution
+        || repair_passes > 0
+        || materialization.failure.is_some()
+        || manifest.verification.failure.is_some();
+    let swarm_receipt_count = materialization.swarm_worker_receipts.len();
     let winner_summary = materialization.winning_candidate_id.as_ref().map(|winner| {
         if let Some(rationale) = materialization.winning_candidate_rationale.as_ref() {
             format!(
@@ -295,7 +616,15 @@ pub(super) fn pipeline_steps_for_state(
         }
     });
     let mut materialization_outputs = Vec::new();
-    if candidate_count > 0 {
+    if has_swarm_execution {
+        if let Some(summary) = materialization.swarm_execution.as_ref() {
+            materialization_outputs.push(format!(
+                "swarm:{}/{}",
+                summary.completed_work_items, summary.total_work_items
+            ));
+            materialization_outputs.push(format!("adapter:{}", summary.adapter_label));
+        }
+    } else if candidate_count > 0 {
         materialization_outputs.push(format!("candidates:{candidate_count}"));
     }
     if let Some(winner) = winner_summary {
@@ -326,11 +655,26 @@ pub(super) fn pipeline_steps_for_state(
                 .collect()
         }
     } else {
-        let mut outputs = manifest
-            .files
-            .iter()
-            .map(|file| file.path.clone())
-            .collect::<Vec<_>>();
+        let mut outputs = if has_swarm_execution {
+            materialization
+                .swarm_worker_receipts
+                .iter()
+                .take(4)
+                .map(|receipt| {
+                    format!(
+                        "{} ({})",
+                        format_status_label(worker_role_id(receipt.role)),
+                        format_status_label(work_item_status_id(receipt.status))
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            manifest
+                .files
+                .iter()
+                .map(|file| file.path.clone())
+                .collect::<Vec<_>>()
+        };
         if !materialization.selected_skills.is_empty() {
             outputs.push(format!(
                 "skills:{}",
@@ -372,6 +716,28 @@ pub(super) fn pipeline_steps_for_state(
         }
         if !judge.repair_hints.is_empty() {
             verification_outputs.push(format!("repair_hints:{}", judge.repair_hints.len()));
+        }
+    }
+    if has_swarm_execution {
+        verification_outputs.extend(
+            materialization
+                .swarm_verification_receipts
+                .iter()
+                .map(|receipt| format!("{} ({})", receipt.kind, receipt.status)),
+        );
+    }
+    if let Some(invariant) = completion_invariant {
+        let invariant_status = match invariant.status {
+            ioi_api::execution::ExecutionCompletionInvariantStatus::Pending => "pending",
+            ioi_api::execution::ExecutionCompletionInvariantStatus::Satisfied => "satisfied",
+            ioi_api::execution::ExecutionCompletionInvariantStatus::Blocked => "blocked",
+        };
+        verification_outputs.push(format!("completion:{invariant_status}"));
+        if !invariant.remaining_obligations.is_empty() {
+            verification_outputs.push(format!(
+                "remaining:{}",
+                invariant.remaining_obligations.join(" · ")
+            ));
         }
     }
     if let Some(failure) = manifest.verification.failure.as_ref() {
@@ -418,67 +784,63 @@ pub(super) fn pipeline_steps_for_state(
         outputs
     };
 
-    vec![
-        pipeline_step(
+    let mut steps = vec![
+        pipeline_step_for_phase(
             "intake",
-            StudioArtifactPipelineStage::Intake,
             "Intake",
-            pipeline_status_for_stage(
-                StudioArtifactPipelineStage::Intake,
-                request.renderer,
-                lifecycle_state,
-                has_files,
-                preview_ready,
-            ),
+            request.renderer,
+            lifecycle_state,
+            has_files,
+            preview_ready,
             "Studio captured the request and established the active artifact context.",
             vec![prompt_excerpt],
             None,
         ),
-        pipeline_step(
+        pipeline_step_for_phase(
             "routing",
-            StudioArtifactPipelineStage::Routing,
             "Outcome routing",
-            pipeline_status_for_stage(
-                StudioArtifactPipelineStage::Routing,
-                request.renderer,
-                lifecycle_state,
-                has_files,
-                preview_ready,
-            ),
+            request.renderer,
+            lifecycle_state,
+            has_files,
+            preview_ready,
             "The typed router chose the artifact branch intentionally.",
             vec![
                 "artifact".to_string(),
                 artifact_class_id_for_request(request),
                 renderer_kind_id(request.renderer).to_string(),
+                format!(
+                    "strategy:{}",
+                    pipeline_execution_strategy_id(execution_strategy)
+                ),
+                mode_decision
+                    .map(|decision| {
+                        format!(
+                            "requested:{}",
+                            pipeline_execution_strategy_id(decision.requested_strategy)
+                        )
+                    })
+                    .unwrap_or_else(|| "requested:implicit".to_string()),
             ],
             None,
         ),
-        pipeline_step(
+        pipeline_step_for_phase(
             "requirements",
-            StudioArtifactPipelineStage::Requirements,
             "Requirements",
-            pipeline_status_for_stage(
-                StudioArtifactPipelineStage::Requirements,
-                request.renderer,
-                lifecycle_state,
-                has_files,
-                preview_ready,
-            ),
+            request.renderer,
+            lifecycle_state,
+            has_files,
+            preview_ready,
             "Studio captured the requested scope, mutation boundary, and persistence contract.",
             requirements_outputs,
             None,
         ),
-        pipeline_step(
+        pipeline_step_for_phase(
             "specification",
-            StudioArtifactPipelineStage::Specification,
             "Artifact spec",
-            pipeline_status_for_stage(
-                StudioArtifactPipelineStage::Specification,
-                request.renderer,
-                lifecycle_state,
-                has_files,
-                preview_ready,
-            ),
+            request.renderer,
+            lifecycle_state,
+            has_files,
+            preview_ready,
             if let Some(blueprint) = materialization.blueprint.as_ref() {
                 format!(
                     "Studio locked the typed artifact spec around the {} scaffold with explicit structure and interaction contracts.",
@@ -491,39 +853,144 @@ pub(super) fn pipeline_steps_for_state(
             spec_outputs,
             None,
         ),
-        pipeline_step(
-            "materialization",
-            StudioArtifactPipelineStage::Materialization,
-            "Materialization",
-            pipeline_status_for_stage(
-                StudioArtifactPipelineStage::Materialization,
-                request.renderer,
-                lifecycle_state,
-                has_files,
-                preview_ready,
-            ),
-            if candidate_count > 0 {
-                format!(
-                    "Studio drafted {} candidate(s), selected the strongest winner, and tracked {} repair pass(es).",
-                    candidate_count, repair_passes
-                )
+    ];
+    if has_swarm_execution {
+        steps.push(pipeline_step_for_phase(
+            "planner",
+            "Planner",
+            request.renderer,
+            lifecycle_state,
+            has_files,
+            preview_ready,
+            "Studio locked one canonical artifact plan and explicit worker scopes before authoring.",
+            materialization
+                .swarm_plan
+                .as_ref()
+                .map(|plan| {
+                    let mut outputs = vec![
+                        plan.strategy.clone(),
+                        format!("work_items:{}", plan.work_items.len()),
+                        plan.parallelism_mode.clone(),
+                    ];
+                    if let Some(decomposition_type) = plan.decomposition_type.as_ref() {
+                        outputs.push(decomposition_type.clone());
+                    }
+                    outputs
+                })
+                .unwrap_or_else(|| vec!["planner_pending".to_string()]),
+            None,
+        ));
+        steps.push(pipeline_step_for_phase(
+            "swarm_execution",
+            if execution_strategy == StudioExecutionStrategy::MicroSwarm {
+                "Micro swarm"
             } else {
-                "Studio is creating the files or workspace required by the manifest.".to_string()
+                "Adaptive work graph"
             },
-            materialization_outputs,
-            Some("Files or scaffold receipts must exist before the artifact can present."),
-        ),
-        pipeline_step(
+            request.renderer,
+            lifecycle_state,
+            has_files,
+            preview_ready,
+            "Scoped workers patched the same canonical artifact instead of drafting competing full candidates.",
+            {
+                let mut outputs = vec![format!("worker_receipts:{swarm_receipt_count}")];
+                if let Some(summary) = materialization.swarm_execution.as_ref() {
+                    outputs.push(format!(
+                        "progress:{}/{}",
+                        summary.completed_work_items, summary.total_work_items
+                    ));
+                    outputs.push(format!("verification:{}", summary.verification_status));
+                }
+                if let Some(invariant) = completion_invariant {
+                    let invariant_status = match invariant.status {
+                        ioi_api::execution::ExecutionCompletionInvariantStatus::Pending => {
+                            "pending"
+                        }
+                        ioi_api::execution::ExecutionCompletionInvariantStatus::Satisfied => {
+                            "satisfied"
+                        }
+                        ioi_api::execution::ExecutionCompletionInvariantStatus::Blocked => {
+                            "blocked"
+                        }
+                    };
+                    outputs.push(format!("invariant:{invariant_status}"));
+                    if !invariant.remaining_obligations.is_empty() {
+                        outputs.push(format!(
+                            "remaining:{}",
+                            invariant.remaining_obligations.len()
+                        ));
+                    }
+                }
+                if let Some(envelope) = materialization.execution_envelope.as_ref() {
+                    if !envelope.dispatch_batches.is_empty() {
+                        outputs.push(format!(
+                            "dispatch_batches:{}",
+                            envelope.dispatch_batches.len()
+                        ));
+                    }
+                    if !envelope.graph_mutation_receipts.is_empty() {
+                        outputs.push(format!(
+                            "graph_mutations:{}",
+                            envelope.graph_mutation_receipts.len()
+                        ));
+                    }
+                    if !envelope.repair_receipts.is_empty() {
+                        outputs.push(format!("repair_receipts:{}", envelope.repair_receipts.len()));
+                    }
+                }
+                outputs
+            },
+            Some("Worker receipts must retain bounded ownership and status."),
+        ));
+        steps.push(pipeline_step_for_phase(
+            "merge",
+            "Merge",
+            request.renderer,
+            lifecycle_state,
+            has_files,
+            preview_ready,
+            "Deterministic patch gating and merge receipts reconciled worker output onto one artifact state.",
+            materialization
+                .swarm_merge_receipts
+                .iter()
+                .take(4)
+                .map(|receipt| {
+                    format!(
+                        "{} ({})",
+                        receipt.work_item_id,
+                        format_status_label(work_item_status_id(receipt.status))
+                    )
+                })
+                .collect::<Vec<_>>(),
+            Some("Out-of-scope patches must be rejected before the artifact can advance."),
+        ));
+    }
+    steps.push(pipeline_step_for_phase(
+        "materialization",
+        "Materialization",
+        request.renderer,
+        lifecycle_state,
+        has_files,
+        preview_ready,
+        if candidate_count > 0 {
+            format!(
+                "Studio drafted {} candidate(s), selected the strongest winner, and tracked {} repair pass(es).",
+                candidate_count, repair_passes
+            )
+        } else {
+            "Studio is creating the files or workspace required by the manifest.".to_string()
+        },
+        materialization_outputs,
+        Some("Files or scaffold receipts must exist before the artifact can present."),
+    ));
+    if show_execution_step {
+        steps.push(pipeline_step_for_phase(
             "execution",
-            StudioArtifactPipelineStage::Execution,
             "Execution",
-            pipeline_status_for_stage(
-                StudioArtifactPipelineStage::Execution,
-                request.renderer,
-                lifecycle_state,
-                has_files,
-                preview_ready,
-            ),
+            request.renderer,
+            lifecycle_state,
+            has_files,
+            preview_ready,
             if request.renderer == StudioRendererKind::WorkspaceSurface {
                 "Workspace commands and retries stay bounded under kernel authority."
             } else {
@@ -531,66 +998,97 @@ pub(super) fn pipeline_steps_for_state(
             },
             execution_outputs,
             Some("Execution receipts must exist for every command-backed step."),
+        ));
+    }
+    steps.push(pipeline_step_for_phase(
+        "verification",
+        "Verification",
+        request.renderer,
+        lifecycle_state,
+        has_files,
+        preview_ready,
+        if let Some(judge) = materialization.judge.as_ref() {
+            format!(
+                "Static audits and acceptance judging classified the artifact as {} before Studio surfaced it.",
+                judge_classification_id(judge.classification)
+            )
+        } else {
+            manifest.verification.summary.clone()
+        },
+        verification_outputs,
+        Some(
+            "Render, build, preview, or export checks must pass before Studio can claim success.",
         ),
-        pipeline_step(
-            "verification",
-            StudioArtifactPipelineStage::Verification,
-            "Verification",
-            pipeline_status_for_stage(
-                StudioArtifactPipelineStage::Verification,
-                request.renderer,
-                lifecycle_state,
-                has_files,
-                preview_ready,
-            ),
-            if let Some(judge) = materialization.judge.as_ref() {
-                format!(
-                    "Static audits and acceptance judging classified the artifact as {} before Studio surfaced it.",
-                    judge_classification_id(judge.classification)
-                )
+    ));
+    if show_repair_step {
+        steps.push(pipeline_step_for_phase(
+            "repair",
+            "Repair",
+            request.renderer,
+            lifecycle_state,
+            has_files,
+            preview_ready,
+            if has_swarm_execution {
+                "Repair stays bounded to cited judge or verification failures on the merged artifact."
+                    .to_string()
             } else {
-                manifest.verification.summary.clone()
+                "Repair tracks bounded follow-up passes when verification cites contradictions."
+                    .to_string()
             },
-            verification_outputs,
-            Some(
-                "Render, build, preview, or export checks must pass before Studio can claim success.",
-            ),
-        ),
-        pipeline_step(
-            "presentation",
-            StudioArtifactPipelineStage::Presentation,
-            "Presentation",
-            pipeline_status_for_stage(
-                StudioArtifactPipelineStage::Presentation,
-                request.renderer,
-                lifecycle_state,
-                has_files,
-                preview_ready,
-            ),
-            if preview_ready {
-                "Studio is leading with verified preview because the preview contract passed."
+            if has_swarm_execution {
+                let mut outputs = materialization
+                    .swarm_change_receipts
+                    .iter()
+                    .filter(|receipt| {
+                        receipt.work_item_id == "repair"
+                            || receipt.work_item_id.starts_with("repair-pass-")
+                    })
+                    .map(|receipt| format!("repair_ops:{}", receipt.operation_count))
+                    .collect::<Vec<_>>();
+                if let Some(envelope) = materialization.execution_envelope.as_ref() {
+                    if !envelope.repair_receipts.is_empty() {
+                        outputs.push(format!("repair_receipts:{}", envelope.repair_receipts.len()));
+                    }
+                    if !envelope.replan_receipts.is_empty() {
+                        outputs.push(format!("replans:{}", envelope.replan_receipts.len()));
+                    }
+                }
+                outputs
+            } else if repair_passes > 0 {
+                vec![format!("repair_passes:{repair_passes}")]
             } else {
-                "Studio is presenting only the artifact surfaces that currently exist."
+                vec!["repair_not_needed".to_string()]
             },
-            presentation_outputs,
-            Some("Preview becomes primary only after verified render or preview health exists."),
-        ),
-        pipeline_step(
-            "reply",
-            StudioArtifactPipelineStage::Reply,
-            "Verified reply",
-            pipeline_status_for_stage(
-                StudioArtifactPipelineStage::Reply,
-                request.renderer,
-                lifecycle_state,
-                has_files,
-                preview_ready,
-            ),
-            "Studio composes the user-facing summary from artifact state and verification.",
-            reply_outputs,
-            Some(verification_gate),
-        ),
-    ]
+            Some("Repair may patch only cited failures, not restart the artifact wholesale."),
+        ));
+    }
+    steps.push(pipeline_step_for_phase(
+        "presentation",
+        "Presentation",
+        request.renderer,
+        lifecycle_state,
+        has_files,
+        preview_ready,
+        if preview_ready {
+            "Studio is leading with verified preview because the preview contract passed."
+        } else {
+            "Studio is presenting only the artifact surfaces that currently exist."
+        },
+        presentation_outputs,
+        Some("Preview becomes primary only after verified render or preview health exists."),
+    ));
+    steps.push(pipeline_step_for_phase(
+        "reply",
+        "Verified reply",
+        request.renderer,
+        lifecycle_state,
+        has_files,
+        preview_ready,
+        "Studio composes the user-facing summary from artifact state and verification.",
+        reply_outputs,
+        Some(verification_gate),
+    ));
+    steps
 }
 
 pub(super) fn refresh_pipeline_steps(
@@ -598,7 +1096,8 @@ pub(super) fn refresh_pipeline_steps(
     build_session: Option<&BuildArtifactSession>,
 ) {
     let Some(request) = studio_session.outcome_request.artifact.as_ref() else {
-        studio_session.materialization.pipeline_steps.clear();
+        studio_session.materialization.pipeline_steps =
+            pipeline_steps_for_non_artifact_route(studio_session);
         return;
     };
     studio_session.materialization.pipeline_steps = pipeline_steps_for_state(

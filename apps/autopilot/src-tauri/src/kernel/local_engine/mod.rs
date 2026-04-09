@@ -39,10 +39,11 @@ const LOCAL_ENGINE_GALLERY_SYNC_RECEIPTS_DIR: &str = "local-engine/gallery-sync"
 const LOCAL_ENGINE_GALLERY_CATALOGS_DIR: &str = "galleries";
 const LOCAL_ENGINE_HEALTH_PROBE_TIMEOUT_MS: u64 = 750;
 const LOCAL_ENGINE_GALLERY_SAMPLE_LIMIT: usize = 4;
-const LOCAL_GPU_DEV_DEFAULT_PRESET: &str = "ollama-openai";
+const LOCAL_GPU_DEV_DEFAULT_PRESET: &str = "planner-grade-local-oss-qwen3-8b";
 const LOCAL_GPU_DEV_DEFAULT_RUNTIME_URL: &str = "http://127.0.0.1:11434/v1/chat/completions";
 const LOCAL_GPU_DEV_DEFAULT_HEALTH_URL: &str = "http://127.0.0.1:11434/api/tags";
-const LOCAL_GPU_DEV_DEFAULT_MODEL: &str = "llama3.2:3b";
+const LOCAL_GPU_DEV_DEFAULT_MODEL: &str = "qwen3.5:9b";
+const LOCAL_GPU_DEV_DEFAULT_ARTIFACT_SPECIALIST_MODEL: &str = "qwen3.5:9b";
 const LOCAL_GPU_DEV_DEFAULT_EMBEDDING_MODEL: &str = "nomic-embed-text";
 const LOCAL_GPU_DEV_DEFAULT_BACKEND_ID: &str = "ollama-openai";
 const LOCAL_GPU_DEV_DEFAULT_BACKEND_SOURCE: &str = concat!(
@@ -203,6 +204,7 @@ struct ManagedBackendProcess {
 #[derive(Debug, Clone)]
 struct LocalGpuDevPreset {
     preset_id: String,
+    hardware_profile: Option<String>,
     runtime_url: Option<String>,
     runtime_health_url: Option<String>,
     runtime_model: Option<String>,
@@ -210,6 +212,7 @@ struct LocalGpuDevPreset {
     backend_source: Option<String>,
     backend_id: Option<String>,
     model_cache_dir: Option<String>,
+    backend_env: BTreeMap<String, String>,
     backend_autostart: bool,
 }
 
@@ -351,3 +354,4 @@ include!("backend_jobs.rs");
 include!("gallery.rs");
 include!("backends.rs");
 include!("effects.rs");
+include!("managed_settings.rs");

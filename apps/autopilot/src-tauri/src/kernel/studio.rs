@@ -78,9 +78,9 @@ use crate::models::{
 };
 use crate::orchestrator;
 #[cfg(test)]
-use ioi_api::studio::pdf_artifact_bytes;
+use ioi_api::studio::materialize_studio_artifact_with_runtime;
 #[cfg(test)]
-use ioi_api::studio::{materialize_studio_artifact_with_runtime, StudioGeneratedArtifactPayload};
+use ioi_api::studio::pdf_artifact_bytes;
 use ioi_api::studio::{
     plan_studio_outcome_with_runtime, StudioArtifactBrief, StudioArtifactCandidateSummary,
     StudioArtifactEditIntent, StudioArtifactEditMode, StudioArtifactJudgeResult,

@@ -12,6 +12,7 @@ pub mod google_api;
 pub mod google_auth;
 pub mod google_workspace;
 pub mod mail_connector;
+pub mod mock_fixtures;
 
 pub type ProviderCandidateDiscoveryFuture<'a> =
     Pin<Box<dyn Future<Output = Vec<ProviderRouteCandidate>> + Send + 'a>>;

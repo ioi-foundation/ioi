@@ -67,7 +67,7 @@ fn osworld_bridge_preflight_reports_repo_external_blockers_or_ready_state() -> R
 
 #[test]
 #[ignore = "OSWorld DesktopEnv dependencies and a supported provider are required"]
-fn osworld_bridge_quickstart_smoke_runs_minimal_task() -> Result<()> {
+fn osworld_bridge_quickstart_validation_runs_minimal_task() -> Result<()> {
     live_inference_support::load_env_from_workspace_dotenv_if_present();
 
     let (preflight, _, _) = run_bridge_json(&["preflight"])?;
@@ -78,11 +78,11 @@ fn osworld_bridge_quickstart_smoke_runs_minimal_task() -> Result<()> {
     );
 
     let temp_dir = tempdir()?;
-    let result_path = temp_dir.path().join("osworld_smoke.json");
+    let result_path = temp_dir.path().join("osworld_validation.json");
     let result_path_string = result_path.display().to_string();
 
     let (payload, status, _) = run_bridge_json(&[
-        "smoke",
+        "validate",
         "--headless",
         "--result-path",
         result_path_string.as_str(),
@@ -90,24 +90,24 @@ fn osworld_bridge_quickstart_smoke_runs_minimal_task() -> Result<()> {
 
     anyhow::ensure!(
         status == 0,
-        "osworld smoke failed: {}",
+        "osworld validation failed: {}",
         serde_json::to_string_pretty(&payload)?
     );
     anyhow::ensure!(
         payload["ok"].as_bool().unwrap_or(false),
-        "osworld smoke did not report ok: {}",
+        "osworld validation did not report ok: {}",
         serde_json::to_string_pretty(&payload)?
     );
     anyhow::ensure!(
         result_path.exists(),
-        "osworld smoke did not write result file"
+        "osworld validation did not write result file"
     );
     anyhow::ensure!(
         payload["reset_observation"]["keys"]
             .as_array()
             .map(|keys| !keys.is_empty())
             .unwrap_or(false),
-        "osworld smoke did not report reset observation keys: {}",
+        "osworld validation did not report reset observation keys: {}",
         serde_json::to_string_pretty(&payload)?
     );
     anyhow::ensure!(
@@ -115,7 +115,7 @@ fn osworld_bridge_quickstart_smoke_runs_minimal_task() -> Result<()> {
             .as_array()
             .map(|keys| !keys.is_empty())
             .unwrap_or(false),
-        "osworld smoke did not report step observation keys: {}",
+        "osworld validation did not report step observation keys: {}",
         serde_json::to_string_pretty(&payload)?
     );
 

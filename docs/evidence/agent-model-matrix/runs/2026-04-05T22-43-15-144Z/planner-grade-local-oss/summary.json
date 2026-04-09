@@ -1,0 +1,135 @@
+{
+  "presetId": "planner-grade-local-oss",
+  "label": "Planner-grade local OSS",
+  "role": "planner_verifier",
+  "benchmarkTier": "tier1",
+  "deploymentProfile": "workstationLocal",
+  "experimental": true,
+  "shippedDefault": false,
+  "runtimeModel": "qwen2.5:14b",
+  "artifactAcceptanceModel": "qwen2.5:7b",
+  "availabilityStatus": "ready",
+  "availabilitySummary": "Local runtime is healthy and exposes 'qwen2.5:14b'.",
+  "caseCount": 2,
+  "availableWorkloadCount": 1,
+  "topFindings": [
+    "Artifact editorial launch page: [studio-proof-trace] artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=6083 temperature=0.32 max_tokens=1600"
+  ],
+  "scorecards": {
+    "artifactQuality": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 2,
+        "passRate": 0.5,
+        "averageJudgeScore": 0.8,
+        "verifierPassRate": 0.5,
+        "averageRepairLoopIterations": 0,
+        "routeMatchRate": 0.5
+      }
+    },
+    "codingCompletion": {
+      "available": false,
+      "reason": "No retained coding benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "taskPassRate": null,
+        "targetedTestPassRate": null,
+        "verifierPassRate": null,
+        "patchSynthesisReadyRate": null
+      }
+    },
+    "researchQuality": {
+      "available": false,
+      "reason": "No retained research benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "taskPassRate": null,
+        "citationVerifierPassRate": null,
+        "sourceIndependenceRate": null,
+        "sourceCountFloorRate": null,
+        "synthesisCompleteness": null,
+        "freshnessPassRate": null,
+        "quoteGroundingPassRate": null
+      }
+    },
+    "computerUseCompletion": {
+      "available": false,
+      "reason": "No retained computer-use benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "rewardFloorPassRate": null,
+        "postconditionPassRate": null,
+        "meanStepCount": null
+      }
+    },
+    "latencyAndResourcePressure": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "meanWallClockMs": 40667,
+        "p95WallClockMs": 57764,
+        "residentModelBytes": 8988124069,
+        "processorKind": null
+      }
+    },
+    "operationalDiscipline": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "malformedToolCallRate": null,
+        "noOpStallRate": null,
+        "repairLoopIterations": 0,
+        "interruptionRecoveryQuality": null
+      }
+    }
+  },
+  "cases": [
+    {
+      "benchmarkId": "artifact-download-bundle",
+      "title": "Artifact download bundle",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "status": "completed",
+      "result": "pass",
+      "elapsedMs": 23570,
+      "timedOut": false,
+      "judgeScore": 0.8,
+      "verifierPass": true,
+      "repairLoopIterations": 0,
+      "routeMatched": true,
+      "summary": "a downloadable artifact bundle with a CSV and README Both the README.md and data.csv files are present and contain usable, non-placeholder content",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/artifact-download-bundle/artifact/generation.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/artifact-download-bundle/artifact",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/artifact-download-bundle/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/artifact-download-bundle/command.stderr.log",
+      "diagnosticsPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/artifact-download-bundle/trace-diagnostics.json",
+      "lastStudioProofTrace": "artifact_generation:winner id=candidate-1",
+      "lastProviderError": null
+    },
+    {
+      "benchmarkId": "artifact-editorial-launch-page",
+      "title": "Artifact editorial launch page",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "status": "failed",
+      "result": "red",
+      "elapsedMs": 57764,
+      "timedOut": false,
+      "judgeScore": null,
+      "verifierPass": false,
+      "repairLoopIterations": 0,
+      "routeMatched": false,
+      "summary": "[studio-proof-trace] artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=6083 temperature=0.32 max_tokens=1600",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/artifact-editorial-launch-page/artifact/generation.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/artifact-editorial-launch-page/artifact",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/artifact-editorial-launch-page/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/artifact-editorial-launch-page/command.stderr.log",
+      "diagnosticsPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/artifact-editorial-launch-page/trace-diagnostics.json",
+      "lastStudioProofTrace": "artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=6083 temperature=0.32 max_tokens=1600",
+      "lastProviderError": null
+    }
+  ],
+  "summaryPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss/summary.json",
+  "runRootPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-43-15-144Z/planner-grade-local-oss"
+}

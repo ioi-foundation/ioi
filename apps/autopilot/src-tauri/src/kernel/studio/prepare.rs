@@ -1,6 +1,13 @@
+use super::content_session::attach_non_artifact_studio_session;
 use super::revisions::persist_studio_artifact_exemplar;
 use super::*;
-use ioi_api::studio::StudioArtifactExemplar;
+use ioi_api::execution::{ExecutionEnvelope, ExecutionStage};
+use ioi_api::studio::{
+    StudioArtifactExemplar, StudioArtifactGenerationProgress, StudioArtifactMergeReceipt,
+    StudioArtifactPatchReceipt, StudioArtifactSwarmExecutionSummary, StudioArtifactSwarmPlan,
+    StudioArtifactVerificationReceipt, StudioArtifactWorkerReceipt,
+};
+use ioi_types::app::StudioExecutionStrategy;
 
 fn publish_current_task_progress(
     app: &AppHandle,
@@ -9,7 +16,10 @@ fn publish_current_task_progress(
 ) {
     task.phase = AgentPhase::Running;
     task.current_step = current_step.into();
+    publish_current_task_snapshot(app, task);
+}
 
+fn publish_current_task_snapshot(app: &AppHandle, task: &AgentTask) {
     let task_id = task.id.clone();
     let task_snapshot = task.clone();
     let state = app.state::<Mutex<AppState>>();
@@ -35,6 +45,150 @@ fn publish_current_task_progress(
     }
 
     let _ = app.emit("task-updated", &task_snapshot);
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        crate::kernel::session::emit_session_projection_update(&app_clone, false).await;
+    });
+}
+
+fn lifecycle_state_for_generation_progress(
+    progress: &StudioArtifactGenerationProgress,
+) -> StudioArtifactLifecycleState {
+    let stage = progress
+        .execution_envelope
+        .as_ref()
+        .and_then(|envelope| envelope.execution_summary.as_ref())
+        .and_then(|summary| summary.execution_stage);
+    match stage {
+        Some(ExecutionStage::Plan) | Some(ExecutionStage::Dispatch) => {
+            StudioArtifactLifecycleState::Materializing
+        }
+        Some(ExecutionStage::Work) | Some(ExecutionStage::Mutate) | Some(ExecutionStage::Merge) => {
+            StudioArtifactLifecycleState::Implementing
+        }
+        Some(ExecutionStage::Verify) | Some(ExecutionStage::Finalize) => {
+            StudioArtifactLifecycleState::Verifying
+        }
+        None => StudioArtifactLifecycleState::Materializing,
+    }
+}
+
+fn publish_current_task_generation_progress(
+    app: &AppHandle,
+    task_id: &str,
+    progress: &StudioArtifactGenerationProgress,
+) {
+    let task_snapshot = {
+        let state = app.state::<Mutex<AppState>>();
+        let Ok(mut guard) = state.lock() else {
+            return;
+        };
+        let Some(task) = guard.current_task.as_mut() else {
+            return;
+        };
+        if task.id != task_id {
+            return;
+        }
+
+        task.phase = AgentPhase::Running;
+        task.current_step = progress.current_step.clone();
+        if let Some(session) = task.studio_session.as_mut() {
+            session.materialization.execution_envelope = progress.execution_envelope.clone();
+            session.materialization.swarm_plan = progress.swarm_plan.clone();
+            session.materialization.swarm_execution = progress.swarm_execution.clone();
+            session.materialization.swarm_worker_receipts = progress.swarm_worker_receipts.clone();
+            session.materialization.swarm_change_receipts = progress.swarm_change_receipts.clone();
+            session.materialization.swarm_merge_receipts = progress.swarm_merge_receipts.clone();
+            session.materialization.swarm_verification_receipts =
+                progress.swarm_verification_receipts.clone();
+            if progress.render_evaluation.is_some() {
+                session.materialization.render_evaluation = progress.render_evaluation.clone();
+            }
+            if progress.judge.is_some() {
+                session.materialization.judge = progress.judge.clone();
+            }
+            session.lifecycle_state = lifecycle_state_for_generation_progress(progress);
+            session.status = lifecycle_state_label(session.lifecycle_state).to_string();
+            session.updated_at = now_iso();
+            session.artifact_manifest.verification.summary = progress.current_step.clone();
+            session.verified_reply.summary = progress.current_step.clone();
+        }
+
+        task.clone()
+    };
+
+    publish_current_task_snapshot(app, &task_snapshot);
+}
+
+pub(super) fn provisional_non_workspace_studio_session(
+    thread_id: &str,
+    studio_session_id: &str,
+    title: &str,
+    summary: &str,
+    created_at: &str,
+    outcome_request: &StudioOutcomeRequest,
+    materialization: StudioArtifactMaterializationContract,
+) -> Result<StudioArtifactSession, String> {
+    let artifact_request = outcome_request
+        .artifact
+        .as_ref()
+        .ok_or_else(|| "Studio artifact outcome missing artifact request".to_string())?;
+    let lifecycle_state = StudioArtifactLifecycleState::Materializing;
+    let mut artifact_manifest =
+        artifact_manifest_for_request(title, artifact_request, &[], None, None, lifecycle_state);
+    artifact_manifest.verification.summary = materialization
+        .blueprint
+        .as_ref()
+        .map(|blueprint| {
+            format!(
+                "Planning the {} blueprint and selecting structural guidance.",
+                blueprint.scaffold_family
+            )
+        })
+        .unwrap_or_else(|| {
+            "Planning the artifact blueprint and selecting structural guidance.".to_string()
+        });
+    artifact_manifest.verification.production_provenance =
+        materialization.production_provenance.clone();
+    artifact_manifest.verification.acceptance_provenance =
+        materialization.acceptance_provenance.clone();
+    let retrieved_exemplars = materialization.retrieved_exemplars.clone();
+
+    let mut studio_session = StudioArtifactSession {
+        session_id: studio_session_id.to_string(),
+        thread_id: thread_id.to_string(),
+        artifact_id: artifact_manifest.artifact_id.clone(),
+        title: title.to_string(),
+        summary: summary.to_string(),
+        current_lens: artifact_manifest.primary_tab.clone(),
+        navigator_backing_mode: "logical".to_string(),
+        navigator_nodes: navigator_nodes_for_manifest(&artifact_manifest),
+        attached_artifact_ids: Vec::new(),
+        available_lenses: artifact_manifest
+            .tabs
+            .iter()
+            .map(|tab| tab.id.clone())
+            .collect(),
+        materialization,
+        outcome_request: outcome_request.clone(),
+        artifact_manifest: artifact_manifest.clone(),
+        verified_reply: verified_reply_from_manifest(title, &artifact_manifest),
+        lifecycle_state,
+        status: lifecycle_state_label(lifecycle_state).to_string(),
+        active_revision_id: None,
+        revisions: Vec::new(),
+        taste_memory: None,
+        retrieved_exemplars,
+        selected_targets: Vec::new(),
+        ux_lifecycle: None,
+        created_at: created_at.to_string(),
+        updated_at: created_at.to_string(),
+        build_session_id: None,
+        workspace_root: None,
+        renderer_session_id: None,
+    };
+    refresh_pipeline_steps(&mut studio_session, None);
+    Ok(studio_session)
 }
 
 pub fn maybe_prepare_task_for_studio(
@@ -130,11 +284,27 @@ pub fn maybe_prepare_task_for_studio(
     };
     task.studio_outcome = Some(outcome_request.clone());
 
-    if outcome_request.needs_clarification
-        || outcome_request.outcome_kind != StudioOutcomeKind::Artifact
-    {
+    if outcome_request.needs_clarification {
         apply_non_artifact_route_state(task, &outcome_request);
         publish_current_task_progress(app, task, task.current_step.clone());
+        return Ok(());
+    }
+
+    if outcome_request.outcome_kind != StudioOutcomeKind::Artifact {
+        let provenance = app_studio_routing_inference_runtime(app)
+            .map(|runtime| runtime.studio_runtime_provenance())
+            .unwrap_or(crate::models::StudioRuntimeProvenance {
+                kind: crate::models::StudioRuntimeProvenanceKind::InferenceUnavailable,
+                label: "inference unavailable".to_string(),
+                model: None,
+                endpoint: None,
+            });
+        attach_non_artifact_studio_session(task, intent, provenance, &outcome_request);
+        apply_non_artifact_route_state(task, &outcome_request);
+        if task_is_studio_authoritative(task) {
+            apply_studio_authoritative_status(task, None);
+        }
+        publish_current_task_snapshot(app, task);
         return Ok(());
     }
 
@@ -159,8 +329,13 @@ fn maybe_prepare_task_for_studio_with_request(
     let created_at = now_iso();
     let mut attached_artifact_ids = Vec::new();
     let mut manifest_files: Vec<StudioArtifactManifestFile> = Vec::new();
-    let mut materialization =
-        materialization_contract_for_request(intent, &artifact_request, &summary);
+    let mut materialization = materialization_contract_for_request(
+        intent,
+        &artifact_request,
+        &summary,
+        outcome_request.execution_mode_decision.clone(),
+        outcome_request.execution_strategy,
+    );
     let workspace_root = if renderer_kind == StudioRendererKind::WorkspaceSurface {
         Some(workspace_root_for(app, &studio_session_id))
     } else {
@@ -177,6 +352,13 @@ fn maybe_prepare_task_for_studio_with_request(
     let mut candidate_summaries = Vec::<StudioArtifactCandidateSummary>::new();
     let mut winning_candidate_id: Option<String> = None;
     let mut winning_candidate_rationale: Option<String> = None;
+    let mut execution_envelope: Option<ExecutionEnvelope> = None;
+    let mut swarm_plan: Option<StudioArtifactSwarmPlan> = None;
+    let mut swarm_execution: Option<StudioArtifactSwarmExecutionSummary> = None;
+    let mut swarm_worker_receipts = Vec::<StudioArtifactWorkerReceipt>::new();
+    let mut swarm_change_receipts = Vec::<StudioArtifactPatchReceipt>::new();
+    let mut swarm_merge_receipts = Vec::<StudioArtifactMergeReceipt>::new();
+    let mut swarm_verification_receipts = Vec::<StudioArtifactVerificationReceipt>::new();
     let mut render_evaluation: Option<ioi_api::studio::StudioArtifactRenderEvaluation> = None;
     let mut judge: Option<StudioArtifactJudgeResult> = None;
     let mut output_origin: Option<StudioArtifactOutputOrigin> = None;
@@ -188,13 +370,15 @@ fn maybe_prepare_task_for_studio_with_request(
     let mut taste_memory: Option<StudioArtifactTasteMemory> = None;
     let mut retrieved_exemplars = Vec::<StudioArtifactExemplar>::new();
     let mut selected_targets = Vec::<StudioArtifactSelectionTarget>::new();
+    let mut final_materialized_artifact: Option<super::content_session::MaterializedContentArtifact> =
+        None;
     let app_runtime_provenance =
         app_inference_runtime(app).map(|runtime| runtime.studio_runtime_provenance());
     let app_acceptance_runtime_provenance =
         app_acceptance_inference_runtime(app).map(|runtime| runtime.studio_runtime_provenance());
 
     if renderer_kind == StudioRendererKind::WorkspaceSurface {
-        production_provenance = Some(app_runtime_provenance.unwrap_or(
+        production_provenance = Some(app_runtime_provenance.clone().unwrap_or(
             crate::models::StudioRuntimeProvenance {
                 kind: crate::models::StudioRuntimeProvenanceKind::InferenceUnavailable,
                 label: "inference unavailable".to_string(),
@@ -202,7 +386,7 @@ fn maybe_prepare_task_for_studio_with_request(
                 endpoint: None,
             },
         ));
-        acceptance_provenance = Some(app_acceptance_runtime_provenance.unwrap_or(
+        acceptance_provenance = Some(app_acceptance_runtime_provenance.clone().unwrap_or(
             crate::models::StudioRuntimeProvenance {
                 kind: crate::models::StudioRuntimeProvenanceKind::InferenceUnavailable,
                 label: "inference unavailable".to_string(),
@@ -308,19 +492,108 @@ fn maybe_prepare_task_for_studio_with_request(
         .map(build_session_to_renderer_session);
 
     if build_session.is_none() {
-        publish_current_task_progress(app, task, "Planning artifact blueprint...");
-        let materialized_artifact = materialize_non_workspace_artifact(
-            app,
-            &thread_id,
-            &title,
-            intent,
-            &artifact_request,
-            None,
-        )?;
         publish_current_task_progress(
             app,
             task,
-            if let Some(blueprint) = materialized_artifact.blueprint.as_ref() {
+            if outcome_request.execution_strategy == StudioExecutionStrategy::DirectAuthor {
+                "Authoring artifact directly..."
+            } else {
+                "Planning artifact blueprint..."
+            },
+        );
+        let (memory_runtime, inference_runtime, acceptance_inference_runtime) = {
+            let state = app.state::<Mutex<AppState>>();
+            let guard = state
+                .lock()
+                .map_err(|_| "Failed to lock app state".to_string())?;
+            (
+                guard.memory_runtime.clone().ok_or_else(|| {
+                    "Memory runtime is unavailable for Studio artifact materialization.".to_string()
+                })?,
+                guard.inference_runtime.clone(),
+                guard.acceptance_inference_runtime.clone(),
+            )
+        };
+        let planning_context =
+            if outcome_request.execution_strategy == StudioExecutionStrategy::DirectAuthor {
+                None
+            } else {
+                inference_runtime.as_ref().and_then(|runtime| {
+                    super::skills::prepare_studio_artifact_planning_context(
+                        app,
+                        &memory_runtime,
+                        runtime.clone(),
+                        &title,
+                        intent,
+                        &artifact_request,
+                        None,
+                    )
+                })
+            };
+        if let Some(context) = planning_context.as_ref() {
+            materialization.artifact_brief = Some(context.brief.clone());
+            materialization.blueprint = context.blueprint.clone();
+            materialization.artifact_ir = context.artifact_ir.clone();
+            materialization.selected_skills = context.selected_skills.clone();
+            materialization.retrieved_exemplars = context.retrieved_exemplars.clone();
+        }
+        materialization.production_provenance = app_runtime_provenance.clone();
+        materialization.acceptance_provenance = app_acceptance_runtime_provenance
+            .clone()
+            .or_else(|| app_runtime_provenance.clone());
+        task.studio_session = Some(provisional_non_workspace_studio_session(
+            &thread_id,
+            &studio_session_id,
+            &title,
+            &summary,
+            &created_at,
+            &outcome_request,
+            materialization.clone(),
+        )?);
+        publish_current_task_progress(
+            app,
+            task,
+            if outcome_request.execution_strategy == StudioExecutionStrategy::DirectAuthor {
+                "Authoring artifact directly...".to_string()
+            } else if materialization.selected_skills.is_empty() {
+                "Running the artifact execution plan...".to_string()
+            } else {
+                format!(
+                    "Running the artifact execution plan with {} selected skill guide(s)...",
+                    materialization.selected_skills.len()
+                )
+            },
+        );
+        let progress_app = app.clone();
+        let progress_task_id = task.id.clone();
+        let progress_observer =
+            std::sync::Arc::new(move |progress: StudioArtifactGenerationProgress| {
+                publish_current_task_generation_progress(
+                    &progress_app,
+                    &progress_task_id,
+                    &progress,
+                );
+            });
+        let materialized_artifact =
+            materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+                &memory_runtime,
+                inference_runtime,
+                acceptance_inference_runtime,
+                &thread_id,
+                &title,
+                intent,
+                &artifact_request,
+                None,
+                planning_context.clone(),
+                outcome_request.execution_strategy,
+                Some(progress_observer),
+            )?;
+        publish_current_task_progress(
+            app,
+            task,
+            if outcome_request.execution_strategy == StudioExecutionStrategy::DirectAuthor {
+                "Evaluating rendered artifact...".to_string()
+            } else if let Some(blueprint) = materialized_artifact.blueprint.as_ref() {
                 format!(
                     "Running static audits and acceptance verification for the {} scaffold...",
                     blueprint.scaffold_family
@@ -337,6 +610,13 @@ fn maybe_prepare_task_for_studio_with_request(
         candidate_summaries = materialized_artifact.candidate_summaries.clone();
         winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
         winning_candidate_rationale = materialized_artifact.winning_candidate_rationale.clone();
+        execution_envelope = materialized_artifact.execution_envelope.clone();
+        swarm_plan = materialized_artifact.swarm_plan.clone();
+        swarm_execution = materialized_artifact.swarm_execution.clone();
+        swarm_worker_receipts = materialized_artifact.swarm_worker_receipts.clone();
+        swarm_change_receipts = materialized_artifact.swarm_change_receipts.clone();
+        swarm_merge_receipts = materialized_artifact.swarm_merge_receipts.clone();
+        swarm_verification_receipts = materialized_artifact.swarm_verification_receipts.clone();
         render_evaluation = materialized_artifact.render_evaluation.clone();
         judge = materialized_artifact.judge.clone();
         output_origin = Some(materialized_artifact.output_origin);
@@ -363,6 +643,7 @@ fn maybe_prepare_task_for_studio_with_request(
         materialization
             .notes
             .extend(materialized_artifact.notes.clone());
+        final_materialized_artifact = Some(materialized_artifact);
     } else {
         publish_current_task_progress(app, task, "Selecting workspace scaffold...");
     }
@@ -377,11 +658,6 @@ fn maybe_prepare_task_for_studio_with_request(
         initial_lifecycle_state,
     );
 
-    if let Some(artifact) = create_contract_artifact(app, &thread_id, &title, &materialization) {
-        attached_artifact_ids.push(artifact.artifact_id.clone());
-        task.artifacts.push(artifact);
-    }
-
     if let Some(build) = build_session.as_mut() {
         if let Some(receipt_artifact) =
             create_receipt_report_artifact(app, &thread_id, &title, &build.receipts[0])
@@ -392,6 +668,49 @@ fn maybe_prepare_task_for_studio_with_request(
             attached_artifact_ids.push(receipt_artifact.artifact_id.clone());
             task.artifacts.push(receipt_artifact);
         }
+    }
+
+    if let Some(materialized_artifact) = final_materialized_artifact.as_ref() {
+        super::content_session::apply_materialized_artifact_to_contract(
+            &mut materialization,
+            &artifact_request,
+            materialized_artifact,
+            outcome_request.execution_mode_decision.clone(),
+            outcome_request.execution_strategy,
+        );
+    } else {
+        materialization.artifact_brief = artifact_brief.clone();
+        materialization.edit_intent = edit_intent.clone();
+        materialization.candidate_summaries = candidate_summaries.clone();
+        materialization.winning_candidate_id = winning_candidate_id.clone();
+        materialization.winning_candidate_rationale = winning_candidate_rationale.clone();
+        materialization.swarm_plan = swarm_plan.clone();
+        materialization.swarm_execution = swarm_execution.clone();
+        materialization.swarm_worker_receipts = swarm_worker_receipts.clone();
+        materialization.swarm_change_receipts = swarm_change_receipts.clone();
+        materialization.swarm_merge_receipts = swarm_merge_receipts.clone();
+        materialization.swarm_verification_receipts = swarm_verification_receipts.clone();
+        materialization.execution_envelope = execution_envelope.clone().or_else(|| {
+            super::content_session::artifact_execution_envelope_for_contract(
+                outcome_request.execution_mode_decision.clone(),
+                outcome_request.execution_strategy,
+                &materialization,
+            )
+        });
+        materialization.render_evaluation = render_evaluation;
+        materialization.judge = judge.clone();
+        materialization.output_origin = output_origin;
+        materialization.production_provenance = production_provenance.clone();
+        materialization.acceptance_provenance = acceptance_provenance.clone();
+        materialization.fallback_used = fallback_used;
+        materialization.ux_lifecycle = ux_lifecycle;
+        materialization.failure = failure.clone();
+        materialization.retrieved_exemplars = retrieved_exemplars.clone();
+    }
+
+    if let Some(artifact) = create_contract_artifact(app, &thread_id, &title, &materialization) {
+        attached_artifact_ids.push(artifact.artifact_id.clone());
+        task.artifacts.push(artifact);
     }
 
     artifact_manifest.artifact_id = attached_artifact_ids
@@ -413,20 +732,6 @@ fn maybe_prepare_task_for_studio_with_request(
             failure: failure.clone(),
         };
     }
-    materialization.artifact_brief = artifact_brief.clone();
-    materialization.edit_intent = edit_intent.clone();
-    materialization.candidate_summaries = candidate_summaries.clone();
-    materialization.winning_candidate_id = winning_candidate_id.clone();
-    materialization.winning_candidate_rationale = winning_candidate_rationale.clone();
-    materialization.render_evaluation = render_evaluation;
-    materialization.judge = judge.clone();
-    materialization.output_origin = output_origin;
-    materialization.production_provenance = production_provenance.clone();
-    materialization.acceptance_provenance = acceptance_provenance.clone();
-    materialization.fallback_used = fallback_used;
-    materialization.ux_lifecycle = ux_lifecycle;
-    materialization.failure = failure.clone();
-    materialization.retrieved_exemplars = retrieved_exemplars.clone();
     materialization.navigator_nodes = navigator_nodes_for_manifest(&artifact_manifest);
     let verified_reply = verified_reply_from_manifest(&title, &artifact_manifest);
 
@@ -615,6 +920,19 @@ pub fn maybe_prepare_current_task_for_studio_turn(
             maybe_prepare_task_for_studio_with_request(app, &mut task, intent, outcome_request)?;
         }
     } else {
+        if !outcome_request.needs_clarification
+            && outcome_request.outcome_kind != StudioOutcomeKind::Artifact
+        {
+            let provenance = app_studio_routing_inference_runtime(app)
+                .map(|runtime| runtime.studio_runtime_provenance())
+                .unwrap_or(crate::models::StudioRuntimeProvenance {
+                    kind: crate::models::StudioRuntimeProvenanceKind::InferenceUnavailable,
+                    label: "inference unavailable".to_string(),
+                    model: None,
+                    endpoint: None,
+                });
+            attach_non_artifact_studio_session(&mut task, intent, provenance, &outcome_request);
+        }
         apply_non_artifact_route_state(&mut task, &outcome_request);
     }
 
@@ -693,6 +1011,10 @@ pub fn maybe_prepare_current_task_for_studio_turn(
     }
 
     let _ = app.emit("task-updated", &task);
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        crate::kernel::session::emit_session_projection_update(&app_clone, false).await;
+    });
     Ok(())
 }
 
@@ -704,18 +1026,9 @@ pub(super) fn apply_non_artifact_route_state(
         "Studio needs clarification before selecting the correct outcome surface.".to_string()
     } else {
         match outcome_request.outcome_kind {
-            StudioOutcomeKind::Conversation => {
-                "Studio routed this request to conversation. No artifact was materialized."
-                    .to_string()
-            }
-            StudioOutcomeKind::ToolWidget => {
-                "Studio routed this request to a tool-widget outcome. No artifact was materialized."
-                    .to_string()
-            }
-            StudioOutcomeKind::Visualizer => {
-                "Studio routed this request to a visualizer outcome. No artifact was materialized."
-                    .to_string()
-            }
+            StudioOutcomeKind::Conversation => "Studio routed this request to conversation through the shared execution lane. No artifact renderer was invoked.".to_string(),
+            StudioOutcomeKind::ToolWidget => "Studio routed this request to a tool-widget outcome through the shared execution lane. No artifact renderer was invoked.".to_string(),
+            StudioOutcomeKind::Visualizer => "Studio routed this request to a visualizer outcome through the shared execution lane. No artifact renderer was invoked.".to_string(),
             StudioOutcomeKind::Artifact => task.current_step.clone(),
         }
     };

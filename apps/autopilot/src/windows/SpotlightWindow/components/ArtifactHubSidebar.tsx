@@ -1,19 +1,38 @@
+import {
+  buildSessionReplTargets,
+  useAssistantWorkbenchState,
+} from "@ioi/agent-ide";
+import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type {
+  AgentTask,
   AgentEvent,
   Artifact,
   ArtifactHubViewKey,
+  CanonicalTraceBundle,
+  ClarificationRequest,
+  CredentialRequest,
+  GateInfo,
+  LocalEngineStagedOperation,
+  SessionSummary,
   SourceSummary,
   ThoughtSummary,
 } from "../../../types";
+import type { SpotlightPlaybookRunRecord } from "../hooks/useSpotlightPlaybookRuns";
 import { icons } from "./Icons";
-import {
-  ArtifactHubDetailView,
-  type KernelLogRow,
-  type SecurityPolicyRow,
-  type SubstrateReceiptRow,
-} from "./ArtifactHubViews";
+import { ArtifactHubDetailView } from "./ArtifactHubViews";
+import type {
+  KernelLogRow,
+  SecurityPolicyRow,
+  SubstrateReceiptRow,
+} from "./ArtifactHubViewModels";
+import { buildCommitOverview } from "./artifactHubCommitModel";
+import { buildDoctorOverview } from "./artifactHubDoctorModel";
+import { buildMobileOverview } from "./artifactHubMobileModel";
+import { buildReplayTimelineRows } from "./ArtifactHubReplayModel";
+import type { SpotlightRemoteContinuityLaunchRequest } from "./artifactHubRemoteContinuityModel";
+import type { TraceBundleExportVariant } from "../utils/traceBundleExportModel";
 import {
   collectScreenshotReceipts,
   type ScreenshotReceiptEvidence,
@@ -28,16 +47,93 @@ import {
   buildEventTurnWindows,
   eventBelongsToTurnWindow,
 } from "../utils/turnWindows";
+import { exportThreadTraceBundle } from "../utils/exportContext";
+import {
+  buildPromotionStageDraft,
+  type PromotionTarget,
+} from "../utils/promotionStageModel";
+import {
+  buildDurabilityEvidenceOverview,
+  type DurabilityEvidenceOverview,
+} from "../utils/durabilityEvidenceModel";
+import {
+  buildPrivacyEvidenceOverview,
+  type PrivacyEvidenceOverview,
+} from "../utils/privacyEvidenceModel";
+import { buildRetainedPortfolioDossier } from "../utils/retainedPortfolioDossierModel";
+import { useRetainedWorkbenchTrace } from "../../../hooks/useRetainedWorkbenchTrace";
+import { buildAssistantWorkbenchSummary } from "../../../lib/assistantWorkbenchSummary";
+import { getSessionOperatorRuntime } from "../../../services/sessionRuntime";
 import { buildPlanSummary } from "../viewmodels/contentPipeline.summaries";
+import { useSpotlightBranches } from "../hooks/useSpotlightBranches";
+import { useSpotlightCapabilityRegistry } from "../hooks/useSpotlightCapabilityRegistry";
+import { useSpotlightCompaction } from "../hooks/useSpotlightCompaction";
+import { useSpotlightFileContext } from "../hooks/useSpotlightFileContext";
+import { useSpotlightHooks } from "../hooks/useSpotlightHooks";
+import { useSpotlightKeybindings } from "../hooks/useSpotlightKeybindings";
+import { useSpotlightLocalEngine } from "../hooks/useSpotlightLocalEngine";
+import { useSpotlightPermissions } from "../hooks/useSpotlightPermissions";
+import { useSpotlightPrivacySettings } from "../hooks/useSpotlightPrivacySettings";
+import { useSpotlightPlugins } from "../hooks/useSpotlightPlugins";
+import { useSpotlightRewind } from "../hooks/useSpotlightRewind";
+import { useSpotlightRemoteEnv } from "../hooks/useSpotlightRemoteEnv";
+import { useSpotlightServerMode } from "../hooks/useSpotlightServerMode";
+import { useSpotlightSourceControl } from "../hooks/useSpotlightSourceControl";
+import { useSpotlightTeamMemory } from "../hooks/useSpotlightTeamMemory";
+import { useSpotlightVimMode } from "../hooks/useSpotlightVimMode";
 
 interface ArtifactHubSidebarProps {
   initialView?: ArtifactHubViewKey;
   initialTurnId?: string | null;
+  activeSessionId?: string | null;
+  task: AgentTask | null;
+  sessions: SessionSummary[];
   events: AgentEvent[];
   artifacts: Artifact[];
   sourceSummary: SourceSummary | null;
   thoughtSummary: ThoughtSummary | null;
+  playbookRuns: SpotlightPlaybookRunRecord[];
+  playbookRunsLoading: boolean;
+  playbookRunsBusyRunId: string | null;
+  playbookRunsMessage: string | null;
+  playbookRunsError: string | null;
+  stagedOperations: LocalEngineStagedOperation[];
+  stagedOperationsLoading: boolean;
+  stagedOperationsBusyId: string | null;
+  stagedOperationsMessage: string | null;
+  stagedOperationsError: string | null;
   onOpenArtifact?: (artifactId: string) => void;
+  onRetryPlaybookRun?: (runId: string) => void;
+  onResumePlaybookRun?: (runId: string, stepId?: string | null) => void;
+  onDismissPlaybookRun?: (runId: string) => void;
+  onMessageWorkerSession?: (
+    runId: string,
+    sessionId: string,
+    message: string,
+  ) => void;
+  onStopWorkerSession?: (runId: string, sessionId: string) => void;
+  onPromoteRunResult?: (runId: string) => void;
+  onPromoteStepResult?: (runId: string, stepId: string) => void;
+  onPromoteStagedOperation?: (operationId: string) => void;
+  onRemoveStagedOperation?: (operationId: string) => void;
+  onLoadSession?: (sessionId: string) => void;
+  onStopSession?: () => void;
+  onOpenGate?: () => void;
+  isGated?: boolean;
+  gateInfo?: GateInfo;
+  isPiiGate?: boolean;
+  gateDeadlineMs?: number;
+  gateActionError?: string | null;
+  credentialRequest?: CredentialRequest;
+  clarificationRequest?: ClarificationRequest;
+  onApprove?: () => void;
+  onGrantScopedException?: () => void;
+  onDeny?: () => void;
+  onSubmitRuntimePassword?: (password: string) => Promise<void>;
+  onCancelRuntimePassword?: () => void;
+  onSubmitClarification?: (optionId: string, otherText: string) => Promise<void>;
+  onCancelClarification?: () => void;
+  onSeedIntent?: (intent: string) => void;
   onClose: () => void;
 }
 
@@ -61,6 +157,18 @@ const TURN_FILTER_VIEWS = new Set<ArtifactHubViewKey>([
   "files",
   "revisions",
   "screenshots",
+]);
+const FOCUSED_TRACE_ENTRY_VIEWS = new Set<ArtifactHubViewKey>([
+  "thoughts",
+  "sources",
+  "screenshots",
+  "kernel_logs",
+]);
+const FOCUSED_TRACE_SECTION_VIEWS = new Set<ArtifactHubViewKey>([
+  "thoughts",
+  "sources",
+  "screenshots",
+  "kernel_logs",
 ]);
 
 function clipText(value: string, maxChars: number = MAX_SUMMARY_CHARS): string {
@@ -137,8 +245,56 @@ function sectionLabel(key: ArtifactHubViewKey): string {
   switch (key) {
     case "active_context":
       return "Plan";
+    case "doctor":
+      return "Doctor";
+    case "compact":
+      return "Compact";
+    case "branch":
+      return "Branches";
+    case "commit":
+      return "Commit";
+    case "review":
+      return "Review";
+    case "pr_comments":
+      return "PR Comments";
+    case "mobile":
+      return "Mobile";
+    case "voice":
+      return "Voice";
+    case "server":
+      return "Server";
+    case "repl":
+      return "REPL";
+    case "export":
+      return "Export";
+    case "share":
+      return "Share";
+    case "remote_env":
+      return "Remote Env";
+    case "mcp":
+      return "MCP";
+    case "plugins":
+      return "Plugins";
+    case "vim":
+      return "Vim";
+    case "privacy":
+      return "Privacy";
+    case "keybindings":
+      return "Keybindings";
+    case "permissions":
+      return "Permissions";
+    case "hooks":
+      return "Hooks";
+    case "rewind":
+      return "Rewind";
+    case "replay":
+      return "Replay";
+    case "compare":
+      return "Compare";
+    case "tasks":
+      return "Tasks";
     case "thoughts":
-      return "Workers";
+      return "Thinking";
     case "substrate":
       return "Runtime proof";
     case "sources":
@@ -148,7 +304,7 @@ function sectionLabel(key: ArtifactHubViewKey): string {
     case "security_policy":
       return "Verification";
     case "files":
-      return "Outputs";
+      return "Files";
     case "revisions":
       return "Bundles";
     case "screenshots":
@@ -162,20 +318,147 @@ function defaultViewForSections(sections: HubSection[]): ArtifactHubViewKey {
   return sections.find((section) => section.count > 0)?.key || "sources";
 }
 
+function workspaceRootFromTask(task: AgentTask | null): string | null {
+  return (
+    task?.build_session?.workspaceRoot ||
+    task?.renderer_session?.workspaceRoot ||
+    task?.studio_session?.workspaceRoot ||
+    null
+  );
+}
+
+function workspaceRootForFiles(
+  activeSessionId: string | null | undefined,
+  task: AgentTask | null,
+  sessions: SessionSummary[],
+): string | null {
+  const taskRoot = workspaceRootFromTask(task);
+  if (taskRoot) {
+    return taskRoot;
+  }
+
+  if (activeSessionId) {
+    return (
+      sessions.find((session) => session.session_id === activeSessionId)
+        ?.workspace_root ?? null
+    );
+  }
+
+  return sessions.find((session) => session.workspace_root)?.workspace_root ?? null;
+}
+
 export function ArtifactHubSidebar({
   initialView,
   initialTurnId,
+  activeSessionId,
+  task,
+  sessions,
   events,
   artifacts,
   sourceSummary,
   thoughtSummary,
+  playbookRuns,
+  playbookRunsLoading,
+  playbookRunsBusyRunId,
+  playbookRunsMessage,
+  playbookRunsError,
+  stagedOperations,
+  stagedOperationsLoading,
+  stagedOperationsBusyId,
+  stagedOperationsMessage,
+  stagedOperationsError,
   onOpenArtifact,
+  onRetryPlaybookRun,
+  onResumePlaybookRun,
+  onDismissPlaybookRun,
+  onMessageWorkerSession,
+  onStopWorkerSession,
+  onPromoteRunResult,
+  onPromoteStepResult,
+  onPromoteStagedOperation,
+  onRemoveStagedOperation,
+  onLoadSession,
+  onStopSession,
+  onOpenGate,
+  isGated,
+  gateInfo,
+  isPiiGate,
+  gateDeadlineMs,
+  gateActionError,
+  credentialRequest,
+  clarificationRequest,
+  onApprove,
+  onGrantScopedException,
+  onDeny,
+  onSubmitRuntimePassword,
+  onCancelRuntimePassword,
+  onSubmitClarification,
+  onCancelClarification,
+  onSeedIntent,
   onClose,
 }: ArtifactHubSidebarProps) {
+  const focusedTraceMode =
+    initialView != null && FOCUSED_TRACE_ENTRY_VIEWS.has(initialView);
+  const enableOperatorSurfaces = !focusedTraceMode;
   const turnWindows = useMemo(() => buildEventTurnWindows(events), [events]);
   const latestTurn =
     turnWindows.length > 0 ? turnWindows[turnWindows.length - 1] : null;
   const [turnSelection, setTurnSelection] = useState<TurnSelection>("all");
+  const [replayBundle, setReplayBundle] = useState<CanonicalTraceBundle | null>(
+    null,
+  );
+  const [replayLoading, setReplayLoading] = useState(false);
+  const [replayError, setReplayError] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<
+    "idle" | "exporting" | "success" | "error"
+  >("idle");
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportedPath, setExportedPath] = useState<string | null>(null);
+  const [exportedAtMs, setExportedAtMs] = useState<number | null>(null);
+  const [exportedVariant, setExportedVariant] =
+    useState<TraceBundleExportVariant | null>(null);
+  const [promotionStageBusyTarget, setPromotionStageBusyTarget] =
+    useState<PromotionTarget | null>(null);
+  const [promotionStageMessage, setPromotionStageMessage] = useState<string | null>(
+    null,
+  );
+  const [promotionStageError, setPromotionStageError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeSessionId) {
+      setReplayBundle(null);
+      setReplayLoading(false);
+      setReplayError(null);
+      return;
+    }
+
+    let active = true;
+    setReplayLoading(true);
+    setReplayError(null);
+
+    void invoke<CanonicalTraceBundle>("get_trace_bundle", {
+      threadId: activeSessionId,
+      thread_id: activeSessionId,
+    })
+      .then((bundle) => {
+        if (!active) return;
+        setReplayBundle(bundle);
+        setReplayError(null);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setReplayBundle(null);
+        setReplayError(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => {
+        if (!active) return;
+        setReplayLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activeSessionId]);
 
   useEffect(() => {
     if (turnWindows.length === 0) {
@@ -349,6 +632,11 @@ export function ArtifactHubSidebar({
     return rows.reverse();
   }, [scopedEvents]);
 
+  const replayRows = useMemo(
+    () => buildReplayTimelineRows(replayBundle),
+    [replayBundle],
+  );
+
   const fileArtifacts = useMemo(
     () =>
       scopedArtifacts.filter(
@@ -367,9 +655,408 @@ export function ArtifactHubSidebar({
       ),
     [scopedArtifacts],
   );
+  const fileSessionId =
+    activeSessionId || task?.session_id || task?.id || sessions[0]?.session_id || null;
+  const exportSessionId = fileSessionId;
+  const fileWorkspaceRoot = useMemo(
+    () => workspaceRootForFiles(fileSessionId, task, sessions),
+    [fileSessionId, sessions, task],
+  );
+  const {
+    context: fileContext,
+    status: fileContextStatus,
+    error: fileContextError,
+    browsePath: fileBrowsePath,
+    browseEntries: fileBrowseEntries,
+    browseStatus: fileBrowseStatus,
+    browseError: fileBrowseError,
+    refresh: refreshFileContext,
+    openDirectory: openFileDirectory,
+    browseParent: browseFileParent,
+    rememberPath: rememberFilePath,
+    pinPath: pinFilePath,
+    includePath: includeFilePath,
+    excludePath: excludeFilePath,
+    removePath: removeFilePath,
+    clear: clearFileContext,
+    fileContextCount,
+  } = useSpotlightFileContext({
+    enabled: enableOperatorSurfaces,
+    sessionId: fileSessionId,
+    workspaceRoot: fileWorkspaceRoot,
+  });
+  const {
+    snapshot: localEngineSnapshot,
+    status: localEngineStatus,
+    error: localEngineError,
+    refresh: refreshLocalEngine,
+  } = useSpotlightLocalEngine(enableOperatorSurfaces);
+  const {
+    snapshot: capabilityRegistrySnapshot,
+    status: capabilityRegistryStatus,
+    error: capabilityRegistryError,
+  } = useSpotlightCapabilityRegistry(enableOperatorSurfaces);
+  const {
+    snapshot: compactionSnapshot,
+    status: compactionStatus,
+    error: compactionError,
+    policy: compactionPolicy,
+    refresh: refreshCompaction,
+    compact: compactSession,
+    updatePolicy: updateCompactionPolicy,
+    resetPolicy: resetCompactionPolicy,
+  } = useSpotlightCompaction(enableOperatorSurfaces);
+  const {
+    snapshot: teamMemorySnapshot,
+    status: teamMemoryStatus,
+    error: teamMemoryError,
+    includeGovernanceCritical: teamMemoryIncludeGovernanceCritical,
+    setIncludeGovernanceCritical: setTeamMemoryIncludeGovernanceCritical,
+    refresh: refreshTeamMemory,
+    sync: syncTeamMemory,
+    forget: forgetTeamMemory,
+  } = useSpotlightTeamMemory({
+    enabled: enableOperatorSurfaces,
+    sessionId: fileSessionId,
+  });
+  const {
+    snapshot: branchSnapshot,
+    status: branchStatus,
+    error: branchError,
+    refresh: refreshBranches,
+    createWorktree,
+    switchWorktree,
+    removeWorktree,
+  } = useSpotlightBranches({
+    enabled: enableOperatorSurfaces,
+    sessionId: fileSessionId,
+    workspaceRoot: fileWorkspaceRoot,
+  });
+  const {
+    assistantWorkbench,
+    assistantWorkbenchActivities,
+    activeAssistantWorkbenchActivities,
+  } = useAssistantWorkbenchState();
+  const activeWorkbenchSummary = useMemo(
+    () => buildAssistantWorkbenchSummary(assistantWorkbench),
+    [assistantWorkbench],
+  );
+  const retainedWorkbenchActivities = useMemo(
+    () =>
+      activeAssistantWorkbenchActivities.length > 0
+        ? activeAssistantWorkbenchActivities
+        : assistantWorkbenchActivities,
+    [activeAssistantWorkbenchActivities, assistantWorkbenchActivities],
+  );
+  const {
+    evidenceThreadId: retainedWorkbenchEvidenceThreadId,
+    trace: retainedWorkbenchTrace,
+    latestEvent: latestRetainedWorkbenchEvent,
+    latestArtifact: latestRetainedWorkbenchArtifact,
+  } = useRetainedWorkbenchTrace(retainedWorkbenchActivities);
+  const {
+    state: sourceControlState,
+    status: sourceControlStatus,
+    error: sourceControlError,
+    lastCommitReceipt,
+    refresh: refreshSourceControl,
+    stagePath,
+    stageAll,
+    unstagePath,
+    unstageAll,
+    discardPath,
+    discardAllWorking,
+    commit,
+  } = useSpotlightSourceControl({
+    enabled: enableOperatorSurfaces,
+    workspaceRoot: fileWorkspaceRoot,
+  });
+  const {
+    snapshot: remoteEnvSnapshot,
+    status: remoteEnvStatus,
+    error: remoteEnvError,
+    refresh: refreshRemoteEnv,
+  } = useSpotlightRemoteEnv({
+    enabled: enableOperatorSurfaces,
+    sessionId: fileSessionId,
+    workspaceRoot: fileWorkspaceRoot,
+  });
+  const {
+    snapshot: serverSnapshot,
+    status: serverStatus,
+    error: serverError,
+    refresh: refreshServer,
+  } = useSpotlightServerMode({
+    enabled: enableOperatorSurfaces,
+    sessionId: fileSessionId,
+    workspaceRoot: fileWorkspaceRoot,
+  });
+  const {
+    snapshot: pluginSnapshot,
+    status: pluginStatus,
+    error: pluginError,
+    refresh: refreshPlugins,
+    trustPlugin,
+    setPluginEnabled,
+    reloadPlugin,
+    refreshPluginCatalog,
+    revokePluginTrust,
+    installPluginPackage,
+    updatePluginPackage,
+    removePluginPackage,
+  } = useSpotlightPlugins({
+    enabled: enableOperatorSurfaces,
+    sessionId: fileSessionId,
+    workspaceRoot: fileWorkspaceRoot,
+  });
+  const {
+    snapshot: rewindSnapshot,
+    status: rewindStatus,
+    error: rewindError,
+    refresh: refreshRewind,
+  } = useSpotlightRewind(enableOperatorSurfaces);
+  const {
+    snapshot: hookSnapshot,
+    status: hooksStatus,
+    error: hooksError,
+    refresh: refreshHooks,
+  } = useSpotlightHooks({
+    enabled: enableOperatorSurfaces,
+    sessionId: fileSessionId,
+    workspaceRoot: fileWorkspaceRoot,
+  });
+  const keybindingSnapshot = useSpotlightKeybindings();
+  const { snapshot: vimModeSnapshot, toggle: toggleVimMode } =
+    useSpotlightVimMode(enableOperatorSurfaces);
+  const {
+    status: permissionsStatus,
+    error: permissionsError,
+    policyState,
+    governanceRequest,
+    connectorOverrides,
+    activeOverrideCount,
+    availableProfiles,
+    currentProfileId,
+    applyingProfileId,
+    editingConnectorId,
+    applyingGovernanceRequest,
+    rememberedApprovals,
+    applyProfile,
+    applyGovernanceRequest,
+    dismissGovernanceRequest,
+    forgetApproval,
+    updateConnectorOverride,
+    resetConnectorOverride,
+    setApprovalScopeMode,
+    setApprovalExpiry,
+    refresh: refreshPermissions,
+  } = useSpotlightPermissions(enableOperatorSurfaces);
+  const privacySnapshot = useSpotlightPrivacySettings({
+    policyState,
+    governanceRequest,
+    connectorOverrides,
+    activeOverrideCount,
+    rememberedApprovals,
+    isPiiGate,
+  });
+  const commitOverview = useMemo(
+    () =>
+      buildCommitOverview(
+        sourceControlState,
+        branchSnapshot,
+        lastCommitReceipt,
+      ),
+    [branchSnapshot, lastCommitReceipt, sourceControlState],
+  );
+  const mobileOverview = useMemo(
+    () =>
+      buildMobileOverview({
+        hasActiveWorkbench: Boolean(assistantWorkbench),
+        activeWorkbenchTitle: activeWorkbenchSummary?.title ?? null,
+        activityCount: retainedWorkbenchActivities.length,
+        evidenceThreadId: retainedWorkbenchEvidenceThreadId,
+        traceLoading: retainedWorkbenchTrace.loading,
+        traceError: retainedWorkbenchTrace.error,
+        eventCount: retainedWorkbenchTrace.events.length,
+        artifactCount: retainedWorkbenchTrace.artifacts.length,
+        sessionHistoryCount: sessions.length,
+      }),
+    [
+      activeWorkbenchSummary?.title,
+      assistantWorkbench,
+      retainedWorkbenchActivities.length,
+      retainedWorkbenchEvidenceThreadId,
+      retainedWorkbenchTrace.artifacts.length,
+      retainedWorkbenchTrace.error,
+      retainedWorkbenchTrace.events.length,
+      retainedWorkbenchTrace.loading,
+      sessions.length,
+    ],
+  );
+  const retainedWorkbenchEvidenceAttachable = useMemo(() => {
+    const evidenceThreadId = retainedWorkbenchEvidenceThreadId?.trim();
+    if (!evidenceThreadId) {
+      return false;
+    }
+    return sessions.some(
+      (session) =>
+        session.session_id === evidenceThreadId &&
+        Boolean(session.workspace_root?.trim()),
+    );
+  }, [retainedWorkbenchEvidenceThreadId, sessions]);
+  const doctorOverview = useMemo(
+    () =>
+      buildDoctorOverview({
+        runtime: {
+          status: localEngineStatus,
+          error: localEngineError,
+          pendingApprovalCount: localEngineSnapshot?.pendingApprovalCount ?? 0,
+          pendingControlCount: localEngineSnapshot?.pendingControlCount ?? 0,
+          activeIssueCount: localEngineSnapshot?.activeIssueCount ?? 0,
+          liveJobCount: localEngineSnapshot?.jobs.length ?? 0,
+          backendCount: localEngineSnapshot?.managedBackends.length ?? 0,
+          healthyBackendCount:
+            localEngineSnapshot?.managedBackends.filter(
+              (backend) => backend.health === "healthy",
+            ).length ?? 0,
+          degradedBackendCount:
+            localEngineSnapshot?.managedBackends.filter(
+              (backend) => backend.health !== "healthy",
+            ).length ?? 0,
+        },
+        authority: {
+          permissionsStatus,
+          permissionsError,
+          pendingGovernance: Boolean(governanceRequest),
+          activeOverrideCount,
+          rememberedApprovalCount:
+            rememberedApprovals?.activeDecisionCount ?? 0,
+          requiresPrivacyReview: Boolean(isPiiGate),
+          redactedOverrideCount: privacySnapshot.redactedOverrideCount,
+        },
+        extensions: {
+          pluginCount: pluginSnapshot?.pluginCount ?? 0,
+          blockedPluginCount: pluginSnapshot?.blockedPluginCount ?? 0,
+          reviewRequiredPluginCount:
+            pluginSnapshot?.reviewRequiredPluginCount ?? 0,
+          criticalUpdateCount: pluginSnapshot?.criticalUpdateCount ?? 0,
+          refreshFailedCount: pluginSnapshot?.refreshFailedCount ?? 0,
+          updateAvailableCount: pluginSnapshot?.updateAvailableCount ?? 0,
+          nonconformantChannelCount:
+            pluginSnapshot?.nonconformantChannelCount ?? 0,
+          nonconformantSourceCount:
+            pluginSnapshot?.nonconformantSourceCount ?? 0,
+        },
+        workspace: {
+          isRepo: branchSnapshot?.isRepo ?? false,
+          changedFileCount: branchSnapshot?.changedFileCount ?? 0,
+          dirty: branchSnapshot?.dirty ?? false,
+          aheadCount: branchSnapshot?.aheadCount ?? 0,
+          behindCount: branchSnapshot?.behindCount ?? 0,
+          worktreeRiskLabel: branchSnapshot?.worktreeRiskLabel ?? null,
+        },
+        durability: {
+          status: compactionStatus,
+          error: compactionError,
+          activeSession: Boolean(compactionSnapshot?.activeSessionId),
+          recordCount: compactionSnapshot?.recordCount ?? 0,
+          shouldCompact:
+            compactionSnapshot?.recommendationForActive?.shouldCompact ?? false,
+          recommendedPolicyLabel:
+            compactionSnapshot?.recommendationForActive
+              ?.recommendedPolicyLabel ?? null,
+          recommendationReasons:
+            compactionSnapshot?.recommendationForActive?.reasonLabels ?? [],
+          resumeSafetyStatus:
+            compactionSnapshot?.latestForActive?.resumeSafety.status ??
+            compactionSnapshot?.previewForActive?.resumeSafety.status ??
+            null,
+        },
+        automation: {
+          remoteEnvStatus,
+          remoteEnvError,
+          bindingCount: remoteEnvSnapshot?.bindingCount ?? 0,
+          redactedBindingCount: remoteEnvSnapshot?.redactedBindingCount ?? 0,
+          secretBindingCount: remoteEnvSnapshot?.secretBindingCount ?? 0,
+          hooksStatus,
+          hooksError,
+          activeHookCount: hookSnapshot?.activeHookCount ?? 0,
+          disabledHookCount: hookSnapshot?.disabledHookCount ?? 0,
+          hookReceiptCount:
+            (hookSnapshot?.runtimeReceiptCount ?? 0) +
+            (hookSnapshot?.approvalReceiptCount ?? 0),
+        },
+      }),
+    [
+      activeOverrideCount,
+      branchSnapshot?.aheadCount,
+      branchSnapshot?.behindCount,
+      branchSnapshot?.changedFileCount,
+      branchSnapshot?.dirty,
+      branchSnapshot?.isRepo,
+      branchSnapshot?.worktreeRiskLabel,
+      compactionError,
+      compactionSnapshot?.activeSessionId,
+      compactionSnapshot?.latestForActive?.resumeSafety.status,
+      compactionSnapshot?.previewForActive?.resumeSafety.status,
+      compactionSnapshot?.recommendationForActive?.reasonLabels,
+      compactionSnapshot?.recommendationForActive?.recommendedPolicyLabel,
+      compactionSnapshot?.recommendationForActive?.shouldCompact,
+      compactionSnapshot?.recordCount,
+      compactionStatus,
+      governanceRequest,
+      hookSnapshot?.activeHookCount,
+      hookSnapshot?.disabledHookCount,
+      hookSnapshot?.runtimeReceiptCount,
+      hooksError,
+      hooksStatus,
+      isPiiGate,
+      localEngineError,
+      localEngineSnapshot?.activeIssueCount,
+      localEngineSnapshot?.jobs,
+      localEngineSnapshot?.managedBackends,
+      localEngineSnapshot?.pendingApprovalCount,
+      localEngineSnapshot?.pendingControlCount,
+      localEngineStatus,
+      permissionsError,
+      permissionsStatus,
+      pluginSnapshot?.blockedPluginCount,
+      pluginSnapshot?.criticalUpdateCount,
+      pluginSnapshot?.nonconformantChannelCount,
+      pluginSnapshot?.nonconformantSourceCount,
+      pluginSnapshot?.pluginCount,
+      pluginSnapshot?.refreshFailedCount,
+      pluginSnapshot?.reviewRequiredPluginCount,
+      pluginSnapshot?.updateAvailableCount,
+      privacySnapshot.redactedOverrideCount,
+      rememberedApprovals?.activeDecisionCount,
+      remoteEnvError,
+      remoteEnvSnapshot?.bindingCount,
+      remoteEnvSnapshot?.redactedBindingCount,
+      remoteEnvSnapshot?.secretBindingCount,
+      remoteEnvStatus,
+    ],
+  );
   const screenshotReceipts = useMemo<ScreenshotReceiptEvidence[]>(
     () => collectScreenshotReceipts(scopedEvents),
     [scopedEvents],
+  );
+  const durabilityOverview: DurabilityEvidenceOverview = useMemo(
+    () =>
+      buildDurabilityEvidenceOverview({
+        activeSessionId: exportSessionId,
+        compactionSnapshot,
+        teamMemorySnapshot,
+      }),
+    [compactionSnapshot, exportSessionId, teamMemorySnapshot],
+  );
+  const privacyOverview: PrivacyEvidenceOverview = useMemo(
+    () =>
+      buildPrivacyEvidenceOverview({
+        snapshot: privacySnapshot,
+        exportVariant: exportedVariant,
+      }),
+    [exportedVariant, privacySnapshot],
   );
   const substrateReceipts = useMemo<SubstrateReceiptRow[]>(() => {
     const rows: SubstrateReceiptRow[] = [];
@@ -424,6 +1111,325 @@ export function ArtifactHubSidebar({
     rows.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     return rows;
   }, [scopedEvents]);
+  const taskSectionCount = useMemo(() => {
+    if (!task) return 0;
+    const blockerCount =
+      task.pending_request_hash ||
+      task.clarification_request ||
+      task.credential_request ||
+      task.gate_info
+        ? 1
+        : 0;
+    return Math.max(
+      1,
+      task.session_checklist.length +
+        task.background_tasks.length +
+        blockerCount +
+        playbookRuns.length,
+    );
+  }, [playbookRuns.length, task]);
+  const doctorSectionCount = useMemo(() => {
+    return Math.max(1, doctorOverview.reviewCount + doctorOverview.watchCount);
+  }, [doctorOverview.reviewCount, doctorOverview.watchCount]);
+  const replSectionCount = useMemo(() => {
+    const currentSessionId = activeSessionId || task?.session_id || task?.id || null;
+    const currentTaskRoot = workspaceRootFromTask(task);
+    const replTargets = buildSessionReplTargets(sessions, currentSessionId);
+    return Math.max(
+      currentTaskRoot ? 1 : 0,
+      replTargets.length,
+    );
+  }, [activeSessionId, sessions, task]);
+  const branchSectionCount = useMemo(() => {
+    if (!fileWorkspaceRoot && !branchSnapshot?.workspaceRoot) {
+      return 0;
+    }
+    if (!branchSnapshot?.isRepo) {
+      return 1;
+    }
+    return Math.max(
+      1,
+      branchSnapshot.recentBranches.length + Number(branchSnapshot.dirty),
+    );
+  }, [
+    branchSnapshot?.dirty,
+    branchSnapshot?.isRepo,
+    branchSnapshot?.recentBranches.length,
+    branchSnapshot?.workspaceRoot,
+    fileWorkspaceRoot,
+  ]);
+  const commitSectionCount = useMemo(() => {
+    if (!fileWorkspaceRoot) {
+      return 0;
+    }
+    return Math.max(
+      1,
+      commitOverview.stagedCount +
+        commitOverview.unstagedCount +
+        Number(commitOverview.canCommit),
+    );
+  }, [
+    commitOverview.canCommit,
+    commitOverview.stagedCount,
+    commitOverview.unstagedCount,
+    fileWorkspaceRoot,
+  ]);
+  const prCommentsSectionCount = useMemo(() => {
+    return Math.max(
+      1,
+      commitOverview.changedCount,
+      visibleSourceCount,
+      screenshotReceipts.length,
+      substrateReceipts.length,
+      scopedPlanSummary ? 1 : 0,
+    );
+  }, [
+    commitOverview.changedCount,
+    scopedPlanSummary,
+    screenshotReceipts.length,
+    substrateReceipts.length,
+    visibleSourceCount,
+  ]);
+  const reviewSectionCount = useMemo(() => {
+    const reviewSignals =
+      Number(
+        Boolean(
+          task?.pending_request_hash ||
+            task?.credential_request ||
+            task?.clarification_request ||
+            task?.gate_info,
+        ),
+      ) +
+      Number(Boolean(isPiiGate)) +
+      Number(Boolean(compactionSnapshot?.recommendationForActive?.shouldCompact)) +
+      Number(Boolean(exportSessionId)) +
+      Number(commitOverview.changedCount > 0);
+    return Math.max(1, reviewSignals);
+  }, [
+    commitOverview.changedCount,
+    compactionSnapshot?.recommendationForActive?.shouldCompact,
+    exportSessionId,
+    isPiiGate,
+    task,
+  ]);
+  const mobileSectionCount = useMemo(() => {
+    if (
+      !assistantWorkbench &&
+      retainedWorkbenchActivities.length === 0 &&
+      !retainedWorkbenchEvidenceThreadId
+    ) {
+      return Math.max(0, Number(sessions.length > 0));
+    }
+    return Math.max(
+      1,
+      Number(Boolean(assistantWorkbench)) +
+        retainedWorkbenchActivities.length +
+        Number(Boolean(retainedWorkbenchEvidenceThreadId)),
+    );
+  }, [
+    assistantWorkbench,
+    retainedWorkbenchActivities.length,
+      retainedWorkbenchEvidenceThreadId,
+      sessions.length,
+  ]);
+  const voiceSectionCount = 1;
+  const permissionSectionCount = useMemo(() => {
+    const blockerCount =
+      task?.pending_request_hash ||
+      task?.clarification_request ||
+      task?.credential_request ||
+      task?.gate_info
+        ? 1
+        : 0;
+    const governanceCount = governanceRequest ? 1 : 0;
+    const rememberedCount = rememberedApprovals?.activeDecisionCount ?? 0;
+    return Math.max(
+      1,
+      blockerCount + governanceCount + activeOverrideCount + rememberedCount,
+    );
+  }, [activeOverrideCount, governanceRequest, rememberedApprovals, task]);
+  const privacySectionCount = useMemo(() => {
+    const reviewCount =
+      Number(isPiiGate) +
+      Number(Boolean(privacySnapshot.pendingGovernanceSummary)) +
+      privacySnapshot.redactedOverrideCount;
+    return Math.max(1, reviewCount);
+  }, [
+    isPiiGate,
+    privacySnapshot.pendingGovernanceSummary,
+    privacySnapshot.redactedOverrideCount,
+  ]);
+  const rewindSectionCount = useMemo(() => {
+    return Math.max(0, rewindSnapshot?.candidates.length ?? 0);
+  }, [rewindSnapshot?.candidates.length]);
+  const compactionSectionCount = useMemo(() => {
+    const activeBonus = compactionSnapshot?.activeSessionId ? 1 : 0;
+    return Math.max(activeBonus, compactionSnapshot?.recordCount ?? 0);
+  }, [compactionSnapshot?.activeSessionId, compactionSnapshot?.recordCount]);
+  const remoteEnvSectionCount = useMemo(() => {
+    return Math.max(0, remoteEnvSnapshot?.bindingCount ?? 0);
+  }, [remoteEnvSnapshot?.bindingCount]);
+  const serverSectionCount = useMemo(() => {
+    return Math.max(
+      1,
+      serverSnapshot?.remoteSessionCount ?? 0,
+      serverSnapshot?.remoteOnlySessionCount ?? 0,
+      Number(Boolean(serverSnapshot?.explicitRpcTarget)),
+    );
+  }, [
+    serverSnapshot?.explicitRpcTarget,
+    serverSnapshot?.remoteOnlySessionCount,
+    serverSnapshot?.remoteSessionCount,
+  ]);
+  const pluginSectionCount = useMemo(() => {
+    return Math.max(0, pluginSnapshot?.pluginCount ?? 0);
+  }, [pluginSnapshot?.pluginCount]);
+  const mcpSectionCount = useMemo(() => {
+    return Math.max(
+      0,
+      capabilityRegistrySnapshot?.extensionManifests.reduce((count, manifest) => {
+        return (
+          count +
+          manifest.contributions
+            .filter((contribution) => contribution.kind === "mcp_servers")
+            .reduce(
+              (manifestCount, contribution) =>
+                manifestCount + Math.max(1, contribution.itemCount ?? 1),
+              0,
+            )
+        );
+      }, 0) ?? 0,
+    );
+  }, [capabilityRegistrySnapshot]);
+  const hookSectionCount = useMemo(() => {
+    return Math.max(0, hookSnapshot?.hooks.length ?? 0);
+  }, [hookSnapshot?.hooks.length]);
+  const keybindingSectionCount = Math.max(
+    0,
+    keybindingSnapshot.records.length,
+  );
+  const vimSectionCount = Math.max(1, vimModeSnapshot.keyHints.length);
+  const exportSectionCount = exportSessionId ? 1 : 0;
+
+  useEffect(() => {
+    setExportStatus("idle");
+    setExportError(null);
+    setExportedPath(null);
+    setExportedAtMs(null);
+    setExportedVariant(null);
+    setPromotionStageBusyTarget(null);
+    setPromotionStageMessage(null);
+    setPromotionStageError(null);
+  }, [exportSessionId]);
+
+  const handleExportBundle = useCallback(
+    async (variant: TraceBundleExportVariant = "trace_bundle") => {
+      if (!exportSessionId) {
+        return;
+      }
+      setExportStatus("exporting");
+      setExportError(null);
+      try {
+        const path = await exportThreadTraceBundle({
+          threadId: exportSessionId,
+          variant,
+        });
+        if (!path) {
+          setExportStatus("idle");
+          return;
+        }
+        setExportedPath(path);
+        setExportedAtMs(Date.now());
+        setExportedVariant(variant);
+        setExportStatus("success");
+      } catch (error) {
+        setExportError(error instanceof Error ? error.message : String(error));
+        setExportStatus("error");
+      }
+    },
+    [exportSessionId],
+  );
+
+  const handleStagePromotionCandidate = useCallback(
+    async (target: PromotionTarget) => {
+      if (!exportSessionId && !replayBundle) {
+        return;
+      }
+
+      setPromotionStageBusyTarget(target);
+      setPromotionStageMessage(null);
+      setPromotionStageError(null);
+
+      try {
+        const dossier = buildRetainedPortfolioDossier({
+          sessionTitle: replayBundle?.sessionSummary?.title || exportSessionId,
+          bundle: replayBundle,
+          portfolio: compactionSnapshot?.durabilityPortfolio ?? null,
+          exportVariant: exportedVariant,
+          privacyStatusLabel: privacyOverview.statusLabel,
+          privacyRecommendationLabel: privacyOverview.recommendationLabel,
+          durabilityStatusLabel: durabilityOverview.statusLabel,
+        });
+        const draft = buildPromotionStageDraft({
+          target,
+          sessionId: exportSessionId,
+          threadId: exportSessionId,
+          bundle: replayBundle,
+          exportPath: exportedPath,
+          exportVariant: exportedVariant,
+          durabilitySummary: `${durabilityOverview.statusLabel} · ${durabilityOverview.compactionSummary} · ${durabilityOverview.teamMemorySummary}`,
+          privacySummary: `${privacyOverview.statusLabel} · ${privacyOverview.exportSummary}`,
+          dossier,
+        });
+        await getSessionOperatorRuntime().stageLocalEngineOperation(draft);
+        setPromotionStageMessage(
+          `Staged ${target} promotion in the Local Engine queue with '${dossier.title}' attached to the canonical replay evidence.`,
+        );
+      } catch (error) {
+        setPromotionStageError(
+          error instanceof Error ? error.message : String(error),
+        );
+      } finally {
+        setPromotionStageBusyTarget(null);
+      }
+    },
+    [
+      compactionSnapshot?.durabilityPortfolio,
+      durabilityOverview.compactionSummary,
+      durabilityOverview.statusLabel,
+      durabilityOverview.teamMemorySummary,
+      exportSessionId,
+      exportedPath,
+      exportedVariant,
+      privacyOverview.exportSummary,
+      privacyOverview.statusLabel,
+      replayBundle,
+    ],
+  );
+
+  const handleRefreshDoctor = useCallback(async () => {
+    await Promise.all([
+      refreshLocalEngine().catch(() => null),
+      refreshCompaction().catch(() => null),
+      refreshBranches().catch(() => null),
+      refreshSourceControl().catch(() => null),
+      refreshServer().catch(() => null),
+      refreshRemoteEnv().catch(() => null),
+      refreshPlugins().catch(() => null),
+      refreshHooks().catch(() => null),
+      refreshPermissions().catch(() => null),
+    ]);
+  }, [
+    refreshBranches,
+      refreshCompaction,
+      refreshHooks,
+      refreshLocalEngine,
+      refreshPermissions,
+      refreshPlugins,
+      refreshRemoteEnv,
+      refreshServer,
+      refreshSourceControl,
+    ]);
 
   const sections = useMemo<HubSection[]>(
     () => [
@@ -433,9 +1439,133 @@ export function ArtifactHubSidebar({
         count: scopedPlanSummary ? 1 : 0,
       },
       {
+        key: "doctor",
+        label: sectionLabel("doctor"),
+        count: doctorSectionCount,
+      },
+      {
+        key: "compact",
+        label: sectionLabel("compact"),
+        count: compactionSectionCount,
+      },
+      {
+        key: "branch",
+        label: sectionLabel("branch"),
+        count: branchSectionCount,
+      },
+      {
+        key: "commit",
+        label: sectionLabel("commit"),
+        count: commitSectionCount,
+      },
+      {
+        key: "review",
+        label: sectionLabel("review"),
+        count: reviewSectionCount,
+      },
+      {
+        key: "pr_comments",
+        label: sectionLabel("pr_comments"),
+        count: prCommentsSectionCount,
+      },
+      {
+        key: "mobile",
+        label: sectionLabel("mobile"),
+        count: mobileSectionCount,
+      },
+      {
+        key: "voice",
+        label: sectionLabel("voice"),
+        count: voiceSectionCount,
+      },
+      {
+        key: "server",
+        label: sectionLabel("server"),
+        count: serverSectionCount,
+      },
+      {
+        key: "export",
+        label: sectionLabel("export"),
+        count: exportSectionCount,
+      },
+      {
+        key: "share",
+        label: sectionLabel("share"),
+        count: exportSectionCount,
+      },
+      {
+        key: "remote_env",
+        label: sectionLabel("remote_env"),
+        count: remoteEnvSectionCount,
+      },
+      {
+        key: "mcp",
+        label: sectionLabel("mcp"),
+        count: mcpSectionCount,
+      },
+      {
+        key: "plugins",
+        label: sectionLabel("plugins"),
+        count: pluginSectionCount,
+      },
+      {
+        key: "vim",
+        label: sectionLabel("vim"),
+        count: vimSectionCount,
+      },
+      {
+        key: "keybindings",
+        label: sectionLabel("keybindings"),
+        count: keybindingSectionCount,
+      },
+      {
+        key: "privacy",
+        label: sectionLabel("privacy"),
+        count: privacySectionCount,
+      },
+      {
+        key: "replay",
+        label: sectionLabel("replay"),
+        count: replayRows.length,
+      },
+      {
+        key: "compare",
+        label: sectionLabel("compare"),
+        count: Math.max(
+          0,
+          sessions.filter((session) => session.session_id !== activeSessionId)
+            .length,
+        ),
+      },
+      {
+        key: "rewind",
+        label: sectionLabel("rewind"),
+        count: rewindSectionCount,
+      },
+      {
+        key: "hooks",
+        label: sectionLabel("hooks"),
+        count: hookSectionCount,
+      },
+      {
+        key: "permissions",
+        label: sectionLabel("permissions"),
+        count: permissionSectionCount,
+      },
+      {
+        key: "tasks",
+        label: sectionLabel("tasks"),
+        count: taskSectionCount,
+      },
+      {
+        key: "repl",
+        label: sectionLabel("repl"),
+        count: replSectionCount,
+      },
+      {
         key: "thoughts",
         label: sectionLabel("thoughts"),
-        count: thoughtAgents.length,
+        count: thoughtAgents.length + playbookRuns.length + stagedOperations.length,
       },
       {
         key: "sources",
@@ -450,7 +1580,7 @@ export function ArtifactHubSidebar({
       {
         key: "files",
         label: sectionLabel("files"),
-        count: fileArtifacts.length,
+        count: fileArtifacts.length + fileContextCount,
       },
       {
         key: "revisions",
@@ -474,31 +1604,138 @@ export function ArtifactHubSidebar({
       },
     ],
     [
+      activeOverrideCount,
+      compactionSectionCount,
+      branchSectionCount,
+      commitSectionCount,
+      reviewSectionCount,
+      doctorSectionCount,
+      prCommentsSectionCount,
+      mobileSectionCount,
+      voiceSectionCount,
+      serverSectionCount,
+      replSectionCount,
+      governanceRequest,
       scopedPlanSummary,
+      fileContextCount,
       fileArtifacts.length,
+      exportSectionCount,
+      remoteEnvSectionCount,
+      mcpSectionCount,
+      pluginSectionCount,
+      vimSectionCount,
+      keybindingSectionCount,
       kernelLogs.length,
+      privacySectionCount,
+      replayRows.length,
+      rewindSectionCount,
+      hookSectionCount,
       revisionArtifacts.length,
       screenshotReceipts.length,
       securityRows.length,
       substrateReceipts.length,
+      taskSectionCount,
+      permissionSectionCount,
       visibleSourceCount,
       thoughtAgents.length,
+      playbookRuns.length,
+      stagedOperations.length,
+      sessions,
+      activeSessionId,
     ],
   );
 
+  const presentedSections = useMemo(() => {
+    const scopedSections = focusedTraceMode
+      ? sections.filter((section) => FOCUSED_TRACE_SECTION_VIEWS.has(section.key))
+      : sections;
+    const visibleSections = scopedSections.filter(
+      (section) => section.count > 0 || section.key === initialView,
+    );
+    return visibleSections.length > 0 ? visibleSections : scopedSections;
+  }, [focusedTraceMode, initialView, sections]);
+
   const derivedDefaultView = useMemo(
-    () => defaultViewForSections(sections),
-    [sections],
+    () => defaultViewForSections(presentedSections),
+    [presentedSections],
   );
   const [activeView, setActiveView] = useState<ArtifactHubViewKey>(
     initialView || derivedDefaultView,
   );
+  const [selectedRewindSessionId, setSelectedRewindSessionId] = useState<string | null>(
+    null,
+  );
+  const [compareTargetSessionId, setCompareTargetSessionId] = useState<string | null>(
+    null,
+  );
+  const [replLaunchRequest, setReplLaunchRequest] =
+    useState<SpotlightRemoteContinuityLaunchRequest | null>(null);
 
   useEffect(() => {
     if (initialView) {
       setActiveView(initialView);
     }
   }, [initialView]);
+
+  useEffect(() => {
+    if (
+      presentedSections.length === 0 ||
+      presentedSections.some((section) => section.key === activeView)
+    ) {
+      return;
+    }
+    setActiveView(defaultViewForSections(presentedSections));
+  }, [activeView, presentedSections]);
+
+  useEffect(() => {
+    const candidateIds = new Set(
+      (rewindSnapshot?.candidates ?? []).map((candidate) => candidate.sessionId),
+    );
+    if (
+      selectedRewindSessionId &&
+      !candidateIds.has(selectedRewindSessionId)
+    ) {
+      setSelectedRewindSessionId(null);
+    }
+    if (
+      compareTargetSessionId &&
+      (!candidateIds.has(compareTargetSessionId) ||
+        compareTargetSessionId === activeSessionId)
+    ) {
+      setCompareTargetSessionId(null);
+    }
+  }, [
+    activeSessionId,
+    compareTargetSessionId,
+    rewindSnapshot,
+    selectedRewindSessionId,
+  ]);
+
+  const handleOpenView = useCallback((view: ArtifactHubViewKey) => {
+    setActiveView(view);
+  }, []);
+
+  const handleOpenCompareForSession = useCallback((sessionId: string | null) => {
+    setCompareTargetSessionId(sessionId);
+    if (sessionId) {
+      setSelectedRewindSessionId(sessionId);
+      setActiveView("compare");
+    }
+  }, []);
+
+  const handleRequestReplLaunch = useCallback(
+    (request: SpotlightRemoteContinuityLaunchRequest) => {
+      setReplLaunchRequest(request);
+      setActiveView("repl");
+      const sessionAvailableLocally = sessions.some(
+        (session) => session.session_id === request.sessionId,
+      );
+      if (!sessionAvailableLocally) {
+        onLoadSession?.(request.sessionId);
+      }
+    },
+    [onLoadSession, sessions],
+  );
 
   const openExternalUrl = useCallback(async (url: string) => {
     try {
@@ -511,18 +1748,207 @@ export function ArtifactHubSidebar({
   const detailView = (
     <ArtifactHubDetailView
       activeView={activeView}
+      activeSessionId={activeSessionId}
+      exportSessionId={exportSessionId}
+      exportStatus={exportStatus}
+      exportError={exportError}
+      exportPath={exportedPath}
+      exportTimestampMs={exportedAtMs}
+      exportVariant={exportedVariant}
+      durabilityOverview={durabilityOverview}
+      privacyOverview={privacyOverview}
+      keybindingSnapshot={keybindingSnapshot}
+      vimModeSnapshot={vimModeSnapshot}
+      compactionSnapshot={compactionSnapshot}
+      compactionPolicy={compactionPolicy}
+      compactionStatus={compactionStatus}
+      compactionError={compactionError}
+      localEngineSnapshot={localEngineSnapshot}
+      localEngineStatus={localEngineStatus}
+      localEngineError={localEngineError}
+      doctorOverview={doctorOverview}
+      branchSnapshot={branchSnapshot}
+      branchStatus={branchStatus}
+      branchError={branchError}
+      sourceControlState={sourceControlState}
+      sourceControlStatus={sourceControlStatus}
+      sourceControlError={sourceControlError}
+      sourceControlLastCommitReceipt={lastCommitReceipt}
+      assistantWorkbench={assistantWorkbench}
+      activeWorkbenchSummary={activeWorkbenchSummary}
+      retainedWorkbenchActivities={retainedWorkbenchActivities}
+      retainedWorkbenchEvidenceThreadId={retainedWorkbenchEvidenceThreadId}
+      retainedWorkbenchTraceLoading={retainedWorkbenchTrace.loading}
+      retainedWorkbenchTraceError={retainedWorkbenchTrace.error}
+      retainedWorkbenchEventCount={retainedWorkbenchTrace.events.length}
+      retainedWorkbenchArtifactCount={retainedWorkbenchTrace.artifacts.length}
+      latestRetainedWorkbenchEvent={latestRetainedWorkbenchEvent}
+      latestRetainedWorkbenchArtifact={latestRetainedWorkbenchArtifact}
+      retainedWorkbenchEvidenceAttachable={retainedWorkbenchEvidenceAttachable}
+      mobileOverview={mobileOverview}
+      replLaunchRequest={replLaunchRequest}
+      onSeedIntent={onSeedIntent}
+      capabilityRegistrySnapshot={capabilityRegistrySnapshot}
+      capabilityRegistryStatus={capabilityRegistryStatus}
+      capabilityRegistryError={capabilityRegistryError}
+      pluginSnapshot={pluginSnapshot}
+      pluginStatus={pluginStatus}
+      pluginError={pluginError}
+      remoteEnvSnapshot={remoteEnvSnapshot}
+      remoteEnvStatus={remoteEnvStatus}
+      remoteEnvError={remoteEnvError}
+      serverSnapshot={serverSnapshot}
+      serverStatus={serverStatus}
+      serverError={serverError}
+      sessions={sessions}
+      replayBundle={replayBundle}
+      replayLoading={replayLoading}
+      replayError={replayError}
+      replayRows={replayRows}
       planSummary={scopedPlanSummary}
       searches={searches}
       browses={browses}
       thoughtAgents={thoughtAgents}
+      playbookRuns={playbookRuns}
+      playbookRunsLoading={playbookRunsLoading}
+      playbookRunsBusyRunId={playbookRunsBusyRunId}
+      playbookRunsMessage={playbookRunsMessage}
+      playbookRunsError={playbookRunsError}
+      stagedOperations={stagedOperations}
+      stagedOperationsLoading={stagedOperationsLoading}
+      stagedOperationsBusyId={stagedOperationsBusyId}
+      stagedOperationsMessage={stagedOperationsMessage}
+      stagedOperationsError={stagedOperationsError}
       visibleSourceCount={visibleSourceCount}
       kernelLogs={kernelLogs}
       securityRows={securityRows}
       fileArtifacts={fileArtifacts}
       revisionArtifacts={revisionArtifacts}
+      fileContext={fileContext}
+      fileContextStatus={fileContextStatus}
+      fileContextError={fileContextError}
+      fileBrowsePath={fileBrowsePath}
+      fileBrowseEntries={fileBrowseEntries}
+      fileBrowseStatus={fileBrowseStatus}
+      fileBrowseError={fileBrowseError}
+      rewindSnapshot={rewindSnapshot}
+      rewindStatus={rewindStatus}
+      rewindError={rewindError}
+      selectedRewindSessionId={selectedRewindSessionId}
+      compareTargetSessionId={compareTargetSessionId}
+      hookSnapshot={hookSnapshot}
+      hooksStatus={hooksStatus}
+      hooksError={hooksError}
+      privacySnapshot={privacySnapshot}
+      permissionsStatus={permissionsStatus}
+      permissionsError={permissionsError}
+      permissionPolicyState={policyState}
+      permissionGovernanceRequest={governanceRequest}
+      permissionConnectorOverrides={connectorOverrides}
+      permissionActiveOverrideCount={activeOverrideCount}
+      permissionProfiles={availableProfiles}
+      permissionCurrentProfileId={currentProfileId}
+      permissionApplyingProfileId={applyingProfileId}
+      permissionEditingConnectorId={editingConnectorId}
+      permissionApplyingGovernanceRequest={applyingGovernanceRequest}
+      permissionRememberedApprovals={rememberedApprovals}
       screenshotReceipts={screenshotReceipts}
       substrateReceipts={substrateReceipts}
       onOpenArtifact={onOpenArtifact}
+      onRetryPlaybookRun={onRetryPlaybookRun}
+      onResumePlaybookRun={onResumePlaybookRun}
+      onDismissPlaybookRun={onDismissPlaybookRun}
+      onMessageWorkerSession={onMessageWorkerSession}
+      onStopWorkerSession={onStopWorkerSession}
+      onPromoteRunResult={onPromoteRunResult}
+      onPromoteStepResult={onPromoteStepResult}
+      onPromoteStagedOperation={onPromoteStagedOperation}
+      onRemoveStagedOperation={onRemoveStagedOperation}
+      onLoadSession={onLoadSession}
+      currentTask={task}
+      onStopSession={onStopSession}
+      onOpenGate={onOpenGate}
+      isGated={isGated}
+      gateInfo={gateInfo}
+      isPiiGate={isPiiGate}
+      gateDeadlineMs={gateDeadlineMs}
+      gateActionError={gateActionError}
+      credentialRequest={credentialRequest}
+      clarificationRequest={clarificationRequest}
+      onApprove={onApprove}
+      onGrantScopedException={onGrantScopedException}
+      onDeny={onDeny}
+      onSubmitRuntimePassword={onSubmitRuntimePassword}
+      onCancelRuntimePassword={onCancelRuntimePassword}
+      onSubmitClarification={onSubmitClarification}
+      onCancelClarification={onCancelClarification}
+      onRefreshRewind={refreshRewind}
+      onSelectRewindSession={setSelectedRewindSessionId}
+      onOpenCompareForSession={handleOpenCompareForSession}
+      onRefreshCompaction={refreshCompaction}
+      teamMemorySnapshot={teamMemorySnapshot}
+      teamMemoryStatus={teamMemoryStatus}
+      teamMemoryError={teamMemoryError}
+      teamMemoryIncludeGovernanceCritical={teamMemoryIncludeGovernanceCritical}
+      onSetTeamMemoryIncludeGovernanceCritical={setTeamMemoryIncludeGovernanceCritical}
+      onRefreshTeamMemory={refreshTeamMemory}
+      onSyncTeamMemory={syncTeamMemory}
+      onForgetTeamMemoryEntry={forgetTeamMemory}
+      onRefreshDoctor={handleRefreshDoctor}
+      onCompactSession={compactSession}
+      onUpdateCompactionPolicy={updateCompactionPolicy}
+      onResetCompactionPolicy={resetCompactionPolicy}
+      onExportBundle={handleExportBundle}
+      promotionStageBusyTarget={promotionStageBusyTarget}
+      promotionStageMessage={promotionStageMessage}
+      promotionStageError={promotionStageError}
+      onStagePromotionCandidate={handleStagePromotionCandidate}
+      onRefreshPlugins={refreshPlugins}
+      onTrustPlugin={trustPlugin}
+      onSetPluginEnabled={setPluginEnabled}
+      onReloadPlugin={reloadPlugin}
+      onRefreshPluginCatalog={refreshPluginCatalog}
+      onRevokePluginTrust={revokePluginTrust}
+      onInstallPluginPackage={installPluginPackage}
+      onUpdatePluginPackage={updatePluginPackage}
+      onRemovePluginPackage={removePluginPackage}
+      onRefreshServer={refreshServer}
+      onRefreshRemoteEnv={refreshRemoteEnv}
+      onRefreshHooks={refreshHooks}
+      onRefreshPermissions={refreshPermissions}
+      onApplyPermissionProfile={applyProfile}
+      onApplyPermissionGovernanceRequest={applyGovernanceRequest}
+      onDismissPermissionGovernanceRequest={dismissGovernanceRequest}
+      onForgetRememberedApproval={forgetApproval}
+      onUpdatePermissionOverride={updateConnectorOverride}
+      onResetPermissionOverride={resetConnectorOverride}
+      onSetRememberedApprovalScopeMode={setApprovalScopeMode}
+      onSetRememberedApprovalExpiry={setApprovalExpiry}
+      onToggleVimMode={toggleVimMode}
+      onRequestReplLaunch={handleRequestReplLaunch}
+      onHandleReplLaunchRequest={() => setReplLaunchRequest(null)}
+      onRefreshBranches={refreshBranches}
+      onCreateBranchWorktree={createWorktree}
+      onSwitchBranchWorktree={switchWorktree}
+      onRemoveBranchWorktree={removeWorktree}
+      onRefreshSourceControl={refreshSourceControl}
+      onStageSourceControlPath={stagePath}
+      onStageAllSourceControl={stageAll}
+      onUnstageSourceControlPath={unstagePath}
+      onUnstageAllSourceControl={unstageAll}
+      onDiscardSourceControlPath={discardPath}
+      onDiscardAllWorkingSourceControl={discardAllWorking}
+      onCommitSourceControl={commit}
+      onOpenView={handleOpenView}
+      onRefreshFileContext={refreshFileContext}
+      onOpenFileDirectory={openFileDirectory}
+      onBrowseFileParent={browseFileParent}
+      onRememberFilePath={rememberFilePath}
+      onPinFilePath={pinFilePath}
+      onIncludeFilePath={includeFilePath}
+      onExcludeFilePath={excludeFilePath}
+      onRemoveFilePath={removeFilePath}
+      onClearFileContext={clearFileContext}
       openExternalUrl={openExternalUrl}
       extractArtifactUrl={extractArtifactUrl}
       formatTimestamp={formatTimestamp}
@@ -534,6 +1960,7 @@ export function ArtifactHubSidebar({
   const selectedTurnPrompt = selectedTurn?.prompt
     ? clipText(selectedTurn.prompt, 88)
     : "";
+  const showSectionNav = presentedSections.length > 1;
 
   return (
     <div className="artifact-panel artifact-hub-panel">
@@ -541,35 +1968,50 @@ export function ArtifactHubSidebar({
         <div className="artifact-meta">
           <div className="artifact-icon">{icons.sidebar}</div>
           <span className="artifact-filename artifact-filename--drawer">
-            Execution drawer
+            {focusedTraceMode ? "Thinking inspector" : "Execution drawer"}
           </span>
           <span className="artifact-tag">{sectionLabel(activeView)}</span>
         </div>
         <div className="artifact-actions">
           <button
+            className="artifact-action-btn artifact-action-btn--back"
+            onClick={onClose}
+            title="Back to chat"
+            type="button"
+          >
+            Back to chat
+          </button>
+          <button
             className="artifact-action-btn close"
             onClick={onClose}
             title="Close drawer"
+            type="button"
           >
             {icons.close}
           </button>
         </div>
       </div>
 
-      <div className="artifact-content artifact-hub-layout">
-        <aside className="artifact-hub-nav" aria-label="Evidence sections">
-          {sections.map((section) => (
-            <button
-              key={section.key}
-              className={`artifact-hub-nav-item ${activeView === section.key ? "active" : ""}`}
-              onClick={() => setActiveView(section.key)}
-              type="button"
-            >
-              <span className="artifact-hub-nav-label">{section.label}</span>
-              <span className="artifact-hub-nav-count">{section.count}</span>
-            </button>
-          ))}
-        </aside>
+      <div
+        className={`artifact-content artifact-hub-layout ${
+          showSectionNav ? "" : "artifact-hub-layout--single-column"
+        }`}
+      >
+        {showSectionNav ? (
+          <aside className="artifact-hub-nav" aria-label="Evidence sections">
+            {presentedSections.map((section) => (
+              <button
+                key={section.key}
+                className={`artifact-hub-nav-item ${activeView === section.key ? "active" : ""}`}
+                onClick={() => handleOpenView(section.key)}
+                type="button"
+              >
+                <span className="artifact-hub-nav-label">{section.label}</span>
+                <span className="artifact-hub-nav-count">{section.count}</span>
+              </button>
+            ))}
+          </aside>
+        ) : null}
         <section
           className="artifact-hub-detail"
           aria-label={sectionLabel(activeView)}

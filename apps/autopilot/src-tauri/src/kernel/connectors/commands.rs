@@ -6,6 +6,9 @@ use super::operations::{
     execute_wallet_mail_delete_spam, execute_wallet_mail_list_recent,
     execute_wallet_mail_read_latest, execute_wallet_mail_reply,
 };
+use super::policy::{
+    approval_required_error, PolicyDecisionMode, ShieldApprovalRequest, ShieldPolicyManager,
+};
 use super::rpc::{build_wallet_call_tx, submit_tx_and_wait};
 use super::types::{
     WalletMailConfigureAccountResult, WalletMailDeleteSpamResult, WalletMailListRecentResult,
@@ -23,6 +26,120 @@ use ioi_types::codec;
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 use tauri::State;
+
+fn mail_scope_identity(action_id: &str, action_label: &str, mailbox: &str) -> (String, String) {
+    let normalized_mailbox = mailbox.trim();
+    let mailbox_suffix = if normalized_mailbox.eq_ignore_ascii_case("primary") {
+        String::new()
+    } else {
+        format!(" · {normalized_mailbox}")
+    };
+    (
+        format!(
+            "connector:{}:action:{}:mailbox:{}",
+            super::MAIL_CONNECTOR_ID,
+            action_id.trim(),
+            normalized_mailbox
+        ),
+        format!(
+            "{} · {}{}",
+            super::MAIL_CONNECTOR_ID,
+            action_label.trim(),
+            mailbox_suffix
+        ),
+    )
+}
+
+fn mail_policy_blocked_error(action_label: &str, policy_family: &str) -> String {
+    match policy_family {
+        "reads" => format!(
+            "Blocked by Shield policy: {} is disabled for this connector.",
+            action_label
+        ),
+        "writes" => format!(
+            "Blocked by Shield policy: {} is disabled for this connector.",
+            action_label
+        ),
+        "admin" => format!(
+            "Blocked by Shield policy: {} is disabled for this connector.",
+            action_label
+        ),
+        _ => format!(
+            "Blocked by Shield policy: {} is disabled for this connector.",
+            action_label
+        ),
+    }
+}
+
+fn enforce_wallet_mail_connector_policy(
+    policy_manager: &ShieldPolicyManager,
+    action_id: &str,
+    action_label: &str,
+    policy_family: &str,
+    scope_key: &str,
+    scope_label: &str,
+    shield_approved: bool,
+) -> Result<(), String> {
+    let policy = policy_manager.resolve_connector_policy(super::MAIL_CONNECTOR_ID);
+    let requires_confirmation = match policy_family {
+        "reads" => match policy.reads {
+            PolicyDecisionMode::Auto => false,
+            PolicyDecisionMode::Confirm => true,
+            PolicyDecisionMode::Block => {
+                return Err(mail_policy_blocked_error(action_label, policy_family));
+            }
+        },
+        "writes" => match policy.writes {
+            PolicyDecisionMode::Auto => false,
+            PolicyDecisionMode::Confirm => true,
+            PolicyDecisionMode::Block => {
+                return Err(mail_policy_blocked_error(action_label, policy_family));
+            }
+        },
+        "admin" => match policy.admin {
+            PolicyDecisionMode::Auto => false,
+            PolicyDecisionMode::Confirm => true,
+            PolicyDecisionMode::Block => {
+                return Err(mail_policy_blocked_error(action_label, policy_family));
+            }
+        },
+        _ => false,
+    };
+
+    if requires_confirmation && !shield_approved {
+        if policy_manager.match_remembered_approval(
+            super::MAIL_CONNECTOR_ID,
+            action_id,
+            policy_family,
+            Some(scope_key),
+            action_label,
+        ) {
+            return Ok(());
+        }
+        policy_manager.record_blocker_escalation(
+            super::MAIL_CONNECTOR_ID,
+            action_id,
+            action_label,
+            policy_family,
+            Some(scope_key),
+        );
+        return Err(approval_required_error(&ShieldApprovalRequest {
+            connector_id: super::MAIL_CONNECTOR_ID.to_string(),
+            action_id: action_id.to_string(),
+            action_label: action_label.to_string(),
+            message: format!(
+                "Shield policy requires explicit approval before running {}.",
+                action_label
+            ),
+            policy_family: Some(policy_family.to_string()),
+            scope_key: Some(scope_key.to_string()),
+            scope_label: Some(scope_label.to_string()),
+            rememberable: true,
+        }));
+    }
+
+    Ok(())
+}
 
 pub(super) async fn wallet_mail_configure_account(
     state: State<'_, Mutex<AppState>>,
@@ -248,39 +365,90 @@ pub(super) async fn wallet_mail_configure_account(
 
 pub(super) async fn wallet_mail_read_latest(
     state: State<'_, Mutex<AppState>>,
+    policy_manager: State<'_, ShieldPolicyManager>,
     channel_id: String,
     lease_id: String,
     op_seq: u64,
     mailbox: Option<String>,
+    shield_approved: Option<bool>,
 ) -> Result<WalletMailReadLatestResult, String> {
-    execute_wallet_mail_read_latest(&state, &channel_id, &lease_id, op_seq, mailbox).await
+    let mailbox = mailbox_or_default(mailbox);
+    let (scope_key, scope_label) =
+        mail_scope_identity("mail.read_latest", "Read latest mail", &mailbox);
+    enforce_wallet_mail_connector_policy(
+        policy_manager.inner(),
+        "mail.read_latest",
+        "Read latest mail",
+        "reads",
+        &scope_key,
+        &scope_label,
+        shield_approved.unwrap_or(false),
+    )?;
+    execute_wallet_mail_read_latest(&state, &channel_id, &lease_id, op_seq, Some(mailbox)).await
 }
 
 pub(super) async fn wallet_mail_list_recent(
     state: State<'_, Mutex<AppState>>,
+    policy_manager: State<'_, ShieldPolicyManager>,
     channel_id: String,
     lease_id: String,
     op_seq: u64,
     mailbox: Option<String>,
     limit: Option<u32>,
+    shield_approved: Option<bool>,
 ) -> Result<WalletMailListRecentResult, String> {
-    execute_wallet_mail_list_recent(&state, &channel_id, &lease_id, op_seq, mailbox, limit).await
+    let mailbox = mailbox_or_default(mailbox);
+    let (scope_key, scope_label) =
+        mail_scope_identity("mail.list_recent", "List recent mail", &mailbox);
+    enforce_wallet_mail_connector_policy(
+        policy_manager.inner(),
+        "mail.list_recent",
+        "List recent mail",
+        "reads",
+        &scope_key,
+        &scope_label,
+        shield_approved.unwrap_or(false),
+    )?;
+    execute_wallet_mail_list_recent(&state, &channel_id, &lease_id, op_seq, Some(mailbox), limit)
+        .await
 }
 
 pub(super) async fn wallet_mail_delete_spam(
     state: State<'_, Mutex<AppState>>,
+    policy_manager: State<'_, ShieldPolicyManager>,
     channel_id: String,
     lease_id: String,
     op_seq: u64,
     mailbox: Option<String>,
     max_delete: Option<u32>,
+    shield_approved: Option<bool>,
 ) -> Result<WalletMailDeleteSpamResult, String> {
-    execute_wallet_mail_delete_spam(&state, &channel_id, &lease_id, op_seq, mailbox, max_delete)
-        .await
+    let mailbox = mailbox_or_default(mailbox);
+    let (scope_key, scope_label) =
+        mail_scope_identity("mail.delete_spam", "Delete spam mail", &mailbox);
+    enforce_wallet_mail_connector_policy(
+        policy_manager.inner(),
+        "mail.delete_spam",
+        "Delete spam mail",
+        "writes",
+        &scope_key,
+        &scope_label,
+        shield_approved.unwrap_or(false),
+    )?;
+    execute_wallet_mail_delete_spam(
+        &state,
+        &channel_id,
+        &lease_id,
+        op_seq,
+        Some(mailbox),
+        max_delete,
+    )
+    .await
 }
 
 pub(super) async fn wallet_mail_reply(
     state: State<'_, Mutex<AppState>>,
+    policy_manager: State<'_, ShieldPolicyManager>,
     channel_id: String,
     lease_id: String,
     op_seq: u64,
@@ -289,17 +457,138 @@ pub(super) async fn wallet_mail_reply(
     subject: String,
     body: String,
     reply_to_message_id: Option<String>,
+    shield_approved: Option<bool>,
 ) -> Result<WalletMailReplyResult, String> {
+    let mailbox = mailbox_or_default(mailbox);
+    let (scope_key, scope_label) = mail_scope_identity("mail.reply", "Send mail reply", &mailbox);
+    enforce_wallet_mail_connector_policy(
+        policy_manager.inner(),
+        "mail.reply",
+        "Send mail reply",
+        "writes",
+        &scope_key,
+        &scope_label,
+        shield_approved.unwrap_or(false),
+    )?;
     execute_wallet_mail_reply(
         &state,
         &channel_id,
         &lease_id,
         op_seq,
-        mailbox,
+        Some(mailbox),
         to,
         subject,
         body,
         reply_to_message_id,
     )
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        enforce_wallet_mail_connector_policy, mail_scope_identity, PolicyDecisionMode,
+        ShieldPolicyManager,
+    };
+    use crate::kernel::connectors::policy::parse_approval_error;
+    use crate::kernel::connectors::{
+        GlobalPolicyDefaults, ShieldPolicyState, ShieldRememberApprovalInput,
+    };
+    use std::collections::HashMap;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    fn temp_policy_path(name: &str) -> PathBuf {
+        let mut path = std::env::temp_dir();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time before unix epoch")
+            .as_nanos();
+        path.push(format!(
+            "ioi-wallet-mail-policy-{name}-{}-{nonce}.json",
+            std::process::id()
+        ));
+        path
+    }
+
+    fn cleanup_policy_artifacts(path: &Path) {
+        let _ = fs::remove_file(path);
+        let approval_memory = path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("shield_policy_memory.json");
+        let _ = fs::remove_file(approval_memory);
+    }
+
+    #[test]
+    fn wallet_mail_reads_support_remembered_approval_reuse() {
+        let path = temp_policy_path("remembered-mail-read");
+        cleanup_policy_artifacts(&path);
+
+        let manager = ShieldPolicyManager::new(path.clone());
+        manager
+            .replace_state(ShieldPolicyState {
+                version: 1,
+                global: GlobalPolicyDefaults {
+                    reads: PolicyDecisionMode::Confirm,
+                    ..Default::default()
+                },
+                overrides: HashMap::new(),
+            })
+            .expect("policy state should update");
+
+        let (scope_key, scope_label) =
+            mail_scope_identity("mail.read_latest", "Read latest mail", "primary");
+        let blocked = enforce_wallet_mail_connector_policy(
+            &manager,
+            "mail.read_latest",
+            "Read latest mail",
+            "reads",
+            &scope_key,
+            &scope_label,
+            false,
+        )
+        .expect_err("mail read should gate before approval");
+        assert!(
+            parse_approval_error(&blocked).is_some(),
+            "expected shield approval marker"
+        );
+
+        manager
+            .remember_approval(ShieldRememberApprovalInput {
+                connector_id: super::super::MAIL_CONNECTOR_ID.to_string(),
+                action_id: "mail.read_latest".to_string(),
+                action_label: "Read latest mail".to_string(),
+                policy_family: "reads".to_string(),
+                scope_key: Some(scope_key.clone()),
+                scope_label: Some(scope_label.clone()),
+                source_label: Some("Mail connector panel".to_string()),
+                scope_mode: None,
+                expires_at_ms: None,
+            })
+            .expect("remember approval should succeed");
+
+        enforce_wallet_mail_connector_policy(
+            &manager,
+            "mail.read_latest",
+            "Read latest mail",
+            "reads",
+            &scope_key,
+            &scope_label,
+            false,
+        )
+        .expect("remembered mail read approval should auto-match");
+
+        let snapshot = manager.approval_snapshot();
+        assert!(
+            snapshot.recent_receipts.iter().any(|receipt| {
+                receipt.connector_id == super::super::MAIL_CONNECTOR_ID
+                    && receipt.action_id == "mail.read_latest"
+                    && receipt.status == "matched"
+            }),
+            "expected matched receipt for remembered mail read approval"
+        );
+
+        cleanup_policy_artifacts(&path);
+    }
 }

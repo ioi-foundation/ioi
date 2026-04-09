@@ -1,4 +1,4 @@
-fn build_local_engine_activity_record(
+pub(crate) fn build_local_engine_activity_record(
     session_id: &str,
     event: &crate::models::AgentEvent,
 ) -> Option<crate::models::LocalEngineActivityRecord> {
@@ -93,7 +93,10 @@ pub async fn get_local_engine_snapshot(
         app_memory_runtime(&state).ok_or_else(|| "Memory runtime unavailable".to_string())?;
     let tools = collect_available_tools(&state).await?;
     let capabilities = build_local_engine_capabilities(&tools);
-    let control_plane = load_or_initialize_local_engine_control_plane(&memory_runtime);
+    let control_plane_state = load_or_initialize_local_engine_control_plane_state(&memory_runtime);
+    let effective_control_plane_state =
+        load_or_initialize_effective_local_engine_control_plane_state(&memory_runtime);
+    let control_plane = effective_control_plane_state.control_plane.clone();
     let worker_templates = load_or_initialize_worker_templates(&memory_runtime);
     let agent_playbooks = default_agent_playbooks();
     let registry_state = crate::kernel::local_engine::load_or_sync_registry_state(
@@ -235,7 +238,11 @@ pub async fn get_local_engine_snapshot(
         worker_templates,
         agent_playbooks,
         parent_playbook_runs,
+        control_plane_schema_version: control_plane_state.schema_version,
+        control_plane_profile_id: control_plane_state.profile_id,
+        control_plane_migrations: control_plane_state.migrations,
         control_plane,
+        managed_settings: effective_control_plane_state.managed_settings,
         staged_operations,
     })
 }
@@ -271,13 +278,54 @@ pub async fn save_local_engine_control_plane(
 ) -> Result<crate::models::LocalEngineControlPlane, String> {
     let memory_runtime =
         app_memory_runtime(&state).ok_or_else(|| "Memory runtime unavailable".to_string())?;
-    let normalized = normalize_local_engine_control_plane(control_plane);
-    orchestrator::save_local_engine_control_plane(&memory_runtime, &normalized);
+    let normalized =
+        crate::kernel::local_engine::save_local_engine_control_plane_with_managed_settings(
+            &memory_runtime,
+            control_plane,
+        )?;
     let _ = crate::kernel::local_engine::load_or_sync_registry_state(
         &memory_runtime,
         Some(&normalized),
     );
     Ok(normalized)
+}
+
+#[tauri::command]
+pub async fn refresh_local_engine_managed_settings(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<crate::models::LocalEngineManagedSettingsSnapshot, String> {
+    let memory_runtime =
+        app_memory_runtime(&state).ok_or_else(|| "Memory runtime unavailable".to_string())?;
+    let local_document = load_or_initialize_local_engine_control_plane_state(&memory_runtime);
+    let snapshot = crate::kernel::local_engine::refresh_local_engine_managed_settings(
+        &memory_runtime,
+        &local_document,
+    )?;
+    let effective = load_or_initialize_effective_local_engine_control_plane_state(&memory_runtime);
+    let _ = crate::kernel::local_engine::load_or_sync_registry_state(
+        &memory_runtime,
+        Some(&effective.control_plane),
+    );
+    Ok(snapshot)
+}
+
+#[tauri::command]
+pub async fn clear_local_engine_managed_settings_overrides(
+    state: State<'_, Mutex<AppState>>,
+) -> Result<crate::models::LocalEngineManagedSettingsSnapshot, String> {
+    let memory_runtime =
+        app_memory_runtime(&state).ok_or_else(|| "Memory runtime unavailable".to_string())?;
+    let local_document = load_or_initialize_local_engine_control_plane_state(&memory_runtime);
+    let snapshot = crate::kernel::local_engine::clear_local_engine_managed_settings_overrides(
+        &memory_runtime,
+        &local_document,
+    )?;
+    let effective = load_or_initialize_effective_local_engine_control_plane_state(&memory_runtime);
+    let _ = crate::kernel::local_engine::load_or_sync_registry_state(
+        &memory_runtime,
+        Some(&effective.control_plane),
+    );
+    Ok(snapshot)
 }
 
 #[tauri::command]

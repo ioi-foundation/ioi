@@ -8,11 +8,20 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tonic::transport::{Channel, Endpoint};
+use url::Url;
 
 const DEFAULT_KERNEL_RPC_URL: &str = "http://127.0.0.1:9000";
 const DEFAULT_KERNEL_RPC_CONNECT_TIMEOUT_MS: u64 = 1200;
 const LOCAL_DEV_RPC_CONNECT_RETRIES: usize = 8;
 const LOCAL_DEV_RPC_CONNECT_RETRY_DELAY_MS: u64 = 350;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KernelRpcTarget {
+    pub url: String,
+    pub source_label: String,
+    pub configured: bool,
+    pub remote_hint: bool,
+}
 
 pub fn now() -> u64 {
     SystemTime::now()
@@ -33,6 +42,7 @@ where
         memory_runtime = s.memory_runtime.clone();
         if let Some(ref mut task) = s.current_task {
             f(task);
+            task.sync_runtime_views();
             task_clone = Some(task.clone());
         }
     }
@@ -43,11 +53,21 @@ where
             orchestrator::save_local_task_state(memory_runtime, &t);
         }
 
-        let event_name = match t.phase {
-            AgentPhase::Complete => "task-completed",
-            _ => "task-updated",
+        let event_name = if t.phase == AgentPhase::Complete
+            && !crate::kernel::events::is_waiting_prompt_active(&t)
+        {
+            "task-completed"
+        } else {
+            "task-updated"
         };
         let _ = app.emit(event_name, &t);
+        let app_clone = app.clone();
+        let refresh_history =
+            t.phase == AgentPhase::Complete && !crate::kernel::events::is_waiting_prompt_active(&t);
+        tauri::async_runtime::spawn(async move {
+            crate::kernel::session::emit_session_projection_update(&app_clone, refresh_history)
+                .await;
+        });
     }
 }
 
@@ -75,22 +95,44 @@ pub async fn get_rpc_client(
     }
 }
 
-pub fn kernel_rpc_url() -> String {
+pub fn kernel_rpc_target() -> KernelRpcTarget {
     if let Ok(explicit_url) = std::env::var("AUTOPILOT_KERNEL_RPC_URL") {
         let trimmed = explicit_url.trim();
         if !trimmed.is_empty() {
-            return normalize_kernel_rpc_url(trimmed);
+            let url = normalize_kernel_rpc_url(trimmed);
+            return KernelRpcTarget {
+                remote_hint: kernel_rpc_target_is_remote(&url),
+                url,
+                source_label: "AUTOPILOT_KERNEL_RPC_URL".to_string(),
+                configured: true,
+            };
         }
     }
 
     if let Ok(listen_addr) = std::env::var("ORCHESTRATION_RPC_LISTEN_ADDRESS") {
         let trimmed = listen_addr.trim();
         if !trimmed.is_empty() {
-            return format!("http://{}", kernel_rpc_client_authority(trimmed));
+            let url = format!("http://{}", kernel_rpc_client_authority(trimmed));
+            return KernelRpcTarget {
+                remote_hint: kernel_rpc_target_is_remote(&url),
+                url,
+                source_label: "ORCHESTRATION_RPC_LISTEN_ADDRESS".to_string(),
+                configured: true,
+            };
         }
     }
 
-    DEFAULT_KERNEL_RPC_URL.to_string()
+    let url = DEFAULT_KERNEL_RPC_URL.to_string();
+    KernelRpcTarget {
+        remote_hint: kernel_rpc_target_is_remote(&url),
+        url,
+        source_label: "Default localhost kernel".to_string(),
+        configured: false,
+    }
+}
+
+pub fn kernel_rpc_url() -> String {
+    kernel_rpc_target().url
 }
 
 pub async fn connect_public_api() -> Result<PublicApiClient<Channel>, String> {
@@ -164,6 +206,28 @@ fn kernel_rpc_client_authority(raw: &str) -> String {
     raw.to_string()
 }
 
+fn kernel_rpc_target_is_remote(raw: &str) -> bool {
+    let Ok(url) = Url::parse(raw) else {
+        return false;
+    };
+
+    let Some(host) = url
+        .host_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return false;
+    };
+
+    if host.eq_ignore_ascii_case("localhost") {
+        return false;
+    }
+
+    host.parse::<IpAddr>()
+        .map(|ip| !ip.is_loopback())
+        .unwrap_or(true)
+}
+
 fn normalize_kernel_history_message(role: String, content: String, timestamp: u64) -> ChatMessage {
     if role == "tool" {
         let trimmed = content.trim();
@@ -222,7 +286,7 @@ pub async fn hydrate_session_history(
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_kernel_history_message;
+    use super::{kernel_rpc_target_is_remote, normalize_kernel_history_message};
 
     #[test]
     fn rewrites_replied_tool_messages_into_agent_messages() {
@@ -240,5 +304,14 @@ mod tests {
         assert_eq!(message.role, "tool");
         assert_eq!(message.text, "Opened artifact");
         assert_eq!(message.timestamp, 7);
+    }
+
+    #[test]
+    fn distinguishes_loopback_and_remote_kernel_targets() {
+        assert!(!kernel_rpc_target_is_remote("http://127.0.0.1:9000"));
+        assert!(!kernel_rpc_target_is_remote("http://[::1]:9000"));
+        assert!(!kernel_rpc_target_is_remote("http://localhost:9000"));
+        assert!(kernel_rpc_target_is_remote("https://kernel.example.com"));
+        assert!(kernel_rpc_target_is_remote("http://192.168.1.10:9000"));
     }
 }

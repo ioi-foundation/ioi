@@ -37,7 +37,7 @@ export function SettingsSkillSourcesSection({
           Point the shell at local skill roots or checked-out repositories.
           Autopilot syncs `SKILL.md` manifests into a first-party source
           registry so runtime skills can carry provenance instead of just
-          “starter” versus “runtime” labels.
+          unlabeled local-versus-synced origin hints.
         </p>
         {skillSourcesMessage ? (
           <p className="studio-settings-success">{skillSourcesMessage}</p>

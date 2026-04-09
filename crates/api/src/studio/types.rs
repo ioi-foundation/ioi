@@ -1,4 +1,5 @@
 use super::*;
+pub use crate::execution::*;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -512,6 +513,16 @@ pub struct StudioArtifactRuntimePolicy {
     pub bindings: Vec<StudioArtifactRuntimeBinding>,
 }
 
+pub type StudioArtifactWorkerRole = SwarmWorkerRole;
+pub type StudioArtifactWorkItemStatus = SwarmWorkItemStatus;
+pub type StudioArtifactWorkItem = SwarmWorkItem;
+pub type StudioArtifactSwarmPlan = SwarmPlan;
+pub type StudioArtifactSwarmExecutionSummary = SwarmExecutionSummary;
+pub type StudioArtifactWorkerReceipt = SwarmWorkerReceipt;
+pub type StudioArtifactPatchReceipt = SwarmChangeReceipt;
+pub type StudioArtifactMergeReceipt = SwarmMergeReceipt;
+pub type StudioArtifactVerificationReceipt = SwarmVerificationReceipt;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum StudioAdaptiveSearchSignal {
@@ -701,6 +712,30 @@ pub struct StudioArtifactRefinementContext {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct StudioArtifactGenerationProgress {
+    pub current_step: String,
+    #[serde(default)]
+    pub execution_envelope: Option<ExecutionEnvelope>,
+    #[serde(default)]
+    pub swarm_plan: Option<SwarmPlan>,
+    #[serde(default)]
+    pub swarm_execution: Option<SwarmExecutionSummary>,
+    #[serde(default)]
+    pub swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
+    #[serde(default, alias = "swarmPatchReceipts")]
+    pub swarm_change_receipts: Vec<SwarmChangeReceipt>,
+    #[serde(default)]
+    pub swarm_merge_receipts: Vec<SwarmMergeReceipt>,
+    #[serde(default)]
+    pub swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
+    #[serde(default)]
+    pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
+    #[serde(default)]
+    pub judge: Option<StudioArtifactJudgeResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct StudioArtifactGenerationBundle {
     pub brief: StudioArtifactBrief,
     #[serde(default)]
@@ -713,8 +748,24 @@ pub struct StudioArtifactGenerationBundle {
     pub edit_intent: Option<StudioArtifactEditIntent>,
     #[serde(default)]
     pub candidate_summaries: Vec<StudioArtifactCandidateSummary>,
-    pub winning_candidate_id: String,
-    pub winning_candidate_rationale: String,
+    #[serde(default)]
+    pub winning_candidate_id: Option<String>,
+    #[serde(default)]
+    pub winning_candidate_rationale: Option<String>,
+    #[serde(default)]
+    pub execution_envelope: Option<ExecutionEnvelope>,
+    #[serde(default)]
+    pub swarm_plan: Option<SwarmPlan>,
+    #[serde(default)]
+    pub swarm_execution: Option<SwarmExecutionSummary>,
+    #[serde(default)]
+    pub swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
+    #[serde(default, alias = "swarmPatchReceipts")]
+    pub swarm_change_receipts: Vec<SwarmChangeReceipt>,
+    #[serde(default)]
+    pub swarm_merge_receipts: Vec<SwarmMergeReceipt>,
+    #[serde(default)]
+    pub swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
     pub winner: StudioGeneratedArtifactPayload,
     #[serde(default)]
     pub render_evaluation: Option<StudioArtifactRenderEvaluation>,

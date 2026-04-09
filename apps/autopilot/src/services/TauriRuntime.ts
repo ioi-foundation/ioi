@@ -1,290 +1,689 @@
 // apps/autopilot/src/services/TauriRuntime.ts
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { 
-  AgentRuntime, GraphCapabilityCatalog, GraphModelBindingCatalog, GraphPayload, GraphEvent, GraphGlobalConfig, ProjectFile, AgentSummary, 
-  FleetState, Zone, Container, MarketplaceAgent, ConnectorSummary, ConnectorStatus,
-  ConnectorActionDefinition, ConnectorActionRequest, ConnectorActionResult,
-  ConnectorConfigureRequest, ConnectorConfigureResult, ConnectorSubscriptionSummary,
-  WalletMailDeleteSpamInput, WalletMailDeleteSpamResult,
-  WalletMailReplyInput, WalletMailReplyResult,
-  WalletMailListRecentInput, WalletMailListRecentResult,
-  WalletMailReadLatestInput, WalletMailReadLatestResult,
-  WalletMailConfigureAccountInput, WalletMailConfigureAccountResult,
-  InstalledWorkflowSummary, WorkflowRunReceipt, CreateMonitorWorkflowRequest
+import { emit, listen } from "@tauri-apps/api/event";
+import {
+  AgentRuntime,
+  AgentSessionEventName,
+  AgentSessionGateResponse,
+  AgentSessionProjection,
+  AgentSessionRuntime,
+  AgentSessionThreadLoadOptions,
+  AssistantWorkbenchActivity,
+  AssistantWorkbenchSession,
+  ConnectorActionDefinition,
+  ConnectorActionRequest,
+  ConnectorActionResult,
+  ConnectorApprovalMemoryRequest,
+  ConnectorConfigureRequest,
+  ConnectorConfigureResult,
+  ConnectorSubscriptionSummary,
+  CreateMonitorWorkflowRequest,
+  FleetState,
+  GraphCapabilityCatalog,
+  GraphEvent,
+  GraphGlobalConfig,
+  GraphModelBindingCatalog,
+  GraphPayload,
+  InstalledWorkflowSummary,
+  RuntimeCatalogEntry,
+  ProjectFile,
+  AgentSummary,
+  StudioCapabilityDetailSection,
+  StudioViewTarget,
+  WalletMailConfigureAccountInput,
+  WalletMailConfigureAccountResult,
+  WalletMailConfiguredAccount,
+  WalletMailDeleteSpamInput,
+  WalletMailDeleteSpamResult,
+  WalletMailListRecentInput,
+  WalletMailListRecentResult,
+  WalletMailReadLatestInput,
+  WalletMailReadLatestResult,
+  WalletMailReplyInput,
+  WalletMailReplyResult,
+  WorkflowRunReceipt,
+  Zone,
+  Container,
+  ConnectorSummary,
+  createAssistantWorkbenchActivity,
 } from "@ioi/agent-ide";
 import type {
   ActiveContextSnapshot,
   AtlasNeighborhood,
   AtlasSearchResult,
   BenchmarkTraceFeed,
+  CapabilityRegistrySnapshot,
   KnowledgeCollectionEntryContent,
   KnowledgeCollectionEntryRecord,
   KnowledgeCollectionRecord,
   KnowledgeCollectionSearchHit,
   KnowledgeCollectionSourceRecord,
   LocalEngineControlPlane,
+  LocalEngineManagedSettingsSnapshot,
   LocalEngineSnapshot,
   ResetAutopilotDataResult,
+  SessionCompactionPolicy,
+  SessionCompactionSnapshot,
+  ExtensionManifestRecord,
   SkillCatalogEntry,
   SkillDetailView,
   SkillSourceRecord,
   SubstrateProofView,
+  TeamMemorySyncSnapshot,
 } from "../types";
+import {
+  recordStudioLaunchReceipt,
+  summarizeAssistantWorkbenchSession,
+  showStudioWithLaunchRequest,
+} from "./studioLaunchState";
 
-// Mock Data
-const MOCK_AGENTS: AgentSummary[] = [
-  { id: 'a1', name: 'Invoice Analyst', description: 'Parses PDF invoices', icon: '📄', model: 'GPT-4o' },
-  { id: 'a2', name: 'Support Triager', description: 'Routes incoming tickets', icon: '📞', model: 'Claude 3.5' },
-];
+const LOCAL_ENGINE_ZONE_ID = "local-engine";
+const ORCHESTRATION_ZONE_ID = "orchestration";
 
-const INITIAL_ZONES: Zone[] = [
-  { id: "local", name: "Local (Mac Studio)", type: "local", capacity: { used: 14, total: 64, unit: "GB" }, costPerHour: 0.00 },
-  { id: "akash", name: "Akash Network (gpu-1)", type: "cloud", capacity: { used: 22, total: 48, unit: "VRAM" }, costPerHour: 0.45 },
-];
+type LocalEngineBackend = LocalEngineSnapshot["managedBackends"][number];
+type LocalEngineWorkerTemplate = LocalEngineSnapshot["workerTemplates"][number];
+type LocalEnginePlaybook = LocalEngineSnapshot["agentPlaybooks"][number];
+type LocalEngineParentPlaybookRun = LocalEngineSnapshot["parentPlaybookRuns"][number];
+type LocalEngineGalleryCatalog = LocalEngineSnapshot["galleryCatalogs"][number];
 
-const INITIAL_CONTAINERS: Container[] = [
-  { id: "c1", name: "research-worker-a", image: "ioi/researcher:v1.2", zoneId: "local", status: "running", metrics: { cpu: 12, ram: 24 }, uptime: "2h 14m" },
-  { id: "c3", name: "video-gen-worker", image: "ioi/creative:v0.9", zoneId: "akash", status: "running", metrics: { cpu: 88, ram: 60, vram: 92 }, uptime: "15m" },
-];
+const GRAPH_CAPABILITY_ALIASES: Record<string, string> = {
+  responses: "reasoning",
+  embeddings: "embedding",
+};
 
-const MARKET_AGENTS: MarketplaceAgent[] = [
-  { id: "a1", name: "DeFi Sentinel", developer: "QuantLabs", price: "$0.05/run", description: "Monitors chain events", requirements: "24GB VRAM" },
-  { id: "a2", name: "Legal Reviewer", developer: "LawAI", price: "$29/mo", description: "Contract analysis", requirements: "8GB VRAM" },
-  { id: "a3", name: "Research Swarm", developer: "OpenSci", price: "Free", description: "Deep research", requirements: "48GB VRAM" },
-  { id: "a4", name: "Video Gen", developer: "CreativeX", price: "$0.10/min", description: "AI Video", requirements: "H100 GPU" },
-];
+function formatRelativeDuration(timestampMs?: number | null): string {
+  if (!timestampMs || timestampMs <= 0) {
+    return "n/a";
+  }
 
-const SHIELD_APPROVAL_PREFIX = "SHIELD_APPROVAL_REQUIRED:";
+  const elapsedMs = Math.max(0, Date.now() - timestampMs);
+  const totalMinutes = Math.floor(elapsedMs / 60_000);
+  if (totalMinutes < 1) {
+    return "<1m";
+  }
 
-interface ShieldApprovalRequest {
-  connectorId: string;
-  actionId: string;
-  actionLabel: string;
-  message: string;
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
 }
 
-interface WalletConnectorAuthRecordView {
-  connectorId: string;
-  authProtocol: string;
-  state: string;
-  updatedAtMs: number;
-  accountLabel?: string | null;
-  grantedScopes: string[];
+function mapBackendStatusToContainerStatus(
+  status?: string | null,
+  health?: string | null,
+): Container["status"] {
+  const labels = `${status ?? ""} ${health ?? ""}`.toLowerCase();
+  if (
+    labels.includes("failed") ||
+    labels.includes("error") ||
+    labels.includes("blocked") ||
+    labels.includes("degraded")
+  ) {
+    return "error";
+  }
+  if (
+    labels.includes("running") ||
+    labels.includes("healthy") ||
+    labels.includes("ready") ||
+    labels.includes("active")
+  ) {
+    return "running";
+  }
+  return "stopped";
 }
 
-interface WalletConnectorAuthListResult {
-  listedAtMs: number;
-  records: WalletConnectorAuthRecordView[];
+function mapRunStatusToContainerStatus(status?: string | null): Container["status"] {
+  const label = (status ?? "").toLowerCase();
+  if (label === "running") {
+    return "running";
+  }
+  if (label === "failed" || label === "blocked") {
+    return "error";
+  }
+  return "stopped";
 }
 
-const INITIAL_CONNECTORS: ConnectorSummary[] = [
-  {
-    id: "mail.primary",
-    pluginId: "wallet_mail",
-    name: "Mail",
-    provider: "wallet.network",
-    category: "communication",
-    description:
-      "Planned first wallet_network integration. Enables inbox listing and latest-email read under delegated wallet session policy.",
-    status: "needs_auth",
-    authMode: "wallet_capability",
-    scopes: ["mail.read.latest", "mail.list.recent", "mail.delete.spam", "mail.reply"],
-    notes:
-      "Wallet-backed connector auth with delegated mailbox capabilities and bounded leases.",
-  },
-  {
-    id: "google.workspace",
-    pluginId: "google_workspace",
-    name: "Google",
-    provider: "google",
-    category: "productivity",
-    description:
-      "Single Google connector exposing Gmail, Calendar, Docs, Sheets, BigQuery, Drive, Tasks, Chat, events, workflows, and expert raw access.",
-    status: "needs_auth",
-    authMode: "wallet_capability",
-    scopes: [
-      "gmail",
-      "calendar",
-      "docs",
-      "sheets",
-      "bigquery",
-      "drive",
-      "tasks",
-      "chat",
-      "events",
-      "workflow",
-      "expert",
-    ],
-    notes:
-      "Uses native Google OAuth for consent, with wallet-backed durable auth and direct Google APIs for execution.",
-  },
-];
-
-function cloneConnectors(connectors: ConnectorSummary[]): ConnectorSummary[] {
-  return connectors.map((connector) => ({
-    ...connector,
-    scopes: [...connector.scopes],
-  }));
-}
-
-function patchMailConnectorConnected(
-  connectors: ConnectorSummary[],
-  result: WalletMailConfigureAccountResult
-): ConnectorSummary[] {
-  const connectedAt = new Date(result.updatedAtMs).toISOString();
-  const identityLabel = result.senderDisplayName
-    ? `${result.accountEmail} as ${result.senderDisplayName}`
-    : result.accountEmail;
-  const connectedNote = `Connected ${identityLabel} on mailbox "${result.mailbox}".`;
-
-  let found = false;
-  const next = connectors.map((connector) => {
-    if (connector.id !== "mail.primary") return connector;
-    found = true;
-    return {
-      ...connector,
-      status: "connected" as ConnectorStatus,
-      lastSyncAtUtc: connectedAt,
-      notes: connectedNote,
-    };
+function dedupeAgentSummaries(items: AgentSummary[]): AgentSummary[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) {
+      return false;
+    }
+    seen.add(item.id);
+    return true;
   });
+}
 
-  if (found) return next;
+function playbookAgentSummary(
+  playbook: LocalEnginePlaybook,
+  defaultModel: string,
+): AgentSummary {
+  return {
+    id: `playbook:${playbook.playbookId}`,
+    name: playbook.label,
+    description:
+      playbook.summary.trim() ||
+      playbook.goalTemplate.trim() ||
+      "Governed execution contract backed by the kernel playbook runtime.",
+    model: defaultModel,
+  };
+}
+
+function workerTemplateAgentSummary(
+  template: LocalEngineWorkerTemplate,
+  defaultModel: string,
+): AgentSummary {
+  return {
+    id: `worker:${template.templateId}`,
+    name: template.label,
+    description:
+      template.summary.trim() ||
+      template.role.trim() ||
+      "Typed worker template surfaced from the local engine.",
+    model: defaultModel,
+  };
+}
+
+function runtimeCatalogEntryFromPlaybook(
+  playbook: LocalEnginePlaybook,
+  defaultModel: string,
+): RuntimeCatalogEntry {
+  return {
+    id: `playbook:${playbook.playbookId}`,
+    name: playbook.label,
+    ownerLabel: "IOI Kernel",
+    entryKind: "Playbook",
+    description:
+      playbook.summary.trim() ||
+      playbook.goalTemplate.trim() ||
+      "Governed playbook packaged with the local engine runtime.",
+    runtimeNotes:
+      playbook.recommendedFor.slice(0, 2).join(" · ") ||
+      `Uses ${defaultModel}`,
+    statusLabel: "Promotable",
+  };
+}
+
+function runtimeCatalogEntryFromWorkerTemplate(
+  template: LocalEngineWorkerTemplate,
+  defaultModel: string,
+): RuntimeCatalogEntry {
+  return {
+    id: `worker:${template.templateId}`,
+    name: template.label,
+    ownerLabel: "IOI Kernel",
+    entryKind: "Worker template",
+    description:
+      template.summary.trim() ||
+      template.role.trim() ||
+      "Typed worker template available inside the local engine.",
+    runtimeNotes: `Uses ${defaultModel}`,
+    statusLabel: "Promotable",
+  };
+}
+
+function runtimeCatalogEntryFromGalleryCatalog(
+  catalog: LocalEngineGalleryCatalog,
+): RuntimeCatalogEntry {
+  const preview =
+    catalog.sampleEntries
+      .slice(0, 2)
+      .map((entry) => entry.label.trim())
+      .filter(Boolean)
+      .join(" · ") || catalog.sourceUri.trim();
+
+  return {
+    id: `gallery:${catalog.galleryId}`,
+    name: catalog.label,
+    ownerLabel: "IOI Gallery",
+    entryKind: "Gallery catalog",
+    description:
+      catalog.lastError?.trim() ||
+      preview ||
+      "Live kernel gallery catalog available for governed sync.",
+    runtimeNotes: `${catalog.entryCount} entries · ${catalog.syncStatus}`,
+    statusLabel: catalog.syncStatus.replace(/[_-]+/g, " "),
+  };
+}
+
+function liveAgentSummariesFromSnapshot(snapshot: LocalEngineSnapshot): AgentSummary[] {
+  const defaultModel =
+    snapshot.controlPlane.runtime.defaultModel?.trim() || "Kernel-managed";
+
+  return dedupeAgentSummaries([
+    ...snapshot.agentPlaybooks.map((playbook) =>
+      playbookAgentSummary(playbook, defaultModel),
+    ),
+    ...snapshot.workerTemplates.map((template) =>
+      workerTemplateAgentSummary(template, defaultModel),
+    ),
+  ]);
+}
+
+function liveRuntimeCatalogEntriesFromSnapshot(
+  snapshot: LocalEngineSnapshot,
+): RuntimeCatalogEntry[] {
+  const defaultModel =
+    snapshot.controlPlane.runtime.defaultModel?.trim() || "Kernel-managed";
 
   return [
-    {
-      id: "mail.primary",
-      pluginId: "wallet_mail",
-      name: "Mail",
-      provider: "wallet.network",
-      category: "communication",
-      description:
-        "Planned first wallet_network integration. Enables inbox listing and latest-email read under delegated wallet session policy.",
-      status: "connected" as ConnectorStatus,
-      authMode: "wallet_capability",
-      scopes: ["mail.read.latest", "mail.list.recent", "mail.delete.spam", "mail.reply"],
-      lastSyncAtUtc: connectedAt,
-      notes: connectedNote,
-    },
-    ...next,
+    ...snapshot.galleryCatalogs.map((catalog) =>
+      runtimeCatalogEntryFromGalleryCatalog(catalog),
+    ),
+    ...snapshot.agentPlaybooks.map((playbook) =>
+      runtimeCatalogEntryFromPlaybook(playbook, defaultModel),
+    ),
+    ...snapshot.workerTemplates.map((template) =>
+      runtimeCatalogEntryFromWorkerTemplate(template, defaultModel),
+    ),
   ];
 }
 
-function patchConnectorConfigured(
-  connectors: ConnectorSummary[],
-  result: ConnectorConfigureResult
-): ConnectorSummary[] {
-  const syncedAt = result.executedAtUtc;
-  let found = false;
-  const next = connectors.map((connector) => {
-    if (connector.id !== result.connectorId) return connector;
-    found = true;
-    return {
-      ...connector,
-      status: result.status,
-      lastSyncAtUtc: syncedAt,
-      notes: result.summary,
-    };
-  });
+function runtimeCatalogEntryStagePlan(entryId: string): {
+  subjectKind: string;
+  operation: string;
+  subjectId: string;
+  notes: string;
+} {
+  const [rawKind, rawSubjectId] = entryId.split(":");
+  const subjectId = rawSubjectId?.trim() || entryId;
+  const subjectKind =
+    rawKind === "worker"
+      ? "worker_template"
+      : rawKind === "gallery"
+        ? "gallery"
+      : rawKind === "playbook"
+        ? "playbook"
+        : "catalog_entry";
+  const operation =
+    rawKind === "gallery"
+      ? "sync"
+      : rawKind === "playbook" || rawKind === "worker"
+        ? "promote"
+        : "stage";
 
-  if (found) return next;
-  return next;
+  return {
+    subjectKind,
+    operation,
+    subjectId,
+    notes:
+      operation === "sync"
+        ? `Synchronize live gallery catalog '${entryId}' through the Local Engine queue.`
+        : operation === "promote"
+        ? `Promote catalog entry '${entryId}' into the Local Engine queue.`
+        : `Stage catalog entry '${entryId}' in the Local Engine queue for later review or promotion.`,
+  };
 }
 
-function connectorStatusFromWalletAuthState(state: string): ConnectorStatus {
-  switch (state) {
-    case "connected":
-      return "connected";
-    case "expired":
-    case "revoked":
-    case "degraded":
-      return "degraded";
-    case "needs_auth":
-    default:
-      return "needs_auth";
-  }
+function backendContainer(record: LocalEngineBackend): Container {
+  return {
+    id: `backend:${record.backendId}`,
+    name: record.alias?.trim() || record.backendId,
+    image:
+      record.entrypoint?.trim() ||
+      record.sourceUri?.trim() ||
+      "kernel-managed-backend",
+    zoneId: LOCAL_ENGINE_ZONE_ID,
+    status: mapBackendStatusToContainerStatus(record.status, record.health),
+    metrics: {
+      cpu: 0,
+      ram: 0,
+    },
+    uptime: formatRelativeDuration(record.lastStartedAtMs ?? record.installedAtMs),
+  };
 }
 
-function connectorNotesFromWalletRecord(
-  connector: ConnectorSummary,
-  record: WalletConnectorAuthRecordView
-): string {
-  const account = record.accountLabel?.trim();
-  if (account) {
-    return `${connector.name} is connected for ${account} via wallet-backed connector auth.`;
-  }
-  if (record.state === "needs_auth") {
-    return `${connector.name} is registered but still needs wallet-backed authorization.`;
-  }
-  return `${connector.name} is tracked through wallet-backed connector auth.`;
+function playbookRunContainer(run: LocalEngineParentPlaybookRun): Container {
+  const completedSteps = run.steps.filter((step) => step.status === "completed").length;
+  const totalSteps = run.steps.length;
+  const progressPercent =
+    totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+  return {
+    id: `run:${run.runId}`,
+    name: run.playbookLabel,
+    image: run.currentStepLabel?.trim() || run.playbookId,
+    zoneId: ORCHESTRATION_ZONE_ID,
+    status: mapRunStatusToContainerStatus(run.status),
+    metrics: {
+      cpu: progressPercent,
+      ram: 0,
+    },
+    uptime: formatRelativeDuration(run.startedAtMs),
+  };
 }
 
-function patchConnectorsFromWalletAuth(
-  connectors: ConnectorSummary[],
-  auth: WalletConnectorAuthListResult
-): ConnectorSummary[] {
-  const recordsById = new Map(
-    auth.records.map((record) => [record.connectorId, record] as const)
+function liveFleetStateFromSnapshot(snapshot: LocalEngineSnapshot): FleetState {
+  const liveRuns = snapshot.parentPlaybookRuns.filter(
+    (run) => !["completed", "failed"].includes(run.status),
   );
+  const liveBackends = snapshot.managedBackends;
 
-  return connectors.map((connector) => {
-    const record = recordsById.get(connector.id);
-    if (!record) return connector;
-    return {
-      ...connector,
-      status: connectorStatusFromWalletAuthState(record.state),
-      authMode: "wallet_capability",
-      lastSyncAtUtc:
-        record.updatedAtMs > 0 ? new Date(record.updatedAtMs).toISOString() : connector.lastSyncAtUtc,
-      notes: connectorNotesFromWalletRecord(connector, record),
-      scopes: record.grantedScopes.length > 0 ? [...record.grantedScopes] : connector.scopes,
-    };
-  });
-}
+  const zones: Zone[] = [
+    {
+      id: LOCAL_ENGINE_ZONE_ID,
+      name: "Local Engine",
+      type: "local",
+      capacity: {
+        used: liveBackends.length,
+        total: Math.max(snapshot.registryModels.length + snapshot.managedBackends.length, 1),
+        unit: "services",
+      },
+      costPerHour: 0,
+    },
+  ];
 
-function parseShieldApprovalRequest(error: unknown): ShieldApprovalRequest | null {
-  const message = String(error ?? "");
-  const markerIndex = message.indexOf(SHIELD_APPROVAL_PREFIX);
-  if (markerIndex < 0) return null;
-
-  const payload = message.slice(markerIndex + SHIELD_APPROVAL_PREFIX.length).trim();
-  try {
-    const parsed = JSON.parse(payload) as Partial<ShieldApprovalRequest>;
-    if (
-      typeof parsed.connectorId === "string" &&
-      typeof parsed.actionId === "string" &&
-      typeof parsed.actionLabel === "string" &&
-      typeof parsed.message === "string"
-    ) {
-      return parsed as ShieldApprovalRequest;
-    }
-  } catch (_error) {
-    // Fall through to null; the original runtime error will be rethrown upstream.
+  if (liveRuns.length > 0 || snapshot.jobs.length > 0) {
+    zones.push({
+      id: ORCHESTRATION_ZONE_ID,
+      name: "Orchestration",
+      type: "enclave",
+      capacity: {
+        used: liveRuns.length,
+        total: Math.max(snapshot.parentPlaybookRuns.length + snapshot.jobs.length, 1),
+        unit: "runs",
+      },
+      costPerHour: 0,
+    });
   }
 
-  return null;
+  return {
+    zones,
+    containers: [
+      ...liveBackends.map((record) => backendContainer(record)),
+      ...liveRuns.map((run) => playbookRunContainer(run)),
+    ],
+  };
 }
 
-function confirmShieldApproval(request: ShieldApprovalRequest): boolean {
-  if (typeof window === "undefined" || typeof window.confirm !== "function") {
-    return false;
-  }
+type RuntimeShellSurface = "overlay" | "studio";
 
-  return window.confirm(
-    `${request.message}\n\nConnector: ${request.connectorId}\nAction: ${request.actionLabel}`
-  );
-}
-
-export class TauriRuntime implements AgentRuntime {
-    private connectors: ConnectorSummary[] = cloneConnectors(INITIAL_CONNECTORS);
+export class TauriRuntime implements AgentRuntime, AgentSessionRuntime {
+    constructor(
+      private readonly shellSurface: RuntimeShellSurface = "overlay",
+    ) {}
 
     async runGraph(payload: GraphPayload): Promise<void> {
         await invoke("run_studio_graph", { payload });
     }
 
     async stopExecution(): Promise<void> {
+        await this.stopSessionTask();
+    }
+
+    async startSessionTask<T>(intent: string): Promise<T> {
+        return invoke<T>("start_task", {
+          intent,
+          originSurface: this.shellSurface,
+        });
+    }
+
+    async continueSessionTask(sessionId: string, userInput: string): Promise<void> {
+        await invoke("continue_task", { sessionId, userInput });
+    }
+
+    async dismissSessionTask(): Promise<void> {
+        await invoke("dismiss_task");
+    }
+
+    async stopSessionTask(): Promise<void> {
         await invoke("cancel_task");
+    }
+
+    async getCurrentSessionTask<T>(): Promise<T | null> {
+        return invoke<T | null>("get_current_task");
+    }
+
+    async listSessionHistory<T>(): Promise<T[]> {
+        return invoke<T[]>("get_session_history");
+    }
+
+    async getSessionProjection<TTask, TSessionSummary>(): Promise<
+      AgentSessionProjection<TTask, TSessionSummary>
+    > {
+        return invoke<AgentSessionProjection<TTask, TSessionSummary>>(
+          "get_session_projection",
+        );
+    }
+
+    async loadSessionTask<T>(sessionId: string): Promise<T> {
+        return invoke<T>("load_session", { sessionId });
+    }
+
+    async loadSessionThreadEvents<T>(
+        threadId: string,
+        options?: AgentSessionThreadLoadOptions
+    ): Promise<T[]> {
+        return invoke<T[]>("get_thread_events", {
+            threadId,
+            thread_id: threadId,
+            limit: options?.limit ?? null,
+            cursor: options?.cursor ?? null,
+        });
+    }
+
+    async loadSessionThreadArtifacts<T>(threadId: string): Promise<T[]> {
+        return invoke<T[]>("get_thread_artifacts", {
+            threadId,
+            thread_id: threadId,
+        });
+    }
+
+    async showPillShell(): Promise<void> {
+        await invoke("show_pill");
+    }
+
+    async hidePillShell(): Promise<void> {
+        await invoke("hide_pill");
+    }
+
+    async showSpotlightShell(): Promise<void> {
+        await invoke("show_spotlight");
+    }
+
+    async hideSpotlightShell(): Promise<void> {
+        await invoke("hide_spotlight");
+    }
+
+    async showGateShell(): Promise<void> {
+        await invoke("show_gate");
+    }
+
+    async hideGateShell(): Promise<void> {
+        await invoke("hide_gate");
+    }
+
+    async showStudioShell(): Promise<void> {
+        await recordStudioLaunchReceipt("runtime_show_studio_requested", {});
+        await invoke("show_studio");
+        await recordStudioLaunchReceipt("runtime_show_studio_completed", {});
+    }
+
+    private async showStudioShellWithTarget(
+      request: Parameters<typeof showStudioWithLaunchRequest>[0],
+      stage: string,
+      detail: Record<string, unknown>,
+    ): Promise<void> {
+        await recordStudioLaunchReceipt(stage, detail);
+        await showStudioWithLaunchRequest(request);
+        await recordStudioLaunchReceipt(`${stage}_completed`, detail);
+    }
+
+    async openStudioView(view: StudioViewTarget): Promise<void> {
+        await this.showStudioShellWithTarget(
+          {
+            kind: "view",
+            view,
+          },
+          "runtime_open_view_requested",
+          {
+            view,
+          },
+        );
+    }
+
+    async openStudioSessionTarget(sessionId: string): Promise<void> {
+        await this.showStudioShellWithTarget(
+          {
+            kind: "session-target",
+            sessionId,
+          },
+          "runtime_open_session_requested",
+          {
+            sessionId,
+          },
+        );
+    }
+
+    async openStudioCapabilityTarget(
+      connectorId?: string | null,
+      detailSection?: StudioCapabilityDetailSection | null,
+    ): Promise<void> {
+        await this.showStudioShellWithTarget(
+          {
+            kind: "capability",
+            connectorId: connectorId ?? null,
+            detailSection: detailSection ?? null,
+          },
+          "runtime_open_capability_requested",
+          {
+            connectorId: connectorId ?? null,
+            detailSection: detailSection ?? null,
+          },
+        );
+    }
+
+    async openStudioPolicyTarget(connectorId?: string | null): Promise<void> {
+        await this.showStudioShellWithTarget(
+          {
+            kind: "policy",
+            connectorId: connectorId ?? null,
+          },
+          "runtime_open_policy_requested",
+          {
+            connectorId: connectorId ?? null,
+          },
+        );
+    }
+
+    async openStudioAssistantWorkbench(
+      session: AssistantWorkbenchSession,
+    ): Promise<void> {
+        await this.activateAssistantWorkbenchSession(session);
+        await this.showStudioShellWithTarget(
+          {
+            kind: "assistant-workbench",
+            session,
+          },
+          "runtime_open_assistant_workbench_requested",
+          {
+            session: summarizeAssistantWorkbenchSession(session),
+          },
+        );
+    }
+
+    async activateAssistantWorkbenchSession(
+      session: AssistantWorkbenchSession,
+    ): Promise<void> {
+        await invoke("set_active_assistant_workbench_session", { session });
+        await this.reportAssistantWorkbenchActivity(
+          createAssistantWorkbenchActivity(session, {
+            action: "open",
+            status: "started",
+            message:
+              session.kind === "gmail_reply"
+                ? "Opened Gmail reply workbench."
+                : "Opened meeting prep workbench.",
+          }),
+        );
+    }
+
+    async getActiveAssistantWorkbenchSession(): Promise<AssistantWorkbenchSession | null> {
+        return invoke("get_active_assistant_workbench_session");
+    }
+
+    async openStudioAutopilotIntent(intent: string): Promise<void> {
+        await this.showStudioShellWithTarget(
+          {
+            kind: "autopilot-intent",
+            intent,
+          },
+          "runtime_open_autopilot_intent_requested",
+          {
+            intent,
+          },
+        );
+    }
+
+    async listenAssistantWorkbenchSession(
+      handler: (session: AssistantWorkbenchSession) => void,
+    ): Promise<() => void> {
+        return listen<AssistantWorkbenchSession>(
+          "assistant-workbench-session-updated",
+          (event) => handler(event.payload),
+        );
+    }
+
+    async reportAssistantWorkbenchActivity(
+      activity: AssistantWorkbenchActivity,
+    ): Promise<void> {
+        try {
+            await invoke("record_assistant_workbench_activity", { activity });
+        } catch (error) {
+            await emit("assistant-workbench-activity", activity);
+            throw error;
+        }
+    }
+
+    async getRecentAssistantWorkbenchActivities(
+      limit?: number,
+    ): Promise<AssistantWorkbenchActivity[]> {
+        return invoke("get_recent_assistant_workbench_activities", { limit });
+    }
+
+    async listenAssistantWorkbenchActivity(
+      handler: (activity: AssistantWorkbenchActivity) => void,
+    ): Promise<() => void> {
+        return listen<AssistantWorkbenchActivity>(
+          "assistant-workbench-activity",
+          (event) => handler(event.payload),
+        );
+    }
+
+    async submitSessionRuntimePassword(
+        sessionId: string,
+        password: string
+    ): Promise<void> {
+        await invoke("submit_runtime_password", { sessionId, password });
+    }
+
+    async respondToSessionGate(input: AgentSessionGateResponse): Promise<void> {
+        await invoke("gate_respond", { ...input });
+    }
+
+    async listenSessionProjection<TTask, TSessionSummary>(
+      handler: (
+        projection: AgentSessionProjection<TTask, TSessionSummary>,
+      ) => void,
+    ): Promise<() => void> {
+        return listen<AgentSessionProjection<TTask, TSessionSummary>>(
+          "session-projection-updated",
+          (event) => handler(event.payload),
+        );
+    }
+
+    async listenSessionEvent<T>(
+        eventName: AgentSessionEventName,
+        handler: (payload: T) => void
+    ): Promise<() => void> {
+        return listen<T>(eventName, (event) => handler(event.payload));
     }
 
     async checkNodeCache(nodeId: string, config: any, input: string): Promise<any> {
@@ -297,6 +696,49 @@ export class TauriRuntime implements AgentRuntime {
 
     async getLocalEngineSnapshot(): Promise<LocalEngineSnapshot> {
         return invoke("get_local_engine_snapshot");
+    }
+
+    async getCapabilityRegistrySnapshot(): Promise<CapabilityRegistrySnapshot> {
+        return invoke("get_capability_registry_snapshot");
+    }
+
+    async planCapabilityGovernanceRequest<T>(input: {
+        requestId?: string | null;
+        capabilityEntryId: string;
+        action: "widen" | "baseline";
+        governingEntryId?: string | null;
+        connectorId?: string | null;
+        connectorLabel?: string | null;
+    }): Promise<T> {
+        return invoke("plan_capability_governance_request", { input });
+    }
+
+    async planCapabilityGovernanceProposal<T>(input: {
+        capabilityEntryId: string;
+        action: "widen" | "baseline";
+        comparisonEntryId?: string | null;
+    }): Promise<T> {
+        return invoke("plan_capability_governance_proposal", { input });
+    }
+
+    async getCapabilityGovernanceRequest<T>(): Promise<T | null> {
+        return invoke("get_capability_governance_request");
+    }
+
+    async setCapabilityGovernanceRequest<T>(request: T): Promise<T> {
+        return invoke("set_capability_governance_request", { request });
+    }
+
+    async clearCapabilityGovernanceRequest(): Promise<void> {
+        await invoke("clear_capability_governance_request");
+    }
+
+    async listenCapabilityGovernanceRequest<T>(
+      handler: (request: T | null) => void,
+    ): Promise<() => void> {
+        return listen<T | null>("capability-governance-request-updated", (event) =>
+          handler(event.payload),
+        );
     }
 
     async getGraphModelBindingCatalog(): Promise<GraphModelBindingCatalog> {
@@ -314,32 +756,19 @@ export class TauriRuntime implements AgentRuntime {
 
     async getGraphCapabilityCatalog(): Promise<GraphCapabilityCatalog> {
         const snapshot = await this.getLocalEngineSnapshot();
-        const familyMap = new Map(snapshot.capabilities.map((family) => [family.id, family] as const));
-        const capabilityMappings = [
-            { capabilityId: "reasoning", familyId: "responses" },
-            { capabilityId: "vision", familyId: "vision" },
-            { capabilityId: "embedding", familyId: "embeddings" },
-            { capabilityId: "image", familyId: "image" },
-            { capabilityId: "speech", familyId: "speech" },
-            { capabilityId: "video", familyId: "video" },
-        ];
+        const capabilities = snapshot.capabilities.map((family) => ({
+            capabilityId: GRAPH_CAPABILITY_ALIASES[family.id] ?? family.id,
+            familyId: family.id,
+            label: family.label,
+            status: family.status,
+            availableCount: family.availableCount,
+            operatorSummary: family.operatorSummary,
+        }));
 
         return {
             refreshedAtMs: snapshot.generatedAtMs,
             activeIssueCount: snapshot.activeIssueCount,
-            capabilities: capabilityMappings.map(({ capabilityId, familyId }) => {
-                const family = familyMap.get(familyId);
-                return {
-                    capabilityId,
-                    familyId,
-                    label: family?.label ?? capabilityId,
-                    status: family?.status ?? "Unavailable",
-                    availableCount: family?.availableCount ?? 0,
-                    operatorSummary:
-                        family?.operatorSummary ??
-                        "This capability is not yet surfaced in the current Local Engine snapshot.",
-                };
-            }),
+            capabilities,
         };
     }
 
@@ -347,6 +776,62 @@ export class TauriRuntime implements AgentRuntime {
       controlPlane: LocalEngineControlPlane,
     ): Promise<LocalEngineControlPlane> {
         return invoke("save_local_engine_control_plane", { controlPlane });
+    }
+
+    async refreshLocalEngineManagedSettings(): Promise<LocalEngineManagedSettingsSnapshot> {
+        return invoke("refresh_local_engine_managed_settings");
+    }
+
+    async clearLocalEngineManagedSettingsOverrides(): Promise<LocalEngineManagedSettingsSnapshot> {
+        return invoke("clear_local_engine_managed_settings_overrides");
+    }
+
+    async getSessionCompactionSnapshot(
+      policy?: SessionCompactionPolicy | null,
+    ): Promise<SessionCompactionSnapshot> {
+        return invoke("get_session_compaction_snapshot", {
+          policy: policy ?? null,
+        });
+    }
+
+    async compactSession(input?: {
+      sessionId?: string | null;
+      policy?: SessionCompactionPolicy | null;
+    }): Promise<SessionCompactionSnapshot> {
+        return invoke("compact_session", {
+          sessionId: input?.sessionId ?? null,
+          policy: input?.policy ?? null,
+        });
+    }
+
+    async getTeamMemorySnapshot(
+      sessionId?: string | null,
+    ): Promise<TeamMemorySyncSnapshot> {
+        return invoke("get_team_memory_snapshot", { sessionId: sessionId ?? null });
+    }
+
+    async syncTeamMemory(input?: {
+      sessionId?: string | null;
+      actorLabel?: string | null;
+      actorRole?: string | null;
+      includeGovernanceCritical?: boolean | null;
+    }): Promise<TeamMemorySyncSnapshot> {
+        return invoke("sync_team_memory", {
+          sessionId: input?.sessionId ?? null,
+          actorLabel: input?.actorLabel ?? null,
+          actorRole: input?.actorRole ?? null,
+          includeGovernanceCritical: input?.includeGovernanceCritical ?? false,
+        });
+    }
+
+    async forgetTeamMemoryEntry(
+      entryId: string,
+      sessionId?: string | null,
+    ): Promise<TeamMemorySyncSnapshot> {
+        return invoke("forget_team_memory_entry", {
+          entryId,
+          sessionId: sessionId ?? null,
+        });
     }
 
     async stageLocalEngineOperation(input: {
@@ -357,6 +842,12 @@ export class TauriRuntime implements AgentRuntime {
       notes?: string | null;
     }): Promise<void> {
         await invoke("stage_local_engine_operation", { draft: input });
+        await emit("local-engine-updated", {
+          reason: "staged_operation_added",
+          subjectKind: input.subjectKind,
+          subjectId: input.subjectId ?? null,
+          operation: input.operation,
+        });
     }
 
     async removeLocalEngineOperation(operationId: string): Promise<void> {
@@ -470,6 +961,10 @@ export class TauriRuntime implements AgentRuntime {
         return invoke("get_skill_sources");
     }
 
+    async getExtensionManifests(): Promise<ExtensionManifestRecord[]> {
+        return invoke("get_extension_manifests");
+    }
+
     async addSkillSource(
       uri: string,
       label?: string | null,
@@ -566,59 +1061,30 @@ export class TauriRuntime implements AgentRuntime {
     }
 
     async getAgents(): Promise<AgentSummary[]> {
-        return MOCK_AGENTS;
+        return liveAgentSummariesFromSnapshot(await this.getLocalEngineSnapshot());
     }
 
     async getFleetState(): Promise<FleetState> {
-        return {
-            zones: INITIAL_ZONES,
-            containers: INITIAL_CONTAINERS.map(c => ({
-                ...c,
-                metrics: {
-                    cpu: Math.min(100, Math.max(0, c.metrics.cpu + (Math.random() * 10 - 5))),
-                    ram: Math.min(100, Math.max(0, c.metrics.ram + (Math.random() * 4 - 2))),
-                    vram: c.metrics.vram ? Math.min(100, Math.max(0, c.metrics.vram + (Math.random() * 6 - 3))) : undefined
-                }
-            }))
-        };
+        return liveFleetStateFromSnapshot(await this.getLocalEngineSnapshot());
     }
 
-    async getMarketplaceAgents(): Promise<MarketplaceAgent[]> {
-        return MARKET_AGENTS;
+    async getRuntimeCatalogEntries(): Promise<RuntimeCatalogEntry[]> {
+        return liveRuntimeCatalogEntriesFromSnapshot(await this.getLocalEngineSnapshot());
     }
 
-    async installAgent(agentId: string): Promise<void> {
-        try {
-            await invoke("install_marketplace_agent", { agentId });
-        } catch (error) {
-            throw new Error(
-                `NotImplemented: backend command 'install_marketplace_agent' is unavailable for agent '${agentId}'. detail=${String(error)}`
-            );
-        }
-    }
-
-    async loadBuilderConfigToCompose(config: unknown): Promise<void> {
-        try {
-            await invoke("load_builder_config_to_compose", { config });
-        } catch (error) {
-            throw new Error(
-                `NotImplemented: builder->compose handoff is not wired. detail=${String(error)}`
-            );
-        }
+    async stageRuntimeCatalogEntry(entryId: string, notes?: string): Promise<void> {
+        const plan = runtimeCatalogEntryStagePlan(entryId);
+        await this.stageLocalEngineOperation({
+            subjectKind: plan.subjectKind,
+            operation: plan.operation,
+            sourceUri: `catalog:${entryId}`,
+            subjectId: plan.subjectId,
+            notes: notes?.trim() || plan.notes,
+        });
     }
 
     async getConnectors(): Promise<ConnectorSummary[]> {
-        let next = cloneConnectors(this.connectors);
-        try {
-          const auth = await invoke<WalletConnectorAuthListResult>("wallet_connector_auth_list", {
-            providerFamily: null,
-          });
-          next = patchConnectorsFromWalletAuth(next, auth);
-          this.connectors = cloneConnectors(next);
-        } catch (_error) {
-          // Keep local connector scaffold when wallet auth receipts are unavailable.
-        }
-        return next;
+        return invoke<ConnectorSummary[]>("connector_list_catalog");
     }
 
     async getConnectorActions(connectorId: string): Promise<ConnectorActionDefinition[]> {
@@ -630,43 +1096,36 @@ export class TauriRuntime implements AgentRuntime {
     async runConnectorAction(
       request: ConnectorActionRequest
     ): Promise<ConnectorActionResult> {
-      try {
-        return await invoke("connector_run_action", {
+      return invoke("connector_run_action", {
+        connectorId: request.connectorId,
+        actionId: request.actionId,
+        input: request.input,
+      });
+    }
+
+    async rememberConnectorApproval(
+      request: ConnectorApprovalMemoryRequest
+    ): Promise<void> {
+      await invoke("connector_policy_memory_remember", {
+        input: {
           connectorId: request.connectorId,
           actionId: request.actionId,
-          input: request.input,
-        });
-      } catch (error) {
-        const approvalRequest = parseShieldApprovalRequest(error);
-        if (!approvalRequest || request.input._shieldApproved === true) {
-          throw error;
-        }
-
-        const approved = confirmShieldApproval(approvalRequest);
-        if (!approved) {
-          throw new Error(`Shield approval declined for ${approvalRequest.actionLabel}.`);
-        }
-
-        return invoke("connector_run_action", {
-          connectorId: request.connectorId,
-          actionId: request.actionId,
-          input: {
-            ...request.input,
-            _shieldApproved: true,
-          },
-        });
-      }
+          actionLabel: request.actionLabel,
+          policyFamily: request.policyFamily,
+          scopeKey: request.scopeKey ?? null,
+          scopeLabel: request.scopeLabel ?? null,
+          sourceLabel: request.sourceLabel ?? null,
+        },
+      });
     }
 
     async configureConnector(
       request: ConnectorConfigureRequest
     ): Promise<ConnectorConfigureResult> {
-      const result = await invoke<ConnectorConfigureResult>("connector_configure", {
+      return invoke<ConnectorConfigureResult>("connector_configure", {
         connectorId: request.connectorId,
         input: request.input ?? {},
       });
-      this.connectors = patchConnectorConfigured(this.connectors, result);
-      return result;
     }
 
     async listConnectorSubscriptions(
@@ -715,6 +1174,7 @@ export class TauriRuntime implements AgentRuntime {
         leaseId: input.leaseId,
         opSeq: input.opSeq,
         mailbox: input.mailbox ?? null,
+        shieldApproved: input.shieldApproved ?? null,
       });
     }
 
@@ -727,6 +1187,7 @@ export class TauriRuntime implements AgentRuntime {
         opSeq: input.opSeq,
         mailbox: input.mailbox ?? null,
         limit: input.limit ?? null,
+        shieldApproved: input.shieldApproved ?? null,
       });
     }
 
@@ -739,6 +1200,7 @@ export class TauriRuntime implements AgentRuntime {
         opSeq: input.opSeq,
         mailbox: input.mailbox ?? null,
         maxDelete: input.maxDelete ?? null,
+        shieldApproved: input.shieldApproved ?? null,
       });
     }
 
@@ -754,13 +1216,14 @@ export class TauriRuntime implements AgentRuntime {
         subject: input.subject,
         body: input.body,
         replyToMessageId: input.replyToMessageId ?? null,
+        shieldApproved: input.shieldApproved ?? null,
       });
     }
 
     async walletMailConfigureAccount(
       input: WalletMailConfigureAccountInput
     ): Promise<WalletMailConfigureAccountResult> {
-      const result = await invoke<WalletMailConfigureAccountResult>("wallet_mail_configure_account", {
+      return invoke<WalletMailConfigureAccountResult>("wallet_mail_configure_account", {
         mailbox: input.mailbox ?? null,
         accountEmail: input.accountEmail,
         authMode: input.authMode ?? "password",
@@ -776,8 +1239,10 @@ export class TauriRuntime implements AgentRuntime {
         smtpUsername: input.smtpUsername ?? null,
         smtpSecret: input.smtpSecret,
       });
-      this.connectors = patchMailConnectorConnected(this.connectors, result);
-      return result;
+    }
+
+    async walletMailListAccounts(): Promise<WalletMailConfiguredAccount[]> {
+      return invoke<WalletMailConfiguredAccount[]>("wallet_mail_list_accounts");
     }
 
     async listInstalledWorkflows(): Promise<InstalledWorkflowSummary[]> {
@@ -811,6 +1276,16 @@ export class TauriRuntime implements AgentRuntime {
     async runWorkflowNow(workflowId: string): Promise<WorkflowRunReceipt> {
       return invoke("workflow_run_now", {
         workflowId,
+      });
+    }
+
+    async triggerRemoteWorkflow(
+      workflowId: string,
+      payload?: Record<string, unknown>
+    ): Promise<WorkflowRunReceipt> {
+      return invoke("workflow_trigger_remote", {
+        workflowId,
+        payload: payload ?? null,
       });
     }
 

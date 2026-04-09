@@ -1,9 +1,13 @@
 // apps/autopilot/src-tauri/src/models.rs
+use crate::kernel::connectors::{ConnectorCatalogEntry, ShieldPolicyState};
 use ioi_api::studio::{
-    StudioArtifactBlueprint, StudioArtifactBrief, StudioArtifactCandidateSummary,
-    StudioArtifactEditIntent, StudioArtifactExemplar, StudioArtifactIR, StudioArtifactJudgeResult,
-    StudioArtifactOutputOrigin, StudioArtifactRenderEvaluation, StudioArtifactSelectedSkill,
-    StudioArtifactSelectionTarget, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    ExecutionEnvelope, ExecutionStage, StudioArtifactBlueprint, StudioArtifactBrief,
+    StudioArtifactCandidateSummary, StudioArtifactEditIntent, StudioArtifactExemplar,
+    StudioArtifactIR, StudioArtifactJudgeResult, StudioArtifactOutputOrigin,
+    StudioArtifactRenderEvaluation, StudioArtifactSelectedSkill, StudioArtifactSelectionTarget,
+    StudioArtifactTasteMemory, StudioArtifactUxLifecycle, SwarmChangeReceipt,
+    SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan, SwarmVerificationReceipt,
+    SwarmWorkerReceipt,
 };
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
@@ -24,10 +28,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tonic::transport::Channel;
 use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
 pub enum AgentPhase {
     Idle,
     Running,
@@ -445,8 +451,112 @@ pub struct LocalEngineSnapshot {
     pub agent_playbooks: Vec<LocalEngineAgentPlaybookRecord>,
     #[serde(default)]
     pub parent_playbook_runs: Vec<LocalEngineParentPlaybookRunRecord>,
+    pub control_plane_schema_version: u32,
+    pub control_plane_profile_id: String,
+    #[serde(default)]
+    pub control_plane_migrations: Vec<LocalEngineConfigMigrationRecord>,
     pub control_plane: LocalEngineControlPlane,
+    pub managed_settings: LocalEngineManagedSettingsSnapshot,
     pub staged_operations: Vec<LocalEngineStagedOperation>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityAuthorityDescriptor {
+    pub tier_id: String,
+    pub tier_label: String,
+    #[serde(default)]
+    pub governed_profile_id: Option<String>,
+    #[serde(default)]
+    pub governed_profile_label: Option<String>,
+    pub summary: String,
+    pub detail: String,
+    #[serde(default)]
+    pub signals: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityLeaseDescriptor {
+    pub availability: String,
+    pub availability_label: String,
+    #[serde(default)]
+    pub runtime_target_id: Option<String>,
+    #[serde(default)]
+    pub runtime_target_label: Option<String>,
+    #[serde(default)]
+    pub mode_id: Option<String>,
+    #[serde(default)]
+    pub mode_label: Option<String>,
+    pub summary: String,
+    pub detail: String,
+    #[serde(default)]
+    pub requires_auth: bool,
+    #[serde(default)]
+    pub signals: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityRegistryEntry {
+    pub entry_id: String,
+    pub kind: String,
+    pub label: String,
+    pub summary: String,
+    pub source_kind: String,
+    pub source_label: String,
+    #[serde(default)]
+    pub source_uri: Option<String>,
+    pub trust_posture: String,
+    #[serde(default)]
+    pub governed_profile: Option<String>,
+    pub availability: String,
+    pub status_label: String,
+    pub why_selectable: String,
+    #[serde(default)]
+    pub governing_family_id: Option<String>,
+    #[serde(default)]
+    pub related_governing_entry_ids: Vec<String>,
+    #[serde(default)]
+    pub governing_family_hints: Vec<String>,
+    #[serde(default)]
+    pub runtime_target: Option<String>,
+    #[serde(default)]
+    pub lease_mode: Option<String>,
+    pub authority: CapabilityAuthorityDescriptor,
+    pub lease: CapabilityLeaseDescriptor,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityRegistrySummary {
+    pub generated_at_ms: u64,
+    pub total_entries: usize,
+    pub connector_count: usize,
+    pub connected_connector_count: usize,
+    pub runtime_skill_count: usize,
+    pub tracked_source_count: usize,
+    pub filesystem_skill_count: usize,
+    pub extension_count: usize,
+    pub model_count: usize,
+    pub backend_count: usize,
+    pub native_family_count: usize,
+    pub pending_engine_control_count: usize,
+    pub active_issue_count: usize,
+    pub authoritative_source_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityRegistrySnapshot {
+    pub generated_at_ms: u64,
+    pub summary: CapabilityRegistrySummary,
+    pub entries: Vec<CapabilityRegistryEntry>,
+    pub connectors: Vec<ConnectorCatalogEntry>,
+    pub skill_catalog: Vec<SkillCatalogEntry>,
+    pub skill_sources: Vec<SkillSourceRecord>,
+    pub extension_manifests: Vec<ExtensionManifestRecord>,
+    pub local_engine: LocalEngineSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -587,6 +697,88 @@ pub struct LocalEngineControlPlane {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalEngineConfigMigrationRecord {
+    pub migration_id: String,
+    pub from_version: u32,
+    pub to_version: u32,
+    pub applied_at_ms: u64,
+    pub summary: String,
+    #[serde(default)]
+    pub details: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalEngineControlPlaneDocument {
+    #[serde(default)]
+    pub schema_version: u32,
+    #[serde(default)]
+    pub profile_id: String,
+    #[serde(default)]
+    pub migrations: Vec<LocalEngineConfigMigrationRecord>,
+    pub control_plane: LocalEngineControlPlane,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalEngineManagedSettingsChannelRecord {
+    pub channel_id: String,
+    pub label: String,
+    pub source_uri: String,
+    pub status: String,
+    pub verification_status: String,
+    pub summary: String,
+    #[serde(default)]
+    pub precedence: i32,
+    #[serde(default)]
+    pub authority_label: Option<String>,
+    #[serde(default)]
+    pub signature_algorithm: Option<String>,
+    #[serde(default)]
+    pub profile_id: Option<String>,
+    #[serde(default)]
+    pub schema_version: Option<u32>,
+    #[serde(default)]
+    pub issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub expires_at_ms: Option<u64>,
+    #[serde(default)]
+    pub refreshed_at_ms: Option<u64>,
+    #[serde(default)]
+    pub local_override_count: usize,
+    #[serde(default)]
+    pub overridden_fields: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalEngineManagedSettingsSnapshot {
+    pub sync_status: String,
+    pub summary: String,
+    #[serde(default)]
+    pub active_channel_id: Option<String>,
+    #[serde(default)]
+    pub active_channel_label: Option<String>,
+    #[serde(default)]
+    pub active_source_uri: Option<String>,
+    #[serde(default)]
+    pub last_refreshed_at_ms: Option<u64>,
+    #[serde(default)]
+    pub last_successful_refresh_at_ms: Option<u64>,
+    #[serde(default)]
+    pub last_failed_refresh_at_ms: Option<u64>,
+    #[serde(default)]
+    pub refresh_error: Option<String>,
+    #[serde(default)]
+    pub local_override_count: usize,
+    #[serde(default)]
+    pub local_override_fields: Vec<String>,
+    #[serde(default)]
+    pub channels: Vec<LocalEngineManagedSettingsChannelRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Receipt {
     pub duration: String,
     pub actions: u32,
@@ -671,6 +863,30 @@ pub struct AgentEvent {
     pub input_refs: Vec<String>,
     pub status: EventStatus,
     pub duration_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantWorkbenchActivityRecord {
+    pub activity_id: String,
+    pub session_kind: String,
+    pub surface: String,
+    pub action: String,
+    pub status: String,
+    pub message: String,
+    pub timestamp_ms: u64,
+    #[serde(default)]
+    pub source_notification_id: Option<String>,
+    #[serde(default)]
+    pub connector_id: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub event_id: Option<String>,
+    #[serde(default)]
+    pub evidence_thread_id: Option<String>,
+    #[serde(default)]
+    pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -849,6 +1065,175 @@ pub struct SkillSourceRecord {
     pub last_error: Option<String>,
     #[serde(default)]
     pub discovered_skills: Vec<SkillSourceDiscoveredSkill>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionContributionRecord {
+    pub kind: String,
+    pub label: String,
+    #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
+    pub item_count: Option<u32>,
+    #[serde(default)]
+    pub detail: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionManifestRecord {
+    pub extension_id: String,
+    pub manifest_kind: String,
+    pub manifest_path: String,
+    pub root_path: String,
+    pub source_label: String,
+    pub source_uri: String,
+    pub source_kind: String,
+    pub enabled: bool,
+    pub name: String,
+    #[serde(default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub developer_name: Option<String>,
+    #[serde(default)]
+    pub author_name: Option<String>,
+    #[serde(default)]
+    pub author_email: Option<String>,
+    #[serde(default)]
+    pub author_url: Option<String>,
+    #[serde(default)]
+    pub category: Option<String>,
+    pub trust_posture: String,
+    pub governed_profile: String,
+    #[serde(default)]
+    pub homepage: Option<String>,
+    #[serde(default)]
+    pub repository: Option<String>,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub keywords: Vec<String>,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub default_prompts: Vec<String>,
+    #[serde(default)]
+    pub contributions: Vec<ExtensionContributionRecord>,
+    #[serde(default)]
+    pub filesystem_skills: Vec<SkillSourceDiscoveredSkill>,
+    #[serde(default)]
+    pub marketplace_name: Option<String>,
+    #[serde(default)]
+    pub marketplace_display_name: Option<String>,
+    #[serde(default)]
+    pub marketplace_category: Option<String>,
+    #[serde(default)]
+    pub marketplace_installation_policy: Option<String>,
+    #[serde(default)]
+    pub marketplace_authentication_policy: Option<String>,
+    #[serde(default)]
+    pub marketplace_products: Vec<String>,
+    #[serde(default)]
+    pub marketplace_available_version: Option<String>,
+    #[serde(default)]
+    pub marketplace_catalog_issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_catalog_expires_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_catalog_refreshed_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_catalog_refresh_source: Option<String>,
+    #[serde(default)]
+    pub marketplace_catalog_channel: Option<String>,
+    #[serde(default)]
+    pub marketplace_catalog_source_id: Option<String>,
+    #[serde(default)]
+    pub marketplace_catalog_source_label: Option<String>,
+    #[serde(default)]
+    pub marketplace_catalog_source_uri: Option<String>,
+    #[serde(default)]
+    pub marketplace_package_url: Option<String>,
+    #[serde(default)]
+    pub marketplace_catalog_refresh_bundle_id: Option<String>,
+    #[serde(default)]
+    pub marketplace_catalog_refresh_bundle_label: Option<String>,
+    #[serde(default)]
+    pub marketplace_catalog_refresh_bundle_issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_catalog_refresh_bundle_expires_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_catalog_refresh_available_version: Option<String>,
+    #[serde(default)]
+    pub marketplace_verification_status: Option<String>,
+    #[serde(default)]
+    pub marketplace_signature_algorithm: Option<String>,
+    #[serde(default)]
+    pub marketplace_signer_identity: Option<String>,
+    #[serde(default)]
+    pub marketplace_publisher_id: Option<String>,
+    #[serde(default)]
+    pub marketplace_signing_key_id: Option<String>,
+    #[serde(default)]
+    pub marketplace_publisher_label: Option<String>,
+    #[serde(default)]
+    pub marketplace_publisher_trust_status: Option<String>,
+    #[serde(default)]
+    pub marketplace_publisher_trust_source: Option<String>,
+    #[serde(default)]
+    pub marketplace_publisher_root_id: Option<String>,
+    #[serde(default)]
+    pub marketplace_publisher_root_label: Option<String>,
+    #[serde(default)]
+    pub marketplace_authority_bundle_id: Option<String>,
+    #[serde(default)]
+    pub marketplace_authority_bundle_label: Option<String>,
+    #[serde(default)]
+    pub marketplace_authority_bundle_issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_authority_trust_bundle_id: Option<String>,
+    #[serde(default)]
+    pub marketplace_authority_trust_bundle_label: Option<String>,
+    #[serde(default)]
+    pub marketplace_authority_trust_bundle_issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_authority_trust_bundle_expires_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_authority_trust_bundle_status: Option<String>,
+    #[serde(default)]
+    pub marketplace_authority_trust_issuer_id: Option<String>,
+    #[serde(default)]
+    pub marketplace_authority_trust_issuer_label: Option<String>,
+    #[serde(default)]
+    pub marketplace_authority_id: Option<String>,
+    #[serde(default)]
+    pub marketplace_authority_label: Option<String>,
+    #[serde(default)]
+    pub marketplace_publisher_statement_issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_publisher_trust_detail: Option<String>,
+    #[serde(default)]
+    pub marketplace_publisher_revoked_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_verification_error: Option<String>,
+    #[serde(default)]
+    pub marketplace_verified_at_ms: Option<u64>,
+    #[serde(default)]
+    pub marketplace_verification_source: Option<String>,
+    #[serde(default)]
+    pub marketplace_verified_digest_sha256: Option<String>,
+    #[serde(default)]
+    pub marketplace_trust_score_label: Option<String>,
+    #[serde(default)]
+    pub marketplace_trust_score_source: Option<String>,
+    #[serde(default)]
+    pub marketplace_trust_recommendation: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -1116,25 +1501,10 @@ pub struct StudioArtifactMaterializationVerificationStep {
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
-#[serde(rename_all = "snake_case")]
-pub enum StudioArtifactPipelineStage {
-    Intake,
-    Routing,
-    Requirements,
-    Specification,
-    Materialization,
-    Execution,
-    Verification,
-    Presentation,
-    Reply,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct StudioArtifactPipelineStep {
     pub id: String,
-    pub stage: StudioArtifactPipelineStage,
+    pub stage: ExecutionStage,
     pub label: String,
     pub status: String,
     pub summary: String,
@@ -1169,6 +1539,20 @@ pub struct StudioArtifactMaterializationContract {
     pub winning_candidate_id: Option<String>,
     #[serde(default)]
     pub winning_candidate_rationale: Option<String>,
+    #[serde(default)]
+    pub execution_envelope: Option<ExecutionEnvelope>,
+    #[serde(default)]
+    pub swarm_plan: Option<SwarmPlan>,
+    #[serde(default)]
+    pub swarm_execution: Option<SwarmExecutionSummary>,
+    #[serde(default)]
+    pub swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
+    #[serde(default, alias = "swarmPatchReceipts")]
+    pub swarm_change_receipts: Vec<SwarmChangeReceipt>,
+    #[serde(default)]
+    pub swarm_merge_receipts: Vec<SwarmMergeReceipt>,
+    #[serde(default)]
+    pub swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
     #[serde(default)]
     pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
     #[serde(default)]
@@ -1229,6 +1613,20 @@ pub struct StudioArtifactRevision {
     pub candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     #[serde(default)]
     pub winning_candidate_id: Option<String>,
+    #[serde(default)]
+    pub execution_envelope: Option<ExecutionEnvelope>,
+    #[serde(default)]
+    pub swarm_plan: Option<SwarmPlan>,
+    #[serde(default)]
+    pub swarm_execution: Option<SwarmExecutionSummary>,
+    #[serde(default)]
+    pub swarm_worker_receipts: Vec<SwarmWorkerReceipt>,
+    #[serde(default, alias = "swarmPatchReceipts")]
+    pub swarm_change_receipts: Vec<SwarmChangeReceipt>,
+    #[serde(default)]
+    pub swarm_merge_receipts: Vec<SwarmMergeReceipt>,
+    #[serde(default)]
+    pub swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
     #[serde(default)]
     pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
     #[serde(default)]
@@ -1452,6 +1850,54 @@ pub struct ClarificationRequest {
     pub allow_other: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionChecklistItem {
+    pub item_id: String,
+    pub label: String,
+    pub status: String,
+    #[serde(default)]
+    pub detail: Option<String>,
+    pub updated_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionBackgroundTaskRecord {
+    pub task_id: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    pub label: String,
+    pub status: String,
+    #[serde(default)]
+    pub detail: Option<String>,
+    #[serde(default)]
+    pub latest_output: Option<String>,
+    #[serde(default)]
+    pub can_stop: bool,
+    pub updated_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionFileContext {
+    #[serde(default)]
+    pub session_id: Option<String>,
+    pub workspace_root: String,
+    #[serde(default)]
+    pub pinned_files: Vec<String>,
+    #[serde(default)]
+    pub recent_files: Vec<String>,
+    #[serde(default)]
+    pub explicit_includes: Vec<String>,
+    #[serde(default)]
+    pub explicit_excludes: Vec<String>,
+    pub updated_at_ms: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentTask {
     pub id: String,
@@ -1470,6 +1916,12 @@ pub struct AgentTask {
     pub credential_request: Option<CredentialRequest>,
     #[serde(default)]
     pub clarification_request: Option<ClarificationRequest>,
+
+    #[serde(default)]
+    pub session_checklist: Vec<SessionChecklistItem>,
+
+    #[serde(default)]
+    pub background_tasks: Vec<SessionBackgroundTaskRecord>,
 
     // History source of truth.
     // This is populated by hydrating from the blockchain state (Audit Log).
@@ -1517,6 +1969,330 @@ pub struct AgentTask {
 
     #[serde(default)]
     pub fitness_score: f32,
+}
+
+fn runtime_view_now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+fn truncated_runtime_detail(value: &str, max_chars: usize) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let mut chars = trimmed.chars();
+    let shortened: String = chars.by_ref().take(max_chars).collect();
+    if chars.next().is_some() {
+        Some(format!("{}...", shortened))
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn latest_task_output_excerpt(task: &AgentTask) -> Option<String> {
+    task.history
+        .iter()
+        .rev()
+        .find(|message| {
+            !message.text.trim().is_empty()
+                && matches!(message.role.as_str(), "assistant" | "agent" | "system")
+        })
+        .and_then(|message| truncated_runtime_detail(&message.text, 120))
+        .or_else(|| truncated_runtime_detail(&task.current_step, 120))
+}
+
+fn checklist_request_item(task: &AgentTask, updated_at_ms: u64) -> SessionChecklistItem {
+    SessionChecklistItem {
+        item_id: "request".to_string(),
+        label: "Request captured".to_string(),
+        status: "completed".to_string(),
+        detail: truncated_runtime_detail(&task.intent, 96),
+        updated_at_ms,
+    }
+}
+
+fn checklist_execution_item(task: &AgentTask, updated_at_ms: u64) -> SessionChecklistItem {
+    let is_blocked = task.clarification_request.is_some()
+        || task.credential_request.is_some()
+        || task.phase == AgentPhase::Gate
+        || task.pending_request_hash.is_some();
+    let status = if is_blocked {
+        "blocked"
+    } else {
+        match task.phase {
+            AgentPhase::Idle => "pending",
+            AgentPhase::Running => "in_progress",
+            AgentPhase::Gate => "blocked",
+            AgentPhase::Complete => "completed",
+            AgentPhase::Failed => "failed",
+        }
+    };
+
+    let detail = if matches!(task.phase, AgentPhase::Complete | AgentPhase::Failed) {
+        truncated_runtime_detail(&task.current_step, 120)
+            .or_else(|| latest_task_output_excerpt(task))
+    } else {
+        truncated_runtime_detail(&task.current_step, 120)
+    };
+
+    SessionChecklistItem {
+        item_id: "execution".to_string(),
+        label: if is_blocked {
+            "Resolve blocker".to_string()
+        } else {
+            match task.phase {
+                AgentPhase::Failed => "Execution failed".to_string(),
+                AgentPhase::Complete => "Execution complete".to_string(),
+                _ => "Continue execution".to_string(),
+            }
+        },
+        status: status.to_string(),
+        detail,
+        updated_at_ms,
+    }
+}
+
+fn checklist_interruption_item(
+    task: &AgentTask,
+    updated_at_ms: u64,
+) -> Option<SessionChecklistItem> {
+    if let Some(request) = task.clarification_request.as_ref() {
+        return Some(SessionChecklistItem {
+            item_id: "clarification".to_string(),
+            label: "Resolve clarification".to_string(),
+            status: "blocked".to_string(),
+            detail: truncated_runtime_detail(&request.question, 120),
+            updated_at_ms,
+        });
+    }
+
+    if let Some(request) = task.credential_request.as_ref() {
+        return Some(SessionChecklistItem {
+            item_id: "credential".to_string(),
+            label: "Provide runtime credential".to_string(),
+            status: "blocked".to_string(),
+            detail: truncated_runtime_detail(&request.prompt, 120)
+                .or_else(|| truncated_runtime_detail(&request.kind, 80)),
+            updated_at_ms,
+        });
+    }
+
+    if task.phase == AgentPhase::Gate || task.pending_request_hash.is_some() {
+        return Some(SessionChecklistItem {
+            item_id: "approval".to_string(),
+            label: "Review approval".to_string(),
+            status: "blocked".to_string(),
+            detail: task
+                .gate_info
+                .as_ref()
+                .and_then(|gate| {
+                    truncated_runtime_detail(&gate.description, 120)
+                        .or_else(|| truncated_runtime_detail(&gate.title, 80))
+                })
+                .or_else(|| Some("Execution is waiting on operator approval.".to_string())),
+            updated_at_ms,
+        });
+    }
+
+    None
+}
+
+fn checklist_review_item(task: &AgentTask, updated_at_ms: u64) -> SessionChecklistItem {
+    let latest_output = latest_task_output_excerpt(task);
+    let is_blocked = task.clarification_request.is_some()
+        || task.credential_request.is_some()
+        || task.phase == AgentPhase::Gate
+        || task.pending_request_hash.is_some();
+    let (label, status, detail) = match task.phase {
+        AgentPhase::Complete => (
+            "Review latest output",
+            "completed",
+            latest_output
+                .or_else(|| Some("Run finished without a retained output excerpt.".to_string())),
+        ),
+        AgentPhase::Failed => (
+            "Decide next step",
+            "blocked",
+            Some("Retry the run or start a new session once the blocker is addressed.".to_string()),
+        ),
+        AgentPhase::Running | AgentPhase::Gate => (
+            if is_blocked {
+                "Resume execution"
+            } else {
+                "Review emerging output"
+            },
+            if is_blocked { "blocked" } else { "pending" },
+            if is_blocked {
+                checklist_interruption_item(task, updated_at_ms)
+                    .and_then(|item| item.detail)
+                    .or_else(|| Some("Answer the blocker so the runtime can continue.".to_string()))
+            } else {
+                latest_output.or_else(|| {
+                    Some("Waiting for the next retained output from the runtime.".to_string())
+                })
+            },
+        ),
+        AgentPhase::Idle => (
+            "Await next request",
+            "pending",
+            Some("Start or resume a session to produce output.".to_string()),
+        ),
+    };
+
+    SessionChecklistItem {
+        item_id: "review".to_string(),
+        label: label.to_string(),
+        status: status.to_string(),
+        detail,
+        updated_at_ms,
+    }
+}
+
+fn build_session_checklist(task: &AgentTask, updated_at_ms: u64) -> Vec<SessionChecklistItem> {
+    let mut items = vec![checklist_request_item(task, updated_at_ms)];
+
+    if let Some(interruption) = checklist_interruption_item(task, updated_at_ms) {
+        items.push(interruption);
+    }
+
+    items.push(checklist_execution_item(task, updated_at_ms));
+    items.push(checklist_review_item(task, updated_at_ms));
+    items
+}
+
+fn build_background_tasks(
+    task: &AgentTask,
+    updated_at_ms: u64,
+) -> Vec<SessionBackgroundTaskRecord> {
+    let session_id = task.session_id.clone().or_else(|| Some(task.id.clone()));
+    let is_blocked = task.clarification_request.is_some()
+        || task.credential_request.is_some()
+        || task.phase == AgentPhase::Gate
+        || task.pending_request_hash.is_some();
+
+    let status = if is_blocked {
+        "blocked"
+    } else {
+        match task.phase {
+            AgentPhase::Idle => "pending",
+            AgentPhase::Running => "running",
+            AgentPhase::Gate => "blocked",
+            AgentPhase::Complete => "completed",
+            AgentPhase::Failed => "failed",
+        }
+    };
+
+    let detail = if is_blocked {
+        checklist_interruption_item(task, updated_at_ms).and_then(|item| item.detail)
+    } else {
+        truncated_runtime_detail(&task.current_step, 120)
+    };
+
+    vec![SessionBackgroundTaskRecord {
+        task_id: task.id.clone(),
+        session_id,
+        label: truncated_runtime_detail(&task.intent, 72)
+            .unwrap_or_else(|| "Session run".to_string()),
+        status: status.to_string(),
+        detail,
+        latest_output: latest_task_output_excerpt(task),
+        can_stop: matches!(task.phase, AgentPhase::Running | AgentPhase::Gate) || is_blocked,
+        updated_at_ms,
+    }]
+}
+
+impl AgentTask {
+    pub fn sync_runtime_views(&mut self) {
+        let updated_at_ms = runtime_view_now_ms();
+        self.session_checklist = build_session_checklist(self, updated_at_ms);
+        self.background_tasks = build_background_tasks(self, updated_at_ms);
+    }
+}
+
+#[cfg(test)]
+mod runtime_view_tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    fn sample_task(phase: AgentPhase) -> AgentTask {
+        AgentTask {
+            id: "task-1".to_string(),
+            intent: "Prepare release checklist".to_string(),
+            agent: "Autopilot".to_string(),
+            phase,
+            progress: 0,
+            total_steps: 3,
+            current_step: "Inspecting retained output".to_string(),
+            gate_info: None,
+            receipt: None,
+            visual_hash: None,
+            pending_request_hash: None,
+            session_id: Some("task-1".to_string()),
+            credential_request: None,
+            clarification_request: None,
+            session_checklist: Vec::new(),
+            background_tasks: Vec::new(),
+            history: vec![ChatMessage {
+                role: "agent".to_string(),
+                text: "Drafted the first pass of the checklist.".to_string(),
+                timestamp: 0,
+            }],
+            events: Vec::new(),
+            artifacts: Vec::new(),
+            studio_session: None,
+            studio_outcome: None,
+            renderer_session: None,
+            build_session: None,
+            run_bundle_id: None,
+            processed_steps: HashSet::new(),
+            swarm_tree: Vec::new(),
+            generation: 0,
+            lineage_id: "genesis".to_string(),
+            fitness_score: 0.0,
+        }
+    }
+
+    #[test]
+    fn sync_runtime_views_marks_clarification_as_blocked() {
+        let mut task = sample_task(AgentPhase::Complete);
+        task.clarification_request = Some(ClarificationRequest {
+            kind: "intent_resolution".to_string(),
+            question: "Which release branch should I target?".to_string(),
+            tool_name: "AskUserQuestion".to_string(),
+            failure_class: None,
+            evidence_snippet: None,
+            context_hint: None,
+            options: Vec::new(),
+            allow_other: true,
+        });
+
+        task.sync_runtime_views();
+
+        assert!(task
+            .session_checklist
+            .iter()
+            .any(|item| item.item_id == "clarification" && item.status == "blocked"));
+        assert_eq!(task.background_tasks[0].status, "blocked");
+    }
+
+    #[test]
+    fn sync_runtime_views_exposes_latest_output_for_completed_tasks() {
+        let mut task = sample_task(AgentPhase::Complete);
+        task.sync_runtime_views();
+
+        assert!(task
+            .session_checklist
+            .iter()
+            .any(|item| item.item_id == "review" && item.status == "completed"));
+        assert_eq!(
+            task.background_tasks[0].latest_output.as_deref(),
+            Some("Drafted the first pass of the checklist.")
+        );
+    }
 }
 
 fn default_lineage() -> String {
@@ -2135,12 +2911,1092 @@ pub struct GhostInputEvent {
     pub description: String,
 }
 
-// Struct for persistent session history index
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioLaunchReceipt {
+    pub timestamp_ms: u64,
+    pub stage: String,
+    pub detail: Value,
+}
+
+// Struct for persistent session history index
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SessionSummary {
     pub session_id: String, // Hex encoded
     pub title: String,
     pub timestamp: u64,
+    #[serde(default)]
+    pub phase: Option<AgentPhase>,
+    #[serde(default)]
+    pub current_step: Option<String>,
+    #[serde(default)]
+    pub resume_hint: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionMemoryClass {
+    Ephemeral,
+    CarryForward,
+    Pinned,
+    GovernanceCritical,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionCompactionMode {
+    Manual,
+    Auto,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCompactionPolicy {
+    #[serde(default)]
+    pub carry_pinned_only: bool,
+    #[serde(default = "session_compaction_policy_true")]
+    pub preserve_checklist_state: bool,
+    #[serde(default = "session_compaction_policy_true")]
+    pub preserve_background_tasks: bool,
+    #[serde(default = "session_compaction_policy_true")]
+    pub preserve_latest_output_excerpt: bool,
+    #[serde(default = "session_compaction_policy_true")]
+    pub preserve_governance_blockers: bool,
+    #[serde(default)]
+    pub aggressive_transcript_pruning: bool,
+}
+
+fn session_compaction_policy_true() -> bool {
+    true
+}
+
+impl Default for SessionCompactionPolicy {
+    fn default() -> Self {
+        Self {
+            carry_pinned_only: false,
+            preserve_checklist_state: true,
+            preserve_background_tasks: true,
+            preserve_latest_output_excerpt: true,
+            preserve_governance_blockers: true,
+            aggressive_transcript_pruning: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionCompactionDisposition {
+    CarryForward,
+    RetainedSummary,
+    Pruned,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionCompactionResumeSafetyStatus {
+    Protected,
+    Degraded,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCompactionResumeSafetyReceipt {
+    pub status: SessionCompactionResumeSafetyStatus,
+    #[serde(default)]
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCompactionMemoryItem {
+    pub key: String,
+    pub label: String,
+    pub memory_class: SessionMemoryClass,
+    #[serde(default)]
+    pub values: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCompactionPruneDecision {
+    pub key: String,
+    pub label: String,
+    pub disposition: SessionCompactionDisposition,
+    pub detail_count: usize,
+    pub rationale: String,
+    pub summary: String,
+    #[serde(default)]
+    pub examples: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCompactionCarryForwardState {
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub pinned_files: Vec<String>,
+    #[serde(default)]
+    pub explicit_includes: Vec<String>,
+    #[serde(default)]
+    pub explicit_excludes: Vec<String>,
+    #[serde(default)]
+    pub checklist_labels: Vec<String>,
+    #[serde(default)]
+    pub background_task_labels: Vec<String>,
+    #[serde(default)]
+    pub blocked_on: Option<String>,
+    #[serde(default)]
+    pub pending_decision_context: Option<String>,
+    #[serde(default)]
+    pub latest_artifact_outcome: Option<String>,
+    #[serde(default)]
+    pub execution_targets: Vec<String>,
+    #[serde(default)]
+    pub latest_output_excerpt: Option<String>,
+    #[serde(default)]
+    pub memory_items: Vec<SessionCompactionMemoryItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCompactionPreview {
+    pub session_id: String,
+    pub title: String,
+    #[serde(default)]
+    pub phase: Option<AgentPhase>,
+    pub policy: SessionCompactionPolicy,
+    pub pre_compaction_span: String,
+    pub summary: String,
+    pub resume_anchor: String,
+    pub carried_forward_state: SessionCompactionCarryForwardState,
+    pub resume_safety: SessionCompactionResumeSafetyReceipt,
+    #[serde(default)]
+    pub prune_decisions: Vec<SessionCompactionPruneDecision>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCompactionRecord {
+    pub compaction_id: String,
+    pub session_id: String,
+    pub title: String,
+    pub compacted_at_ms: u64,
+    pub mode: SessionCompactionMode,
+    #[serde(default)]
+    pub phase: Option<AgentPhase>,
+    #[serde(default)]
+    pub policy: SessionCompactionPolicy,
+    pub pre_compaction_span: String,
+    pub summary: String,
+    pub resume_anchor: String,
+    pub carried_forward_state: SessionCompactionCarryForwardState,
+    pub resume_safety: SessionCompactionResumeSafetyReceipt,
+    #[serde(default)]
+    pub prune_decisions: Vec<SessionCompactionPruneDecision>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCompactionRecommendation {
+    pub should_compact: bool,
+    #[serde(default)]
+    pub reason_labels: Vec<String>,
+    #[serde(default)]
+    pub recommended_policy: SessionCompactionPolicy,
+    #[serde(default)]
+    pub recommended_policy_label: String,
+    #[serde(default)]
+    pub recommended_policy_reason_labels: Vec<String>,
+    #[serde(default)]
+    pub resume_safeguard_labels: Vec<String>,
+    pub history_count: usize,
+    pub event_count: usize,
+    pub artifact_count: usize,
+    pub pinned_file_count: usize,
+    pub explicit_include_count: usize,
+    pub idle_age_ms: u64,
+    #[serde(default)]
+    pub blocked_age_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionDurabilityPortfolio {
+    pub retained_session_count: usize,
+    pub compacted_session_count: usize,
+    pub replay_ready_session_count: usize,
+    pub uncompacted_session_count: usize,
+    pub stale_compaction_count: usize,
+    pub degraded_compaction_count: usize,
+    pub recommended_compaction_count: usize,
+    pub compacted_without_team_memory_count: usize,
+    pub team_memory_entry_count: usize,
+    pub team_memory_covered_session_count: usize,
+    pub team_memory_redacted_session_count: usize,
+    pub team_memory_review_required_session_count: usize,
+    #[serde(default)]
+    pub coverage_summary: String,
+    #[serde(default)]
+    pub team_memory_summary: String,
+    #[serde(default)]
+    pub attention_summary: String,
+    #[serde(default)]
+    pub attention_labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionCompactionSnapshot {
+    pub generated_at_ms: u64,
+    #[serde(default)]
+    pub active_session_id: Option<String>,
+    #[serde(default)]
+    pub active_session_title: Option<String>,
+    pub policy_for_active: SessionCompactionPolicy,
+    pub record_count: usize,
+    #[serde(default)]
+    pub latest_for_active: Option<SessionCompactionRecord>,
+    #[serde(default)]
+    pub preview_for_active: Option<SessionCompactionPreview>,
+    #[serde(default)]
+    pub recommendation_for_active: Option<SessionCompactionRecommendation>,
+    #[serde(default)]
+    pub durability_portfolio: SessionDurabilityPortfolio,
+    #[serde(default)]
+    pub records: Vec<SessionCompactionRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "snake_case")]
+pub enum TeamMemoryScopeKind {
+    Workspace,
+    Session,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "snake_case")]
+pub enum TeamMemorySyncStatus {
+    Synced,
+    Redacted,
+    ReviewRequired,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamMemoryRedactionSummary {
+    pub redaction_count: usize,
+    #[serde(default)]
+    pub redacted_fields: Vec<String>,
+    pub redaction_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamMemorySyncEntry {
+    pub entry_id: String,
+    pub session_id: String,
+    pub session_title: String,
+    pub synced_at_ms: u64,
+    pub scope_kind: TeamMemoryScopeKind,
+    pub scope_id: String,
+    pub scope_label: String,
+    pub actor_id: String,
+    pub actor_label: String,
+    pub actor_role: String,
+    pub sync_status: TeamMemorySyncStatus,
+    pub review_summary: String,
+    pub omitted_governance_item_count: usize,
+    pub resume_anchor: String,
+    pub pre_compaction_span: String,
+    pub summary: String,
+    #[serde(default)]
+    pub shared_memory_items: Vec<SessionCompactionMemoryItem>,
+    pub redaction: TeamMemoryRedactionSummary,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamMemorySyncSnapshot {
+    pub generated_at_ms: u64,
+    #[serde(default)]
+    pub active_session_id: Option<String>,
+    #[serde(default)]
+    pub active_scope_id: Option<String>,
+    #[serde(default)]
+    pub active_scope_kind: Option<TeamMemoryScopeKind>,
+    #[serde(default)]
+    pub active_scope_label: Option<String>,
+    pub entry_count: usize,
+    pub redacted_entry_count: usize,
+    pub review_required_count: usize,
+    pub summary: String,
+    #[serde(default)]
+    pub entries: Vec<TeamMemorySyncEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionProjection {
+    pub task: Option<AgentTask>,
+    pub sessions: Vec<SessionSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionRewindCandidate {
+    pub session_id: String,
+    pub title: String,
+    pub timestamp: u64,
+    #[serde(default)]
+    pub phase: Option<AgentPhase>,
+    #[serde(default)]
+    pub current_step: Option<String>,
+    #[serde(default)]
+    pub resume_hint: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    pub is_current: bool,
+    pub is_last_stable: bool,
+    pub action_label: String,
+    pub preview_headline: String,
+    pub preview_detail: String,
+    pub discard_summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionRewindSnapshot {
+    #[serde(default)]
+    pub active_session_id: Option<String>,
+    #[serde(default)]
+    pub active_session_title: Option<String>,
+    #[serde(default)]
+    pub last_stable_session_id: Option<String>,
+    pub candidates: Vec<SessionRewindCandidate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionHookReceiptSummary {
+    pub title: String,
+    pub timestamp_ms: u64,
+    pub tool_name: String,
+    pub status: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionHookRecord {
+    pub hook_id: String,
+    #[serde(default)]
+    pub entry_id: Option<String>,
+    pub label: String,
+    pub owner_label: String,
+    pub source_label: String,
+    pub source_kind: String,
+    #[serde(default)]
+    pub source_uri: Option<String>,
+    #[serde(default)]
+    pub contribution_path: Option<String>,
+    pub trigger_label: String,
+    pub enabled: bool,
+    pub status_label: String,
+    pub trust_posture: String,
+    pub governed_profile: String,
+    pub authority_tier_label: String,
+    pub availability_label: String,
+    pub session_scope_label: String,
+    pub why_active: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionHookSnapshot {
+    pub generated_at_ms: u64,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    pub active_hook_count: usize,
+    pub disabled_hook_count: usize,
+    pub runtime_receipt_count: usize,
+    pub approval_receipt_count: usize,
+    pub hooks: Vec<SessionHookRecord>,
+    #[serde(default)]
+    pub recent_receipts: Vec<SessionHookReceiptSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionBranchRecord {
+    pub branch_name: String,
+    #[serde(default)]
+    pub upstream_branch: Option<String>,
+    pub is_current: bool,
+    #[serde(default)]
+    pub ahead_count: u32,
+    #[serde(default)]
+    pub behind_count: u32,
+    #[serde(default)]
+    pub last_commit: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionWorktreeRecord {
+    pub path: String,
+    #[serde(default)]
+    pub branch_name: Option<String>,
+    #[serde(default)]
+    pub head: Option<String>,
+    #[serde(default)]
+    pub last_commit: Option<String>,
+    #[serde(default)]
+    pub changed_file_count: usize,
+    #[serde(default)]
+    pub dirty: bool,
+    #[serde(default)]
+    pub is_current: bool,
+    #[serde(default)]
+    pub locked: bool,
+    #[serde(default)]
+    pub lock_reason: Option<String>,
+    #[serde(default)]
+    pub prunable: bool,
+    #[serde(default)]
+    pub prune_reason: Option<String>,
+    pub status_label: String,
+    pub status_detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionBranchSnapshot {
+    pub generated_at_ms: u64,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    pub is_repo: bool,
+    #[serde(default)]
+    pub repo_label: Option<String>,
+    #[serde(default)]
+    pub current_branch: Option<String>,
+    #[serde(default)]
+    pub upstream_branch: Option<String>,
+    #[serde(default)]
+    pub last_commit: Option<String>,
+    #[serde(default)]
+    pub ahead_count: u32,
+    #[serde(default)]
+    pub behind_count: u32,
+    #[serde(default)]
+    pub changed_file_count: usize,
+    #[serde(default)]
+    pub dirty: bool,
+    pub worktree_risk_label: String,
+    pub worktree_risk_detail: String,
+    #[serde(default)]
+    pub recent_branches: Vec<SessionBranchRecord>,
+    #[serde(default)]
+    pub worktrees: Vec<SessionWorktreeRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionRemoteEnvBinding {
+    pub key: String,
+    pub value_preview: String,
+    pub source_label: String,
+    pub scope_label: String,
+    pub provenance_label: String,
+    #[serde(default)]
+    pub secret: bool,
+    #[serde(default)]
+    pub redacted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionRemoteEnvSnapshot {
+    pub generated_at_ms: u64,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    pub focused_scope_label: String,
+    pub governing_source_label: String,
+    pub posture_label: String,
+    pub posture_detail: String,
+    #[serde(default)]
+    pub binding_count: usize,
+    #[serde(default)]
+    pub control_plane_binding_count: usize,
+    #[serde(default)]
+    pub process_binding_count: usize,
+    #[serde(default)]
+    pub overlapping_binding_count: usize,
+    #[serde(default)]
+    pub secret_binding_count: usize,
+    #[serde(default)]
+    pub redacted_binding_count: usize,
+    #[serde(default)]
+    pub notes: Vec<String>,
+    #[serde(default)]
+    pub bindings: Vec<SessionRemoteEnvBinding>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionServerSessionRecord {
+    pub session_id: String,
+    pub title: String,
+    pub timestamp: u64,
+    pub source_label: String,
+    #[serde(default)]
+    pub presence_state: String,
+    #[serde(default)]
+    pub presence_label: String,
+    #[serde(default)]
+    pub resume_hint: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionServerSnapshot {
+    pub generated_at_ms: u64,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    pub rpc_url: String,
+    pub rpc_source_label: String,
+    pub continuity_mode_label: String,
+    pub continuity_status_label: String,
+    pub continuity_detail: String,
+    pub kernel_connection_label: String,
+    pub kernel_connection_detail: String,
+    #[serde(default)]
+    pub explicit_rpc_target: bool,
+    #[serde(default)]
+    pub remote_kernel_target: bool,
+    #[serde(default)]
+    pub kernel_reachable: bool,
+    #[serde(default)]
+    pub remote_history_available: bool,
+    #[serde(default)]
+    pub local_session_count: usize,
+    #[serde(default)]
+    pub remote_session_count: usize,
+    #[serde(default)]
+    pub merged_session_count: usize,
+    #[serde(default)]
+    pub remote_only_session_count: usize,
+    #[serde(default)]
+    pub overlapping_session_count: usize,
+    #[serde(default)]
+    pub remote_attachable_session_count: usize,
+    #[serde(default)]
+    pub remote_history_only_session_count: usize,
+    #[serde(default)]
+    pub current_session_visible_remotely: bool,
+    #[serde(default)]
+    pub current_session_continuity_state: String,
+    #[serde(default)]
+    pub current_session_continuity_label: String,
+    #[serde(default)]
+    pub current_session_continuity_detail: String,
+    #[serde(default)]
+    pub notes: Vec<String>,
+    #[serde(default)]
+    pub recent_remote_sessions: Vec<SessionServerSessionRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct VoiceInputTranscriptionRequest {
+    pub audio_base64: String,
+    pub mime_type: String,
+    #[serde(default)]
+    pub file_name: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct VoiceInputTranscriptionResult {
+    pub text: String,
+    pub mime_type: String,
+    #[serde(default)]
+    pub file_name: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
+    #[serde(default)]
+    pub model_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionPluginLifecycleReceipt {
+    pub receipt_id: String,
+    pub timestamp_ms: u64,
+    pub plugin_id: String,
+    pub plugin_label: String,
+    pub action: String,
+    pub status: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionPluginRecord {
+    pub plugin_id: String,
+    #[serde(default)]
+    pub entry_id: Option<String>,
+    pub label: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
+    pub source_enabled: bool,
+    pub enabled: bool,
+    pub status_label: String,
+    pub source_label: String,
+    pub source_kind: String,
+    #[serde(default)]
+    pub source_uri: Option<String>,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub marketplace_display_name: Option<String>,
+    #[serde(default)]
+    pub marketplace_installation_policy: Option<String>,
+    #[serde(default)]
+    pub marketplace_authentication_policy: Option<String>,
+    #[serde(default)]
+    pub marketplace_products: Vec<String>,
+    pub authenticity_state: String,
+    pub authenticity_label: String,
+    pub authenticity_detail: String,
+    #[serde(default)]
+    pub verification_error: Option<String>,
+    #[serde(default)]
+    pub verification_algorithm: Option<String>,
+    #[serde(default)]
+    pub publisher_label: Option<String>,
+    #[serde(default)]
+    pub publisher_id: Option<String>,
+    #[serde(default)]
+    pub signer_identity: Option<String>,
+    #[serde(default)]
+    pub signing_key_id: Option<String>,
+    #[serde(default)]
+    pub verification_timestamp_ms: Option<u64>,
+    #[serde(default)]
+    pub verification_source: Option<String>,
+    #[serde(default)]
+    pub verified_digest_sha256: Option<String>,
+    #[serde(default)]
+    pub publisher_trust_state: Option<String>,
+    #[serde(default)]
+    pub publisher_trust_label: Option<String>,
+    #[serde(default)]
+    pub publisher_trust_detail: Option<String>,
+    #[serde(default)]
+    pub publisher_trust_source: Option<String>,
+    #[serde(default)]
+    pub publisher_root_id: Option<String>,
+    #[serde(default)]
+    pub publisher_root_label: Option<String>,
+    #[serde(default)]
+    pub authority_bundle_id: Option<String>,
+    #[serde(default)]
+    pub authority_bundle_label: Option<String>,
+    #[serde(default)]
+    pub authority_bundle_issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub authority_trust_bundle_id: Option<String>,
+    #[serde(default)]
+    pub authority_trust_bundle_label: Option<String>,
+    #[serde(default)]
+    pub authority_trust_bundle_issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub authority_trust_bundle_expires_at_ms: Option<u64>,
+    #[serde(default)]
+    pub authority_trust_bundle_status: Option<String>,
+    #[serde(default)]
+    pub authority_trust_issuer_id: Option<String>,
+    #[serde(default)]
+    pub authority_trust_issuer_label: Option<String>,
+    #[serde(default)]
+    pub authority_id: Option<String>,
+    #[serde(default)]
+    pub authority_label: Option<String>,
+    #[serde(default)]
+    pub publisher_statement_issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub publisher_revoked_at_ms: Option<u64>,
+    #[serde(default)]
+    pub trust_score_label: Option<String>,
+    #[serde(default)]
+    pub trust_score_source: Option<String>,
+    #[serde(default)]
+    pub trust_recommendation: Option<String>,
+    pub operator_review_state: String,
+    pub operator_review_label: String,
+    pub operator_review_reason: String,
+    pub catalog_status: String,
+    pub catalog_status_label: String,
+    pub catalog_status_detail: String,
+    #[serde(default)]
+    pub catalog_issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub catalog_expires_at_ms: Option<u64>,
+    #[serde(default)]
+    pub catalog_refreshed_at_ms: Option<u64>,
+    #[serde(default)]
+    pub catalog_refresh_source: Option<String>,
+    #[serde(default)]
+    pub catalog_channel: Option<String>,
+    #[serde(default)]
+    pub catalog_source_id: Option<String>,
+    #[serde(default)]
+    pub catalog_source_label: Option<String>,
+    #[serde(default)]
+    pub catalog_source_uri: Option<String>,
+    #[serde(default)]
+    pub marketplace_package_url: Option<String>,
+    #[serde(default)]
+    pub catalog_refresh_bundle_id: Option<String>,
+    #[serde(default)]
+    pub catalog_refresh_bundle_label: Option<String>,
+    #[serde(default)]
+    pub catalog_refresh_bundle_issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub catalog_refresh_bundle_expires_at_ms: Option<u64>,
+    #[serde(default)]
+    pub catalog_refresh_available_version: Option<String>,
+    #[serde(default)]
+    pub catalog_refresh_error: Option<String>,
+    #[serde(default)]
+    pub last_catalog_refresh_at_ms: Option<u64>,
+    #[serde(default)]
+    pub update_severity: Option<String>,
+    #[serde(default)]
+    pub update_severity_label: Option<String>,
+    #[serde(default)]
+    pub update_detail: Option<String>,
+    #[serde(default)]
+    pub requested_capabilities: Vec<String>,
+    pub trust_posture: String,
+    pub governed_profile: String,
+    pub authority_tier_label: String,
+    pub availability_label: String,
+    pub session_scope_label: String,
+    #[serde(default)]
+    pub reloadable: bool,
+    pub reloadability_label: String,
+    #[serde(default)]
+    pub contribution_count: usize,
+    #[serde(default)]
+    pub hook_contribution_count: usize,
+    #[serde(default)]
+    pub filesystem_skill_count: usize,
+    #[serde(default)]
+    pub capability_count: usize,
+    pub runtime_trust_state: String,
+    pub runtime_trust_label: String,
+    pub runtime_load_state: String,
+    pub runtime_load_label: String,
+    pub runtime_status_detail: String,
+    #[serde(default)]
+    pub load_error: Option<String>,
+    #[serde(default)]
+    pub last_trusted_at_ms: Option<u64>,
+    #[serde(default)]
+    pub last_reloaded_at_ms: Option<u64>,
+    #[serde(default)]
+    pub last_installed_at_ms: Option<u64>,
+    #[serde(default)]
+    pub last_updated_at_ms: Option<u64>,
+    #[serde(default)]
+    pub last_removed_at_ms: Option<u64>,
+    #[serde(default)]
+    pub trust_remembered: bool,
+    #[serde(default)]
+    pub package_managed: bool,
+    pub package_install_state: String,
+    pub package_install_label: String,
+    pub package_install_detail: String,
+    #[serde(default)]
+    pub package_install_source: Option<String>,
+    #[serde(default)]
+    pub package_install_source_label: Option<String>,
+    #[serde(default)]
+    pub package_root_path: Option<String>,
+    #[serde(default)]
+    pub package_manifest_path: Option<String>,
+    #[serde(default)]
+    pub installed_version: Option<String>,
+    #[serde(default)]
+    pub available_version: Option<String>,
+    #[serde(default)]
+    pub update_available: bool,
+    #[serde(default)]
+    pub package_error: Option<String>,
+    pub why_available: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionPluginCatalogChannelRecord {
+    pub catalog_id: String,
+    pub label: String,
+    pub source_uri: String,
+    #[serde(default)]
+    pub refresh_source: Option<String>,
+    #[serde(default)]
+    pub channel: Option<String>,
+    pub status: String,
+    pub status_label: String,
+    pub status_detail: String,
+    #[serde(default)]
+    pub issued_at_ms: Option<u64>,
+    #[serde(default)]
+    pub expires_at_ms: Option<u64>,
+    #[serde(default)]
+    pub refreshed_at_ms: Option<u64>,
+    #[serde(default)]
+    pub plugin_count: usize,
+    #[serde(default)]
+    pub valid_plugin_count: usize,
+    #[serde(default)]
+    pub invalid_plugin_count: usize,
+    #[serde(default)]
+    pub refresh_bundle_count: usize,
+    #[serde(default)]
+    pub refresh_error: Option<String>,
+    pub conformance_status: String,
+    pub conformance_label: String,
+    #[serde(default)]
+    pub conformance_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionPluginCatalogSourceRecord {
+    pub source_id: String,
+    pub label: String,
+    pub source_uri: String,
+    pub transport_kind: String,
+    #[serde(default)]
+    pub channel: Option<String>,
+    #[serde(default)]
+    pub authority_bundle_id: Option<String>,
+    #[serde(default)]
+    pub authority_bundle_label: Option<String>,
+    pub status: String,
+    pub status_label: String,
+    pub status_detail: String,
+    #[serde(default)]
+    pub last_successful_refresh_at_ms: Option<u64>,
+    #[serde(default)]
+    pub last_failed_refresh_at_ms: Option<u64>,
+    #[serde(default)]
+    pub refresh_error: Option<String>,
+    pub conformance_status: String,
+    pub conformance_label: String,
+    #[serde(default)]
+    pub conformance_error: Option<String>,
+    #[serde(default)]
+    pub catalog_count: usize,
+    #[serde(default)]
+    pub valid_catalog_count: usize,
+    #[serde(default)]
+    pub invalid_catalog_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionPluginSnapshot {
+    pub generated_at_ms: u64,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub plugin_count: usize,
+    #[serde(default)]
+    pub enabled_plugin_count: usize,
+    #[serde(default)]
+    pub disabled_plugin_count: usize,
+    #[serde(default)]
+    pub trusted_plugin_count: usize,
+    #[serde(default)]
+    pub untrusted_plugin_count: usize,
+    #[serde(default)]
+    pub blocked_plugin_count: usize,
+    #[serde(default)]
+    pub reloadable_plugin_count: usize,
+    #[serde(default)]
+    pub managed_package_count: usize,
+    #[serde(default)]
+    pub update_available_count: usize,
+    #[serde(default)]
+    pub installable_package_count: usize,
+    #[serde(default)]
+    pub verified_plugin_count: usize,
+    #[serde(default)]
+    pub unverified_plugin_count: usize,
+    #[serde(default)]
+    pub signature_mismatch_plugin_count: usize,
+    #[serde(default)]
+    pub recommended_plugin_count: usize,
+    #[serde(default)]
+    pub review_required_plugin_count: usize,
+    #[serde(default)]
+    pub stale_catalog_count: usize,
+    #[serde(default)]
+    pub expired_catalog_count: usize,
+    #[serde(default)]
+    pub critical_update_count: usize,
+    #[serde(default)]
+    pub refresh_available_count: usize,
+    #[serde(default)]
+    pub refresh_failed_count: usize,
+    #[serde(default)]
+    pub catalog_channel_count: usize,
+    #[serde(default)]
+    pub nonconformant_channel_count: usize,
+    #[serde(default)]
+    pub catalog_source_count: usize,
+    #[serde(default)]
+    pub local_catalog_source_count: usize,
+    #[serde(default)]
+    pub remote_catalog_source_count: usize,
+    #[serde(default)]
+    pub failed_catalog_source_count: usize,
+    #[serde(default)]
+    pub nonconformant_source_count: usize,
+    #[serde(default)]
+    pub hook_contribution_count: usize,
+    #[serde(default)]
+    pub filesystem_skill_count: usize,
+    #[serde(default)]
+    pub recent_receipt_count: usize,
+    #[serde(default)]
+    pub recent_receipts: Vec<SessionPluginLifecycleReceipt>,
+    #[serde(default)]
+    pub catalog_sources: Vec<SessionPluginCatalogSourceRecord>,
+    #[serde(default)]
+    pub catalog_channels: Vec<SessionPluginCatalogChannelRecord>,
+    #[serde(default)]
+    pub plugins: Vec<SessionPluginRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityGovernanceRequestAction {
+    Widen,
+    Baseline,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityGovernanceRequest {
+    pub request_id: String,
+    pub created_at_ms: u64,
+    pub status: String,
+    pub action: CapabilityGovernanceRequestAction,
+    pub capability_entry_id: String,
+    pub capability_label: String,
+    pub capability_kind: String,
+    #[serde(default)]
+    pub governing_entry_id: Option<String>,
+    #[serde(default)]
+    pub governing_label: Option<String>,
+    #[serde(default)]
+    pub governing_kind: Option<String>,
+    pub connector_id: String,
+    pub connector_label: String,
+    pub source_label: String,
+    pub authority_tier_label: String,
+    #[serde(default)]
+    pub governed_profile_label: Option<String>,
+    #[serde(default)]
+    pub lease_mode_label: Option<String>,
+    pub why_selectable: String,
+    pub headline: String,
+    pub detail: String,
+    pub requested_state: ShieldPolicyState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityGovernanceTargetOption {
+    pub target_entry_id: String,
+    pub target_label: String,
+    pub target_kind: String,
+    pub target_summary: String,
+    pub recommendation_reason: String,
+    pub delta_summary: String,
+    pub request: CapabilityGovernanceRequest,
+    #[serde(default)]
+    pub delta_magnitude: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CapabilityGovernanceProposal {
+    pub capability_entry_id: String,
+    pub capability_label: String,
+    pub action: CapabilityGovernanceRequestAction,
+    pub recommended_target_entry_id: String,
+    pub targets: Vec<CapabilityGovernanceTargetOption>,
+    #[serde(default)]
+    pub compared_entry_id: Option<String>,
+    #[serde(default)]
+    pub compared_entry_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2175,6 +4031,29 @@ pub struct AppState {
 
     // Primary local runtime for checkpoints, memory, events, artifacts, and cache state.
     pub memory_runtime: Option<Arc<MemoryRuntime>>,
+
+    // Cross-window Studio launch intent survives a recreated Studio shell.
+    pub pending_studio_launch_request: Option<Value>,
+
+    // Recent launch receipts make Studio shell handoff failures inspectable.
+    pub studio_launch_receipts: Vec<StudioLaunchReceipt>,
+
+    // Active assistant workbench session is kernel-owned so shell recreation
+    // does not drop reply/prep context.
+    pub active_assistant_workbench_session: Option<Value>,
+
+    // Cached full session history snapshot lets shell projections stay live
+    // without falling back to frontend polling during active runs.
+    pub session_history_projection: Vec<SessionSummary>,
+
+    // Active capability governance request keeps lease widening / baseline
+    // review durable across shell hops until the operator applies or dismisses it.
+    pub capability_governance_request: Option<CapabilityGovernanceRequest>,
+
+    // Coalesce kernel-owned session history refreshes so event-stream and
+    // background monitor paths can keep projections fresh without piling up
+    // duplicate RPC work.
+    pub session_projection_refresh_in_flight: bool,
 }
 
 #[cfg(test)]

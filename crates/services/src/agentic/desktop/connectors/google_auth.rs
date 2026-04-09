@@ -25,7 +25,6 @@ const GOOGLE_USERINFO_URL: &str = "https://openidconnect.googleapis.com/v1/useri
 const GOOGLE_AUTH_TIMEOUT_SECS: u64 = 900;
 const GOOGLE_AUTH_FILE_NAME: &str = "google_workspace_oauth.json";
 const GOOGLE_CLIENT_FILE_NAME: &str = "google_workspace_client.json";
-const GOOGLE_MOCK_FIXTURE_PATH_ENV: &str = "IOI_GOOGLE_MOCK_FIXTURE_PATH";
 
 static PENDING_GOOGLE_AUTH: Lazy<Mutex<Option<PendingGoogleAuthSession>>> =
     Lazy::new(|| Mutex::new(None));
@@ -140,14 +139,6 @@ pub struct GoogleOauthClientStatus {
     pub has_client_secret: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub storage_path: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct MockGoogleAuthFixture {
-    account_email: String,
-    #[serde(default)]
-    granted_scopes: Vec<String>,
 }
 
 pub async fn status() -> Result<GoogleAuthStatus, String> {
@@ -1356,32 +1347,30 @@ fn env_string(keys: &[&str]) -> Option<String> {
 }
 
 fn mock_fixture_path() -> Option<PathBuf> {
-    std::env::var(GOOGLE_MOCK_FIXTURE_PATH_ENV)
+    super::mock_fixtures::load_connector_mock_fixture_contract()
         .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
+        .flatten()
+        .and_then(|fixture| fixture.google)
+        .and_then(|google| google.auth)
+        .and_then(|_| {
+            std::env::var(super::mock_fixtures::CONNECTOR_MOCK_FIXTURE_PATH_ENV)
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from)
+        })
+        .or_else(|| {
+            std::env::var(super::mock_fixtures::LEGACY_GOOGLE_MOCK_FIXTURE_PATH_ENV)
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from)
+        })
 }
 
-fn load_mock_google_auth_fixture() -> Result<Option<MockGoogleAuthFixture>, String> {
-    let Some(path) = mock_fixture_path() else {
-        return Ok(None);
-    };
-    let raw = fs::read_to_string(&path).map_err(|error| {
-        format!(
-            "Failed to read Google mock fixture state '{}': {}",
-            path.display(),
-            error
-        )
-    })?;
-    let fixture = serde_json::from_str::<MockGoogleAuthFixture>(&raw).map_err(|error| {
-        format!(
-            "Failed to parse Google mock fixture state '{}': {}",
-            path.display(),
-            error
-        )
-    })?;
-    Ok(Some(fixture))
+fn load_mock_google_auth_fixture(
+) -> Result<Option<super::mock_fixtures::GoogleAuthMockFixture>, String> {
+    super::mock_fixtures::google_auth_mock_fixture()
 }
 
 fn load_local_google_env_defaults() {

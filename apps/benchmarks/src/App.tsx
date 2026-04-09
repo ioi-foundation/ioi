@@ -1,11 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import initialBenchmarkData from "./generated/benchmark-data.json";
+import {
+  resolveInitialTriageSelection,
+  resolveScorecardPreviewEnabled,
+} from "./appShellState";
+import {
+  CandidatesView,
+  DeploymentsView,
+  OperationalContextPanel,
+  PresetScorecardBoard,
+  ResultPill,
+  ScorecardHero,
+} from "./components/ScorecardPanels";
+import { withScorecardPreview } from "./scorecardPreview";
+import {
+  buildCandidatesViewModel,
+  buildDeploymentsViewModel,
+  buildScorecardViewModel,
+} from "./scorecardViewModel";
+import type { ScorecardMatrixInput } from "./scorecardViewModel";
 
 /* ── Types ── */
 
-type TabId = "dashboard" | "triage";
-type ResultStatus = "pass" | "near-miss" | "red" | "unknown";
+type TabId = "dashboard" | "deployments" | "candidates" | "triage";
+type ResultStatus = "pass" | "near-miss" | "red" | "interrupted" | "unknown";
 type ResultFilter = "all" | ResultStatus;
 
 type SuiteSummary = {
@@ -173,80 +192,12 @@ type BenchmarkDataShape = {
   liveStorePath?: string;
   suiteSummaries: SuiteSummary[];
   latestCases: CaseRecord[];
-  agentModelMatrix?: AgentModelMatrixView | null;
+  agentModelMatrix?: ScorecardMatrixInput | null;
   studioArtifactBenchmarkSuite?: StudioArtifactBenchmarkSuite | null;
   studioArtifactArena?: StudioArtifactArenaView | null;
   studioArtifactReleaseGates?: StudioArtifactReleaseGatesView | null;
   studioArtifactDistillation?: StudioArtifactDistillationView | null;
   studioArtifactParityLoop?: StudioArtifactParityLoopView | null;
-};
-
-type ModelMatrixScorecardCategory = {
-  available: boolean;
-  reason: string;
-  metrics: Record<string, number | string | null | undefined>;
-};
-
-type ModelMatrixPreset = {
-  presetId: string;
-  label: string;
-  role: string;
-  benchmarkTier: string;
-  experimental: boolean;
-  shippedDefault: boolean;
-  availabilityStatus: string;
-  availabilitySummary: string;
-  runtimeModel: string | null;
-  artifactAcceptanceModel: string | null;
-  caseCount: number;
-  availableWorkloadCount: number;
-  summaryPath: string;
-  summaryHref: string;
-  runRootPath: string;
-  runRootHref: string;
-  topFindings: string[];
-  scorecards: {
-    artifactQuality: ModelMatrixScorecardCategory;
-    codingCompletion: ModelMatrixScorecardCategory;
-    researchQuality: ModelMatrixScorecardCategory;
-    computerUseCompletion: ModelMatrixScorecardCategory;
-    latencyAndResourcePressure: ModelMatrixScorecardCategory;
-    operationalDiscipline: ModelMatrixScorecardCategory;
-  };
-};
-
-type AgentModelMatrixView = {
-  status: string;
-  generatedAt: string | null;
-  runId: string | null;
-  decision: {
-    outcome: string;
-    summary: string;
-    leaderPresetId: string | null;
-    artifactLeaderPresetId: string | null;
-    missingCoverage: string[];
-  };
-  scorecardSchema: {
-    version: number;
-    categories: Array<{
-      id: string;
-      label: string;
-      requiredForPromotion: boolean;
-      metrics: string[];
-    }>;
-  };
-  presetCatalogPath: string;
-  presetCatalogHref: string;
-  benchmarkCatalogPath: string;
-  benchmarkCatalogHref: string;
-  summaryPath: string;
-  summaryHref: string;
-  runRootPath: string;
-  runRootHref: string;
-  executedPresetCount: number;
-  comparedPresetCount: number;
-  preservedDefault: boolean;
-  presets: ModelMatrixPreset[];
 };
 
 type BenchmarkMetricReading = {
@@ -501,13 +452,16 @@ type BenchmarkStoreShape = {
 /* ── Constants ── */
 
 const tabs: Array<{ id: TabId; label: string; shortcut: string }> = [
-  { id: "dashboard", label: "Dashboard", shortcut: "1" },
-  { id: "triage", label: "Triage", shortcut: "2" },
+  { id: "dashboard", label: "Scorecard", shortcut: "1" },
+  { id: "deployments", label: "Deployments", shortcut: "2" },
+  { id: "candidates", label: "Candidates", shortcut: "3" },
+  { id: "triage", label: "Triage", shortcut: "4" },
 ];
 
 const resultFilters: Array<{ value: ResultFilter; label: string }> = [
   { value: "all", label: "All" },
   { value: "red", label: "Red" },
+  { value: "interrupted", label: "Interrupted" },
   { value: "near-miss", label: "Near" },
   { value: "pass", label: "Pass" },
 ];
@@ -560,7 +514,7 @@ function shortCaseId(id: string | null | undefined) {
 }
 
 function total(c: Record<ResultStatus, number>) {
-  return c.pass + c["near-miss"] + c.red + c.unknown;
+  return c.pass + c["near-miss"] + c.red + c.interrupted + c.unknown;
 }
 
 function fmtPct(value: number | null | undefined) {
@@ -569,14 +523,6 @@ function fmtPct(value: number | null | undefined) {
 
 function fmtScore(value: number | null | undefined) {
   return value == null ? "—" : value.toFixed(2);
-}
-
-function fmtMs(value: number | null | undefined) {
-  return value == null ? "—" : `${Math.round(value)}ms`;
-}
-
-function fmtAvailabilityStatus(value: string | null | undefined) {
-  return value ? value.replace(/_/g, " ") : "unknown";
 }
 
 function fmtLoopStatus(value: string | null | undefined) {
@@ -672,7 +618,7 @@ function mergeLiveRunsIntoBenchmarkData(
     }
     mergedSummaries.push({
       suite: liveRun.suite,
-      counts: { pass: 0, "near-miss": 0, red: 0, unknown: 0 },
+      counts: { pass: 0, "near-miss": 0, red: 0, interrupted: 0, unknown: 0 },
       focusCaseId: null,
       focusResult: "unknown",
       latestRunId: liveRun.runId,
@@ -749,11 +695,6 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
       {ok ? "✓" : "⎘"}
     </button>
   );
-}
-
-function Pill({ status }: { status: ResultStatus }) {
-  const ic: Record<ResultStatus, string> = { pass: "✓", "near-miss": "◐", red: "✗", unknown: "?" };
-  return <span className={`pill pill-${status}`}><span className="pill-i">{ic[status]}</span>{status}</span>;
 }
 
 /* ── Timing Waterfall ── */
@@ -1110,6 +1051,10 @@ function App() {
   const [benchmarkData, setBenchmarkData] = useState(
     initialBenchmarkData as unknown as BenchmarkDataShape,
   );
+  const scorecardPreviewEnabled = useMemo(
+    () => resolveScorecardPreviewEnabled(window.location.search),
+    [],
+  );
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [caseSearch, setCaseSearch] = useState("");
   const [resultFilter, setResultFilter] = useState<ResultFilter>("all");
@@ -1164,29 +1109,68 @@ function App() {
     };
   }, [benchmarkData.liveDataPath, benchmarkData.liveStorePath]);
 
-  const suiteSummaries = benchmarkData.suiteSummaries as SuiteSummary[];
-  const latestCases = benchmarkData.latestCases as CaseRecord[];
-  const agentModelMatrix = benchmarkData.agentModelMatrix ?? null;
+  const effectiveBenchmarkData = useMemo(
+    () =>
+      scorecardPreviewEnabled
+        ? withScorecardPreview(benchmarkData)
+        : benchmarkData,
+    [benchmarkData, scorecardPreviewEnabled],
+  );
+
+  const suiteSummaries = effectiveBenchmarkData.suiteSummaries as SuiteSummary[];
+  const latestCases = effectiveBenchmarkData.latestCases as CaseRecord[];
+  const agentModelMatrix = effectiveBenchmarkData.agentModelMatrix ?? null;
   const studioArtifactBenchmarkSuite =
-    benchmarkData.studioArtifactBenchmarkSuite ?? null;
-  const studioArtifactArena = benchmarkData.studioArtifactArena ?? null;
+    effectiveBenchmarkData.studioArtifactBenchmarkSuite ?? null;
+  const studioArtifactArena = effectiveBenchmarkData.studioArtifactArena ?? null;
   const studioArtifactReleaseGates =
-    benchmarkData.studioArtifactReleaseGates ?? null;
+    effectiveBenchmarkData.studioArtifactReleaseGates ?? null;
   const studioArtifactDistillation =
-    benchmarkData.studioArtifactDistillation ?? null;
+    effectiveBenchmarkData.studioArtifactDistillation ?? null;
   const studioArtifactParityLoop =
-    benchmarkData.studioArtifactParityLoop ?? null;
+    effectiveBenchmarkData.studioArtifactParityLoop ?? null;
+  const scorecardViewModel = useMemo(
+    () =>
+      buildScorecardViewModel(agentModelMatrix, effectiveBenchmarkData.generatedAt, {
+        previewMode: scorecardPreviewEnabled,
+      }),
+    [agentModelMatrix, effectiveBenchmarkData.generatedAt, scorecardPreviewEnabled],
+  );
+  const deploymentsViewModel = useMemo(
+    () =>
+      buildDeploymentsViewModel(agentModelMatrix, scorecardViewModel, {
+        previewMode: scorecardPreviewEnabled,
+      }),
+    [agentModelMatrix, scorecardPreviewEnabled, scorecardViewModel],
+  );
+  const candidatesViewModel = useMemo(
+    () =>
+      buildCandidatesViewModel(agentModelMatrix, scorecardViewModel, {
+        previewMode: scorecardPreviewEnabled,
+      }),
+    [agentModelMatrix, scorecardPreviewEnabled, scorecardViewModel],
+  );
 
   const headline = latestCases[0] ?? null;
-  const initSuite = suiteSummaries.find((s) => s.focusCaseId)?.suite ?? headline?.suite ?? "MiniWoB++";
-  const [selSuite, setSelSuite] = useState(initSuite);
-  const [selCaseId, setSelCaseId] = useState<string | null>(headline?.caseId ?? null);
+  const initialTriageSelection = useMemo(
+    () => resolveInitialTriageSelection(suiteSummaries, latestCases),
+    [latestCases, suiteSummaries],
+  );
+  const [selSuite, setSelSuite] = useState(initialTriageSelection.suite);
+  const [selCaseId, setSelCaseId] = useState<string | null>(
+    initialTriageSelection.caseId,
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-      const m: Record<string, TabId> = { "1": "dashboard", "2": "triage" };
+      const m: Record<string, TabId> = {
+        "1": "dashboard",
+        "2": "deployments",
+        "3": "candidates",
+        "4": "triage",
+      };
       if (m[e.key]) setActiveTab(m[e.key]);
     };
     window.addEventListener("keydown", h);
@@ -1224,7 +1208,14 @@ function App() {
   }, [selCase?.caseId]);
 
   const rCounts = useMemo(() => {
-    const c: Record<string, number> = { all: suiteCases.length, red: 0, "near-miss": 0, pass: 0, unknown: 0 };
+    const c: Record<string, number> = {
+      all: suiteCases.length,
+      red: 0,
+      interrupted: 0,
+      "near-miss": 0,
+      pass: 0,
+      unknown: 0,
+    };
     for (const x of suiteCases) c[x.result] = (c[x.result] ?? 0) + 1;
     return c;
   }, [suiteCases]);
@@ -1259,6 +1250,10 @@ function App() {
   }, []);
 
   const totRed = suiteSummaries.reduce((s, x) => s + x.counts.red, 0);
+  const totInterrupted = suiteSummaries.reduce(
+    (s, x) => s + (x.counts.interrupted ?? 0),
+    0,
+  );
   const totPass = suiteSummaries.reduce((s, x) => s + x.counts.pass, 0);
   const totAll = suiteSummaries.reduce((s, x) => s + total(x.counts), 0);
 
@@ -1272,18 +1267,33 @@ function App() {
             <strong>{t.label}</strong><kbd>{t.shortcut}</kbd>
           </button>
         ))}</nav>
+        {scorecardViewModel && (
+          <div className="sb-sec">
+            <p className="eyebrow">Matrix</p>
+            <div className="sb-card sb-card-matrix">
+              <span>{scorecardViewModel.sidebarSummary.statusLabel}</span>
+              <strong>{scorecardViewModel.sidebarSummary.leaderLabel}</strong>
+              <p className="sb-card-copy">
+                {scorecardViewModel.sidebarSummary.outcomeLabel}
+                {" · "}
+                {scorecardViewModel.sidebarSummary.gapCount} gaps
+              </p>
+            </div>
+          </div>
+        )}
         <div className="sb-sec">
-          <p className="eyebrow">Suites</p>
+          <p className="eyebrow">Live suites</p>
           <div className="sb-slist">{suiteSummaries.map((s) => {
             const t = total(s.counts);
             return (
               <button key={s.suite} type="button" className={`ssb ${s.suite === selSuite ? "on" : ""}`}
                 onClick={() => goTriage(s.suite, s.focusCaseId)}>
-                <div className="ssb-top"><strong>{s.suite}</strong><Pill status={s.focusResult} /></div>
+                <div className="ssb-top"><strong>{s.suite}</strong><ResultPill status={s.focusResult} /></div>
                 {t > 0 ? (
                   <div className="ssb-bar"><div className="ssb-trk">
                     <div className="ssb-p" style={{ width: `${(s.counts.pass / t) * 100}%` }} />
                     <div className="ssb-n" style={{ width: `${(s.counts["near-miss"] / t) * 100}%` }} />
+                    <div className="ssb-i" style={{ width: `${((s.counts.interrupted ?? 0) / t) * 100}%` }} />
                   </div><span className="ssb-lbl">{s.counts.pass}/{t}</span></div>
                 ) : <span className="ssb-sub">{s.liveRun ? "Live run in progress" : "No retained cases yet"}</span>}
                 {s.liveRun?.status === "running" && (
@@ -1297,7 +1307,13 @@ function App() {
             );
           })}</div>
         </div>
-        <div className="sb-ft"><div className="sb-card"><span>Data</span><strong>{relTime(benchmarkData.generatedAt)}</strong></div></div>
+        <div className="sb-ft">
+          <div className="sb-card">
+            <span>Data</span>
+            <strong>{relTime(effectiveBenchmarkData.generatedAt)}</strong>
+            {totInterrupted > 0 && <p className="sb-card-copy">{totInterrupted} interrupted</p>}
+          </div>
+        </div>
       </aside>
 
       {/* ── Main ── */}
@@ -1305,256 +1321,35 @@ function App() {
 
         {/* ═══ DASHBOARD ═══ */}
         {activeTab === "dashboard" && (
-          <div className="dash">
-            <div className="kpis">
-              <article className="kpi"><span>Cases</span><strong>{totAll}</strong></article>
-              <article className="kpi"><span>Pass rate</span><strong>{totAll ? Math.round((totPass / totAll) * 100) : 0}%</strong></article>
-              <article className="kpi kpi-d"><span>Active reds</span><strong>{totRed}</strong></article>
-              <article className="kpi"><span>Focus</span><strong>{headline ? short(headline.caseId) : "—"}</strong></article>
-            </div>
-
-            <div className="hcards">{suiteSummaries.map((s) => {
-              const t = total(s.counts);
-              return (
-                <button key={s.suite} type="button" className={`hc hc-${s.focusResult}`} onClick={() => goTriage(s.suite, s.focusCaseId)}>
-                  <div className="hc-top"><h3>{s.suite}</h3><Pill status={s.focusResult} /></div>
-                  {t > 0 && <div className="hc-cnts">
-                    {s.counts.red > 0 && <span className="hc-r">{s.counts.red} red</span>}
-                    {s.counts["near-miss"] > 0 && <span className="hc-n">{s.counts["near-miss"]} near</span>}
-                    {s.counts.pass > 0 && <span className="hc-p">{s.counts.pass} pass</span>}
-                  </div>}
-                  <p className="hc-f">
-                    {s.focusCaseId
-                      ? short(s.focusCaseId)
-                      : s.liveRun?.activeCaseId
-                        ? shortCaseId(s.liveRun.activeCaseId)
-                        : "No retained cases yet"}
-                  </p>
-                  <span className="hc-cta">Open in Triage →</span>
-                </button>
-              );
-            })}</div>
-
-            {agentModelMatrix && (
-              <section className="panel model-matrix-panel">
-                <div className="panel-head">
-                  <div>
-                    <p className="eyebrow">Phase 0</p>
-                    <h2>Agent model matrix</h2>
-                  </div>
-                  <div className="artifact-benchmark-headline">
-                    <span>{agentModelMatrix.comparedPresetCount} presets</span>
-                    <span>{agentModelMatrix.executedPresetCount} executed</span>
-                    <span>{fmtLoopStatus(agentModelMatrix.status)}</span>
-                    <span>{agentModelMatrix.decision.outcome.replace(/_/g, " ")}</span>
-                  </div>
+          <div className="dash scorecard-page">
+            {scorecardViewModel ? (
+              <>
+                <ScorecardHero scorecard={scorecardViewModel} />
+                <PresetScorecardBoard scorecard={scorecardViewModel} />
+              </>
+            ) : (
+              <>
+                <div className="kpis">
+                  <article className="kpi"><span>Cases</span><strong>{totAll}</strong></article>
+                  <article className="kpi"><span>Pass rate</span><strong>{totAll ? Math.round((totPass / totAll) * 100) : 0}%</strong></article>
+                  <article className="kpi kpi-d"><span>Active reds</span><strong>{totRed}</strong></article>
+                  <article className="kpi kpi-w"><span>Interrupted</span><strong>{totInterrupted}</strong></article>
+                  <article className="kpi"><span>Focus</span><strong>{headline ? short(headline.caseId) : "—"}</strong></article>
                 </div>
-
-                <div className="model-matrix-strip">
-                  <article className="artifact-benchmark-stat">
-                    <span>Decision</span>
-                    <strong>{agentModelMatrix.decision.outcome.replace(/_/g, " ")}</strong>
-                  </article>
-                  <article className="artifact-benchmark-stat">
-                    <span>Current leader</span>
-                    <strong>
-                      {agentModelMatrix.presets.find(
-                        (preset) =>
-                          preset.presetId ===
-                          (agentModelMatrix.decision.leaderPresetId ??
-                            agentModelMatrix.decision.artifactLeaderPresetId),
-                      )?.label ?? "—"}
-                    </strong>
-                  </article>
-                  <article className="artifact-benchmark-stat">
-                    <span>Coverage gaps</span>
-                    <strong>{agentModelMatrix.decision.missingCoverage.length}</strong>
-                  </article>
-                  <article className="artifact-benchmark-stat">
-                    <span>Default preserved</span>
-                    <strong>{agentModelMatrix.preservedDefault ? "yes" : "no"}</strong>
-                  </article>
-                </div>
-
-                <div className="artifact-benchmark-grid">
-                  <div className="artifact-benchmark-list">
-                    {agentModelMatrix.presets.map((preset) => {
-                      const artifactMetrics = preset.scorecards.artifactQuality.metrics;
-                      const codingMetrics = preset.scorecards.codingCompletion.metrics;
-                      const researchMetrics = preset.scorecards.researchQuality.metrics;
-                      const computerUseMetrics =
-                        preset.scorecards.computerUseCompletion.metrics;
-                      const latencyMetrics =
-                        preset.scorecards.latencyAndResourcePressure.metrics;
-                      return (
-                        <div
-                          key={preset.presetId}
-                          className={`artifact-benchmark-row artifact-benchmark-row-static ${
-                            preset.shippedDefault ? "parity" : ""
-                          }`}
-                        >
-                          <div className="artifact-benchmark-copy">
-                            <div className="artifact-benchmark-title-row">
-                              <strong>{preset.label}</strong>
-                              {preset.shippedDefault && (
-                                <span className="artifact-benchmark-flag">default</span>
-                              )}
-                              {preset.experimental && (
-                                <span className="artifact-benchmark-flag artifact-benchmark-flag-muted">
-                                  experimental
-                                </span>
-                              )}
-                            </div>
-                            <p>
-                              {preset.role.replace(/_/g, " ")} ·{" "}
-                              {fmtAvailabilityStatus(preset.availabilityStatus)}
-                            </p>
-                            <div className="artifact-benchmark-tags">
-                              {preset.runtimeModel && <span>{preset.runtimeModel}</span>}
-                              {preset.artifactAcceptanceModel && (
-                                <span>judge {preset.artifactAcceptanceModel}</span>
-                              )}
-                              <span>{preset.caseCount} retained cases</span>
-                            </div>
-                            {preset.topFindings.length > 0 && (
-                              <p className="model-matrix-findings">
-                                {preset.topFindings.slice(0, 2).join(" · ")}
-                              </p>
-                            )}
-                          </div>
-                          <div className="model-matrix-score">
-                            <div className="model-matrix-score-item">
-                              <span>artifact judge</span>
-                              <strong>
-                                {fmtScore(
-                                  typeof artifactMetrics.averageJudgeScore === "number"
-                                    ? artifactMetrics.averageJudgeScore
-                                    : null,
-                                )}
-                              </strong>
-                            </div>
-                            <div className="model-matrix-score-item">
-                              <span>artifact verifier</span>
-                              <strong>
-                                {fmtPct(
-                                  typeof artifactMetrics.verifierPassRate === "number"
-                                    ? artifactMetrics.verifierPassRate
-                                    : null,
-                                )}
-                              </strong>
-                            </div>
-                            <div className="model-matrix-score-item">
-                              <span>coding</span>
-                              <strong>
-                                {fmtPct(
-                                  typeof codingMetrics.taskPassRate === "number"
-                                    ? codingMetrics.taskPassRate
-                                    : null,
-                                )}
-                              </strong>
-                            </div>
-                            <div className="model-matrix-score-item">
-                              <span>research</span>
-                              <strong>
-                                {fmtPct(
-                                  typeof researchMetrics.citationVerifierPassRate ===
-                                    "number"
-                                    ? researchMetrics.citationVerifierPassRate
-                                    : null,
-                                )}
-                              </strong>
-                            </div>
-                            <div className="model-matrix-score-item">
-                              <span>computer use</span>
-                              <strong>
-                                {fmtPct(
-                                  typeof computerUseMetrics.rewardFloorPassRate === "number"
-                                    ? computerUseMetrics.rewardFloorPassRate
-                                    : null,
-                                )}
-                              </strong>
-                            </div>
-                            <div className="model-matrix-score-item">
-                              <span>latency</span>
-                              <strong>
-                                {fmtMs(
-                                  typeof latencyMetrics.meanWallClockMs === "number"
-                                    ? latencyMetrics.meanWallClockMs
-                                    : null,
-                                )}
-                              </strong>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="artifact-benchmark-side">
-                    <div className="artifact-benchmark-side-block">
-                      <span className="eyebrow">Decision</span>
-                      <p>{agentModelMatrix.decision.summary}</p>
-                      {agentModelMatrix.decision.missingCoverage.length > 0 && (
-                        <ul>
-                          {agentModelMatrix.decision.missingCoverage.map((entry) => (
-                            <li key={`matrix-gap-${entry}`}>
-                              {entry
-                                .replace(/([A-Z])/g, " $1")
-                                .replace(/_/g, " ")
-                                .trim()}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    <div className="artifact-benchmark-side-block">
-                      <span className="eyebrow">Scorecard schema</span>
-                      <ul>
-                        {agentModelMatrix.scorecardSchema.categories.map((category) => (
-                          <li key={`matrix-cat-${category.id}`}>
-                            {category.label}
-                            {category.requiredForPromotion ? " · required" : " · supporting"}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="artifact-benchmark-side-block">
-                      <span className="eyebrow">Evidence</span>
-                      <div className="artifact-benchmark-link-list">
-                        {agentModelMatrix.summaryHref && (
-                          <a href={agentModelMatrix.summaryHref} target="_blank" rel="noreferrer">
-                            latest_summary ↗
-                          </a>
-                        )}
-                        {agentModelMatrix.runRootHref && (
-                          <a href={agentModelMatrix.runRootHref} target="_blank" rel="noreferrer">
-                            retained_run ↗
-                          </a>
-                        )}
-                        {agentModelMatrix.presetCatalogHref && (
-                          <a
-                            href={agentModelMatrix.presetCatalogHref}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            preset_catalog ↗
-                          </a>
-                        )}
-                        {agentModelMatrix.benchmarkCatalogHref && (
-                          <a
-                            href={agentModelMatrix.benchmarkCatalogHref}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            benchmark_catalog ↗
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </section>
+              </>
             )}
+
+            <OperationalContextPanel
+              suiteSummaries={suiteSummaries}
+              liveSuiteCount={liveRuns.length}
+              totalCases={totAll}
+              totalPass={totPass}
+              totalRed={totRed}
+              totalInterrupted={totInterrupted}
+              onOpenTriage={goTriage}
+              short={short}
+              shortCaseId={shortCaseId}
+            />
 
             {studioArtifactBenchmarkSuite && (
               <section className="panel artifact-benchmark-panel">
@@ -2109,7 +1904,7 @@ function App() {
                   >
                     <div className="rc-top">
                       <h3>{short(entry.caseId)}</h3>
-                      <Pill status={entry.result} />
+                      <ResultPill status={entry.result} />
                     </div>
                     <p className="rc-q">{entry.summary.query_text ?? "—"}</p>
                     <div className="rc-m">
@@ -2126,6 +1921,44 @@ function App() {
             </section>
           </div>
         )}
+
+        {activeTab === "deployments" &&
+          (deploymentsViewModel ? (
+            <DeploymentsView deployments={deploymentsViewModel} />
+          ) : (
+            <div className="dash deployments-page">
+              <section className="panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Deployments</p>
+                    <h2>Tiered defaults</h2>
+                  </div>
+                </div>
+                <p className="empty">
+                  No retained deployment summary is available yet.
+                </p>
+              </section>
+            </div>
+          ))}
+
+        {activeTab === "candidates" &&
+          (candidatesViewModel ? (
+            <CandidatesView candidates={candidatesViewModel} />
+          ) : (
+            <div className="dash candidates-page">
+              <section className="panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Candidates</p>
+                    <h2>Retained change review</h2>
+                  </div>
+                </div>
+                <p className="empty">
+                  No retained candidate summary is available yet.
+                </p>
+              </section>
+            </div>
+          ))}
 
         {/* ═══ TRIAGE ═══ */}
         {activeTab === "triage" && (
@@ -2167,8 +2000,13 @@ function App() {
                   </div>
                 )}
                 {(filtered.length > 0 ? filtered : suiteCases).map((c) => (
-                  <button key={c.caseId} type="button" className={`rcase ${c.caseId === selCase?.caseId ? "on" : ""}`} onClick={() => pickCase(c.caseId)}>
-                    <div className="rc-top"><h3>{short(c.caseId)}</h3><Pill status={c.result} /></div>
+                  <button
+                    key={c.caseId}
+                    type="button"
+                    className={`rcase rcase-${c.result} ${c.caseId === selCase?.caseId ? "on" : ""}`}
+                    onClick={() => pickCase(c.caseId)}
+                  >
+                    <div className="rc-top"><h3>{short(c.caseId)}</h3><ResultPill status={c.result} /></div>
                     <p className="rc-q">{c.summary.query_text ?? "—"}</p>
                     <div className="rc-m">
                       <span>{v(c.summary.provider_calls)} calls</span>
@@ -2194,7 +2032,7 @@ function App() {
                         {selCase.summary.query_text && <CopyBtn text={selCase.summary.query_text} label="query" />}
                       </div>
                     </div>
-                    <Pill status={selCase.result} />
+                    <ResultPill status={selCase.result} />
                   </div>
                   <div className="insp-ms">{[
                     ["backend", v(selCase.summary.backend)], ["model", v(selCase.summary.model)],

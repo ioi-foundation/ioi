@@ -102,6 +102,49 @@ function answerFromEvents(events: AgentEvent[]): ChatMessage | null {
   return null;
 }
 
+const CLARIFICATION_REASONING_SIGNALS = [
+  "need more details",
+  "need more context",
+  "could you please",
+  "please specify",
+  "please share",
+  "what is the goal",
+  "history of actions",
+  "previous steps",
+  "executed up to this point",
+];
+
+function looksLikeClarificationReasoning(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || !trimmed.includes("?")) {
+    return false;
+  }
+
+  const lowered = trimmed.toLowerCase();
+  return (
+    lowered.startsWith("to provide the correct") ||
+    CLARIFICATION_REASONING_SIGNALS.some((needle) => lowered.includes(needle))
+  );
+}
+
+function clarificationFromReasoningEvents(events: AgentEvent[]): ChatMessage | null {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const event = events[i];
+    if (classifyActivityEvent(event) !== "reasoning_event") continue;
+
+    const output = eventOutput(event).trim();
+    if (!looksLikeClarificationReasoning(output)) continue;
+
+    return {
+      role: "agent",
+      text: output,
+      timestamp: Date.parse(event.timestamp) || Date.now(),
+    };
+  }
+
+  return null;
+}
+
 export function resolveFinalAnswer(
   history: ChatMessage[],
   events: AgentEvent[],
@@ -110,6 +153,7 @@ export function resolveFinalAnswer(
   const answerMessage =
     latestAgentAnswer(history, canonicalAnswerHashes) ||
     answerFromEvents(events) ||
+    clarificationFromReasoningEvents(events) ||
     latestAgentAnswer(history);
   return answerMessage ? buildAnswerPresentation(answerMessage) : null;
 }

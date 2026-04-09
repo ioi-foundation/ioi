@@ -2,9 +2,9 @@ use crate::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{
     StudioArtifactClass, StudioArtifactDeliverableShape, StudioArtifactFailure,
-    StudioArtifactFileRole, StudioArtifactPersistenceMode, StudioExecutionSubstrate,
-    StudioOutcomeArtifactRequest, StudioOutcomeArtifactScope,
-    StudioOutcomeArtifactVerificationRequest, StudioOutcomePlanningPayload,
+    StudioArtifactFileRole, StudioArtifactPersistenceMode, StudioExecutionStrategy,
+    StudioExecutionSubstrate, StudioOutcomeArtifactRequest, StudioOutcomeArtifactScope,
+    StudioOutcomeArtifactVerificationRequest, StudioOutcomeKind, StudioOutcomePlanningPayload,
     StudioPresentationSurface, StudioRendererKind, StudioRuntimeProvenance,
     StudioRuntimeProvenanceKind,
 };
@@ -23,22 +23,41 @@ mod planning;
 mod render_eval;
 mod types;
 
+fn truthy_env_var(key: &str) -> bool {
+    std::env::var(key)
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn studio_modal_first_html_enabled() -> bool {
+    truthy_env_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML") || truthy_env_var("AUTOPILOT_LOCAL_GPU_DEV")
+}
+
 use html::*;
 use html_registry::*;
 
 pub use generation::{
+    acceptance_timeout_for_execution_strategy,
     build_studio_artifact_candidate_refinement_prompt,
     build_studio_artifact_candidate_refinement_repair_prompt,
     build_studio_artifact_materialization_prompt,
     build_studio_artifact_materialization_repair_prompt,
     generate_studio_artifact_bundle_with_runtime,
     generate_studio_artifact_bundle_with_runtime_plan_and_planning_context,
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy,
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator,
     generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator,
     generate_studio_artifact_bundle_with_runtimes,
     generate_studio_artifact_bundle_with_runtimes_and_planning_context,
     generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
     materialize_studio_artifact_candidate_with_runtime, materialize_studio_artifact_with_runtime,
-    resolve_studio_artifact_runtime_plan, StudioArtifactResolvedRuntimePlan,
+    render_eval_timeout_for_runtime, resolve_studio_artifact_runtime_plan,
+    StudioArtifactGenerationProgressObserver, StudioArtifactResolvedRuntimePlan,
 };
 pub use judging::{
     build_studio_artifact_judge_prompt, build_studio_artifact_judge_repair_prompt,
@@ -60,7 +79,7 @@ pub use planning::{
     compile_studio_artifact_ir, derive_studio_artifact_blueprint, parse_studio_artifact_brief,
     parse_studio_artifact_edit_intent, parse_studio_outcome_planning_payload,
     plan_studio_artifact_brief_with_runtime, plan_studio_artifact_edit_intent_with_runtime,
-    plan_studio_outcome_with_runtime,
+    plan_studio_outcome_with_runtime, studio_execution_strategy_for_outcome,
 };
 pub use render_eval::{
     evaluate_studio_artifact_render_if_configured,

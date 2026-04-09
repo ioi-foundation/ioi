@@ -2,7 +2,11 @@ import { SettingsView } from "./SettingsView";
 import { ShieldPolicyView } from "./ShieldPolicyView";
 import { TauriRuntime } from "../../../services/TauriRuntime";
 import type { AssistantUserProfile } from "../../../types";
-import type { ShieldPolicyState } from "../policyCenter";
+import type {
+  CapabilityGovernanceRequest,
+  ShieldPolicyState,
+} from "../policyCenter";
+import type { SettingsSection } from "./SettingsView.shared";
 
 interface MissionControlControlViewProps {
   runtime: TauriRuntime;
@@ -12,8 +16,11 @@ interface MissionControlControlViewProps {
   profileDraft: AssistantUserProfile;
   profileSaving: boolean;
   profileError: string | null;
+  governanceRequest?: CapabilityGovernanceRequest | null;
   focusedConnectorId?: string | null;
+  settingsSeedSection?: SettingsSection | null;
   onSurfaceChange: (surface: "policy" | "system") => void;
+  onConsumeSettingsSeedSection?: () => void;
   onPolicyChange: (next: ShieldPolicyState) => void;
   onProfileDraftChange: <K extends keyof AssistantUserProfile>(
     key: K,
@@ -22,6 +29,8 @@ interface MissionControlControlViewProps {
   onResetProfileDraft: () => void;
   onSaveProfile: () => Promise<void>;
   onFocusConnector: (connectorId: string | null) => void;
+  onApplyGovernanceRequest?: (next: ShieldPolicyState) => void;
+  onDismissGovernanceRequest?: () => void;
   onOpenConnections: () => void;
 }
 
@@ -33,13 +42,18 @@ export function MissionControlControlView({
   profileDraft,
   profileSaving,
   profileError,
+  governanceRequest,
   focusedConnectorId,
+  settingsSeedSection,
   onSurfaceChange,
+  onConsumeSettingsSeedSection,
   onPolicyChange,
   onProfileDraftChange,
   onResetProfileDraft,
   onSaveProfile,
   onFocusConnector,
+  onApplyGovernanceRequest,
+  onDismissGovernanceRequest,
   onOpenConnections,
 }: MissionControlControlViewProps) {
   const title = surface === "policy" ? "Policy" : "System Settings";
@@ -90,8 +104,11 @@ export function MissionControlControlView({
               runtime={runtime}
               policyState={policyState}
               onChange={onPolicyChange}
+              governanceRequest={governanceRequest}
               focusedConnectorId={focusedConnectorId}
               onFocusConnector={onFocusConnector}
+              onApplyGovernanceRequest={onApplyGovernanceRequest}
+              onDismissGovernanceRequest={onDismissGovernanceRequest}
               onOpenIntegrations={onOpenConnections}
             />
           ) : (
@@ -101,9 +118,16 @@ export function MissionControlControlView({
               profileDraft={profileDraft}
               profileSaving={profileSaving}
               profileError={profileError}
+              policyState={policyState}
+              governanceRequest={governanceRequest}
+              seedSection={settingsSeedSection}
+              onConsumeSeedSection={onConsumeSettingsSeedSection}
               onProfileDraftChange={onProfileDraftChange}
               onResetProfileDraft={onResetProfileDraft}
               onSaveProfile={onSaveProfile}
+              onPolicyChange={onPolicyChange}
+              onOpenPolicySurface={() => onSurfaceChange("policy")}
+              onOpenConnections={onOpenConnections}
             />
           )}
         </div>

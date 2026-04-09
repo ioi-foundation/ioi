@@ -12,6 +12,7 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const activeFormat = searchParams.get('format') || 'All Listings';
 
   const tickerItems = [
     { label: 'LABOR_GAS', val: '0.0042', delta: '+1.2%' },
@@ -95,7 +96,7 @@ export default function Header() {
             <div className="relative w-96 hidden md:block">
               <input 
                 type="text" 
-                placeholder="Search for agents, signals, or developers..." 
+                placeholder="Search agents, workflows, operators, or developers..." 
                 className="w-full bg-slate-100 border border-slate-200 rounded-md py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -148,7 +149,7 @@ export default function Header() {
                       className="flex items-center justify-between px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600"
                       onClick={() => setMenuOpen(false)}
                     >
-                      <span>Saved Agents</span>
+                      <span>Saved Listings</span>
                       <span className="text-xs bg-slate-100 text-slate-500 px-1.5 rounded">2</span>
                     </Link>
 
@@ -164,7 +165,7 @@ export default function Header() {
                       className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-blue-600 font-medium"
                       onClick={() => setMenuOpen(false)}
                     >
-                      Publish Agent
+                      Publish Capability
                     </Link>
                     <div className="border-t border-gray-100 my-1"></div>
                     <button 
@@ -187,8 +188,11 @@ export default function Header() {
         {/* 3. Tab Bar */}
         <div className="container mx-auto px-4 overflow-x-auto">
           <nav className="flex gap-1 min-w-max">
-            <NavLink to="/" currentPath={location.pathname}>Marketplace</NavLink>
-            <NavLink to="/freelance" currentPath={location.pathname} highlight>Freelance</NavLink>
+            <NavLink to="/" active={(location.pathname === '/' && activeFormat === 'All Listings') || location.pathname.startsWith('/agent/')}>Explore</NavLink>
+            <NavLink to="/?format=Workflow" active={location.pathname === '/' && activeFormat === 'Workflow'}>Workflows</NavLink>
+            <NavLink to="/?format=Service+Module" active={location.pathname === '/' && activeFormat === 'Service Module'}>Services</NavLink>
+            <NavLink to="/sell" active={location.pathname === '/sell'}>Publish</NavLink>
+            <NavLink to="/freelance" active={location.pathname === '/freelance' || location.pathname === '/post-job' || location.pathname.startsWith('/freelance/')} highlight>Freelance</NavLink>
           </nav>
         </div>
       </header>
@@ -196,14 +200,9 @@ export default function Header() {
   );
 }
 
-function NavLink({ to, children, currentPath, highlight }) {
-  let isActive = currentPath === to;
-  
-  if (to === '/freelance' && (currentPath === '/post-job' || currentPath.startsWith('/freelance/'))) isActive = true;
-  if (to === '/' && (currentPath.startsWith('/agent/') || currentPath === '/sell')) isActive = true;
-
+function NavLink({ to, children, active, highlight }) {
   const base = "px-4 py-3 text-sm border-b-2 transition-colors whitespace-nowrap";
-  const state = isActive ? "border-blue-600 text-blue-600 font-semibold bg-blue-50/50" 
+  const state = active ? "border-blue-600 text-blue-600 font-semibold bg-blue-50/50" 
               : highlight ? "border-transparent text-amber-600 font-semibold hover:bg-amber-50"
               : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300";
   

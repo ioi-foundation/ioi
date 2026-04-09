@@ -1,0 +1,8 @@
+{
+  "timedOut": true,
+  "commandError": "spawnSync /home/heathledger/Documents/ioi/repos/ioi/target/debug/cli ETIMEDOUT",
+  "studioProofTraceCount": 13,
+  "lastStudioProofTrace": "artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=6083 temperature=0.32 max_tokens=1600",
+  "lastProviderError": null,
+  "compactFailure": "[studio-proof-trace] artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=6083 temperature=0.32 max_tokens=1600"
+}

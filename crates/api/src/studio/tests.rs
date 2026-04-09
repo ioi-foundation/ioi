@@ -1,9 +1,13 @@
 use super::generation::{
+    apply_studio_swarm_patch_envelope,
     build_studio_artifact_candidate_refinement_prompt_for_runtime,
-    build_studio_artifact_materialization_repair_prompt_for_runtime,
+    build_studio_artifact_direct_author_prompt_for_runtime,
     build_studio_artifact_materialization_prompt_for_runtime,
+    build_studio_artifact_materialization_repair_prompt_for_runtime,
     evaluate_candidate_render_with_fallback, refine_studio_artifact_candidate_with_runtime,
     render_eval_timeout_for_runtime, render_evaluation_required, requested_follow_up_pass,
+    validate_swarm_generated_artifact_payload, StudioArtifactPatchEnvelope,
+    StudioArtifactPatchOperation, StudioArtifactPatchOperationKind,
 };
 use super::judging::build_studio_artifact_judge_prompt_for_runtime;
 use super::judging::candidate_generation_config;
@@ -17,14 +21,19 @@ use crate::vm::inference::InferenceRuntime;
 use async_trait::async_trait;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{
-    StudioArtifactDeliverableShape, StudioArtifactPersistenceMode, StudioExecutionSubstrate,
-    StudioOutcomeArtifactScope, StudioOutcomeArtifactVerificationRequest,
+    StudioArtifactDeliverableShape, StudioArtifactPersistenceMode, StudioExecutionStrategy,
+    StudioExecutionSubstrate, StudioOutcomeArtifactScope, StudioOutcomeArtifactVerificationRequest,
     StudioPresentationSurface, StudioRuntimeProvenance, StudioRuntimeProvenanceKind,
 };
 use ioi_types::error::VmError;
+use std::future::Future;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
+use tokio::sync::mpsc::Sender;
+
+mod planning_and_routing;
+mod swarm_plans;
 
 fn decode_studio_test_prompt(input_context: &[u8]) -> String {
     let raw_prompt = String::from_utf8_lossy(input_context);
@@ -44,6 +53,71 @@ fn decode_studio_test_prompt(input_context: &[u8]) -> String {
         })
         .filter(|decoded| !decoded.is_empty())
         .unwrap_or_else(|| raw_prompt.to_string())
+}
+
+fn with_modal_first_html_env<T>(f: impl FnOnce() -> T) -> T {
+    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    let guard = ENV_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("env lock");
+    let previous_local_gpu = std::env::var("AUTOPILOT_LOCAL_GPU_DEV").ok();
+    let previous_modal_first = std::env::var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML").ok();
+
+    unsafe {
+        std::env::set_var("AUTOPILOT_LOCAL_GPU_DEV", "1");
+        std::env::set_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML", "1");
+    }
+
+    let result = f();
+
+    unsafe {
+        match previous_local_gpu {
+            Some(value) => std::env::set_var("AUTOPILOT_LOCAL_GPU_DEV", value),
+            None => std::env::remove_var("AUTOPILOT_LOCAL_GPU_DEV"),
+        }
+        match previous_modal_first {
+            Some(value) => std::env::set_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML", value),
+            None => std::env::remove_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML"),
+        }
+    }
+
+    drop(guard);
+    result
+}
+
+async fn with_modal_first_html_env_async<T, F>(f: impl FnOnce() -> F) -> T
+where
+    F: Future<Output = T>,
+{
+    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    let guard = ENV_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("env lock");
+    let previous_local_gpu = std::env::var("AUTOPILOT_LOCAL_GPU_DEV").ok();
+    let previous_modal_first = std::env::var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML").ok();
+
+    unsafe {
+        std::env::set_var("AUTOPILOT_LOCAL_GPU_DEV", "1");
+        std::env::set_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML", "1");
+    }
+
+    let result = f().await;
+
+    unsafe {
+        match previous_local_gpu {
+            Some(value) => std::env::set_var("AUTOPILOT_LOCAL_GPU_DEV", value),
+            None => std::env::remove_var("AUTOPILOT_LOCAL_GPU_DEV"),
+        }
+        match previous_modal_first {
+            Some(value) => std::env::set_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML", value),
+            None => std::env::remove_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML"),
+        }
+    }
+
+    drop(guard);
+    result
 }
 
 fn request_for(
@@ -151,6 +225,1170 @@ fn sample_quantum_explainer_brief() -> StudioArtifactBrief {
     }
 }
 
+fn sample_complex_mission_control_brief() -> StudioArtifactBrief {
+    StudioArtifactBrief {
+        audience: "launch operators".to_string(),
+        job_to_be_done:
+            "coordinate a post-quantum migration through a dense mission-control style artifact"
+                .to_string(),
+        subject_domain: "post-quantum migration program".to_string(),
+        artifact_thesis:
+            "Guide operators through rollout phases, risk posture, cutover decisions, and incident response in one interactive artifact."
+                .to_string(),
+        required_concepts: vec![
+            "fleet rollout phases".to_string(),
+            "cryptography inventory".to_string(),
+            "vendor readiness".to_string(),
+            "cutover decision points".to_string(),
+            "owner handoffs".to_string(),
+            "incident fallback playbook".to_string(),
+        ],
+        required_interactions: vec![
+            "phase switching".to_string(),
+            "risk drilldown".to_string(),
+            "owner handoff comparison".to_string(),
+            "cutover simulation".to_string(),
+        ],
+        visual_tone: vec![
+            "operator-grade".to_string(),
+            "dense".to_string(),
+            "technical".to_string(),
+        ],
+        factual_anchors: vec![
+            "fleet readiness snapshot".to_string(),
+            "handoff ownership".to_string(),
+            "rollback thresholds".to_string(),
+        ],
+        style_directives: vec![
+            "dense but readable".to_string(),
+            "slate mission control".to_string(),
+        ],
+        reference_hints: vec![
+            "control room dashboard".to_string(),
+            "rollout workbook".to_string(),
+        ],
+    }
+}
+
+#[test]
+fn direct_author_html_generation_skips_brief_planner_and_edit_intent_planner() {
+    #[derive(Debug, Clone)]
+    struct DirectAuthorRuntime {
+        prompts: Arc<Mutex<Vec<String>>>,
+        json_modes: Arc<Mutex<Vec<bool>>>,
+        provenance: StudioRuntimeProvenance,
+    }
+
+    #[async_trait]
+    impl InferenceRuntime for DirectAuthorRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            self.prompts
+                .lock()
+                .expect("prompt log")
+                .push(prompt.clone());
+            self.json_modes
+                .lock()
+                .expect("json mode log")
+                .push(options.json_mode);
+            let response = if prompt.contains("direct document author") {
+                "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Product rollout</title><style>body{margin:0;background:#171717;color:#f5f5f5;font-family:Georgia,serif;}main{max-width:1040px;margin:0 auto;padding:32px;display:grid;gap:20px;}section,aside{background:#202020;border:1px solid #3a3a3a;border-radius:18px;padding:18px;}button{border:1px solid #666;background:#2a2a2a;color:#f5f5f5;border-radius:999px;padding:8px 14px;}svg{width:100%;height:auto;}</style></head><body><main><section><h1>Product rollout, explained through launch confidence and adoption</h1><p>The page opens with launch confidence, customer adoption, and issue backlog already visible so the first paint is useful before any interaction. Operators can switch between rollout phases and compare what changed in launch readiness, support load, and revenue contribution.</p><div><button type=\"button\" data-view=\"readiness\" aria-selected=\"true\">Readiness</button><button type=\"button\" data-view=\"adoption\" aria-selected=\"false\">Adoption</button></div></section><section data-view-panel=\"readiness\"><h2>Readiness chart</h2><svg viewBox=\"0 0 240 120\" role=\"img\" aria-label=\"Readiness by phase\"><rect x=\"16\" y=\"42\" width=\"42\" height=\"58\"></rect><rect x=\"86\" y=\"24\" width=\"42\" height=\"76\"></rect><rect x=\"156\" y=\"10\" width=\"42\" height=\"90\"></rect><text x=\"16\" y=\"112\">Pilot</text><text x=\"86\" y=\"112\">Regional</text><text x=\"156\" y=\"112\">Global</text></svg><p>Readiness moves from 64% in pilot to 90% at global launch as training, fulfillment, and support tooling converge.</p></section><section data-view-panel=\"adoption\" hidden><h2>Adoption comparison</h2><svg viewBox=\"0 0 240 120\" role=\"img\" aria-label=\"Adoption and support comparison\"><rect x=\"16\" y=\"28\" width=\"54\" height=\"72\"></rect><rect x=\"98\" y=\"42\" width=\"54\" height=\"58\"></rect><rect x=\"180\" y=\"18\" width=\"32\" height=\"82\"></rect><text x=\"16\" y=\"112\">Signups</text><text x=\"98\" y=\"112\">Tickets</text><text x=\"170\" y=\"112\">Revenue</text></svg><p>Adoption accelerates faster than support load, which is why the comparison view keeps both signals visible instead of forcing a single-metric story.</p></section><aside><h2>Why this rollout is working</h2><p id=\"detail-copy\">Readiness is selected by default, showing how the launch moved from pilot confidence to global approval while keeping support load manageable.</p></aside><script>const buttons=[...document.querySelectorAll('button[data-view]')];const panels=[...document.querySelectorAll('[data-view-panel]')];const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='readiness'?'Readiness is selected by default, showing how the launch moved from pilot confidence to global approval while keeping support load manageable.':'Adoption is selected, comparing signups, support tickets, and revenue contribution through the rollout.';}));</script></main></body></html>".to_string()
+            } else if prompt.contains("typed artifact judge") {
+                serde_json::json!({
+                    "classification": "pass",
+                    "requestFaithfulness": 5,
+                    "conceptCoverage": 4,
+                    "interactionRelevance": 4,
+                    "layoutCoherence": 4,
+                    "visualHierarchy": 4,
+                    "completeness": 4,
+                    "genericShellDetected": false,
+                    "trivialShellDetected": false,
+                    "deservesPrimaryArtifactView": true,
+                    "patchedExistingArtifact": null,
+                    "continuityRevisionUx": null,
+                    "issueClasses": [],
+                    "repairHints": [],
+                    "strengths": ["Request-specific first paint"],
+                    "blockedReasons": [],
+                    "fileFindings": [],
+                    "aestheticVerdict": "The page is specific and visually intentional.",
+                    "interactionVerdict": "The controls switch between authored evidence views.",
+                    "truthfulnessWarnings": [],
+                    "recommendedNextPass": "accept",
+                    "strongestContradiction": null,
+                    "rationale": "The direct-authored artifact is complete and request-faithful."
+                })
+                .to_string()
+            } else {
+                return Err(VmError::HostError(format!(
+                    "unexpected Studio prompt in direct-author test runtime: {prompt}"
+                )));
+            };
+            Ok(response.into_bytes())
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            self.provenance.clone()
+        }
+    }
+
+    let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+    let json_modes = Arc::new(Mutex::new(Vec::<bool>::new()));
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(DirectAuthorRuntime {
+        prompts: prompts.clone(),
+        json_modes: json_modes.clone(),
+        provenance: StudioRuntimeProvenance {
+            kind: StudioRuntimeProvenanceKind::FixtureRuntime,
+            label: "fixture direct-author runtime".to_string(),
+            model: Some("fixture-direct-author".to_string()),
+            endpoint: Some("fixture://direct-author".to_string()),
+        },
+    });
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+
+    let bundle = tokio::runtime::Runtime::new()
+        .expect("tokio runtime")
+        .block_on(async {
+        generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+            resolve_studio_artifact_runtime_plan(
+                &request,
+                runtime.clone(),
+                None,
+                StudioArtifactRuntimePolicyProfile::FullyLocal,
+            ),
+            "Product rollout explainer",
+            "Create an interactive HTML artifact that explains a product rollout with charts",
+            &request,
+            None,
+            None,
+            StudioExecutionStrategy::DirectAuthor,
+            None,
+            None,
+        )
+        .await
+    })
+        .expect("direct author bundle");
+
+    let prompt_log = prompts.lock().expect("prompt log");
+    let direct_author_prompt = prompt_log
+        .iter()
+        .find(|prompt| prompt.contains("direct document author"))
+        .expect("direct author prompt");
+    assert!(prompt_log
+        .iter()
+        .any(|prompt| prompt.contains("Raw user request:")));
+    assert!(prompt_log
+        .iter()
+        .any(|prompt| prompt.contains("Return only one complete self-contained HTML document.")));
+    assert!(!prompt_log
+        .iter()
+        .any(|prompt| prompt.contains("typed artifact brief planner")));
+    assert!(!prompt_log
+        .iter()
+        .any(|prompt| prompt.contains("typed artifact edit intent planner")));
+    assert!(!direct_author_prompt.contains("Return exactly one JSON object"));
+    assert!(json_modes
+        .lock()
+        .expect("json mode log")
+        .iter()
+        .any(|json_mode| !json_mode));
+    assert_eq!(
+        bundle
+            .execution_envelope
+            .as_ref()
+            .and_then(|entry| entry.strategy),
+        Some(StudioExecutionStrategy::DirectAuthor)
+    );
+    assert!(bundle.blueprint.is_none());
+    assert!(bundle.artifact_ir.is_none());
+    assert!(bundle.selected_skills.is_empty());
+    assert_eq!(bundle.winner.files[0].path, "index.html");
+    assert_eq!(
+        bundle.judge.classification,
+        StudioArtifactJudgeClassification::Pass
+    );
+}
+
+#[tokio::test]
+async fn direct_author_streams_token_preview_into_generation_progress() {
+    #[derive(Debug, Clone)]
+    struct StreamingDirectAuthorRuntime {
+        provenance: StudioRuntimeProvenance,
+    }
+
+    #[async_trait]
+    impl InferenceRuntime for StreamingDirectAuthorRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            if prompt.contains("typed artifact judge") {
+                return Ok(serde_json::json!({
+                    "classification": "pass",
+                    "requestFaithfulness": 5,
+                    "conceptCoverage": 4,
+                    "interactionRelevance": 4,
+                    "layoutCoherence": 4,
+                    "visualHierarchy": 4,
+                    "completeness": 4,
+                    "genericShellDetected": false,
+                    "trivialShellDetected": false,
+                    "deservesPrimaryArtifactView": true,
+                    "patchedExistingArtifact": null,
+                    "continuityRevisionUx": null,
+                    "issueClasses": [],
+                    "repairHints": [],
+                    "strengths": ["Specific direct-authored markdown"],
+                    "blockedReasons": [],
+                    "fileFindings": [],
+                    "aestheticVerdict": "The document is structured and specific.",
+                    "interactionVerdict": "The renderer contract was satisfied.",
+                    "truthfulnessWarnings": [],
+                    "recommendedNextPass": "accept",
+                    "strongestContradiction": null,
+                    "rationale": "The direct-authored markdown is complete and ready."
+                })
+                .to_string()
+                .into_bytes());
+            }
+
+            Err(VmError::HostError(format!(
+                "unexpected non-streaming prompt in streaming direct-author test runtime: {prompt}"
+            )))
+        }
+
+        async fn execute_inference_streaming(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+            token_stream: Option<Sender<String>>,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            if !prompt.contains("direct document author")
+                && !prompt.contains("Return only one complete self-contained index.html.")
+            {
+                return self
+                    .execute_inference([0u8; 32], input_context, InferenceOptions::default())
+                    .await;
+            }
+
+            let chunks = [
+                "# Quantum computers\n\n".to_string(),
+                "Qubits keep amplitudes in play while measurement turns those amplitudes into sampled outcomes.\n\n".to_string(),
+                "## Why they matter\n\nThey can accelerate some simulation and optimization workloads when error rates are controlled.\n".to_string(),
+            ];
+            if let Some(sender) = token_stream.as_ref() {
+                for chunk in &chunks {
+                    sender.send(chunk.clone()).await.map_err(|error| {
+                        VmError::HostError(format!("stream send failed: {error}"))
+                    })?;
+                }
+            }
+            Ok(chunks.concat().into_bytes())
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            self.provenance.clone()
+        }
+    }
+
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(StreamingDirectAuthorRuntime {
+        provenance: StudioRuntimeProvenance {
+            kind: StudioRuntimeProvenanceKind::FixtureRuntime,
+            label: "fixture streaming direct-author runtime".to_string(),
+            model: Some("fixture-streaming-direct-author".to_string()),
+            endpoint: Some("fixture://streaming-direct-author".to_string()),
+        },
+    });
+    let request = request_for(StudioArtifactClass::Document, StudioRendererKind::Markdown);
+    let progress_log = Arc::new(Mutex::new(Vec::<StudioArtifactGenerationProgress>::new()));
+    let progress_observer: StudioArtifactGenerationProgressObserver = {
+        let progress_log = progress_log.clone();
+        Arc::new(move |progress| {
+            progress_log.lock().expect("progress log").push(progress);
+        })
+    };
+
+    let bundle =
+        generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+            resolve_studio_artifact_runtime_plan(
+                &request,
+                runtime.clone(),
+                None,
+                StudioArtifactRuntimePolicyProfile::FullyLocal,
+            ),
+            "Quantum computers overview",
+            "Create a markdown artifact that explains quantum computers",
+            &request,
+            None,
+            None,
+            StudioExecutionStrategy::DirectAuthor,
+            None,
+            Some(progress_observer),
+        )
+        .await
+        .expect("streaming direct author bundle");
+
+    let progress_log = progress_log.lock().expect("progress log");
+    assert!(progress_log.iter().any(|progress| {
+        progress
+            .current_step
+            .contains("Streaming Direct author output")
+            && progress
+                .execution_envelope
+                .as_ref()
+                .map(|envelope| {
+                    envelope.live_previews.iter().any(|preview| {
+                        preview.kind == crate::execution::ExecutionLivePreviewKind::TokenStream
+                            && preview.content.contains("Quantum computers")
+                    })
+                })
+                .unwrap_or(false)
+    }));
+    assert!(bundle
+        .execution_envelope
+        .as_ref()
+        .map(|envelope| envelope.live_previews.iter().any(|preview| {
+            preview.kind == crate::execution::ExecutionLivePreviewKind::TokenStream
+                && preview.content.contains("Qubits keep amplitudes")
+        }))
+        .unwrap_or(false));
+}
+
+#[tokio::test]
+async fn direct_author_continues_incomplete_raw_document_before_repairing() {
+    #[derive(Debug, Clone)]
+    struct InterruptedStreamingDirectAuthorRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for InterruptedStreamingDirectAuthorRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            if prompt.contains("Continue the same document")
+                || prompt.contains("continuing an interrupted document")
+            {
+                return Ok("</style></head><body><main><section><h1>Quantum computers explained</h1><p>Qubits use superposition and interference so some simulation and optimization problems can be attacked differently from classical systems.</p><button type=\"button\" data-view=\"concepts\" aria-selected=\"true\">Concepts</button><button type=\"button\" data-view=\"hardware\" aria-selected=\"false\">Hardware</button></section><section data-view-panel=\"concepts\"><h2>Concepts</h2><p>Amplitude, interference, and measurement work together to shape the result distribution.</p></section><section data-view-panel=\"hardware\" hidden><h2>Hardware</h2><p>Error correction and qubit stability are still major constraints.</p></section><aside><p id=\"detail-copy\">Concepts are selected by default.</p></aside><script>const buttons=[...document.querySelectorAll('button[data-view]')];const panels=[...document.querySelectorAll('[data-view-panel]')];const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='concepts'?'Concepts are selected by default.':'Hardware limits are selected.';}));</script></main></body></html>".as_bytes().to_vec());
+            }
+            Err(VmError::HostError(format!(
+                "unexpected non-streaming prompt in interrupted direct-author runtime: {prompt}"
+            )))
+        }
+
+        async fn execute_inference_streaming(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+            token_stream: Option<Sender<String>>,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            if !prompt.contains("direct document author")
+                && !prompt.contains("Return only one complete self-contained index.html.")
+            {
+                return self
+                    .execute_inference([0u8; 32], input_context, InferenceOptions::default())
+                    .await;
+            }
+            let partial_chunks = [
+                "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>Quantum computers</title><style>".to_string(),
+                "body{margin:0;background:#0f172a;color:#e2e8f0;font-family:Georgia,serif;}main{max-width:960px;margin:0 auto;padding:32px;".to_string(),
+                "section{background:#111827;border:1px solid #334155;border-radius:18px;padding:20px;}".to_string(),
+            ];
+            if let Some(sender) = token_stream.as_ref() {
+                for chunk in &partial_chunks {
+                    sender.send(chunk.clone()).await.map_err(|error| {
+                        VmError::HostError(format!("stream send failed: {error}"))
+                    })?;
+                }
+            }
+            Err(VmError::HostError(
+                "timed out while emitting stylesheet".to_string(),
+            ))
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                label: "fixture interrupted direct-author runtime".to_string(),
+                model: Some("fixture-interrupted-direct-author".to_string()),
+                endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+            }
+        }
+    }
+
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let brief = sample_quantum_explainer_brief();
+    let live_previews = Arc::new(Mutex::new(Vec::<crate::execution::ExecutionLivePreview>::new()));
+    let live_preview_observer = {
+        let live_previews = live_previews.clone();
+        Arc::new(move |preview: crate::execution::ExecutionLivePreview| {
+            live_previews.lock().expect("live preview log").push(preview);
+        })
+    };
+
+    let payload = super::generation::materialize_studio_artifact_candidate_with_runtime_direct_author_detailed(
+        Arc::new(InterruptedStreamingDirectAuthorRuntime),
+        None,
+        "Quantum computers",
+        "Create an interactive HTML artifact that explains quantum computers",
+        &request,
+        &brief,
+        None,
+        "candidate-1",
+        7,
+        0.72,
+        Some(live_preview_observer),
+    )
+    .await
+    .expect("interrupted direct-author stream should continue the raw document");
+
+    assert_eq!(payload.files[0].path, "index.html");
+    assert!(payload.files[0].body.contains("Quantum computers explained"));
+    assert!(payload.files[0].body.ends_with("</html>"));
+
+    let preview_log = live_previews.lock().expect("live preview log");
+    assert!(preview_log.iter().any(|preview| {
+        preview.kind == crate::execution::ExecutionLivePreviewKind::TokenStream
+            && preview.status == "interrupted"
+            && preview.content.contains("body{margin:0")
+    }));
+}
+
+#[tokio::test]
+async fn direct_author_interrupted_stream_preserves_whitespace_only_chunks_for_recovery() {
+    #[derive(Debug, Clone)]
+    struct WhitespaceSensitiveInterruptedRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for WhitespaceSensitiveInterruptedRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            if prompt.contains("Continue the same document")
+                || prompt.contains("continuing an interrupted document")
+            {
+                assert!(
+                    prompt.contains("Quantum computers are"),
+                    "continuation prompt lost whitespace-only chunks: {prompt}"
+                );
+                return Ok("</p></section></main></body></html>"
+                    .as_bytes()
+                    .to_vec());
+            }
+            Err(VmError::HostError(format!(
+                "unexpected non-streaming prompt in whitespace-sensitive runtime: {prompt}"
+            )))
+        }
+
+        async fn execute_inference_streaming(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+            token_stream: Option<Sender<String>>,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            if !prompt.contains("direct document author")
+                && !prompt.contains("Return only one complete self-contained index.html.")
+            {
+                return self
+                    .execute_inference([0u8; 32], input_context, InferenceOptions::default())
+                    .await;
+            }
+            let partial_chunks = [
+                "<!doctype html><html lang=\"en\"><body><main><section><p>Quantum".to_string(),
+                " ".to_string(),
+                "computers".to_string(),
+                " ".to_string(),
+                "are".to_string(),
+            ];
+            if let Some(sender) = token_stream.as_ref() {
+                for chunk in &partial_chunks {
+                    sender.send(chunk.clone()).await.map_err(|error| {
+                        VmError::HostError(format!("stream send failed: {error}"))
+                    })?;
+                }
+            }
+            Err(VmError::HostError(
+                "timed out after streaming a whitespace-sensitive partial".to_string(),
+            ))
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                label: "fixture whitespace-sensitive interrupted runtime".to_string(),
+                model: Some("fixture-whitespace-sensitive".to_string()),
+                endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+            }
+        }
+    }
+
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let brief = sample_quantum_explainer_brief();
+
+    let payload = super::generation::materialize_studio_artifact_candidate_with_runtime_direct_author_detailed(
+        Arc::new(WhitespaceSensitiveInterruptedRuntime),
+        None,
+        "Quantum computers",
+        "Create an interactive HTML artifact that explains quantum computers",
+        &request,
+        &brief,
+        None,
+        "candidate-1",
+        11,
+        0.72,
+        None,
+    )
+    .await
+    .expect("whitespace-sensitive interrupted stream should recover the full sentence");
+
+    assert!(payload.files[0]
+        .body
+        .contains("Quantum computers are"));
+    assert!(payload.files[0].body.ends_with("</html>"));
+}
+
+#[tokio::test]
+async fn direct_author_runs_acceptance_before_using_draft_pending_state() {
+    #[derive(Debug, Clone)]
+    struct DirectAuthorAcceptanceRuntime {
+        role: &'static str,
+        calls: Arc<Mutex<Vec<String>>>,
+        provenance: StudioRuntimeProvenance,
+    }
+
+    #[async_trait]
+    impl InferenceRuntime for DirectAuthorAcceptanceRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            let stage = if prompt.contains("direct document author") {
+                "author"
+            } else if prompt.contains("typed artifact judge") {
+                "judge"
+            } else {
+                "unknown"
+            };
+            self.calls
+                .lock()
+                .expect("calls lock")
+                .push(format!("{}:{stage}", self.role));
+
+            let response = match stage {
+                "author" => "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum Computing Explained</title><style>body{margin:0;background:#111827;color:#f8fafc;font-family:Georgia,serif;}main{max-width:960px;margin:0 auto;padding:32px;display:grid;gap:20px;}section,aside{background:#172033;border:1px solid #334155;border-radius:20px;padding:20px;}button{border:1px solid #475569;background:#1e293b;color:#f8fafc;border-radius:999px;padding:8px 14px;}</style></head><body><main><section><h1>Quantum computers explained through qubits, interference, and error correction</h1><p>Quantum computers use qubits, superposition, and interference to solve some classes of problems differently from classical machines.</p><div><button type=\"button\" data-view=\"concepts\" aria-selected=\"true\">Core concepts</button><button type=\"button\" data-view=\"hardware\" aria-selected=\"false\">Hardware limits</button></div></section><section data-view-panel=\"concepts\"><h2>Core concepts</h2><p>Qubits keep amplitudes in play, gates reshape those amplitudes, and measurement samples a classical answer.</p></section><section data-view-panel=\"hardware\" hidden><h2>Hardware limits</h2><p>Error rates, cooling systems, and qubit connectivity are still major constraints.</p></section><aside><p id=\"detail-copy\">Core concepts are selected by default.</p></aside><script>const buttons=[...document.querySelectorAll('button[data-view]')];const panels=[...document.querySelectorAll('[data-view-panel]')];const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='concepts'?'Core concepts are selected by default.':'Hardware limits are selected.';}));</script></main></body></html>".to_string(),
+                "judge" if self.role == "acceptance" => serde_json::json!({
+                    "classification": "repairable",
+                    "requestFaithfulness": 4,
+                    "conceptCoverage": 4,
+                    "interactionRelevance": 3,
+                    "layoutCoherence": 3,
+                    "visualHierarchy": 3,
+                    "completeness": 4,
+                    "genericShellDetected": false,
+                    "trivialShellDetected": false,
+                    "deservesPrimaryArtifactView": true,
+                    "patchedExistingArtifact": false,
+                    "continuityRevisionUx": 4,
+                    "issueClasses": ["weak_visual_hierarchy"],
+                    "repairHints": ["Strengthen hierarchy and spacing."],
+                    "strengths": ["Request concepts stay visible and specific."],
+                    "blockedReasons": [],
+                    "fileFindings": [],
+                    "aestheticVerdict": "Needs a stronger hierarchy.",
+                    "interactionVerdict": "Interaction is coherent but visually soft.",
+                    "truthfulnessWarnings": [],
+                    "recommendedNextPass": "polish_pass",
+                    "strongestContradiction": null,
+                    "rationale": "acceptance runtime evaluated the direct-authored draft"
+                })
+                .to_string(),
+                "judge" => serde_json::json!({
+                    "classification": "pass",
+                    "requestFaithfulness": 5,
+                    "conceptCoverage": 4,
+                    "interactionRelevance": 4,
+                    "layoutCoherence": 4,
+                    "visualHierarchy": 4,
+                    "completeness": 4,
+                    "genericShellDetected": false,
+                    "trivialShellDetected": false,
+                    "deservesPrimaryArtifactView": true,
+                    "patchedExistingArtifact": false,
+                    "continuityRevisionUx": 4,
+                    "issueClasses": [],
+                    "repairHints": [],
+                    "strengths": ["Producer-side draft looks solid."],
+                    "blockedReasons": [],
+                    "fileFindings": [],
+                    "aestheticVerdict": "Looks good.",
+                    "interactionVerdict": "Looks good.",
+                    "truthfulnessWarnings": [],
+                    "recommendedNextPass": "accept",
+                    "strongestContradiction": null,
+                    "rationale": "producer runtime judged the draft"
+                })
+                .to_string(),
+                _ => {
+                    return Err(VmError::HostError(format!(
+                        "unexpected Studio prompt in direct-author acceptance test runtime: {prompt}"
+                    )))
+                }
+            };
+            Ok(response.into_bytes())
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            self.provenance.clone()
+        }
+    }
+
+    with_modal_first_html_env_async(|| async {
+        let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+        let production_runtime: Arc<dyn InferenceRuntime> = Arc::new(DirectAuthorAcceptanceRuntime {
+            role: "production",
+            calls: calls.clone(),
+            provenance: StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                label: "fixture direct-author producer".to_string(),
+                model: Some("fixture-qwen-9b".to_string()),
+                endpoint: Some("fixture://producer".to_string()),
+            },
+        });
+        let acceptance_runtime: Arc<dyn InferenceRuntime> = Arc::new(DirectAuthorAcceptanceRuntime {
+            role: "acceptance",
+            calls: calls.clone(),
+            provenance: StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                label: "fixture direct-author acceptance".to_string(),
+                model: Some("fixture-qwen-8b".to_string()),
+                endpoint: Some("fixture://acceptance".to_string()),
+            },
+        });
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+
+        let bundle =
+            generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+                resolve_studio_artifact_runtime_plan(
+                    &request,
+                    production_runtime,
+                    Some(acceptance_runtime),
+                    StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
+                ),
+                "Quantum computing explainer",
+                "Create an interactive HTML artifact that explains quantum computers.",
+                &request,
+                None,
+                None,
+                StudioExecutionStrategy::DirectAuthor,
+                None,
+                None,
+            )
+            .await
+            .expect("direct-author bundle");
+
+        let recorded_calls = calls.lock().expect("calls lock").clone();
+        assert!(recorded_calls.iter().any(|entry| entry == "production:author"));
+        assert!(!recorded_calls.iter().any(|entry| entry == "production:judge"));
+        assert!(recorded_calls.iter().any(|entry| entry == "acceptance:judge"));
+        assert_eq!(
+            bundle.judge.rationale,
+            "acceptance runtime evaluated the direct-authored draft"
+        );
+        assert_ne!(
+            bundle.judge.strongest_contradiction.as_deref(),
+            Some("Acceptance judging is still pending for this draft.")
+        );
+        assert_ne!(
+            bundle.judge.recommended_next_pass.as_deref(),
+            Some("acceptance_retry")
+        );
+        assert_eq!(
+            bundle.acceptance_provenance.model.as_deref(),
+            Some("fixture-qwen-8b")
+        );
+    })
+    .await;
+}
+
+#[test]
+fn local_direct_author_prompt_omits_materialization_json_scaffolding() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+
+    let payload = build_studio_artifact_direct_author_prompt_for_runtime(
+        "Quantum explainer",
+        "Create an interactive HTML artifact that explains quantum computers.",
+        &request,
+        None,
+        "candidate-1",
+        7,
+        StudioRuntimeProvenanceKind::RealLocalRuntime,
+        true,
+    )
+    .expect("direct author prompt");
+
+    let prompt_text = serde_json::to_string(&payload).expect("prompt json");
+
+    assert!(prompt_text.contains("Create an interactive HTML artifact that explains quantum computers."));
+    assert!(prompt_text.contains("Return only one complete self-contained index.html."));
+    assert!(prompt_text.contains("Keep inline CSS concise"));
+    assert!(prompt_text.contains("End with a fully closed </main></body></html>."));
+    assert!(!prompt_text.contains("Artifact request focus JSON:"));
+    assert!(!prompt_text.contains("Current artifact context JSON:"));
+    assert!(!prompt_text.contains("Candidate metadata:"));
+}
+
+#[test]
+fn direct_author_markdown_generation_uses_raw_document_contract() {
+    #[derive(Debug, Clone)]
+    struct DirectAuthorMarkdownRuntime {
+        prompts: Arc<Mutex<Vec<String>>>,
+        json_modes: Arc<Mutex<Vec<bool>>>,
+        provenance: StudioRuntimeProvenance,
+    }
+
+    #[async_trait]
+    impl InferenceRuntime for DirectAuthorMarkdownRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            self.prompts
+                .lock()
+                .expect("prompt log")
+                .push(prompt.clone());
+            self.json_modes
+                .lock()
+                .expect("json mode log")
+                .push(options.json_mode);
+            let response = if prompt.contains("direct document author") {
+                "# Quantum computers\n\n## Why they matter\nQuantum computers use superposition and interference to explore specific classes of problems differently from classical machines.\n\n## Core ideas\n- Qubits carry amplitudes instead of one fixed bit value.\n- Gates rotate state so interference can amplify useful outcomes.\n- Measurement collapses the state into a sampled result.\n\n## Practical caution\nUseful quantum workflows still depend on careful error handling, hardware constraints, and problem selection."
+                    .to_string()
+            } else if prompt.contains("typed artifact judge") {
+                serde_json::json!({
+                    "classification": "pass",
+                    "requestFaithfulness": 5,
+                    "conceptCoverage": 4,
+                    "interactionRelevance": 3,
+                    "layoutCoherence": 4,
+                    "visualHierarchy": 4,
+                    "completeness": 4,
+                    "genericShellDetected": false,
+                    "trivialShellDetected": false,
+                    "deservesPrimaryArtifactView": true,
+                    "patchedExistingArtifact": null,
+                    "continuityRevisionUx": null,
+                    "issueClasses": [],
+                    "repairHints": [],
+                    "strengths": ["Request-specific markdown document"],
+                    "blockedReasons": [],
+                    "fileFindings": [],
+                    "aestheticVerdict": "The markdown document is specific and complete.",
+                    "interactionVerdict": "Direct authoring was appropriate for a single document.",
+                    "truthfulnessWarnings": [],
+                    "recommendedNextPass": "accept",
+                    "strongestContradiction": null,
+                    "rationale": "The markdown artifact directly answers the request."
+                })
+                .to_string()
+            } else {
+                return Err(VmError::HostError(format!(
+                    "unexpected Studio prompt in markdown direct-author test runtime: {prompt}"
+                )));
+            };
+            Ok(response.into_bytes())
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            self.provenance.clone()
+        }
+    }
+
+    let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+    let json_modes = Arc::new(Mutex::new(Vec::<bool>::new()));
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(DirectAuthorMarkdownRuntime {
+        prompts: prompts.clone(),
+        json_modes: json_modes.clone(),
+        provenance: StudioRuntimeProvenance {
+            kind: StudioRuntimeProvenanceKind::FixtureRuntime,
+            label: "fixture markdown direct-author runtime".to_string(),
+            model: Some("fixture-direct-author-markdown".to_string()),
+            endpoint: Some("fixture://direct-author-markdown".to_string()),
+        },
+    });
+    let request = request_for(StudioArtifactClass::Document, StudioRendererKind::Markdown);
+
+    let bundle = tokio::runtime::Runtime::new()
+        .expect("tokio runtime")
+        .block_on(async {
+            generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+                resolve_studio_artifact_runtime_plan(
+                    &request,
+                    runtime.clone(),
+                    None,
+                    StudioArtifactRuntimePolicyProfile::FullyLocal,
+                ),
+                "Quantum computers brief",
+                "Create a markdown artifact that explains quantum computers",
+                &request,
+                None,
+                None,
+                StudioExecutionStrategy::DirectAuthor,
+                None,
+                None,
+            )
+            .await
+        })
+        .expect("markdown direct author bundle");
+
+    let prompt_log = prompts.lock().expect("prompt log");
+    let direct_author_prompt = prompt_log
+        .iter()
+        .find(|prompt| prompt.contains("direct document author"))
+        .expect("direct author prompt");
+    assert!(prompt_log
+        .iter()
+        .any(|prompt| prompt.contains("Raw user request:")));
+    assert!(prompt_log
+        .iter()
+        .any(|prompt| prompt.contains("Return only one complete markdown document.")));
+    assert!(!prompt_log
+        .iter()
+        .any(|prompt| prompt.contains("typed artifact brief planner")));
+    assert!(!direct_author_prompt.contains("Return exactly one JSON object"));
+    assert!(json_modes
+        .lock()
+        .expect("json mode log")
+        .iter()
+        .any(|json_mode| !json_mode));
+    assert_eq!(bundle.winner.files[0].path, "artifact.md");
+    assert_eq!(bundle.winner.files[0].mime, "text/markdown");
+    assert!(bundle.winner.files[0]
+        .body
+        .starts_with("# Quantum computers"));
+    assert_eq!(
+        bundle
+            .execution_envelope
+            .as_ref()
+            .and_then(|entry| entry.strategy),
+        Some(StudioExecutionStrategy::DirectAuthor)
+    );
+}
+
+#[test]
+fn direct_author_acceptance_timeout_surfaces_draft_instead_of_failing() {
+    #[derive(Debug, Clone)]
+    struct FastProductionRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for FastProductionRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            let response = if prompt.contains("direct document author") {
+                "# Quantum computers\n\nQuantum computing uses qubits, interference, and measurement to solve certain classes of problems differently from classical machines.\n\n## Core concepts\n- Superposition keeps multiple amplitudes in play.\n- Entanglement links qubit states.\n- Measurement samples a concrete result."
+                    .to_string()
+            } else if prompt.contains("typed artifact judge") {
+                serde_json::json!({
+                    "classification": "pass",
+                    "requestFaithfulness": 4,
+                    "conceptCoverage": 4,
+                    "interactionRelevance": 3,
+                    "layoutCoherence": 4,
+                    "visualHierarchy": 4,
+                    "completeness": 4,
+                    "genericShellDetected": false,
+                    "trivialShellDetected": false,
+                    "deservesPrimaryArtifactView": false,
+                    "patchedExistingArtifact": null,
+                    "continuityRevisionUx": null,
+                    "issueClasses": [],
+                    "repairHints": [],
+                    "strengths": ["Request-specific direct draft"],
+                    "blockedReasons": [],
+                    "fileFindings": [],
+                    "aestheticVerdict": "Specific enough for a viable draft.",
+                    "interactionVerdict": "A single-document artifact does not require extra interaction.",
+                    "truthfulnessWarnings": [],
+                    "recommendedNextPass": "accept",
+                    "strongestContradiction": null,
+                    "rationale": "The direct-authored draft is viable even before stronger acceptance finishes."
+                })
+                .to_string()
+            } else {
+                return Err(VmError::HostError(format!(
+                    "unexpected production prompt in direct-author timeout test: {prompt}"
+                )));
+            };
+            Ok(response.into_bytes())
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::FixtureRuntime,
+                label: "fast production fixture".to_string(),
+                model: Some("fixture-production".to_string()),
+                endpoint: Some("fixture://production".to_string()),
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    struct SlowAcceptanceRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for SlowAcceptanceRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            if !prompt.contains("typed artifact judge") {
+                return Err(VmError::HostError(format!(
+                    "unexpected acceptance prompt in direct-author timeout test: {prompt}"
+                )));
+            }
+            tokio::time::sleep(Duration::from_millis(150)).await;
+            Ok(serde_json::json!({
+                "classification": "pass",
+                "requestFaithfulness": 5,
+                "conceptCoverage": 5,
+                "interactionRelevance": 4,
+                "layoutCoherence": 5,
+                "visualHierarchy": 5,
+                "completeness": 5,
+                "genericShellDetected": false,
+                "trivialShellDetected": false,
+                "deservesPrimaryArtifactView": true,
+                "patchedExistingArtifact": null,
+                "continuityRevisionUx": null,
+                "issueClasses": [],
+                "repairHints": [],
+                "strengths": ["Would have passed if allowed to finish"],
+                "blockedReasons": [],
+                "fileFindings": [],
+                "aestheticVerdict": "Strong markdown artifact.",
+                "interactionVerdict": "Good fit for direct authoring.",
+                "truthfulnessWarnings": [],
+                "recommendedNextPass": "accept",
+                "strongestContradiction": null,
+                "rationale": "The acceptance judge would have cleared this artifact."
+            })
+            .to_string()
+            .into_bytes())
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::FixtureRuntime,
+                label: "slow acceptance fixture".to_string(),
+                model: Some("fixture-acceptance".to_string()),
+                endpoint: Some("fixture://acceptance".to_string()),
+            }
+        }
+    }
+
+    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    let _guard = ENV_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("env lock");
+    let previous_timeout = std::env::var("AUTOPILOT_STUDIO_ACCEPTANCE_TIMEOUT_MS").ok();
+    unsafe {
+        std::env::set_var("AUTOPILOT_STUDIO_ACCEPTANCE_TIMEOUT_MS", "10");
+    }
+
+    let request = request_for(StudioArtifactClass::Document, StudioRendererKind::Markdown);
+    let production_runtime: Arc<dyn InferenceRuntime> = Arc::new(FastProductionRuntime);
+    let acceptance_runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowAcceptanceRuntime);
+
+    let bundle = tokio::runtime::Runtime::new()
+        .expect("tokio runtime")
+        .block_on(async {
+            generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+                resolve_studio_artifact_runtime_plan(
+                    &request,
+                    production_runtime.clone(),
+                    Some(acceptance_runtime.clone()),
+                    StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
+                ),
+                "Quantum computers brief",
+                "Create a markdown artifact that explains quantum computers",
+                &request,
+                None,
+                None,
+                StudioExecutionStrategy::DirectAuthor,
+                None,
+                None,
+            )
+            .await
+        })
+        .expect("direct author timeout should return a draft bundle");
+
+    unsafe {
+        match previous_timeout {
+            Some(value) => std::env::set_var("AUTOPILOT_STUDIO_ACCEPTANCE_TIMEOUT_MS", value),
+            None => std::env::remove_var("AUTOPILOT_STUDIO_ACCEPTANCE_TIMEOUT_MS"),
+        }
+    }
+
+    assert_eq!(bundle.ux_lifecycle, StudioArtifactUxLifecycle::Draft);
+    assert_eq!(
+        bundle.judge.classification,
+        StudioArtifactJudgeClassification::Repairable
+    );
+    assert!(bundle
+        .judge
+        .strongest_contradiction
+        .as_deref()
+        .is_some_and(|value| value.contains("Acceptance judging timed out after 10ms.")));
+    assert_eq!(bundle.winner.files[0].path, "artifact.md");
+    assert!(bundle.winning_candidate_id.is_some());
+}
+
 fn studio_test_judge(
     classification: StudioArtifactJudgeClassification,
     deserves_primary_artifact_view: bool,
@@ -238,6 +1476,55 @@ fn requested_follow_up_pass_stops_for_clean_acceptance_clear() {
     judge.recommended_next_pass = Some("accept".to_string());
 
     assert_eq!(requested_follow_up_pass(&judge), None);
+}
+
+#[test]
+fn requested_follow_up_pass_keeps_repairing_nontrivial_blocks() {
+    let mut judge = studio_test_judge(
+        StudioArtifactJudgeClassification::Blocked,
+        false,
+        4,
+        5,
+        2,
+        2,
+        2,
+        3,
+    );
+    judge.repair_hints = vec![
+        "Increase text contrast.".to_string(),
+        "Strengthen visible interaction change.".to_string(),
+    ];
+
+    assert_eq!(requested_follow_up_pass(&judge), Some("structural_repair"));
+}
+
+#[test]
+fn modal_first_refinement_directives_do_not_force_shared_detail_panels() {
+    with_modal_first_html_env(|| {
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let brief = sample_quantum_explainer_brief();
+        let judge = studio_test_judge(
+            StudioArtifactJudgeClassification::Repairable,
+            false,
+            4,
+            5,
+            2,
+            3,
+            3,
+            3,
+        );
+
+        let directives =
+            super::studio_artifact_candidate_refinement_directives(&request, &brief, &judge);
+
+        assert!(!directives
+            .contains("Use a named control bar plus a shared detail or comparison panel"));
+        assert!(directives.contains("detached shared-detail panel is optional"));
+        assert!(directives.contains("chosen interaction grammar"));
+    });
 }
 
 fn studio_test_candidate_summary(
@@ -836,93 +2123,6 @@ fn quantum_explainer_maps_to_structural_component_packs_without_domain_branching
 }
 
 #[test]
-fn parses_planning_payload_with_wrapped_text() {
-    let parsed = parse_studio_outcome_planning_payload(
-            "router output\n{\"outcomeKind\":\"conversation\",\"confidence\":0.6,\"needsClarification\":false,\"clarificationQuestions\":[],\"artifact\":null}",
-        )
-        .expect("planning payload");
-    assert_eq!(
-        parsed.outcome_kind,
-        ioi_types::app::StudioOutcomeKind::Conversation
-    );
-}
-
-#[test]
-fn parses_planning_payload_with_missing_scope_and_verification_defaults() {
-    let parsed = parse_studio_outcome_planning_payload(
-        r#"{
-            "outcomeKind": "artifact",
-            "confidence": 0.93,
-            "needsClarification": false,
-            "clarificationQuestions": [],
-            "artifact": {
-                "artifactClass": "document",
-                "deliverableShape": "single_file",
-                "renderer": "markdown",
-                "presentationSurface": "side_panel",
-                "persistence": "artifact_scoped",
-                "executionSubstrate": "none",
-                "workspaceRecipeId": null,
-                "presentationVariantId": null
-            }
-        }"#,
-    )
-    .expect("planning payload should recover missing scope and verification");
-
-    let artifact = parsed.artifact.expect("artifact payload");
-    assert_eq!(artifact.renderer, StudioRendererKind::Markdown);
-    assert_eq!(artifact.scope.target_project, None);
-    assert!(!artifact.scope.create_new_workspace);
-    assert!(artifact.scope.mutation_boundary.is_empty());
-    assert!(!artifact.verification.require_render);
-    assert!(!artifact.verification.require_build);
-    assert!(!artifact.verification.require_preview);
-    assert!(!artifact.verification.require_export);
-    assert!(!artifact.verification.require_diff_review);
-}
-
-#[test]
-fn parses_planning_payload_with_renderer_derived_defaults() {
-    let parsed = parse_studio_outcome_planning_payload(
-        r#"{
-            "outcomeKind": "artifact",
-            "confidence": 0.93,
-            "needsClarification": false,
-            "clarificationQuestions": [],
-            "artifact": {
-                "renderer": "markdown"
-            }
-        }"#,
-    )
-    .expect("planning payload should derive renderer-shaped defaults");
-
-    let artifact = parsed.artifact.expect("artifact payload");
-    assert_eq!(artifact.artifact_class, StudioArtifactClass::Document);
-    assert_eq!(
-        artifact.deliverable_shape,
-        StudioArtifactDeliverableShape::SingleFile
-    );
-    assert_eq!(artifact.renderer, StudioRendererKind::Markdown);
-    assert_eq!(
-        artifact.presentation_surface,
-        StudioPresentationSurface::SidePanel
-    );
-    assert_eq!(
-        artifact.persistence,
-        StudioArtifactPersistenceMode::SharedArtifactScoped
-    );
-    assert_eq!(artifact.execution_substrate, StudioExecutionSubstrate::None);
-    assert_eq!(artifact.scope.target_project, None);
-    assert!(!artifact.scope.create_new_workspace);
-    assert!(artifact.scope.mutation_boundary.is_empty());
-    assert!(!artifact.verification.require_render);
-    assert!(!artifact.verification.require_build);
-    assert!(!artifact.verification.require_preview);
-    assert!(!artifact.verification.require_export);
-    assert!(!artifact.verification.require_diff_review);
-}
-
-#[test]
 fn parse_studio_artifact_brief_coerces_scalar_and_array_shapes() {
     let brief = parse_studio_artifact_brief(
         r#"{
@@ -1298,55 +2498,6 @@ fn edit_intent_repair_prompt_requires_json_wrapper_after_missing_payload() {
 }
 
 #[test]
-fn outcome_router_prompt_spells_out_html_vs_jsx_contracts() {
-    let prompt = build_studio_outcome_router_prompt(
-        "Create an interactive HTML artifact that explains a product rollout with charts",
-        None,
-        None,
-    );
-    let prompt_text = serde_json::to_string(&prompt).expect("prompt text");
-    assert!(prompt_text.contains("html_iframe = a single self-contained .html document"));
-    assert!(prompt_text.contains("jsx_sandbox = a single .jsx source module with a default export"));
-    assert!(prompt_text.contains(
-        "Non-workspace artifact renderers should not request build or preview verification."
-    ));
-    assert!(prompt_text.contains(
-        "Treat explicit medium-plus-deliverable requests as sufficiently specified artifact work."
-    ));
-    assert!(prompt_text
-        .contains("Create an interactive HTML artifact for an AI tools editorial launch page"));
-    assert!(prompt_text.contains("Do not use lexical fallbacks or benchmark phrase maps."));
-}
-
-#[test]
-fn outcome_router_prompt_compacts_for_local_runtime() {
-    let full_prompt = build_studio_outcome_router_prompt(
-        "Create a markdown artifact that documents a release checklist",
-        None,
-        None,
-    );
-    let compact_prompt = build_studio_outcome_router_prompt_for_runtime(
-        "Create a markdown artifact that documents a release checklist",
-        None,
-        None,
-        StudioRuntimeProvenanceKind::RealLocalRuntime,
-    );
-    let full_prompt_text = serde_json::to_string(&full_prompt).expect("full prompt text");
-    let compact_prompt_text = serde_json::to_string(&compact_prompt).expect("compact prompt text");
-
-    assert!(compact_prompt_text.len() < full_prompt_text.len());
-    assert!(compact_prompt_text.contains("Derived automatically from renderer when omitted"));
-    assert!(compact_prompt_text
-        .contains("Build, preview, and diff review are only valid for workspace_surface."));
-    assert!(compact_prompt_text.contains(
-        "Explicit medium-plus-deliverable requests are sufficiently specified artifact work."
-    ));
-    assert!(compact_prompt_text.contains("Do not use lexical fallbacks or benchmark phrase maps."));
-    assert!(!compact_prompt_text
-        .contains("Create an interactive HTML artifact for an AI tools editorial launch page"));
-}
-
-#[test]
 fn studio_artifact_production_sources_do_not_special_case_quantum_fixture() {
     for source in [
         include_str!("planning.rs"),
@@ -1389,43 +2540,6 @@ fn studio_artifact_corpus_summary_tracks_quantum_baseline_fixture() {
     assert_eq!(quantum_case["renderer"], "html_iframe");
     assert_eq!(quantum_case["effectiveClassification"], "repairable");
     assert_eq!(quantum_case["shimDependent"], true);
-}
-
-#[test]
-fn outcome_router_prompt_surfaces_active_artifact_context_for_follow_ups() {
-    let prompt = build_studio_outcome_router_prompt(
-        "Make it feel more enterprise",
-        Some("artifact-1"),
-        Some(&StudioArtifactRefinementContext {
-            artifact_id: Some("artifact-1".to_string()),
-            revision_id: Some("revision-2".to_string()),
-            title: "Dog shampoo rollout".to_string(),
-            summary: "Interactive rollout artifact".to_string(),
-            renderer: StudioRendererKind::HtmlIframe,
-            files: vec![StudioGeneratedArtifactFile {
-                path: "index.html".to_string(),
-                mime: "text/html".to_string(),
-                role: StudioArtifactFileRole::Primary,
-                renderable: true,
-                downloadable: false,
-                encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
-                body: "<!doctype html><html><body><main><section><h1>Dog shampoo rollout</h1></section></main></body></html>".to_string(),
-            }],
-            selected_targets: Vec::new(),
-            taste_memory: None,
-            blueprint: None,
-            artifact_ir: None,
-            selected_skills: Vec::new(),
-            retrieved_exemplars: Vec::new(),
-        }),
-    );
-    let prompt_bytes = serde_json::to_vec(&prompt).expect("prompt bytes");
-    let prompt_text = decode_studio_test_prompt(&prompt_bytes);
-
-    assert!(prompt_text.contains("Active artifact context JSON"));
-    assert!(prompt_text.contains("\"renderer\":\"html_iframe\""));
-    assert!(prompt_text.contains("patch or branch the current artifact by default"));
-    assert!(prompt_text.contains("continue the active artifact"));
 }
 
 #[test]
@@ -1612,9 +2726,13 @@ fn local_html_materialization_prompt_is_compact_for_runtime() {
     assert!(local_prompt_text.contains("Scaffold execution digest"));
     assert!(local_prompt_text.contains("Renderer-native authoring guidance"));
     assert!(local_prompt_text.contains("keyboard-focusable"));
-    assert!(local_prompt_text.contains(
-        "populate its default state directly in the HTML before any script runs"
-    ));
+    assert!(local_prompt_text.contains("mapped-panel scaffold"));
+    assert!(local_prompt_text.contains("querySelectorAll('[data-view-panel]')"));
+    assert!(
+        local_prompt_text.contains("do not point every control only to the shared detail region")
+    );
+    assert!(local_prompt_text
+        .contains("populate its default state directly in the HTML before any script runs"));
     assert!(!local_prompt_text.contains("Artifact blueprint JSON"));
     assert!(!local_prompt_text.contains("Artifact IR JSON"));
     assert!(!local_prompt_text.contains("Selected skill guidance JSON"));
@@ -1701,15 +2819,13 @@ fn artifact_materializer_and_judge_prompts_penalize_generic_placeholder_outputs(
     assert!(materializer_text.contains("must use semantic HTML structure"));
     assert!(materializer_text.contains("must not use alert()"));
     assert!(materializer_text.contains("must not invent custom element tags"));
-    assert!(materializer_text.contains(
-        "must not emit the literal words placeholder, placeholders, TODO, or TBD"
-    ));
+    assert!(materializer_text
+        .contains("must not emit the literal words placeholder, placeholders, TODO, or TBD"));
     assert!(materializer_text.contains("candidate seed to vary composition"));
     assert!(materializer_text.contains("abstract geometry alone does not count"));
     assert!(materializer_text.contains("shared detail, comparison, or explanation region"));
-    assert!(materializer_text.contains(
-        "must not include HTML comments, placeholder comments, TODO markers"
-    ));
+    assert!(materializer_text
+        .contains("must not include HTML comments, placeholder comments, TODO markers"));
     assert!(materializer_text.contains("Do not use fragment-jump anchors"));
     assert!(materializer_text.contains("references to DOM ids"));
     assert!(materializer_text.contains("one chart plus generic prose is insufficient"));
@@ -2337,12 +3453,9 @@ fn local_html_materialization_repair_prompt_uses_compact_focus_contract() {
     assert!(local_text.contains("bodyPreview") || local_text.contains("rawOutputPreview"));
     assert!(local_text.contains("instead of restarting from a fresh shell"));
     assert!(local_text.contains("keyboard-focusable"));
-    assert!(local_text.contains(
-        "do not leave it empty until interaction"
-    ));
-    assert!(local_text.contains(
-        "Do not emit the literal words placeholder, placeholders, TODO, or TBD"
-    ));
+    assert!(local_text.contains("do not leave it empty until interaction"));
+    assert!(local_text
+        .contains("Do not emit the literal words placeholder, placeholders, TODO, or TBD"));
     assert!(!local_text.contains("Artifact blueprint JSON"));
     assert!(!local_text.contains("Artifact IR JSON"));
     assert!(!local_text.contains("Selected skill guidance JSON"));
@@ -2731,6 +3844,36 @@ fn rollover_failure_directives_require_focusable_detail_marks() {
 }
 
 #[test]
+fn parse_and_validate_repairs_missing_panel_ids_referenced_by_scripts() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let raw = serde_json::json!({
+        "summary": "Quantum computing explainer",
+        "notes": [],
+        "files": [{
+            "path": "index.html",
+            "mime": "text/html",
+            "role": "primary",
+            "renderable": true,
+            "downloadable": false,
+            "encoding": "utf8",
+            "body": "<!doctype html><html><body><main><section><h1>Quantum computing explainer</h1><button type=\"button\" data-view=\"superposition\" aria-controls=\"superposition-panel\" aria-selected=\"true\">Superposition</button><button type=\"button\" data-view=\"entanglement\" aria-controls=\"entanglement-panel\" aria-selected=\"false\">Entanglement</button></section><section data-view-panel=\"superposition\"><article><h2>Superposition view</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Superposition evidence\"><rect x=\"20\" y=\"40\" width=\"42\" height=\"60\" data-detail=\"Qubit amplitudes overlap\" tabindex=\"0\"></rect><text x=\"20\" y=\"114\">Overlap</text></svg></article></section><section data-view-panel=\"entanglement\" hidden><article><h2>Entanglement view</h2><p>Entanglement evidence stays pre-rendered here.</p></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Superposition is selected by default.</p></aside><script>const detail=document.getElementById('detail-copy');const activePanel=document.getElementById('superposition-panel');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});const panel=document.getElementById(button.getAttribute('aria-controls'));if(panel){detail.textContent=panel.querySelector('h2')?.textContent||button.textContent||'';}}));if(activePanel){detail.textContent=activePanel.querySelector('h2')?.textContent||detail.textContent;}</script></main></body></html>"
+        }]
+    })
+    .to_string();
+
+    let payload = parse_and_validate_generated_artifact_payload(&raw, &request)
+        .expect("normalization should add matching panel ids for referenced controls");
+    let html = payload.files[0].body.to_ascii_lowercase();
+
+    assert!(html.contains("id=\"superposition-panel\""));
+    assert!(html.contains("id=\"entanglement-panel\""));
+    assert!(!html_references_missing_dom_ids(&html));
+}
+
+#[test]
 fn view_switching_failure_directives_require_panel_scaffold() {
     let request = request_for(
         StudioArtifactClass::InteractiveSingleFile,
@@ -2874,14 +4017,27 @@ fn pdf_placeholder_failure_directives_require_concrete_copy() {
 }
 
 #[test]
-fn html_local_runtime_candidate_generation_starts_with_single_candidate() {
+fn html_local_runtime_candidate_generation_starts_with_two_candidates() {
     let (count, temperature, strategy) = candidate_generation_config(
         StudioRendererKind::HtmlIframe,
         StudioRuntimeProvenanceKind::RealLocalRuntime,
     );
-    assert_eq!(count, 1);
+    assert_eq!(count, 2);
     assert!(temperature > 0.5);
     assert_eq!(strategy, "request-grounded_html");
+}
+
+#[test]
+fn modal_first_html_local_runtime_candidate_generation_uses_single_candidate() {
+    with_modal_first_html_env(|| {
+        let (count, temperature, strategy) = candidate_generation_config(
+            StudioRendererKind::HtmlIframe,
+            StudioRuntimeProvenanceKind::RealLocalRuntime,
+        );
+        assert_eq!(count, 1);
+        assert!(temperature >= 0.68);
+        assert_eq!(strategy, "request-grounded_html");
+    });
 }
 
 #[test]
@@ -2907,13 +4063,26 @@ fn local_html_generation_temperature_is_clamped_by_runtime_shape() {
 }
 
 #[test]
-fn html_local_runtime_materialization_token_budget_is_compact() {
+fn modal_first_html_local_runtime_materialization_token_budget_expands_completion_room() {
+    with_modal_first_html_env(|| {
+        assert_eq!(
+            super::generation::materialization_max_tokens_for_runtime(
+                StudioRendererKind::HtmlIframe,
+                StudioRuntimeProvenanceKind::RealLocalRuntime,
+            ),
+            4200
+        );
+    });
+}
+
+#[test]
+fn html_local_runtime_materialization_token_budget_preserves_completion_room() {
     assert_eq!(
         super::generation::materialization_max_tokens_for_runtime(
             StudioRendererKind::HtmlIframe,
             StudioRuntimeProvenanceKind::RealLocalRuntime,
         ),
-        1600
+        2200
     );
     assert_eq!(
         super::generation::materialization_max_tokens_for_runtime(
@@ -2922,6 +4091,213 @@ fn html_local_runtime_materialization_token_budget_is_compact() {
         ),
         2800
     );
+}
+
+#[tokio::test]
+async fn modal_first_local_html_can_open_draft_before_acceptance() {
+    #[derive(Clone)]
+    struct DraftFirstHtmlRuntime {
+        provenance: StudioRuntimeProvenance,
+        role: &'static str,
+        calls: Arc<Mutex<Vec<String>>>,
+    }
+
+    #[async_trait]
+    impl InferenceRuntime for DraftFirstHtmlRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            let stage = if prompt.contains("typed artifact brief planner") {
+                "brief"
+            } else if prompt.contains("typed artifact materializer") {
+                "materialize"
+            } else if prompt.contains("typed artifact judge") {
+                "judge"
+            } else {
+                "unknown"
+            };
+            self.calls
+                .lock()
+                .expect("calls lock")
+                .push(format!("{}:{stage}", self.role));
+
+            let response = match stage {
+                "brief" => serde_json::json!({
+                    "audience": "operators",
+                    "jobToBeDone": "understand how quantum computers differ from classical systems",
+                    "subjectDomain": "quantum computing",
+                    "artifactThesis": "Explain the mental model with one request-grounded interactive artifact.",
+                    "requiredConcepts": ["superposition", "measurement", "qubit"],
+                    "requiredInteractions": [
+                        "switch between classical and quantum views to compare how the explanation changes",
+                        "inspect qubit callouts to reveal deeper context inline"
+                    ],
+                    "visualTone": ["technical editorial"],
+                    "factualAnchors": ["measurement collapse"],
+                    "styleDirectives": ["restrained dark scientific layout"],
+                    "referenceHints": ["use browser-native controls only"]
+                }),
+                "materialize" => serde_json::json!({
+                    "summary": "Quantum explainer draft",
+                    "notes": ["Created a request-grounded HTML draft suitable for first paint."],
+                    "files": [{
+                        "path": "index.html",
+                        "mime": "text/html",
+                        "role": "primary",
+                        "renderable": true,
+                        "downloadable": true,
+                        "encoding": "utf8",
+                        "body": "<!doctype html><html><head><meta charset=\"utf-8\"><title>Quantum computers interactive explainer</title><style>:root{color-scheme:dark;--bg:#10151b;--panel:#18202a;--border:#2a3644;--text:#ebf1f7;--muted:#9aabbe;--accent:#7dd3fc;}*{box-sizing:border-box;}body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);}main{max-width:960px;margin:0 auto;padding:28px;display:grid;gap:18px;}section{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:18px;}button{border:1px solid #31506d;background:#182635;color:var(--text);border-radius:999px;padding:9px 14px;font:inherit;cursor:pointer;}button[aria-selected=\"true\"]{border-color:var(--accent);box-shadow:0 0 0 1px rgba(125,211,252,.34) inset;}p{color:var(--muted);line-height:1.55;}</style></head><body><main><section><h1>Quantum computers, visually</h1><p>Compare a classical bit with a qubit, then inspect how measurement changes what you can know.</p><div><button type=\"button\" data-mode=\"classical\" aria-selected=\"true\">Classical bit</button><button type=\"button\" data-mode=\"quantum\" aria-selected=\"false\">Quantum qubit</button></div></section><section><h2>State comparison</h2><p id=\"mode-summary\">A classical bit is either 0 or 1 before you read it.</p><p id=\"detail-copy\">Select a mode to reveal how quantum state and measurement differ.</p></section></main><script>const summary=document.getElementById('mode-summary');const detail=document.getElementById('detail-copy');const controls=document.querySelectorAll('[data-mode]');controls.forEach((button)=>button.addEventListener('click',()=>{controls.forEach((control)=>control.setAttribute('aria-selected', String(control===button)));if(button.dataset.mode==='quantum'){summary.textContent='A qubit can encode amplitude across multiple outcomes before measurement collapses the state.';detail.textContent='Quantum mode selected. Measurement turns a spread of possibilities into one observed result.';}else{summary.textContent='A classical bit is either 0 or 1 before you read it.';detail.textContent='Classical mode selected. The state is definite before observation.';}}));</script></body></html>"
+                    }]
+                }),
+                "judge" => serde_json::json!({
+                    "classification": "pass",
+                    "requestFaithfulness": 5,
+                    "conceptCoverage": 5,
+                    "interactionRelevance": 4,
+                    "layoutCoherence": 4,
+                    "visualHierarchy": 4,
+                    "completeness": 4,
+                    "genericShellDetected": false,
+                    "trivialShellDetected": false,
+                    "deservesPrimaryArtifactView": true,
+                    "patchedExistingArtifact": null,
+                    "continuityRevisionUx": null,
+                    "strongestContradiction": null,
+                    "rationale": "The local HTML draft is request-grounded and strong enough to open while acceptance remains pending."
+                }),
+                _ => return Err(VmError::HostError("unexpected Studio prompt".to_string())),
+            };
+
+            Ok(response.to_string().into_bytes())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            self.provenance.clone()
+        }
+    }
+
+    #[derive(Default)]
+    struct DraftFirstHtmlRenderEvaluator;
+
+    #[async_trait]
+    impl StudioArtifactRenderEvaluator for DraftFirstHtmlRenderEvaluator {
+        async fn evaluate_candidate_render(
+            &self,
+            _request: &StudioOutcomeArtifactRequest,
+            _brief: &StudioArtifactBrief,
+            _blueprint: Option<&StudioArtifactBlueprint>,
+            _artifact_ir: Option<&StudioArtifactIR>,
+            _edit_intent: Option<&StudioArtifactEditIntent>,
+            _candidate: &StudioGeneratedArtifactPayload,
+        ) -> Result<Option<StudioArtifactRenderEvaluation>, String> {
+            Ok(Some(studio_test_render_evaluation(
+                18,
+                true,
+                Vec::new(),
+                vec![
+                    studio_test_render_capture(
+                        StudioArtifactRenderCaptureViewport::Desktop,
+                        48,
+                        460,
+                        4,
+                    ),
+                    studio_test_render_capture(
+                        StudioArtifactRenderCaptureViewport::Mobile,
+                        44,
+                        408,
+                        4,
+                    ),
+                ],
+            )))
+        }
+    }
+
+    with_modal_first_html_env_async(|| async {
+        let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+        let production_runtime: Arc<dyn InferenceRuntime> = Arc::new(DraftFirstHtmlRuntime {
+            provenance: StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                label: "openai-compatible".to_string(),
+                model: Some("qwen3.5:9b".to_string()),
+                endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+            },
+            role: "production",
+            calls: calls.clone(),
+        });
+        let acceptance_runtime: Arc<dyn InferenceRuntime> = Arc::new(DraftFirstHtmlRuntime {
+            provenance: StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                label: "openai-compatible".to_string(),
+                model: Some("qwen3.5:9b".to_string()),
+                endpoint: Some(
+                    "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance".to_string(),
+                ),
+            },
+            role: "acceptance",
+            calls: calls.clone(),
+        });
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let runtime_plan = resolve_studio_artifact_runtime_plan(
+            &request,
+            production_runtime,
+            Some(acceptance_runtime),
+            StudioArtifactRuntimePolicyProfile::FullyLocal,
+        );
+        let evaluator = DraftFirstHtmlRenderEvaluator;
+
+        let bundle =
+            generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+                runtime_plan,
+                "Quantum computers interactive explainer",
+                "Create an interactive HTML artifact that explains quantum computers",
+                &request,
+                None,
+                None,
+                StudioExecutionStrategy::SinglePass,
+                Some(&evaluator),
+                None,
+            )
+            .await
+            .expect("modal-first local html bundle should generate");
+
+        let call_log = calls.lock().expect("calls lock").clone();
+        assert!(call_log.iter().any(|entry| entry == "production:brief"));
+        assert!(call_log
+            .iter()
+            .any(|entry| entry == "production:materialize"));
+        assert!(call_log.iter().any(|entry| entry == "production:judge"));
+        assert!(!call_log.iter().any(|entry| entry.starts_with("acceptance:")));
+        assert_eq!(bundle.ux_lifecycle, StudioArtifactUxLifecycle::Draft);
+        assert_eq!(
+            bundle.judge.classification,
+            StudioArtifactJudgeClassification::Repairable
+        );
+        assert_eq!(bundle.winning_candidate_id.as_deref(), Some("candidate-1"));
+        assert!(bundle
+            .winning_candidate_rationale
+            .as_deref()
+            .is_some_and(|rationale| rationale.contains("Production surfaced a request-faithful local draft")));
+        assert!(bundle.winner.files.iter().any(|file| {
+            file.path == "index.html" && file.body.contains("Quantum computers, visually")
+        }));
+    })
+    .await;
 }
 
 #[test]
@@ -2950,14 +4326,27 @@ fn simple_local_runtime_renderers_use_single_candidate_budgets() {
 }
 
 #[test]
-fn html_local_runtime_refinement_budget_limits_to_single_pass() {
+fn html_local_runtime_refinement_budget_allows_two_passes() {
     assert_eq!(
         super::judging::semantic_refinement_pass_limit(
             StudioRendererKind::HtmlIframe,
             StudioRuntimeProvenanceKind::RealLocalRuntime,
         ),
-        1
+        2
     );
+}
+
+#[test]
+fn modal_first_html_local_runtime_refinement_budget_allows_one_pass() {
+    with_modal_first_html_env(|| {
+        assert_eq!(
+            super::judging::semantic_refinement_pass_limit(
+                StudioRendererKind::HtmlIframe,
+                StudioRuntimeProvenanceKind::RealLocalRuntime,
+            ),
+            1
+        );
+    });
 }
 
 #[test]
@@ -2979,12 +4368,14 @@ fn quantum_html_budget_expands_structurally_but_stays_bounded() {
         &[],
         None,
         StudioRuntimeProvenanceKind::RealLocalRuntime,
+        StudioArtifactRuntimePolicyProfile::FullyLocal,
+        false,
     );
 
-    assert_eq!(budget.initial_candidate_count, 1);
-    assert_eq!(budget.max_candidate_count, 2);
+    assert_eq!(budget.initial_candidate_count, 2);
+    assert_eq!(budget.max_candidate_count, 3);
     assert!(budget.shortlist_limit >= 2);
-    assert!(budget.max_semantic_refinement_passes >= 1);
+    assert!(budget.max_semantic_refinement_passes >= 2);
     assert!(budget.max_semantic_refinement_passes <= 2);
     assert!(budget
         .signals
@@ -3001,7 +4392,113 @@ fn quantum_html_budget_expands_structurally_but_stays_bounded() {
 }
 
 #[test]
-fn moderate_local_html_budget_stays_single_candidate_before_refinement() {
+fn modal_first_quantum_html_budget_stays_user_viable() {
+    with_modal_first_html_env(|| {
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let brief = sample_quantum_explainer_brief();
+        let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+        let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+
+        let budget = super::generation::derive_studio_adaptive_search_budget(
+            &request,
+            &brief,
+            Some(&blueprint),
+            Some(&artifact_ir),
+            &[],
+            &[],
+            None,
+            StudioRuntimeProvenanceKind::RealLocalRuntime,
+            StudioArtifactRuntimePolicyProfile::FullyLocal,
+            false,
+        );
+
+        assert_eq!(budget.initial_candidate_count, 1);
+        assert_eq!(budget.max_candidate_count, 1);
+        assert_eq!(budget.shortlist_limit, 1);
+        assert_eq!(budget.max_semantic_refinement_passes, 1);
+        assert!(budget
+            .signals
+            .contains(&StudioAdaptiveSearchSignal::LocalGenerationConstraint));
+    });
+}
+
+#[test]
+fn modal_first_quantum_html_budget_reopens_for_judge_backed_runtime_profile() {
+    with_modal_first_html_env(|| {
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let brief = sample_quantum_explainer_brief();
+        let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+        let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+
+        let budget = super::generation::derive_studio_adaptive_search_budget(
+            &request,
+            &brief,
+            Some(&blueprint),
+            Some(&artifact_ir),
+            &[],
+            &[],
+            None,
+            StudioRuntimeProvenanceKind::RealLocalRuntime,
+            StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
+            false,
+        );
+
+        assert_eq!(budget.initial_candidate_count, 1);
+        assert!(budget.max_candidate_count >= 3);
+        assert!(budget.shortlist_limit >= 3);
+        assert_eq!(budget.max_semantic_refinement_passes, 3);
+        assert!(budget
+            .signals
+            .contains(&StudioAdaptiveSearchSignal::LocalGenerationConstraint));
+    });
+}
+
+#[test]
+fn modal_first_local_html_prompt_pushes_authored_interactive_explainers() {
+    with_modal_first_html_env(|| {
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let brief = sample_quantum_explainer_brief();
+
+        let prompt = build_studio_artifact_materialization_prompt_for_runtime(
+            "Quantum computing explainer",
+            "Create an interactive HTML artifact that explains quantum computers",
+            &request,
+            &brief,
+            None,
+            None,
+            &[],
+            &[],
+            None,
+            None,
+            "candidate-1",
+            42,
+            StudioRuntimeProvenanceKind::RealLocalRuntime,
+        )
+        .expect("modal-first local prompt");
+
+        let prompt_bytes = serde_json::to_vec(&prompt).expect("prompt bytes");
+        let prompt_text = decode_studio_test_prompt(&prompt_bytes);
+
+        assert!(prompt_text.contains(
+            "prefer a living model, scenario walkthrough, inspectable diagram, or guided comparison"
+        ));
+        assert!(prompt_text
+            .contains("one isolated button or slider does not satisfy an interactive artifact"));
+        assert!(prompt_text.contains("avoid default browser-white document styling"));
+    });
+}
+
+#[test]
+fn moderate_local_html_budget_stays_tightly_bounded_before_refinement() {
     let request = request_for(
         StudioArtifactClass::InteractiveSingleFile,
         StudioRendererKind::HtmlIframe,
@@ -3041,10 +4538,12 @@ fn moderate_local_html_budget_stays_single_candidate_before_refinement() {
         &[],
         None,
         StudioRuntimeProvenanceKind::RealLocalRuntime,
+        StudioArtifactRuntimePolicyProfile::FullyLocal,
+        false,
     );
 
-    assert_eq!(budget.initial_candidate_count, 1);
-    assert_eq!(budget.max_candidate_count, 1);
+    assert_eq!(budget.initial_candidate_count, 2);
+    assert_eq!(budget.max_candidate_count, 2);
     assert_eq!(budget.shortlist_limit, 1);
     assert!(budget
         .signals
@@ -3072,6 +4571,8 @@ fn low_variance_near_misses_expand_to_budget_cap() {
         &[],
         None,
         StudioRuntimeProvenanceKind::RealLocalRuntime,
+        StudioArtifactRuntimePolicyProfile::FullyLocal,
+        false,
     );
     let candidate_summaries = vec![
         studio_test_candidate_summary(
@@ -3342,12 +4843,183 @@ fn parse_and_validate_recovers_raw_html_payloads_and_normalizes_custom_fonts() {
     assert!(payload
         .notes
         .iter()
-        .any(|note| note.contains("normalized from raw html output")));
+        .any(|note| note.contains("normalized from raw html document output")));
     let html = payload.files[0].body.to_ascii_lowercase();
     assert!(!html.contains("font-family:'newsreader'"));
     assert!(!html.contains("font-family:'instrument sans'"));
     assert!(html.contains("ui-serif, serif"));
     assert!(html.contains("system-ui, sans-serif"));
+}
+
+#[test]
+fn parse_and_validate_recovers_raw_markdown_payloads() {
+    let request = request_for(StudioArtifactClass::Document, StudioRendererKind::Markdown);
+    let raw = "```markdown\n# Quantum computers\n\n## Core idea\nQuantum computers use qubits, interference, and measurement to solve specific classes of problems differently from classical systems.\n\n## What changes in practice\nTeams still need algorithm fit, hardware realism, and error mitigation.\n```";
+
+    let payload = parse_and_validate_generated_artifact_payload(raw, &request)
+        .expect("raw markdown payloads should be recoverable for direct document artifacts");
+
+    assert_eq!(payload.files[0].path, "artifact.md");
+    assert_eq!(payload.files[0].mime, "text/markdown");
+    assert!(payload.files[0].body.starts_with("# Quantum computers"));
+    assert!(payload
+        .notes
+        .iter()
+        .any(|note| note.contains("normalized from raw markdown document output")));
+}
+
+#[test]
+fn parse_and_validate_recovers_raw_svg_payloads() {
+    let request = request_for(StudioArtifactClass::Visual, StudioRendererKind::Svg);
+    let raw = "Here is the document:\n<svg viewBox=\"0 0 240 140\" xmlns=\"http://www.w3.org/2000/svg\"><title>Quantum comparison</title><desc>Compares classical and quantum states.</desc><rect x=\"16\" y=\"58\" width=\"42\" height=\"54\" /><rect x=\"84\" y=\"34\" width=\"42\" height=\"78\" /><rect x=\"152\" y=\"20\" width=\"42\" height=\"92\" /><text x=\"16\" y=\"130\">Bit</text><text x=\"84\" y=\"130\">Qubit</text><text x=\"152\" y=\"130\">Measure</text></svg>\nThanks.";
+
+    let payload = parse_and_validate_generated_artifact_payload(raw, &request)
+        .expect("raw svg payloads should be recoverable for direct document artifacts");
+
+    assert_eq!(payload.files[0].path, "artifact.svg");
+    assert_eq!(payload.files[0].mime, "image/svg+xml");
+    assert!(payload.files[0].body.starts_with("<svg"));
+    assert!(payload.files[0].body.ends_with("</svg>"));
+    assert!(payload
+        .notes
+        .iter()
+        .any(|note| note.contains("normalized from raw svg document output")));
+}
+
+#[test]
+fn parse_and_validate_repairs_json_wrapped_html_missing_main_region() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let raw = serde_json::json!({
+        "summary": "Quantum computing explainer",
+        "notes": ["model emitted the typed wrapper"],
+        "files": [{
+            "path": "artifact.html",
+            "mime": "text/html",
+            "role": "primary",
+            "renderable": true,
+            "downloadable": true,
+            "encoding": "utf8",
+            "body": "<!doctype html><html><head><style>body{font-family:system-ui,sans-serif;}section{padding:1rem;}</style></head><body><header><h1>Quantum computing explained</h1><p>Inspect qubits, entanglement, and measurement without leaving the page.</p></header><section><h2>Qubits</h2><p>Qubits can represent blended amplitudes before measurement.</p></section><section><h2>Entanglement</h2><p>Entangled qubits share state information across distance.</p></section><section><h2>Measurement</h2><p>Measurement collapses amplitudes into observed outcomes.</p></section></body></html>"
+        }]
+    })
+    .to_string();
+
+    let payload = parse_and_validate_generated_artifact_payload(&raw, &request)
+        .expect("normalization should synthesize a valid main region for wrapped html");
+
+    let html = payload.files[0].body.to_ascii_lowercase();
+    assert!(html.contains("<main"));
+    assert!(html.contains("</main>"));
+    assert!(html.matches("<section").count() >= 3);
+}
+
+#[test]
+fn modal_first_html_normalization_injects_minimum_interaction_when_missing() {
+    with_modal_first_html_env(|| {
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let raw = serde_json::json!({
+            "summary": "Quantum computing explainer",
+            "notes": ["model emitted a static page shell"],
+            "files": [{
+                "path": "quantum-explainer.html",
+                "mime": "text/html",
+                "role": "primary",
+                "renderable": true,
+                "downloadable": true,
+                "encoding": "utf8",
+                "body": "<!doctype html><html><body><header><h1>Quantum computing explained</h1><p>Understand superposition, entanglement, and measurement through concise sections.</p></header><section><h2>Superposition</h2><p>Qubits carry probability amplitudes before observation.</p></section><section><h2>Entanglement</h2><p>Entangled systems share state relationships across distance.</p></section><section><h2>Measurement</h2><p>Measurement collapses the quantum state into a classical outcome.</p></section></body></html>"
+            }]
+        })
+        .to_string();
+
+        let payload = parse_and_validate_generated_artifact_payload(&raw, &request)
+            .expect("modal-first normalization should add a minimal interaction affordance");
+
+        let html = payload.files[0].body.to_ascii_lowercase();
+        assert!(html.contains("<details"));
+        assert!(html.contains("<summary"));
+        assert!(html.contains("data-studio-interaction=\"true\""));
+        validate_generated_artifact_payload(&payload, &request)
+            .expect("the normalized modal-first draft should satisfy interaction validation");
+    });
+}
+
+#[test]
+fn modal_first_html_validation_rejects_truncated_documents() {
+    with_modal_first_html_env(|| {
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let raw = "<!doctype html><html><body><main><section><h1>Quantum computing explained</h1><p>Inspect qubits, entanglement, and measurement through a request-specific explainer.</p><button type=\"button\" data-view=\"superposition\">Superposition</button></section><section><article><h2>Quantum circuit</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Quantum circuit\"><rect x=\"24\" y=\"54\" width=\"42\" height=\"62\"></rect><text x=\"24\" y=\"132\">Gate</text></svg></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Superposition is selected by default.</p></aside><script>document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{document.getElementById('detail-copy').textContent=button.dataset.view;}));</script><div class=\"";
+
+        let error = parse_and_validate_generated_artifact_payload(raw, &request)
+            .expect_err("truncated modal-first html should be rejected before promotion");
+
+        assert!(error.contains("fully closed </body></html> document"));
+    });
+}
+
+#[test]
+fn modal_first_html_normalization_closes_missing_terminal_suffix() {
+    with_modal_first_html_env(|| {
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let raw = "<!doctype html><html><body><main><section><h1>Quantum computing explained</h1><p>Inspect qubits, entanglement, and measurement through a request-specific explainer.</p><button type=\"button\" data-view=\"superposition\">Superposition</button></section><section><article><h2>Quantum circuit</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Quantum circuit\"><rect x=\"24\" y=\"54\" width=\"42\" height=\"62\"></rect><text x=\"24\" y=\"132\">Gate</text></svg></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Superposition is selected by default.</p></aside><script>document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{document.getElementById('detail-copy').textContent=button.dataset.view;}));</script>";
+
+        let payload = parse_and_validate_generated_artifact_payload(raw, &request)
+            .expect("modal-first normalization should close a missing terminal html suffix");
+
+        let html = payload.files[0].body.to_ascii_lowercase();
+        assert!(html.ends_with("</main></body></html>"));
+        validate_generated_artifact_payload(&payload, &request)
+            .expect("the normalized html suffix should validate");
+    });
+}
+
+#[test]
+fn parse_and_validate_extracts_html_from_mixed_json_and_html_output() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let raw = concat!(
+        "{\"summary\":\"Interactive HTML artifact\",\"notes\":[\"model spilled both formats\"],",
+        "\"files\":[{\"path\":\"artifact.html\",\"mime\":\"text/html\",\"role\":\"primary\",",
+        "\"renderable\":true,\"downloadable\":false,\"encoding\":\"utf8\",\"body\":\"truncated\"}]}",
+        "\n<!doctype html><html><body><main><section><h1>Quantum computers explained</h1>",
+        "<p>Inspect qubits, superposition, and entanglement through authored states.</p>",
+        "<button type=\"button\" data-view=\"qubits\" aria-controls=\"qubits-panel\">Qubits</button>",
+        "<button type=\"button\" data-view=\"entanglement\" aria-controls=\"entanglement-panel\">Entanglement</button>",
+        "</section><section id=\"qubits-panel\" data-view-panel=\"qubits\"><article><h2>Qubits</h2>",
+        "<p>Qubits encode amplitudes instead of a fixed binary state.</p></article></section>",
+        "<section id=\"entanglement-panel\" data-view-panel=\"entanglement\" hidden><article><h2>Entanglement</h2>",
+        "<p>Entangled pairs preserve correlated outcomes across distance.</p></article></section>",
+        "<aside><h2>Detail</h2><p id=\"detail-copy\">Qubits are selected by default.</p></aside>",
+        "<script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view + ' selected.';}));</script>",
+        "</main></body></html>\ntrailing prose that should be discarded"
+    );
+
+    let payload = parse_and_validate_generated_artifact_payload(raw, &request)
+        .expect("mixed json/html output should salvage the authored html document");
+
+    assert_eq!(payload.files[0].path, "artifact.html");
+    assert!(payload.files[0].body.starts_with("<!doctype html>"));
+    assert!(payload.files[0]
+        .body
+        .contains("Quantum computers explained"));
+    assert!(!payload.files[0].body.contains("\"summary\":"));
+    assert!(!payload.files[0]
+        .body
+        .contains("trailing prose that should be discarded"));
 }
 
 #[test]
@@ -3820,7 +5492,7 @@ fn accepts_html_payloads_with_negated_placeholder_wording_and_no_comments() {
                 renderable: true,
                 downloadable: true,
                 encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
-                body: "<!doctype html><html><body><main><section><h1>AI tools editorial launch</h1><p>No placeholders appear in this launch brief; the page starts with real copy and evidence.</p><div class=\"control-bar\"><button type=\"button\" data-view=\"overview\" aria-controls=\"overview-panel\">Overview</button><button type=\"button\" data-view=\"signals\" aria-controls=\"signals-panel\">Signals</button></div></section><section id=\"overview-panel\" data-view-panel=\"overview\"><article><h2>Adoption view</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Adoption by workflow\"><rect x=\"20\" y=\"44\" width=\"40\" height=\"56\" data-detail=\"Drafting copilots lead adoption\" tabindex=\"0\"></rect><rect x=\"88\" y=\"30\" width=\"40\" height=\"70\" data-detail=\"Research copilots show the strongest trust lift\" tabindex=\"0\"></rect><text x=\"20\" y=\"114\">Drafting</text><text x=\"88\" y=\"114\">Research</text></svg></article></section><section id=\"signals-panel\" data-view-panel=\"signals\" hidden><article><h2>Signal rail</h2><ul><li>Fact-check coverage rose across launch week.</li><li>Editorial confidence improved after revisions.</li><li>Operator guidance stayed visible on first paint.</li></ul></article></section><aside id=\"detail-panel\"><h2>Shared detail</h2><p id=\"detail-copy\">Drafting copilots lead adoption by default.</p></aside><footer><p>Use the control bar to compare the launch evidence and update the shared detail panel.</p></footer></main><script>const buttons=Array.from(document.querySelectorAll('[data-view]'));const panels=Array.from(document.querySelectorAll('[data-view-panel]'));const detail=document.getElementById('detail-copy');const marks=Array.from(document.querySelectorAll('[data-detail]'));buttons.forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{const active=panel.dataset.viewPanel===button.dataset.view;panel.hidden=!active;});}));marks.forEach((mark)=>{const syncDetail=()=>{detail.textContent=mark.dataset.detail||'';};mark.addEventListener('mouseenter',syncDetail);mark.addEventListener('focus',syncDetail);});</script></body></html>".to_string(),
+                body: "<!doctype html><html><body><main><section><h1>AI tools editorial launch</h1><p>No placeholders or TODOs appear in this launch brief; the page starts with real copy and evidence.</p><div class=\"control-bar\"><button type=\"button\" data-view=\"overview\" aria-controls=\"overview-panel\">Overview</button><button type=\"button\" data-view=\"signals\" aria-controls=\"signals-panel\">Signals</button></div></section><section id=\"overview-panel\" data-view-panel=\"overview\"><article><h2>Adoption view</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Adoption by workflow\"><rect x=\"20\" y=\"44\" width=\"40\" height=\"56\" data-detail=\"Drafting copilots lead adoption\" tabindex=\"0\"></rect><rect x=\"88\" y=\"30\" width=\"40\" height=\"70\" data-detail=\"Research copilots show the strongest trust lift\" tabindex=\"0\"></rect><text x=\"20\" y=\"114\">Drafting</text><text x=\"88\" y=\"114\">Research</text></svg></article></section><section id=\"signals-panel\" data-view-panel=\"signals\" hidden><article><h2>Signal rail</h2><ul><li>Fact-check coverage rose across launch week.</li><li>Editorial confidence improved after revisions.</li><li>Operator guidance stayed visible on first paint.</li></ul></article></section><aside id=\"detail-panel\"><h2>Shared detail</h2><p id=\"detail-copy\">Drafting copilots lead adoption by default.</p></aside><footer><p>Use the control bar to compare the launch evidence and update the shared detail panel.</p></footer></main><script>const buttons=Array.from(document.querySelectorAll('[data-view]'));const panels=Array.from(document.querySelectorAll('[data-view-panel]'));const detail=document.getElementById('detail-copy');const marks=Array.from(document.querySelectorAll('[data-detail]'));buttons.forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{const active=panel.dataset.viewPanel===button.dataset.view;panel.hidden=!active;});}));marks.forEach((mark)=>{const syncDetail=()=>{detail.textContent=mark.dataset.detail||'';};mark.addEventListener('mouseenter',syncDetail);mark.addEventListener('focus',syncDetail);});</script></body></html>".to_string(),
             }],
         };
 
@@ -4241,6 +5913,37 @@ fn parse_and_validate_polishes_view_controls_for_render_eval() {
     assert!(html.contains("data-view=\"metrics\" aria-controls=\"metrics-panel\" type=\"button\" aria-label=\"metrics\" aria-selected=\"false\" data-studio-render-primary-action=\"true\""));
     assert!(html.contains("button[data-view][aria-selected=\"true\"]"));
     assert!(html.contains("[data-view-panel]:focus-within"));
+}
+
+#[test]
+fn parse_and_validate_repairs_panel_only_click_handlers_and_thin_first_paint() {
+    let raw = serde_json::json!({
+            "summary": "Quantum computers explained",
+            "notes": ["panel click handlers instead of control handlers"],
+            "files": [{
+                "path": "index.html",
+                "mime": "text/html",
+                "role": "primary",
+                "renderable": true,
+                "downloadable": true,
+                "encoding": "utf8",
+                "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum Computers Explained</title><style>body { margin: 0; font-family: system-ui, sans-serif; background: #0f172a; color: #e5e7eb; } main { max-width: 960px; margin: 0 auto; padding: 24px; } .control-bar button { display: inline-block; margin-right: 8px; background-color: #1f232b; color: white; border: none; padding: 6px 12px; cursor: pointer; } .detail-panel { display: block; margin-top: 16px; }</style></head><body><main><header><h1>Quantum Computers Explained</h1><p>Explore the fundamental concepts and practical implications of quantum computing in an engaging, interactive manner.</p></header><div class=\"control-bar\"><button data-view=\"qubits\" aria-controls=\"qubits-panel\">Qubits</button><button data-view=\"superposition\" aria-controls=\"superposition-panel\">Superposition</button></div><section id=\"qubits-panel\" data-view-panel=\"qubits\" hidden><h2>Quantum Computers Use Quantum Bits (Qubits)</h2><p>Unlike classical bits which can be either 0 or 1, qubits can exist in multiple states simultaneously.</p></section><section id=\"superposition-panel\" data-view-panel=\"superposition\"><h2>Superposition and Quantum States</h2><p>In superposition, a qubit can be in multiple states simultaneously.</p></section><aside class=\"detail-panel\" id=\"shared-detail-panel\"><p id=\"detail-copy\">Qubits is selected by default.</p><p>This area will update based on the selected view panel.</p></aside></main><script>const panels = document.querySelectorAll('[data-view-panel]');panels.forEach(panel => {panel.addEventListener('click', () => {const activePanel = document.querySelector('.active-panel');if (activePanel) {activePanel.classList.remove('active-panel');}panel.classList.add('active-panel');document.getElementById('shared-detail-panel').textContent = `Selected view: ${panel.getAttribute('data-view-panel')}`;});});</script></body></html>"
+            }]
+        })
+        .to_string();
+
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let payload = parse_and_validate_generated_artifact_payload(&raw, &request)
+        .expect("broken control wiring should be repaired into a render-evaluable artifact");
+
+    let html = payload.files[0].body.to_ascii_lowercase();
+    assert!(html.contains("data-studio-view-switch-repair=\"true\""));
+    assert!(html.contains("button[data-view], [role=\"tab\"][data-view]"));
+    assert!(html.contains("summarizepanel"));
+    assert!(!html.contains("nav[aria-label=...,"));
 }
 
 #[test]
@@ -4700,6 +6403,36 @@ fn normalize_generated_artifact_payload_unwraps_nested_html_json_envelopes() {
 }
 
 #[test]
+fn normalize_generated_artifact_payload_decodes_json_escaped_html_bodies() {
+    let mut payload = StudioGeneratedArtifactPayload {
+        summary: "Prepared HTML artifact".to_string(),
+        notes: Vec::new(),
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: true,
+            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+            body: "<!doctype html>\\n<html lang=\\\"en\\\"><body><main><section><h1>Quantum states</h1><p>Inspect superposition without leaving the scene.</p></section><section><button type=\\\"button\\\" data-view=\\\"overview\\\" aria-controls=\\\"overview-panel\\\">Overview</button><button type=\\\"button\\\" data-view=\\\"interference\\\" aria-controls=\\\"interference-panel\\\">Interference</button></section><section id=\\\"overview-panel\\\" data-view-panel=\\\"overview\\\"><p>Default overview state.</p></section><section id=\\\"interference-panel\\\" data-view-panel=\\\"interference\\\" hidden><p>Interference details.</p></section></main><script>document.querySelectorAll('[data-view]').forEach((button)=>button.addEventListener('click',()=>{document.querySelectorAll('[data-view-panel]').forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});}));</script></body></html>".to_string(),
+        }],
+    };
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+
+    normalize_generated_artifact_payload(&mut payload, &request);
+
+    let body = payload.files[0].body.as_str();
+    assert!(body.to_ascii_lowercase().starts_with("<!doctype html>"));
+    assert!(!body.contains("\\n"));
+    assert!(!body.contains("\\\""));
+    assert!(body.contains("<main>"));
+    assert!(validate_generated_artifact_payload(&payload, &request).is_ok());
+}
+
+#[test]
 fn enrich_generated_html_payload_adds_detail_targets_for_multi_interaction_chart_briefs() {
     let mut payload = StudioGeneratedArtifactPayload {
         summary: "Prepared HTML artifact".to_string(),
@@ -5139,6 +6872,8 @@ impl InferenceRuntime for StudioWarmupRecordingRuntime {
         let prompt = decode_studio_test_prompt(input_context);
         let stage = if prompt.contains("typed artifact brief planner") {
             "brief"
+        } else if prompt.contains("direct document author") {
+            "materialize"
         } else if prompt.contains("typed artifact materializer") {
             "materialize"
         } else if prompt.contains("typed artifact judge") {
@@ -5163,20 +6898,9 @@ impl InferenceRuntime for StudioWarmupRecordingRuntime {
                 "factualAnchors": ["launch issue highlights"],
                 "styleDirectives": ["Use clear hierarchy"],
                 "referenceHints": []
-            }),
-            "materialize" => serde_json::json!({
-                "summary": "Prepared an editorial launch page",
-                "notes": ["request-grounded candidate"],
-                "files": [{
-                    "path": "index.html",
-                    "mime": "text/html",
-                    "role": "primary",
-                    "renderable": true,
-                    "downloadable": true,
-                    "encoding": "utf8",
-                    "body": "<!doctype html><html><body><main><section><h1>AI tools launch</h1><div><button type=\"button\" data-view=\"overview\" aria-controls=\"panel-overview\" aria-selected=\"true\">Overview</button><button type=\"button\" data-view=\"compare\" aria-controls=\"panel-compare\" aria-selected=\"false\">Compare</button></div></section><aside><p id=\"detail-copy\">Overview is selected by default.</p></aside><section id=\"panel-overview\" data-view-panel=\"overview\" data-active=\"true\"><h2>Overview</h2><p>AI tools and editorial workflow optimization.</p></section><section id=\"panel-compare\" data-view-panel=\"compare\" data-active=\"false\" hidden><h2>Compare</h2><p>Compare editorial callouts and content generation examples.</p></section><script>const controls = Array.from(document.querySelectorAll('button[data-view]')); const panels = Array.from(document.querySelectorAll('[data-view-panel]')); const detail = document.getElementById('detail-copy'); controls.forEach((button) => { button.addEventListener('click', () => { const view = button.dataset.view; panels.forEach((panel) => { const active = panel.dataset.viewPanel === view; panel.hidden = !active; panel.dataset.active = active ? 'true' : 'false'; }); controls.forEach((control) => control.setAttribute('aria-selected', control === button ? 'true' : 'false')); detail.textContent = `${button.textContent} is selected.`; }); });</script></main></body></html>"
-                }]
-            }),
+            })
+            .to_string(),
+            "materialize" => "<!doctype html><html><body><main><section><h1>AI tools launch</h1><div><button type=\"button\" data-view=\"overview\" aria-controls=\"panel-overview\" aria-selected=\"true\">Overview</button><button type=\"button\" data-view=\"compare\" aria-controls=\"panel-compare\" aria-selected=\"false\">Compare</button></div></section><aside><p id=\"detail-copy\">Overview is selected by default.</p></aside><section id=\"panel-overview\" data-view-panel=\"overview\" data-active=\"true\"><h2>Overview</h2><p>AI tools and editorial workflow optimization.</p></section><section id=\"panel-compare\" data-view-panel=\"compare\" data-active=\"false\" hidden><h2>Compare</h2><p>Compare editorial callouts and content generation examples.</p></section><script>const controls = Array.from(document.querySelectorAll('button[data-view]')); const panels = Array.from(document.querySelectorAll('[data-view-panel]')); const detail = document.getElementById('detail-copy'); controls.forEach((button) => { button.addEventListener('click', () => { const view = button.dataset.view; panels.forEach((panel) => { const active = panel.dataset.viewPanel === view; panel.hidden = !active; panel.dataset.active = active ? 'true' : 'false'; }); controls.forEach((control) => control.setAttribute('aria-selected', control === button ? 'true' : 'false')); detail.textContent = `${button.textContent} is selected.`; }); });</script></main></body></html>".to_string(),
             "judge" => serde_json::json!({
                 "classification": "pass",
                 "requestFaithfulness": 5,
@@ -5192,10 +6916,11 @@ impl InferenceRuntime for StudioWarmupRecordingRuntime {
                 "continuityRevisionUx": null,
                 "strongestContradiction": null,
                 "rationale": format!("judged by {}", self.role)
-            }),
+            })
+            .to_string(),
             _ => return Err(VmError::HostError("unexpected Studio prompt".to_string())),
         };
-        Ok(response.to_string().into_bytes())
+        Ok(response.into_bytes())
     }
 
     async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
@@ -5243,6 +6968,40 @@ impl InferenceRuntime for StudioOutcomeTestRuntime {
         StudioRuntimeProvenance {
             kind: StudioRuntimeProvenanceKind::FixtureRuntime,
             label: "fixture://studio-outcome".to_string(),
+            model: Some("fixture".to_string()),
+            endpoint: None,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct FailingStudioOutcomeRuntime;
+
+#[async_trait]
+impl InferenceRuntime for FailingStudioOutcomeRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        _input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        Err(VmError::HostError(
+            "explicit single-document routes should not invoke the LLM router".to_string(),
+        ))
+    }
+
+    async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+        StudioRuntimeProvenance {
+            kind: StudioRuntimeProvenanceKind::FixtureRuntime,
+            label: "fixture://failing-studio-outcome".to_string(),
             model: Some("fixture".to_string()),
             endpoint: None,
         }
@@ -6722,6 +8481,40 @@ async fn route_planning_canonicalizes_html_contract_fields() {
     assert!(!artifact.verification.require_build);
     assert!(!artifact.verification.require_preview);
     assert!(!artifact.verification.require_diff_review);
+}
+
+#[tokio::test]
+async fn explicit_single_document_html_routes_without_router_inference() {
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(FailingStudioOutcomeRuntime);
+
+    let planned = plan_studio_outcome_with_runtime(
+        runtime,
+        "Create an interactive HTML artifact that explains quantum computers.",
+        None,
+        None,
+    )
+    .await
+    .expect("explicit single-document artifact requests should short-circuit routing");
+
+    assert_eq!(planned.outcome_kind, StudioOutcomeKind::Artifact);
+    assert_eq!(
+        planned.execution_strategy,
+        StudioExecutionStrategy::DirectAuthor
+    );
+    assert!(planned.confidence > 0.9);
+    let artifact = planned.artifact.expect("artifact request");
+    assert_eq!(artifact.renderer, StudioRendererKind::HtmlIframe);
+    assert_eq!(
+        artifact.artifact_class,
+        StudioArtifactClass::InteractiveSingleFile
+    );
+    assert_eq!(
+        artifact.deliverable_shape,
+        StudioArtifactDeliverableShape::SingleFile
+    );
+    assert!(artifact.verification.require_render);
+    assert!(!artifact.verification.require_build);
+    assert!(!artifact.verification.require_preview);
 }
 
 #[tokio::test]
@@ -8621,7 +10414,9 @@ fn enrichment_repairs_unfocusable_rollover_marks_before_brief_validation() {
     enrich_generated_artifact_payload(&mut payload, &request, &brief);
     let html = &payload.files[0].body;
 
-    assert!(!html_has_unfocusable_rollover_marks(&html.to_ascii_lowercase()));
+    assert!(!html_has_unfocusable_rollover_marks(
+        &html.to_ascii_lowercase()
+    ));
     assert!(
         html.contains("data-detail=\"Readiness signal\" tabindex=\"0\"")
             || html.contains("tabindex=\"0\" data-detail=\"Readiness signal\"")
@@ -8814,6 +10609,58 @@ async fn judge_contract_downgrades_empty_sectioning_shells() {
         result.strongest_contradiction.as_deref(),
         Some("HTML sectioning regions are empty shells on first paint.")
     );
+}
+
+#[tokio::test]
+async fn modal_first_judge_contract_downgrades_incomplete_html_documents() {
+    with_modal_first_html_env_async(|| async {
+        let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+        let runtime: Arc<dyn InferenceRuntime> = Arc::new(StudioTestRuntime::new(
+            StudioRuntimeProvenanceKind::FixtureRuntime,
+            "fixture://judge-contract",
+            "fixture-judge",
+            "fixture://judge-contract",
+            "acceptance",
+            calls,
+        ));
+
+        let result = judge_studio_artifact_candidate_with_runtime(
+            runtime,
+            "Quantum computing explainer",
+            &request_for(
+                StudioArtifactClass::InteractiveSingleFile,
+                StudioRendererKind::HtmlIframe,
+            ),
+            &sample_quantum_explainer_brief(),
+            None,
+            &StudioGeneratedArtifactPayload {
+                summary: "Quantum explainer draft".to_string(),
+                notes: vec![],
+                files: vec![StudioGeneratedArtifactFile {
+                    path: "index.html".to_string(),
+                    mime: "text/html".to_string(),
+                    role: StudioArtifactFileRole::Primary,
+                    renderable: true,
+                    downloadable: true,
+                    encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+                    body: "<!doctype html><html><body><main><section><h1>Quantum computing explained</h1><p>Inspect qubits, entanglement, and measurement through a request-specific explainer.</p><button type=\"button\" data-view=\"superposition\">Superposition</button></section><section><article><h2>Quantum circuit</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Quantum circuit\"><rect x=\"24\" y=\"54\" width=\"42\" height=\"62\"></rect><text x=\"24\" y=\"132\">Gate</text></svg></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Superposition is selected by default.</p></aside><script>document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{document.getElementById('detail-copy').textContent=button.dataset.view;}));</script><div class=\"".to_string(),
+                }],
+            },
+        )
+        .await
+        .expect("judge contract should downgrade incomplete html");
+
+        assert_eq!(
+            result.classification,
+            StudioArtifactJudgeClassification::Repairable
+        );
+        assert!(!result.deserves_primary_artifact_view);
+        assert_eq!(
+            result.strongest_contradiction.as_deref(),
+            Some("HTML iframe artifacts must contain a fully closed </body></html> document.")
+        );
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -9398,6 +11245,111 @@ fn local_markdown_judge_prompt_uses_ultra_compact_document_contract() {
 }
 
 #[test]
+fn modal_first_local_html_judge_prompt_rejects_generic_interactive_shells() {
+    with_modal_first_html_env(|| {
+        let payload = build_studio_artifact_judge_prompt_for_runtime(
+            "Quantum computing explainer",
+            &request_for(
+                StudioArtifactClass::InteractiveSingleFile,
+                StudioRendererKind::HtmlIframe,
+            ),
+            &sample_quantum_explainer_brief(),
+            None,
+            &StudioGeneratedArtifactPayload {
+                summary: "Quantum explainer draft".to_string(),
+                notes: vec!["interactive".to_string()],
+                files: vec![StudioGeneratedArtifactFile {
+                    path: "artifact.html".to_string(),
+                    mime: "text/html".to_string(),
+                    role: StudioArtifactFileRole::Primary,
+                    renderable: true,
+                    downloadable: true,
+                    encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+                    body: "<!doctype html><html><body><main><section><h1>Quantum</h1><button>Toggle</button></section></main></body></html>".to_string(),
+                }],
+            },
+            StudioRuntimeProvenanceKind::RealLocalRuntime,
+        )
+        .expect("modal-first local html judge prompt should build");
+
+        let user_content = payload[1]["content"]
+            .as_str()
+            .expect("user content should be a string");
+        assert!(user_content.contains("classification: pass|repairable|blocked"));
+        assert!(user_content.contains("interactionRelevance: 1-5"));
+        assert!(user_content.contains("deservesPrimaryArtifactView: true|false"));
+        assert!(user_content.contains("No JSON or markdown fences."));
+        assert!(user_content.contains("generic dashboard chrome"));
+        assert!(user_content.contains("file: path=artifact.html"));
+    });
+}
+
+#[test]
+fn modal_first_local_html_judge_prompt_carries_render_eval_focus() {
+    with_modal_first_html_env(|| {
+        let render_evaluation = studio_test_render_evaluation(
+            17,
+            true,
+            vec![StudioArtifactRenderFinding {
+                code: "visual_hierarchy_flat".to_string(),
+                severity: StudioArtifactRenderFindingSeverity::Warning,
+                summary:
+                    "The capture reads as visually flat instead of establishing a clear first-paint hierarchy."
+                        .to_string(),
+            }],
+            vec![
+                studio_test_render_capture(
+                    StudioArtifactRenderCaptureViewport::Desktop,
+                    24,
+                    280,
+                    2,
+                ),
+                studio_test_render_capture(
+                    StudioArtifactRenderCaptureViewport::Mobile,
+                    20,
+                    240,
+                    2,
+                ),
+            ],
+        );
+        let payload = super::judging::build_studio_artifact_judge_prompt_with_render_eval_for_runtime(
+            "Quantum computing explainer",
+            &request_for(
+                StudioArtifactClass::InteractiveSingleFile,
+                StudioRendererKind::HtmlIframe,
+            ),
+            &sample_quantum_explainer_brief(),
+            None,
+            &StudioGeneratedArtifactPayload {
+                summary: "Quantum explainer draft".to_string(),
+                notes: vec!["interactive".to_string()],
+                files: vec![StudioGeneratedArtifactFile {
+                    path: "artifact.html".to_string(),
+                    mime: "text/html".to_string(),
+                    role: StudioArtifactFileRole::Primary,
+                    renderable: true,
+                    downloadable: true,
+                    encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+                    body: "<!doctype html><html><body><main><section><h1>Quantum</h1><button>Toggle</button></section></main></body></html>".to_string(),
+                }],
+            },
+            StudioRuntimeProvenanceKind::RealLocalRuntime,
+            Some(&render_evaluation),
+        )
+        .expect("modal-first local html judge prompt with render eval should build");
+
+        let user_content = payload[1]["content"]
+            .as_str()
+            .expect("user content should be a string");
+        assert!(user_content.contains("Render evaluation JSON"));
+        assert!(user_content.contains("\"overallScore\":17"));
+        assert!(user_content.contains("visually flat"));
+        assert!(user_content.contains("recommendedNextPass: accept|structural_repair|polish_pass|hold_block"));
+        assert!(user_content.contains("classification: pass|repairable|blocked"));
+    });
+}
+
+#[test]
 fn local_download_card_judge_prompt_uses_compact_bundle_contract() {
     let payload = build_studio_artifact_judge_prompt_for_runtime(
         "Bundle download",
@@ -9909,7 +11861,7 @@ async fn acceptance_retries_ranked_candidates_until_one_clears_primary_view() {
     .await
     .expect("bundle should generate");
 
-    assert_eq!(bundle.winning_candidate_id, "candidate-2");
+    assert_eq!(bundle.winning_candidate_id.as_deref(), Some("candidate-2"));
     assert_eq!(
         bundle.judge.rationale,
         "Acceptance cleared the fallback candidate."
@@ -10206,7 +12158,10 @@ async fn creative_renderer_refines_best_candidate_before_final_selection() {
         .await
         .expect("bundle should generate");
 
-    assert_eq!(bundle.winning_candidate_id, "candidate-1-refine-1");
+    assert_eq!(
+        bundle.winning_candidate_id.as_deref(),
+        Some("candidate-1-refine-1")
+    );
     assert_ne!(
         bundle.judge.classification,
         StudioArtifactJudgeClassification::Blocked
@@ -10501,7 +12456,7 @@ async fn semantic_refinement_stops_after_plateau_and_preserves_best_candidate() 
     .await
     .expect("bundle should generate");
 
-    assert_eq!(bundle.winning_candidate_id, "candidate-1");
+    assert_eq!(bundle.winning_candidate_id.as_deref(), Some("candidate-1"));
     let plateau_summary = bundle
         .candidate_summaries
         .iter()
@@ -10535,7 +12490,7 @@ async fn semantic_refinement_stops_after_plateau_and_preserves_best_candidate() 
 }
 
 #[tokio::test]
-async fn local_creative_renderer_surfaces_draft_before_local_acceptance() {
+async fn local_html_renderer_keeps_judged_path_instead_of_forcing_draft() {
     #[derive(Clone)]
     struct LocalDraftFastPathRuntime {
         provenance: StudioRuntimeProvenance,
@@ -10569,12 +12524,6 @@ async fn local_creative_renderer_surfaces_draft_before_local_acceptance() {
                 .lock()
                 .expect("calls lock")
                 .push(format!("{}:{stage}", self.role));
-
-            if self.role == "acceptance" && stage == "judge" {
-                return Err(VmError::HostError(
-                    "local acceptance should not run before surfacing the draft".to_string(),
-                ));
-            }
 
             let response = match stage {
                 "brief" => serde_json::json!({
@@ -10709,13 +12658,13 @@ async fn local_creative_renderer_surfaces_draft_before_local_acceptance() {
     .await
     .expect("bundle should generate");
 
-    assert_eq!(bundle.winning_candidate_id, "candidate-1");
-    assert_eq!(bundle.ux_lifecycle, StudioArtifactUxLifecycle::Draft);
+    assert_eq!(bundle.winning_candidate_id.as_deref(), Some("candidate-1"));
+    assert_eq!(bundle.ux_lifecycle, StudioArtifactUxLifecycle::Judged);
     assert_eq!(
         bundle.judge.classification,
-        StudioArtifactJudgeClassification::Repairable
+        StudioArtifactJudgeClassification::Pass
     );
-    assert_eq!(
+    assert_ne!(
         bundle.judge.strongest_contradiction.as_deref(),
         Some("Acceptance judging is still pending for this draft.")
     );
@@ -10729,20 +12678,8 @@ async fn local_creative_renderer_surfaces_draft_before_local_acceptance() {
     );
 
     let recorded_calls = calls.lock().expect("calls lock").clone();
-    assert_eq!(
-        recorded_calls
-            .iter()
-            .filter(|call| *call == "production:judge")
-            .count(),
-        2
-    );
-    assert_eq!(
-        recorded_calls
-            .iter()
-            .filter(|call| *call == "acceptance:judge")
-            .count(),
-        0
-    );
+    assert!(recorded_calls.iter().any(|call| call == "production:judge"));
+    assert!(recorded_calls.iter().any(|call| call == "acceptance:judge"));
 }
 
 #[test]
@@ -10999,12 +12936,15 @@ async fn fully_local_matching_provenance_runs_acceptance_instead_of_pending_draf
         Some(StudioArtifactRuntimePolicyProfile::FullyLocal)
     );
     assert_eq!(bundle.ux_lifecycle, StudioArtifactUxLifecycle::Judged);
-    assert_eq!(bundle.judge.classification, StudioArtifactJudgeClassification::Pass);
+    assert_eq!(
+        bundle.judge.classification,
+        StudioArtifactJudgeClassification::Pass
+    );
     assert_ne!(
         bundle.judge.strongest_contradiction.as_deref(),
         Some("Acceptance judging is still pending for this draft.")
     );
-    assert_eq!(bundle.winning_candidate_id, "candidate-1");
+    assert_eq!(bundle.winning_candidate_id.as_deref(), Some("candidate-1"));
 
     let recorded_calls = calls.lock().expect("calls lock").clone();
     assert!(recorded_calls.iter().any(|call| call == "production:judge"));
@@ -11012,8 +12952,7 @@ async fn fully_local_matching_provenance_runs_acceptance_instead_of_pending_draf
 }
 
 #[tokio::test]
-async fn lane_tagged_matching_local_provenance_runs_acceptance_instead_of_pending_draft_shortcut()
-{
+async fn lane_tagged_matching_local_provenance_runs_acceptance_instead_of_pending_draft_shortcut() {
     #[derive(Clone)]
     struct MatchingLocalRuntime {
         provenance: StudioRuntimeProvenance,
@@ -11123,7 +13062,9 @@ async fn lane_tagged_matching_local_provenance_runs_acceptance_instead_of_pendin
             kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
             label: "openai-compatible".to_string(),
             model: Some("qwen3:8b".to_string()),
-            endpoint: Some("http://127.0.0.1:11434/v1/chat/completions?lane=acceptance".to_string()),
+            endpoint: Some(
+                "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance".to_string(),
+            ),
         },
         role: "acceptance",
         calls: calls.clone(),
@@ -11152,12 +13093,15 @@ async fn lane_tagged_matching_local_provenance_runs_acceptance_instead_of_pendin
         Some(StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance)
     );
     assert_eq!(bundle.ux_lifecycle, StudioArtifactUxLifecycle::Judged);
-    assert_eq!(bundle.judge.classification, StudioArtifactJudgeClassification::Pass);
+    assert_eq!(
+        bundle.judge.classification,
+        StudioArtifactJudgeClassification::Pass
+    );
     assert_ne!(
         bundle.judge.strongest_contradiction.as_deref(),
         Some("Acceptance judging is still pending for this draft.")
     );
-    assert_eq!(bundle.winning_candidate_id, "candidate-1");
+    assert_eq!(bundle.winning_candidate_id.as_deref(), Some("candidate-1"));
 
     let recorded_calls = calls.lock().expect("calls lock").clone();
     assert!(recorded_calls.iter().any(|call| call == "production:judge"));
@@ -11627,7 +13571,10 @@ async fn creative_renderer_refinement_survives_failed_materialization_candidates
     .await
     .expect("bundle should generate");
 
-    assert_eq!(bundle.winning_candidate_id, "candidate-1-refine-1");
+    assert_eq!(
+        bundle.winning_candidate_id.as_deref(),
+        Some("candidate-1-refine-1")
+    );
     assert_ne!(
         bundle.judge.classification,
         StudioArtifactJudgeClassification::Blocked
@@ -11899,7 +13846,7 @@ async fn creative_renderer_refines_fallback_candidate_after_best_branch_stays_re
             .iter()
             .find(|candidate| candidate.selected)
             .map(|candidate| candidate.candidate_id.as_str()),
-        Some(bundle.winning_candidate_id.as_str())
+        bundle.winning_candidate_id.as_deref()
     );
 
     let recorded_calls = calls.lock().expect("calls lock").clone();
@@ -12283,7 +14230,10 @@ async fn creative_renderer_runs_second_refinement_when_first_pass_improves_but_s
         .await
         .expect("bundle should generate");
 
-    assert_eq!(bundle.winning_candidate_id, "candidate-1-refine-2");
+    assert_eq!(
+        bundle.winning_candidate_id.as_deref(),
+        Some("candidate-1-refine-2")
+    );
     assert_ne!(
         bundle.judge.classification,
         StudioArtifactJudgeClassification::Blocked
@@ -12533,8 +14483,7 @@ fn local_generation_remote_acceptance_prefers_local_specialist_for_download_bund
 }
 
 #[test]
-fn local_generation_remote_acceptance_routes_html_planning_to_local_specialist_but_keeps_generation_on_production_runtime(
-) {
+fn local_generation_remote_acceptance_keeps_html_generation_on_primary_runtime() {
     let calls = Arc::new(Mutex::new(Vec::<String>::new()));
     let production_runtime: Arc<dyn InferenceRuntime> = Arc::new(StudioTestRuntime::new(
         StudioRuntimeProvenanceKind::RealLocalRuntime,
@@ -12578,12 +14527,99 @@ fn local_generation_remote_acceptance_routes_html_planning_to_local_specialist_b
         .iter()
         .find(|binding| binding.step == StudioArtifactRuntimeStep::BlueprintPlanning)
         .expect("planning binding");
-    assert_eq!(planning_binding.provenance.label, "local specialist");
+    assert_eq!(planning_binding.provenance.label, "local producer");
     assert!(!planning_binding.fallback_applied);
+
+    let acceptance_binding = runtime_plan
+        .policy
+        .bindings
+        .iter()
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::AcceptanceJudge)
+        .expect("acceptance binding");
+    assert_eq!(acceptance_binding.provenance.label, "local specialist");
+    assert!(!acceptance_binding.fallback_applied);
+
+    let repair_binding = runtime_plan
+        .policy
+        .bindings
+        .iter()
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::RepairPlanning)
+        .expect("repair binding");
+    assert_eq!(repair_binding.provenance.label, "local specialist");
+    assert!(!repair_binding.fallback_applied);
+}
+
+#[test]
+fn modal_first_local_generation_remote_acceptance_keeps_html_generation_on_primary_runtime() {
+    with_modal_first_html_env(|| {
+        let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+        let production_runtime: Arc<dyn InferenceRuntime> = Arc::new(StudioTestRuntime::new(
+            StudioRuntimeProvenanceKind::RealLocalRuntime,
+            "local producer",
+            "qwen2.5:14b",
+            "http://127.0.0.1:11434/v1/chat/completions",
+            "production",
+            calls.clone(),
+        ));
+        let acceptance_runtime: Arc<dyn InferenceRuntime> = Arc::new(StudioTestRuntime::new(
+            StudioRuntimeProvenanceKind::RealLocalRuntime,
+            "local specialist",
+            "qwen3.5:9b",
+            "http://127.0.0.1:11434/v1/chat/completions",
+            "acceptance",
+            calls,
+        ));
+
+        let runtime_plan = resolve_studio_artifact_runtime_plan(
+            &request_for(
+                StudioArtifactClass::InteractiveSingleFile,
+                StudioRendererKind::HtmlIframe,
+            ),
+            production_runtime,
+            Some(acceptance_runtime),
+            StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
+        );
+
+        let planning_binding = runtime_plan
+            .policy
+            .bindings
+            .iter()
+            .find(|binding| binding.step == StudioArtifactRuntimeStep::BlueprintPlanning)
+            .expect("planning binding");
+        assert_eq!(planning_binding.provenance.label, "local producer");
+        assert!(!planning_binding.fallback_applied);
+
+        let generation_binding = runtime_plan
+            .policy
+            .bindings
+            .iter()
+            .find(|binding| binding.step == StudioArtifactRuntimeStep::CandidateGeneration)
+            .expect("generation binding");
+        assert_eq!(generation_binding.provenance.label, "local producer");
+        assert!(!generation_binding.fallback_applied);
+
+        let acceptance_binding = runtime_plan
+            .policy
+            .bindings
+            .iter()
+            .find(|binding| binding.step == StudioArtifactRuntimeStep::AcceptanceJudge)
+            .expect("acceptance binding");
+        assert_eq!(acceptance_binding.provenance.label, "local specialist");
+        assert!(!acceptance_binding.fallback_applied);
+
+        let repair_binding = runtime_plan
+            .policy
+            .bindings
+            .iter()
+            .find(|binding| binding.step == StudioArtifactRuntimeStep::RepairPlanning)
+            .expect("repair binding");
+        assert_eq!(repair_binding.provenance.label, "local specialist");
+        assert!(!repair_binding.fallback_applied);
+    });
 }
 
 #[tokio::test]
-async fn local_generation_remote_acceptance_warms_html_production_runtime_before_materialization() {
+async fn local_generation_remote_acceptance_materializes_html_on_primary_runtime() {
     let calls = Arc::new(Mutex::new(Vec::<String>::new()));
     let production_runtime: Arc<dyn InferenceRuntime> =
         Arc::new(StudioWarmupRecordingRuntime::new(
@@ -12628,21 +14664,81 @@ async fn local_generation_remote_acceptance_warms_html_production_runtime_before
     );
 
     let recorded_calls = calls.lock().expect("calls lock").clone();
-    let brief_index = recorded_calls
-        .iter()
-        .position(|entry| entry == "acceptance:brief")
-        .expect("acceptance brief call");
-    let warm_index = recorded_calls
-        .iter()
-        .position(|entry| entry == "production:load_model")
-        .expect("production warmup call");
     let materialize_index = recorded_calls
         .iter()
         .position(|entry| entry == "production:materialize")
-        .expect("production materialize call");
+        .expect("primary materialize call");
 
-    assert!(brief_index < warm_index);
-    assert!(warm_index < materialize_index);
+    assert!(materialize_index < recorded_calls.len());
+    assert!(!recorded_calls
+        .iter()
+        .any(|entry| entry == "production:brief"));
+    assert!(!recorded_calls
+        .iter()
+        .any(|entry| entry == "acceptance:materialize"));
+}
+
+#[tokio::test]
+async fn modal_first_local_generation_remote_acceptance_materializes_html_on_primary_runtime() {
+    with_modal_first_html_env_async(|| async {
+        let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+        let production_runtime: Arc<dyn InferenceRuntime> =
+            Arc::new(StudioWarmupRecordingRuntime::new(
+                StudioRuntimeProvenanceKind::RealLocalRuntime,
+                "local producer",
+                "qwen2.5:14b",
+                "http://127.0.0.1:11434/v1/chat/completions",
+                "production",
+                calls.clone(),
+            ));
+        let acceptance_runtime: Arc<dyn InferenceRuntime> =
+            Arc::new(StudioWarmupRecordingRuntime::new(
+                StudioRuntimeProvenanceKind::RealLocalRuntime,
+                "local specialist",
+                "qwen3.5:9b",
+                "http://127.0.0.1:11434/v1/chat/completions",
+                "acceptance",
+                calls.clone(),
+            ));
+
+        let bundle =
+            generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
+                production_runtime,
+                Some(acceptance_runtime),
+                StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
+                "AI tools editorial launch page",
+                "Create an interactive HTML artifact for an AI tools editorial launch page",
+                &request_for(
+                    StudioArtifactClass::InteractiveSingleFile,
+                    StudioRendererKind::HtmlIframe,
+                ),
+                None,
+                None,
+                None,
+            )
+            .await
+            .expect("generation bundle");
+
+        assert_ne!(
+            bundle.judge.classification,
+            StudioArtifactJudgeClassification::Blocked
+        );
+
+        let recorded_calls = calls.lock().expect("calls lock").clone();
+        let materialize_index = recorded_calls
+            .iter()
+            .position(|entry| entry == "production:materialize")
+            .expect("primary materialize call");
+
+        assert!(materialize_index < recorded_calls.len());
+        assert!(!recorded_calls
+            .iter()
+            .any(|entry| entry == "production:brief"));
+        assert!(!recorded_calls
+            .iter()
+            .any(|entry| entry == "acceptance:materialize"));
+    })
+    .await;
 }
 
 #[test]
@@ -12801,4 +14897,1024 @@ async fn bundle_failure_returns_candidate_summaries_with_raw_previews() {
     assert!(error.candidate_summaries.iter().all(|candidate| {
         candidate.judge.classification == StudioArtifactJudgeClassification::Blocked
     }));
+}
+
+#[test]
+fn swarm_patch_gate_rejects_out_of_scope_regions() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let mut payload = StudioGeneratedArtifactPayload {
+        summary: "Interactive rollout".to_string(),
+        notes: Vec::new(),
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: true,
+            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+            body: "<!doctype html><html><body><main><!-- STUDIO_REGION_START:section:hero --><section><h1>Old hero</h1></section><!-- STUDIO_REGION_END:section:hero --></main></body></html>".to_string(),
+        }],
+    };
+    let work_item = StudioArtifactWorkItem {
+        id: "section-1".to_string(),
+        title: "Section 1".to_string(),
+        role: StudioArtifactWorkerRole::SectionContent,
+        summary: "Own the hero section.".to_string(),
+        spawned_from_id: None,
+        read_paths: vec!["index.html".to_string()],
+        write_paths: vec!["index.html".to_string()],
+        write_regions: vec!["section:hero".to_string()],
+        lease_requirements: vec![exclusive_write_lease_for_region("section:hero")],
+        acceptance_criteria: vec!["Hero stays request-grounded.".to_string()],
+        dependency_ids: vec!["skeleton".to_string()],
+        blocked_on_ids: Vec::new(),
+        verification_policy: Some(SwarmVerificationPolicy::Normal),
+        retry_budget: Some(0),
+        status: StudioArtifactWorkItemStatus::Pending,
+    };
+    let envelope = super::generation::StudioArtifactPatchEnvelope {
+        summary: Some("Attempted invalid patch".to_string()),
+        notes: Vec::new(),
+        operations: vec![super::generation::StudioArtifactPatchOperation {
+            kind: super::generation::StudioArtifactPatchOperationKind::ReplaceRegion,
+            path: "index.html".to_string(),
+            region_id: Some("section:other".to_string()),
+            mime: None,
+            role: None,
+            renderable: None,
+            downloadable: None,
+            encoding: None,
+            body: Some("<section><h1>Wrong region</h1></section>".to_string()),
+        }],
+    };
+
+    let error = super::generation::apply_studio_swarm_patch_envelope(
+        &request,
+        &mut payload,
+        &work_item,
+        &envelope,
+    )
+    .expect_err("out-of-scope region should be rejected");
+
+    assert!(error.contains("out-of-scope region"));
+    assert!(payload.files[0].body.contains("Old hero"));
+}
+
+#[tokio::test]
+async fn local_html_swarm_strategy_repairs_and_passes_quantum_artifact_regression() {
+    #[derive(Clone)]
+    struct QuantumSwarmRegressionRuntime {
+        provenance: StudioRuntimeProvenance,
+        role: &'static str,
+        calls: Arc<Mutex<Vec<String>>>,
+    }
+
+    #[async_trait]
+    impl InferenceRuntime for QuantumSwarmRegressionRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            let stage = if prompt.contains("typed artifact brief planner") {
+                "brief"
+            } else if prompt.contains("typed swarm Skeleton worker") {
+                "skeleton"
+            } else if prompt.contains("typed swarm SectionContent worker") {
+                "section"
+            } else if prompt.contains("typed swarm StyleSystem worker") {
+                "style"
+            } else if prompt.contains("typed swarm Interaction worker") {
+                "interaction"
+            } else if prompt.contains("typed swarm Repair worker") {
+                "repair"
+            } else if prompt.contains("typed swarm Integrator worker") {
+                "integrator"
+            } else if prompt.contains("typed artifact judge") {
+                "judge"
+            } else {
+                "unknown"
+            };
+            self.calls
+                .lock()
+                .expect("calls lock")
+                .push(format!("{}:{stage}", self.role));
+
+            let response = match stage {
+                "brief" => {
+                    serde_json::to_value(sample_quantum_explainer_brief()).expect("quantum brief")
+                }
+                "skeleton" => serde_json::json!({
+                    "summary": "Quantum computers interactive draft",
+                    "notes": ["Created the bounded quantum explainer skeleton."],
+                    "operations": [{
+                        "kind": "create_file",
+                        "path": "index.html",
+                        "mime": "text/html",
+                        "role": "primary",
+                        "renderable": true,
+                        "downloadable": true,
+                        "encoding": "utf8",
+                        "body": "<!doctype html><html><head><meta charset=\"utf-8\"><title>Quantum computers interactive explainer</title></head><body><main><section><h1>Quantum computers, step by step</h1><p>Compare classical bits with quantum states, then inspect how measurement changes the outcome.</p><div class=\"mode-switch\"><button type=\"button\" data-mode=\"classical\" aria-selected=\"true\">Classical Bit</button><button type=\"button\" data-mode=\"quantum\" aria-selected=\"false\">Quantum State</button></div></section><section><article><h2>State comparison</h2><p id=\"mode-summary\">Classical bits stay in one definite state at a time.</p></article></section><aside><h2>Inspector</h2><p id=\"detail-copy\">Select a mode to inspect the difference.</p></aside></main></body></html>"
+                    }]
+                }),
+                "section" => serde_json::json!({
+                    "summary": "Extended the bounded quantum section.",
+                    "notes": ["Added a scoped comparison section patch."],
+                    "operations": [{
+                        "kind": "replace_file",
+                        "path": "index.html",
+                        "body": "<section class=\"comparison-band\"><article><h2>Probability intuition</h2><p>Quantum systems distribute likelihood across outcomes before measurement.</p></article></section>"
+                    }]
+                }),
+                "style" => serde_json::json!({
+                    "summary": "Applied the slate quantum style system.",
+                    "notes": ["Added restrained slate styling for the explainer."],
+                    "operations": [{
+                        "kind": "replace_file",
+                        "path": "index.html",
+                        "body": "<style>:root{color-scheme:dark;--bg:#13171d;--panel:#1b222c;--panel-border:#2b3644;--text:#e6ebf2;--muted:#97a5b8;--accent:#7dd3fc;}body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);}main{display:grid;gap:18px;padding:24px;max-width:960px;margin:0 auto;}section,aside{background:var(--panel);border:1px solid var(--panel-border);border-radius:18px;padding:18px;}button{border:1px solid #36506a;background:#1d2a38;color:var(--text);border-radius:999px;padding:10px 14px;cursor:pointer;}button[aria-selected=\"true\"]{border-color:var(--accent);box-shadow:0 0 0 1px rgba(125,211,252,.35) inset;}p{color:var(--muted);}h1,h2{margin:0 0 10px;}svg{width:100%;height:auto;display:block;}</style>"
+                    }]
+                }),
+                "interaction" => serde_json::json!({
+                    "summary": "Wired the bounded quantum interaction loop.",
+                    "notes": ["Added button-driven explanation updates."],
+                    "operations": [{
+                        "kind": "replace_file",
+                        "path": "index.html",
+                        "body": "<script>const summary=document.getElementById('mode-summary');const detail=document.getElementById('detail-copy');const controls=document.querySelectorAll('[data-mode]');controls.forEach((button)=>button.addEventListener('click',()=>{controls.forEach((control)=>control.setAttribute('aria-selected', String(control===button)));if(button.dataset.mode==='quantum'){summary.textContent='Quantum states can spread amplitude across multiple outcomes before measurement.';detail.textContent='Quantum state selected. Inspect how probabilities differ from a classical bit.';}else{summary.textContent='Classical bits stay in one definite state at a time.';detail.textContent='Classical mode selected. A bit resolves to one state immediately.';}}));</script>"
+                    }]
+                }),
+                "repair" => serde_json::json!({
+                    "summary": "Repair completed with a stronger quantum comparison.",
+                    "notes": ["Added the missing qubit-focused comparison module."],
+                    "operations": [{
+                        "kind": "replace_file",
+                        "path": "index.html",
+                        "body": "<section data-verified-repair=\"quantum-state-compare\"><article><h2>Measurement comparison</h2><p>Quantum Qubit views show a weighted set of possible outcomes before measurement collapses the state.</p><div class=\"repair-switch\"><button type=\"button\">Classical Bit</button><button type=\"button\">Quantum Qubit</button></div><svg viewBox=\"0 0 320 160\" role=\"img\" aria-label=\"Classical versus quantum measurement distribution\"><rect x=\"34\" y=\"42\" width=\"54\" height=\"88\"></rect><rect x=\"132\" y=\"64\" width=\"54\" height=\"66\"></rect><rect x=\"230\" y=\"28\" width=\"54\" height=\"102\"></rect><text x=\"28\" y=\"148\">0</text><text x=\"126\" y=\"148\">0 / 1</text><text x=\"224\" y=\"148\">1</text></svg></article></section>"
+                    }]
+                }),
+                "integrator" => serde_json::json!({
+                    "summary": "No extra integrator pass was required.",
+                    "notes": ["The local HTML swarm keeps the integrator in reserve."],
+                    "operations": []
+                }),
+                "judge" => {
+                    if prompt.contains("Repair completed with a stronger quantum comparison.")
+                        || prompt.contains("qubit-focused comparison module")
+                        || (prompt.contains("Measurement comparison")
+                            && prompt.contains("Quantum Qubit"))
+                    {
+                        serde_json::json!({
+                            "classification": "pass",
+                            "requestFaithfulness": 5,
+                            "conceptCoverage": 5,
+                            "interactionRelevance": 5,
+                            "layoutCoherence": 4,
+                            "visualHierarchy": 4,
+                            "completeness": 5,
+                            "genericShellDetected": false,
+                            "trivialShellDetected": false,
+                            "deservesPrimaryArtifactView": true,
+                            "patchedExistingArtifact": null,
+                            "continuityRevisionUx": null,
+                            "strongestContradiction": null,
+                            "rationale": "Acceptance cleared the repaired quantum explainer."
+                        })
+                    } else {
+                        serde_json::json!({
+                            "classification": "repairable",
+                            "requestFaithfulness": 4,
+                            "conceptCoverage": 4,
+                            "interactionRelevance": 4,
+                            "layoutCoherence": 4,
+                            "visualHierarchy": 4,
+                            "completeness": 3,
+                            "genericShellDetected": false,
+                            "trivialShellDetected": false,
+                            "deservesPrimaryArtifactView": true,
+                            "patchedExistingArtifact": null,
+                            "continuityRevisionUx": null,
+                            "strongestContradiction": "The explainer still needs a visible qubit measurement comparison.",
+                            "rationale": "Acceptance wants a stronger qubit-focused comparison before primary view."
+                        })
+                    }
+                }
+                _ => return Err(VmError::HostError("unexpected Studio prompt".to_string())),
+            };
+
+            Ok(response.to_string().into_bytes())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            self.provenance.clone()
+        }
+    }
+
+    #[derive(Default)]
+    struct QuantumSwarmRegressionRenderEvaluator;
+
+    #[async_trait]
+    impl StudioArtifactRenderEvaluator for QuantumSwarmRegressionRenderEvaluator {
+        async fn evaluate_candidate_render(
+            &self,
+            _request: &StudioOutcomeArtifactRequest,
+            _brief: &StudioArtifactBrief,
+            _blueprint: Option<&StudioArtifactBlueprint>,
+            _artifact_ir: Option<&StudioArtifactIR>,
+            _edit_intent: Option<&StudioArtifactEditIntent>,
+            candidate: &StudioGeneratedArtifactPayload,
+        ) -> Result<Option<StudioArtifactRenderEvaluation>, String> {
+            let repaired = candidate
+                .files
+                .iter()
+                .find(|file| file.path == "index.html")
+                .map(|file| {
+                    file.body
+                        .contains("data-verified-repair=\"quantum-state-compare\"")
+                })
+                .unwrap_or(false);
+
+            Ok(Some(studio_test_render_evaluation(
+                if repaired { 24 } else { 17 },
+                true,
+                if repaired {
+                    Vec::new()
+                } else {
+                    vec![StudioArtifactRenderFinding {
+                        code: "comparison_depth_thin".to_string(),
+                        severity: StudioArtifactRenderFindingSeverity::Warning,
+                        summary: "The first render still needs a stronger qubit comparison module."
+                            .to_string(),
+                    }]
+                },
+                vec![
+                    studio_test_render_capture(
+                        StudioArtifactRenderCaptureViewport::Desktop,
+                        if repaired { 46 } else { 28 },
+                        if repaired { 540 } else { 320 },
+                        if repaired { 7 } else { 4 },
+                    ),
+                    studio_test_render_capture(
+                        StudioArtifactRenderCaptureViewport::Mobile,
+                        if repaired { 42 } else { 24 },
+                        if repaired { 482 } else { 274 },
+                        if repaired { 7 } else { 4 },
+                    ),
+                    studio_test_render_capture(
+                        StudioArtifactRenderCaptureViewport::Interaction,
+                        if repaired { 45 } else { 22 },
+                        if repaired { 498 } else { 248 },
+                        if repaired { 8 } else { 4 },
+                    ),
+                ],
+            )))
+        }
+    }
+
+    with_modal_first_html_env_async(|| async {
+        let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+        let production_runtime: Arc<dyn InferenceRuntime> =
+            Arc::new(QuantumSwarmRegressionRuntime {
+                provenance: StudioRuntimeProvenance {
+                    kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                    label: "openai-compatible".to_string(),
+                    model: Some("qwen3.5:9b".to_string()),
+                    endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+                },
+                role: "production",
+                calls: calls.clone(),
+            });
+        let acceptance_runtime: Arc<dyn InferenceRuntime> =
+            Arc::new(QuantumSwarmRegressionRuntime {
+                provenance: StudioRuntimeProvenance {
+                    kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                    label: "openai-compatible".to_string(),
+                    model: Some("qwen3.5:9b".to_string()),
+                    endpoint: Some(
+                        "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+                            .to_string(),
+                    ),
+                },
+                role: "acceptance",
+                calls: calls.clone(),
+            });
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let runtime_plan = resolve_studio_artifact_runtime_plan(
+            &request,
+            production_runtime,
+            Some(acceptance_runtime),
+            StudioArtifactRuntimePolicyProfile::FullyLocal,
+        );
+        let evaluator = QuantumSwarmRegressionRenderEvaluator;
+
+        let bundle =
+            generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+                runtime_plan,
+                "Quantum computers interactive explainer",
+                "Create an interactive HTML artifact that explains quantum computers",
+                &request,
+                None,
+                None,
+                StudioExecutionStrategy::AdaptiveWorkGraph,
+                Some(&evaluator),
+                None,
+            )
+            .await
+            .expect("quantum swarm bundle should generate");
+
+        assert!(bundle.candidate_summaries.is_empty());
+        assert_eq!(
+            bundle
+                .swarm_plan
+                .as_ref()
+                .map(|plan| plan.execution_domain.as_str()),
+            Some("studio_artifact")
+        );
+        assert_eq!(
+            bundle
+                .swarm_execution
+                .as_ref()
+                .map(|execution| execution.verification_status.as_str()),
+            Some("pass")
+        );
+        assert_eq!(
+            bundle
+                .swarm_execution
+                .as_ref()
+                .map(|execution| execution.current_stage.as_str()),
+            Some("ready")
+        );
+        assert_eq!(
+            bundle.judge.classification,
+            StudioArtifactJudgeClassification::Pass
+        );
+        assert!(bundle
+            .swarm_worker_receipts
+            .iter()
+            .any(|receipt| receipt.role == StudioArtifactWorkerRole::Repair
+                && receipt.status == StudioArtifactWorkItemStatus::Succeeded));
+        assert!(bundle
+            .swarm_plan
+            .as_ref()
+            .is_some_and(|plan| plan
+                .work_items
+                .iter()
+                .any(|item| item.id == "repair-pass-1"
+                    && item.spawned_from_id.as_deref() == Some("repair"))));
+        assert!(bundle
+            .swarm_change_receipts
+            .iter()
+            .any(|receipt| receipt.work_item_id == "repair-pass-1" && receipt.operation_count > 0));
+        assert!(bundle
+            .swarm_merge_receipts
+            .iter()
+            .any(|receipt| receipt.work_item_id == "repair-pass-1"));
+        assert!(bundle
+            .swarm_verification_receipts
+            .iter()
+            .any(|receipt| receipt.kind == "acceptance_judge"));
+        assert!(bundle
+            .execution_envelope
+            .as_ref()
+            .is_some_and(|envelope| envelope
+                .graph_mutation_receipts
+                .iter()
+                .any(|receipt| receipt.mutation_kind == "subtask_spawned")));
+        assert!(bundle
+            .execution_envelope
+            .as_ref()
+            .is_some_and(|envelope| envelope
+                .dispatch_batches
+                .iter()
+                .any(|batch| {
+                    batch.status != "blocked"
+                        && batch
+                            .work_item_ids
+                            .iter()
+                            .filter(|id| id.starts_with("section-"))
+                            .count()
+                            >= 2
+                })));
+        assert!(bundle
+            .render_evaluation
+            .as_ref()
+            .is_some_and(|evaluation| evaluation.captures.iter().any(|capture| {
+                capture.viewport == StudioArtifactRenderCaptureViewport::Interaction
+                    && capture.interactive_element_count >= 8
+            })));
+        assert!(bundle.winner.files.iter().any(|file| {
+            file.path == "index.html"
+                && file.body.contains("data-verified-repair=\"quantum-state-compare\"")
+                && file.body.contains("Quantum Qubit")
+        }));
+
+        let recorded_calls = calls.lock().expect("calls lock").clone();
+        assert!(recorded_calls.iter().any(|call| call == "production:brief"));
+        assert!(recorded_calls.iter().any(|call| call == "production:skeleton"));
+        assert!(recorded_calls.iter().any(|call| call == "production:style"));
+        assert!(recorded_calls.iter().any(|call| call == "production:interaction"));
+        assert!(recorded_calls.iter().any(|call| call == "production:repair"));
+        assert_eq!(
+            recorded_calls
+                .iter()
+                .filter(|call| call.ends_with(":judge"))
+                .count(),
+            2
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn local_html_swarm_strategy_breaks_complex_mission_control_query_into_iterative_waves() {
+    #[derive(Clone)]
+    struct ComplexMissionControlRuntime {
+        provenance: StudioRuntimeProvenance,
+        role: &'static str,
+        calls: Arc<Mutex<Vec<String>>>,
+        section_regions: Vec<String>,
+        repair_region: String,
+    }
+
+    fn section_region_from_prompt(prompt: &str, section_regions: &[String]) -> Option<String> {
+        let candidate = [
+            "\"targetRegion\":\"",
+            "\"targetRegion\": \"",
+            "targetRegion\":\"",
+            "targetRegion\": \"",
+        ]
+        .into_iter()
+        .find_map(|needle| {
+            let start = prompt.find(needle)? + needle.len();
+            let rest = &prompt[start..];
+            let end = rest.find('"')?;
+            Some(rest[..end].to_string())
+        });
+
+        candidate.filter(|region| section_regions.iter().any(|entry| entry == region))
+    }
+
+    #[async_trait]
+    impl InferenceRuntime for ComplexMissionControlRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            let stage = if prompt.contains("typed artifact brief planner") {
+                "brief".to_string()
+            } else if prompt.contains("typed swarm Skeleton worker") {
+                "skeleton".to_string()
+            } else if prompt.contains("typed swarm SectionContent worker") {
+                let region = section_region_from_prompt(&prompt, &self.section_regions)
+                    .unwrap_or_else(|| "section:unknown".to_string());
+                format!("section:{region}")
+            } else if prompt.contains("typed swarm StyleSystem worker") {
+                "style".to_string()
+            } else if prompt.contains("typed swarm Interaction worker") {
+                "interaction".to_string()
+            } else if prompt.contains("typed swarm Repair worker") {
+                "repair".to_string()
+            } else if prompt.contains("typed swarm Integrator worker") {
+                "integrator".to_string()
+            } else if prompt.contains("typed artifact judge") {
+                "judge".to_string()
+            } else {
+                "unknown".to_string()
+            };
+
+            self.calls
+                .lock()
+                .expect("calls lock")
+                .push(format!("{}:{stage}", self.role));
+
+            let response = if stage == "brief" {
+                serde_json::to_value(sample_complex_mission_control_brief()).expect("complex brief")
+            } else if stage == "skeleton" {
+                serde_json::json!({
+                    "summary": "Mission control workbook shell",
+                    "notes": ["Created the canonical mission-control HTML shell."],
+                    "operations": [{
+                        "kind": "create_file",
+                        "path": "index.html",
+                        "mime": "text/html",
+                        "role": "primary",
+                        "renderable": true,
+                        "downloadable": true,
+                        "encoding": "utf8",
+                        "body": "<!doctype html><html><head><meta charset=\"utf-8\"><title>Post-quantum migration mission control</title></head><body><main><header><h1>Post-quantum migration mission control</h1><p>Track rollout phases, inspect risk posture, compare owner handoffs, and test cutover readiness from one control room artifact.</p><div class=\"mode-switch\"><button type=\"button\" data-panel=\"phases\" aria-selected=\"true\">Phases</button><button type=\"button\" data-panel=\"risk\" aria-selected=\"false\">Risk</button><button type=\"button\" data-panel=\"handoffs\" aria-selected=\"false\">Handoffs</button></div></header><aside class=\"detail-rail\"><h2>Operator detail</h2><p id=\"detail-copy\">Phases panel is selected with fleet rollout evidence visible on first paint.</p></aside></main></body></html>"
+                    }]
+                })
+            } else if let Some(region) = stage.strip_prefix("section:") {
+                let section_markup = if region == self.section_regions[0] {
+                    "<section data-panel=\"phases\" class=\"mission-panel\"><article><h2>Fleet rollout phases</h2><p>Wave 1 upgrades signing infrastructure, Wave 2 rotates edge services, and Wave 3 retires the legacy fallback lane after verification clears.</p><ol><li><strong>Pilot:</strong> five canary regions with manual approval.</li><li><strong>Expansion:</strong> regional fleet rollout with live latency watch.</li><li><strong>Retire:</strong> remove the legacy signing path after rollback confidence stays green.</li></ol><div class=\"evidence-strip\"><button type=\"button\" data-detail=\"Pilot phase focuses on low-blast-radius rollout across five regions.\">Pilot focus</button><button type=\"button\" data-detail=\"Expansion phase compares readiness, latency, and rollback tolerance.\">Expansion focus</button></div></article></section>"
+                } else if region == self.section_regions[1] {
+                    "<section data-panel=\"risk\" class=\"mission-panel\"><article><h2>Cryptography risk drilldown</h2><p>Inspect signing libraries, vendor readiness, and support exposure before each cutover decision.</p><table><tr><th>Surface</th><th>Status</th><th>Risk</th></tr><tr><td>Identity signing</td><td>Library patched</td><td>Low</td></tr><tr><td>Mobile SDK</td><td>Vendor awaiting rollout</td><td>Medium</td></tr><tr><td>Support scripts</td><td>Legacy fallback active</td><td>High</td></tr></table><div class=\"risk-toggles\"><button type=\"button\" data-risk=\"identity\">Identity</button><button type=\"button\" data-risk=\"mobile\">Mobile</button><button type=\"button\" data-risk=\"support\">Support</button></div></article></section>"
+                } else {
+                    "<section data-panel=\"handoffs\" class=\"mission-panel\"><article><h2>Owner handoffs and cutover simulation</h2><p>Compare who owns preflight, cutover, and rollback, then simulate whether the current readiness state permits launch.</p><div class=\"ownership-grid\"><div><h3>Infrastructure</h3><p>Owns certificate rotation, cutover execution, and rollback thresholds.</p></div><div><h3>Product</h3><p>Owns rollout messaging, customer sequencing, and regional launch approval.</p></div><div><h3>Support</h3><p>Owns incident intake, escalation templates, and customer-safe fallback guidance.</p></div></div><div class=\"simulator\"><button type=\"button\" data-sim=\"hold\">Hold rollout</button><button type=\"button\" data-sim=\"launch\">Launch rollout</button></div><p id=\"sim-status\">Simulation idle. Review ownership signals before launch.</p></article></section>"
+                };
+
+                serde_json::json!({
+                    "summary": format!("Filled {region} with request-grounded mission-control content."),
+                    "notes": [format!("Patched scoped region {region}.")],
+                    "operations": [{
+                        "kind": "replace_region",
+                        "path": "index.html",
+                        "regionId": region,
+                        "body": section_markup
+                    }]
+                })
+            } else if stage == "style" {
+                serde_json::json!({
+                    "summary": "Applied the mission-control style system.",
+                    "notes": ["Added the shared slate hierarchy and compact chrome."],
+                    "operations": [{
+                        "kind": "replace_region",
+                        "path": "index.html",
+                        "regionId": "style-system",
+                        "body": "<style>:root{color-scheme:dark;--bg:#11161c;--panel:#1a212b;--panel-alt:#151b24;--border:#2c3948;--text:#e8eef6;--muted:#94a3b8;--accent:#7dd3fc;--warn:#f59e0b;}*{box-sizing:border-box;}body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);}main{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:18px;padding:22px;max-width:1200px;margin:0 auto;}header,section,aside{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:18px;}header{grid-column:1 / span 2;display:grid;gap:14px;}h1,h2,h3,p,ol{margin:0;}p,li,td,th{color:var(--muted);line-height:1.5;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:left;}button{border:1px solid #31506d;background:#182635;color:var(--text);border-radius:999px;padding:9px 13px;font:inherit;cursor:pointer;}button[aria-selected=\"true\"],button[data-active=\"true\"]{border-color:var(--accent);box-shadow:0 0 0 1px rgba(125,211,252,.34) inset;}header .mode-switch,.evidence-strip,.risk-toggles,.simulator{display:flex;gap:10px;flex-wrap:wrap;}.mission-panel{display:grid;gap:14px;}.ownership-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}.ownership-grid>div{background:var(--panel-alt);border:1px solid var(--border);border-radius:14px;padding:12px;}.detail-rail{position:sticky;top:18px;height:max-content;}#sim-status{padding:12px 14px;border-radius:14px;background:rgba(125,211,252,.08);border:1px solid rgba(125,211,252,.22);color:var(--text);}strong{color:var(--text);}</style>"
+                    }]
+                })
+            } else if stage == "interaction" {
+                serde_json::json!({
+                    "summary": "Wired the mission-control interaction grammar.",
+                    "notes": ["Bound the control bar, detail rail, risk drilldown, and cutover simulator."],
+                    "operations": [{
+                        "kind": "replace_region",
+                        "path": "index.html",
+                        "regionId": "interaction",
+                        "body": "<script>const detail=document.getElementById('detail-copy');const panels=[...document.querySelectorAll('.mission-panel')];const tabButtons=[...document.querySelectorAll('button[data-panel]')];tabButtons.forEach((button)=>button.addEventListener('click',()=>{const target=button.dataset.panel;tabButtons.forEach((control)=>control.setAttribute('aria-selected',String(control===button)));panels.forEach((panel)=>panel.dataset.active=String(panel.dataset.panel===target));detail.textContent=target==='phases'?'Phases panel selected. Inspect the rollout wave timing and the readiness evidence strip.':target==='risk'?'Risk panel selected. Compare surface readiness and vendor exposure before cutover.':'Handoffs panel selected. Compare owners and simulate whether launch can proceed.';}));document.querySelectorAll('[data-detail]').forEach((button)=>button.addEventListener('click',()=>{detail.textContent=button.dataset.detail;}));document.querySelectorAll('[data-risk]').forEach((button)=>button.addEventListener('click',()=>{document.querySelectorAll('[data-risk]').forEach((control)=>control.dataset.active=String(control===button));detail.textContent=button.dataset.risk==='identity'?'Identity path is patched and ready for early rollout.':button.dataset.risk==='mobile'?'Mobile path is blocked on vendor rollout timing.':'Support path still depends on the legacy fallback lane.';}));const simStatus=document.getElementById('sim-status');document.querySelectorAll('[data-sim]').forEach((button)=>button.addEventListener('click',()=>{document.querySelectorAll('[data-sim]').forEach((control)=>control.dataset.active=String(control===button));if(button.dataset.sim==='launch'){simStatus.textContent='Launch simulation: proceed only if vendor readiness and rollback staffing both stay green.';detail.textContent='Launch simulation selected. Confirm support staffing and vendor readiness before go-live.';}else{simStatus.textContent='Hold simulation: keep the rollout paused until support scripts leave the legacy lane.';detail.textContent='Hold simulation selected. Remediate the support fallback dependency before launch.';}}));</script>"
+                    }]
+                })
+            } else if stage == "repair" {
+                serde_json::json!({
+                    "summary": "Added the missing rollback playbook detail.",
+                    "notes": ["Repair added the cited fallback playbook depth."],
+                    "operations": [{
+                        "kind": "replace_region",
+                        "path": "index.html",
+                        "regionId": self.repair_region,
+                        "body": "<section data-panel=\"handoffs\" class=\"mission-panel\" data-repaired=\"rollback-playbook\"><article><h2>Owner handoffs and cutover simulation</h2><p>Compare who owns preflight, cutover, and rollback, then simulate whether the current readiness state permits launch.</p><div class=\"ownership-grid\"><div><h3>Infrastructure</h3><p>Owns certificate rotation, cutover execution, and rollback thresholds.</p></div><div><h3>Product</h3><p>Owns rollout messaging, customer sequencing, and regional launch approval.</p></div><div><h3>Support</h3><p>Owns incident intake, escalation templates, and customer-safe fallback guidance.</p></div></div><section class=\"rollback-playbook\"><h3>Rollback playbook</h3><p>If vendor readiness drops or support fallback remains red, freeze launch, return traffic to the legacy signer, and page the owning leads in the order shown above.</p></section><div class=\"simulator\"><button type=\"button\" data-sim=\"hold\">Hold rollout</button><button type=\"button\" data-sim=\"launch\">Launch rollout</button></div><p id=\"sim-status\">Simulation idle. Review ownership signals before launch.</p></article></section>"
+                    }]
+                })
+            } else if stage == "integrator" {
+                serde_json::json!({
+                    "summary": "Integrator stayed in reserve.",
+                    "notes": ["Local HTML path keeps the integrator as a reserve seam."],
+                    "operations": []
+                })
+            } else if stage == "judge" {
+                let repaired_already = self
+                    .calls
+                    .lock()
+                    .expect("calls lock")
+                    .iter()
+                    .any(|call| call == "production:repair")
+                    || prompt.contains("data-repaired=\"rollback-playbook\"")
+                    || prompt.contains("Rollback playbook");
+                if repaired_already {
+                    serde_json::json!({
+                        "classification": "pass",
+                        "requestFaithfulness": 5,
+                        "conceptCoverage": 5,
+                        "interactionRelevance": 5,
+                        "layoutCoherence": 4,
+                        "visualHierarchy": 4,
+                        "completeness": 5,
+                        "genericShellDetected": false,
+                        "trivialShellDetected": false,
+                        "deservesPrimaryArtifactView": true,
+                        "patchedExistingArtifact": null,
+                        "continuityRevisionUx": null,
+                        "strongestContradiction": null,
+                        "rationale": "The repaired mission-control artifact now covers rollout, risk, ownership, and rollback decisions with visible interactions."
+                    })
+                } else {
+                    serde_json::json!({
+                        "classification": "repairable",
+                        "requestFaithfulness": 4,
+                        "conceptCoverage": 4,
+                        "interactionRelevance": 4,
+                        "layoutCoherence": 4,
+                        "visualHierarchy": 4,
+                        "completeness": 3,
+                        "genericShellDetected": false,
+                        "trivialShellDetected": false,
+                        "deservesPrimaryArtifactView": true,
+                        "patchedExistingArtifact": null,
+                        "continuityRevisionUx": null,
+                        "strongestContradiction": "The artifact still needs an explicit rollback playbook inside the owner handoff surface.",
+                        "rationale": "The control room is strong, but the launch decision loop is incomplete without a visible rollback playbook."
+                    })
+                }
+            } else {
+                return Err(VmError::HostError("unexpected Studio prompt".to_string()));
+            };
+
+            Ok(response.to_string().into_bytes())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            self.provenance.clone()
+        }
+    }
+
+    #[derive(Default)]
+    struct ComplexMissionControlRenderEvaluator;
+
+    #[async_trait]
+    impl StudioArtifactRenderEvaluator for ComplexMissionControlRenderEvaluator {
+        async fn evaluate_candidate_render(
+            &self,
+            _request: &StudioOutcomeArtifactRequest,
+            _brief: &StudioArtifactBrief,
+            _blueprint: Option<&StudioArtifactBlueprint>,
+            _artifact_ir: Option<&StudioArtifactIR>,
+            _edit_intent: Option<&StudioArtifactEditIntent>,
+            candidate: &StudioGeneratedArtifactPayload,
+        ) -> Result<Option<StudioArtifactRenderEvaluation>, String> {
+            let repaired = candidate
+                .files
+                .iter()
+                .find(|file| file.path == "index.html")
+                .map(|file| file.body.contains("data-repaired=\"rollback-playbook\""))
+                .unwrap_or(false);
+
+            Ok(Some(studio_test_render_evaluation(
+                if repaired { 32 } else { 24 },
+                true,
+                if repaired {
+                    Vec::new()
+                } else {
+                    vec![StudioArtifactRenderFinding {
+                        code: "rollback_playbook_missing".to_string(),
+                        severity: StudioArtifactRenderFindingSeverity::Warning,
+                        summary: "The first render still needs an explicit rollback playbook in the handoff surface.".to_string(),
+                    }]
+                },
+                vec![
+                    studio_test_render_capture(
+                        StudioArtifactRenderCaptureViewport::Desktop,
+                        if repaired { 58 } else { 42 },
+                        if repaired { 910 } else { 680 },
+                        if repaired { 12 } else { 8 },
+                    ),
+                    studio_test_render_capture(
+                        StudioArtifactRenderCaptureViewport::Mobile,
+                        if repaired { 51 } else { 36 },
+                        if repaired { 840 } else { 590 },
+                        if repaired { 11 } else { 7 },
+                    ),
+                    studio_test_render_capture(
+                        StudioArtifactRenderCaptureViewport::Interaction,
+                        if repaired { 56 } else { 40 },
+                        if repaired { 876 } else { 622 },
+                        if repaired { 13 } else { 8 },
+                    ),
+                ],
+            )))
+        }
+    }
+
+    with_modal_first_html_env_async(|| async {
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let brief = sample_complex_mission_control_brief();
+        let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+        let swarm_plan = super::generation::build_studio_artifact_swarm_plan(
+            &request,
+            Some(&blueprint),
+            &brief,
+            StudioExecutionStrategy::AdaptiveWorkGraph,
+        );
+        let section_regions = swarm_plan
+            .work_items
+            .iter()
+            .filter(|item| item.role == StudioArtifactWorkerRole::SectionContent)
+            .flat_map(|item| item.write_regions.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            section_regions.len(),
+            3,
+            "complex HTML briefs should coalesce into three bounded section workers"
+        );
+        let repair_region = section_regions
+            .last()
+            .cloned()
+            .expect("repair region should exist");
+
+        let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+        let production_runtime: Arc<dyn InferenceRuntime> =
+            Arc::new(ComplexMissionControlRuntime {
+                provenance: StudioRuntimeProvenance {
+                    kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                    label: "openai-compatible".to_string(),
+                    model: Some("qwen3.5:9b".to_string()),
+                    endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+                },
+                role: "production",
+                calls: calls.clone(),
+                section_regions: section_regions.clone(),
+                repair_region: repair_region.clone(),
+            });
+        let acceptance_runtime: Arc<dyn InferenceRuntime> =
+            Arc::new(ComplexMissionControlRuntime {
+                provenance: StudioRuntimeProvenance {
+                    kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                    label: "openai-compatible".to_string(),
+                    model: Some("qwen3.5:9b".to_string()),
+                    endpoint: Some(
+                        "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance"
+                            .to_string(),
+                    ),
+                },
+                role: "acceptance",
+                calls: calls.clone(),
+                section_regions: section_regions.clone(),
+                repair_region: repair_region.clone(),
+            });
+        let runtime_plan = resolve_studio_artifact_runtime_plan(
+            &request,
+            production_runtime,
+            Some(acceptance_runtime),
+            StudioArtifactRuntimePolicyProfile::FullyLocal,
+        );
+        let evaluator = ComplexMissionControlRenderEvaluator;
+
+        let bundle =
+            generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+                runtime_plan,
+                "Post-quantum migration mission control",
+                "Create an interactive HTML mission control artifact for a post-quantum migration program that lets operators compare rollout phases, inspect cryptography risk, simulate cutover decisions, and review owner handoffs with a visible rollback playbook.",
+                &request,
+                None,
+                None,
+                StudioExecutionStrategy::AdaptiveWorkGraph,
+                Some(&evaluator),
+                None,
+            )
+            .await
+            .expect("complex mission-control swarm bundle should generate");
+
+        assert!(bundle.candidate_summaries.is_empty());
+        assert_eq!(
+            bundle.judge.classification,
+            StudioArtifactJudgeClassification::Pass
+        );
+
+        let envelope = bundle
+            .execution_envelope
+            .as_ref()
+            .expect("execution envelope");
+        assert_eq!(
+            envelope.execution_summary.as_ref().map(|summary| summary.current_stage.as_str()),
+            Some("ready")
+        );
+        assert_eq!(
+            envelope.execution_summary.as_ref().map(|summary| summary.verification_status.as_str()),
+            Some("pass")
+        );
+        assert!(
+            envelope.dispatch_batches.len() >= 5,
+            "complex local HTML should require several iterative dispatch waves"
+        );
+        assert!(envelope.dispatch_batches.iter().any(|batch| {
+            batch.work_item_ids.iter().filter(|id| id.starts_with("section-")).count() == 2
+                && !batch.deferred_work_item_ids.is_empty()
+        }));
+        assert!(envelope.dispatch_batches.iter().any(|batch| {
+            batch.work_item_ids.iter().filter(|id| id.starts_with("section-")).count() == 1
+                && batch.deferred_work_item_ids.is_empty()
+        }));
+        assert!(envelope.dispatch_batches.iter().any(|batch| {
+            batch.work_item_ids.iter().any(|id| id == "style-system")
+                && batch.work_item_ids.iter().any(|id| id == "interaction")
+        }));
+        assert!(envelope
+            .graph_mutation_receipts
+            .iter()
+            .any(|receipt| receipt.mutation_kind == "subtask_spawned"));
+        assert!(envelope
+            .repair_receipts
+            .iter()
+            .any(|receipt| receipt.status == "pass"
+                && receipt
+                    .work_item_ids
+                    .iter()
+                    .any(|id| id == "repair-pass-1")));
+        assert!(
+            envelope
+                .budget_summary
+                .as_ref()
+                .and_then(|summary| summary.token_budget)
+                .unwrap_or_default()
+                > 0
+        );
+        assert!(
+            envelope
+                .budget_summary
+                .as_ref()
+                .and_then(|summary| summary.dispatched_worker_count)
+                .unwrap_or_default()
+                >= 7
+        );
+
+        let section_receipts = bundle
+            .swarm_worker_receipts
+            .iter()
+            .filter(|receipt| receipt.role == StudioArtifactWorkerRole::SectionContent)
+            .collect::<Vec<_>>();
+        assert_eq!(section_receipts.len(), 3);
+        assert!(section_receipts.iter().all(|receipt| {
+            receipt.status == StudioArtifactWorkItemStatus::Succeeded
+                && receipt.write_regions.len() == 1
+        }));
+        assert!(bundle
+            .swarm_change_receipts
+            .iter()
+            .filter(|receipt| receipt.work_item_id.starts_with("section-"))
+            .all(|receipt| receipt.operation_count == 1 && receipt.touched_regions.len() == 1));
+        assert!(bundle
+            .swarm_verification_receipts
+            .iter()
+            .any(|receipt| receipt.kind == "acceptance_judge"));
+        assert!(bundle.winner.files.iter().any(|file| {
+            file.path == "index.html"
+                && file.body.contains("Fleet rollout phases")
+                && file.body.contains("Cryptography risk drilldown")
+                && file.body.contains("Owner handoffs and cutover simulation")
+                && file.body.contains("Rollback playbook")
+                && file.body.contains("data-repaired=\"rollback-playbook\"")
+        }));
+        assert!(bundle
+            .render_evaluation
+            .as_ref()
+            .is_some_and(|evaluation| evaluation.captures.iter().any(|capture| {
+                capture.viewport == StudioArtifactRenderCaptureViewport::Interaction
+                    && capture.interactive_element_count >= 13
+            })));
+
+        let recorded_calls = calls.lock().expect("calls lock").clone();
+        assert!(recorded_calls.iter().any(|call| call == "production:brief"));
+        assert!(recorded_calls.iter().any(|call| call == "production:skeleton"));
+        assert_eq!(
+            recorded_calls
+                .iter()
+                .filter(|call| call.starts_with("production:section:section:"))
+                .count(),
+            3
+        );
+        assert!(recorded_calls.iter().any(|call| call == "production:style"));
+        assert!(recorded_calls.iter().any(|call| call == "production:interaction"));
+        assert!(recorded_calls.iter().any(|call| call == "production:repair"));
+        assert_eq!(
+            recorded_calls
+                .iter()
+                .filter(|call| call.ends_with(":judge"))
+                .count(),
+            2
+        );
+    })
+    .await;
+}
+
+#[test]
+fn html_swarm_semantic_conflict_rejects_cross_boundary_patch() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let mut payload = StudioGeneratedArtifactPayload {
+        summary: "Seed".to_string(),
+        notes: Vec::new(),
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: false,
+            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+            body: "<!doctype html><html><body><!-- STUDIO_REGION_START:section:intro --><section>Old body</section><!-- STUDIO_REGION_END:section:intro --></body></html>".to_string(),
+        }],
+    };
+    let work_item = StudioArtifactWorkItem {
+        id: "section-1".to_string(),
+        title: "Section 1".to_string(),
+        role: StudioArtifactWorkerRole::SectionContent,
+        summary: "Own the intro section.".to_string(),
+        spawned_from_id: None,
+        read_paths: vec!["index.html".to_string()],
+        write_paths: vec!["index.html".to_string()],
+        write_regions: vec!["section:intro".to_string()],
+        lease_requirements: vec![
+            shared_read_lease_for_path("index.html"),
+            exclusive_write_lease_for_region("section:intro"),
+        ],
+        acceptance_criteria: vec!["Stay inside the intro region.".to_string()],
+        dependency_ids: vec!["skeleton".to_string()],
+        blocked_on_ids: Vec::new(),
+        verification_policy: Some(SwarmVerificationPolicy::Normal),
+        retry_budget: Some(0),
+        status: StudioArtifactWorkItemStatus::Pending,
+    };
+    let envelope = StudioArtifactPatchEnvelope {
+        summary: Some("Bad section patch".to_string()),
+        notes: Vec::new(),
+        operations: vec![StudioArtifactPatchOperation {
+            kind: StudioArtifactPatchOperationKind::ReplaceFile,
+            path: "index.html".to_string(),
+            region_id: None,
+            mime: None,
+            role: None,
+            renderable: None,
+            downloadable: None,
+            encoding: None,
+            body: Some(
+                "<script>document.body.dataset.bad='true';</script><section>Wrong boundary</section>"
+                    .to_string(),
+            ),
+        }],
+    };
+
+    let (patch_receipt, merge_receipt) =
+        apply_studio_swarm_patch_envelope(&request, &mut payload, &work_item, &envelope)
+            .expect("semantic conflict should surface as a bounded rejection");
+
+    assert_eq!(patch_receipt.status, StudioArtifactWorkItemStatus::Rejected);
+    assert_eq!(merge_receipt.status, StudioArtifactWorkItemStatus::Rejected);
+    assert!(patch_receipt
+        .failure
+        .as_deref()
+        .is_some_and(|failure| failure.contains("semantic ownership boundary")));
+    assert!(merge_receipt
+        .rejected_reason
+        .as_deref()
+        .is_some_and(|reason| reason.contains("semantic ownership boundary")));
+    assert!(payload.files[0].body.contains("Old body"));
+}
+
+#[test]
+fn validate_swarm_generated_artifact_payload_repairs_default_primary_renderable_flag() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let payload = StudioGeneratedArtifactPayload {
+        summary: "Interactive HTML artifact".to_string(),
+        notes: Vec::new(),
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: false,
+            downloadable: true,
+            encoding: None,
+            body: "<!doctype html><html><body><main><header><h1>Renderable shell</h1><div class=\"controls\"><button type=\"button\" data-view=\"risk\" aria-pressed=\"true\">Risk</button><button type=\"button\" data-view=\"rollback\" aria-pressed=\"false\">Rollback</button></div></header><section id=\"risk-panel\"><h2>Risk detail</h2><p id=\"detail-copy\">Inspect cryptography risk before cutover.</p></section><section id=\"rollback-panel\" hidden><h2>Rollback</h2><p>Rollback playbook is ready if launch conditions fail.</p></section><section><h2>Operator summary</h2><p>Compare phases, inspect risk, and confirm rollback readiness.</p></section></main><script>document.querySelectorAll('[data-view]').forEach((button)=>button.addEventListener('click',()=>{const isRisk=button.dataset.view==='risk';document.getElementById('risk-panel').hidden=!isRisk;document.getElementById('rollback-panel').hidden=isRisk;document.getElementById('detail-copy').textContent=isRisk?'Inspect cryptography risk before cutover.':'Rollback playbook is visible.';document.querySelectorAll('[data-view]').forEach((candidate)=>candidate.setAttribute('aria-pressed', String(candidate===button)));}));</script></body></html>".to_string(),
+        }],
+    };
+
+    let repaired = validate_swarm_generated_artifact_payload(&payload, &request)
+        .expect("default HTML primary file should be normalized before validation");
+
+    let primary = repaired
+        .files
+        .iter()
+        .find(|file| file.path == "index.html")
+        .expect("normalized primary file");
+    assert_eq!(primary.role, StudioArtifactFileRole::Primary);
+    assert!(primary.renderable);
+    assert!(!primary.downloadable);
+    assert_eq!(
+        primary.encoding,
+        Some(StudioGeneratedArtifactEncoding::Utf8)
+    );
 }

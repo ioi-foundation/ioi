@@ -20,6 +20,13 @@ fn truncate_planning_preview(raw: &str, max_chars: usize) -> String {
     preview
 }
 
+pub fn studio_execution_strategy_for_outcome(
+    outcome_kind: StudioOutcomeKind,
+    artifact: Option<&StudioOutcomeArtifactRequest>,
+) -> StudioExecutionStrategy {
+    crate::execution::execution_strategy_for_outcome(outcome_kind, artifact)
+}
+
 fn compact_local_html_brief_prompt(
     renderer: StudioRendererKind,
     runtime_kind: StudioRuntimeProvenanceKind,
@@ -67,6 +74,12 @@ pub async fn plan_studio_outcome_with_runtime(
     active_artifact_id: Option<&str>,
     active_artifact: Option<&StudioArtifactRefinementContext>,
 ) -> Result<StudioOutcomePlanningPayload, String> {
+    if let Some(deterministic) =
+        deterministic_single_document_artifact_route(intent, active_artifact_id, active_artifact)
+    {
+        return Ok(deterministic);
+    }
+
     let runtime_provenance = runtime.studio_runtime_provenance();
     let router_max_tokens =
         if runtime_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
@@ -117,8 +130,9 @@ pub async fn plan_studio_outcome_with_runtime(
         .artifact
         .map(|request| reconcile_outcome_artifact_request_with_intent(intent, request));
     studio_planning_trace(format!(
-        "outcome_route:parsed outcome={:?} confidence={} needs_clarification={} artifact_present={}",
+        "outcome_route:parsed outcome={:?} strategy={:?} confidence={} needs_clarification={} artifact_present={}",
         planning.outcome_kind,
+        planning.execution_strategy,
         planning.confidence,
         planning.needs_clarification,
         planning.artifact.is_some()
@@ -155,14 +169,14 @@ pub(crate) fn build_studio_outcome_router_prompt_for_runtime(
     };
     let user_content = if compact_local_contract {
         format!(
-            "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireExport\": <boolean>\n    }}\n  }}\n}}\nDerived automatically from renderer when omitted: deliverableShape, presentationSurface, persistence, executionSubstrate, createNewWorkspace, requireBuild, requirePreview, requireDiffReview.\nRenderer rules:\n- markdown = single renderable .md document.\n- html_iframe = single self-contained .html document.\n- jsx_sandbox = single .jsx source module with a default export.\n- svg = single .svg visual artifact.\n- mermaid = single .mermaid diagram source artifact.\n- pdf_embed = document artifact compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = the only multi-file workspace renderer.\nRules:\n1) artifact is for persistent work products.\n2) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n3) Build, preview, and diff review are only valid for workspace_surface.\n4) Explicit medium-plus-deliverable requests are sufficiently specified artifact work.\n5) If active artifact context exists and the request is a follow-up, continue that artifact by default.\n6) Do not use lexical fallbacks or benchmark phrase maps.\n7) If a required constraint is missing, keep confidence low and ask clarification.",
+            "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"executionStrategy\": \"single_pass\" | \"direct_author\" | \"plan_execute\" | \"micro_swarm\" | \"adaptive_work_graph\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireExport\": <boolean>\n    }}\n  }}\n}}\nDerived automatically from renderer when omitted: deliverableShape, presentationSurface, persistence, executionSubstrate, createNewWorkspace, requireBuild, requirePreview, requireDiffReview.\nExecution strategy rules:\n- single_pass = one bounded draft with no candidate search.\n- direct_author = direct first-pass authoring for one coherent single-document artifact; preserve the raw request and skip planner scaffolding on the first generation.\n- plan_execute = default when one planned execution unit is sufficient.\n- micro_swarm = use when the work graph is small and known up front.\n- adaptive_work_graph = use only when the request clearly needs a mutable multi-node work graph.\nRenderer rules:\n- markdown = single renderable .md document.\n- html_iframe = single self-contained .html document.\n- jsx_sandbox = single .jsx source module with a default export.\n- svg = single .svg visual artifact.\n- mermaid = single .mermaid diagram source artifact.\n- pdf_embed = document artifact compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = the only multi-file workspace renderer.\nRules:\n1) artifact is for persistent work products.\n2) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n3) Build, preview, and diff review are only valid for workspace_surface.\n4) Explicit medium-plus-deliverable requests are sufficiently specified artifact work.\n5) Prefer direct_author for a fresh coherent single-file document ask that the model can author directly, such as markdown, html_iframe, svg, mermaid, or pdf_embed; otherwise prefer plan_execute unless the request is trivial enough for single_pass, small-graph enough for micro_swarm, or clearly mutable enough for adaptive_work_graph.\n6) If active artifact context exists and the request is a follow-up, continue that artifact by default instead of using direct_author.\n7) Do not use lexical fallbacks or benchmark phrase maps.\n8) If a required constraint is missing, keep confidence low and ask clarification.",
             intent,
             active_artifact_id.unwrap_or("<none>"),
             active_artifact_context_json,
         )
     } else {
         format!(
-            "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"deliverableShape\": \"single_file\" | \"file_set\" | \"workspace_project\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"presentationSurface\": \"inline\" | \"side_panel\" | \"overlay\" | \"tabbed_panel\",\n    \"persistence\": \"ephemeral\" | \"artifact_scoped\" | \"shared_artifact_scoped\" | \"workspace_filesystem\",\n    \"executionSubstrate\": \"none\" | \"client_sandbox\" | \"binary_generator\" | \"workspace_runtime\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"createNewWorkspace\": <boolean>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireRender\": <boolean>,\n      \"requireBuild\": <boolean>,\n      \"requirePreview\": <boolean>,\n      \"requireExport\": <boolean>,\n      \"requireDiffReview\": <boolean>\n    }}\n  }}\n}}\nRenderer contracts:\n- markdown = a single renderable .md document.\n- html_iframe = a single self-contained .html document for browser presentation. Choose this when the final artifact should be HTML itself, such as a landing page, explainer, launch page, editorial page, or browser-native interactive document.\n- jsx_sandbox = a single .jsx source module with a default export. Choose this only when the final artifact should be JSX/React source as the work product rather than a plain HTML document.\n- svg = a single .svg visual artifact.\n- mermaid = a single .mermaid diagram source artifact.\n- pdf_embed = a document artifact that will be compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = a real multi-file workspace with supervised build/preview.\nCoherence rules:\n- html_iframe and jsx_sandbox are interactive_single_file artifacts with single_file deliverableShape and client_sandbox executionSubstrate.\n- workspace_surface is the only renderer that may use workspace_project deliverableShape, workspace_runtime executionSubstrate, createNewWorkspace=true, requireBuild=true, or requirePreview=true.\n- Non-workspace artifact renderers should not request build or preview verification.\nRules:\n1) conversation is for plain reply only.\n2) tool_widget is for first-party tool display surfaces.\n3) visualizer is for ephemeral inline visuals.\n4) artifact is for persistent work products.\n5) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n6) Treat explicit medium-plus-deliverable requests as sufficiently specified artifact work. If the user already asked for an HTML artifact, landing page, launch page, editorial page, markdown document, SVG concept, Mermaid diagram, PDF artifact, downloadable bundle, or workspace project, do not ask clarification merely to restate that same deliverable form.\n7) For example, \"Create an interactive HTML artifact for an AI tools editorial launch page\" is already an artifact request for html_iframe, not a clarification request.\n8) When active artifact context JSON is not null and the request is a follow-up refinement, patch or branch the current artifact by default instead of switching renderer, artifactClass, or deliverableShape unless the user explicitly asks for a different deliverable form.\n9) Under-specified follow-up requests should continue the active artifact rather than restarting as a new artifact kind.\n10) Do not use lexical fallbacks or benchmark phrase maps.\n11) When uncertainty remains about a required missing constraint, keep confidence low and ask clarification.",
+            "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"executionStrategy\": \"single_pass\" | \"direct_author\" | \"plan_execute\" | \"micro_swarm\" | \"adaptive_work_graph\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"deliverableShape\": \"single_file\" | \"file_set\" | \"workspace_project\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"presentationSurface\": \"inline\" | \"side_panel\" | \"overlay\" | \"tabbed_panel\",\n    \"persistence\": \"ephemeral\" | \"artifact_scoped\" | \"shared_artifact_scoped\" | \"workspace_filesystem\",\n    \"executionSubstrate\": \"none\" | \"client_sandbox\" | \"binary_generator\" | \"workspace_runtime\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"createNewWorkspace\": <boolean>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireRender\": <boolean>,\n      \"requireBuild\": <boolean>,\n      \"requirePreview\": <boolean>,\n      \"requireExport\": <boolean>,\n      \"requireDiffReview\": <boolean>\n    }}\n  }}\n}}\nExecution strategy contracts:\n- single_pass = one bounded draft with no candidate search.\n- direct_author = direct first-pass authoring for one coherent single-document artifact; preserve the raw request and skip planner scaffolding on the first generation.\n- plan_execute = default when one planned execution unit is sufficient.\n- micro_swarm = use when the request implies a small known work graph.\n- adaptive_work_graph = use only when the request clearly needs a mutable multi-node work graph.\nRenderer contracts:\n- markdown = a single renderable .md document.\n- html_iframe = a single self-contained .html document for browser presentation. Choose this when the final artifact should be HTML itself, such as a landing page, explainer, launch page, editorial page, or browser-native interactive document.\n- jsx_sandbox = a single .jsx source module with a default export. Choose this only when the final artifact should be JSX/React source as the work product rather than a plain HTML document.\n- svg = a single .svg visual artifact.\n- mermaid = a single .mermaid diagram source artifact.\n- pdf_embed = a document artifact that will be compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = a real multi-file workspace with supervised build/preview.\nCoherence rules:\n- html_iframe and jsx_sandbox are interactive_single_file artifacts with single_file deliverableShape and client_sandbox executionSubstrate.\n- workspace_surface is the only renderer that may use workspace_project deliverableShape, workspace_runtime executionSubstrate, createNewWorkspace=true, requireBuild=true, or requirePreview=true.\n- Non-workspace artifact renderers should not request build or preview verification.\nRules:\n1) conversation is for plain reply only.\n2) tool_widget is for first-party tool display surfaces.\n3) visualizer is for ephemeral inline visuals.\n4) artifact is for persistent work products.\n5) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n6) Prefer direct_author for a fresh coherent single-file document ask that the model can author directly, such as markdown, html_iframe, svg, mermaid, or pdf_embed; otherwise prefer plan_execute unless the request is trivial enough for single_pass, small-graph enough for micro_swarm, or clearly mutable enough for adaptive_work_graph.\n7) Treat explicit medium-plus-deliverable requests as sufficiently specified artifact work. If the user already asked for an HTML artifact, landing page, launch page, editorial page, markdown document, SVG concept, Mermaid diagram, PDF artifact, downloadable bundle, or workspace project, do not ask clarification merely to restate that same deliverable form.\n8) For example, \"Create an interactive HTML artifact for an AI tools editorial launch page\" is already an artifact request for html_iframe, not a clarification request.\n9) When active artifact context JSON is not null and the request is a follow-up refinement, patch or branch the current artifact by default instead of switching renderer, artifactClass, or deliverableShape unless the user explicitly asks for a different deliverable form.\n10) Under-specified follow-up requests should continue the active artifact rather than restarting as a new artifact kind.\n11) Do not use lexical fallbacks or benchmark phrase maps.\n12) When uncertainty remains about a required missing constraint, keep confidence low and ask clarification.",
             intent,
             active_artifact_id.unwrap_or("<none>"),
             active_artifact_context_json,
@@ -407,6 +421,137 @@ fn intent_requests_downloadable_fileset(intent: &str) -> bool {
 
     requests_transport
         && (referenced_files.len() >= 2 || (requests_bundle && !referenced_files.is_empty()))
+}
+
+fn intent_requests_created_deliverable(intent: &str) -> bool {
+    const CREATION_TERMS: &[&str] = &[
+        "create", "make", "build", "generate", "write", "draft", "produce", "craft", "design",
+    ];
+
+    let terms = intent_terms(intent);
+    let normalized = normalize_inline_whitespace(&intent.to_ascii_lowercase());
+    terms
+        .iter()
+        .any(|term| CREATION_TERMS.contains(&term.as_str()))
+        || normalized.starts_with("new ")
+}
+
+fn explicit_single_document_renderer_from_intent(
+    intent: &str,
+) -> Option<(StudioRendererKind, &'static str)> {
+    let normalized = normalize_inline_whitespace(&intent.to_ascii_lowercase());
+
+    if normalized.contains("interactive html artifact")
+        || normalized.contains("html artifact")
+        || normalized.contains("html page")
+        || normalized.contains("html document")
+        || normalized.contains("landing page")
+        || normalized.contains("launch page")
+        || normalized.contains("microsite")
+    {
+        return Some((
+            StudioRendererKind::HtmlIframe,
+            "explicit_single_document_html_deliverable",
+        ));
+    }
+
+    if normalized.contains("markdown artifact")
+        || normalized.contains("markdown document")
+        || normalized.contains("markdown doc")
+        || normalized.contains("markdown file")
+        || normalized.contains("md file")
+    {
+        return Some((
+            StudioRendererKind::Markdown,
+            "explicit_single_document_markdown_deliverable",
+        ));
+    }
+
+    if normalized.contains("mermaid artifact")
+        || normalized.contains("mermaid diagram")
+        || normalized.contains("mermaid chart")
+    {
+        return Some((
+            StudioRendererKind::Mermaid,
+            "explicit_single_document_mermaid_deliverable",
+        ));
+    }
+
+    if normalized.contains("svg artifact")
+        || normalized.contains("svg diagram")
+        || normalized.contains("svg illustration")
+        || normalized.contains("svg graphic")
+    {
+        return Some((
+            StudioRendererKind::Svg,
+            "explicit_single_document_svg_deliverable",
+        ));
+    }
+
+    if normalized.contains("pdf artifact")
+        || normalized.contains("pdf document")
+        || normalized.contains("pdf report")
+        || normalized.contains("pdf file")
+    {
+        return Some((
+            StudioRendererKind::PdfEmbed,
+            "explicit_single_document_pdf_deliverable",
+        ));
+    }
+
+    None
+}
+
+fn deterministic_single_document_artifact_route(
+    intent: &str,
+    active_artifact_id: Option<&str>,
+    active_artifact: Option<&StudioArtifactRefinementContext>,
+) -> Option<StudioOutcomePlanningPayload> {
+    if active_artifact_id.is_some() || active_artifact.is_some() {
+        return None;
+    }
+
+    if !intent_requests_created_deliverable(intent) {
+        return None;
+    }
+
+    let (renderer, reason) = explicit_single_document_renderer_from_intent(intent)?;
+    let request = canonicalize_artifact_request(StudioOutcomeArtifactRequest {
+        artifact_class: StudioArtifactClass::Document,
+        deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
+        renderer,
+        presentation_surface: StudioPresentationSurface::SidePanel,
+        persistence: StudioArtifactPersistenceMode::SharedArtifactScoped,
+        execution_substrate: StudioExecutionSubstrate::None,
+        workspace_recipe_id: None,
+        presentation_variant_id: None,
+        scope: StudioOutcomeArtifactScope {
+            target_project: None,
+            create_new_workspace: false,
+            mutation_boundary: vec!["artifact".to_string()],
+        },
+        verification: StudioOutcomeArtifactVerificationRequest {
+            require_render: true,
+            require_build: false,
+            require_preview: false,
+            require_export: renderer == StudioRendererKind::PdfEmbed,
+            require_diff_review: false,
+        },
+    });
+    let execution_strategy =
+        studio_execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(&request));
+    studio_planning_trace(format!(
+        "outcome_route:deterministic renderer={renderer:?} strategy={execution_strategy:?} reason={reason}"
+    ));
+    Some(StudioOutcomePlanningPayload {
+        outcome_kind: StudioOutcomeKind::Artifact,
+        execution_strategy,
+        execution_mode_decision: None,
+        confidence: 0.99,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        artifact: Some(request),
+    })
 }
 
 fn reconcile_outcome_artifact_request_with_intent(
@@ -719,7 +864,7 @@ pub(crate) fn build_studio_artifact_brief_prompt_for_runtime(
             {
                 "role": "user",
                 "content": format!(
-                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) audience, jobToBeDone, subjectDomain, and artifactThesis must be non-empty request-grounded strings.\n2) Preserve the differentiating nouns and framing words from the request.\n3) For html_iframe, requiredConcepts must include at least three concrete request-grounded concepts.\n4) For html_iframe, requiredInteractions must include at least two concrete multi-word on-page interactions with visible response.\n5) Provide at least one factualAnchors or referenceHints entry tied to visible evidence.\n6) {}\n7) Use empty arrays instead of filler or generic synonyms.",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) audience, jobToBeDone, subjectDomain, and artifactThesis must be non-empty request-grounded strings.\n2) Preserve the differentiating nouns and framing words from the request.\n3) For html_iframe, requiredConcepts must include at least three concrete request-grounded concepts.\n4) For html_iframe, requiredInteractions must include at least two concrete multi-word on-page interactions with visible response.\n5) Provide at least one factualAnchors or referenceHints entry tied to visible evidence.\n6) For html_iframe, visualTone or styleDirectives must include at least one concrete multi-word design direction that can actually steer composition, not only generic words like clean, interactive, or minimalist.\n7) When the request leaves visual style open, use referenceHints or styleDirectives to name concrete visual devices, metaphors, or diagram families the artifact can stage.\n8) {}\n9) Use empty arrays instead of filler or generic synonyms.",
                     title,
                     intent,
                     request_focus_json,
@@ -949,6 +1094,11 @@ fn normalize_studio_outcome_planning_value(value: &mut serde_json::Value) {
     if let Some(entry) = object.get_mut("clarificationQuestions") {
         coerce_string_array_field(entry);
     }
+    if let Some(entry) = object.get_mut("executionStrategy") {
+        if let Some(text) = entry.as_str() {
+            *entry = serde_json::Value::String(text.trim().to_ascii_lowercase().replace('-', "_"));
+        }
+    }
     if let Some(artifact) = object.get_mut("artifact") {
         normalize_studio_outcome_artifact_request_value(artifact);
     }
@@ -1166,6 +1316,28 @@ fn split_interaction_identifier_terms(value: &str) -> Vec<String> {
 }
 
 fn canonical_interaction_response_clause(terms: &[String]) -> &'static str {
+    if studio_modal_first_html_enabled() {
+        if terms
+            .iter()
+            .any(|term| matches!(term.as_str(), "hover" | "rollover" | "focus"))
+        {
+            return "to reveal deeper context inline";
+        } else if terms.iter().any(|term| {
+            matches!(
+                term.as_str(),
+                "click" | "switch" | "toggle" | "tab" | "navigation" | "navigate" | "jump" | "view"
+            )
+        }) {
+            return "to switch between authored states or scenes";
+        } else if terms
+            .iter()
+            .any(|term| matches!(term.as_str(), "compare" | "comparison"))
+        {
+            return "to compare grounded scenarios inline";
+        } else {
+            return "to make the explanation visibly change on interaction";
+        }
+    }
     if terms
         .iter()
         .any(|term| matches!(term.as_str(), "hover" | "rollover" | "focus"))
@@ -1304,6 +1476,24 @@ fn derived_grounded_html_interaction(
     primary_focus: &str,
     secondary_focus: &str,
 ) -> String {
+    if studio_modal_first_html_enabled() {
+        return match family {
+            "view_switching" => {
+                format!(
+                    "switch between {primary_focus} views to compare how the explanation changes"
+                )
+            }
+            "detail_inspection" => {
+                format!("inspect {secondary_focus} callouts to reveal deeper context inline")
+            }
+            "sequence_browsing" => {
+                format!("step through {primary_focus} examples to see the explanation progress")
+            }
+            _ => {
+                format!("interact with {secondary_focus} examples to reveal deeper context inline")
+            }
+        };
+    }
     match family {
         "view_switching" => {
             format!("switch {primary_focus} sections to update the visible comparison panel")
@@ -1356,10 +1546,17 @@ fn ground_html_brief_interactions(
         grounded.push(entry);
     }
 
-    let defaults = [
-        format!("switch {primary_focus} sections to update the visible comparison panel"),
-        format!("inspect {secondary_focus} details in the shared detail panel"),
-    ];
+    let defaults = if studio_modal_first_html_enabled() {
+        [
+            format!("switch between {primary_focus} views to compare how the explanation changes"),
+            format!("inspect {secondary_focus} callouts to reveal deeper context inline"),
+        ]
+    } else {
+        [
+            format!("switch {primary_focus} sections to update the visible comparison panel"),
+            format!("inspect {secondary_focus} details in the shared detail panel"),
+        ]
+    };
     for entry in defaults {
         if grounded.len() >= 2 {
             break;
@@ -1457,7 +1654,7 @@ pub fn parse_studio_artifact_brief(raw: &str) -> Result<StudioArtifactBrief, Str
 
 fn studio_artifact_brief_planning_guidance(request: &StudioOutcomeArtifactRequest) -> String {
     match request.renderer {
-        StudioRendererKind::HtmlIframe => "- Name at least two concrete on-page interaction patterns in requiredInteractions.\n- Single-word labels like \"interactive\" or \"explains\" are not sufficient interaction plans.\n- Keep requiredConcepts tied to the visible evidence surfaces or sections.\n- Provide at least one concrete evidence anchor or reference hint.".to_string(),
+        StudioRendererKind::HtmlIframe => "- Name at least two concrete on-page interaction patterns in requiredInteractions.\n- Single-word labels like \"interactive\" or \"explains\" are not sufficient interaction plans.\n- Keep requiredConcepts tied to the visible evidence surfaces or sections.\n- Provide at least one concrete evidence anchor or reference hint.\n- Give visualTone or styleDirectives at least one multi-word design direction that a materializer can actually stage, not just generic words like clean, modern, or interactive.".to_string(),
         StudioRendererKind::JsxSandbox => "- Name at least one concrete stateful interaction.\n- requiredInteractions should describe user action plus visible response.".to_string(),
         _ => "- Keep the brief concrete, request-specific, and directly usable by the materializer.".to_string(),
     }
@@ -1465,7 +1662,7 @@ fn studio_artifact_brief_planning_guidance(request: &StudioOutcomeArtifactReques
 
 fn studio_artifact_brief_validation_contract(request: &StudioOutcomeArtifactRequest) -> String {
     match request.renderer {
-        StudioRendererKind::HtmlIframe => "- requiredConcepts must include at least three concrete request-grounded concepts.\n- requiredInteractions must include at least two multi-word interaction descriptions.\n- At least one factualAnchors or referenceHints entry must be present.".to_string(),
+        StudioRendererKind::HtmlIframe => "- requiredConcepts must include at least three concrete request-grounded concepts.\n- requiredInteractions must include at least two multi-word interaction descriptions.\n- At least one factualAnchors or referenceHints entry must be present.\n- visualTone or styleDirectives must contribute at least one concrete multi-word design direction instead of only generic style adjectives.".to_string(),
         StudioRendererKind::JsxSandbox => "- requiredInteractions must include at least one multi-word interaction description.".to_string(),
         _ => "- Keep required fields non-empty and list fields schema-valid.".to_string(),
     }
@@ -1625,6 +1822,52 @@ fn interaction_has_behavior_terms(interaction: &str) -> bool {
         .any(|term| interaction_behavior_term(&term))
 }
 
+fn html_visual_direction_noise_term(term: &str) -> bool {
+    matches!(
+        term,
+        "a" | "an"
+            | "and"
+            | "clean"
+            | "cool"
+            | "educational"
+            | "friendly"
+            | "interactive"
+            | "minimal"
+            | "minimalist"
+            | "modern"
+            | "of"
+            | "polished"
+            | "professional"
+            | "simple"
+            | "sleek"
+            | "the"
+            | "usable"
+            | "visual"
+    )
+}
+
+fn html_visual_direction_entry_is_specific(entry: &str) -> bool {
+    let terms = split_interaction_identifier_terms(entry)
+        .into_iter()
+        .filter(|term| term.len() >= 3)
+        .collect::<Vec<_>>();
+    if terms.len() < 2 {
+        return false;
+    }
+
+    terms
+        .iter()
+        .any(|term| !html_visual_direction_noise_term(term))
+}
+
+fn brief_has_specific_html_visual_direction(brief: &StudioArtifactBrief) -> bool {
+    brief
+        .visual_tone
+        .iter()
+        .chain(brief.style_directives.iter())
+        .any(|entry| html_visual_direction_entry_is_specific(entry))
+}
+
 pub fn build_studio_artifact_exemplar_query(
     brief: &StudioArtifactBrief,
     blueprint: &StudioArtifactBlueprint,
@@ -1757,6 +2000,12 @@ pub(crate) fn validate_studio_artifact_brief_against_request(
             {
                 return Err(
                     "Interactive HTML briefs must keep requiredInteractions grounded in request concepts, evidence anchors, or concrete on-page behavior."
+                        .to_string(),
+                );
+            }
+            if !brief_has_specific_html_visual_direction(brief) {
+                return Err(
+                    "Interactive HTML briefs must contribute at least one concrete multi-word visual direction, not only generic tone words."
                         .to_string(),
                 );
             }
@@ -2038,27 +2287,52 @@ fn blueprint_interaction_plan(brief: &StudioArtifactBrief) -> Vec<StudioArtifact
                 match family.as_str() {
                     "view_switching" => (
                         vec!["control_bar".to_string(), "mapped_view_buttons".to_string()],
-                        vec!["mapped_panels".to_string(), "shared_detail_region".to_string()],
+                        if studio_modal_first_html_enabled() {
+                            vec!["authored_state_surfaces".to_string()]
+                        } else {
+                            vec!["mapped_panels".to_string(), "shared_detail_region".to_string()]
+                        },
                         "first_view_selected".to_string(),
-                        vec![
-                            "At least two mapped panels must be present in the raw markup."
-                                .to_string(),
-                            "Exactly one mapped panel is visible before script execution."
-                                .to_string(),
-                        ],
+                        if studio_modal_first_html_enabled() {
+                            vec![
+                                "At least two authored states, scenes, or comparison surfaces should be visible or directly reachable on first paint."
+                                    .to_string(),
+                                "Interaction must produce a visible on-page state change instead of decorative navigation."
+                                    .to_string(),
+                            ]
+                        } else {
+                            vec![
+                                "At least two mapped panels must be present in the raw markup."
+                                    .to_string(),
+                                "Exactly one mapped panel is visible before script execution."
+                                    .to_string(),
+                            ]
+                        },
                     ),
                     "detail_inspection" => (
                         vec!["focusable_data_marks".to_string()],
-                        vec!["shared_detail_region".to_string()],
+                        if studio_modal_first_html_enabled() {
+                            vec!["inline_annotation_surface".to_string()]
+                        } else {
+                            vec!["shared_detail_region".to_string()]
+                        },
                         "default_detail_visible".to_string(),
                         vec![
-                            "Visible detail text is rendered before interaction.".to_string(),
+                            if studio_modal_first_html_enabled() {
+                                "Visible explanatory context is rendered before interaction.".to_string()
+                            } else {
+                                "Visible detail text is rendered before interaction.".to_string()
+                            },
                             "Focusable marks or buttons already exist on first paint.".to_string(),
                         ],
                     ),
                     "sequence_browsing" => (
                         vec!["stepper".to_string(), "previous_next_controls".to_string()],
-                        vec!["sequence_panel".to_string(), "shared_detail_region".to_string()],
+                        if studio_modal_first_html_enabled() {
+                            vec!["sequence_surface".to_string(), "inline_annotation_surface".to_string()]
+                        } else {
+                            vec!["sequence_panel".to_string(), "shared_detail_region".to_string()]
+                        },
                         "step_one_active".to_string(),
                         vec![
                             "A progression control is visible before script execution.".to_string(),
@@ -2265,13 +2539,15 @@ fn blueprint_component_plan(
         &["hero"],
         Vec::new(),
     );
-    push_component(
-        &mut plan,
-        "shared_detail_panel",
-        "shared_explanation",
-        &["evidence-surface"],
-        all_interaction_ids.clone(),
-    );
+    if !studio_modal_first_html_enabled() {
+        push_component(
+            &mut plan,
+            "shared_detail_panel",
+            "shared_explanation",
+            &["evidence-surface"],
+            all_interaction_ids.clone(),
+        );
+    }
 
     match blueprint.scaffold_family.as_str() {
         "comparison_story" => {
@@ -2468,7 +2744,12 @@ fn blueprint_accessibility_plan(
         obligations: vec![
             "Use semantic sections and preserve heading order.".to_string(),
             "Keep interactive controls keyboard reachable.".to_string(),
-            "Ensure shared detail updates remain perceivable after interaction.".to_string(),
+            if studio_modal_first_html_enabled() {
+                "Ensure interaction feedback remains perceivable after every state change."
+                    .to_string()
+            } else {
+                "Ensure shared detail updates remain perceivable after interaction.".to_string()
+            },
         ],
         focus_order,
         aria_expectations: vec![
@@ -2744,7 +3025,7 @@ fn build_studio_artifact_brief_repair_prompt_for_runtime(
             {
                 "role": "user",
                 "content": format!(
-                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nFailure:\n{}\n\nPrevious raw output excerpt:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) Use arrays for every list field, even for one item.\n2) The four core string fields must be non-empty and request-grounded.\n3) Preserve the differentiating nouns and framing words from the request.\n4) For html_iframe, keep at least three concrete concepts, at least two concrete multi-word interactions, and at least one evidence anchor or reference hint.\n5) Use empty arrays instead of filler.",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nFailure:\n{}\n\nPrevious raw output excerpt:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) Use arrays for every list field, even for one item.\n2) The four core string fields must be non-empty and request-grounded.\n3) Preserve the differentiating nouns and framing words from the request.\n4) For html_iframe, keep at least three concrete concepts, at least two concrete multi-word interactions, and at least one evidence anchor or reference hint.\n5) For html_iframe, supply at least one concrete multi-word visual direction in visualTone or styleDirectives instead of generic style adjectives alone.\n6) Use empty arrays instead of filler.",
                     title,
                     intent,
                     request_focus_json,
@@ -2829,7 +3110,7 @@ fn build_studio_artifact_brief_field_repair_prompt_for_runtime(
             {
                 "role": "user",
                 "content": format!(
-                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nFailure:\n{}\n\nPlanner output preview:\n{}\n\nRepair output preview:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) Every string field must be non-empty and request-grounded.\n2) Preserve the differentiating subject nouns from the request.\n3) Keep list items short, concrete, and schema-valid arrays.\n4) For html_iframe, keep at least three concepts, at least two multi-word interactions, and at least one evidence anchor or reference hint.\n5) Do not leave required strings blank.",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nFailure:\n{}\n\nPlanner output preview:\n{}\n\nRepair output preview:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\"audience\":<string>,\"jobToBeDone\":<string>,\"subjectDomain\":<string>,\"artifactThesis\":<string>,\"requiredConcepts\":[<string>],\"requiredInteractions\":[<string>],\"visualTone\":[<string>],\"factualAnchors\":[<string>],\"styleDirectives\":[<string>],\"referenceHints\":[<string>]}}\nRules:\n1) Every string field must be non-empty and request-grounded.\n2) Preserve the differentiating subject nouns from the request.\n3) Keep list items short, concrete, and schema-valid arrays.\n4) For html_iframe, keep at least three concepts, at least two multi-word interactions, and at least one evidence anchor or reference hint.\n5) For html_iframe, keep at least one concrete multi-word visual direction in visualTone or styleDirectives.\n6) Do not leave required strings blank.",
                     title,
                     intent,
                     request_focus_json,

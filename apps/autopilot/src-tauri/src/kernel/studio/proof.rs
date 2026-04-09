@@ -1,7 +1,13 @@
+use super::content_session::attach_non_artifact_studio_session;
 use super::revisions::persist_studio_artifact_exemplar;
 use super::workspace_build::run_build_supervisor_for_proof;
 use super::*;
-use ioi_api::studio::StudioArtifactExemplar;
+use ioi_api::execution::{execution_strategy_for_outcome, ExecutionEnvelope};
+use ioi_api::studio::{
+    StudioArtifactExemplar, StudioArtifactMergeReceipt, StudioArtifactPatchReceipt,
+    StudioArtifactSwarmExecutionSummary, StudioArtifactSwarmPlan,
+    StudioArtifactVerificationReceipt, StudioArtifactWorkerReceipt,
+};
 use std::time::Duration;
 
 pub(crate) fn run_studio_current_task_turn_for_proof(
@@ -86,9 +92,7 @@ pub(crate) fn run_studio_current_task_turn_for_proof_with_route_timeout(
     };
     task.studio_outcome = Some(outcome_request.clone());
 
-    if outcome_request.needs_clarification
-        || outcome_request.outcome_kind != StudioOutcomeKind::Artifact
-    {
+    if outcome_request.needs_clarification {
         attach_blocked_route_failure_session_for_proof(
             task,
             intent,
@@ -96,6 +100,12 @@ pub(crate) fn run_studio_current_task_turn_for_proof_with_route_timeout(
             &runtime_provenance,
             &outcome_request,
         );
+        return Ok(());
+    }
+
+    if outcome_request.outcome_kind != StudioOutcomeKind::Artifact {
+        attach_non_artifact_studio_session(task, intent, runtime_provenance, &outcome_request);
+        apply_studio_authoritative_status(task, None);
         return Ok(());
     }
 
@@ -187,8 +197,13 @@ fn prepare_task_for_studio_with_request_for_proof(
     let created_at = now_iso();
     let mut attached_artifact_ids = Vec::new();
     let mut manifest_files: Vec<StudioArtifactManifestFile> = Vec::new();
-    let mut materialization =
-        materialization_contract_for_request(intent, &artifact_request, &summary);
+    let mut materialization = materialization_contract_for_request(
+        intent,
+        &artifact_request,
+        &summary,
+        outcome_request.execution_mode_decision.clone(),
+        outcome_request.execution_strategy,
+    );
     let workspace_root = if renderer_kind == StudioRendererKind::WorkspaceSurface {
         Some(workspace_root_base.join(&studio_session_id))
     } else {
@@ -205,6 +220,13 @@ fn prepare_task_for_studio_with_request_for_proof(
     let mut candidate_summaries = Vec::<StudioArtifactCandidateSummary>::new();
     let mut winning_candidate_id: Option<String> = None;
     let mut winning_candidate_rationale: Option<String> = None;
+    let mut execution_envelope: Option<ExecutionEnvelope> = None;
+    let mut swarm_plan: Option<StudioArtifactSwarmPlan> = None;
+    let mut swarm_execution: Option<StudioArtifactSwarmExecutionSummary> = None;
+    let mut swarm_worker_receipts = Vec::<StudioArtifactWorkerReceipt>::new();
+    let mut swarm_change_receipts = Vec::<StudioArtifactPatchReceipt>::new();
+    let mut swarm_merge_receipts = Vec::<StudioArtifactMergeReceipt>::new();
+    let mut swarm_verification_receipts = Vec::<StudioArtifactVerificationReceipt>::new();
     let mut render_evaluation: Option<ioi_api::studio::StudioArtifactRenderEvaluation> = None;
     let mut judge: Option<StudioArtifactJudgeResult> = None;
     let mut output_origin: Option<StudioArtifactOutputOrigin> = None;
@@ -330,17 +352,19 @@ fn prepare_task_for_studio_with_request_for_proof(
         .map(build_session_to_renderer_session);
 
     if build_session.is_none() {
-        let materialized_artifact = materialize_non_workspace_artifact_with_dependencies(
-            memory_runtime,
-            Some(inference_runtime),
-            Some(acceptance_inference_runtime),
-            &thread_id,
-            &title,
-            intent,
-            &artifact_request,
-            None,
-            None,
-        )?;
+        let materialized_artifact =
+            materialize_non_workspace_artifact_with_dependencies_and_execution_strategy(
+                memory_runtime,
+                Some(inference_runtime),
+                Some(acceptance_inference_runtime),
+                &thread_id,
+                &title,
+                intent,
+                &artifact_request,
+                None,
+                None,
+                outcome_request.execution_strategy,
+            )?;
         initial_lifecycle_state = materialized_artifact.lifecycle_state;
         non_workspace_verification_summary =
             Some(materialized_artifact.verification_summary.clone());
@@ -349,6 +373,13 @@ fn prepare_task_for_studio_with_request_for_proof(
         candidate_summaries = materialized_artifact.candidate_summaries.clone();
         winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
         winning_candidate_rationale = materialized_artifact.winning_candidate_rationale.clone();
+        execution_envelope = materialized_artifact.execution_envelope.clone();
+        swarm_plan = materialized_artifact.swarm_plan.clone();
+        swarm_execution = materialized_artifact.swarm_execution.clone();
+        swarm_worker_receipts = materialized_artifact.swarm_worker_receipts.clone();
+        swarm_change_receipts = materialized_artifact.swarm_change_receipts.clone();
+        swarm_merge_receipts = materialized_artifact.swarm_merge_receipts.clone();
+        swarm_verification_receipts = materialized_artifact.swarm_verification_receipts.clone();
         render_evaluation = materialized_artifact.render_evaluation.clone();
         judge = materialized_artifact.judge.clone();
         output_origin = Some(materialized_artifact.output_origin);
@@ -419,6 +450,19 @@ fn prepare_task_for_studio_with_request_for_proof(
     materialization.candidate_summaries = candidate_summaries.clone();
     materialization.winning_candidate_id = winning_candidate_id.clone();
     materialization.winning_candidate_rationale = winning_candidate_rationale.clone();
+    materialization.swarm_plan = swarm_plan.clone();
+    materialization.swarm_execution = swarm_execution.clone();
+    materialization.swarm_worker_receipts = swarm_worker_receipts.clone();
+    materialization.swarm_change_receipts = swarm_change_receipts.clone();
+    materialization.swarm_merge_receipts = swarm_merge_receipts.clone();
+    materialization.swarm_verification_receipts = swarm_verification_receipts.clone();
+    materialization.execution_envelope = execution_envelope.clone().or_else(|| {
+        super::content_session::artifact_execution_envelope_for_contract(
+            outcome_request.execution_mode_decision.clone(),
+            outcome_request.execution_strategy,
+            &materialization,
+        )
+    });
     materialization.render_evaluation = render_evaluation;
     materialization.judge = judge.clone();
     materialization.output_origin = output_origin;
@@ -540,17 +584,19 @@ fn refine_current_non_workspace_artifact_turn_for_proof(
     };
     let refinement = studio_refinement_context_for_session(memory_runtime, &studio_session);
     let thread_id = task.session_id.clone().unwrap_or_else(|| task.id.clone());
-    let mut materialized_artifact = materialize_non_workspace_artifact_with_dependencies(
-        memory_runtime,
-        Some(inference_runtime.clone()),
-        Some(acceptance_inference_runtime.clone()),
-        &thread_id,
-        &studio_session.title,
-        intent,
-        &request,
-        Some(&refinement),
-        None,
-    )?;
+    let mut materialized_artifact =
+        materialize_non_workspace_artifact_with_dependencies_and_execution_strategy(
+            memory_runtime,
+            Some(inference_runtime.clone()),
+            Some(acceptance_inference_runtime.clone()),
+            &thread_id,
+            &studio_session.title,
+            intent,
+            &request,
+            Some(&refinement),
+            None,
+            outcome_request.execution_strategy,
+        )?;
     let selected_targets = if materialized_artifact.selected_targets.is_empty() {
         materialized_artifact
             .edit_intent
@@ -642,27 +688,20 @@ fn refine_current_non_workspace_artifact_turn_for_proof(
         studio_session.current_lens = studio_session.artifact_manifest.primary_tab.clone();
     }
 
-    let mut materialization = materialization_contract_for_request(intent, &request, &summary);
-    materialization.file_writes = materialized_artifact.file_writes.clone();
-    materialization.notes = materialized_artifact.notes.clone();
-    materialization.artifact_brief = Some(materialized_artifact.brief.clone());
-    materialization.blueprint = materialized_artifact.blueprint.clone();
-    materialization.artifact_ir = materialized_artifact.artifact_ir.clone();
-    materialization.selected_skills = materialized_artifact.selected_skills.clone();
-    materialization.retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
-    materialization.edit_intent = materialized_artifact.edit_intent.clone();
-    materialization.candidate_summaries = materialized_artifact.candidate_summaries.clone();
-    materialization.winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
-    materialization.winning_candidate_rationale =
-        materialized_artifact.winning_candidate_rationale.clone();
-    materialization.render_evaluation = materialized_artifact.render_evaluation.clone();
-    materialization.judge = materialized_artifact.judge.clone();
-    materialization.output_origin = Some(materialized_artifact.output_origin);
-    materialization.production_provenance = materialized_artifact.production_provenance.clone();
-    materialization.acceptance_provenance = materialized_artifact.acceptance_provenance.clone();
-    materialization.fallback_used = materialized_artifact.fallback_used;
-    materialization.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
-    materialization.failure = materialized_artifact.failure.clone();
+    let mut materialization = materialization_contract_for_request(
+        intent,
+        &request,
+        &summary,
+        outcome_request.execution_mode_decision.clone(),
+        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(&request)),
+    );
+    super::content_session::apply_materialized_artifact_to_contract(
+        &mut materialization,
+        &request,
+        &materialized_artifact,
+        outcome_request.execution_mode_decision.clone(),
+        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(&request)),
+    );
     materialization.navigator_nodes =
         navigator_nodes_for_manifest(&studio_session.artifact_manifest);
 

@@ -286,7 +286,7 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                     "A one-time sudo password is required to continue the install.",
                 );
                 update_task_state(app, |t| {
-                    t.phase = crate::models::AgentPhase::Complete;
+                    t.phase = crate::models::AgentPhase::Running;
                     t.current_step = "Waiting for sudo password".to_string();
                     t.gate_info = None;
                     t.pending_request_hash = None;
@@ -339,7 +339,7 @@ pub(super) async fn handle_workload_activity(app: &tauri::AppHandle, activity: W
                     stream_clarification_prompt,
                 );
                 update_task_state(app, |t| {
-                    t.phase = crate::models::AgentPhase::Complete;
+                    t.phase = crate::models::AgentPhase::Running;
                     t.current_step = stream_clarification_wait_step.to_string();
                     t.gate_info = None;
                     t.pending_request_hash = None;

@@ -1,55 +1,59 @@
 # Agent Studio
 
-The official web-based IDE for designing, testing, and managing IOI Agents. 
+The workspace shell for shaping, staging, and handing off IOI agents.
 
-**Agent Studio** provides a zero-setup environment for developers to visually compose agent graphs, configure governance policies, and simulate execution logic directly in the browser.
+**Agent Studio** gives operators and builders a zero-setup workspace shell for
+graph composition, runtime catalog staging, connector posture review, and
+persisted handoff before work moves into the desktop runtime.
 
-## 🌟 Overview
+## Overview
 
-Agent Studio is built on the portable `@ioi/agent-ide` core. It allows you to:
+Agent Studio is built on the portable `@ioi/agent-ide` core. It lets you:
 
-*   **Visually Compose** complex agent workflows using a node-based canvas.
-*   **Configure Policies** like budget caps and network allowlists ("Logic vs. Law").
-*   **Simulate Execution** with instant feedback loops.
-*   **Manage Fleets** of remote agent containers.
-*   **Browse & Fork** templates from the Marketplace.
+- Visually compose complex agent workflows using a node-based canvas.
+- Stage runtime packs into the workspace from the runtime catalog.
+- Review connector posture and exercise integration actions before handoff.
+- Inspect fleet state before handing work to the desktop shell.
+- Persist workspace state so the shell keeps handoff context intact.
 
-Unlike the desktop **Autopilot** runtime which executes agents locally on your machine, Agent Studio is designed for **Cloud & Remote Management**.
+Unlike the desktop **Autopilot** runtime, which owns live execution, Agent
+Studio is the browser shell for shaping work and carrying it forward into
+desktop handoff.
 
-## 🚀 Getting Started
+## Getting Started
 
-### Prerequisites
 Run from the monorepo root:
 
 ```bash
 npm install
 ```
 
-### Start Development Server
+Start the development server:
 
 ```bash
-# From root
 npm run dev:web
 ```
 
-Open [http://localhost:5173](http://localhost:5173) to view the IDE.
+Open [http://localhost:5173](http://localhost:5173) to view Agent Studio.
 
-## 🛠 Architecture
+## Architecture
 
-The application implements the **Runtime Adapter Pattern** to run the IDE in a browser environment.
+The application uses the same portable `@ioi/agent-ide` shell with a browser
+workspace runtime adapter.
 
-*   **Core:** `@ioi/agent-ide` (Shared Logic)
-*   **Adapter:** `WebMockRuntime` 
-    *   *Storage:* Uses `localStorage` for project persistence.
-    *   *Execution:* Simulates node processing latency and events.
-    *   *Fleet:* Mocks connection to cloud providers (e.g. Akash, AWS).
+- Core: `@ioi/agent-ide`
+- Adapter: `BrowserWorkspaceRuntime`
+  - Storage: persists project state, staged catalog entries, and workspace agents in `localStorage`
+  - Execution: provides workspace execution feedback for graph and node runs
+  - Catalog: stages runtime catalog packs into the workspace
+  - Fleet and connectors: exposes current posture so the shell remains useful before desktop handoff
 
-## 📦 Deployment
+## Deployment
 
-Agent Studio is a static Single Page Application (SPA). It can be deployed to Vercel, Netlify, or any static host.
+Agent Studio is a static single-page application and can be deployed to any
+static host.
 
 ```bash
-# Build for production
 npm run build
 ```
 

@@ -26,7 +26,7 @@ export default function MarketGrid({ products }) {
             
             <div className="h-32 relative" style={{ background: p.image }}>
               <div className="absolute top-2 left-2 bg-black/40 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
-                {p.type}
+                {p.format}
               </div>
               <button 
                 onClick={(e) => toggleFavorite(e, p.id)}
@@ -50,6 +50,15 @@ export default function MarketGrid({ products }) {
                 <svg className="w-3 h-3 text-blue-500" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
               </p>
 
+              <div className="flex flex-wrap gap-2 mb-3">
+                <span className="px-2 py-1 bg-slate-100 text-slate-600 text-[11px] font-medium rounded border border-slate-200">
+                  {p.market}
+                </span>
+                <span className="px-2 py-1 bg-blue-50 text-blue-600 text-[11px] font-medium rounded border border-blue-100">
+                  {p.pricingModel}
+                </span>
+              </div>
+
               {p.tagline && (
                 <p className="text-sm text-slate-600 leading-5 mb-4">
                   {p.tagline}
@@ -62,7 +71,7 @@ export default function MarketGrid({ products }) {
                   <span className="text-sm font-bold text-slate-700">{p.rating}</span>
                   <span className="text-xs text-slate-400">({p.reviews})</span>
                 </div>
-                <span className="font-bold text-slate-900 bg-slate-100 px-2 py-1 rounded text-sm">
+                <span className="font-bold text-slate-900 bg-slate-100 px-2 py-1 rounded text-sm text-right">
                   {p.price}
                 </span>
               </div>

@@ -1,21 +1,18 @@
-/* ============================================
-   CommandPalette Component
-   ============================================ */
-
 .command-palette-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(13, 12, 10, 0.74);
-  backdrop-filter: blur(10px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 15vh;
+  padding: clamp(48px, 10vh, 120px) 24px 32px;
+  background: rgba(13, 12, 10, 0.58);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   z-index: var(--z-modal);
-  animation: overlay-fade-in 100ms ease;
+  animation: command-palette-overlay-in 120ms ease-out;
 }
 
-@keyframes overlay-fade-in {
+@keyframes command-palette-overlay-in {
   from {
     opacity: 0;
   }
@@ -24,21 +21,16 @@
   }
 }
 
-.command-palette {
-  width: 560px;
-  max-height: 400px;
-  background: var(--surface-2);
-  border: 1px solid var(--border-default);
-  border-radius: 14px;
-  box-shadow: var(--shadow-lg), var(--shadow-glow);
-  overflow: hidden;
-  animation: palette-slide-in 150ms ease;
+.command-palette-shell {
+  width: min(760px, 100%);
+  max-height: min(78vh, 860px);
+  animation: command-palette-shell-in 160ms ease-out;
 }
 
-@keyframes palette-slide-in {
+@keyframes command-palette-shell-in {
   from {
     opacity: 0;
-    transform: translateY(-8px) scale(0.98);
+    transform: translateY(-10px) scale(0.985);
   }
   to {
     opacity: 1;
@@ -46,104 +38,38 @@
   }
 }
 
-/* --- Input --- */
-.command-palette-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface-3);
-}
-
-.command-palette-search-icon {
-  flex-shrink: 0;
-  color: var(--text-tertiary);
-}
-
-.command-palette-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  font-size: var(--text-lg);
-  color: var(--text-primary);
-}
-
-.command-palette-input::placeholder {
-  color: var(--text-tertiary);
-}
-
-.command-palette-esc {
-  flex-shrink: 0;
-}
-
-/* --- Results --- */
-.command-palette-results {
-  max-height: 340px;
-  overflow-y: auto;
-  padding: var(--spacing-sm);
-}
-
-.command-group {
-  margin-bottom: var(--spacing-sm);
-}
-
-.command-group:last-child {
-  margin-bottom: 0;
-}
-
-.command-group-title {
-  padding: var(--spacing-xs) var(--spacing-sm);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.command-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+.command-palette-shell .spot-slash-menu {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
   width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: none;
-  border: none;
-  border-radius: 4px;
-  text-align: left;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background var(--transition-fast);
+  border-radius: 24px;
+  background: var(--surface-2);
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.34);
 }
 
-.command-item:hover,
-.command-item.selected {
-  background: var(--surface-4);
+.command-palette-shell .spot-slash-menu-header {
+  padding: 18px 18px 0;
 }
 
-.command-item.selected {
-  outline: 1px solid var(--interactive-selected-border);
+.command-palette-shell .spot-slash-menu-search {
+  min-height: 46px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.command-icon {
-  width: 20px;
-  text-align: center;
-  font-size: 14px;
+.command-palette-shell .spot-slash-menu--palette .spot-slash-menu-scroll {
+  max-height: min(60vh, 560px);
+  padding: 14px 18px 18px;
 }
 
-.command-label {
-  flex: 1;
-  font-size: var(--text-sm);
+.command-palette-shell .spot-slash-section-label {
+  padding: 0 10px;
 }
 
-.command-shortcut {
-  font-size: 10px;
-}
-
-.command-empty {
-  padding: var(--spacing-xl);
-  text-align: center;
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
+.command-palette-shell .spot-slash-item {
+  padding: 11px 12px;
+  border-radius: 14px;
 }

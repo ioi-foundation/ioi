@@ -2,6 +2,7 @@ export type SettingsSection =
   | "identity"
   | "knowledge"
   | "skill_sources"
+  | "managed_settings"
   | "runtime"
   | "storage_api"
   | "sources"

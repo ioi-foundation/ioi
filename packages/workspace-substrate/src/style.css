@@ -1168,6 +1168,81 @@
   line-height: 1.5;
 }
 
+.workspace-notebook {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  overflow: auto;
+}
+
+.workspace-notebook-summary,
+.workspace-notebook-cell-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.workspace-notebook-cells {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.workspace-notebook-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--workspace-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.workspace-notebook-cell-head h3 {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.workspace-notebook-editor {
+  min-height: 180px;
+  width: 100%;
+  border: 1px solid var(--workspace-border);
+  border-radius: 10px;
+  background: #0c0f13;
+  color: var(--workspace-text);
+  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+  padding: 12px;
+  resize: vertical;
+}
+
+.workspace-notebook-editor.is-markdown {
+  min-height: 140px;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+.workspace-notebook-output {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--workspace-border);
+}
+
+.workspace-notebook-output pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--workspace-text-secondary);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+}
+
 @media (max-width: 1180px) {
   .workspace-host-body {
     grid-template-columns: 48px minmax(220px, 280px) 1fr;

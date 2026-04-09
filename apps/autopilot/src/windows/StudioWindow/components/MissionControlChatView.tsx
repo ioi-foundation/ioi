@@ -1,12 +1,13 @@
-import type { AgentRuntime } from "@ioi/agent-ide";
-import { AssistantWorkbenchView } from "./AssistantWorkbenchView";
+import { AssistantWorkbenchView, type AgentRuntime, type AgentSessionRuntime } from "@ioi/agent-ide";
 import { StudioCopilotView } from "./StudioCopilot";
 import type { AssistantWorkbenchSession } from "../../../types";
+
+type SessionCapableRuntime = AgentRuntime & AgentSessionRuntime;
 
 interface MissionControlChatViewProps {
   surface: "chat" | "reply-composer" | "meeting-prep";
   session: AssistantWorkbenchSession | null;
-  runtime: AgentRuntime;
+  runtime: SessionCapableRuntime;
   embedded?: boolean;
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
@@ -82,6 +83,7 @@ export function MissionControlChatView({
             <StudioCopilotView
               seedIntent={seedIntent}
               onConsumeSeedIntent={onConsumeSeedIntent}
+              sessionRuntime={runtime}
             />
           ) : (
             <AssistantWorkbenchView

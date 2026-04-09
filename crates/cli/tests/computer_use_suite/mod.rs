@@ -62,7 +62,7 @@ fn parse_modes(raw: &str) -> Result<Vec<ComputerUseMode>> {
 
 fn parse_task_set(raw: &str) -> Result<TaskSet> {
     match raw.trim().to_ascii_lowercase().as_str() {
-        "" | "smoke" => Ok(TaskSet::Smoke),
+        "" | "baseline" => Ok(TaskSet::Baseline),
         "core" => Ok(TaskSet::Core),
         "stress" => Ok(TaskSet::Stress),
         "catalog" => Ok(TaskSet::Catalog),
@@ -72,7 +72,7 @@ fn parse_task_set(raw: &str) -> Result<TaskSet> {
         "workflow_mutation" => Ok(TaskSet::WorkflowMutation),
         "workflow_reorder" => Ok(TaskSet::WorkflowReorder),
         other => Err(anyhow!(
-            "invalid COMPUTER_USE_SUITE_TASK_SET value '{}'; expected smoke|core|stress|catalog|workflow|workflow_rich|workflow_audit|workflow_mutation|workflow_reorder",
+            "invalid COMPUTER_USE_SUITE_TASK_SET value '{}'; expected baseline|core|stress|catalog|workflow|workflow_rich|workflow_audit|workflow_mutation|workflow_reorder",
             other
         )),
     }
@@ -124,7 +124,7 @@ pub fn config_from_env() -> Result<SuiteConfig> {
         &env::var("COMPUTER_USE_SUITE_AGENT_BACKEND").unwrap_or_else(|_| "live_http".to_string()),
     )?;
     let task_set = parse_task_set(
-        &env::var("COMPUTER_USE_SUITE_TASK_SET").unwrap_or_else(|_| "smoke".to_string()),
+        &env::var("COMPUTER_USE_SUITE_TASK_SET").unwrap_or_else(|_| "baseline".to_string()),
     )?;
     let artifact_root = env::var("COMPUTER_USE_SUITE_ARTIFACT_DIR")
         .map(PathBuf::from)

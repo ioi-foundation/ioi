@@ -1,19 +1,199 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  WorkspaceEditorPane,
-  WorkspaceExplorerPane,
-  type WorkspaceFileDocument,
-  type WorkspaceGitSummary,
-  type WorkspaceOpenRequest,
-} from "@ioi/workspace-substrate";
+import { type ComponentType, useEffect, useMemo, useRef, useState } from "react";
+import { Editor, loader } from "@monaco-editor/react";
+import type { editor as MonacoEditorApi } from "monaco-editor";
 import type {
   ArtifactContentPayload,
   StudioArtifactManifestFile,
 } from "../../../types";
-import {
-  buildArtifactTree,
-  expandArtifactAncestors,
-} from "./studioArtifactSurfaceModel";
+
+const MonacoEditor = Editor as unknown as ComponentType<any>;
+
+let monacoLoaderConfigured = false;
+let configuredWorkerBaseUrl: string | null = null;
+let monacoWorkerBootstrapUrl: string | null = null;
+
+function ensureStudioMonacoWorkerEnvironment(basePath: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const normalizedVsUrl = new URL(
+    `${basePath.replace(/\/+$/, "")}/`,
+    window.location.href,
+  ).toString();
+  const normalizedBaseUrl = new URL("../", normalizedVsUrl).toString();
+
+  if (!monacoWorkerBootstrapUrl || configuredWorkerBaseUrl !== normalizedBaseUrl) {
+    const workerBootstrap = [
+      "self.MonacoEnvironment = self.MonacoEnvironment || {};",
+      `self.MonacoEnvironment.baseUrl = ${JSON.stringify(normalizedBaseUrl)};`,
+      `importScripts(${JSON.stringify(`${normalizedBaseUrl}vs/base/worker/workerMain.js`)});`,
+    ].join("\n");
+    monacoWorkerBootstrapUrl = URL.createObjectURL(
+      new Blob([workerBootstrap], { type: "text/javascript" }),
+    );
+    configuredWorkerBaseUrl = normalizedBaseUrl;
+  }
+
+  const globalEnvironment = (globalThis as any).MonacoEnvironment ?? {};
+  (globalThis as any).MonacoEnvironment = {
+    ...globalEnvironment,
+    baseUrl: normalizedBaseUrl,
+    getWorkerUrl: () => monacoWorkerBootstrapUrl!,
+    getWorker: (_moduleId: string, label: string) =>
+      new Worker(monacoWorkerBootstrapUrl!, {
+        name: `monaco-${label || "worker"}`,
+      }),
+  };
+}
+
+function configureStudioMonacoLoader(basePath = "/monaco/vs") {
+  if (monacoLoaderConfigured) {
+    return;
+  }
+
+  loader.config({
+    paths: {
+      vs: basePath,
+    },
+  });
+  ensureStudioMonacoWorkerEnvironment(basePath);
+  monacoLoaderConfigured = true;
+}
+
+function defineStudioMonacoTheme(monaco: any) {
+  monaco.editor.defineTheme("autopilot-dark", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [],
+    colors: {
+      "editor.background": "#0c0f13",
+      "editor.foreground": "#e4e7ed",
+      "editor.lineHighlightBackground": "#141922",
+      "editorCursor.foreground": "#a8d0ff",
+      "editor.selectionBackground": "#244260",
+      "editor.selectionHighlightBackground": "#1a2f46",
+      "editorIndentGuide.background1": "#1d2330",
+      "editorIndentGuide.activeBackground1": "#37516f",
+      "editorLineNumber.foreground": "#596273",
+      "editorLineNumber.activeForeground": "#9eafc5",
+      "editorWhitespace.foreground": "#2b3442",
+      "editorGutter.background": "#0c0f13",
+      "minimap.background": "#0f1318",
+      "scrollbar.shadow": "#00000000",
+    },
+  });
+}
+
+function languageFromHint(hint: string): string | null {
+  const normalized = hint.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  switch (normalized) {
+    case "tsx":
+    case "typescript":
+      return "typescript";
+    case "jsx":
+    case "javascript":
+      return "javascript";
+    case "json":
+    case "markdown":
+    case "rust":
+    case "css":
+    case "html":
+    case "yaml":
+    case "xml":
+    case "shell":
+      return normalized;
+    case "toml":
+      return "ini";
+    default:
+      break;
+  }
+
+  const mime = normalized.split(";")[0].trim();
+  if (!mime.includes("/")) {
+    return null;
+  }
+
+  if (mime.includes("html")) {
+    return "html";
+  }
+  if (mime.includes("css")) {
+    return "css";
+  }
+  if (mime.includes("json")) {
+    return "json";
+  }
+  if (mime.includes("markdown")) {
+    return "markdown";
+  }
+  if (mime.includes("yaml") || mime.includes("yml")) {
+    return "yaml";
+  }
+  if (mime.includes("xml") || mime.includes("svg")) {
+    return "xml";
+  }
+  if (mime.includes("javascript") || mime.includes("ecmascript")) {
+    return "javascript";
+  }
+  if (mime.includes("typescript")) {
+    return "typescript";
+  }
+  if (mime.includes("shell") || mime.includes("bash") || mime.includes("sh")) {
+    return "shell";
+  }
+  if (mime.includes("toml")) {
+    return "ini";
+  }
+  if (mime.includes("rust")) {
+    return "rust";
+  }
+
+  return null;
+}
+
+function languageForSourcePath(path: string, hint?: string | null): string {
+  if (hint) {
+    const language = languageFromHint(hint);
+    if (language) {
+      return language;
+    }
+  }
+
+  const extension = path.split(".").pop()?.toLowerCase();
+  switch (extension) {
+    case "ts":
+    case "tsx":
+      return "typescript";
+    case "js":
+    case "jsx":
+      return "javascript";
+    case "json":
+      return "json";
+    case "md":
+      return "markdown";
+    case "rs":
+      return "rust";
+    case "css":
+      return "css";
+    case "html":
+    case "htm":
+      return "html";
+    case "yaml":
+    case "yml":
+      return "yaml";
+    case "sh":
+    case "bash":
+      return "shell";
+    case "toml":
+      return "ini";
+    default:
+      return "plaintext";
+  }
+}
 
 interface ArtifactSourceWorkbenchProps {
   artifactId: string;
@@ -25,25 +205,18 @@ interface ArtifactSourceWorkbenchProps {
   onSelectPath: (path: string) => void;
   onAttachSelection?: (payload: { path: string; selection: string }) => void;
   showExplorer?: boolean;
+  sourceTextOverride?: string | null;
+  binaryOverride?: boolean;
+  tooLargeOverride?: boolean;
 }
 
-type SourceDocumentTab = WorkspaceFileDocument & {
-  id: string;
-  kind: "file";
-  loading: boolean;
-  saving: boolean;
-  error: string | null;
-  savedContent: string;
-};
-
-const EMPTY_GIT_SUMMARY: WorkspaceGitSummary = {
-  isRepo: false,
-  branch: null,
-  dirty: false,
-  lastCommit: null,
-};
-
-function decodePayloadText(payload: ArtifactContentPayload | null): string {
+function decodePayloadText(
+  payload: ArtifactContentPayload | null,
+  sourceTextOverride?: string | null,
+): string {
+  if (typeof sourceTextOverride === "string") {
+    return sourceTextOverride;
+  }
   if (!payload) {
     return "";
   }
@@ -55,14 +228,6 @@ function decodePayloadText(payload: ArtifactContentPayload | null): string {
     }
   }
   return payload.content;
-}
-
-function documentId(path: string): string {
-  return `artifact-source:${path}`;
-}
-
-function rootLabel(artifactId: string): string {
-  return `artifact://${artifactId}`;
 }
 
 function isBinaryMime(mime: string): boolean {
@@ -91,53 +256,9 @@ function isBinaryMime(mime: string): boolean {
   return true;
 }
 
-function createDocument(
-  artifactId: string,
-  file: StudioArtifactManifestFile,
-  state?: Partial<SourceDocumentTab>,
-): SourceDocumentTab {
-  const path = file.path;
-  return {
-    id: documentId(path),
-    kind: "file",
-    name: path.split("/").pop() || path,
-    path,
-    absolutePath: `${rootLabel(artifactId)}/${path}`,
-    languageHint: null,
-    content: "",
-    savedContent: "",
-    sizeBytes: 0,
-    modifiedAtMs: null,
-    isBinary: isBinaryMime(file.mime),
-    isTooLarge: false,
-    readOnly: true,
-    loading: false,
-    saving: false,
-    error: null,
-    ...state,
-  };
-}
-
-function upsertDocument(
-  documents: SourceDocumentTab[],
-  artifactId: string,
-  file: StudioArtifactManifestFile,
-  state?: Partial<SourceDocumentTab>,
-): SourceDocumentTab[] {
-  const id = documentId(file.path);
-  const existing = documents.find((document) => document.id === id);
-  if (!existing) {
-    return [...documents, createDocument(artifactId, file, state)];
-  }
-
-  return documents.map((document) =>
-    document.id === id
-      ? {
-          ...document,
-          ...state,
-        }
-      : document,
-  );
+function syncSelectionText(setSelectionText: (value: string) => void) {
+  const nextSelection = window.getSelection()?.toString().trim() ?? "";
+  setSelectionText(nextSelection);
 }
 
 export function ArtifactSourceWorkbench({
@@ -147,133 +268,168 @@ export function ArtifactSourceWorkbench({
   payload,
   loading,
   error,
-  onSelectPath,
   onAttachSelection,
-  showExplorer = true,
+  sourceTextOverride,
+  binaryOverride,
+  tooLargeOverride,
 }: ArtifactSourceWorkbenchProps) {
-  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
-  const [documents, setDocuments] = useState<SourceDocumentTab[]>([]);
-  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
-  const [revealRequest, setRevealRequest] = useState<WorkspaceOpenRequest | null>(null);
-
-  const tree = useMemo(() => buildArtifactTree(files), [files]);
-  const activeDocument =
-    documents.find((document) => document.id === activeDocumentId) ?? null;
+  const [selectionText, setSelectionText] = useState("");
+  const editorRef = useRef<MonacoEditorApi.IStandaloneCodeEditor | null>(null);
 
   useEffect(() => {
-    if (!selectedFile) {
+    configureStudioMonacoLoader();
+  }, []);
+
+  const sourceText = useMemo(
+    () => decodePayloadText(payload, sourceTextOverride),
+    [payload, sourceTextOverride],
+  );
+  const fileCount = files.length;
+  const mime = selectedFile?.mime ?? "text/plain";
+  const sourceLanguage = selectedFile
+    ? languageForSourcePath(selectedFile.path, mime)
+    : "plaintext";
+  const isBinary = binaryOverride ?? (selectedFile ? isBinaryMime(mime) : false);
+  const canAttachSelection =
+    Boolean(onAttachSelection) &&
+    Boolean(selectedFile?.path) &&
+    !isBinary &&
+    !tooLargeOverride &&
+    selectionText.trim().length > 0;
+  const pathSegments = selectedFile?.path.split("/").filter(Boolean) ?? [];
+
+  const syncEditorSelection = () => {
+    const editor = editorRef.current;
+    const model = editor?.getModel();
+    const selection = editor?.getSelection();
+    if (!editor || !model || !selection) {
+      syncSelectionText(setSelectionText);
       return;
     }
-
-    setExpandedPaths((current) => expandArtifactAncestors(current, selectedFile.path));
-    setActiveDocumentId(documentId(selectedFile.path));
-    setRevealRequest({ path: selectedFile.path });
-    setDocuments((current) =>
-      upsertDocument(current, artifactId, selectedFile, {
-        loading,
-        error: error ?? null,
-      }),
-    );
-  }, [artifactId, error, loading, selectedFile]);
-
-  useEffect(() => {
-    if (!selectedFile || loading || error) {
-      return;
-    }
-
-    const content = decodePayloadText(payload);
-    setDocuments((current) =>
-      upsertDocument(current, artifactId, selectedFile, {
-        content,
-        savedContent: content,
-        sizeBytes: content.length,
-        loading: false,
-        saving: false,
-        error: null,
-      }),
-    );
-  }, [artifactId, error, loading, payload, selectedFile]);
-
-  useEffect(() => {
-    setDocuments((current) =>
-      current.filter((document) => files.some((file) => file.path === document.path)),
-    );
-  }, [files]);
-
-  const handleOpenFile = (path: string) => {
-    setExpandedPaths((current) => expandArtifactAncestors(current, path));
-    setActiveDocumentId(documentId(path));
-    setRevealRequest({ path });
-    onSelectPath(path);
+    const selected = model.getValueInRange(selection).trim();
+    setSelectionText(selected || window.getSelection()?.toString().trim() || "");
   };
 
   return (
-    <section className="studio-artifact-source-workbench workspace-host workspace-host--embedded">
-      <div
-        className={`studio-artifact-source-shell ${
-          showExplorer ? "" : "studio-artifact-source-shell--editor-only"
-        }`}
-      >
-        {showExplorer ? (
-          <div className="workspace-host-sidebar">
-            <WorkspaceExplorerPane
-              tree={tree}
-              activePath={selectedFile?.path ?? null}
-              expandedPaths={expandedPaths}
-              loadingDirectories={{}}
-              git={EMPTY_GIT_SUMMARY}
-              rootPath={rootLabel(artifactId)}
-              eyebrow="Artifact"
-              title="Source explorer"
-              readOnly={true}
-              showGitSummary={false}
-              showRefreshButton={false}
-              onToggleDirectory={(node) =>
-                setExpandedPaths((current) => ({
-                  ...current,
-                  [node.path]: !current[node.path],
-                }))
-              }
-              onOpenFile={handleOpenFile}
-              onRefresh={() => undefined}
-              onCreateFile={() => undefined}
-              onCreateDirectory={() => undefined}
-              onRenamePath={(_path: string) => undefined}
-              onDeletePath={(_path: string) => undefined}
-            />
-          </div>
-        ) : null}
+    <section className="studio-artifact-source-workbench">
+      <div className="studio-artifact-source-surface">
+        <div className="studio-artifact-source-editor-shell">
+          <header className="studio-artifact-source-editor-tabs" aria-label="Source tabs">
+            <div className="studio-artifact-source-editor-tab is-active">
+              <span className="studio-artifact-source-editor-tab-icon">&lt;&gt;</span>
+              <span className="studio-artifact-source-editor-tab-label">
+                {selectedFile?.path ?? "Source unavailable"}
+              </span>
+            </div>
+            {onAttachSelection ? (
+              <button
+                type="button"
+                className="studio-artifact-source-action"
+                onClick={() => {
+                  if (!selectedFile || !selectionText.trim()) {
+                    return;
+                  }
+                  onAttachSelection({
+                    path: selectedFile.path,
+                    selection: selectionText.trim(),
+                  });
+                }}
+                disabled={!canAttachSelection}
+              >
+                Attach selection
+              </button>
+            ) : null}
+          </header>
 
-        <div className="workspace-main">
-          <WorkspaceEditorPane
-            monacoBasePath="/monaco/vs"
-            documents={documents}
-            activeDocument={activeDocument}
-            activeDocumentId={activeDocumentId}
-            revealRequest={revealRequest}
-            onConsumeRevealRequest={() => setRevealRequest(null)}
-            onSelectDocument={(id) => {
-              setActiveDocumentId(id);
-              const document = documents.find((entry) => entry.id === id);
-              if (document) {
-                onSelectPath(document.path);
-              }
-            }}
-            onCloseDocument={(id) => {
-              const remaining = documents.filter((document) => document.id !== id);
-              setDocuments(remaining);
-              if (activeDocumentId === id) {
-                const next = remaining[remaining.length - 1] ?? null;
-                setActiveDocumentId(next?.id ?? null);
-                if (next) {
-                  onSelectPath(next.path);
-                }
-              }
-            }}
-            onChangeFileContent={(_path: string, _content: string) => undefined}
-            onSaveFile={(_path: string) => undefined}
-            onAttachSelection={onAttachSelection}
-          />
+          <div className="studio-artifact-source-breadcrumbs" aria-label="Source breadcrumbs">
+            {pathSegments.length ? (
+              pathSegments.map((segment, index) => (
+                <span key={`${segment}-${index}`} className="studio-artifact-source-breadcrumb">
+                  {segment}
+                </span>
+              ))
+            ) : (
+              <span className="studio-artifact-source-breadcrumb">Source</span>
+            )}
+          </div>
+
+          <div className="studio-artifact-source-surface-main">
+            {error ? (
+              <div className="studio-artifact-banner is-error">{error}</div>
+            ) : loading ? (
+              <div className="studio-artifact-renderer-empty">
+                <strong>Loading source…</strong>
+              </div>
+            ) : !selectedFile ? (
+              <div className="studio-artifact-renderer-empty">
+                <strong>No source file selected.</strong>
+              </div>
+            ) : isBinary ? (
+              <div className="studio-artifact-renderer-empty">
+                <strong>Binary source</strong>
+                <p>{selectedFile.path} is binary, so Studio keeps it as metadata only.</p>
+              </div>
+            ) : tooLargeOverride ? (
+              <div className="studio-artifact-renderer-empty">
+                <strong>Source preview too large</strong>
+                <p>{selectedFile.path} is too large for inline viewing in Studio.</p>
+              </div>
+            ) : (
+              <div className="studio-artifact-source-editor-stage">
+                <MonacoEditor
+                  path={selectedFile.path}
+                  value={sourceText}
+                  language={sourceLanguage}
+                  theme="autopilot-dark"
+                  beforeMount={defineStudioMonacoTheme}
+                  options={{
+                    automaticLayout: true,
+                    readOnly: true,
+                    fontSize: 13,
+                    lineHeight: 21,
+                    colorDecorators: true,
+                    defaultColorDecorators: "always",
+                    colorDecoratorsActivatedOn: "clickAndHover",
+                    wordWrap: "off",
+                    minimap: {
+                      enabled: true,
+                      side: "right",
+                    },
+                    scrollBeyondLastLine: false,
+                    renderWhitespace: "selection",
+                    smoothScrolling: true,
+                    glyphMargin: false,
+                    folding: true,
+                    rulers: [],
+                    padding: {
+                      top: 12,
+                      bottom: 12,
+                    },
+                    stickyScroll: {
+                      enabled: false,
+                    },
+                  }}
+                  onMount={(editor: MonacoEditorApi.IStandaloneCodeEditor) => {
+                    editorRef.current = editor;
+                    editor.onDidChangeCursorSelection(() => {
+                      syncEditorSelection();
+                    });
+                    editor.onDidBlurEditorWidget(() => {
+                      syncEditorSelection();
+                    });
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          <footer className="studio-artifact-source-statusbar">
+            <span>{artifactId.slice(0, 12)}</span>
+            <span>{mime}</span>
+            <span>
+              {fileCount} {fileCount === 1 ? "file" : "files"}
+            </span>
+          </footer>
         </div>
       </div>
     </section>

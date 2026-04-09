@@ -17,13 +17,29 @@ export function CapabilitiesDetailPane(props: CapabilitiesDetailPaneProps) {
         />
       ) : null}
       {controller.surface === "skills" ? (
-        <SkillDetailPane controller={controller} />
+        <SkillDetailPane
+          controller={controller}
+          onOpenPolicyCenter={
+            props.onOpenPolicyCenter
+              ? () => props.onOpenPolicyCenter?.(null)
+              : undefined
+          }
+          onOpenSettings={props.onOpenSettings}
+        />
       ) : null}
       {controller.surface === "connections" ? (
         <ConnectionDetailPane {...props} />
       ) : null}
       {controller.surface === "extensions" ? (
-        <ExtensionDetailPane controller={controller} />
+        <ExtensionDetailPane
+          controller={controller}
+          onOpenPolicyCenter={
+            props.onOpenPolicyCenter
+              ? () => props.onOpenPolicyCenter?.(null)
+              : undefined
+          }
+          onOpenSettings={props.onOpenSettings}
+        />
       ) : null}
     </section>
   );

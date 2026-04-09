@@ -30,14 +30,14 @@ import Logo from './Logo';
 const navItems = [
   { name: 'Overview', path: '/app', icon: LayoutDashboard },
   { name: 'Services', path: '/app/services', icon: Workflow },
-  { name: 'Agent IDE', path: '/app/canvas', icon: Terminal },
+  { name: 'Service Canvas', path: '/app/canvas', icon: Terminal },
   { name: 'Deployments', path: '/app/deployments', icon: Cpu },
   { name: 'Policies & Approvals', path: '/app/policies', icon: ShieldAlert },
   { name: 'Receipts / Evidence', path: '/app/receipts', icon: FileText },
   { name: 'Observability', path: '/app/observability', icon: Activity },
   { name: 'Billing & Metering', path: '/app/billing', icon: CreditCard },
   { name: 'Customers / Tenants', path: '/app/customers', icon: Users },
-  { name: 'Marketplace Publishing', path: '/app/marketplace', icon: Store },
+  { name: 'Catalog Promotion', path: '/app/marketplace', icon: Store },
   { name: 'Dispute Center', path: '/app/disputes', icon: Scale },
   { name: 'IAM / Settings', path: '/app/settings', icon: Settings },
 ];
@@ -68,9 +68,9 @@ export default function Layout() {
           setShellInput('');
           return;
         } else if (command === 'ioi status') {
-          response = { type: 'success', text: 'All systems operational. 4 agents active.' };
+          response = { type: 'success', text: 'All systems operational. 4 service lanes active.' };
         } else if (command.startsWith('ioi logs')) {
-          response = { type: 'info', text: 'Tailing logs for active swarm...\n[INFO] Agent RFA-8842 connected to node-7a9b\n[WARN] High latency on RPC endpoint' };
+          response = { type: 'info', text: 'Tailing logs for active service lane...\n[INFO] Claims Resolution lane connected to node-7a9b\n[WARN] High latency on evidence export endpoint' };
         } else if (command === 'help') {
           response = { type: 'info', text: 'Available commands: ioi status, ioi logs --tail, clear' };
         }
@@ -123,7 +123,7 @@ export default function Layout() {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-cyan-accent transition-colors" />
             <input 
               type="text" 
-              placeholder="Search for agents, policies, or docs..." 
+              placeholder="Search services, policies, customers, or docs..." 
               className="w-full bg-bg border border-border rounded-md pl-10 pr-12 py-1.5 text-sm text-white focus:outline-none focus:border-cyan-accent transition-colors placeholder-gray-500"
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">

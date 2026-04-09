@@ -2,15 +2,17 @@ use crate::kernel::artifacts as artifact_store;
 use crate::kernel::events::clarification::build_clarification_request_with_inference;
 use crate::kernel::events::emission::{emit_receipt_digest, register_artifact, register_event};
 use crate::kernel::events::support::{
-    bind_task_session, clarification_preset_for_tool, is_hard_terminal_task,
+    bind_task_session, clarification_preset_for_tool, clarification_wait_step_for_preset,
+    duplicate_noop_loop_requires_intent_clarification,
+    duplicate_noop_loop_requires_intent_clarification_from_events, is_hard_terminal_task,
     is_identity_resolution_kind, is_install_package_tool,
     is_waiting_for_identity_clarification_step, thread_id_from_session, ClarificationPreset,
-    CLARIFICATION_WAIT_STEP,
 };
 use crate::kernel::notifications;
 use crate::kernel::state::update_task_state;
 use crate::models::AppState;
 use crate::models::{AgentPhase, ArtifactRef, ArtifactType, ChatMessage, GateInfo};
+use crate::orchestrator;
 use ioi_ipc::public::RoutingReceipt;
 use serde_json::json;
 use std::sync::Mutex;
@@ -21,6 +23,11 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
     let receipt_is_install_tool = is_install_package_tool(&receipt.tool_name);
     let receipt_is_identity_lookup_tool =
         clarification_preset_for_tool(&receipt.tool_name).is_some();
+    let verification_checks = receipt
+        .post_state
+        .as_ref()
+        .map(|s| s.verification_checks.clone())
+        .unwrap_or_default();
     let receipt_waiting_for_sudo = receipt
         .post_state
         .as_ref()
@@ -56,6 +63,68 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
                 || receipt
                     .escalation_path
                     .eq_ignore_ascii_case("wait_for_clarification")));
+    let forced_intent_clarification = {
+        let state_handle = app.state::<Mutex<AppState>>();
+        let outcome = match state_handle.lock() {
+            Ok(guard) => {
+                let in_memory_loop = guard
+                    .current_task
+                    .as_ref()
+                    .map(|task| {
+                        duplicate_noop_loop_requires_intent_clarification(
+                            task,
+                            &receipt.tool_name,
+                            &verification_checks,
+                        )
+                    })
+                    .unwrap_or(false);
+                let persisted_loop = guard
+                    .memory_runtime
+                    .as_ref()
+                    .map(|memory_runtime| {
+                        let events =
+                            orchestrator::load_events(memory_runtime, &thread_id, Some(64), None);
+                        duplicate_noop_loop_requires_intent_clarification_from_events(
+                            &events,
+                            &receipt.tool_name,
+                            &verification_checks,
+                        )
+                    })
+                    .unwrap_or(false);
+                in_memory_loop || persisted_loop
+            }
+            Err(_) => false,
+        };
+        outcome
+    };
+    let effective_receipt_waiting_for_clarification =
+        receipt_waiting_for_clarification || forced_intent_clarification;
+    let effective_clarification_preset = if forced_intent_clarification {
+        Some(ClarificationPreset::IntentClarification)
+    } else if effective_receipt_waiting_for_clarification {
+        Some(
+            clarification_preset_for_tool(&receipt.tool_name)
+                .unwrap_or(ClarificationPreset::IdentityLookup),
+        )
+    } else {
+        None
+    };
+    let clarification_wait_step = effective_clarification_preset
+        .map(clarification_wait_step_for_preset)
+        .unwrap_or_default();
+    let clarification_evidence = if forced_intent_clarification {
+        format!(
+            "Repeated duplicate-action no-op loop while executing '{}'. Latest verification checks: {}",
+            receipt.tool_name,
+            if verification_checks.is_empty() {
+                "none".to_string()
+            } else {
+                verification_checks.join(", ")
+            }
+        )
+    } else {
+        String::new()
+    };
 
     let receipt_dedup_key = format!(
         "receipt:{}:{}:{}:{}:{}:{}",
@@ -99,9 +168,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         return;
     }
 
-    let receipt_clarification_request = if receipt_waiting_for_clarification {
-        let preset = clarification_preset_for_tool(&receipt.tool_name)
-            .unwrap_or(ClarificationPreset::IdentityLookup);
+    let receipt_clarification_request = if let Some(preset) = effective_clarification_preset {
         let clarification_kind = match preset {
             ClarificationPreset::IdentityLookup => "identity_lookup",
             ClarificationPreset::InstallLookup => "install_lookup",
@@ -115,7 +182,15 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             clarification_kind,
             "Clarification is required before the workflow can continue.",
         );
-        Some(build_clarification_request_with_inference(&app, preset, &receipt.tool_name, "").await)
+        Some(
+            build_clarification_request_with_inference(
+                &app,
+                preset,
+                &receipt.tool_name,
+                &clarification_evidence,
+            )
+            .await,
+        )
     } else {
         None
     };
@@ -228,8 +303,10 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         // and must not reopen waiting UI while execution is actively running.
         let receipt_can_assert_sudo_wait =
             receipt_waiting_for_sudo && (waiting_for_sudo || t.phase != AgentPhase::Running);
-        let receipt_can_assert_clarification_wait = receipt_waiting_for_clarification
-            && (waiting_for_clarification || t.phase != AgentPhase::Running);
+        let receipt_can_assert_clarification_wait = effective_receipt_waiting_for_clarification
+            && (forced_intent_clarification
+                || waiting_for_clarification
+                || t.phase != AgentPhase::Running);
 
         let mut effective_waiting_for_sudo = waiting_for_sudo;
         let mut effective_waiting_for_clarification = waiting_for_clarification;
@@ -244,7 +321,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         }
 
         if receipt_can_assert_sudo_wait {
-            t.phase = AgentPhase::Complete;
+            t.phase = AgentPhase::Running;
             t.current_step = "Waiting for sudo password".to_string();
             t.gate_info = None;
             t.pending_request_hash = None;
@@ -258,8 +335,8 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         }
 
         if receipt_can_assert_clarification_wait {
-            t.phase = AgentPhase::Complete;
-            t.current_step = CLARIFICATION_WAIT_STEP.to_string();
+            t.phase = AgentPhase::Running;
+            t.current_step = clarification_wait_step.to_string();
             t.gate_info = None;
             t.pending_request_hash = None;
             t.credential_request = None;

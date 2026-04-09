@@ -22,7 +22,7 @@ use ioi_services::agentic::desktop::connectors::google_api::{
 };
 use std::collections::HashSet;
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use uuid::Uuid;
 
 pub use commands::*;
@@ -31,7 +31,7 @@ fn now_ms() -> u64 {
     crate::kernel::state::now()
 }
 
-fn app_memory_runtime(app: &AppHandle) -> Option<std::sync::Arc<MemoryRuntime>> {
+fn app_memory_runtime<R: Runtime>(app: &AppHandle<R>) -> Option<std::sync::Arc<MemoryRuntime>> {
     let state = app.state::<Mutex<AppState>>();
     state
         .lock()
@@ -402,7 +402,7 @@ fn compute_badge_count(
     intervention_count + assistant_count
 }
 
-fn emit_badge_count(app: &AppHandle) {
+fn emit_badge_count<R: Runtime>(app: &AppHandle<R>) {
     let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
@@ -427,8 +427,8 @@ fn should_emit_toast(
     )
 }
 
-fn maybe_emit_intervention_toast(
-    app: &AppHandle,
+fn maybe_emit_intervention_toast<R: Runtime>(
+    app: &AppHandle<R>,
     record: &InterventionRecord,
     policy: &AssistantAttentionPolicy,
 ) {
@@ -441,8 +441,8 @@ fn maybe_emit_intervention_toast(
     }
 }
 
-fn maybe_emit_assistant_toast(
-    app: &AppHandle,
+fn maybe_emit_assistant_toast<R: Runtime>(
+    app: &AppHandle<R>,
     record: &AssistantNotificationRecord,
     policy: &AssistantAttentionPolicy,
 ) {
@@ -530,7 +530,7 @@ fn sanitize_assistant_user_profile(mut profile: AssistantUserProfile) -> Assista
     profile
 }
 
-pub(crate) fn bootstrap_notification_defaults(app: &AppHandle) {
+pub(crate) fn bootstrap_notification_defaults<R: Runtime>(app: &AppHandle<R>) {
     let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
@@ -559,7 +559,10 @@ pub(crate) async fn spawn_notification_scheduler(app: AppHandle) {
     }
 }
 
-pub(crate) fn upsert_intervention_record(app: &AppHandle, record: InterventionRecord) {
+pub(crate) fn upsert_intervention_record<R: Runtime>(
+    app: &AppHandle<R>,
+    record: InterventionRecord,
+) {
     let Some(memory_runtime) = app_memory_runtime(app) else {
         return;
     };
@@ -570,8 +573,8 @@ pub(crate) fn upsert_intervention_record(app: &AppHandle, record: InterventionRe
     emit_badge_count(app);
 }
 
-pub(crate) fn upsert_assistant_notification_record(
-    app: &AppHandle,
+pub(crate) fn upsert_assistant_notification_record<R: Runtime>(
+    app: &AppHandle<R>,
     record: AssistantNotificationRecord,
 ) {
     let Some(memory_runtime) = app_memory_runtime(app) else {

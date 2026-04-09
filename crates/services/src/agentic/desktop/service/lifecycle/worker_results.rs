@@ -3020,11 +3020,13 @@ fn mark_parent_playbook_step_completed_from_result(
     let artifact_generation = build_artifact_generation_summary(run, playbook, step_idx, result);
     let computer_use_perception =
         build_computer_use_perception_summary(state, run, playbook, step_idx, result);
-    let research_scorecard = build_research_verification_scorecard(state, run, playbook, step_idx, result);
+    let research_scorecard =
+        build_research_verification_scorecard(state, run, playbook, step_idx, result);
     let artifact_quality = build_artifact_quality_scorecard(run, playbook, step_idx, result);
     let computer_use_verification =
         build_computer_use_verification_scorecard(state, run, playbook, step_idx, result);
-    let coding_scorecard = build_coding_verification_scorecard(state, run, playbook, step_idx, result);
+    let coding_scorecard =
+        build_coding_verification_scorecard(state, run, playbook, step_idx, result);
     let patch_synthesis = build_patch_synthesis_summary(state, run, playbook, step_idx, result);
     let artifact_repair = build_artifact_repair_summary(run, playbook, step_idx, result);
     let computer_use_recovery =
@@ -3077,7 +3079,8 @@ async fn advance_parent_playbook_after_worker_merge(
     let mut updates = Vec::new();
 
     loop {
-        let Some(step_idx) = find_run_step_index_by_child(&run, current_result.child_session_id) else {
+        let Some(step_idx) = find_run_step_index_by_child(&run, current_result.child_session_id)
+        else {
             return Ok((!updates.is_empty()).then(|| updates.join("\n\n")));
         };
         let timestamp_ms = now_ms();
@@ -3112,7 +3115,10 @@ async fn advance_parent_playbook_after_worker_merge(
                 &current_result,
             )));
             emit_parent_playbook_completed_receipt(service, &run, &playbook, parent_step_index);
-            updates.push(format!("Parent playbook '{}' completed.", run.playbook_label));
+            updates.push(format!(
+                "Parent playbook '{}' completed.",
+                run.playbook_label
+            ));
             return Ok(Some(updates.join("\n\n")));
         };
 
@@ -6703,8 +6709,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
-    async fn evidence_audited_patch_recovers_paused_refusal_worker_after_successful_verification()
-    {
+    async fn evidence_audited_patch_recovers_paused_refusal_worker_after_successful_verification() {
         let (tx, _rx) = tokio::sync::broadcast::channel(32);
         let (service, _temp_dir) = build_test_service(tx);
         let mut state = IAVLTree::new(HashCommitmentScheme::new());
@@ -6853,9 +6858,13 @@ mod tests {
             .raw_output
             .as_deref()
             .expect("completed worker should synthesize raw output");
-        assert!(raw_output.contains("Touched files: path_utils.py"), "{raw_output}");
         assert!(
-            raw_output.contains("Verification: python3 -m unittest tests.test_path_utils -v (passed)"),
+            raw_output.contains("Touched files: path_utils.py"),
+            "{raw_output}"
+        );
+        assert!(
+            raw_output
+                .contains("Verification: python3 -m unittest tests.test_path_utils -v (passed)"),
             "{raw_output}"
         );
     }
@@ -8402,7 +8411,8 @@ mod tests {
             "{merged_implement}"
         );
         assert!(
-            merged_implement.contains("Playbook: Patch Synthesis Handoff (patch_synthesis_handoff)"),
+            merged_implement
+                .contains("Playbook: Patch Synthesis Handoff (patch_synthesis_handoff)"),
             "{merged_implement}"
         );
         assert!(

@@ -1,11 +1,70 @@
 use super::*;
 
 pub(super) fn normalize_html_semantic_structure(html: &str) -> String {
+    if studio_modal_first_html_enabled() {
+        return html.to_string();
+    }
     let with_main = ensure_html_main_region(html);
     ensure_minimum_html_sectioning_elements(&with_main)
 }
 
+pub(super) fn normalize_html_terminal_closure(html: &str) -> String {
+    let trimmed = html.trim_end();
+    if trimmed.is_empty() {
+        return html.to_string();
+    }
+
+    if html_has_trailing_fragment(trimmed) {
+        return html.to_string();
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    let has_html = lower.contains("<html");
+    if !has_html {
+        return html.to_string();
+    }
+
+    let has_body = lower.contains("<body");
+    let has_main = lower.contains("<main");
+    let has_close_html = lower.contains("</html>");
+    let has_close_body = lower.contains("</body>");
+    let has_close_main = !has_main || lower.contains("</main>");
+
+    if has_close_html && (!has_body || has_close_body) && has_close_main {
+        return trimmed.to_string();
+    }
+
+    let mut normalized = trimmed.to_string();
+    if has_close_html {
+        let Some(insert_at) = lower.rfind("</html>") else {
+            return html.to_string();
+        };
+        let mut suffix = String::new();
+        if has_main && !has_close_main {
+            suffix.push_str("</main>");
+        }
+        if has_body && !has_close_body {
+            suffix.push_str("</body>");
+        }
+        if suffix.is_empty() {
+            return trimmed.to_string();
+        }
+        normalized.insert_str(insert_at, &suffix);
+        return normalized;
+    }
+
+    if has_main && !has_close_main {
+        normalized.push_str("</main>");
+    }
+    if has_body && !has_close_body {
+        normalized.push_str("</body>");
+    }
+    normalized.push_str("</html>");
+    normalized
+}
+
 pub(super) fn normalize_html_interactions(html: &str) -> String {
+    let modal_first = studio_modal_first_html_enabled();
     let lower = html.to_ascii_lowercase();
     let had_alert = lower.contains("alert(");
     let mut normalized = normalize_html_external_runtime_dependencies(html);
@@ -17,22 +76,142 @@ pub(super) fn normalize_html_interactions(html: &str) -> String {
     if had_alert || !contains_html_interaction_hooks(&normalized.to_ascii_lowercase()) {
         normalized = ensure_minimum_html_interaction(&normalized);
     }
-    normalized = ensure_minimum_html_shared_detail_region(&normalized);
+    if modal_first {
+        return normalized;
+    }
     normalized = ensure_html_view_switch_contract(&normalized);
+    normalized = ensure_html_mapped_panels_define_referenced_ids(&normalized);
+    normalized = ensure_html_button_accessibility_contract(&normalized);
+    normalized = ensure_minimum_html_shared_detail_region(&normalized);
     normalized = ensure_minimum_html_mapped_panel_content(&normalized);
     normalized = ensure_minimum_html_rollover_detail_payloads(&normalized);
     normalized = ensure_grouped_html_rollover_detail_marks(&normalized);
     normalized = ensure_focusable_html_rollover_marks(&normalized);
-    normalized = ensure_html_button_accessibility_contract(&normalized);
     normalized = ensure_html_interaction_polish_styles(&normalized);
     normalized = ensure_html_rollover_detail_contract(&normalized);
     normalized
 }
 
+fn html_has_trailing_fragment(html: &str) -> bool {
+    let trimmed = html.trim_end();
+    if trimmed.is_empty() {
+        return true;
+    }
+    let Some(last_gt) = trimmed.rfind('>') else {
+        return true;
+    };
+    !trimmed[last_gt + 1..].trim().is_empty()
+}
+
+fn ensure_html_mapped_panels_define_referenced_ids(html: &str) -> String {
+    let lower = html.to_ascii_lowercase();
+    let defined_ids = collect_html_attribute_ids(&lower);
+    let mut missing_refs = collect_html_referenced_ids(&lower)
+        .into_iter()
+        .filter(|id| !defined_ids.contains(id))
+        .collect::<HashSet<_>>();
+    missing_refs.extend(
+        collect_html_explicit_panel_id_targets(&lower)
+            .into_iter()
+            .filter(|id| !defined_ids.contains(id)),
+    );
+    if missing_refs.is_empty() {
+        return html.to_string();
+    }
+
+    let panels = collect_html_mapped_view_panels(html);
+    if panels.is_empty() {
+        return html.to_string();
+    }
+
+    let mut replacements = Vec::<(usize, usize, String)>::new();
+    for panel in panels {
+        let open_tag = &html[panel.open_start..panel.open_end];
+        let open_tag_lower = &lower[panel.open_start..panel.open_end];
+        if open_tag_lower.contains("id=") {
+            continue;
+        }
+
+        let preferred_id = preferred_missing_panel_id(&panel, &missing_refs);
+        let Some(preferred_id) = preferred_id else {
+            continue;
+        };
+
+        let repaired = inject_html_attributes_into_open_tag(
+            open_tag,
+            &[("id", &preferred_id), ("data-view-panel", &panel.token)],
+        );
+        replacements.push((panel.open_start, panel.open_end, repaired));
+    }
+
+    if replacements.is_empty() {
+        return html.to_string();
+    }
+
+    replacements.sort_by_key(|(start, _, _)| *start);
+    let mut rebuilt = String::with_capacity(html.len() + replacements.len() * 48);
+    let mut cursor = 0usize;
+    for (start, end, replacement) in replacements {
+        if start < cursor {
+            continue;
+        }
+        rebuilt.push_str(&html[cursor..start]);
+        rebuilt.push_str(&replacement);
+        cursor = end;
+    }
+    rebuilt.push_str(&html[cursor..]);
+    rebuilt
+}
+
+fn collect_html_explicit_panel_id_targets(html_lower: &str) -> HashSet<String> {
+    extract_html_attribute_values(html_lower, "aria-controls")
+        .into_iter()
+        .chain(extract_html_attribute_values(html_lower, "data-target"))
+        .filter_map(|value| normalize_html_selector_token(&value))
+        .collect()
+}
+
+fn preferred_missing_panel_id(
+    panel: &HtmlMappedViewPanelDescriptor,
+    missing_refs: &HashSet<String>,
+) -> Option<String> {
+    let token = normalize_html_selector_token(&panel.token).unwrap_or_else(|| panel.token.clone());
+    let exact_candidates = vec![
+        panel.id.clone(),
+        token.clone(),
+        format!("{token}-panel"),
+        sanitize_html_view_panel_id(&token),
+    ];
+
+    for candidate in exact_candidates {
+        if missing_refs.contains(&candidate) {
+            return Some(candidate);
+        }
+    }
+
+    missing_refs.iter().find_map(|missing| {
+        let normalized = normalize_html_selector_token(missing)?;
+        let stripped_panel = normalized.strip_suffix("-panel").unwrap_or(&normalized);
+        let stripped_studio = normalized
+            .strip_prefix("studio-view-panel-")
+            .unwrap_or(&normalized);
+        if normalized == token || stripped_panel == token || stripped_studio == token {
+            Some(normalized)
+        } else {
+            None
+        }
+    })
+}
+
 pub(super) fn ensure_html_view_switch_contract(html: &str) -> String {
-    let mut normalized = ensure_html_promoted_view_panels_from_controls(html);
-    normalized = ensure_html_synthesized_view_controls(&normalized);
-    normalized = ensure_first_visible_mapped_view_panel(&normalized);
+    let modal_first = studio_modal_first_html_enabled();
+    let mut normalized = if modal_first {
+        html.to_string()
+    } else {
+        let mut normalized = ensure_html_promoted_view_panels_from_controls(html);
+        normalized = ensure_html_synthesized_view_controls(&normalized);
+        ensure_first_visible_mapped_view_panel(&normalized)
+    };
     let lower = normalized.to_ascii_lowercase();
     if lower.contains("data-studio-view-switch-repair=\"true\"")
         || !html_has_static_view_mapping_markers(&lower)
@@ -71,22 +250,46 @@ pub(super) fn ensure_html_view_switch_contract(html: &str) -> String {
     return;
   }
   const detailCopy = document.getElementById('detail-copy');
+  const summarizePanel = (panel, fallbackLabel) => {
+    if (!panel) {
+      return fallbackLabel ? `${fallbackLabel} selected.` : '';
+    }
+    const heading = panel.querySelector('h2, h3, strong, figcaption');
+    const detail = panel.querySelector('p, li, td');
+    const headingText = heading && heading.textContent ? heading.textContent.trim() : '';
+    const detailText = detail && detail.textContent ? detail.textContent.trim() : '';
+    if (headingText && detailText) {
+      return `${headingText}: ${detailText}`;
+    }
+    if (headingText) {
+      return `${headingText} selected.`;
+    }
+    if (detailText) {
+      return detailText;
+    }
+    return fallbackLabel ? `${fallbackLabel} selected.` : '';
+  };
   const selectView = (activeControl) => {
     const targetView = activeControl.dataset.view || '';
     const rawTarget = activeControl.getAttribute('data-target') || '';
     const targetId = activeControl.getAttribute('aria-controls') || (rawTarget.startsWith('#') ? rawTarget.slice(1) : rawTarget);
+    let activePanel = null;
     panels.forEach((panel) => {
       const panelView = panel.dataset.viewPanel || panel.dataset.panel || '';
       const panelId = panel.id || '';
       const isActive = (targetView && panelView === targetView) || (targetId && panelId === targetId);
       panel.hidden = !isActive;
       panel.setAttribute('aria-hidden', String(!isActive));
+      if (isActive) {
+        activePanel = panel;
+      }
     });
     controls.forEach((control) => {
       control.setAttribute('aria-selected', String(control === activeControl));
     });
-    if (detailCopy && activeControl.textContent) {
-      detailCopy.textContent = `${activeControl.textContent.trim()} selected.`;
+    if (detailCopy) {
+      const fallbackLabel = activeControl.textContent ? activeControl.textContent.trim() : '';
+      detailCopy.textContent = summarizePanel(activePanel, fallbackLabel);
     }
   };
   controls.forEach((button) => {
@@ -99,7 +302,11 @@ pub(super) fn ensure_html_view_switch_contract(html: &str) -> String {
 })();</script>"#;
 
     normalized = insert_html_before_body_close(&normalized, script);
-    ensure_first_visible_mapped_view_panel(&normalized)
+    if modal_first {
+        normalized
+    } else {
+        ensure_first_visible_mapped_view_panel(&normalized)
+    }
 }
 
 #[derive(Clone)]
@@ -1169,16 +1376,19 @@ pub(super) fn ensure_focusable_html_rollover_marks(html: &str) -> String {
                 let non_native_focus_target =
                     !html_tag_is_natively_focusable(open_tag_lower, &tag_name);
                 if non_native_focus_target && !open_tag_lower.contains("tabindex=") {
-                    repaired = inject_html_attributes_into_open_tag(&repaired, &[("tabindex", "0")]);
+                    repaired =
+                        inject_html_attributes_into_open_tag(&repaired, &[("tabindex", "0")]);
                 }
                 if non_native_focus_target && !open_tag_lower.contains("role=") {
-                    repaired = inject_html_attributes_into_open_tag(&repaired, &[("role", "button")]);
+                    repaired =
+                        inject_html_attributes_into_open_tag(&repaired, &[("role", "button")]);
                 }
                 if non_native_focus_target && !open_tag_lower.contains("aria-label=") {
-                    if let Some(detail_label) = extract_html_attribute_values(open_tag_lower, "data-detail")
-                        .into_iter()
-                        .map(|value| normalize_inline_text(&value))
-                        .find(|value| !value.is_empty())
+                    if let Some(detail_label) =
+                        extract_html_attribute_values(open_tag_lower, "data-detail")
+                            .into_iter()
+                            .map(|value| normalize_inline_text(&value))
+                            .find(|value| !value.is_empty())
                     {
                         repaired = inject_html_attributes_into_open_tag(
                             &repaired,
@@ -1261,7 +1471,11 @@ pub(super) fn ensure_grouped_html_rollover_detail_marks(html: &str) -> String {
         );
         rebuilt_inner.push_str(&fragment);
     }
-    flush_loose_rollover_detail_mark_group(&mut rebuilt_inner, &mut pending_marks, &mut wrapped_any);
+    flush_loose_rollover_detail_mark_group(
+        &mut rebuilt_inner,
+        &mut pending_marks,
+        &mut wrapped_any,
+    );
 
     if !wrapped_any {
         return html.to_string();
@@ -1501,10 +1715,8 @@ pub(super) fn ensure_minimum_html_shared_detail_region(html: &str) -> String {
         return html.to_string();
     }
     let default_focus = default_html_detail_focus_label(html);
-    let normalized = ensure_existing_html_detail_regions_have_first_paint_copy(
-        html,
-        &default_focus,
-    );
+    let normalized =
+        ensure_existing_html_detail_regions_have_first_paint_copy(html, &default_focus);
     let lower = normalized.to_ascii_lowercase();
     let has_populated_detail_region = count_populated_html_detail_regions(&lower) > 0;
     let has_detail_copy_id =
@@ -1542,7 +1754,10 @@ fn default_html_detail_focus_label(html: &str) -> String {
         .unwrap_or_else(|| "Artifact detail".to_string())
 }
 
-fn build_html_default_detail_copy_markup(default_focus: &str, include_detail_copy_id: bool) -> String {
+fn build_html_default_detail_copy_markup(
+    default_focus: &str,
+    include_detail_copy_id: bool,
+) -> String {
     let detail_copy_id = if include_detail_copy_id {
         " id=\"detail-copy\""
     } else {
@@ -1603,10 +1818,8 @@ fn ensure_existing_html_detail_regions_have_first_paint_copy(
                     &[("data-studio-shared-detail", "true")],
                 )
             };
-            let fallback = build_html_default_detail_copy_markup(
-                default_focus,
-                !assigned_detail_copy,
-            );
+            let fallback =
+                build_html_default_detail_copy_markup(default_focus, !assigned_detail_copy);
             assigned_detail_copy = true;
             replacements.push((
                 start,
@@ -1815,7 +2028,7 @@ main > footer {
 }
 .control-bar,
 .studio-view-switch-controls,
-nav[aria-label="Artifact views"] {
+main nav {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
@@ -1958,7 +2171,7 @@ main > .data-detail strong {
   main { padding: 16px; gap: 16px; }
   .control-bar,
   .studio-view-switch-controls,
-  nav[aria-label="Artifact views"] { gap: 8px; }
+  main nav { gap: 8px; }
   .evidence-surface,
   [data-view-panel],
   [data-panel],
@@ -2100,16 +2313,16 @@ pub(super) fn ensure_minimum_html_interaction(html: &str) -> String {
     if lower.contains("<details") || lower.contains("data-studio-interaction=\"true\"") {
         return html.to_string();
     }
-    let Some(main_close_start) = lower.rfind("</main>") else {
-        return html.to_string();
-    };
     let disclosure = "<details data-studio-normalized=\"true\" data-studio-interaction=\"true\" class=\"studio-inline-disclosure\"><summary>Inspect supporting detail</summary><p>This inline detail keeps the current section explorable without leaving the artifact.</p></details>";
-    format!(
-        "{}{}{}",
-        &html[..main_close_start],
-        disclosure,
-        &html[main_close_start..],
-    )
+    if let Some(main_close_start) = lower.rfind("</main>") {
+        return format!(
+            "{}{}{}",
+            &html[..main_close_start],
+            disclosure,
+            &html[main_close_start..],
+        );
+    }
+    insert_html_before_body_close(html, disclosure)
 }
 
 pub(super) fn replace_case_insensitive(source: &str, needle: &str, replacement: &str) -> String {
@@ -2871,6 +3084,18 @@ pub(super) fn studio_artifact_materialization_failure_directives(
             "- Add visible controls with working event handlers and first-paint content so the artifact is actually interactive."
                 .to_string(),
         );
+        directives.push(
+            "- For click interactions, render at least one real <button>, <details>/<summary>, or similarly obvious control on first paint and wire it with click handlers that mutate visible inline state."
+                .to_string(),
+        );
+        directives.push(
+            "- For drag-style interactions, prefer a range input, slider, scrubber, or draggable handle that updates labels, diagrams, captions, or comparison state while the user drags; describe the state change in the DOM instead of only animating decoration."
+                .to_string(),
+        );
+        directives.push(
+            "- Keep the repair concrete: include the actual control element in the HTML plus inline JavaScript such as addEventListener('click', ...) or addEventListener('input', ...) that rewrites visible text, classes, transforms, or comparison state."
+                .to_string(),
+        );
     }
     if failure_lower.contains("missing dom ids") {
         directives.push(
@@ -2922,6 +3147,8 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
         "- Patch the current artifact instead of restarting from a new shell.".to_string(),
         "- Preserve working file paths and any strong request-specific copy, labels, and structure already present.".to_string(),
     ];
+    let modal_first_html =
+        request.renderer == StudioRendererKind::HtmlIframe && studio_modal_first_html_enabled();
     let exact_view_scaffold = html_prompt_exact_view_scaffold(brief);
     let rollover_mark_example = html_prompt_rollover_mark_example(brief);
 
@@ -2934,10 +3161,21 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
             "- Ensure each sectioning region carries its own visible heading plus content, scorecards, labels, chart marks, or explanatory copy on first paint; a section that only mounts future script output is still empty."
                 .to_string(),
         );
-        directives.push(
-            "- Use a named control bar plus a shared detail or comparison panel; anchor-only navigation is not enough for the primary interaction model."
-                .to_string(),
-        );
+        if modal_first_html {
+            directives.push(
+                "- Preserve or strengthen the artifact's chosen interaction grammar instead of forcing a dashboard shell; tabs, sceneboards, steppers, inline simulators, inspectable diagrams, annotated cards, and other truthful patterns are all valid."
+                    .to_string(),
+            );
+            directives.push(
+                "- Keep the primary interaction on-page: controls or marks should change inline evidence, simulation state, comparison state, callouts, or explanatory copy. A detached shared-detail panel is optional, not required."
+                    .to_string(),
+            );
+        } else {
+            directives.push(
+                "- Use a named control bar plus a shared detail or comparison panel; anchor-only navigation is not enough for the primary interaction model."
+                    .to_string(),
+            );
+        }
         directives.push(
             "- Keep the hero request-specific instead of repeating the thesis verbatim, and surface differentiating concepts across section headings and evidence labels."
                 .to_string(),
@@ -2946,10 +3184,17 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
             "- Replace scrollIntoView, jump-link, or console-only handlers with controls that rewrite visible detail, comparison, or chart state in place."
                 .to_string(),
         );
-        directives.push(
-            "- Do not regress into anchor-only section jumps or top-nav shells; the primary controls must change inline evidence or detail state."
-                .to_string(),
-        );
+        if modal_first_html {
+            directives.push(
+                "- Do not regress into anchor-only jumps, generic app chrome, or a left-nav shell; the primary interaction should keep the page feeling authored and request-specific."
+                    .to_string(),
+            );
+        } else {
+            directives.push(
+                "- Do not regress into anchor-only section jumps or top-nav shells; the primary controls must change inline evidence or detail state."
+                    .to_string(),
+            );
+        }
         directives.push(
             "- Keep the default selected chart, label, and detail state directly in the markup before any script runs; do not bootstrap the only visible content from empty targets."
                 .to_string(),
@@ -2983,10 +3228,17 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
                     .to_string(),
             );
         }
-        directives.push(
-            "- Prefer controls that update a shared detail, comparison, or explanation region instead of navigation-only buttons."
-                .to_string(),
-        );
+        if modal_first_html {
+            directives.push(
+                "- Prefer controls that update labeled inline evidence, comparison state, captions, callouts, or contextual explanation instead of acting like navigation-only buttons."
+                    .to_string(),
+            );
+        } else {
+            directives.push(
+                "- Prefer controls that update a shared detail, comparison, or explanation region instead of navigation-only buttons."
+                    .to_string(),
+            );
+        }
         directives.push(
             "- Give the default selected control a fully populated response region on first paint before any user action."
                 .to_string(),
@@ -3025,80 +3277,128 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
             ));
         }
         if brief.required_interactions.len() >= 2 {
-            directives.push(
-                "- Spread multiple interaction requirements across the artifact: keep one explicit control-bar behavior and at least one in-evidence inspection or input behavior on visible marks, cards, chips, form fields, or list items."
-                    .to_string(),
-            );
-            directives.push(
-                "- Do not satisfy a multi-interaction brief with only one button row and a single shared panel toggle."
-                    .to_string(),
-            );
+            if modal_first_html {
+                directives.push(
+                    "- Spread multiple interaction requirements across the artifact: keep one explicit authored state-change seam and at least one in-evidence inspection, hover/focus, or input behavior on visible marks, cards, chips, form fields, or list items."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Do not satisfy a multi-interaction brief with only one button row and one thin state swap; let interactions change more than one visible region or explanatory surface."
+                        .to_string(),
+                );
+            } else {
+                directives.push(
+                    "- Spread multiple interaction requirements across the artifact: keep one explicit control-bar behavior and at least one in-evidence inspection or input behavior on visible marks, cards, chips, form fields, or list items."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Do not satisfy a multi-interaction brief with only one button row and a single shared panel toggle."
+                        .to_string(),
+                );
+            }
         }
         if brief_requires_view_switching(brief) {
-            directives.push(
-                "- For clickable navigation, use explicit static control-to-panel mappings such as data-view plus data-view-panel, aria-controls, or data-target tied to pre-rendered views."
-                    .to_string(),
-            );
-            directives.push(
-                "- Keep data-view-panel as a literal HTML attribute on each panel element; a CSS class like class=\"data-view-panel\" does not count as a mapped pre-rendered panel."
-                    .to_string(),
-            );
-            directives.push(
-                "- Keep at least two pre-rendered view panels in the markup and toggle hidden, data-active, or aria-selected state instead of deriving target ids from button ids at runtime."
-                    .to_string(),
-            );
-            directives.push(
-                "- If you need Array methods such as find, map, or filter on queried controls or panels, wrap querySelectorAll results with Array.from first."
-                    .to_string(),
-            );
-            directives.push(
-                "- Static data-view, aria-controls, or data-target attributes do not count on their own; wire click handlers that actually toggle panel visibility or selected state on the mapped panel wrappers."
-                    .to_string(),
-            );
-            directives.push(
-                "- Do not use class names like class=\"overview-panel\" or class=\"data-view-panel\" as a substitute for actual id/data-view-panel attributes on the panel wrapper."
-                    .to_string(),
-            );
-            directives.push(
-                "- Use a concrete scaffold when needed: buttons[data-view], matching <section data-view-panel=\"...\"> containers for each view, one populated default panel, one shared detail aside such as #detail-copy, and a panels collection selected before toggling hidden state."
-                    .to_string(),
-            );
-            directives.push(format!(
-                "- A safe exact scaffold is {}.",
-                exact_view_scaffold
-            ));
-            directives.push(
-                "- If you use aria-controls, target the enclosing section/article/div panel rather than an inner SVG node or chart mark."
-                    .to_string(),
-            );
-            directives.push(
-                "- Keep exactly one mapped panel visible in the raw markup before any script runs; the remaining mapped panels may start hidden."
-                    .to_string(),
-            );
-            directives.push(
-                "- Do not wire every control only to the shared detail panel; the shared detail panel is supplementary and does not replace the pre-rendered view panels."
-                    .to_string(),
-            );
+            if modal_first_html {
+                directives.push(
+                    "- For clickable navigation, keep at least two authored states, scenes, or sections in the markup and make the switch visibly change the page. Mapped panels are allowed, not mandatory."
+                        .to_string(),
+                );
+                directives.push(
+                    "- If you do use mapped panels, use explicit identifiers such as data-view plus data-view-panel or aria-controls tied to real authored states rather than synthesized selector math."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Keep one authored state clearly active on first paint and make each click reveal a visibly different evidence or explanation state, not just a relabeled pill."
+                        .to_string(),
+                );
+            } else {
+                directives.push(
+                    "- For clickable navigation, use explicit static control-to-panel mappings such as data-view plus data-view-panel, aria-controls, or data-target tied to pre-rendered views."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Keep data-view-panel as a literal HTML attribute on each panel element; a CSS class like class=\"data-view-panel\" does not count as a mapped pre-rendered panel."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Keep at least two pre-rendered view panels in the markup and toggle hidden, data-active, or aria-selected state instead of deriving target ids from button ids at runtime."
+                        .to_string(),
+                );
+                directives.push(
+                    "- If you need Array methods such as find, map, or filter on queried controls or panels, wrap querySelectorAll results with Array.from first."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Static data-view, aria-controls, or data-target attributes do not count on their own; wire click handlers that actually toggle panel visibility or selected state on the mapped panel wrappers."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Do not use class names like class=\"overview-panel\" or class=\"data-view-panel\" as a substitute for actual id/data-view-panel attributes on the panel wrapper."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Use a concrete scaffold when needed: buttons[data-view], matching <section data-view-panel=\"...\"> containers for each view, one populated default panel, one shared detail aside such as #detail-copy, and a panels collection selected before toggling hidden state."
+                        .to_string(),
+                );
+                directives.push(format!(
+                    "- A safe exact scaffold is {}.",
+                    exact_view_scaffold
+                ));
+                directives.push(
+                    "- If you use aria-controls, target the enclosing section/article/div panel rather than an inner SVG node or chart mark."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Keep exactly one mapped panel visible in the raw markup before any script runs; the remaining mapped panels may start hidden."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Do not wire every control only to the shared detail panel; the shared detail panel is supplementary and does not replace the pre-rendered view panels."
+                        .to_string(),
+                );
+            }
         }
         if brief_requires_rollover_detail(brief) {
-            directives.push(
-                "- Implement at least one hover or focus interaction on a visible chart mark, metric card, or timeline item that rewrites a shared detail panel inline."
-                    .to_string(),
-            );
+            if modal_first_html {
+                directives.push(
+                    "- Implement at least one hover or focus interaction on a visible chart mark, metric card, or timeline item that rewrites inline captioning, a callout, a contextual note, or another authored response region."
+                        .to_string(),
+                );
+            } else {
+                directives.push(
+                    "- Implement at least one hover or focus interaction on a visible chart mark, metric card, or timeline item that rewrites a shared detail panel inline."
+                        .to_string(),
+                );
+            }
         }
         if brief_requires_view_switching(brief) && brief_requires_rollover_detail(brief) {
-            directives.push(
-                "- Keep both interaction families simultaneously: use at least two pre-rendered view panels for button-driven switching and at least three visible data-detail marks or cards with hover/focus behavior that update the same shared detail panel."
-                    .to_string(),
-            );
-            directives.push(
-                "- Do not satisfy clickable navigation by deleting rollover detail, and do not satisfy rollover detail by collapsing the pre-rendered view panels."
-                    .to_string(),
-            );
-            directives.push(format!(
-                "- A strong repair shape is buttons[data-view] -> [data-view-panel] plus [data-detail] -> #detail-copy, with one populated default panel, default detail state already visible on first paint, and a visible rollover mark such as {}.",
-                rollover_mark_example
-            ));
+            if modal_first_html {
+                directives.push(
+                    "- Keep both interaction families simultaneously: preserve at least two authored view states for switching and at least three visible inspectable marks or cards whose hover/focus behavior changes a visible response region."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Do not satisfy clickable navigation by deleting inspectable detail behavior, and do not satisfy inspection by collapsing the authored view changes."
+                        .to_string(),
+                );
+                directives.push(format!(
+                    "- A strong repair shape is a visible view-switching seam plus inspectable marks such as {}, with default explanatory state already visible on first paint.",
+                    rollover_mark_example
+                ));
+            } else {
+                directives.push(
+                    "- Keep both interaction families simultaneously: use at least two pre-rendered view panels for button-driven switching and at least three visible data-detail marks or cards with hover/focus behavior that update the same shared detail panel."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Do not satisfy clickable navigation by deleting rollover detail, and do not satisfy rollover detail by collapsing the pre-rendered view panels."
+                        .to_string(),
+                );
+                directives.push(format!(
+                    "- A strong repair shape is buttons[data-view] -> [data-view-panel] plus [data-detail] -> #detail-copy, with one populated default panel, default detail state already visible on first paint, and a visible rollover mark such as {}.",
+                    rollover_mark_example
+                ));
+            }
         }
     }
 
@@ -3141,10 +3441,17 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
             || contradiction_lower.contains("data visualizations")
             || contradiction_lower.contains("chart")
         {
-            directives.push(
-                "- Add at least one inline SVG or DOM data visualization with visible marks, numeric labels, and a shared detail panel that updates inline."
-                    .to_string(),
-            );
+            if modal_first_html {
+                directives.push(
+                    "- Add at least one inline SVG or DOM data visualization with visible marks, numeric labels, and a visible explanatory response region that updates inline."
+                        .to_string(),
+                );
+            } else {
+                directives.push(
+                    "- Add at least one inline SVG or DOM data visualization with visible marks, numeric labels, and a shared detail panel that updates inline."
+                        .to_string(),
+                );
+            }
             directives.push(
                 "- Expand the first paint into at least two distinct evidence views or chart families tied to different brief concepts or reference hints; do not collapse everything into one generic chart."
                     .to_string(),
@@ -3161,56 +3468,85 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
                 "- Replace single-mark or unlabeled SVG shells with multiple request-grounded marks, rows, or milestone steps plus visible labels, captions, or legends on first paint."
                     .to_string(),
             );
-            directives.push(
-                "- Update the shared detail panel with the selected metric, milestone, or evidence sentence from data-detail or control metadata; do not only echo the raw view id or button label."
-                    .to_string(),
-            );
+            if modal_first_html {
+                directives.push(
+                    "- Update a visible explanatory response region with the selected metric, milestone, or evidence sentence from data-detail or control metadata; do not only echo the raw view id or button label."
+                        .to_string(),
+                );
+            } else {
+                directives.push(
+                    "- Update the shared detail panel with the selected metric, milestone, or evidence sentence from data-detail or control metadata; do not only echo the raw view id or button label."
+                        .to_string(),
+                );
+            }
         }
         if contradiction_lower.contains("navigation")
             || contradiction_lower.contains("pre-rendered views")
             || contradiction_lower.contains("view switching")
         {
-            directives.push(
-                "- Replace implicit selector math with explicit static mappings: controls should use data-view, aria-controls, or data-target values that point at pre-rendered panels already present in the markup."
-                    .to_string(),
-            );
-            directives.push(
-                "- Keep data-view-panel as a literal HTML attribute on the panel element itself; a class token like class=\"data-view-panel\" does not satisfy the mapping."
-                    .to_string(),
-            );
-            directives.push(
-                "- Prefer dataset comparisons such as panel.dataset.viewPanel !== button.dataset.view instead of building a querySelector string with nested quotes."
-                    .to_string(),
-            );
-            directives.push(
-                "- If you need Array methods such as find, map, or filter on queried controls or panels, wrap querySelectorAll results with Array.from first."
-                    .to_string(),
-            );
-            directives.push(
-                "- Keep at least two pre-rendered view panels in the DOM and toggle hidden or data-active state instead of calling getElementById on a synthesized id string."
-                    .to_string(),
-            );
-            directives.push(
-                "- Static data-view, aria-controls, or data-target attributes alone are not enough; the click handler must mutate hidden, aria-selected, aria-hidden, or comparable panel state on the mapped panels."
-                    .to_string(),
-            );
-            directives.push(
-                "- Do not substitute class=\"overview-panel\" or class=\"data-view-panel\" for the literal id/data-view-panel mapping on the panel wrapper."
-                    .to_string(),
-            );
-            directives.push(
-                "- Point aria-controls at the panel wrapper itself, not the inner SVG or chart node, and keep one mapped panel visibly selected before any script runs."
-                    .to_string(),
-            );
+            if modal_first_html {
+                directives.push(
+                    "- Replace implicit selector math with explicit authored states: controls should target real scenes, sections, or panels that already exist in the markup."
+                        .to_string(),
+                );
+                directives.push(
+                    "- If you use mapped panels, keep data-view-panel or aria-controls as literal attributes on the authored state wrappers and toggle visible state directly."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Keep at least two authored view states in the DOM and make the click visibly change evidence or explanation rather than only switching a label."
+                        .to_string(),
+                );
+            } else {
+                directives.push(
+                    "- Replace implicit selector math with explicit static mappings: controls should use data-view, aria-controls, or data-target values that point at pre-rendered panels already present in the markup."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Keep data-view-panel as a literal HTML attribute on the panel element itself; a class token like class=\"data-view-panel\" does not satisfy the mapping."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Prefer dataset comparisons such as panel.dataset.viewPanel !== button.dataset.view instead of building a querySelector string with nested quotes."
+                        .to_string(),
+                );
+                directives.push(
+                    "- If you need Array methods such as find, map, or filter on queried controls or panels, wrap querySelectorAll results with Array.from first."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Keep at least two pre-rendered view panels in the DOM and toggle hidden or data-active state instead of calling getElementById on a synthesized id string."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Static data-view, aria-controls, or data-target attributes alone are not enough; the click handler must mutate hidden, aria-selected, aria-hidden, or comparable panel state on the mapped panels."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Do not substitute class=\"overview-panel\" or class=\"data-view-panel\" for the literal id/data-view-panel mapping on the panel wrapper."
+                        .to_string(),
+                );
+                directives.push(
+                    "- Point aria-controls at the panel wrapper itself, not the inner SVG or chart node, and keep one mapped panel visibly selected before any script runs."
+                        .to_string(),
+                );
+            }
         }
         if contradiction_lower.contains("rollover")
             || contradiction_lower.contains("hover")
             || contradiction_lower.contains("tooltip")
         {
-            directives.push(
-                "- Implement hover or focus behavior on visible marks or metric cards so a shared detail panel updates inline when the user points at or focuses a chart element."
-                    .to_string(),
-            );
+            if modal_first_html {
+                directives.push(
+                    "- Implement hover or focus behavior on visible marks or metric cards so an authored inline response region updates when the user points at or focuses a chart element."
+                        .to_string(),
+                );
+            } else {
+                directives.push(
+                    "- Implement hover or focus behavior on visible marks or metric cards so a shared detail panel updates inline when the user points at or focuses a chart element."
+                        .to_string(),
+                );
+            }
         }
         if contradiction_lower.contains("missing dom ids") {
             directives.push(
@@ -3225,10 +3561,17 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
             );
         }
         if contradiction_lower.contains("detail") || contradiction_lower.contains("comparison") {
-            directives.push(
-                "- Keep the shared detail or comparison panel populated with default explanatory copy on first paint, then update that same region inline."
-                    .to_string(),
-            );
+            if modal_first_html {
+                directives.push(
+                    "- Keep the chosen detail, comparison, or explanatory response region populated with default copy on first paint, then update that same region inline."
+                        .to_string(),
+                );
+            } else {
+                directives.push(
+                    "- Keep the shared detail or comparison panel populated with default explanatory copy on first paint, then update that same region inline."
+                        .to_string(),
+                );
+            }
         }
     }
 
@@ -3426,7 +3769,7 @@ pub(super) fn placeholder_marker_hits(text_lower: &str) -> usize {
         hits += 1;
     }
 
-    hits += [
+    for needle in [
         "lorem ipsum",
         "todo",
         "tbd",
@@ -3453,10 +3796,29 @@ pub(super) fn placeholder_marker_hits(text_lower: &str) -> usize {
         "chart goes here",
     ]
     .iter()
-    .filter(|needle| text_lower.contains(**needle))
-    .count();
+    {
+        let mut cursor = 0usize;
+        while let Some(relative_start) = text_lower[cursor..].find(needle) {
+            let start = cursor + relative_start;
+            if !placeholder_marker_hit_is_negated(text_lower, start) {
+                hits += 1;
+            }
+            cursor = start + needle.len();
+        }
+    }
 
     hits
+}
+
+fn placeholder_marker_hit_is_negated(text_lower: &str, match_start: usize) -> bool {
+    let window_start = match_start.saturating_sub(40);
+    let context = &text_lower[window_start..match_start];
+    let clause_start = context
+        .rfind(|ch| matches!(ch, '.' | '!' | '?' | '\n' | ';' | ':'))
+        .map(|index| index + 1)
+        .unwrap_or(0);
+    let clause = context[clause_start..].trim();
+    clause.contains("no ") || clause.contains("without ")
 }
 
 pub(super) fn html_contains_placeholder_markers(html_lower: &str) -> bool {
@@ -3768,9 +4130,9 @@ pub(super) fn count_populated_html_evidence_regions(html_lower: &str) -> usize {
     regions
         .iter()
         .filter(|(start, end)| {
-            !regions.iter().any(|(other_start, other_end)| {
-                other_start > start && other_end < end
-            })
+            !regions
+                .iter()
+                .any(|(other_start, other_end)| other_start > start && other_end < end)
         })
         .count()
 }
@@ -4187,6 +4549,28 @@ pub(super) fn html_contains_view_switching_control_behavior(html_lower: &str) ->
     has_multiple_view_controls
         && html_contains_click_activation_behavior(html_lower)
         && html_contains_view_switch_state_mutation(html_lower)
+        && html_contains_control_targeted_view_switch_behavior(html_lower)
+}
+
+fn html_contains_control_targeted_view_switch_behavior(html_lower: &str) -> bool {
+    [
+        "queryselectorall('button[data-view]')",
+        "queryselectorall(\"button[data-view]\")",
+        "queryselectorall('button[data-view], [role=\"tab\"][data-view]')",
+        "queryselectorall(\"button[data-view], [role='tab'][data-view]\")",
+        "queryselectorall('[role=\"tab\"][data-view]')",
+        "queryselectorall(\"[role='tab'][data-view]\")",
+        "closest('button[data-view]')",
+        "closest(\"button[data-view]\")",
+        "closest('[role=\"tab\"][data-view]')",
+        "closest(\"[role='tab'][data-view]\")",
+        "matches('button[data-view]')",
+        "matches(\"button[data-view]\")",
+        "matches('[role=\"tab\"][data-view]')",
+        "matches(\"[role='tab'][data-view]\")",
+    ]
+    .iter()
+    .any(|needle| html_lower.contains(needle))
 }
 
 fn html_open_tag_is_mapped_panel(open_tag_lower: &str, control_targets: &HashSet<String>) -> bool {

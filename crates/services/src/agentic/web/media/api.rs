@@ -434,6 +434,7 @@ pub async fn kernel_media_vision_read(
         temperature: 0.0,
         json_mode: true,
         max_tokens: 500,
+        stop_sequences: Vec::new(),
         required_finality_tier: Default::default(),
         sealed_finality_proof: None,
         canonical_collapse_object: None,

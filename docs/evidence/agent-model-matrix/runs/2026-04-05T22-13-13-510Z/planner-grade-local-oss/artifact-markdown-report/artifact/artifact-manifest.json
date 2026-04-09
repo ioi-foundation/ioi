@@ -1,0 +1,66 @@
+{
+  "artifactId": "2ecbf653-eacf-4865-b71c-a27af75397bc",
+  "title": "a markdown artifact that documents a release checklist",
+  "artifactClass": "document",
+  "renderer": "markdown",
+  "primaryTab": "render",
+  "tabs": [
+    {
+      "id": "render",
+      "label": "Render",
+      "kind": "render",
+      "renderer": "markdown",
+      "filePath": "candidate-1.md",
+      "lens": "render"
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "kind": "source",
+      "renderer": null,
+      "filePath": "candidate-1.md",
+      "lens": "source"
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "kind": "evidence",
+      "renderer": null,
+      "filePath": null,
+      "lens": "evidence"
+    }
+  ],
+  "files": [
+    {
+      "path": "candidate-1.md",
+      "mime": "text/markdown",
+      "role": "primary",
+      "renderable": true,
+      "downloadable": false,
+      "artifactId": "generated-candidate-1.md",
+      "externalUrl": null
+    }
+  ],
+  "verification": {
+    "status": "partial",
+    "lifecycleState": "partial",
+    "summary": "The provided markdown does not align with",
+    "productionProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "acceptanceProvenance": {
+      "kind": "real_local_runtime",
+      "label": "openai-compatible",
+      "model": "qwen2.5:7b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+    },
+    "failure": null
+  },
+  "storage": {
+    "mode": "artifact_scoped",
+    "apiLabel": "artifact storage"
+  }
+}

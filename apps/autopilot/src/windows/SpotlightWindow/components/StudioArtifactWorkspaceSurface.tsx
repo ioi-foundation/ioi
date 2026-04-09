@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
-  WorkspaceEditorPane,
   WorkspaceExplorerPane,
   useWorkspaceSession,
   useWorkspaceTerminalSession,
@@ -11,6 +10,7 @@ import {
 import type { StudioArtifactSelectionTarget } from "../../../types";
 import { tauriWorkspaceAdapter } from "../../../services/workspaceAdapter";
 import { ArtifactRendererHost } from "./ArtifactRendererHost";
+import { ArtifactSourceWorkbench } from "./ArtifactSourceWorkbench";
 import { StudioArtifactEvidencePanel } from "./StudioArtifactEvidencePanel";
 import { StudioArtifactStageHeader } from "./StudioArtifactStageHeader";
 import {
@@ -32,6 +32,7 @@ export function StudioArtifactWorkspaceSurface({
   rendererSession,
   retrying,
   onRetry,
+  onBrowseArtifacts,
   onCollapse,
   onSeedIntent,
 }: WorkspaceArtifactSurfaceProps) {
@@ -68,6 +69,16 @@ export function StudioArtifactWorkspaceSurface({
     findArtifactFile(manifest.files, rendererSession.entryDocument) ??
     manifest.files[0] ??
     null;
+  const activeWorkspaceFile =
+    session.activeDocument?.kind === "file" ? session.activeDocument : null;
+  const headerCopyText =
+    activeWorkspaceFile &&
+    !activeWorkspaceFile.loading &&
+    !activeWorkspaceFile.error &&
+    !activeWorkspaceFile.isBinary &&
+    !activeWorkspaceFile.isTooLarge
+      ? activeWorkspaceFile.content
+      : null;
   const hasRender = hasVerifiedRender(manifest, rendererSession);
   const seedSelectionIntent = async (target: StudioArtifactSelectionTarget) => {
     await invoke("studio_attach_artifact_selection", { selection: target });
@@ -128,13 +139,17 @@ export function StudioArtifactWorkspaceSurface({
           manifest={manifest}
           title={stageTitle}
           activePath={activePath}
+          copyText={headerCopyText}
+          copyPath={activePath}
           rendererLabel={displayRendererLabel(manifest.renderer)}
+          swarmExecution={studioSession.materialization.swarmExecution}
           retrying={retrying}
           stageMode={stageMode}
           evidenceOpen={evidenceOpen}
           onSelectStageMode={setStageMode}
           onToggleEvidence={() => setEvidenceOpen((current) => !current)}
           onRetry={onRetry}
+          onBrowseArtifacts={onBrowseArtifacts}
           onCollapse={onCollapse}
         />
 
@@ -153,30 +168,48 @@ export function StudioArtifactWorkspaceSurface({
           <div className="studio-artifact-stage-main">
             {stageMode === "source" ? (
               <section className="studio-artifact-source-workbench workspace-host workspace-host--embedded">
-                <div className="studio-artifact-source-shell studio-artifact-source-shell--editor-only">
-                  <div className="workspace-main">
-                    <WorkspaceEditorPane
-                      monacoBasePath="/monaco/vs"
-                      documents={session.documents}
-                      activeDocument={session.activeDocument}
-                      activeDocumentId={session.activeDocumentId}
-                      revealRequest={session.revealRequest}
-                      onConsumeRevealRequest={session.consumeRevealRequest}
-                      onSelectDocument={session.setActiveDocumentId}
-                      onCloseDocument={session.closeDocument}
-                      onChangeFileContent={session.updateFileContent}
-                      onSaveFile={(path) => void session.saveFile(path)}
-                      onAttachSelection={({ path, selection }) =>
-                        void seedSelectionIntent({
-                          sourceSurface: "source",
-                          path,
-                          label: "Selected workspace excerpt",
-                          snippet: selection,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
+                <ArtifactSourceWorkbench
+                  artifactId={manifest.artifactId}
+                  files={manifest.files}
+                  selectedFile={activeFile}
+                  payload={
+                    activeWorkspaceFile &&
+                    !activeWorkspaceFile.loading &&
+                    !activeWorkspaceFile.error &&
+                    !activeWorkspaceFile.isBinary &&
+                    !activeWorkspaceFile.isTooLarge
+                      ? {
+                          artifact_id:
+                            activeFile?.artifactId ?? manifest.artifactId,
+                          encoding: "utf-8",
+                          content: activeWorkspaceFile.content,
+                        }
+                      : null
+                  }
+                  sourceTextOverride={
+                    activeWorkspaceFile &&
+                    !activeWorkspaceFile.loading &&
+                    !activeWorkspaceFile.error &&
+                    !activeWorkspaceFile.isBinary &&
+                    !activeWorkspaceFile.isTooLarge
+                      ? activeWorkspaceFile.content
+                      : null
+                  }
+                  loading={Boolean(activeWorkspaceFile?.loading)}
+                  error={activeWorkspaceFile?.error ?? session.workspaceError}
+                  binaryOverride={Boolean(activeWorkspaceFile?.isBinary)}
+                  tooLargeOverride={Boolean(activeWorkspaceFile?.isTooLarge)}
+                  onSelectPath={handleOpenWorkspacePath}
+                  onAttachSelection={({ path, selection }) =>
+                    void seedSelectionIntent({
+                      sourceSurface: "source",
+                      path,
+                      label: "Selected workspace excerpt",
+                      snippet: selection,
+                    })
+                  }
+                  showExplorer={false}
+                />
               </section>
             ) : (
               <ArtifactRendererHost

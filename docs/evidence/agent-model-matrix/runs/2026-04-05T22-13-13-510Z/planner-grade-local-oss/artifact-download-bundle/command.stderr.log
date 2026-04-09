@@ -1,0 +1,49 @@
+[studio-proof-trace] outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384
+[studio-proof-trace] outcome_route:raw bytes=411 preview={
+  "outcomeKind": "artifact",
+  "confidence": 0.8,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "compound_bundle",
+    "renderer": "download_card",
+    "workspaceRecipeId": null,
+    "...
+[studio-proof-trace] outcome_route:parsed outcome=Artifact confidence=0.8 needs_clarification=false artifact_present=true
+[studio-proof-trace] artifact_generation:start renderer=DownloadCard profile=LocalGenerationRemoteAcceptance planning_model=Some("qwen2.5:7b") production_model=Some("qwen2.5:7b") acceptance_model=Some("qwen2.5:7b") repair_model=Some("qwen2.5:14b") refinement=false
+[studio-proof-trace] artifact_brief:start renderer=DownloadCard runtime=openai-compatible model=Some("qwen2.5:7b") prompt_bytes=2217 max_tokens=448
+[studio-proof-trace] artifact_brief:planner_output {
+  "audience": "Users who need to download an artifact bundle containing specific data files",
+  "jobToBeDone": "Provide users with a downloadable file set that includes a CSV file for data and a README file for instructions or information",
+  "subjectDomain": "Data management and documentation",
+  "artifactThesis": "The artifact should be a well-structured, easily understandable bundle of necessary files for data handling and reference",
+  "requiredConcepts": ["CSV", "README", "downloadable artifact bundle"],
+  "requiredInteractions": ["Download", "Open CSV file", "Read README"],
+  "visualTone": [],
+  "factualAnchors": ["Data storage format: CSV", "Documentation format: README"],
+  "styleDirectives": ["Clear and concise", "Informative content in README"],
+  "referenceHints": []
+}
+[studio-proof-trace] artifact_generation:brief_ready
+[studio-proof-trace] artifact_generation:edit_intent_ready present=false
+[studio-proof-trace] artifact_generation:candidate_config initial_count=1 max_count=1 shortlist_limit=1 max_refine=0 temperature=0.12 configured_temperature=0.12 strategy=bundle-first_download
+[studio-proof-trace] artifact_generation:candidate_materialize:start id=candidate-1 seed=10090606462639443219
+[studio-proof-trace] artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=24518 temperature=0.12 max_tokens=420
+[studio-proof-trace] artifact_generation:materialization_inference:ok id=candidate-1 bytes=847
+[studio-proof-trace] artifact_generation:candidate_materialize:ok id=candidate-1 files=2
+[studio-proof-trace] artifact_generation:render_eval:skip renderer=DownloadCard reason=not_required
+[studio-proof-trace] artifact_generation:candidate_judge:deterministic id=candidate-1 classification=Pass
+[studio-proof-trace] artifact_generation:shortlist size=1 limit=1 signals=[BriefInteractionLoad, LocalGenerationConstraint, LowCandidateVariance]
+[studio-proof-trace] artifact_generation:acceptance:start id=candidate-1
+[studio-proof-trace] artifact_judge:start renderer=DownloadCard runtime=openai-compatible model=Some("qwen2.5:7b")
+[studio-proof-trace] artifact_judge:prompt_bytes runtime=openai-compatible bytes=1374
+[studio-proof-trace] artifact_judge:raw_ok runtime=openai-compatible bytes=282
+[studio-proof-trace] artifact_judge:raw_preview runtime=openai-compatible preview=classification: pass
+recommendedNextPass: accept
+strengths: The README.md and data.csv files meet the basic requirements for a downloadable artifact bundle.
+blockedReasons: None
+rationale: Both the README.md and data.csv files are present and contain usable, non-placeholder content
+[studio-proof-trace] artifact_judge:plaintext_recovery
+[studio-proof-trace] artifact_judge:parse_ok runtime=openai-compatible classification=Pass
+[studio-proof-trace] artifact_generation:acceptance:ok id=candidate-1 classification=Pass
+[studio-proof-trace] artifact_generation:winner id=candidate-1

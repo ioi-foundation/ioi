@@ -95,6 +95,10 @@ fn blocked_terminalization_error(summary: &str) -> String {
     format!("ERROR_CLASS=NoEffectAfterAction {}", summary)
 }
 
+fn completion_gate_needs_pending_browser_check(resolved_intent_id: &str) -> bool {
+    resolved_intent_id != "conversation.reply"
+}
+
 #[cfg(test)]
 fn blocked_terminalization_summary_from_history(history: &[ChatMessage]) -> Option<String> {
     blocked_terminalization_summary_from_history_and_snapshot(history, None)
@@ -103,7 +107,12 @@ fn blocked_terminalization_summary_from_history(history: &[ChatMessage]) -> Opti
 async fn blocked_terminalization_summary(
     service: &DesktopAgentService,
     session_id: [u8; 32],
+    resolved_intent_id: &str,
 ) -> Option<String> {
+    if !completion_gate_needs_pending_browser_check(resolved_intent_id) {
+        return None;
+    }
+
     let history = service.hydrate_session_history(session_id).ok()?;
     let current_snapshot = current_browser_observation_snapshot(service).await;
     blocked_terminalization_summary_from_history_and_snapshot(&history, current_snapshot.as_deref())
@@ -140,7 +149,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
     match tool {
         AgentTool::AgentComplete { result } => {
             if let Some(blocked_summary) =
-                blocked_terminalization_summary(service, session_id).await
+                blocked_terminalization_summary(service, session_id, resolved_intent_id).await
             {
                 let blocked_error = blocked_terminalization_error(&blocked_summary);
                 *success = false;
@@ -393,7 +402,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 return Ok(());
             }
             if let Some(blocked_summary) =
-                blocked_terminalization_summary(service, session_id).await
+                blocked_terminalization_summary(service, session_id, resolved_intent_id).await
             {
                 let blocked_error = blocked_terminalization_error(&blocked_summary);
                 *success = false;
@@ -1859,6 +1868,7 @@ mod tests {
     use super::{
         blocked_terminalization_error, blocked_terminalization_summary_from_history,
         blocked_terminalization_summary_from_history_and_snapshot,
+        completion_gate_needs_pending_browser_check,
     };
     use ioi_types::app::agentic::ChatMessage;
 
@@ -2010,5 +2020,15 @@ mod tests {
         );
         assert!(error.contains("RECENT PENDING BROWSER STATE:"), "{error}");
         assert!(error.contains("`Deena`"), "{error}");
+    }
+
+    #[test]
+    fn conversation_reply_completion_gate_skips_pending_browser_checks() {
+        assert!(!completion_gate_needs_pending_browser_check(
+            "conversation.reply"
+        ));
+        assert!(completion_gate_needs_pending_browser_check(
+            "browser.navigate"
+        ));
     }
 }

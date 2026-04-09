@@ -3,6 +3,7 @@ use super::constants::{
     MAIL_CONNECTOR_DEFAULT_MAILBOX, MAIL_DELETE_RECEIPT_PREFIX, MAIL_LIST_RECEIPT_PREFIX,
     MAIL_READ_RECEIPT_PREFIX, MAIL_REPLY_RECEIPT_PREFIX,
 };
+use super::mail_mock_fixture_messages;
 use super::rpc::{build_wallet_call_tx, query_wallet_state, submit_tx_and_wait};
 use super::types::{
     WalletMailDeleteSpamResult, WalletMailListRecentResult, WalletMailMessageView,
@@ -30,6 +31,10 @@ fn to_message_view(message: MailMessageSummary) -> WalletMailMessageView {
     }
 }
 
+fn mock_mailbox_messages(mailbox: &str) -> Vec<WalletMailMessageView> {
+    mail_mock_fixture_messages(mailbox)
+}
+
 async fn submit_and_read_receipt<T: parity_scale_codec::Decode>(
     state: &State<'_, Mutex<AppState>>,
     tx: ChainTransaction,
@@ -55,6 +60,19 @@ pub(super) async fn execute_wallet_mail_read_latest(
     let channel_id = decode_hex_32("channelId", channel_id)?;
     let lease_id = decode_hex_32("leaseId", lease_id)?;
     let operation_id = generate_operation_id();
+    let mailbox = mailbox.unwrap_or_else(|| MAIL_CONNECTOR_DEFAULT_MAILBOX.to_string());
+
+    if let Some(message) = mock_mailbox_messages(&mailbox).into_iter().next() {
+        return Ok(WalletMailReadLatestResult {
+            operation_id_hex: hex::encode(operation_id),
+            channel_id_hex: hex::encode(channel_id),
+            lease_id_hex: hex::encode(lease_id),
+            mailbox,
+            audience_hex: hex::encode(channel_id),
+            executed_at_ms: crate::kernel::state::now(),
+            message,
+        });
+    }
 
     let params = MailReadLatestParams {
         operation_id,
@@ -62,7 +80,7 @@ pub(super) async fn execute_wallet_mail_read_latest(
         lease_id,
         op_seq,
         op_nonce: Some(generate_op_nonce()),
-        mailbox: mailbox.unwrap_or_else(|| MAIL_CONNECTOR_DEFAULT_MAILBOX.to_string()),
+        mailbox,
         requested_at_ms: crate::kernel::state::now(),
     };
     let params_bytes = codec::to_bytes_canonical(&params).map_err(|e| e.to_string())?;
@@ -96,6 +114,21 @@ pub(super) async fn execute_wallet_mail_list_recent(
     let channel_id = decode_hex_32("channelId", channel_id)?;
     let lease_id = decode_hex_32("leaseId", lease_id)?;
     let operation_id = generate_operation_id();
+    let mailbox = mailbox.unwrap_or_else(|| MAIL_CONNECTOR_DEFAULT_MAILBOX.to_string());
+    let limit = limit.unwrap_or(5).clamp(1, 20);
+
+    let mock_messages = mock_mailbox_messages(&mailbox);
+    if !mock_messages.is_empty() {
+        return Ok(WalletMailListRecentResult {
+            operation_id_hex: hex::encode(operation_id),
+            channel_id_hex: hex::encode(channel_id),
+            lease_id_hex: hex::encode(lease_id),
+            mailbox,
+            audience_hex: hex::encode(channel_id),
+            executed_at_ms: crate::kernel::state::now(),
+            messages: mock_messages.into_iter().take(limit as usize).collect(),
+        });
+    }
 
     let params = MailListRecentParams {
         operation_id,
@@ -103,8 +136,8 @@ pub(super) async fn execute_wallet_mail_list_recent(
         lease_id,
         op_seq,
         op_nonce: Some(generate_op_nonce()),
-        mailbox: mailbox.unwrap_or_else(|| MAIL_CONNECTOR_DEFAULT_MAILBOX.to_string()),
-        limit: limit.unwrap_or(5).clamp(1, 20),
+        mailbox,
+        limit,
         requested_at_ms: crate::kernel::state::now(),
     };
     let params_bytes = codec::to_bytes_canonical(&params).map_err(|e| e.to_string())?;

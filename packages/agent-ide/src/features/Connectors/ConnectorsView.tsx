@@ -8,6 +8,7 @@ import type {
 } from "../../runtime/agent-runtime";
 import { Icons } from "../../ui/icons";
 import { ConnectorsHeader } from "./components/ConnectorsHeader";
+import { GenericConnectorPanel } from "./components/GenericConnectorPanel";
 import { GoogleWorkspaceConnectorPanel } from "./components/GoogleWorkspaceConnectorPanel";
 import { MailConnectorPanel } from "./components/MailConnectorPanel";
 import { useMailConnectorActions } from "./hooks/useMailConnectorActions";
@@ -31,7 +32,7 @@ interface CapabilityExtensionPreview {
   id: string;
   name: string;
   description: string;
-  status: string;
+  coverageLabel: string;
   meta: string;
 }
 
@@ -53,74 +54,6 @@ interface ConnectorsViewProps {
   onOpenPolicyCenter?: (connector: ConnectorSummary) => void;
 }
 
-const FALLBACK_CONNECTORS: ConnectorSummary[] = [
-  {
-    id: "mail.primary",
-    pluginId: "wallet_mail",
-    name: "Mail",
-    provider: "wallet.network",
-    category: "communication",
-    description:
-      "Connect one or more inboxes for safe delegated read/send operations.",
-    status: "needs_auth",
-    authMode: "wallet_capability",
-    scopes: [
-      "mail.read.latest",
-      "mail.list.recent",
-      "mail.delete.spam",
-      "mail.reply",
-    ],
-    notes:
-      "Uses wallet-backed connector auth, mailbox-scoped credentials, and delegated capability leases.",
-  },
-  {
-    id: "google.workspace",
-    pluginId: "google_workspace",
-    name: "Google",
-    provider: "google",
-    category: "productivity",
-    description:
-      "Single Google connector for Gmail, Calendar, Docs, Sheets, BigQuery, Drive, Tasks, Chat, workflows, events, and expert raw access.",
-    status: "needs_auth",
-    authMode: "wallet_capability",
-    scopes: [
-      "gmail",
-      "calendar",
-      "docs",
-      "sheets",
-      "bigquery",
-      "drive",
-      "tasks",
-      "chat",
-      "events",
-      "workflow",
-      "expert",
-    ],
-    notes:
-      "Uses native Google OAuth for consent, with refreshable auth persisted through wallet-backed connector state.",
-  },
-];
-
-const MAIL_CONNECTOR_DEFAULT: ConnectorSummary = {
-  id: "mail.primary",
-  pluginId: "wallet_mail",
-  name: "Mail",
-  provider: "wallet.network",
-  category: "communication",
-  description:
-    "Connect one or more inboxes for safe delegated read/send operations.",
-  status: "needs_auth",
-  authMode: "wallet_capability",
-  scopes: [
-    "mail.read.latest",
-    "mail.list.recent",
-    "mail.delete.spam",
-    "mail.reply",
-  ],
-  notes:
-    "Uses wallet-backed connector auth, mailbox-scoped credentials, and delegated capability leases.",
-};
-
 function patchMailConnectorFromConfiguredAccount(
   connectors: ConnectorSummary[],
   result: WalletMailConfigureAccountResult,
@@ -141,16 +74,7 @@ function patchMailConnectorFromConfiguredAccount(
   });
 
   if (foundMailConnector) return next;
-
-  return [
-    {
-      ...MAIL_CONNECTOR_DEFAULT,
-      status: "connected" as ConnectorStatus,
-      lastSyncAtUtc: syncedAt,
-      notes: connectedNote,
-    },
-    ...next,
-  ];
+  return connectors;
 }
 
 function patchConnectorFromConfigurationResult(
@@ -202,8 +126,13 @@ export function ConnectorsView({
   const [connectors, setConnectors] = useState<ConnectorSummary[]>(
     initialConnectors && initialConnectors.length > 0
       ? initialConnectors
-      : FALLBACK_CONNECTORS,
+      : [],
   );
+  const [connectorsLoading, setConnectorsLoading] = useState(
+    !(initialConnectors && initialConnectors.length > 0),
+  );
+  const [connectorsError, setConnectorsError] = useState<string | null>(null);
+  const [connectorsUnavailable, setConnectorsUnavailable] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ConnectorStatus | "all">(
     "all",
@@ -212,6 +141,9 @@ export function ConnectorsView({
   useEffect(() => {
     if (initialConnectors && initialConnectors.length > 0) {
       setConnectors(initialConnectors);
+      setConnectorsLoading(false);
+      setConnectorsError(null);
+      setConnectorsUnavailable(false);
     }
   }, [initialConnectors]);
 
@@ -237,17 +169,37 @@ export function ConnectorsView({
 
   const loadConnectors = useCallback(() => {
     let cancelled = false;
-    if (!runtime.getConnectors) return () => {};
+    if (!runtime.getConnectors) {
+      setConnectors([]);
+      setConnectorsLoading(false);
+      setConnectorsError(null);
+      setConnectorsUnavailable(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setConnectorsLoading(true);
+    setConnectorsError(null);
+    setConnectorsUnavailable(false);
 
     runtime
       .getConnectors()
       .then((items) => {
-        if (!cancelled && Array.isArray(items) && items.length > 0) {
-          setConnectors(items);
+        if (!cancelled) {
+          setConnectors(Array.isArray(items) ? items : []);
         }
       })
-      .catch(() => {
-        // Keep fallback scaffold when runtime connector API is not active yet.
+      .catch((error) => {
+        if (!cancelled) {
+          setConnectors([]);
+          setConnectorsError(String(error));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setConnectorsLoading(false);
+        }
       });
 
     return () => {
@@ -359,14 +311,15 @@ export function ConnectorsView({
         {extensions !== undefined ? (
           <section
             className="capability-preview-section"
-            aria-label="Extensions preview"
+            aria-label="Package groups preview"
           >
             <div className="capability-section-head">
               <div>
-                <h2>Extensions</h2>
+                <h2>Package groups</h2>
                 <p>
-                  Installed packages that add connections, tools, wrappers, or
-                  local adapters.
+                  Live connector-derived package groups that widen the workspace
+                  surface as governed connectors and packaged capabilities come
+                  online.
                 </p>
               </div>
               <span>{extensions.length}</span>
@@ -380,7 +333,7 @@ export function ConnectorsView({
                   >
                     <div className="capability-preview-card-head">
                       <strong>{extension.name}</strong>
-                      <span>{extension.status}</span>
+                      <span>{extension.coverageLabel}</span>
                     </div>
                     <p>{extension.description}</p>
                     <small>{extension.meta}</small>
@@ -389,7 +342,7 @@ export function ConnectorsView({
               </div>
             ) : (
               <div className="capability-empty-card">
-                No installed extensions are visible in this runtime yet.
+                No live package groups are visible in this runtime yet.
               </div>
             )}
           </section>
@@ -408,7 +361,23 @@ export function ConnectorsView({
             </div>
           ) : null}
 
-          {filtered.length === 0 ? (
+          {connectorsLoading ? (
+            <div className="capability-empty-card">
+              Loading live connector catalog...
+            </div>
+          ) : connectorsError ? (
+            <div className="capability-empty-card">
+              Live connector catalog unavailable: {connectorsError}
+            </div>
+          ) : connectorsUnavailable ? (
+            <div className="capability-empty-card">
+              This runtime does not expose a live connector catalog yet.
+            </div>
+          ) : connectors.length === 0 ? (
+            <div className="capability-empty-card">
+              No live connections are currently exposed by this runtime.
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="capability-empty-card">
               No connections match the current search and status filters.
             </div>
@@ -523,20 +492,16 @@ export function ConnectorsView({
 
                     {!isMailConnector &&
                     connector.pluginId !== "google_workspace" ? (
-                      <div className="connector-actions">
-                        <button type="button" className="btn-secondary">
-                          Configure
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-primary"
-                          disabled={connectorStatus === "disabled"}
-                        >
-                          {connectorStatus === "connected"
-                            ? "Manage Session"
-                            : "Connect"}
-                        </button>
-                      </div>
+                      <GenericConnectorPanel
+                        runtime={runtime}
+                        connector={{
+                          ...connector,
+                          status: connectorStatus,
+                        }}
+                        section="setup"
+                        onConfigured={onConnectorConfigured}
+                        onOpenPolicyCenter={onOpenPolicyCenter}
+                      />
                     ) : null}
                   </article>
                 );

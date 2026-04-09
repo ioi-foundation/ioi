@@ -13,12 +13,12 @@ use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Runtime, State};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::task::JoinHandle;
 use tokio::time::{sleep, Duration};
@@ -37,8 +37,12 @@ const AUTOMATION_STATE_VERSION: u32 = 1;
 const AUTOMATION_RECEIPT_VERSION: u32 = 1;
 const AUTOMATION_EVENT_NAME: &str = "automation-workflows-changed";
 const AUTOMATION_RUN_EVENT_NAME: &str = "automation-workflow-run";
+const WORKFLOW_TRIGGER_INTERVAL: &str = "interval";
+const WORKFLOW_TRIGGER_REMOTE: &str = "remote";
+const WORKFLOW_TRIGGER_WAIT_UNTIL: &str = "wait_until";
 const HACKER_NEWS_FRONT_PAGE_URL: &str = "https://news.ycombinator.com/";
 const HACKER_NEWS_SOURCE_KIND: &str = "hacker_news_front_page";
+const HACKER_NEWS_FIXTURE_SOURCE_KIND: &str = "hacker_news_front_page_fixture";
 const HACKER_NEWS_EXTRACTOR_KIND: &str = "hacker_news_front_page_titles";
 const CONTAINS_ANY_PREDICATE_KIND: &str = "contains_any_title";
 const ASSISTANT_NOTIFICATION_SINK_KIND: &str = "assistant_notification";
@@ -80,16 +84,95 @@ impl Default for WorkflowManagerInner {
     }
 }
 
-#[derive(Clone)]
-pub struct WorkflowManager {
-    app: AppHandle,
+pub struct WorkflowManager<R: Runtime = tauri::Wry> {
+    app: AppHandle<R>,
     root_dir: Arc<PathBuf>,
     client: Client,
     inner: Arc<AsyncMutex<WorkflowManagerInner>>,
 }
 
-impl WorkflowManager {
-    pub fn new(app: AppHandle, root_dir: PathBuf) -> Self {
+impl<R: Runtime> Clone for WorkflowManager<R> {
+    fn clone(&self) -> Self {
+        Self {
+            app: self.app.clone(),
+            root_dir: self.root_dir.clone(),
+            client: self.client.clone(),
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+fn normalize_optional_text(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn interval_seconds_for_trigger(trigger: &WorkflowTrigger) -> u64 {
+    if trigger.trigger_type == WORKFLOW_TRIGGER_INTERVAL {
+        trigger.every_seconds.max(60)
+    } else {
+        0
+    }
+}
+
+fn next_run_at_ms_for_trigger(trigger: &WorkflowTrigger, scheduled_at_ms: u64) -> Option<u64> {
+    match trigger.trigger_type.as_str() {
+        WORKFLOW_TRIGGER_INTERVAL => Some(scheduled_at_ms),
+        WORKFLOW_TRIGGER_WAIT_UNTIL => trigger.wait_until_ms,
+        WORKFLOW_TRIGGER_REMOTE => None,
+        _ => None,
+    }
+}
+
+fn trigger_metadata(trigger: &WorkflowTrigger) -> (String, String, Option<String>, Option<u64>) {
+    let kind = trigger.trigger_type.trim().to_string();
+    let remote_trigger_id = normalize_optional_text(trigger.remote_trigger_id.clone());
+    let wait_until_ms = trigger.wait_until_ms;
+    let label = match kind.as_str() {
+        WORKFLOW_TRIGGER_INTERVAL => format!("Every {}s", trigger.every_seconds.max(60)),
+        WORKFLOW_TRIGGER_REMOTE => remote_trigger_id
+            .as_ref()
+            .map(|value| format!("Remote trigger {}", value))
+            .unwrap_or_else(|| "Remote trigger".to_string()),
+        WORKFLOW_TRIGGER_WAIT_UNTIL => wait_until_ms
+            .map(|value| format!("Wait until {}", value))
+            .unwrap_or_else(|| "Wait until".to_string()),
+        _ => "Workflow trigger".to_string(),
+    };
+    (kind, label, remote_trigger_id, wait_until_ms)
+}
+
+fn trigger_kind_for_record(record: &WorkflowRegistryRecord) -> String {
+    if record.trigger_kind.trim().is_empty() {
+        WORKFLOW_TRIGGER_INTERVAL.to_string()
+    } else {
+        record.trigger_kind.clone()
+    }
+}
+
+fn trigger_label_for_record(record: &WorkflowRegistryRecord) -> String {
+    if !record.trigger_label.trim().is_empty() {
+        return record.trigger_label.clone();
+    }
+
+    match trigger_kind_for_record(record).as_str() {
+        WORKFLOW_TRIGGER_INTERVAL => format!("Every {}s", record.poll_interval_seconds.max(60)),
+        WORKFLOW_TRIGGER_REMOTE => record
+            .remote_trigger_id
+            .as_ref()
+            .map(|value| format!("Remote trigger {}", value))
+            .unwrap_or_else(|| "Remote trigger".to_string()),
+        WORKFLOW_TRIGGER_WAIT_UNTIL => record
+            .wait_until_ms
+            .map(|value| format!("Wait until {}", value))
+            .unwrap_or_else(|| "Wait until".to_string()),
+        _ => "Workflow trigger".to_string(),
+    }
+}
+
+impl<R: Runtime + 'static> WorkflowManager<R> {
+    pub fn new(app: AppHandle<R>, root_dir: PathBuf) -> Self {
         let registry =
             load_json::<WorkflowRegistry>(&registry_path_for(&root_dir)).unwrap_or_else(|_| {
                 WorkflowRegistry {
@@ -223,7 +306,9 @@ impl WorkflowManager {
         )?;
 
         let mut inner = self.inner.lock().await;
-        let next_run_at_ms = Some(installed_at_ms);
+        let next_run_at_ms = next_run_at_ms_for_trigger(&artifact.trigger, installed_at_ms);
+        let (trigger_kind, trigger_label, remote_trigger_id, wait_until_ms) =
+            trigger_metadata(&artifact.trigger);
         let summary = if let Some(existing) = inner
             .registry
             .workflows
@@ -232,12 +317,16 @@ impl WorkflowManager {
         {
             existing.kind = artifact.kind.clone();
             existing.status = WorkflowStatus::Active;
+            existing.trigger_kind = trigger_kind.clone();
+            existing.trigger_label = trigger_label.clone();
+            existing.remote_trigger_id = remote_trigger_id.clone();
+            existing.wait_until_ms = wait_until_ms;
             existing.title = artifact.title.clone();
             existing.description = artifact.description.clone();
             existing.artifact_hash = artifact_hash.clone();
             existing.spec_version = artifact.spec_version.clone();
             existing.artifact_path = artifact_path.to_string_lossy().to_string();
-            existing.poll_interval_seconds = artifact.trigger.every_seconds.max(60);
+            existing.poll_interval_seconds = interval_seconds_for_trigger(&artifact.trigger);
             existing.source_label = artifact.monitor.source.url.clone();
             existing.keywords = artifact.monitor.predicate.keywords.clone();
             existing.updated_at_ms = installed_at_ms;
@@ -249,12 +338,16 @@ impl WorkflowManager {
                 workflow_id: artifact.workflow_id.clone(),
                 kind: artifact.kind.clone(),
                 status: WorkflowStatus::Active,
+                trigger_kind,
+                trigger_label,
+                remote_trigger_id,
+                wait_until_ms,
                 title: artifact.title.clone(),
                 description: artifact.description.clone(),
                 artifact_hash: artifact_hash.clone(),
                 spec_version: artifact.spec_version.clone(),
                 artifact_path: artifact_path.to_string_lossy().to_string(),
-                poll_interval_seconds: artifact.trigger.every_seconds.max(60),
+                poll_interval_seconds: interval_seconds_for_trigger(&artifact.trigger),
                 source_label: artifact.monitor.source.url.clone(),
                 keywords: artifact.monitor.predicate.keywords.clone(),
                 installed_at_ms,
@@ -351,6 +444,8 @@ impl WorkflowManager {
         &self,
         workflow_id: &str,
     ) -> Result<InstalledWorkflowSummary, String> {
+        let artifact = self.load_artifact(workflow_id)?;
+        let resumed_at_ms = now();
         let mut inner = self.inner.lock().await;
         let record = inner
             .registry
@@ -360,8 +455,8 @@ impl WorkflowManager {
             .ok_or_else(|| format!("Unknown workflow '{}'.", workflow_id))?;
         record.status = WorkflowStatus::Active;
         record.last_error = None;
-        record.updated_at_ms = now();
-        record.next_run_at_ms = Some(now());
+        record.updated_at_ms = resumed_at_ms;
+        record.next_run_at_ms = next_run_at_ms_for_trigger(&artifact.trigger, resumed_at_ms);
         let summary = summary_from_record(record);
         persist_registry(&self.root_dir, &inner.registry)?;
         drop(inner);
@@ -398,7 +493,24 @@ impl WorkflowManager {
     }
 
     pub async fn run_workflow_now(&self, workflow_id: &str) -> Result<WorkflowRunReceipt, String> {
-        self.execute_workflow(workflow_id, "manual").await
+        self.execute_workflow(workflow_id, "manual", None).await
+    }
+
+    pub async fn trigger_workflow_remote(
+        &self,
+        workflow_id: &str,
+        payload: Option<Value>,
+    ) -> Result<WorkflowRunReceipt, String> {
+        let artifact = self.load_artifact(workflow_id)?;
+        if artifact.trigger.trigger_type != WORKFLOW_TRIGGER_REMOTE {
+            return Err(format!(
+                "Workflow '{}' is not configured for remote triggers.",
+                workflow_id
+            ));
+        }
+
+        self.execute_workflow(workflow_id, WORKFLOW_TRIGGER_REMOTE, payload)
+            .await
     }
 
     pub async fn export_project(&self, workflow_id: &str) -> Result<WorkflowProjectFile, String> {
@@ -416,6 +528,19 @@ impl WorkflowManager {
 
     async fn spawn_worker_if_needed(&self, workflow_id: &str) -> Result<(), String> {
         let mut inner = self.inner.lock().await;
+        let Some(record) = inner
+            .registry
+            .workflows
+            .iter()
+            .find(|record| record.workflow_id == workflow_id)
+            .cloned()
+        else {
+            return Err(format!("Unknown workflow '{}'.", workflow_id));
+        };
+        if trigger_kind_for_record(&record) == WORKFLOW_TRIGGER_REMOTE {
+            inner.workers.remove(workflow_id);
+            return Ok(());
+        }
         if inner
             .workers
             .get(workflow_id)
@@ -445,16 +570,23 @@ impl WorkflowManager {
             ) {
                 break;
             }
+            if trigger_kind_for_record(&record) == WORKFLOW_TRIGGER_REMOTE {
+                break;
+            }
 
-            let wait_ms = record
-                .next_run_at_ms
-                .unwrap_or_else(now)
-                .saturating_sub(now());
+            let Some(next_run_at_ms) = record.next_run_at_ms else {
+                break;
+            };
+            let wait_ms = next_run_at_ms.saturating_sub(now());
             if wait_ms > 0 {
                 sleep(Duration::from_millis(wait_ms)).await;
             }
 
-            if let Err(error) = self.execute_workflow(&workflow_id, "interval").await {
+            let trigger_kind = trigger_kind_for_record(&record);
+            if let Err(error) = self
+                .execute_workflow(&workflow_id, trigger_kind.as_str(), None)
+                .await
+            {
                 eprintln!(
                     "[Autopilot] Workflow '{}' execution failed: {}",
                     workflow_id, error
@@ -470,6 +602,7 @@ impl WorkflowManager {
         &self,
         workflow_id: &str,
         trigger_kind: &str,
+        remote_payload: Option<Value>,
     ) -> Result<WorkflowRunReceipt, String> {
         let run_lock = self.run_lock_for(workflow_id).await;
         let _guard = run_lock.lock().await;
@@ -485,10 +618,21 @@ impl WorkflowManager {
 
         let execution = self.run_monitor(&artifact, &mut state, &run_id).await;
         let completed_at_ms = now();
-        let next_run_at_ms = Some(
-            completed_at_ms
-                .saturating_add(artifact.trigger.every_seconds.max(60).saturating_mul(1000)),
-        );
+        let trigger_kind_value = artifact.trigger.trigger_type.clone();
+        let next_run_at_ms = match trigger_kind_value.as_str() {
+            WORKFLOW_TRIGGER_INTERVAL => Some(
+                completed_at_ms
+                    .saturating_add(artifact.trigger.every_seconds.max(60).saturating_mul(1000)),
+            ),
+            WORKFLOW_TRIGGER_REMOTE => None,
+            WORKFLOW_TRIGGER_WAIT_UNTIL => None,
+            _ => None,
+        };
+        let post_success_status = if trigger_kind_value == WORKFLOW_TRIGGER_WAIT_UNTIL {
+            WorkflowStatus::Paused
+        } else {
+            WorkflowStatus::Active
+        };
 
         let receipt = match execution {
             Ok(outcome) => {
@@ -498,7 +642,7 @@ impl WorkflowManager {
                 write_json_atomic(&state_path_for(&self.root_dir, workflow_id), &state)?;
 
                 self.update_record(workflow_id, |record| {
-                    record.status = WorkflowStatus::Active;
+                    record.status = post_success_status.clone();
                     record.last_error = None;
                     record.updated_at_ms = completed_at_ms;
                     record.last_run_at_ms = Some(completed_at_ms);
@@ -518,15 +662,17 @@ impl WorkflowManager {
                     started_at_ms,
                     completed_at_ms,
                     artifact_hash: record.artifact_hash.clone(),
-                    workflow_status: WorkflowStatus::Active,
+                    workflow_status: post_success_status,
                     next_run_at_ms,
                     observation: json!({
                         "sourceUrl": artifact.monitor.source.url,
+                        "triggerType": trigger_kind_value,
                         "totalTitles": outcome.total_titles,
                         "matchCount": outcome.match_count,
                         "matchedTitles": outcome.matched_titles,
                         "emittedCount": outcome.emitted_count,
                         "suppressedCount": outcome.suppressed_count,
+                        "remotePayload": remote_payload,
                     }),
                     notification_ids: outcome.emitted_notification_ids,
                     error: None,
@@ -563,6 +709,8 @@ impl WorkflowManager {
                     next_run_at_ms,
                     observation: json!({
                         "sourceUrl": artifact.monitor.source.url,
+                        "triggerType": trigger_kind_value,
+                        "remotePayload": remote_payload,
                     }),
                     notification_ids: Vec::new(),
                     error: Some(error),
@@ -590,19 +738,7 @@ impl WorkflowManager {
         run_id: &str,
     ) -> Result<RunOutcome, String> {
         validate_artifact(artifact)?;
-        let normalized_url = normalize_monitored_url(&artifact.monitor.source.url)?;
-        let response = self
-            .client
-            .get(normalized_url.clone())
-            .send()
-            .await
-            .map_err(|error| format!("Failed to fetch monitored source: {}", error))?
-            .error_for_status()
-            .map_err(|error| format!("Monitored source returned an error status: {}", error))?;
-        let html = response
-            .text()
-            .await
-            .map_err(|error| format!("Failed to read monitored source body: {}", error))?;
+        let html = load_monitored_html(&artifact.monitor.source, &self.client).await?;
         let headlines = extract_hacker_news_titles(&html)?;
         let matched = filter_matching_titles(&headlines, &artifact.monitor.predicate)?;
         let total_match_count = matched.len();
@@ -803,6 +939,10 @@ fn summary_from_record(record: &WorkflowRegistryRecord) -> InstalledWorkflowSumm
         workflow_id: record.workflow_id.clone(),
         kind: record.kind.clone(),
         status: record.status.clone(),
+        trigger_kind: trigger_kind_for_record(record),
+        trigger_label: trigger_label_for_record(record),
+        remote_trigger_id: record.remote_trigger_id.clone(),
+        wait_until_ms: record.wait_until_ms,
         title: record.title.clone(),
         description: record.description.clone(),
         artifact_hash: record.artifact_hash.clone(),
@@ -924,6 +1064,51 @@ fn normalize_monitored_url(raw: &str) -> Result<String, String> {
     Ok(url.to_string())
 }
 
+fn fixture_path_from_source_url(raw: &str) -> Result<PathBuf, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("Workflow fixture source URL cannot be empty.".to_string());
+    }
+    if trimmed.starts_with("file://") {
+        let url = Url::parse(trimmed)
+            .map_err(|error| format!("Invalid workflow fixture URL: {}", error))?;
+        return url
+            .to_file_path()
+            .map_err(|_| format!("Workflow fixture URL '{}' is not a local file.", trimmed));
+    }
+    Ok(PathBuf::from(trimmed))
+}
+
+async fn load_monitored_html(source: &MonitorSource, client: &Client) -> Result<String, String> {
+    match source.source_type.as_str() {
+        HACKER_NEWS_SOURCE_KIND => {
+            let normalized_url = normalize_monitored_url(&source.url)?;
+            let response = client
+                .get(normalized_url.clone())
+                .send()
+                .await
+                .map_err(|error| format!("Failed to fetch monitored source: {}", error))?
+                .error_for_status()
+                .map_err(|error| format!("Monitored source returned an error status: {}", error))?;
+            response
+                .text()
+                .await
+                .map_err(|error| format!("Failed to read monitored source body: {}", error))
+        }
+        HACKER_NEWS_FIXTURE_SOURCE_KIND => {
+            let path = fixture_path_from_source_url(&source.url)?;
+            fs::read_to_string(&path).map_err(|error| {
+                format!(
+                    "Failed to read workflow fixture '{}': {}",
+                    path.display(),
+                    error
+                )
+            })
+        }
+        other => Err(format!("Unsupported workflow source '{}'.", other)),
+    }
+}
+
 fn validate_artifact(artifact: &WorkflowArtifact) -> Result<(), String> {
     if artifact.spec_version != AUTOMATION_SPEC_VERSION {
         return Err(format!(
@@ -931,25 +1116,52 @@ fn validate_artifact(artifact: &WorkflowArtifact) -> Result<(), String> {
             artifact.spec_version
         ));
     }
-    if artifact.trigger.trigger_type != "interval" {
-        return Err(format!(
-            "Unsupported workflow trigger '{}'.",
-            artifact.trigger.trigger_type
-        ));
+    match artifact.trigger.trigger_type.as_str() {
+        WORKFLOW_TRIGGER_INTERVAL => {
+            if artifact.trigger.every_seconds < 60 {
+                return Err("Workflow trigger interval must be at least 60 seconds.".to_string());
+            }
+        }
+        WORKFLOW_TRIGGER_REMOTE => {
+            if normalize_optional_text(artifact.trigger.remote_trigger_id.clone()).is_none() {
+                return Err(
+                    "Remote workflow triggers require a non-empty remote_trigger_id.".to_string(),
+                );
+            }
+        }
+        WORKFLOW_TRIGGER_WAIT_UNTIL => {
+            if artifact.trigger.wait_until_ms.is_none() {
+                return Err(
+                    "Wait-until workflow triggers require a wait_until_ms timestamp.".to_string(),
+                );
+            }
+        }
+        other => {
+            return Err(format!("Unsupported workflow trigger '{}'.", other));
+        }
     }
-    if artifact.trigger.every_seconds < 60 {
-        return Err("Workflow trigger interval must be at least 60 seconds.".to_string());
-    }
-    if artifact.monitor.source.source_type != HACKER_NEWS_SOURCE_KIND {
-        return Err(format!(
-            "Unsupported workflow source '{}'.",
-            artifact.monitor.source.source_type
-        ));
-    }
-    if normalize_monitored_url(&artifact.monitor.source.url)? != HACKER_NEWS_FRONT_PAGE_URL {
-        return Err(
-            "The current monitor runtime only supports the Hacker News front page URL.".to_string(),
-        );
+    match artifact.monitor.source.source_type.as_str() {
+        HACKER_NEWS_SOURCE_KIND => {
+            if normalize_monitored_url(&artifact.monitor.source.url)? != HACKER_NEWS_FRONT_PAGE_URL
+            {
+                return Err(
+                    "The current monitor runtime only supports the Hacker News front page URL."
+                        .to_string(),
+                );
+            }
+        }
+        HACKER_NEWS_FIXTURE_SOURCE_KIND => {
+            let path = fixture_path_from_source_url(&artifact.monitor.source.url)?;
+            if !path.exists() {
+                return Err(format!(
+                    "Workflow fixture source '{}' does not exist.",
+                    path.display()
+                ));
+            }
+        }
+        other => {
+            return Err(format!("Unsupported workflow source '{}'.", other));
+        }
     }
     if artifact.monitor.extractor.extractor_type != HACKER_NEWS_EXTRACTOR_KIND {
         return Err(format!(
@@ -972,13 +1184,16 @@ fn validate_artifact(artifact: &WorkflowArtifact) -> Result<(), String> {
             artifact.monitor.sink.sink_type
         ));
     }
-    let domain_allowed = artifact
-        .policy
-        .network_allowlist
-        .iter()
-        .any(|entry| entry.trim().eq_ignore_ascii_case("news.ycombinator.com"));
+    let domain_allowed = artifact.policy.network_allowlist.iter().any(|entry| {
+        let trimmed = entry.trim();
+        trimmed.eq_ignore_ascii_case("news.ycombinator.com")
+            || trimmed.eq_ignore_ascii_case("local_fixture")
+    });
     if !domain_allowed {
-        return Err("Workflow policy must explicitly allow news.ycombinator.com.".to_string());
+        return Err(
+            "Workflow policy must explicitly allow news.ycombinator.com or local_fixture."
+                .to_string(),
+        );
     }
     Ok(())
 }
@@ -1017,18 +1232,66 @@ fn monitor_workflow_id_from_keywords(keywords: &[String]) -> Result<String, Stri
     Ok(format!("monitor_hacker_news_{}", &digest[..12]))
 }
 
-fn monitor_graph_for_keywords(keywords: &[String], every_seconds: u64) -> WorkflowGraph {
+fn trigger_node_kind(trigger: &WorkflowTrigger) -> &'static str {
+    match trigger.trigger_type.as_str() {
+        WORKFLOW_TRIGGER_REMOTE => "trigger.remote",
+        WORKFLOW_TRIGGER_WAIT_UNTIL => "trigger.wait_until",
+        _ => "trigger.interval",
+    }
+}
+
+fn trigger_node_config(trigger: &WorkflowTrigger) -> Value {
+    match trigger.trigger_type.as_str() {
+        WORKFLOW_TRIGGER_REMOTE => json!({
+            "remoteTriggerId": trigger.remote_trigger_id,
+        }),
+        WORKFLOW_TRIGGER_WAIT_UNTIL => json!({
+            "waitUntilMs": trigger.wait_until_ms,
+        }),
+        _ => json!({
+            "everySeconds": trigger.every_seconds.max(60),
+        }),
+    }
+}
+
+fn project_trigger_name(trigger: &WorkflowTrigger) -> &'static str {
+    match trigger.trigger_type.as_str() {
+        WORKFLOW_TRIGGER_REMOTE => "Remote Trigger",
+        WORKFLOW_TRIGGER_WAIT_UNTIL => "Durable Wait",
+        _ => "Interval Trigger",
+    }
+}
+
+fn project_trigger_logic(trigger: &WorkflowTrigger) -> Value {
+    match trigger.trigger_type.as_str() {
+        WORKFLOW_TRIGGER_REMOTE => json!({
+            "remoteTriggerId": trigger.remote_trigger_id,
+        }),
+        WORKFLOW_TRIGGER_WAIT_UNTIL => json!({
+            "waitUntilMs": trigger.wait_until_ms,
+        }),
+        _ => json!({
+            "cronSchedule": format!("every {} seconds", trigger.every_seconds.max(60)),
+        }),
+    }
+}
+
+pub(crate) fn monitor_graph_for_keywords(
+    keywords: &[String],
+    trigger: &WorkflowTrigger,
+    source_url: &str,
+) -> WorkflowGraph {
     WorkflowGraph {
         nodes: vec![
             WorkflowNode {
                 id: "trigger".to_string(),
-                kind: "trigger.interval".to_string(),
-                config: json!({ "everySeconds": every_seconds }),
+                kind: trigger_node_kind(trigger).to_string(),
+                config: trigger_node_config(trigger),
             },
             WorkflowNode {
                 id: "fetch".to_string(),
                 kind: "source.web.read".to_string(),
-                config: json!({ "url": HACKER_NEWS_FRONT_PAGE_URL }),
+                config: json!({ "url": source_url }),
             },
             WorkflowNode {
                 id: "extract".to_string(),
@@ -1081,10 +1344,10 @@ fn project_from_artifact(artifact: &WorkflowArtifact) -> WorkflowProjectFile {
         json!({
             "id": "trigger",
             "type": "trigger",
-            "name": "Interval Trigger",
+            "name": project_trigger_name(&artifact.trigger),
             "x": 80,
             "y": 180,
-            "config": { "logic": { "cronSchedule": format!("every {} seconds", artifact.trigger.every_seconds) }, "law": {} },
+            "config": { "logic": project_trigger_logic(&artifact.trigger), "law": {} },
             "outputs": ["out"],
         }),
         json!({
@@ -1248,7 +1511,9 @@ fn dedupe_seen_keys(seen_keys: &mut Vec<String>) {
     *seen_keys = deduped;
 }
 
-fn compile_monitor_request(request: CreateMonitorRequest) -> Result<WorkflowArtifact, String> {
+pub(crate) fn compile_monitor_request(
+    request: CreateMonitorRequest,
+) -> Result<WorkflowArtifact, String> {
     let keywords = normalize_keywords(&request.keywords);
     if keywords.is_empty() {
         return Err("Monitor creation requires at least one keyword.".to_string());
@@ -1294,10 +1559,21 @@ fn compile_monitor_request(request: CreateMonitorRequest) -> Result<WorkflowArti
             created_at_ms: now(),
         },
         trigger: WorkflowTrigger {
-            trigger_type: "interval".to_string(),
+            trigger_type: WORKFLOW_TRIGGER_INTERVAL.to_string(),
             every_seconds: interval_seconds,
+            remote_trigger_id: None,
+            wait_until_ms: None,
         },
-        graph: monitor_graph_for_keywords(&keywords, interval_seconds),
+        graph: monitor_graph_for_keywords(
+            &keywords,
+            &WorkflowTrigger {
+                trigger_type: WORKFLOW_TRIGGER_INTERVAL.to_string(),
+                every_seconds: interval_seconds,
+                remote_trigger_id: None,
+                wait_until_ms: None,
+            },
+            HACKER_NEWS_FRONT_PAGE_URL,
+        ),
         state_schema: WorkflowStateSchema {
             cursor: None,
             seen_keys: Vec::new(),
@@ -1342,6 +1618,96 @@ fn compile_monitor_request(request: CreateMonitorRequest) -> Result<WorkflowArti
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::AppState;
+    use crate::open_or_create_memory_runtime;
+    use crate::orchestrator::load_assistant_notifications;
+    use std::path::Path;
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
+    use tauri::{test::mock_app, Manager, Runtime};
+
+    fn test_fixture_html() -> &'static str {
+        r#"
+            <html>
+              <body>
+                <span class="titleline"><a href="https://example.com/web4">Web4 Arrives</a></span>
+                <span class="titleline"><a href="item?id=123">Ask HN: post-quantum cryptography</a></span>
+              </body>
+            </html>
+        "#
+    }
+
+    fn write_fixture_file(dir: &Path) -> PathBuf {
+        let fixture_path = dir.join("hacker-news-fixture.html");
+        std::fs::write(&fixture_path, test_fixture_html()).expect("write fixture");
+        fixture_path
+    }
+
+    fn test_data_dir(label: &str) -> PathBuf {
+        let root =
+            std::env::temp_dir().join(format!("ioi-workflow-test-{}-{}", label, Uuid::new_v4()));
+        if root.exists() {
+            std::fs::remove_dir_all(&root).expect("clear old test dir");
+        }
+        std::fs::create_dir_all(&root).expect("create test dir");
+        root
+    }
+
+    fn build_fixture_artifact_for_test(
+        fixture_path: &Path,
+        workflow_id: &str,
+        title: &str,
+        trigger: WorkflowTrigger,
+    ) -> WorkflowArtifact {
+        let mut artifact = compile_monitor_request(CreateMonitorRequest {
+            title: Some(title.to_string()),
+            description: Some("Fixture-backed workflow test".to_string()),
+            keywords: vec!["web4".to_string(), "post-quantum cryptography".to_string()],
+            interval_seconds: Some(120),
+            source_prompt: Some("workflow test".to_string()),
+        })
+        .expect("artifact");
+        artifact.workflow_id = workflow_id.to_string();
+        artifact.title = title.to_string();
+        artifact.trigger = trigger;
+        artifact.monitor.source.source_type = HACKER_NEWS_FIXTURE_SOURCE_KIND.to_string();
+        artifact.monitor.source.url = Url::from_file_path(fixture_path)
+            .expect("fixture file url")
+            .to_string();
+        artifact.policy.network_allowlist = vec!["local_fixture".to_string()];
+        artifact.graph = monitor_graph_for_keywords(
+            &artifact.monitor.predicate.keywords,
+            &artifact.trigger,
+            &artifact.monitor.source.url,
+        );
+        artifact
+    }
+
+    async fn wait_for_workflow_run<R: Runtime + 'static>(
+        manager: &WorkflowManager<R>,
+        workflow_id: &str,
+        expected_run_count: u64,
+        timeout: Duration,
+    ) -> InstalledWorkflowDetail {
+        let started_at = Instant::now();
+        loop {
+            let detail = manager
+                .get_workflow(workflow_id)
+                .await
+                .expect("read workflow")
+                .expect("workflow detail");
+            if detail.summary.run_count >= expected_run_count {
+                return detail;
+            }
+            assert!(
+                started_at.elapsed() < timeout,
+                "timed out waiting for workflow '{}' to reach run_count {}",
+                workflow_id,
+                expected_run_count
+            );
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    }
 
     #[test]
     fn compile_monitor_request_normalizes_keywords_and_shape() {
@@ -1415,5 +1781,126 @@ mod tests {
         assert_eq!(project.version, "1.0.0");
         assert_eq!(project.nodes.len(), 6);
         assert_eq!(project.global_config["meta"]["name"], "HN Monitor");
+    }
+
+    #[tokio::test]
+    async fn workflow_manager_supports_remote_and_wait_until_fixture_triggers() {
+        let data_dir = test_data_dir("temporal");
+        let fixture_path = write_fixture_file(&data_dir);
+        let app = mock_app();
+        let memory_runtime = Arc::new(open_or_create_memory_runtime(&data_dir).expect("memory"));
+        let mut app_state = AppState::default();
+        app_state.memory_runtime = Some(memory_runtime.clone());
+        app.manage(Mutex::new(app_state));
+
+        let manager = WorkflowManager::new(app.handle().clone(), root_path_for(&data_dir));
+        manager.bootstrap().await.expect("bootstrap");
+
+        let remote_summary = manager
+            .install_workflow(
+                build_fixture_artifact_for_test(
+                    &fixture_path,
+                    "test_remote_monitor",
+                    "Test remote monitor",
+                    WorkflowTrigger {
+                        trigger_type: WORKFLOW_TRIGGER_REMOTE.to_string(),
+                        every_seconds: 0,
+                        remote_trigger_id: Some("tests.workflow.remote".to_string()),
+                        wait_until_ms: None,
+                    },
+                ),
+                Some("workflow.tests.remote"),
+            )
+            .await
+            .expect("install remote");
+        assert_eq!(remote_summary.trigger_kind, WORKFLOW_TRIGGER_REMOTE);
+        assert_eq!(
+            remote_summary.remote_trigger_id.as_deref(),
+            Some("tests.workflow.remote")
+        );
+        assert_eq!(remote_summary.next_run_at_ms, None);
+
+        let remote_receipt = manager
+            .trigger_workflow_remote(
+                &remote_summary.workflow_id,
+                Some(json!({"source":"test","event":"remote"})),
+            )
+            .await
+            .expect("trigger remote");
+        assert_eq!(remote_receipt.trigger_kind, WORKFLOW_TRIGGER_REMOTE);
+        assert_eq!(remote_receipt.status, "success");
+
+        let remote_detail = wait_for_workflow_run(
+            &manager,
+            &remote_summary.workflow_id,
+            1,
+            Duration::from_secs(5),
+        )
+        .await;
+        assert_eq!(remote_detail.summary.status, WorkflowStatus::Active);
+        assert_eq!(
+            remote_detail.summary.trigger_label,
+            "Remote trigger tests.workflow.remote"
+        );
+        assert_eq!(
+            remote_detail.recent_receipts.first().and_then(|receipt| {
+                receipt.observation["remotePayload"]["event"]
+                    .as_str()
+                    .map(str::to_string)
+            }),
+            Some("remote".to_string())
+        );
+
+        let wait_until_at = now().saturating_add(250);
+        let wait_summary = manager
+            .install_workflow(
+                build_fixture_artifact_for_test(
+                    &fixture_path,
+                    "test_wait_until_monitor",
+                    "Test wait-until monitor",
+                    WorkflowTrigger {
+                        trigger_type: WORKFLOW_TRIGGER_WAIT_UNTIL.to_string(),
+                        every_seconds: 0,
+                        remote_trigger_id: None,
+                        wait_until_ms: Some(wait_until_at),
+                    },
+                ),
+                Some("workflow.tests.wait_until"),
+            )
+            .await
+            .expect("install wait until");
+        assert_eq!(wait_summary.trigger_kind, WORKFLOW_TRIGGER_WAIT_UNTIL);
+        assert_eq!(wait_summary.wait_until_ms, Some(wait_until_at));
+        assert_eq!(wait_summary.next_run_at_ms, Some(wait_until_at));
+
+        let wait_detail = wait_for_workflow_run(
+            &manager,
+            &wait_summary.workflow_id,
+            1,
+            Duration::from_secs(5),
+        )
+        .await;
+        assert_eq!(wait_detail.summary.status, WorkflowStatus::Paused);
+        assert_eq!(wait_detail.summary.next_run_at_ms, None);
+        assert_eq!(
+            wait_detail
+                .recent_receipts
+                .first()
+                .map(|receipt| receipt.workflow_status.clone()),
+            Some(WorkflowStatus::Paused)
+        );
+
+        let notification_titles = load_assistant_notifications(&memory_runtime)
+            .into_iter()
+            .map(|record| record.title)
+            .collect::<Vec<_>>();
+        assert!(
+            notification_titles
+                .iter()
+                .any(|title| title.contains("Web4 Arrives")),
+            "expected workflow notifications to include the fixture match"
+        );
+
+        std::fs::remove_dir_all(&data_dir).expect("remove test data dir");
     }
 }

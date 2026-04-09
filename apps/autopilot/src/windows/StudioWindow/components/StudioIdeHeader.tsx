@@ -1,5 +1,6 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { safelyDisposeTauriListener } from "../../../services/tauriListeners";
 import { AutopilotIcon } from "./ActivityBarIcons";
 import type { PrimaryView } from "../studioWindowModel";
 
@@ -43,6 +44,24 @@ function prettyPrimaryView(view: PrimaryView): string {
   return view[0].toUpperCase() + view.slice(1);
 }
 
+function windowSurfaceTitle(
+  view: PrimaryView,
+  workflowSurface: StudioIdeHeaderProps["workflowSurface"],
+): string {
+  if (view === "workflows") {
+    if (workflowSurface === "home") return "Workflows";
+    if (workflowSurface === "agents") return "Agents";
+    if (workflowSurface === "catalog") return "Catalog";
+    return "Canvas";
+  }
+  if (view === "policy") return "Governance";
+  if (view === "runs") return "Runs";
+  if (view === "inbox") return "Inbox";
+  if (view === "capabilities") return "Capabilities";
+  if (view === "settings") return "Settings";
+  return "Studio";
+}
+
 function surfaceDetail(
   view: PrimaryView,
   workflowSurface: StudioIdeHeaderProps["workflowSurface"],
@@ -79,6 +98,22 @@ export function StudioIdeHeader({
   const [terminalMenuOpen, setTerminalMenuOpen] = useState(false);
   const windowControlsVisible = isTauriRuntime();
   const shellTerminalAllowed = activeView === "workflows";
+  const resolvedWindowTitle = `Autopilot Studio · ${windowSurfaceTitle(
+    activeView,
+    workflowSurface,
+  )}`;
+
+  useEffect(() => {
+    document.title = resolvedWindowTitle;
+
+    if (!windowControlsVisible) {
+      return;
+    }
+
+    void getCurrentWindow().setTitle(resolvedWindowTitle).catch(() => {
+      // Window title updates are best-effort in non-standard shells.
+    });
+  }, [resolvedWindowTitle, windowControlsVisible]);
 
   useEffect(() => {
     if (!windowControlsVisible) return;
@@ -108,7 +143,7 @@ export function StudioIdeHeader({
 
     return () => {
       cancelled = true;
-      void unlistenPromise.then((unlisten) => unlisten());
+      safelyDisposeTauriListener(unlistenPromise);
     };
   }, [windowControlsVisible]);
 
@@ -266,7 +301,7 @@ export function StudioIdeHeader({
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-3.5-3.5" />
           </svg>
-          <span>Search commands, workers, and receipts</span>
+          <span>Search commands, sessions, tools, and projects</span>
           <kbd>⌘K</kbd>
         </button>
 

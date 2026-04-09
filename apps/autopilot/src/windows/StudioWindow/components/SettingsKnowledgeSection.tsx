@@ -1,6 +1,80 @@
+import { useCallback, useEffect, useState } from "react";
 import { humanize } from "./capabilities/model";
 import { formatSettingsTime } from "./SettingsView.shared";
 import type { SettingsViewBodyView } from "./SettingsView.types";
+import type {
+  SessionCompactionPolicy,
+  SessionCompactionPruneDecision,
+  SessionCompactionSnapshot,
+  TeamMemorySyncSnapshot,
+} from "../../../types";
+
+function defaultCompactionPolicy(): SessionCompactionPolicy {
+  return {
+    carryPinnedOnly: false,
+    preserveChecklistState: true,
+    preserveBackgroundTasks: true,
+    preserveLatestOutputExcerpt: true,
+    preserveGovernanceBlockers: true,
+    aggressiveTranscriptPruning: false,
+  };
+}
+
+function compactionPoliciesMatch(
+  left: SessionCompactionPolicy,
+  right: SessionCompactionPolicy,
+): boolean {
+  return (
+    left.carryPinnedOnly === right.carryPinnedOnly &&
+    left.preserveChecklistState === right.preserveChecklistState &&
+    left.preserveBackgroundTasks === right.preserveBackgroundTasks &&
+    left.preserveLatestOutputExcerpt === right.preserveLatestOutputExcerpt &&
+    left.preserveGovernanceBlockers === right.preserveGovernanceBlockers &&
+    left.aggressiveTranscriptPruning === right.aggressiveTranscriptPruning
+  );
+}
+
+function compactionPolicySummary(policy: SessionCompactionPolicy): string {
+  const bits = [
+    policy.carryPinnedOnly ? "Pinned files only" : "Pinned + explicit file context",
+    policy.aggressiveTranscriptPruning
+      ? "Aggressive transcript pruning"
+      : "Transcript summary retained",
+  ];
+  if (policy.preserveChecklistState) {
+    bits.push("Checklist retained");
+  }
+  if (policy.preserveBackgroundTasks) {
+    bits.push("Background tasks retained");
+  }
+  if (policy.preserveLatestOutputExcerpt) {
+    bits.push("Latest output retained");
+  }
+  if (policy.preserveGovernanceBlockers) {
+    bits.push("Blockers retained");
+  }
+  return bits.join(" · ");
+}
+
+function compactionDecisionCounts(
+  decisions: SessionCompactionPruneDecision[] | undefined | null,
+): Record<"carry_forward" | "retained_summary" | "pruned", number> {
+  return (decisions ?? []).reduce(
+    (acc: Record<"carry_forward" | "retained_summary" | "pruned", number>, decision) => {
+      acc[decision.disposition] += 1;
+      return acc;
+    },
+    {
+      carry_forward: 0,
+      retained_summary: 0,
+      pruned: 0,
+    },
+  );
+}
+
+function compactionResumeSafetyLabel(status?: string | null): string {
+  return status === "degraded" ? "Degraded resume" : "Protected resume";
+}
 
 export function SettingsKnowledgeSection({
   view,
@@ -44,8 +118,564 @@ export function SettingsKnowledgeSection({
     runKnowledgeAction,
   } = view;
 
+  const [teamMemorySnapshot, setTeamMemorySnapshot] =
+    useState<TeamMemorySyncSnapshot | null>(null);
+  const [teamMemoryStatus, setTeamMemoryStatus] = useState<
+    "idle" | "loading" | "ready" | "error" | "syncing" | "forgetting"
+  >("idle");
+  const [teamMemoryError, setTeamMemoryError] = useState<string | null>(null);
+  const [includeGovernanceCritical, setIncludeGovernanceCritical] = useState(false);
+  const [compactionSnapshot, setCompactionSnapshot] =
+    useState<SessionCompactionSnapshot | null>(null);
+  const [compactionStatus, setCompactionStatus] = useState<
+    "idle" | "loading" | "ready" | "error" | "compacting"
+  >("idle");
+  const [compactionError, setCompactionError] = useState<string | null>(null);
+  const [compactionPolicy, setCompactionPolicy] = useState<SessionCompactionPolicy>(
+    defaultCompactionPolicy,
+  );
+
+  const refreshTeamMemory = useCallback(async () => {
+    setTeamMemoryStatus((current) => (current === "ready" ? "loading" : current));
+    setTeamMemoryError(null);
+    try {
+      const snapshot = await runtime.getTeamMemorySnapshot();
+      setTeamMemorySnapshot(snapshot);
+      setTeamMemoryStatus("ready");
+      return snapshot;
+    } catch (nextError) {
+      const message =
+        nextError instanceof Error ? nextError.message : String(nextError ?? "");
+      setTeamMemorySnapshot(null);
+      setTeamMemoryStatus("error");
+      setTeamMemoryError(message);
+      throw nextError;
+    }
+  }, [runtime]);
+
+  const syncTeamMemory = useCallback(async () => {
+    setTeamMemoryStatus("syncing");
+    setTeamMemoryError(null);
+    try {
+      const snapshot = await runtime.syncTeamMemory({
+        actorLabel: "Studio",
+        actorRole: "operator",
+        includeGovernanceCritical,
+      });
+      setTeamMemorySnapshot(snapshot);
+      setTeamMemoryStatus("ready");
+      return snapshot;
+    } catch (nextError) {
+      const message =
+        nextError instanceof Error ? nextError.message : String(nextError ?? "");
+      setTeamMemoryStatus("error");
+      setTeamMemoryError(message);
+      throw nextError;
+    }
+  }, [includeGovernanceCritical, runtime]);
+
+  const forgetTeamMemory = useCallback(
+    async (entryId: string) => {
+      setTeamMemoryStatus("forgetting");
+      setTeamMemoryError(null);
+      try {
+        const snapshot = await runtime.forgetTeamMemoryEntry(entryId);
+        setTeamMemorySnapshot(snapshot);
+        setTeamMemoryStatus("ready");
+        return snapshot;
+      } catch (nextError) {
+        const message =
+          nextError instanceof Error ? nextError.message : String(nextError ?? "");
+        setTeamMemoryStatus("error");
+        setTeamMemoryError(message);
+        throw nextError;
+      }
+    },
+    [runtime],
+  );
+
+  const refreshCompaction = useCallback(
+    async (nextPolicy?: SessionCompactionPolicy) => {
+      const effectivePolicy = nextPolicy ?? compactionPolicy;
+      setCompactionStatus((current) => (current === "ready" ? "loading" : current));
+      setCompactionError(null);
+      try {
+        const snapshot = await runtime.getSessionCompactionSnapshot(effectivePolicy);
+        const activePolicy = snapshot.policyForActive ?? effectivePolicy;
+        setCompactionPolicy(activePolicy);
+        setCompactionSnapshot(snapshot);
+        setCompactionStatus("ready");
+        return snapshot;
+      } catch (nextError) {
+        const message =
+          nextError instanceof Error ? nextError.message : String(nextError ?? "");
+        setCompactionSnapshot(null);
+        setCompactionStatus("error");
+        setCompactionError(message);
+        throw nextError;
+      }
+    },
+    [compactionPolicy, runtime],
+  );
+
+  const compactSession = useCallback(
+    async (nextPolicy?: SessionCompactionPolicy) => {
+      const effectivePolicy = nextPolicy ?? compactionPolicy;
+      setCompactionStatus("compacting");
+      setCompactionError(null);
+      try {
+        const snapshot = await runtime.compactSession({
+          policy: effectivePolicy,
+        });
+        const activePolicy = snapshot.policyForActive ?? effectivePolicy;
+        setCompactionPolicy(activePolicy);
+        setCompactionSnapshot(snapshot);
+        setCompactionStatus("ready");
+        return snapshot;
+      } catch (nextError) {
+        const message =
+          nextError instanceof Error ? nextError.message : String(nextError ?? "");
+        setCompactionStatus("error");
+        setCompactionError(message);
+        throw nextError;
+      }
+    },
+    [compactionPolicy, runtime],
+  );
+
+  const applyRecommendedCompactionPolicy = useCallback(async () => {
+    const nextPolicy = compactionSnapshot?.recommendationForActive?.recommendedPolicy;
+    if (!nextPolicy) {
+      return null;
+    }
+    setCompactionPolicy(nextPolicy);
+    return refreshCompaction(nextPolicy);
+  }, [compactionSnapshot?.recommendationForActive?.recommendedPolicy, refreshCompaction]);
+
+  const resetCompactionPolicy = useCallback(async () => {
+    const nextPolicy = defaultCompactionPolicy();
+    setCompactionPolicy(nextPolicy);
+    return refreshCompaction(nextPolicy);
+  }, [refreshCompaction]);
+
+  useEffect(() => {
+    setTeamMemoryStatus("loading");
+    setTeamMemoryError(null);
+    void runtime
+      .getTeamMemorySnapshot()
+      .then((snapshot: TeamMemorySyncSnapshot) => {
+        setTeamMemorySnapshot(snapshot);
+        setTeamMemoryStatus("ready");
+      })
+      .catch((nextError: unknown) => {
+        setTeamMemorySnapshot(null);
+        setTeamMemoryStatus("error");
+        setTeamMemoryError(
+          nextError instanceof Error ? nextError.message : String(nextError ?? ""),
+        );
+      });
+  }, [runtime]);
+
+  useEffect(() => {
+    const initialPolicy = defaultCompactionPolicy();
+    setCompactionStatus("loading");
+    setCompactionError(null);
+    void runtime
+      .getSessionCompactionSnapshot(initialPolicy)
+      .then((snapshot: SessionCompactionSnapshot) => {
+        setCompactionPolicy(snapshot.policyForActive ?? initialPolicy);
+        setCompactionSnapshot(snapshot);
+        setCompactionStatus("ready");
+      })
+      .catch((nextError: unknown) => {
+        setCompactionSnapshot(null);
+        setCompactionStatus("error");
+        setCompactionError(
+          nextError instanceof Error ? nextError.message : String(nextError ?? ""),
+        );
+      });
+  }, [runtime]);
+
+  const compactionRecommendation = compactionSnapshot?.recommendationForActive ?? null;
+  const compactionPreview = compactionSnapshot?.previewForActive ?? null;
+  const latestCompaction = compactionSnapshot?.latestForActive ?? null;
+  const durabilityPortfolio = compactionSnapshot?.durabilityPortfolio ?? null;
+  const activeCompactionPolicy =
+    compactionPreview?.policy ??
+    compactionSnapshot?.policyForActive ??
+    compactionPolicy;
+  const recommendedCompactionPolicy =
+    compactionRecommendation?.recommendedPolicy ?? null;
+  const recommendedPolicyMatches = recommendedCompactionPolicy
+    ? compactionPoliciesMatch(activeCompactionPolicy, recommendedCompactionPolicy)
+    : false;
+  const previewDecisionCounts = compactionDecisionCounts(
+    compactionPreview?.pruneDecisions,
+  );
+  const latestDecisionCounts = compactionDecisionCounts(
+    latestCompaction?.pruneDecisions,
+  );
+  const compactionBusy = compactionStatus === "compacting";
+  const compactionAutoState = compactionRecommendation?.shouldCompact
+    ? "Recommended now"
+    : latestCompaction?.mode === "auto"
+      ? "Recently auto-compacted"
+      : "Monitoring";
+
   return (
     <div className="studio-settings-stack">
+      <article className="studio-settings-card">
+        <div className="studio-settings-card-head">
+          <div>
+            <span className="studio-settings-card-eyebrow">Team memory</span>
+            <h2>Scoped shared sync</h2>
+          </div>
+          <span className="studio-settings-pill">
+            {teamMemoryStatus === "syncing" || teamMemoryStatus === "forgetting"
+              ? "Updating"
+              : teamMemorySnapshot
+                ? `${teamMemorySnapshot.entryCount} in scope`
+                : "No scope"}
+          </span>
+        </div>
+        <p className="studio-settings-body">
+          Promote carried-forward session memory into a scoped multi-actor
+          ledger. Governance-critical blocker context stays local by default,
+          and sensitive values are redacted before shared sync.
+        </p>
+        <div className="studio-settings-summary-grid">
+          <article className="studio-settings-subcard">
+            <strong>Scope</strong>
+            <span>{teamMemorySnapshot?.activeScopeLabel || "Current scope"}</span>
+          </article>
+          <article className="studio-settings-subcard">
+            <strong>Redacted</strong>
+            <span>{teamMemorySnapshot?.redactedEntryCount ?? 0}</span>
+          </article>
+          <article className="studio-settings-subcard">
+            <strong>Review required</strong>
+            <span>{teamMemorySnapshot?.reviewRequiredCount ?? 0}</span>
+          </article>
+          <article className="studio-settings-subcard">
+            <strong>Updated</strong>
+            <span>
+              {teamMemorySnapshot
+                ? formatSettingsTime(teamMemorySnapshot.generatedAtMs)
+                : "Never"}
+            </span>
+          </article>
+        </div>
+        <p className="studio-settings-body">
+          {teamMemorySnapshot?.summary ||
+            "Sync the active retained session after a meaningful run to seed team memory."}
+        </p>
+        {teamMemoryError ? (
+          <p className="studio-settings-error">{teamMemoryError}</p>
+        ) : null}
+        <label className="studio-settings-field">
+          <span>Governance-critical sync policy</span>
+          <select
+            value={includeGovernanceCritical ? "include" : "keep_local"}
+            onChange={(event) =>
+              setIncludeGovernanceCritical(event.target.value === "include")
+            }
+          >
+            <option value="keep_local">Keep blockers local</option>
+            <option value="include">Sync blockers and mark for review</option>
+          </select>
+        </label>
+        <div className="studio-settings-actions">
+          <button
+            type="button"
+            className="studio-settings-secondary"
+            disabled={teamMemoryStatus === "syncing" || teamMemoryStatus === "forgetting"}
+            onClick={() => {
+              void syncTeamMemory();
+            }}
+          >
+            {teamMemoryStatus === "syncing" ? "Syncing..." : "Sync active session"}
+          </button>
+          <button
+            type="button"
+            className="studio-settings-secondary"
+            disabled={teamMemoryStatus === "syncing" || teamMemoryStatus === "forgetting"}
+            onClick={() => {
+              void refreshTeamMemory();
+            }}
+          >
+            Refresh team memory
+          </button>
+        </div>
+        {teamMemorySnapshot?.entries.length ? (
+          <div className="studio-settings-summary-grid">
+            {teamMemorySnapshot.entries.map((entry) => (
+              <article className="studio-settings-subcard" key={entry.entryId}>
+                <strong>{entry.actorLabel}</strong>
+                <span>{entry.scopeLabel}</span>
+                <small>{formatSettingsTime(entry.syncedAtMs)}</small>
+                <p>{entry.summary}</p>
+                <small>{entry.reviewSummary}</small>
+                <small>
+                  Redactions: {entry.redaction.redactionCount} · Review:{" "}
+                  {entry.syncStatus === "review_required" ? "yes" : "no"}
+                </small>
+                <div className="studio-settings-actions">
+                  <button
+                    type="button"
+                    className="studio-settings-danger"
+                    disabled={teamMemoryStatus === "syncing" || teamMemoryStatus === "forgetting"}
+                    onClick={() => {
+                      void forgetTeamMemory(entry.entryId);
+                    }}
+                  >
+                    Forget entry
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="studio-settings-body">
+            No scoped team-memory entries are stored yet.
+          </p>
+        )}
+      </article>
+
+      <article className="studio-settings-card">
+        <div className="studio-settings-card-head">
+          <div>
+            <span className="studio-settings-card-eyebrow">Compaction</span>
+            <h2>Long-session durability</h2>
+          </div>
+          <span className="studio-settings-pill">
+            {compactionBusy
+              ? "Compacting"
+              : compactionSnapshot
+                ? `${compactionSnapshot.recordCount} records`
+                : "No records"}
+          </span>
+        </div>
+        <p className="studio-settings-body">
+          Review the shared runtime compaction recommendation, inspect the
+          resume-safety posture, and run the same retained-session compaction
+          flow Studio now shares with Spotlight and the standalone REPL.
+        </p>
+        <div className="studio-settings-summary-grid">
+          <article className="studio-settings-subcard">
+            <strong>Active session</strong>
+            <span>{compactionSnapshot?.activeSessionTitle || "No retained session"}</span>
+          </article>
+          <article className="studio-settings-subcard">
+            <strong>Auto state</strong>
+            <span>{compactionAutoState}</span>
+          </article>
+          <article className="studio-settings-subcard">
+            <strong>Preview safety</strong>
+            <span>
+              {compactionPreview
+                ? compactionResumeSafetyLabel(compactionPreview.resumeSafety.status)
+                : "No preview"}
+            </span>
+          </article>
+          <article className="studio-settings-subcard">
+            <strong>Updated</strong>
+            <span>
+              {compactionSnapshot
+                ? formatSettingsTime(compactionSnapshot.generatedAtMs)
+                : "Never"}
+            </span>
+          </article>
+        </div>
+        <p className="studio-settings-body">
+          {compactionRecommendation?.reasonLabels.length
+            ? compactionRecommendation.reasonLabels.join(" · ")
+            : "No compaction threshold is active right now. The runtime keeps watching transcript pressure, file-context size, and blocker or idle age."}
+        </p>
+        {durabilityPortfolio ? (
+          <>
+            <div className="studio-settings-summary-grid">
+              <article className="studio-settings-subcard">
+                <strong>Replay-ready sessions</strong>
+                <span>
+                  {durabilityPortfolio.replayReadySessionCount}/
+                  {durabilityPortfolio.retainedSessionCount}
+                </span>
+              </article>
+              <article className="studio-settings-subcard">
+                <strong>Stale checkpoints</strong>
+                <span>{durabilityPortfolio.staleCompactionCount}</span>
+              </article>
+              <article className="studio-settings-subcard">
+                <strong>Degraded resumes</strong>
+                <span>{durabilityPortfolio.degradedCompactionCount}</span>
+              </article>
+              <article className="studio-settings-subcard">
+                <strong>Team-memory coverage</strong>
+                <span>
+                  {durabilityPortfolio.teamMemoryCoveredSessionCount} sessions ·{" "}
+                  {durabilityPortfolio.teamMemoryReviewRequiredSessionCount} review
+                </span>
+              </article>
+            </div>
+            <p className="studio-settings-body">
+              {durabilityPortfolio.coverageSummary}
+            </p>
+            <p className="studio-settings-body">
+              {durabilityPortfolio.teamMemorySummary}
+            </p>
+            <p className="studio-settings-body">
+              {durabilityPortfolio.attentionSummary}
+            </p>
+          </>
+        ) : null}
+        {compactionError ? (
+          <p className="studio-settings-error">{compactionError}</p>
+        ) : null}
+        <div className="studio-settings-summary-grid">
+          <article className="studio-settings-subcard">
+            <strong>Current preview policy</strong>
+            <span>{compactionPolicySummary(activeCompactionPolicy)}</span>
+          </article>
+          <article className="studio-settings-subcard">
+            <strong>Recommended policy</strong>
+            <span>
+              {recommendedCompactionPolicy
+                ? compactionPolicySummary(recommendedCompactionPolicy)
+                : "Balanced default policy"}
+            </span>
+          </article>
+          <article className="studio-settings-subcard">
+            <strong>Preview shape</strong>
+            <span>
+              Carry {previewDecisionCounts.carry_forward} · Summary{" "}
+              {previewDecisionCounts.retained_summary} · Pruned{" "}
+              {previewDecisionCounts.pruned}
+            </span>
+          </article>
+          <article className="studio-settings-subcard">
+            <strong>Latest record</strong>
+            <span>
+              {latestCompaction
+                ? `${humanize(latestCompaction.mode)} · ${compactionResumeSafetyLabel(
+                    latestCompaction.resumeSafety.status,
+                  )}`
+                : "No retained compaction record"}
+            </span>
+          </article>
+        </div>
+        <div className="studio-settings-actions">
+          <button
+            type="button"
+            className="studio-settings-secondary"
+            disabled={
+              compactionBusy || !compactionSnapshot?.activeSessionId || recommendedPolicyMatches
+            }
+            onClick={() => {
+              void applyRecommendedCompactionPolicy();
+            }}
+          >
+            {recommendedPolicyMatches ? "Recommended policy active" : "Apply recommended policy"}
+          </button>
+          <button
+            type="button"
+            className="studio-settings-secondary"
+            disabled={compactionBusy || !compactionSnapshot?.activeSessionId}
+            onClick={() => {
+              void compactSession();
+            }}
+          >
+            {compactionBusy ? "Compacting..." : "Run manual compaction"}
+          </button>
+          <button
+            type="button"
+            className="studio-settings-secondary"
+            disabled={
+              compactionBusy ||
+              compactionPoliciesMatch(activeCompactionPolicy, defaultCompactionPolicy())
+            }
+            onClick={() => {
+              void resetCompactionPolicy();
+            }}
+          >
+            Reset defaults
+          </button>
+          <button
+            type="button"
+            className="studio-settings-secondary"
+            disabled={compactionBusy}
+            onClick={() => {
+              void refreshCompaction();
+            }}
+          >
+            Refresh compaction
+          </button>
+        </div>
+        {compactionRecommendation?.recommendedPolicyReasonLabels.length ? (
+          <div className="studio-settings-summary-grid">
+            {compactionRecommendation.recommendedPolicyReasonLabels.map((reason) => (
+              <article className="studio-settings-subcard" key={reason}>
+                <strong>Recommendation reason</strong>
+                <span>{reason}</span>
+              </article>
+            ))}
+          </div>
+        ) : null}
+        {compactionRecommendation?.resumeSafeguardLabels.length ? (
+          <div className="studio-settings-summary-grid">
+            {compactionRecommendation.resumeSafeguardLabels.map((label) => (
+              <article className="studio-settings-subcard" key={label}>
+                <strong>Resume safeguard</strong>
+                <span>{label}</span>
+              </article>
+            ))}
+          </div>
+        ) : null}
+        {compactionPreview ? (
+          <div className="studio-settings-summary-grid">
+            <article className="studio-settings-subcard">
+              <strong>Preview span</strong>
+              <span>{compactionPreview.preCompactionSpan}</span>
+            </article>
+            <article className="studio-settings-subcard">
+              <strong>Resume anchor</strong>
+              <span>{compactionPreview.resumeAnchor}</span>
+            </article>
+            <article className="studio-settings-subcard">
+              <strong>Preview summary</strong>
+              <span>{compactionPreview.summary}</span>
+            </article>
+          </div>
+        ) : (
+          <p className="studio-settings-body">
+            No retained-session compaction preview is available yet.
+          </p>
+        )}
+        {latestCompaction ? (
+          <div className="studio-settings-summary-grid">
+            <article className="studio-settings-subcard">
+              <strong>Last applied policy</strong>
+              <span>{compactionPolicySummary(latestCompaction.policy)}</span>
+            </article>
+            <article className="studio-settings-subcard">
+              <strong>Last run</strong>
+              <span>{formatSettingsTime(latestCompaction.compactedAtMs)}</span>
+            </article>
+            <article className="studio-settings-subcard">
+              <strong>Retained shape</strong>
+              <span>
+                Carry {latestDecisionCounts.carry_forward} · Summary{" "}
+                {latestDecisionCounts.retained_summary} · Pruned{" "}
+                {latestDecisionCounts.pruned}
+              </span>
+            </article>
+            <article className="studio-settings-subcard">
+              <strong>Last anchor</strong>
+              <span>{latestCompaction.resumeAnchor}</span>
+            </article>
+          </div>
+        ) : null}
+      </article>
+
       <article className="studio-settings-card">
         <div className="studio-settings-card-head">
           <div>
@@ -57,9 +687,9 @@ export function SettingsKnowledgeSection({
           </span>
         </div>
         <p className="studio-settings-body">
-          LocalAI-style collections now land in `ioi-memory` as durable,
-          embedding-backed knowledge entries. Each entry gets its own retrieval
-          scope so agent IDE flows can target or exclude it cleanly.
+          Collections now land in `ioi-memory` as durable, embedding-backed
+          knowledge entries. Each entry gets its own retrieval scope so agent
+          IDE flows can target or exclude it cleanly.
         </p>
         {knowledgeMessage ? (
           <p className="studio-settings-success">{knowledgeMessage}</p>

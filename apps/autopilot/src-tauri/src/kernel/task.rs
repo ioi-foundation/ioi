@@ -2,8 +2,8 @@ use crate::identity;
 use crate::kernel::notifications;
 use crate::kernel::state::{hydrate_session_history, update_task_state};
 use crate::models::{
-    AgentEvent, AgentPhase, AgentTask, AppState, ChatMessage, EventStatus, EventType,
-    SessionSummary,
+    AgentEvent, AgentPhase, AgentTask, AppState, ChatMessage, CredentialRequest, EventStatus,
+    EventType,
 };
 use crate::orchestrator;
 use crate::windows;
@@ -11,8 +11,9 @@ use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{GetTransactionStatusRequest, SubmitTransactionRequest, TxStatus};
 use ioi_services::agentic::desktop::keys::get_state_key;
-use ioi_services::agentic::desktop::{AgentMode, StartAgentParams, StepAgentParams};
-use ioi_services::agentic::desktop::{AgentState, AgentStatus};
+use ioi_services::agentic::desktop::{
+    AgentMode, AgentState, AgentStatus, StartAgentParams, StepAgentParams,
+};
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof,
     SignatureSuite, SystemPayload, SystemTransaction,
@@ -27,6 +28,7 @@ use tokio::time::{sleep, timeout, Duration, Instant};
 
 const TX_SUBMIT_TIMEOUT_MS: u64 = 8_000;
 const SESSION_START_CONVERGENCE_TIMEOUT_MS: u64 = 15_000;
+const CONTINUE_TASK_SEND_TIMEOUT_MS: u64 = 30_000;
 const SESSION_START_CONVERGENCE_POLL_MS: u64 = 250;
 const SESSION_STATE_RECONCILE_TIMEOUT_MS: u64 = 90_000;
 const SESSION_STATE_RECONCILE_POLL_MS: u64 = 750;
@@ -38,18 +40,6 @@ static ACTIVE_SESSION_RECONCILERS: OnceLock<Mutex<HashSet<String>>> = OnceLock::
 
 fn active_session_reconcilers() -> &'static Mutex<HashSet<String>> {
     ACTIVE_SESSION_RECONCILERS.get_or_init(|| Mutex::new(HashSet::new()))
-}
-
-fn input_probe_logging_enabled() -> bool {
-    std::env::var("AUTOPILOT_INPUT_PROBE_LOG")
-        .map(|v| {
-            let t = v.trim();
-            t == "1"
-                || t.eq_ignore_ascii_case("true")
-                || t.eq_ignore_ascii_case("yes")
-                || t.eq_ignore_ascii_case("on")
-        })
-        .unwrap_or(false)
 }
 
 fn now_iso() -> String {
@@ -91,14 +81,27 @@ where
     });
 }
 
+fn update_task_if_session_matches<F>(app: &AppHandle, expected_session_id: &str, mut f: F)
+where
+    F: FnMut(&mut AgentTask),
+{
+    update_task_state(app, |task| {
+        if session_hex_matches_task(task, expected_session_id) {
+            f(task);
+        }
+    });
+}
+
 fn replace_current_task_snapshot(
     app: &AppHandle,
     expected_task_id: &str,
-    next_task: AgentTask,
+    mut next_task: AgentTask,
 ) -> bool {
     let state = app.state::<Mutex<AppState>>();
     let mut task_clone: Option<AgentTask> = None;
     let mut memory_runtime = None;
+
+    next_task.sync_runtime_views();
 
     if let Ok(mut app_state) = state.lock() {
         memory_runtime = app_state.memory_runtime.clone();
@@ -115,9 +118,12 @@ fn replace_current_task_snapshot(
             orchestrator::save_local_task_state(memory_runtime, &task);
         }
 
-        let event_name = match task.phase {
-            AgentPhase::Complete => "task-completed",
-            _ => "task-updated",
+        let event_name = if task.phase == AgentPhase::Complete
+            && !crate::kernel::events::is_waiting_prompt_active(&task)
+        {
+            "task-completed"
+        } else {
+            "task-updated"
         };
         let _ = app.emit(event_name, &task);
         true
@@ -147,6 +153,10 @@ fn should_replace_with_reconciled_running_step(current_step: &str) -> bool {
         || normalized == "sending message..."
         || normalized.contains("waiting for first step")
         || normalized.contains("session queued")
+}
+
+fn task_has_live_session_activity(task: &AgentTask) -> bool {
+    !task.history.is_empty() || !task.events.is_empty() || !task.artifacts.is_empty()
 }
 
 fn submit_error_indicates_bootstrap_step_already_pending(error: &str) -> bool {
@@ -830,12 +840,29 @@ async fn continue_session_bootstrap_after_visibility_timeout(
             );
         }
         Err(error) => {
+            let mut keep_running = false;
             update_task_state(&app, |t| {
                 if session_hex_matches_task(t, &session_id_hex) {
-                    t.phase = AgentPhase::Failed;
-                    t.current_step = format!("Session state did not materialize: {}", error);
+                    if task_has_live_session_activity(t) {
+                        keep_running = true;
+                        t.phase = AgentPhase::Running;
+                        t.current_step = format!(
+                            "Session state is still reconciling in the background, but live activity is flowing: {}",
+                            error
+                        );
+                    } else {
+                        t.phase = AgentPhase::Failed;
+                        t.current_step = format!("Session state did not materialize: {}", error);
+                    }
                 }
             });
+            if keep_running {
+                spawn_session_state_reconciler_with_bootstrap_nonce(
+                    app.clone(),
+                    session_id,
+                    next_step_nonce,
+                );
+            }
         }
     }
 }
@@ -1033,6 +1060,9 @@ fn sync_task_from_kernel_state(
         match &agent_state.status {
             AgentStatus::Idle | AgentStatus::Running => {
                 task.phase = AgentPhase::Running;
+                task.gate_info = None;
+                task.pending_request_hash = None;
+                task.credential_request = None;
                 if should_replace_with_reconciled_running_step(&task.current_step) {
                     task.current_step = bootstrap_step_label_for_state(agent_state);
                 }
@@ -1070,12 +1100,45 @@ fn sync_task_from_kernel_state(
                 }
             }
             AgentStatus::Paused(reason) => {
-                task.phase = AgentPhase::Complete;
+                let waiting_for_sudo = reason.eq_ignore_ascii_case("Waiting for sudo password");
+                let waiting_for_clarification = reason
+                    .trim()
+                    .eq_ignore_ascii_case("Waiting for clarification on target identity.")
+                    || reason.trim().eq_ignore_ascii_case(
+                        "Waiting for user clarification on app/package name.",
+                    )
+                    || reason
+                        .trim()
+                        .eq_ignore_ascii_case("Waiting for intent clarification.")
+                    || reason
+                        .to_ascii_lowercase()
+                        .contains("waiting for clarification");
+                task.phase = if waiting_for_sudo || waiting_for_clarification {
+                    AgentPhase::Running
+                } else {
+                    AgentPhase::Complete
+                };
                 task.current_step = reason.clone();
+                task.gate_info = None;
+                task.pending_request_hash = None;
+                if waiting_for_sudo {
+                    task.clarification_request = None;
+                    task.credential_request = Some(CredentialRequest {
+                        kind: "sudo_password".to_string(),
+                        prompt: "A one-time sudo password is required to continue the install."
+                            .to_string(),
+                        one_time: true,
+                    });
+                } else {
+                    task.credential_request = None;
+                }
             }
             AgentStatus::Failed(reason) => {
                 task.phase = AgentPhase::Failed;
                 task.current_step = format!("Task failed: {}", reason);
+                task.gate_info = None;
+                task.pending_request_hash = None;
+                task.credential_request = None;
                 if let Some(message) = failed_reason.as_ref() {
                     let exists = task
                         .history
@@ -1095,12 +1158,15 @@ fn sync_task_from_kernel_state(
             AgentStatus::Terminated => {
                 task.phase = AgentPhase::Failed;
                 task.current_step = "Task terminated".to_string();
+                task.gate_info = None;
+                task.pending_request_hash = None;
+                task.credential_request = None;
             }
         }
     });
 }
 
-fn spawn_session_state_reconciler(app: AppHandle, session_id: [u8; 32]) {
+pub(crate) fn spawn_session_state_reconciler(app: AppHandle, session_id: [u8; 32]) {
     spawn_session_state_reconciler_with_bootstrap_nonce(app, session_id, None);
 }
 
@@ -1253,7 +1319,7 @@ fn spawn_session_state_reconciler_with_bootstrap_nonce(
     });
 }
 
-async fn trigger_agent_step_for_session(
+pub(crate) async fn trigger_agent_step_for_session(
     client: &mut PublicApiClient<tonic::transport::Channel>,
     app: &AppHandle,
     session_id: [u8; 32],
@@ -1371,15 +1437,8 @@ pub fn start_task(
     state: State<Mutex<AppState>>,
     app: AppHandle,
     intent: String,
+    origin_surface: Option<String>,
 ) -> Result<AgentTask, String> {
-    if input_probe_logging_enabled() {
-        println!(
-            "[Autopilot][InputProbe] start_task intent_len={} intent='{}'",
-            intent.chars().count(),
-            intent
-        );
-    }
-
     let history = vec![ChatMessage {
         role: "user".to_string(),
         text: intent.clone(),
@@ -1403,6 +1462,8 @@ pub fn start_task(
         pending_request_hash: None,
         credential_request: None,
         clarification_request: None,
+        session_checklist: Vec::new(),
+        background_tasks: Vec::new(),
         history,
         events: vec![build_user_input_event(&task_id, 0, &intent)],
         artifacts: Vec::new(),
@@ -1418,6 +1479,8 @@ pub fn start_task(
         fitness_score: 0.0,
     };
 
+    task.sync_runtime_views();
+
     let memory_runtime = {
         let app_state = state.lock().map_err(|_| "Failed to lock state")?;
         app_state.memory_runtime.clone()
@@ -1428,16 +1491,6 @@ pub fn start_task(
             crate::kernel::artifacts::create_run_bundle(memory_runtime, &task_id, &task_id, vec![]);
         task.run_bundle_id = Some(run_bundle.artifact_id.clone());
         task.artifacts.push(run_bundle.clone());
-        let summary = SessionSummary {
-            session_id: task_id.clone(),
-            title: if intent.len() > 30 {
-                format!("{}...", &intent[0..27])
-            } else {
-                intent.clone()
-            },
-            timestamp: crate::kernel::state::now(),
-        };
-        orchestrator::save_local_session_summary(memory_runtime, summary);
         orchestrator::save_local_task_state(memory_runtime, &task);
     }
 
@@ -1448,7 +1501,24 @@ pub fn start_task(
     }
 
     let _ = app.emit("task-started", &task);
-    crate::windows::show_spotlight(app.clone());
+    let app_for_projection = app.clone();
+    tauri::async_runtime::spawn(async move {
+        crate::kernel::session::emit_session_projection_update(&app_for_projection, true).await;
+    });
+    match origin_surface
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("studio") => {
+            if let Some(window) = app.get_webview_window("spotlight") {
+                let _ = window.hide();
+            }
+            crate::windows::hide_pill(app.clone());
+        }
+        _ => crate::windows::show_spotlight(app.clone()),
+    }
     let app_clone = app.clone();
     let task_id_for_prepare = task_id.clone();
     let intent_for_prepare = intent.clone();
@@ -1511,15 +1581,6 @@ pub async fn continue_task(
     session_id: String,
     user_input: String,
 ) -> Result<(), String> {
-    if input_probe_logging_enabled() {
-        println!(
-            "[Autopilot][InputProbe] continue_task input_len={} input='{}' session_id='{}'",
-            user_input.chars().count(),
-            user_input,
-            session_id
-        );
-    }
-
     let user_msg_ui = ChatMessage {
         role: "user".to_string(),
         text: user_input.clone(),
@@ -1556,14 +1617,45 @@ pub async fn continue_task(
     let user_input_for_send = user_input.clone();
 
     let app_clone = app.clone();
+    let session_for_status = normalized_session_id.clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(error) =
-            send_message_to_session(&app_clone, &normalized_session_id, user_input_for_send).await
-        {
-            update_task_state(&app_clone, move |t| {
-                t.phase = AgentPhase::Failed;
-                t.current_step = format!("Failed to send message: {}", error);
-            });
+        let send_result = timeout(
+            Duration::from_millis(CONTINUE_TASK_SEND_TIMEOUT_MS),
+            send_message_to_session(&app_clone, &normalized_session_id, user_input_for_send),
+        )
+        .await;
+
+        match send_result {
+            Ok(Ok(())) => {}
+            Ok(Err(error)) => {
+                update_task_if_session_matches(&app_clone, &session_for_status, move |task| {
+                    task.phase = AgentPhase::Failed;
+                    task.current_step = format!("Failed to send message: {}", error);
+                });
+            }
+            Err(_) => {
+                let timeout_message = format!(
+                    "Message submit timed out after {}s. Retry from Spotlight, Gate, or Pill.",
+                    CONTINUE_TASK_SEND_TIMEOUT_MS / 1000
+                );
+                update_task_if_session_matches(&app_clone, &session_for_status, |task| {
+                    task.phase = AgentPhase::Failed;
+                    task.current_step = timeout_message.clone();
+                    let exists = task
+                        .history
+                        .iter()
+                        .rev()
+                        .take(6)
+                        .any(|entry| entry.role == "system" && entry.text == timeout_message);
+                    if !exists {
+                        task.history.push(ChatMessage {
+                            role: "system".to_string(),
+                            text: timeout_message.clone(),
+                            timestamp: crate::kernel::state::now(),
+                        });
+                    }
+                });
+            }
         }
     });
 
@@ -1598,19 +1690,64 @@ pub fn complete_task(
 
 #[tauri::command]
 pub fn dismiss_task(state: State<Mutex<AppState>>, app: AppHandle) -> Result<(), String> {
+    let mut session_id: Option<String> = None;
+    let mut memory_runtime = None;
     if let Ok(mut app_state) = state.lock() {
+        memory_runtime = app_state.memory_runtime.clone();
+        session_id = app_state
+            .current_task
+            .as_ref()
+            .and_then(|task| task.session_id.clone().or_else(|| Some(task.id.clone())));
         app_state.current_task = None;
         app_state.gate_response = None;
+    }
+    if let (Some(memory_runtime), Some(session_id)) = (memory_runtime.as_ref(), session_id.as_ref())
+    {
+        orchestrator::clear_local_task_state(memory_runtime, session_id);
     }
     windows::hide_spotlight(app.clone());
     windows::hide_gate(app.clone());
     let _ = app.emit("task-dismissed", ());
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        crate::kernel::session::emit_session_projection_update(&app_clone, true).await;
+    });
+    Ok(())
+}
+
+#[tauri::command]
+pub fn cancel_task(state: State<Mutex<AppState>>, app: AppHandle) -> Result<(), String> {
+    let mut session_id: Option<String> = None;
+    let mut memory_runtime = None;
+    if let Ok(mut app_state) = state.lock() {
+        memory_runtime = app_state.memory_runtime.clone();
+        session_id = app_state
+            .current_task
+            .as_ref()
+            .and_then(|task| task.session_id.clone().or_else(|| Some(task.id.clone())));
+        app_state.current_task = None;
+        app_state.gate_response = None;
+    }
+    if let (Some(memory_runtime), Some(session_id)) = (memory_runtime.as_ref(), session_id.as_ref())
+    {
+        orchestrator::clear_local_task_state(memory_runtime, session_id);
+    }
+    let _ = app.emit("task-dismissed", ());
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        crate::kernel::session::emit_session_projection_update(&app_clone, true).await;
+    });
     Ok(())
 }
 
 #[tauri::command]
 pub fn get_current_task(state: State<Mutex<AppState>>) -> Option<AgentTask> {
-    state.lock().ok().and_then(|s| s.current_task.clone())
+    state.lock().ok().and_then(|s| {
+        s.current_task.clone().map(|mut task| {
+            task.sync_runtime_views();
+            task
+        })
+    })
 }
 
 #[cfg(test)]
@@ -1702,6 +1839,46 @@ mod tests {
         assert!(!should_replace_with_reconciled_running_step(
             "Streaming browser::inspect (stdout)"
         ));
+    }
+
+    #[test]
+    fn live_activity_prevents_false_session_materialization_failure() {
+        let mut task = AgentTask {
+            id: "session-a".to_string(),
+            intent: "chat".to_string(),
+            agent: "autopilot".to_string(),
+            phase: AgentPhase::Running,
+            progress: 0,
+            total_steps: 0,
+            current_step: "Waiting for session state...".to_string(),
+            gate_info: None,
+            receipt: None,
+            visual_hash: None,
+            pending_request_hash: None,
+            session_id: Some("session-a".to_string()),
+            credential_request: None,
+            clarification_request: None,
+            session_checklist: Vec::new(),
+            background_tasks: Vec::new(),
+            history: Vec::new(),
+            events: Vec::new(),
+            artifacts: Vec::new(),
+            studio_session: None,
+            studio_outcome: None,
+            renderer_session: None,
+            build_session: None,
+            run_bundle_id: None,
+            processed_steps: HashSet::new(),
+            swarm_tree: Vec::new(),
+            generation: 0,
+            lineage_id: "genesis".to_string(),
+            fitness_score: 0.0,
+        };
+
+        assert!(!task_has_live_session_activity(&task));
+        task.events
+            .push(build_user_input_event("thread-a", 0, "hello"));
+        assert!(task_has_live_session_activity(&task));
     }
 
     #[tokio::test(flavor = "multi_thread")]

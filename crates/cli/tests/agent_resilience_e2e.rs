@@ -300,7 +300,7 @@ async fn test_agent_self_healing() -> Result<()> {
     assert!(final_state.step_count >= 1);
     assert!(
         !matches!(final_state.status, AgentStatus::Failed(_)),
-        "agent should not hard-fail in resilience smoke path"
+        "agent should not hard-fail in resilience validation path"
     );
 
     Ok(())

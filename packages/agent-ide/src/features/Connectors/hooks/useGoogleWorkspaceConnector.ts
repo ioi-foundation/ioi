@@ -24,11 +24,16 @@ import {
   type GoogleWorkspaceBootstrapWarning,
   type GoogleWorkspaceConnectorState,
   type GoogleWorkspaceFieldProfile,
+  type GoogleWorkspacePendingRunApproval,
   type GoogleWorkspaceOauthClientState,
   type GoogleWorkspaceServiceState,
   type GoogleWorkspaceTokenStorageState,
   type UseGoogleWorkspaceConnectorOptions,
 } from "./googleWorkspaceConnectorState";
+import {
+  buildConnectorApprovalMemoryRequest,
+  parseShieldApprovalRequest,
+} from "../../../runtime/shield-approval";
 
 export type {
   GoogleWorkspaceBootstrapWarning,
@@ -84,8 +89,30 @@ export function useGoogleWorkspaceConnector(
   const [subscriptions, setSubscriptions] = useState<ConnectorSubscriptionSummary[]>([]);
   const [selectedActionId, setSelectedActionId] = useState("");
   const [input, setInput] = useState<Record<string, string>>({});
+  const [pendingRunApproval, setPendingRunApproval] =
+    useState<GoogleWorkspacePendingRunApproval | null>(null);
   const [formattedResult, setFormattedResult] = useState("");
   const pendingPresetInputRef = useRef<Record<string, string> | null>(null);
+
+  const rememberShieldApproval = async (
+    approvalRequest?: GoogleWorkspacePendingRunApproval["request"],
+  ) => {
+    if (!approvalRequest || !runtime.rememberConnectorApproval) {
+      return;
+    }
+    const input = buildConnectorApprovalMemoryRequest(
+      approvalRequest,
+      "Google Workspace connector panel",
+    );
+    if (!input) {
+      return;
+    }
+    try {
+      await runtime.rememberConnectorApproval(input);
+    } catch (error) {
+      console.warn("Failed to remember Shield approval:", error);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -185,6 +212,7 @@ export function useGoogleWorkspaceConnector(
 
   const selectAction = (actionId: string, presetInput?: Record<string, string>) => {
     pendingPresetInputRef.current = presetInput ?? null;
+    setPendingRunApproval(null);
     setSelectedActionId(actionId);
   };
 
@@ -275,7 +303,7 @@ export function useGoogleWorkspaceConnector(
   const saveOauthClient = async (clientId: string, clientSecret?: string) => {
     if (!runtime.configureConnector) {
       setError("Runtime is missing generic connector configuration support.");
-      return;
+      return false;
     }
 
     setBusy(true);
@@ -291,9 +319,11 @@ export function useGoogleWorkspaceConnector(
       });
       applyConfigureResult(result, true);
       await refreshSubscriptions();
+      return true;
     } catch (configureError) {
       setNotice(null);
       setError(configureError instanceof Error ? configureError.message : String(configureError));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -397,7 +427,13 @@ export function useGoogleWorkspaceConnector(
     }
   };
 
-  const runSelectedAction = async () => {
+  const runSelectedAction = async ({
+    skipLocalConfirmation = false,
+    shieldApproved = false,
+  }: {
+    skipLocalConfirmation?: boolean;
+    shieldApproved?: boolean;
+  } = {}) => {
     if (!runtime.runConnectorAction) {
       setError("Runtime is missing generic connector action support.");
       return;
@@ -414,31 +450,69 @@ export function useGoogleWorkspaceConnector(
       }
     }
 
-    if (selectedAction.confirmBeforeRun) {
-      const confirmed = window.confirm(
-        `${selectedAction.label} will make changes in Google Workspace. Continue?`
-      );
-      if (!confirmed) return;
+    if (selectedAction.confirmBeforeRun && !skipLocalConfirmation) {
+      setNotice(null);
+      setError(null);
+      setPendingRunApproval({
+        kind: "confirm_before_run",
+        actionId: selectedAction.id,
+        actionLabel: selectedAction.label,
+        message: `${selectedAction.label} will make changes in Google Workspace.`,
+      });
+      return;
     }
 
     setBusy(true);
     setError(null);
+    setPendingRunApproval(null);
     try {
       const result: ConnectorActionResult = await runtime.runConnectorAction({
         connectorId: connector.id,
         actionId: selectedAction.id,
-        input: coerceInput(selectedAction, input),
+        input: {
+          ...coerceInput(selectedAction, input),
+          ...(shieldApproved ? { _shieldApproved: true } : {}),
+        },
       });
       setNotice(result.summary);
       setFormattedResult(formatJsonBlock(result.data ?? result));
       await refreshSubscriptions();
       await refreshConnectionProfile(false);
     } catch (actionError) {
+      const approvalRequest = parseShieldApprovalRequest(actionError);
+      if (approvalRequest && !shieldApproved) {
+        setNotice(null);
+        setError(null);
+        setPendingRunApproval({
+          kind: "shield_policy",
+          actionId: selectedAction.id,
+          actionLabel: approvalRequest.actionLabel,
+          message: approvalRequest.message,
+          request: approvalRequest,
+        });
+        return;
+      }
       setNotice(null);
       setError(actionError instanceof Error ? actionError.message : String(actionError));
     } finally {
       setBusy(false);
     }
+  };
+
+  const approvePendingRun = async () => {
+    if (!pendingRunApproval) return;
+    if (pendingRunApproval.kind === "shield_policy") {
+      await rememberShieldApproval(pendingRunApproval.request);
+    }
+    await runSelectedAction({
+      skipLocalConfirmation: true,
+      shieldApproved: pendingRunApproval.kind === "shield_policy",
+    });
+  };
+
+  const cancelPendingRun = () => {
+    setPendingRunApproval(null);
+    setError(null);
   };
 
   const refreshSubscriptions = async () => {
@@ -529,6 +603,9 @@ export function useGoogleWorkspaceConnector(
     selectedAction,
     input,
     setInputValue,
+    pendingRunApproval,
+    approvePendingRun,
+    cancelPendingRun,
     formattedResult,
     checkConnection,
     saveOauthClient,
@@ -537,7 +614,7 @@ export function useGoogleWorkspaceConnector(
     cancelPendingAuth,
     disconnect,
     resetLocalSetup,
-    runSelectedAction,
+    runSelectedAction: () => runSelectedAction(),
     refreshSubscriptions,
     stopSubscription,
     resumeSubscription,

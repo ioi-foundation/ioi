@@ -4,6 +4,7 @@ import type {
   ConnectorSubscriptionSummary,
   ConnectorSummary,
 } from "../../../runtime/agent-runtime";
+import type { ShieldApprovalRequest } from "../../../runtime/shield-approval";
 
 export function buildDefaultInput(
   action: ConnectorActionDefinition | null
@@ -93,6 +94,14 @@ export interface GoogleWorkspaceTokenStorageState {
   present: boolean;
 }
 
+export interface GoogleWorkspacePendingRunApproval {
+  kind: "confirm_before_run" | "shield_policy";
+  actionId: string;
+  actionLabel: string;
+  message: string;
+  request?: ShieldApprovalRequest;
+}
+
 export interface GoogleWorkspaceConnectorState {
   runtimeReady: boolean;
   subscriptionRuntimeReady: boolean;
@@ -121,9 +130,12 @@ export interface GoogleWorkspaceConnectorState {
   selectedAction: ConnectorActionDefinition | null;
   input: Record<string, string>;
   setInputValue: (fieldId: string, value: string) => void;
+  pendingRunApproval: GoogleWorkspacePendingRunApproval | null;
+  approvePendingRun: () => Promise<void>;
+  cancelPendingRun: () => void;
   formattedResult: string;
   checkConnection: () => Promise<void>;
-  saveOauthClient: (clientId: string, clientSecret?: string) => Promise<void>;
+  saveOauthClient: (clientId: string, clientSecret?: string) => Promise<boolean>;
   clearOauthClient: () => Promise<void>;
   beginAuth: (requestedScopes?: string[]) => Promise<void>;
   cancelPendingAuth: () => Promise<void>;

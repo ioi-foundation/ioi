@@ -1,0 +1,100 @@
+[
+  {
+    "candidateId": "candidate:planner-grade-local-oss-qwen3-8b",
+    "candidateKind": "model",
+    "parentCandidateId": null,
+    "presetId": "planner-grade-local-oss-qwen3-8b",
+    "deploymentProfile": "local_gpu_8gb_class",
+    "comparisonIntent": "model_change",
+    "executionScope": "fleet_shared",
+    "status": "retained_default",
+    "summary": "Current default anchor kept in place while stronger candidates continue to be validated.",
+    "mutationIntent": "Stabilize low-footprint local behavior and hold the baseline until a cleaner successor exists.",
+    "targetFamily": "Artifact / Latency",
+    "changedContracts": [
+      "default preservation",
+      "coverage guard",
+      "latency/resource fit"
+    ],
+    "roleAssignmentDelta": [],
+    "validationSummary": {
+      "requiredReadyCount": 2,
+      "requiredCategoryCount": 5,
+      "bestRequiredCount": 1,
+      "coverageStatus": "3 blocked"
+    },
+    "evaluationLanes": {
+      "proxy": "not_run",
+      "validation": "not_run",
+      "challenge": "not_run",
+      "holdout": "not_run"
+    },
+    "conformanceStatus": "warn",
+    "paretoClass": "retained",
+    "controlRunIds": [],
+    "rollbackTarget": null,
+    "regressions": [
+      "codingCompletion",
+      "researchQuality",
+      "computerUseCompletion"
+    ],
+    "evidenceLinks": [
+      {
+        "label": "summary",
+        "href": "file:///home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/planner-grade-local-oss-qwen3-8b/summary.json"
+      },
+      {
+        "label": "retained_run",
+        "href": "file:///home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/planner-grade-local-oss-qwen3-8b"
+      }
+    ]
+  },
+  {
+    "candidateId": "candidate:coding-executor-local-oss",
+    "candidateKind": "model",
+    "parentCandidateId": "candidate:planner-grade-local-oss-qwen3-8b",
+    "presetId": "coding-executor-local-oss",
+    "deploymentProfile": "local_gpu_8gb_class",
+    "comparisonIntent": "model_change",
+    "executionScope": "fleet_shared",
+    "status": "candidate",
+    "summary": "Experimental retained candidate that is visible for comparison but not yet promoted.",
+    "mutationIntent": "Preserve baseline behavior while improving coverage and trustworthiness.",
+    "targetFamily": "Artifact / Latency",
+    "changedContracts": [
+      "default preservation",
+      "coverage guard",
+      "latency/resource fit"
+    ],
+    "roleAssignmentDelta": [],
+    "validationSummary": {
+      "requiredReadyCount": 2,
+      "requiredCategoryCount": 5,
+      "bestRequiredCount": 4,
+      "coverageStatus": "3 blocked"
+    },
+    "evaluationLanes": {
+      "proxy": "not_run",
+      "validation": "not_run",
+      "challenge": "not_run",
+      "holdout": "not_run"
+    },
+    "conformanceStatus": "warn",
+    "paretoClass": "retained",
+    "controlRunIds": [],
+    "rollbackTarget": null,
+    "regressions": [
+      "Artifact download bundle: Artifact benchmark interrupted by SIGINT. Last trace: outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384. Last output: [studio-proof-trace] outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384."
+    ],
+    "evidenceLinks": [
+      {
+        "label": "summary",
+        "href": "file:///home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/coding-executor-local-oss/summary.json"
+      },
+      {
+        "label": "retained_run",
+        "href": "file:///home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/coding-executor-local-oss"
+      }
+    ]
+  }
+]

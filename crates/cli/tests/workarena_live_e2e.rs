@@ -67,7 +67,7 @@ fn workarena_bridge_preflight_reports_repo_external_blockers_or_ready_state() ->
 
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "WorkArena dependencies, credentials, and a reachable benchmark instance are required"]
-async fn workarena_bridge_prepare_smoke_uses_browser_driver_session() -> Result<()> {
+async fn workarena_bridge_prepare_validation_uses_browser_driver_session() -> Result<()> {
     live_inference_support::load_env_from_workspace_dotenv_if_present();
 
     let (preflight, _, _) = run_bridge_json(&["preflight"])?;

@@ -714,8 +714,8 @@ fn parse_arbiter_verdict(raw: &str) -> Result<ArbiterVerdict> {
     if let Ok(verdict) = serde_json::from_str::<ArbiterVerdict>(raw) {
         return Ok(verdict);
     }
-    let json_text = extract_json_object(raw)
-        .ok_or_else(|| anyhow!("arbiter did not return JSON object"))?;
+    let json_text =
+        extract_json_object(raw).ok_or_else(|| anyhow!("arbiter did not return JSON object"))?;
 
     serde_json::from_str(json_text)
         .map_err(|error| anyhow!("failed to parse arbiter verdict: {}", error))

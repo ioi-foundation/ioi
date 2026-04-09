@@ -14,6 +14,21 @@ fn studio_authoritative_step_hint(
     task: &AgentTask,
     studio_session: &StudioArtifactSession,
 ) -> Option<String> {
+    if studio_session.outcome_request.outcome_kind != StudioOutcomeKind::Artifact {
+        return Some(
+            if studio_session.lifecycle_state == StudioArtifactLifecycleState::Blocked {
+                studio_session
+                    .verified_reply
+                    .failure
+                    .as_ref()
+                    .map(|failure| failure.message.clone())
+                    .unwrap_or_else(|| studio_session.verified_reply.summary.clone())
+            } else {
+                studio_session.verified_reply.summary.clone()
+            },
+        );
+    }
+
     let candidate_count = studio_session.materialization.candidate_summaries.len();
     let repair_passes = studio_repair_pass_count(studio_session);
     let scaffold_family = studio_session
@@ -99,6 +114,10 @@ pub(super) fn persist_current_task_update(
         orchestrator::save_local_task_state(memory_runtime, &task);
     }
     let _ = app.emit("task-updated", &task);
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        crate::kernel::session::emit_session_projection_update(&app_clone, false).await;
+    });
     Ok(())
 }
 
@@ -158,12 +177,7 @@ pub fn verified_reply_title_for_task(task: &AgentTask) -> Option<String> {
 }
 
 pub fn task_is_studio_authoritative(task: &AgentTask) -> bool {
-    matches!(
-        task.studio_outcome
-            .as_ref()
-            .map(|request| request.outcome_kind),
-        Some(StudioOutcomeKind::Artifact)
-    ) && task.studio_session.is_some()
+    task.studio_outcome.is_some() && task.studio_session.is_some()
 }
 
 pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Option<String>) {
@@ -174,6 +188,32 @@ pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Opt
     let fallback_step = current_step.clone().unwrap_or_else(|| {
         if let Some(step) = studio_authoritative_step_hint(task, studio_session) {
             return step;
+        }
+        if studio_session.outcome_request.outcome_kind != StudioOutcomeKind::Artifact {
+            return match studio_session.lifecycle_state {
+                StudioArtifactLifecycleState::Draft => {
+                    "Studio captured the non-artifact route and is preparing the shared reply lane."
+                        .to_string()
+                }
+                StudioArtifactLifecycleState::Planned
+                | StudioArtifactLifecycleState::Materializing
+                | StudioArtifactLifecycleState::Rendering
+                | StudioArtifactLifecycleState::Implementing
+                | StudioArtifactLifecycleState::Verifying => {
+                    "Studio is executing the shared non-artifact route.".to_string()
+                }
+                StudioArtifactLifecycleState::Ready | StudioArtifactLifecycleState::Partial => {
+                    "Studio completed the shared non-artifact route and is ready for the next request."
+                        .to_string()
+                }
+                StudioArtifactLifecycleState::Blocked => {
+                    "Studio could not continue the non-artifact route without clarification."
+                        .to_string()
+                }
+                StudioArtifactLifecycleState::Failed => {
+                    "Studio could not complete the non-artifact route.".to_string()
+                }
+            };
         }
         match studio_session.lifecycle_state {
             StudioArtifactLifecycleState::Draft => {
@@ -279,7 +319,7 @@ pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Opt
         }
         StudioArtifactLifecycleState::Blocked => {
             task.phase = if task.clarification_request.is_some() {
-                AgentPhase::Complete
+                AgentPhase::Running
             } else {
                 AgentPhase::Failed
             };

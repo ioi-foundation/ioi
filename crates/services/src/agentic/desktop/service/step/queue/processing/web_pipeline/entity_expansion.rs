@@ -273,6 +273,7 @@ async fn synthesize_grounded_entity_targets(
             temperature: 0.0,
             json_mode: true,
             max_tokens: WEB_PIPELINE_LOCAL_BUSINESS_EXPANSION_MAX_TOKENS,
+            stop_sequences: Vec::new(),
             required_finality_tier: Default::default(),
             sealed_finality_proof: None,
             canonical_collapse_object: None,

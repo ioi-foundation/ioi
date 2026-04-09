@@ -22,16 +22,90 @@ type ConversationTimelineProps = {
   visualHash?: string | null;
   sourceDurationLabel?: string;
   showInitialLoader: boolean;
+  suppressPendingIndicators?: boolean;
   icons: {
+    artifacts: React.ReactNode;
     sparkles: React.ReactNode;
   };
-  onDownloadContext: () => Promise<void> | void;
+  onExportTraceBundle: () => Promise<void> | void;
   onOpenArtifactHub: (
     preferredView?: ArtifactHubViewKey,
     preferredTurnId?: string | null,
   ) => void;
   onOpenSourceSummary: (summary: SourceSummary) => void;
+  activeStudioArtifactSessionId?: string | null;
+  onOpenStudioArtifact?: (studioSessionId: string) => void;
 };
+
+function compactArtifactClassLabel(value: string): string {
+  switch (value) {
+    case "workspace_project":
+    case "interactive_single_file":
+    case "code_patch":
+      return "Code";
+    case "document":
+      return "Document";
+    case "visual":
+      return "Visual";
+    case "downloadable_file":
+      return "File";
+    case "compound_bundle":
+    case "report_bundle":
+      return "Bundle";
+    default:
+      return "Artifact";
+  }
+}
+
+function compactRendererLabel(value: string): string {
+  switch (value) {
+    case "html_iframe":
+      return "HTML";
+    case "jsx_sandbox":
+      return "JSX";
+    case "workspace_surface":
+      return "Workspace";
+    case "bundle_manifest":
+      return "Bundle";
+    case "download_card":
+      return "Download";
+    case "pdf_embed":
+      return "PDF";
+    default:
+      return value
+        .replace(/[_-]+/g, " ")
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+  }
+}
+
+function artifactReplyText(turnContext: TurnContext | null): string | null {
+  if (!turnContext || turnContext.artifacts.length === 0) {
+    return null;
+  }
+
+  if (turnContext.artifacts.length === 1) {
+    const artifact = turnContext.artifacts[0];
+    if (!artifact) {
+      return null;
+    }
+    const summary =
+      artifact.studioSession.verifiedReply.summary.trim() || artifact.summary.trim();
+
+    return summary.length > 0
+      ? `Created **${artifact.title}**. ${summary}`
+      : `Created **${artifact.title}**. Open it from the artifact card below.`;
+  }
+
+  const previewTitles = turnContext.artifacts
+    .slice(0, 3)
+    .map((artifact) => `**${artifact.title}**`)
+    .join(", ");
+  const overflowCount = turnContext.artifacts.length - Math.min(turnContext.artifacts.length, 3);
+  const overflowSuffix =
+    overflowCount > 0 ? `, and ${overflowCount} more` : "";
+
+  return `Created ${turnContext.artifacts.length} artifacts for this request: ${previewTitles}${overflowSuffix}. Open one from the cards below.`;
+}
 
 export function ConversationTimeline({
   conversationTurns,
@@ -43,11 +117,40 @@ export function ConversationTimeline({
   visualHash,
   sourceDurationLabel,
   showInitialLoader,
+  suppressPendingIndicators = false,
   icons,
-  onDownloadContext,
+  onExportTraceBundle,
   onOpenArtifactHub,
   onOpenSourceSummary,
+  activeStudioArtifactSessionId = null,
+  onOpenStudioArtifact,
 }: ConversationTimelineProps) {
+  const normalizePendingReplyDetail = (
+    detail: string | undefined,
+    running: boolean,
+  ) => {
+    const fallback = running
+      ? "Thinking through the request."
+      : "Preparing a conversational reply.";
+
+    if (!detail) {
+      return fallback;
+    }
+
+    const trimmed = detail.trim();
+    const normalized = trimmed.toLowerCase();
+    if (
+      normalized.includes("routed this request to") ||
+      normalized.includes("shared execution lane") ||
+      normalized.includes("artifact renderer was invoked") ||
+      normalized.includes("route ready")
+    ) {
+      return fallback;
+    }
+
+    return trimmed;
+  };
+
   return (
     <>
       {conversationTurns.map((turn, index) => {
@@ -61,11 +164,30 @@ export function ConversationTimeline({
           isLatestAnsweredTurn &&
           !!turn.answer &&
           !!runPresentation.finalAnswer;
+        const showPendingRunAnswer =
+          isLatestTurn &&
+          !!turn.prompt &&
+          !turn.answer &&
+          !!runPresentation.finalAnswer &&
+          runPresentation.finalAnswer.message.timestamp >= turn.prompt.timestamp;
         const hasThoughtSummary = !!runPresentation.thoughtSummary;
         const hasPlanSummary = !!turnPlanSummary;
         const showLiveThinking =
-          isLatestTurn && !!turn.prompt && !turn.answer && isRunning;
-        const showExecutionRouteCard = !!turn.prompt && hasPlanSummary;
+          isLatestTurn &&
+          !!turn.prompt &&
+          !turn.answer &&
+          isRunning &&
+          !suppressPendingIndicators;
+        const showExecutionRouteCard =
+          !!turn.prompt && hasPlanSummary && !showLiveThinking;
+        const showAssistantPendingBubble =
+          isLatestTurn &&
+          !!turn.prompt &&
+          !turn.answer &&
+          !showPendingRunAnswer &&
+          !runPresentation.finalAnswer &&
+          !showExecutionRouteCard &&
+          !suppressPendingIndicators;
         const showThoughtTrigger =
           !showExecutionRouteCard &&
           !!turn.prompt &&
@@ -97,6 +219,17 @@ export function ConversationTimeline({
                   } captured`
                 : `${turnContext?.kernelEventCount || 0} events captured`;
         const worklogLabel = showLiveThinking ? "Working..." : "Worklog";
+        const pendingReplyDetail = normalizePendingReplyDetail(
+          currentStep,
+          showLiveThinking,
+        );
+        const inlineArtifactReply = artifactReplyText(turnContext);
+        const showArtifactReplyBubble =
+          !turn.answer &&
+          !!inlineArtifactReply &&
+          !showPendingRunAnswer &&
+          !showAssistantPendingBubble &&
+          !showLiveThinking;
 
         return (
           <React.Fragment key={turn.key}>
@@ -123,6 +256,21 @@ export function ConversationTimeline({
                   moments={turnContext?.executionMoments || []}
                 />
               </>
+            )}
+
+            {showAssistantPendingBubble && (
+              <div
+                className="spot-message agent spot-message--pending"
+                aria-live="polite"
+              >
+                <div className="spot-message--pending-shell">
+                  <span className="spot-message--pending-kicker">
+                    <span className="spot-message--pending-dot" />
+                    {showLiveThinking ? "Thinking" : "Preparing reply"}
+                  </span>
+                  <p>{pendingReplyDetail}</p>
+                </div>
+              </div>
             )}
 
             {showThoughtTrigger && (
@@ -192,7 +340,7 @@ export function ConversationTimeline({
                   answer={runPresentation.finalAnswer}
                   sourceSummary={runPresentation.sourceSummary}
                   sourceDurationLabel={sourceDurationLabel}
-                  onDownloadContext={onDownloadContext}
+                  onExportTraceBundle={onExportTraceBundle}
                   onOpenArtifacts={() =>
                     onOpenArtifactHub(
                       turnContext?.defaultView ||
@@ -211,6 +359,85 @@ export function ConversationTimeline({
                   <MarkdownMessage text={turn.answer.text} />
                 </div>
               ))}
+
+            {showArtifactReplyBubble && inlineArtifactReply ? (
+              <div className="spot-message agent">
+                <MarkdownMessage text={inlineArtifactReply} />
+              </div>
+            ) : null}
+
+            {!turn.answer && showPendingRunAnswer && runPresentation.finalAnswer && (
+              <AnswerCard
+                answer={runPresentation.finalAnswer}
+                sourceSummary={runPresentation.sourceSummary}
+                sourceDurationLabel={sourceDurationLabel}
+                onExportTraceBundle={onExportTraceBundle}
+                onOpenArtifacts={() =>
+                  onOpenArtifactHub(
+                    turnContext?.defaultView ||
+                      (runPresentation.thoughtSummary
+                        ? "thoughts"
+                        : runPresentation.sourceSummary
+                          ? "sources"
+                          : "kernel_logs"),
+                    turnContext?.turnId || null,
+                  )
+                }
+                onOpenSources={onOpenSourceSummary}
+              />
+            )}
+
+            {turnContext &&
+            turnContext.artifacts.length > 0 &&
+            onOpenStudioArtifact ? (
+              <section
+                className="spot-conversation-artifacts"
+                aria-label="Turn artifacts"
+              >
+                <div className="spot-conversation-artifacts-head">
+                  <span>Artifacts</span>
+                  <small>
+                    {turnContext.artifacts.length}{" "}
+                    {turnContext.artifacts.length === 1 ? "project" : "projects"}
+                  </small>
+                </div>
+                <div className="spot-conversation-artifact-list">
+                  {turnContext.artifacts.map((artifact) => {
+                    const active =
+                      artifact.sessionId === activeStudioArtifactSessionId;
+                    return (
+                      <button
+                        key={artifact.key}
+                        type="button"
+                        className={`spot-conversation-artifact-card ${
+                          active ? "is-active" : ""
+                        }`}
+                        onClick={() => onOpenStudioArtifact(artifact.sessionId)}
+                        aria-pressed={active}
+                      >
+                        <span
+                          className="spot-conversation-artifact-icon"
+                          aria-hidden="true"
+                        >
+                          {icons.artifacts}
+                        </span>
+                        <span className="spot-conversation-artifact-copy">
+                          <strong>{artifact.title}</strong>
+                          <span>
+                            {compactArtifactClassLabel(artifact.artifactClass)} ·{" "}
+                            {compactRendererLabel(artifact.renderer)}
+                          </span>
+                        </span>
+                        <span className="spot-conversation-artifact-meta">
+                          {artifact.fileCount}{" "}
+                          {artifact.fileCount === 1 ? "file" : "files"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
           </React.Fragment>
         );
       })}
@@ -220,7 +447,7 @@ export function ConversationTimeline({
           answer={runPresentation.finalAnswer}
           sourceSummary={runPresentation.sourceSummary}
           sourceDurationLabel={sourceDurationLabel}
-          onDownloadContext={onDownloadContext}
+          onExportTraceBundle={onExportTraceBundle}
           onOpenArtifacts={() =>
             onOpenArtifactHub(
               runPresentation.thoughtSummary
@@ -234,7 +461,7 @@ export function ConversationTimeline({
         />
       )}
 
-      {showInitialLoader && (
+      {showInitialLoader && !suppressPendingIndicators && (
         <button
           className="spot-thinking-pill spot-thinking-pill--active"
           type="button"

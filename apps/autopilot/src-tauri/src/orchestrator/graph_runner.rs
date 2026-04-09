@@ -317,6 +317,10 @@ where
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_millis() as u64,
+            phase: None,
+            current_step: None,
+            resume_hint: None,
+            workspace_root: None,
         };
         save_local_session_summary(&memory_runtime, summary);
     }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { AgentRuntime, ConnectorSummary } from "@ioi/agent-ide";
 import type {
   AutomationPolicyMode,
+  CapabilityGovernanceRequest,
   ConnectorPolicyOverride,
   DataHandlingMode,
   GlobalPolicyDefaults,
@@ -9,47 +10,29 @@ import type {
   ShieldPolicyState,
 } from "../policyCenter";
 import {
+  buildPolicyIntentDeltaDeck,
+  buildPolicyDeltaDeck,
+  buildPolicySimulationDeck,
   buildConnectorPolicySummary,
   countActiveOverrides,
+  dataHandlingLabel,
   resetConnectorOverride,
   resolveConnectorPolicy,
   updateConnectorOverride,
 } from "../policyCenter";
+import { buildConnectorTrustProfile } from "./capabilities/model";
 
 interface ShieldPolicyViewProps {
   runtime: AgentRuntime;
   policyState: ShieldPolicyState;
   onChange: (next: ShieldPolicyState) => void;
+  governanceRequest?: CapabilityGovernanceRequest | null;
   focusedConnectorId?: string | null;
   onFocusConnector?: (connectorId: string | null) => void;
+  onApplyGovernanceRequest?: (next: ShieldPolicyState) => void;
+  onDismissGovernanceRequest?: () => void;
   onOpenIntegrations?: () => void;
 }
-
-const FALLBACK_CONNECTORS: ConnectorSummary[] = [
-  {
-    id: "mail.primary",
-    pluginId: "wallet_mail",
-    name: "Mail",
-    provider: "wallet.network",
-    category: "communication",
-    description: "Delegated inbox reads and safe outbound mail actions.",
-    status: "needs_auth",
-    authMode: "wallet_capability",
-    scopes: ["mail.read.latest", "mail.list.recent", "mail.reply"],
-  },
-  {
-    id: "google.workspace",
-    pluginId: "google_workspace",
-    name: "Google",
-    provider: "google",
-    category: "productivity",
-    description:
-      "Gmail, Calendar, Docs, Sheets, BigQuery, and durable Google automations.",
-    status: "connected",
-    authMode: "wallet_capability",
-    scopes: ["gmail", "calendar", "docs", "sheets", "bigquery", "automations"],
-  },
-];
 
 const DECISION_OPTIONS: Array<{ value: PolicyDecisionMode; label: string }> = [
   { value: "auto", label: "Auto-run" },
@@ -110,6 +93,36 @@ function automationSummary(value: AutomationPolicyMode): string {
   }
 }
 
+function simulationOutcomeLabel(value: "auto" | "gate" | "deny"): string {
+  switch (value) {
+    case "auto":
+      return "Auto-approved";
+    case "gate":
+      return "Approval gate";
+    case "deny":
+      return "Denied";
+    default:
+      return value;
+  }
+}
+
+function simulationSummaryLabel(value: "auto" | "gate" | "deny"): string {
+  switch (value) {
+    case "auto":
+      return "Auto";
+    case "gate":
+      return "Gates";
+    case "deny":
+      return "Denied";
+    default:
+      return value;
+  }
+}
+
+function deltaLabel(value: "wider" | "tighter"): string {
+  return value === "wider" ? "Wider authority" : "Tighter authority";
+}
+
 function PolicySelect<T extends string>({
   label,
   value,
@@ -145,27 +158,53 @@ export function ShieldPolicyView({
   runtime,
   policyState,
   onChange,
+  governanceRequest,
   focusedConnectorId,
   onFocusConnector,
+  onApplyGovernanceRequest,
+  onDismissGovernanceRequest,
   onOpenIntegrations,
 }: ShieldPolicyViewProps) {
-  const [connectors, setConnectors] =
-    useState<ConnectorSummary[]>(FALLBACK_CONNECTORS);
+  const [connectors, setConnectors] = useState<ConnectorSummary[]>([]);
+  const [connectorsLoading, setConnectorsLoading] = useState(true);
+  const [connectorsError, setConnectorsError] = useState<string | null>(null);
+  const [connectorsUnavailable, setConnectorsUnavailable] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<string>("global");
+  const effectivePolicyState = governanceRequest?.requestedState ?? policyState;
 
   useEffect(() => {
     let cancelled = false;
-    if (!runtime.getConnectors) return () => {};
+    if (!runtime.getConnectors) {
+      setConnectors([]);
+      setConnectorsLoading(false);
+      setConnectorsError(null);
+      setConnectorsUnavailable(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setConnectorsLoading(true);
+    setConnectorsError(null);
+    setConnectorsUnavailable(false);
 
     runtime
       .getConnectors()
       .then((items) => {
-        if (!cancelled && Array.isArray(items) && items.length > 0) {
-          setConnectors(items);
+        if (!cancelled) {
+          setConnectors(Array.isArray(items) ? items : []);
         }
       })
-      .catch(() => {
-        // Keep fallback connector list when runtime state is unavailable.
+      .catch((error) => {
+        if (!cancelled) {
+          setConnectors([]);
+          setConnectorsError(String(error));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setConnectorsLoading(false);
+        }
       });
 
     return () => {
@@ -174,41 +213,59 @@ export function ShieldPolicyView({
   }, [runtime]);
 
   useEffect(() => {
+    const requestConnectorId = governanceRequest?.connectorId ?? null;
+
     if (focusedConnectorId) {
       setSelectedTarget(focusedConnectorId);
       return;
     }
+    if (requestConnectorId) {
+      setSelectedTarget(requestConnectorId);
+      return;
+    }
     setSelectedTarget((current) => current || "global");
-  }, [focusedConnectorId]);
+  }, [focusedConnectorId, governanceRequest]);
 
   const selectedConnector = useMemo(
     () =>
       connectors.find((connector) => connector.id === selectedTarget) ?? null,
     [connectors, selectedTarget],
   );
+  const selectedConnectorMissing =
+    selectedTarget !== "global" && selectedConnector === null;
 
   const selectedPolicy = useMemo(() => {
     if (!selectedConnector) {
       return {
-        effective: policyState.global,
+        effective: effectivePolicyState.global,
         override: null,
         summary: {
           headline: "Global runtime defaults",
-          detail: `Reads ${decisionSummary(policyState.global.reads)} · Writes ${decisionSummary(
-            policyState.global.writes,
-          )} · Automations ${automationSummary(policyState.global.automations)}`,
+          detail: `Reads ${decisionSummary(effectivePolicyState.global.reads)} · Writes ${decisionSummary(
+            effectivePolicyState.global.writes,
+          )} · Automations ${automationSummary(effectivePolicyState.global.automations)}`,
         },
       };
     }
 
-    const resolved = resolveConnectorPolicy(policyState, selectedConnector.id);
+    const resolved = resolveConnectorPolicy(effectivePolicyState, selectedConnector.id);
     return {
       ...resolved,
-      summary: buildConnectorPolicySummary(policyState, selectedConnector.id),
+      summary: buildConnectorPolicySummary(effectivePolicyState, selectedConnector.id),
     };
-  }, [policyState, selectedConnector]);
+  }, [effectivePolicyState, selectedConnector]);
+  const trustProfile = useMemo(
+    () =>
+      selectedConnector
+        ? buildConnectorTrustProfile(selectedConnector, effectivePolicyState)
+        : null,
+    [effectivePolicyState, selectedConnector],
+  );
 
   const openTarget = (target: string) => {
+    if (governanceRequest && target !== selectedTarget) {
+      onDismissGovernanceRequest?.();
+    }
     setSelectedTarget(target);
     onFocusConnector?.(target === "global" ? null : target);
   };
@@ -238,10 +295,41 @@ export function ShieldPolicyView({
     );
   };
 
-  const activeOverrides = countActiveOverrides(policyState);
+  const activeOverrides = countActiveOverrides(effectivePolicyState);
   const connectorInheritsGlobal =
     selectedConnector &&
-    policyState.overrides[selectedConnector.id]?.inheritGlobal !== false;
+    effectivePolicyState.overrides[selectedConnector.id]?.inheritGlobal !== false;
+  const simulation = useMemo(
+    () =>
+      buildPolicySimulationDeck(
+        effectivePolicyState,
+        selectedConnectorMissing ? null : selectedConnector?.id ?? null,
+      ),
+    [effectivePolicyState, selectedConnector, selectedConnectorMissing],
+  );
+  const deltaDeck = useMemo(
+    () => {
+      if (!governanceRequest) {
+        return buildPolicyDeltaDeck(
+          policyState,
+          selectedConnectorMissing ? null : selectedConnector?.id ?? null,
+        );
+      }
+      return buildPolicyIntentDeltaDeck(
+        policyState,
+        governanceRequest.requestedState,
+        selectedConnectorMissing ? null : selectedConnector?.id ?? null,
+        {
+          baselineLabel: "Current effective posture",
+          nextLabel:
+            governanceRequest.action === "widen"
+              ? "Requested wider posture"
+              : "Requested baseline posture",
+        },
+      );
+    },
+    [governanceRequest, policyState, selectedConnector, selectedConnectorMissing],
+  );
   const scopeLabel = selectedConnector
     ? "Connector override"
     : "Global baseline";
@@ -250,6 +338,15 @@ export function ShieldPolicyView({
       ? "Inherited"
       : "Custom"
     : "Source of truth";
+  const preflightHasChanges = useMemo(
+    () =>
+      governanceRequest
+        ? JSON.stringify(governanceRequest.requestedState) !==
+          JSON.stringify(policyState)
+        : false,
+    [governanceRequest, policyState],
+  );
+  const policyMatrixLocked = Boolean(governanceRequest);
 
   return (
     <div className="shield-policy-view">
@@ -281,37 +378,59 @@ export function ShieldPolicyView({
               <strong>Connection overrides</strong>
               <span>{connectors.length} connections</span>
             </div>
-            {connectors.map((connector) => {
-              const summary = buildConnectorPolicySummary(
-                policyState,
-                connector.id,
-              );
-              const override = policyState.overrides[connector.id];
-              return (
-                <button
-                  key={connector.id}
-                  type="button"
-                  className={`shield-target-card ${selectedTarget === connector.id ? "active" : ""}`}
-                  onClick={() => openTarget(connector.id)}
-                >
-                  <div className="shield-target-head">
-                    <strong>{connector.name}</strong>
-                    <span
-                      className={`shield-status status-${connector.status}`}
-                    >
-                      {connectorStatusLabel(connector.status)}
-                    </span>
-                  </div>
-                  <span>{summary.headline}</span>
-                  <small>{summary.detail}</small>
-                  {override && !override.inheritGlobal ? (
-                    <em>Custom override</em>
-                  ) : (
-                    <em>Inheriting global</em>
-                  )}
-                </button>
-              );
-            })}
+            {connectorsLoading ? (
+              <div className="shield-target-card">
+                <strong>Loading live connectors</strong>
+                <small>Fetching connector policy objects from the runtime.</small>
+              </div>
+            ) : connectorsError ? (
+              <div className="shield-target-card">
+                <strong>Live connector catalog unavailable</strong>
+                <small>{connectorsError}</small>
+              </div>
+            ) : connectorsUnavailable ? (
+              <div className="shield-target-card">
+                <strong>Connector catalog not exposed</strong>
+                <small>This runtime does not expose live connector policy objects yet.</small>
+              </div>
+            ) : connectors.length === 0 ? (
+              <div className="shield-target-card">
+                <strong>No live connectors</strong>
+                <small>No connector-specific policy overrides are available yet.</small>
+              </div>
+            ) : (
+              connectors.map((connector) => {
+                const summary = buildConnectorPolicySummary(
+                  policyState,
+                  connector.id,
+                );
+                const override = policyState.overrides[connector.id];
+                return (
+                  <button
+                    key={connector.id}
+                    type="button"
+                    className={`shield-target-card ${selectedTarget === connector.id ? "active" : ""}`}
+                    onClick={() => openTarget(connector.id)}
+                  >
+                    <div className="shield-target-head">
+                      <strong>{connector.name}</strong>
+                      <span
+                        className={`shield-status status-${connector.status}`}
+                      >
+                        {connectorStatusLabel(connector.status)}
+                      </span>
+                    </div>
+                    <span>{summary.headline}</span>
+                    <small>{summary.detail}</small>
+                    {override && !override.inheritGlobal ? (
+                      <em>Custom override</em>
+                    ) : (
+                      <em>Inheriting global</em>
+                    )}
+                  </button>
+                );
+              })
+            )}
           </div>
         </aside>
 
@@ -319,17 +438,31 @@ export function ShieldPolicyView({
           <div className="shield-detail-head">
             <div>
               <span className="shield-kicker">
-                {selectedConnector ? "Connection policy" : "Global defaults"}
+                {selectedConnectorMissing
+                  ? "Connection unavailable"
+                  : selectedConnector
+                    ? "Connection policy"
+                    : "Global defaults"}
               </span>
               <h2>
-                {selectedConnector
+                {selectedConnectorMissing
+                  ? "Live connector override unavailable"
+                  : selectedConnector
                   ? `${selectedConnector.name} policy`
                   : "Global policy baseline"}
               </h2>
-              <p>{selectedPolicy.summary.detail}</p>
+              <p>
+                {selectedConnectorMissing
+                  ? connectorsError
+                    ? `Live connector catalog unavailable: ${connectorsError}`
+                    : connectorsUnavailable
+                      ? "This runtime does not expose live connector policy objects yet."
+                      : "The requested connector is not currently exposed by the runtime, so policy editing is showing the global baseline."
+                    : selectedPolicy.summary.detail}
+              </p>
             </div>
             <div className="shield-detail-actions">
-              {selectedConnector ? (
+              {selectedConnector && !governanceRequest ? (
                 <label className="shield-toggle">
                   <input
                     type="checkbox"
@@ -344,7 +477,7 @@ export function ShieldPolicyView({
                   <span>Inherit global defaults</span>
                 </label>
               ) : null}
-              {selectedConnector ? (
+              {selectedConnector && !governanceRequest ? (
                 <button
                   type="button"
                   className="shield-button shield-button-secondary"
@@ -369,6 +502,67 @@ export function ShieldPolicyView({
             </div>
           </div>
 
+          {governanceRequest ? (
+            <article className="shield-policy-card shield-request-card">
+              <div className="shield-policy-card-head">
+                <strong>{governanceRequest.headline}</strong>
+                <span>
+                  {governanceRequest.action === "widen"
+                    ? "Lease widening request"
+                    : "Return-to-baseline request"}
+                </span>
+              </div>
+              <p>{governanceRequest.detail}</p>
+              <div className="shield-request-meta">
+                <span>
+                  Policy target <strong>{governanceRequest.connectorLabel}</strong>
+                </span>
+                <span>
+                  Capability <strong>{governanceRequest.capabilityLabel}</strong>
+                </span>
+                {governanceRequest.governingLabel &&
+                governanceRequest.governingEntryId &&
+                governanceRequest.governingEntryId !==
+                  governanceRequest.capabilityEntryId ? (
+                  <span>
+                    Governing target{" "}
+                    <strong>{governanceRequest.governingLabel}</strong>
+                  </span>
+                ) : null}
+                <span>
+                  Authority <strong>{governanceRequest.authorityTierLabel}</strong>
+                </span>
+                <span>
+                  Lease <strong>{governanceRequest.leaseModeLabel ?? "Availability bound"}</strong>
+                </span>
+                <span>
+                  Source <strong>{governanceRequest.sourceLabel}</strong>
+                </span>
+              </div>
+              <small>{governanceRequest.whySelectable}</small>
+              <div className="shield-request-actions">
+                <button
+                  type="button"
+                  className="shield-button"
+                  disabled={!preflightHasChanges}
+                  onClick={() =>
+                    governanceRequest &&
+                    onApplyGovernanceRequest?.(governanceRequest.requestedState)
+                  }
+                >
+                  {preflightHasChanges ? "Apply request" : "Already at requested posture"}
+                </button>
+                <button
+                  type="button"
+                  className="shield-button shield-button-secondary"
+                  onClick={onDismissGovernanceRequest}
+                >
+                  Dismiss request
+                </button>
+              </div>
+            </article>
+          ) : null}
+
           <div
             className="shield-summary-row"
             role="list"
@@ -378,6 +572,12 @@ export function ShieldPolicyView({
               <span>Scope</span>
               <strong>{scopeLabel}</strong>
             </article>
+            {trustProfile ? (
+              <article className="shield-summary-chip" role="listitem">
+                <span>Authority tier</span>
+                <strong>{trustProfile.tierLabel}</strong>
+              </article>
+            ) : null}
             <article className="shield-summary-chip" role="listitem">
               <span>Inheritance</span>
               <strong>{inheritanceLabel}</strong>
@@ -413,84 +613,209 @@ export function ShieldPolicyView({
             </p>
           </div>
 
+          {trustProfile ? (
+            <article className="shield-policy-card shield-trust-card">
+              <div className="shield-policy-card-head">
+                <strong>Authority tier</strong>
+                <span>{trustProfile.governedProfileLabel}</span>
+              </div>
+              <div className="shield-trust-summary">
+                <strong>{trustProfile.tierLabel}</strong>
+                <p>{trustProfile.summary}</p>
+                <small>{trustProfile.detail}</small>
+              </div>
+              <div className="shield-trust-signals">
+                {trustProfile.signals.map((signal) => (
+                  <span key={signal} className="shield-trust-signal">
+                    {signal}
+                  </span>
+                ))}
+              </div>
+            </article>
+          ) : null}
+
           <article className="shield-policy-card">
-            <div className="shield-policy-card-head">
-              <strong>Policy matrix</strong>
-              <span>
-                {selectedConnector && connectorInheritsGlobal
-                  ? "Inherited from the global baseline"
-                  : "Editing the selected governance object"}
-              </span>
-            </div>
-            <div className="shield-form-grid">
-              <PolicySelect
-                label="Read actions"
-                value={selectedPolicy.effective.reads}
-                options={DECISION_OPTIONS}
-                disabled={Boolean(connectorInheritsGlobal)}
-                onChange={(value) =>
-                  selectedConnector
-                    ? updateOverride("reads", value)
+              <div className="shield-policy-card-head">
+                <strong>Policy matrix</strong>
+                <span>
+                  {policyMatrixLocked
+                    ? "Previewing the requested posture before it is persisted"
+                    : selectedConnector && connectorInheritsGlobal
+                      ? "Inherited from the global baseline"
+                    : "Editing the selected governance object"}
+                </span>
+              </div>
+              <div className="shield-form-grid">
+                <PolicySelect
+                  label="Read actions"
+                  value={selectedPolicy.effective.reads}
+                  options={DECISION_OPTIONS}
+                  disabled={policyMatrixLocked || Boolean(connectorInheritsGlobal)}
+                  onChange={(value) =>
+                    selectedConnector
+                      ? updateOverride("reads", value)
                     : updateGlobal("reads", value)
                 }
               />
               <PolicySelect
-                label="Write actions"
-                value={selectedPolicy.effective.writes}
-                options={DECISION_OPTIONS}
-                disabled={Boolean(connectorInheritsGlobal)}
-                onChange={(value) =>
-                  selectedConnector
-                    ? updateOverride("writes", value)
+                  label="Write actions"
+                  value={selectedPolicy.effective.writes}
+                  options={DECISION_OPTIONS}
+                  disabled={policyMatrixLocked || Boolean(connectorInheritsGlobal)}
+                  onChange={(value) =>
+                    selectedConnector
+                      ? updateOverride("writes", value)
                     : updateGlobal("writes", value)
                 }
               />
               <PolicySelect
-                label="Admin actions"
-                value={selectedPolicy.effective.admin}
-                options={DECISION_OPTIONS}
-                disabled={Boolean(connectorInheritsGlobal)}
-                onChange={(value) =>
-                  selectedConnector
-                    ? updateOverride("admin", value)
+                  label="Admin actions"
+                  value={selectedPolicy.effective.admin}
+                  options={DECISION_OPTIONS}
+                  disabled={policyMatrixLocked || Boolean(connectorInheritsGlobal)}
+                  onChange={(value) =>
+                    selectedConnector
+                      ? updateOverride("admin", value)
                     : updateGlobal("admin", value)
                 }
               />
               <PolicySelect
-                label="Expert / raw actions"
-                value={selectedPolicy.effective.expert}
-                options={DECISION_OPTIONS}
-                disabled={Boolean(connectorInheritsGlobal)}
-                onChange={(value) =>
-                  selectedConnector
-                    ? updateOverride("expert", value)
+                  label="Expert / raw actions"
+                  value={selectedPolicy.effective.expert}
+                  options={DECISION_OPTIONS}
+                  disabled={policyMatrixLocked || Boolean(connectorInheritsGlobal)}
+                  onChange={(value) =>
+                    selectedConnector
+                      ? updateOverride("expert", value)
                     : updateGlobal("expert", value)
                 }
               />
               <PolicySelect
-                label="Automations"
-                value={selectedPolicy.effective.automations}
-                options={AUTOMATION_OPTIONS}
-                disabled={Boolean(connectorInheritsGlobal)}
-                onChange={(value) =>
-                  selectedConnector
-                    ? updateOverride("automations", value)
+                  label="Automations"
+                  value={selectedPolicy.effective.automations}
+                  options={AUTOMATION_OPTIONS}
+                  disabled={policyMatrixLocked || Boolean(connectorInheritsGlobal)}
+                  onChange={(value) =>
+                    selectedConnector
+                      ? updateOverride("automations", value)
                     : updateGlobal("automations", value)
                 }
               />
               <PolicySelect
-                label="Artifact handling"
-                value={selectedPolicy.effective.dataHandling}
-                options={DATA_OPTIONS}
-                disabled={Boolean(connectorInheritsGlobal)}
-                onChange={(value) =>
-                  selectedConnector
-                    ? updateOverride("dataHandling", value)
+                  label="Artifact handling"
+                  value={selectedPolicy.effective.dataHandling}
+                  options={DATA_OPTIONS}
+                  disabled={policyMatrixLocked || Boolean(connectorInheritsGlobal)}
+                  onChange={(value) =>
+                    selectedConnector
+                      ? updateOverride("dataHandling", value)
                     : updateGlobal("dataHandling", value)
                 }
               />
             </div>
           </article>
+
+          <div className="shield-inspector-grid">
+            <article className="shield-policy-card">
+              <div className="shield-policy-card-head">
+                <strong>Preflight simulation</strong>
+                <span>
+                  {governanceRequest
+                    ? "Truthful preview from the requested governance object"
+                    : "Truthful preview from the current runtime policy object"}
+                </span>
+              </div>
+
+              <div className="shield-preflight-summary">
+                {(["auto", "gate", "deny"] as const).map((outcome) => (
+                  <article
+                    key={outcome}
+                    className="shield-summary-chip"
+                    role="listitem"
+                  >
+                    <span>{simulationSummaryLabel(outcome)}</span>
+                    <strong>{simulation.summary[outcome]}</strong>
+                  </article>
+                ))}
+                <article className="shield-summary-chip" role="listitem">
+                  <span>Artifacts</span>
+                  <strong>
+                    {dataHandlingLabel(simulation.artifactHandling.mode)}
+                  </strong>
+                </article>
+              </div>
+
+              <div className="shield-preflight-list">
+                {simulation.scenarios.map((scenario) => (
+                  <article
+                    key={scenario.id}
+                    className={`shield-preflight-card outcome-${scenario.outcome}`}
+                  >
+                    <div className="shield-preflight-card-head">
+                      <strong>{scenario.label}</strong>
+                      <span className={`shield-outcome-badge outcome-${scenario.outcome}`}>
+                        {simulationOutcomeLabel(scenario.outcome)}
+                      </span>
+                    </div>
+                    <p>{scenario.detail}</p>
+                    <small>{scenario.rationale}</small>
+                  </article>
+                ))}
+                <article className="shield-preflight-card outcome-artifact">
+                  <div className="shield-preflight-card-head">
+                    <strong>Artifact handling</strong>
+                    <span className="shield-outcome-badge outcome-artifact">
+                      {simulation.artifactHandling.label}
+                    </span>
+                  </div>
+                  <p>{simulation.artifactHandling.detail}</p>
+                  <small>
+                    This posture is part of the persisted policy object, even
+                    though it is not an approval gate by itself.
+                  </small>
+                </article>
+              </div>
+            </article>
+
+            <article className="shield-policy-card">
+              <div className="shield-policy-card-head">
+                <strong>Policy delta</strong>
+                <span>
+                  {deltaDeck.baselineLabel} to {deltaDeck.nextLabel}
+                </span>
+              </div>
+
+              {deltaDeck.items.length === 0 ? (
+                <div className="shield-inline-empty">
+                  <strong>No delta from the baseline.</strong>
+                  <p>
+                    This scope is currently aligned with{" "}
+                    {deltaDeck.baselineLabel.toLowerCase()}.
+                  </p>
+                </div>
+              ) : (
+                <div className="shield-delta-list">
+                  {deltaDeck.items.map((item) => (
+                    <article
+                      key={item.id}
+                      className={`shield-delta-card delta-${item.change}`}
+                    >
+                      <div className="shield-preflight-card-head">
+                        <strong>{item.label}</strong>
+                        <span className={`shield-delta-badge delta-${item.change}`}>
+                          {deltaLabel(item.change)}
+                        </span>
+                      </div>
+                      <p>
+                        {item.baseline} to {item.next}
+                      </p>
+                      <small>{item.detail}</small>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+          </div>
 
           <details className="shield-help-panel">
             <summary>Policy notes</summary>

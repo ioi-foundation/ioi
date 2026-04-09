@@ -39,7 +39,7 @@ impl AgentBackend {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskSet {
-    Smoke,
+    Baseline,
     Core,
     Stress,
     Catalog,
@@ -53,7 +53,7 @@ pub enum TaskSet {
 impl TaskSet {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Smoke => "smoke",
+            Self::Baseline => "baseline",
             Self::Core => "core",
             Self::Stress => "stress",
             Self::Catalog => "catalog",

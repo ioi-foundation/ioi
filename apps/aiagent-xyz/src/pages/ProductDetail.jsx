@@ -106,9 +106,9 @@ export default function ProductDetail() {
         
         {/* Breadcrumbs */}
         <div className="text-sm text-slate-500 mb-6">
-          <Link to="/" className="hover:text-blue-600">Marketplace</Link> 
+          <Link to="/" className="hover:text-blue-600">Explore</Link> 
           <span className="mx-2">/</span>
-          <span>Agents</span>
+          <span>Listings</span>
           <span className="mx-2">/</span>
           <span className="text-slate-900 font-medium">{agentData.name}</span>
         </div>
@@ -193,7 +193,7 @@ export default function ProductDetail() {
                 {activeTab === 'overview' && (
                   <div className="space-y-8">
                     <div>
-                      <h3 className="text-lg font-bold text-slate-900 mb-3">About this Agent</h3>
+                      <h3 className="text-lg font-bold text-slate-900 mb-3">About this Capability</h3>
                       <p className="text-slate-600 leading-relaxed">
                         {agentData.description}
                       </p>

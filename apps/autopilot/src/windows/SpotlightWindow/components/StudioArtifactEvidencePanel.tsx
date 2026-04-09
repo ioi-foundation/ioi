@@ -1,13 +1,83 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
-import type { StudioArtifactRevision } from "../../../types";
+import type {
+  SkillDetailView,
+  StudioArtifactRevision,
+  StudioArtifactSelectedSkill,
+} from "../../../types";
+import {
+  resolveCapabilityRegistryEntryForSelectedArtifactSkill,
+  resolveExtensionManifestForSelectedSkill,
+  useSpotlightCapabilityRegistry,
+} from "../hooks/useSpotlightCapabilityRegistry";
 import {
   formatRuntimeProvenance,
   formatStatusLabel,
   type ArtifactEvidencePanelProps,
   type StudioArtifactRevisionComparison,
 } from "./studioArtifactSurfaceShared";
+
+interface SelectedSkillRuntimeContext {
+  detail: SkillDetailView | null;
+  error: string | null;
+}
+
+function stripMarkdownToSummary(markdown?: string | null): string | null {
+  if (!markdown) {
+    return null;
+  }
+
+  const normalized = markdown
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"))
+    .join(" ")
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+    .replace(/[`*_>~-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return normalized || null;
+}
+
+function formatBasisPoints(basisPoints: number): string {
+  return `${Math.round(basisPoints / 100)}%`;
+}
+
+function sourceLabelForSkill(
+  skill: StudioArtifactSelectedSkill,
+  detail: SkillDetailView | null,
+): string {
+  if (detail?.source_registry_label) {
+    return detail.source_registry_label;
+  }
+  return formatStatusLabel(skill.sourceType);
+}
+
+function sourcePathForSkill(
+  skill: StudioArtifactSelectedSkill,
+  detail: SkillDetailView | null,
+): string | null {
+  return (
+    detail?.source_registry_relative_path ??
+    detail?.relative_path ??
+    skill.relativePath ??
+    null
+  );
+}
+
+function sourceLocationForSkill(
+  skill: StudioArtifactSelectedSkill,
+  detail: SkillDetailView | null,
+): string {
+  const fragments = [
+    sourceLabelForSkill(skill, detail),
+    detail?.source_registry_uri ?? null,
+    sourcePathForSkill(skill, detail),
+  ].filter((value): value is string => Boolean(value));
+  return fragments.join(" · ");
+}
 
 export function StudioArtifactEvidencePanel({
   manifest,
@@ -26,24 +96,74 @@ export function StudioArtifactEvidencePanel({
   const artifactIr = studioSession.materialization.artifactIr ?? null;
   const selectedSkills = studioSession.materialization.selectedSkills ?? [];
   const judge = studioSession.materialization.judge ?? null;
+  const executionEnvelope = studioSession.materialization.executionEnvelope ?? null;
+  const swarmPlan = studioSession.materialization.swarmPlan ?? executionEnvelope?.plan ?? null;
+  const swarmExecution =
+    studioSession.materialization.swarmExecution ??
+    executionEnvelope?.executionSummary ??
+    null;
+  const swarmWorkerReceipts =
+    studioSession.materialization.swarmWorkerReceipts ??
+    executionEnvelope?.workerReceipts ??
+    [];
+  const swarmChangeReceipts =
+    studioSession.materialization.swarmChangeReceipts ??
+    executionEnvelope?.changeReceipts ??
+    studioSession.materialization.swarmPatchReceipts ??
+    [];
+  const swarmMergeReceipts =
+    studioSession.materialization.swarmMergeReceipts ??
+    executionEnvelope?.mergeReceipts ??
+    [];
+  const swarmVerificationReceipts =
+    studioSession.materialization.swarmVerificationReceipts ??
+    executionEnvelope?.verificationReceipts ??
+    [];
+  const graphMutationReceipts = executionEnvelope?.graphMutationReceipts ?? [];
+  const dispatchBatches = executionEnvelope?.dispatchBatches ?? [];
+  const repairReceipts = executionEnvelope?.repairReceipts ?? [];
+  const replanReceipts = executionEnvelope?.replanReceipts ?? [];
+  const hasSwarmExecution = Boolean(
+    swarmExecution?.enabled || swarmPlan || executionEnvelope,
+  );
   const candidates = studioSession.materialization.candidateSummaries ?? [];
   const tasteMemory = studioSession.tasteMemory ?? null;
-  const repairPassCount = candidates.filter(
-    (candidate) =>
-      candidate.convergence && candidate.convergence.passKind !== "initial",
-  ).length;
+  const repairPassCount = hasSwarmExecution
+    ? swarmChangeReceipts.filter(
+        (receipt) =>
+          (receipt.workItemId.startsWith("repair-pass-") ||
+            receipt.workItemId === "repair") &&
+          receipt.operationCount > 0,
+      ).length
+    : candidates.filter(
+        (candidate) =>
+          candidate.convergence && candidate.convergence.passKind !== "initial",
+      ).length;
   const winningCandidate =
-    candidates.find((candidate) => candidate.selected) ??
+    !hasSwarmExecution
+      ? candidates.find((candidate) => candidate.selected) ??
     (studioSession.materialization.winningCandidateId
       ? (candidates.find(
           (candidate) =>
             candidate.candidateId ===
             studioSession.materialization.winningCandidateId,
         ) ?? null)
-      : null);
+      : null)
+      : null;
   const [comparison, setComparison] =
     useState<StudioArtifactRevisionComparison | null>(null);
   const [revisionBusy, setRevisionBusy] = useState<string | null>(null);
+  const [selectedSkillRuntimeContext, setSelectedSkillRuntimeContext] =
+    useState<Record<string, SelectedSkillRuntimeContext>>({});
+  const [selectedSkillDetailStatus, setSelectedSkillDetailStatus] = useState<
+    "idle" | "loading" | "ready"
+  >("idle");
+  const {
+    snapshot: capabilityRegistrySnapshot,
+    status: capabilityRegistryStatus,
+    error: capabilityRegistryError,
+    entryLookup: capabilityRegistryEntryLookup,
+  } = useSpotlightCapabilityRegistry(selectedSkills.length > 0);
   const selectedSkillNames = selectedSkills
     .map((skill) => skill.name)
     .slice(0, 3);
@@ -53,14 +173,104 @@ export function StudioArtifactEvidencePanel({
   const judgeHeadline = judge
     ? formatStatusLabel(judge.classification)
     : "Judge pending";
-  const deliveryHeadline = `${evidence.length} file${evidence.length === 1 ? "" : "s"} · ${
-    receipts.length
-  } receipt${receipts.length === 1 ? "" : "s"}`;
+  const deliveryHeadline = hasSwarmExecution
+    ? `${swarmWorkerReceipts.length} worker receipt${
+        swarmWorkerReceipts.length === 1 ? "" : "s"
+      } · ${receipts.length} receipt${receipts.length === 1 ? "" : "s"}`
+    : `${evidence.length} file${evidence.length === 1 ? "" : "s"} · ${
+        receipts.length
+      } receipt${receipts.length === 1 ? "" : "s"}`;
   const contextHeadline = selectedSkills.length
     ? `${selectedSkills.length} skill${selectedSkills.length === 1 ? "" : "s"} selected`
     : brief
       ? brief.subjectDomain
       : "Context pending";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (selectedSkills.length === 0) {
+      setSelectedSkillRuntimeContext({});
+      setSelectedSkillDetailStatus("idle");
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setSelectedSkillDetailStatus("loading");
+    void Promise.all(
+      selectedSkills.map(async (skill) => {
+        try {
+          const detail = await invoke<SkillDetailView>("get_skill_detail", {
+            skillHash: skill.skillHash,
+          });
+          return [skill.skillHash, { detail, error: null }] as const;
+        } catch (error) {
+          return [
+            skill.skillHash,
+            {
+              detail: null,
+              error:
+                error instanceof Error ? error.message : String(error ?? ""),
+            },
+          ] as const;
+        }
+      }),
+    ).then((detailEntries) => {
+      if (cancelled) {
+        return;
+      }
+      setSelectedSkillRuntimeContext(Object.fromEntries(detailEntries));
+      setSelectedSkillDetailStatus("ready");
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedSkills]);
+
+  const selectionContextStatus =
+    selectedSkills.length === 0
+      ? "idle"
+      : capabilityRegistryStatus === "loading" ||
+          selectedSkillDetailStatus === "loading"
+        ? "loading"
+        : "ready";
+
+  const selectedSkillExplainability = useMemo(
+    () =>
+      selectedSkills.map((skill) => {
+        const runtimeContext = selectedSkillRuntimeContext[skill.skillHash] ?? {
+          detail: null,
+          error: null,
+        };
+        const extension = resolveExtensionManifestForSelectedSkill(
+          skill,
+          runtimeContext.detail,
+          capabilityRegistrySnapshot?.extensionManifests ?? [],
+        );
+        return {
+          skill,
+          detail: runtimeContext.detail,
+          error: runtimeContext.error,
+          extension,
+          registryEntry: resolveCapabilityRegistryEntryForSelectedArtifactSkill(
+            capabilityRegistrySnapshot,
+            capabilityRegistryEntryLookup,
+            skill,
+            runtimeContext.detail,
+            extension,
+          ),
+          guidanceSummary: stripMarkdownToSummary(skill.guidanceMarkdown),
+        };
+      }),
+    [
+      capabilityRegistryEntryLookup,
+      capabilityRegistrySnapshot,
+      selectedSkills,
+      selectedSkillRuntimeContext,
+    ],
+  );
 
   const compareRevision = async (revision: StudioArtifactRevision) => {
     if (!activeRevisionId || activeRevisionId === revision.revisionId) {
@@ -150,7 +360,11 @@ export function StudioArtifactEvidencePanel({
             <span>Delivery</span>
             <strong>{deliveryHeadline}</strong>
             <p>
-              {winningCandidate
+              {hasSwarmExecution
+                ? `${swarmExecution?.adapterLabel ?? "Swarm"} · ${
+                    swarmExecution?.completedWorkItems ?? 0
+                  }/${swarmExecution?.totalWorkItems ?? 0} work items completed`
+                : winningCandidate
                 ? `Winner ${winningCandidate.candidateId}${
                     studioSession.materialization.winningCandidateRationale
                       ? ` · ${studioSession.materialization.winningCandidateRationale}`
@@ -162,6 +376,11 @@ export function StudioArtifactEvidencePanel({
               {revisions.length} revision{revisions.length === 1 ? "" : "s"} ·{" "}
               {repairPassCount} repair pass{repairPassCount === 1 ? "" : "es"}
             </p>
+            {hasSwarmExecution && swarmExecution?.activeWorkerRole ? (
+              <p>
+                Active role: {formatStatusLabel(swarmExecution.activeWorkerRole)}
+              </p>
+            ) : null}
             {workspaceActivity[0]?.detail ? (
               <p>{workspaceActivity[0].detail}</p>
             ) : null}
@@ -303,17 +522,145 @@ export function StudioArtifactEvidencePanel({
 
       {selectedSkills.length ? (
         <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Selected skills</span>
-          <div className="studio-artifact-note-list">
-            {selectedSkills.map((skill) => (
-              <p key={skill.skillHash}>
-                <strong>{skill.name}</strong>:{" "}
-                {skill.matchedNeedKinds.join(" · ")}
-                {skill.guidanceMarkdown
-                  ? ` · ${skill.guidanceMarkdown.split("\n")[0]}`
-                  : ""}
-              </p>
-            ))}
+          <span className="studio-artifact-panel-label">
+            Selection explainability
+          </span>
+          <p>
+            Why the runtime selected each reusable behavior and where that
+            behavior came from during this artifact run.
+          </p>
+          {selectionContextStatus === "loading" ? (
+            <p>Loading live capability fabric, source registry, and skill detail...</p>
+          ) : null}
+          {capabilityRegistryStatus === "error" && !capabilityRegistrySnapshot ? (
+            <p>
+              Capability fabric unavailable right now:{" "}
+              {capabilityRegistryError ?? "Registry snapshot failed to load."}
+            </p>
+          ) : null}
+          <div className="studio-artifact-selection-list">
+            {selectedSkillExplainability.map(
+              ({
+                skill,
+                detail,
+                error,
+                extension,
+                registryEntry,
+                guidanceSummary,
+              }) => (
+                <article
+                  key={skill.skillHash}
+                  className="studio-artifact-selection-card"
+                >
+                  <div className="studio-artifact-selection-head">
+                    <div>
+                      <strong>{skill.name}</strong>
+                      <p>{skill.description}</p>
+                    </div>
+                    <span className="studio-artifact-selection-pill">
+                      {registryEntry?.authority.tierLabel ??
+                        (extension
+                          ? "Extension-backed"
+                          : detail?.source_registry_label
+                            ? "Source-backed"
+                            : formatStatusLabel(skill.sourceType))}
+                    </span>
+                  </div>
+                  <div className="studio-artifact-selection-meta">
+                    {skill.matchedNeedKinds.length ? (
+                      <span>
+                        Matched{" "}
+                        {skill.matchedNeedKinds
+                          .map((kind) => formatStatusLabel(kind))
+                          .join(" · ")}
+                      </span>
+                    ) : null}
+                    {skill.matchedNeedIds.length ? (
+                      <span>
+                        Need ids {skill.matchedNeedIds.join(" · ")}
+                      </span>
+                    ) : null}
+                    <span>
+                      Reliability {formatBasisPoints(skill.reliabilityBps)}
+                    </span>
+                    <span>
+                      Semantic {formatBasisPoints(skill.semanticScoreBps)}
+                    </span>
+                    <span>
+                      Adjusted {formatBasisPoints(skill.adjustedScoreBps)}
+                    </span>
+                    {registryEntry?.lease.runtimeTargetLabel ? (
+                      <span>{registryEntry.lease.runtimeTargetLabel}</span>
+                    ) : null}
+                    {registryEntry?.sourceLabel ? (
+                      <span>{registryEntry.sourceLabel}</span>
+                    ) : null}
+                  </div>
+                  <p>
+                    <strong>Selected because:</strong> {skill.matchRationale}
+                  </p>
+                  {registryEntry ? (
+                    <>
+                      <p>
+                        <strong>Capability fabric:</strong>{" "}
+                        {registryEntry.whySelectable}
+                      </p>
+                      <div className="studio-artifact-selection-fabric">
+                        <article className="studio-artifact-selection-fabric-card">
+                          <span>Authority tier</span>
+                          <strong>{registryEntry.authority.tierLabel}</strong>
+                          <p>{registryEntry.authority.summary}</p>
+                        </article>
+                        <article className="studio-artifact-selection-fabric-card">
+                          <span>Lease semantics</span>
+                          <strong>
+                            {registryEntry.lease.modeLabel ??
+                              registryEntry.lease.availabilityLabel}
+                          </strong>
+                          <p>{registryEntry.lease.summary}</p>
+                        </article>
+                      </div>
+                      <div className="studio-artifact-selection-signals">
+                        {[
+                          ...registryEntry.authority.signals,
+                          ...registryEntry.lease.signals,
+                        ]
+                          .slice(0, 6)
+                          .map((signal) => (
+                            <span
+                              key={`${skill.skillHash}-${signal}`}
+                              className="studio-artifact-selection-signal"
+                            >
+                              {signal}
+                            </span>
+                          ))}
+                      </div>
+                    </>
+                  ) : null}
+                  {guidanceSummary ? (
+                    <p>
+                      <strong>Published guidance:</strong> {guidanceSummary}
+                    </p>
+                  ) : null}
+                  <p>
+                    <strong>Source:</strong>{" "}
+                    {sourceLocationForSkill(skill, detail)}
+                  </p>
+                  {extension ? (
+                    <p>
+                      <strong>Extension manifest:</strong>{" "}
+                      {extension.displayName ?? extension.name} ·{" "}
+                      {extension.manifestPath}
+                    </p>
+                  ) : null}
+                  {error ? (
+                    <p>
+                      <strong>Live detail:</strong> {error}
+                    </p>
+                  ) : null}
+                </article>
+              ),
+            )}
           </div>
         </section>
       ) : null}
@@ -374,7 +721,254 @@ export function StudioArtifactEvidencePanel({
         </section>
       ) : null}
 
-      {candidates.length ? (
+      {hasSwarmExecution ? (
+        <>
+          {swarmPlan ? (
+            <section className="studio-artifact-inspector-section">
+              <span className="studio-artifact-panel-label">Execution plan</span>
+              <div className="studio-artifact-note-list">
+                <p>
+                  <strong>Strategy:</strong>{" "}
+                  {executionEnvelope?.strategy
+                    ? formatStatusLabel(executionEnvelope.strategy)
+                    : swarmPlan.strategy}{" "}
+                  · {swarmPlan.adapterLabel}
+                </p>
+                {executionEnvelope?.executionDomain ? (
+                  <p>
+                    <strong>Domain:</strong> {executionEnvelope.executionDomain}
+                    {executionEnvelope.domainKind
+                      ? ` · ${formatStatusLabel(executionEnvelope.domainKind)}`
+                      : ""}
+                  </p>
+                ) : null}
+                <p>
+                  <strong>Parallelism:</strong> {swarmPlan.parallelismMode}
+                </p>
+                <p>
+                  <strong>Work graph:</strong> {swarmPlan.workItems.length} item
+                  {swarmPlan.workItems.length === 1 ? "" : "s"}
+                </p>
+                {swarmPlan.workItems.map((item) => (
+                  <div key={item.id} className="studio-artifact-activity">
+                    <div>
+                      <strong>
+                        {formatStatusLabel(item.role)} · {item.title}
+                      </strong>
+                      <p>{item.summary}</p>
+                      {item.spawnedFromId ? (
+                        <p>
+                          Spawned from <strong>{item.spawnedFromId}</strong>
+                        </p>
+                      ) : null}
+                      {item.acceptanceCriteria.length ? (
+                        <p>{item.acceptanceCriteria.join(" · ")}</p>
+                      ) : null}
+                      {item.leaseRequirements.length ? (
+                        <p>
+                          Leases:{" "}
+                          {item.leaseRequirements
+                            .map(
+                              (lease) =>
+                                `${formatStatusLabel(lease.mode)} ${lease.target}`,
+                            )
+                            .join(" · ")}
+                        </p>
+                      ) : null}
+                      {item.dependencyIds.length || item.blockedOnIds.length ? (
+                        <p>
+                          {item.dependencyIds.length
+                            ? `Depends on ${item.dependencyIds.join(" · ")}`
+                            : ""}
+                          {item.dependencyIds.length && item.blockedOnIds.length
+                            ? " · "
+                            : ""}
+                          {item.blockedOnIds.length
+                            ? `Blocked on ${item.blockedOnIds.join(" · ")}`
+                            : ""}
+                        </p>
+                      ) : null}
+                      {item.verificationPolicy || item.retryBudget !== null ? (
+                        <p>
+                          {item.verificationPolicy
+                            ? `Verification ${formatStatusLabel(item.verificationPolicy)}`
+                            : ""}
+                          {item.verificationPolicy &&
+                          item.retryBudget !== null &&
+                          item.retryBudget !== undefined
+                            ? " · "
+                            : ""}
+                          {item.retryBudget !== null &&
+                          item.retryBudget !== undefined
+                            ? `Retry budget ${item.retryBudget}`
+                            : ""}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span>{formatStatusLabel(item.status)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {swarmWorkerReceipts.length ? (
+            <section className="studio-artifact-inspector-section">
+              <span className="studio-artifact-panel-label">Worker receipts</span>
+              <div className="studio-artifact-note-list">
+                {swarmWorkerReceipts.map((receipt) => (
+                  <div
+                    key={`${receipt.workItemId}-${receipt.startedAt}`}
+                    className="studio-artifact-activity"
+                  >
+                    <div>
+                      <strong>
+                        {formatStatusLabel(receipt.role)} · {receipt.workItemId}
+                      </strong>
+                      <p>{receipt.summary}</p>
+                      {receipt.resultKind ? (
+                        <p>Result {formatStatusLabel(receipt.resultKind)}</p>
+                      ) : null}
+                      {receipt.spawnedWorkItemIds.length ? (
+                        <p>
+                          Spawned {receipt.spawnedWorkItemIds.join(" · ")}
+                        </p>
+                      ) : null}
+                      {receipt.blockedOnIds.length ? (
+                        <p>Blocked on {receipt.blockedOnIds.join(" · ")}</p>
+                      ) : null}
+                      {receipt.notes.length ? (
+                        <p>{receipt.notes.join(" · ")}</p>
+                      ) : null}
+                      {receipt.failure ? <p>{receipt.failure}</p> : null}
+                    </div>
+                    <span>{formatStatusLabel(receipt.status)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {swarmChangeReceipts.length ||
+          swarmMergeReceipts.length ||
+          swarmVerificationReceipts.length ||
+          dispatchBatches.length ||
+          graphMutationReceipts.length ||
+          repairReceipts.length ||
+          replanReceipts.length ? (
+            <section className="studio-artifact-inspector-section">
+              <span className="studio-artifact-panel-label">Execution receipts</span>
+              <div className="studio-artifact-note-list">
+                {dispatchBatches.map((batch) => (
+                  <div key={`dispatch-${batch.id}`} className="studio-artifact-activity">
+                    <div>
+                      <strong>Dispatch · {batch.id}</strong>
+                      <p>
+                        Wave {batch.sequence} ·{" "}
+                        {batch.workItemIds.length
+                          ? batch.workItemIds.join(" · ")
+                          : "No dispatchable work items"}
+                      </p>
+                      {batch.deferredWorkItemIds.length ? (
+                        <p>Deferred {batch.deferredWorkItemIds.join(" · ")}</p>
+                      ) : null}
+                      {batch.blockedWorkItemIds.length ? (
+                        <p>Blocked {batch.blockedWorkItemIds.join(" · ")}</p>
+                      ) : null}
+                      {batch.details.length ? (
+                        <p>{batch.details.join(" · ")}</p>
+                      ) : null}
+                    </div>
+                    <span>{formatStatusLabel(batch.status)}</span>
+                  </div>
+                ))}
+                {swarmChangeReceipts.map((receipt) => (
+                  <div key={`patch-${receipt.workItemId}`} className="studio-artifact-activity">
+                    <div>
+                      <strong>Patch · {receipt.workItemId}</strong>
+                      <p>{receipt.summary}</p>
+                      <p>
+                        {receipt.operationCount} op{receipt.operationCount === 1 ? "" : "s"} ·{" "}
+                        {receipt.touchedPaths.join(" · ") || "No touched paths"}
+                      </p>
+                    </div>
+                    <span>{formatStatusLabel(receipt.status)}</span>
+                  </div>
+                ))}
+                {swarmMergeReceipts.map((receipt) => (
+                  <div key={`merge-${receipt.workItemId}`} className="studio-artifact-activity">
+                    <div>
+                      <strong>Merge · {receipt.workItemId}</strong>
+                      <p>{receipt.summary}</p>
+                      {receipt.rejectedReason ? (
+                        <p>{receipt.rejectedReason}</p>
+                      ) : null}
+                    </div>
+                    <span>{formatStatusLabel(receipt.status)}</span>
+                  </div>
+                ))}
+                {swarmVerificationReceipts.map((receipt) => (
+                  <div key={`verify-${receipt.id}`} className="studio-artifact-activity">
+                    <div>
+                      <strong>{formatStatusLabel(receipt.kind)}</strong>
+                      <p>{receipt.summary}</p>
+                      {receipt.details.length ? (
+                        <p>{receipt.details.join(" · ")}</p>
+                      ) : null}
+                    </div>
+                    <span>{formatStatusLabel(receipt.status)}</span>
+                  </div>
+                ))}
+                {graphMutationReceipts.map((receipt) => (
+                  <div key={`graph-${receipt.id}`} className="studio-artifact-activity">
+                    <div>
+                      <strong>{formatStatusLabel(receipt.mutationKind)}</strong>
+                      <p>{receipt.summary}</p>
+                      {receipt.affectedWorkItemIds.length ? (
+                        <p>{receipt.affectedWorkItemIds.join(" · ")}</p>
+                      ) : null}
+                      {receipt.details.length ? (
+                        <p>{receipt.details.join(" · ")}</p>
+                      ) : null}
+                    </div>
+                    <span>{formatStatusLabel(receipt.status)}</span>
+                  </div>
+                ))}
+                {repairReceipts.map((receipt) => (
+                  <div key={`repair-${receipt.id}`} className="studio-artifact-activity">
+                    <div>
+                      <strong>Repair · {receipt.id}</strong>
+                      <p>{receipt.summary}</p>
+                      {receipt.details.length ? (
+                        <p>{receipt.details.join(" · ")}</p>
+                      ) : null}
+                    </div>
+                    <span>{formatStatusLabel(receipt.status)}</span>
+                  </div>
+                ))}
+                {replanReceipts.map((receipt) => (
+                  <div key={`replan-${receipt.id}`} className="studio-artifact-activity">
+                    <div>
+                      <strong>Replan · {receipt.id}</strong>
+                      <p>{receipt.summary}</p>
+                      {receipt.spawnedWorkItemIds.length ? (
+                        <p>Spawned {receipt.spawnedWorkItemIds.join(" · ")}</p>
+                      ) : null}
+                      {receipt.blockedWorkItemIds.length ? (
+                        <p>Blocked {receipt.blockedWorkItemIds.join(" · ")}</p>
+                      ) : null}
+                      {receipt.details.length ? (
+                        <p>{receipt.details.join(" · ")}</p>
+                      ) : null}
+                    </div>
+                    <span>{formatStatusLabel(receipt.status)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </>
+      ) : candidates.length ? (
         <section className="studio-artifact-inspector-section">
           <span className="studio-artifact-panel-label">Candidates</span>
           <div className="studio-artifact-note-list">
@@ -450,16 +1044,9 @@ export function StudioArtifactEvidencePanel({
                   <strong>{step.label}</strong>
                   <p>{step.summary}</p>
                   {step.outputs.length ? (
-                    <div className="studio-artifact-chip-row studio-artifact-chip-row--compact">
-                      {step.outputs.map((output) => (
-                        <span
-                          key={`${step.id}-${output}`}
-                          className="studio-artifact-chip"
-                        >
-                          {output}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="studio-artifact-inline-meta">
+                      {step.outputs.join(" · ")}
+                    </p>
                   ) : null}
                   {step.verificationGate ? (
                     <p>

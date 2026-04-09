@@ -606,6 +606,11 @@ pub async fn submit_runtime_password(
         ));
     }
 
+    crate::kernel::task::trigger_agent_step_for_session(&mut client, &app, session_id_arr, None)
+        .await
+        .map_err(|error| format!("Failed to trigger resumed install step: {}", error))?;
+    crate::kernel::task::spawn_session_state_reconciler(app.clone(), session_id_arr);
+
     update_task_state(&app, |t| {
         t.phase = AgentPhase::Running;
         t.gate_info = None;

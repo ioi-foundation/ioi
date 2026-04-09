@@ -43,10 +43,17 @@ pub(super) struct ArtifactPresentationAssessment {
     pub(super) has_structural_blocker: bool,
 }
 
+fn studio_modal_first_html_enabled_for_request(request: &StudioOutcomeArtifactRequest) -> bool {
+    request.renderer == StudioRendererKind::HtmlIframe
+        && (crate::is_env_var_truthy("AUTOPILOT_STUDIO_MODAL_FIRST_HTML")
+            || crate::is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV"))
+}
+
 pub(super) fn assess_materialized_artifact_presentation(
     request: &StudioOutcomeArtifactRequest,
     files: &[MaterializedArtifactQualityFile],
 ) -> ArtifactPresentationAssessment {
+    let modal_first_html = studio_modal_first_html_enabled_for_request(request);
     let mut issues = Vec::new();
     let mut has_structural_blocker = false;
     let text_files = files
@@ -110,69 +117,81 @@ pub(super) fn assess_materialized_artifact_presentation(
         }
         StudioRendererKind::HtmlIframe => {
             let lower = primary_text.to_ascii_lowercase();
-            let semantic_sections = ["<main", "<section", "<article", "<nav", "<aside", "<footer"]
-                .iter()
-                .map(|needle| lower.matches(needle).count())
-                .sum::<usize>();
-            let words = word_count(primary_text);
-            if html_uses_external_runtime_dependency(&lower) {
-                has_structural_blocker = true;
-                issues.push(ArtifactPresentationIssue {
+            if modal_first_html {
+                if html_uses_external_runtime_dependency(&lower) {
+                    has_structural_blocker = true;
+                    issues.push(ArtifactPresentationIssue {
+                        severity: ArtifactPresentationIssueSeverity::Blocked,
+                        message: "HTML output depends on an external or undefined runtime library, so Render would not be truthful."
+                            .to_string(),
+                    });
+                }
+            } else {
+                let semantic_sections =
+                    ["<main", "<section", "<article", "<nav", "<aside", "<footer"]
+                        .iter()
+                        .map(|needle| lower.matches(needle).count())
+                        .sum::<usize>();
+                let words = word_count(primary_text);
+                if html_uses_external_runtime_dependency(&lower) {
+                    has_structural_blocker = true;
+                    issues.push(ArtifactPresentationIssue {
                     severity: ArtifactPresentationIssueSeverity::Blocked,
                     message: "HTML output depends on an external or undefined runtime library, so Render would not be truthful."
                         .to_string(),
                 });
-            } else if html_has_duplicate_mapped_view_tokens(&lower) {
-                has_structural_blocker = true;
-                issues.push(ArtifactPresentationIssue {
+                } else if html_has_duplicate_mapped_view_tokens(&lower) {
+                    has_structural_blocker = true;
+                    issues.push(ArtifactPresentationIssue {
                     severity: ArtifactPresentationIssueSeverity::Blocked,
                     message: "HTML output duplicates mapped evidence-panel tokens, so the rendered state graph is ambiguous."
                         .to_string(),
                 });
-            } else if html_has_invalid_mapped_view_default_state(primary_text) {
-                has_structural_blocker = true;
-                issues.push(ArtifactPresentationIssue {
+                } else if html_has_invalid_mapped_view_default_state(primary_text) {
+                    has_structural_blocker = true;
+                    issues.push(ArtifactPresentationIssue {
                     severity: ArtifactPresentationIssueSeverity::Blocked,
                     message: "HTML output does not keep exactly one mapped evidence panel visible on first paint."
                         .to_string(),
                 });
-            } else if words < 90 || semantic_sections < 3 {
-                issues.push(ArtifactPresentationIssue {
+                } else if words < 90 || semantic_sections < 3 {
+                    issues.push(ArtifactPresentationIssue {
                     severity: ArtifactPresentationIssueSeverity::Blocked,
                     message: "HTML output is still too skeletal to qualify as the primary rendered outcome."
                         .to_string(),
                 });
-            } else if html_uses_custom_font_family_without_loading(&lower) {
-                issues.push(ArtifactPresentationIssue {
+                } else if html_uses_custom_font_family_without_loading(&lower) {
+                    issues.push(ArtifactPresentationIssue {
                     severity: ArtifactPresentationIssueSeverity::Partial,
                     message: "HTML output names custom fonts without loading them, so typography truthfulness is still weak."
                         .to_string(),
                 });
-            } else if html_has_unfocusable_rollover_marks(&lower) {
-                issues.push(ArtifactPresentationIssue {
+                } else if html_has_unfocusable_rollover_marks(&lower) {
+                    issues.push(ArtifactPresentationIssue {
                     severity: ArtifactPresentationIssueSeverity::Partial,
                     message: "HTML output wires focus detail behavior onto non-focusable marks, so keyboard access is still provisional."
                         .to_string(),
                 });
-            } else if count_html_repair_shim_markers(&lower) >= 5 {
-                has_structural_blocker = true;
-                issues.push(ArtifactPresentationIssue {
+                } else if count_html_repair_shim_markers(&lower) >= 5 {
+                    has_structural_blocker = true;
+                    issues.push(ArtifactPresentationIssue {
                     severity: ArtifactPresentationIssueSeverity::Blocked,
                     message: "HTML output still depends on too many Studio repair shims to qualify as a native surfaced artifact."
                         .to_string(),
                 });
-            } else if count_html_repair_shim_markers(&lower) >= 2 {
-                issues.push(ArtifactPresentationIssue {
+                } else if count_html_repair_shim_markers(&lower) >= 2 {
+                    issues.push(ArtifactPresentationIssue {
                     severity: ArtifactPresentationIssueSeverity::Partial,
                     message: "HTML output still leans on Studio repair shims, so presentation quality remains provisional."
                         .to_string(),
                 });
-            } else if !(lower.contains("<style") && words >= 140) {
-                issues.push(ArtifactPresentationIssue {
+                } else if !(lower.contains("<style") && words >= 140) {
+                    issues.push(ArtifactPresentationIssue {
                     severity: ArtifactPresentationIssueSeverity::Partial,
                     message: "HTML output renders, but it still needs stronger hierarchy or styling density."
                         .to_string(),
                 });
+                }
             }
         }
         StudioRendererKind::JsxSandbox => {
@@ -302,6 +321,7 @@ pub(super) fn assess_materialized_artifact_presentation(
 
     if let Some(primary_file) = primary_file {
         if primary_file.renderable
+            && !(modal_first_html && request.renderer == StudioRendererKind::HtmlIframe)
             && request.renderer != StudioRendererKind::Mermaid
             && !primary_file.mime.to_ascii_lowercase().contains("svg")
             && word_count(primary_text) < 24
@@ -361,14 +381,16 @@ pub(super) fn assess_materialized_artifact_presentation(
 }
 
 pub(super) fn finalize_presentation_assessment(
+    request: &StudioOutcomeArtifactRequest,
     assessment: ArtifactPresentationAssessment,
     judge: &StudioArtifactJudgeResult,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
     fallback_used: bool,
     draft_pending_acceptance: bool,
 ) -> ArtifactPresentationAssessment {
-    let assessment = apply_render_evaluation_to_assessment(assessment, render_evaluation);
-    let render_clears_primary_view = render_evaluation_clears_primary_view(render_evaluation);
+    let assessment = apply_render_evaluation_to_assessment(request, assessment, render_evaluation);
+    let render_clears_primary_view =
+        render_evaluation_clears_primary_view(request, render_evaluation);
 
     if draft_pending_acceptance {
         let mut findings = assessment.findings;
@@ -477,9 +499,13 @@ pub(super) fn finalize_presentation_assessment(
 }
 
 fn apply_render_evaluation_to_assessment(
+    request: &StudioOutcomeArtifactRequest,
     assessment: ArtifactPresentationAssessment,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
 ) -> ArtifactPresentationAssessment {
+    if studio_modal_first_html_enabled_for_request(request) {
+        return assessment;
+    }
     let Some(render_evaluation) = render_evaluation else {
         return assessment;
     };
@@ -552,8 +578,12 @@ fn apply_render_evaluation_to_assessment(
 }
 
 fn render_evaluation_clears_primary_view(
+    request: &StudioOutcomeArtifactRequest,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
 ) -> bool {
+    if studio_modal_first_html_enabled_for_request(request) {
+        return true;
+    }
     let Some(render_evaluation) = render_evaluation else {
         return true;
     };

@@ -1,11 +1,23 @@
 use super::*;
+use ioi_api::execution::{execution_budget_envelope_for_strategy, execution_strategy_for_outcome};
 use ioi_api::studio::{
-    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator,
-    pdf_artifact_bytes, resolve_studio_artifact_runtime_plan, StudioArtifactBlueprint,
-    StudioArtifactIR, StudioArtifactRuntimePolicyProfile, StudioArtifactSelectedSkill,
+    acceptance_timeout_for_execution_strategy,
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator,
+    pdf_artifact_bytes, render_eval_timeout_for_runtime, resolve_studio_artifact_runtime_plan,
+    StudioArtifactBlueprint, StudioArtifactGenerationProgressObserver, StudioArtifactIR,
+    StudioArtifactRuntimePolicyProfile, StudioArtifactSelectedSkill,
 };
 use ioi_drivers::studio_render::BrowserStudioArtifactRenderEvaluator;
-use std::time::Duration;
+use ioi_types::app::StudioExecutionStrategy;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+use tokio::time::MissedTickBehavior;
+
+#[cfg(test)]
+use ioi_api::studio::StudioGeneratedArtifactPayload;
+
+const LOCAL_HTML_GENERATION_TIMEOUT_SECS: u64 = 420;
+const LOCAL_HTML_SPLIT_ACCEPTANCE_TIMEOUT_SECS: u64 = 1200;
 
 fn studio_proof_trace(message: impl AsRef<str>) {
     if std::env::var_os("IOI_STUDIO_PROOF_TRACE").is_some() {
@@ -58,6 +70,26 @@ pub(super) fn materialize_non_workspace_artifact(
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
 ) -> Result<MaterializedContentArtifact, String> {
+    materialize_non_workspace_artifact_with_execution_strategy(
+        app,
+        thread_id,
+        title,
+        intent,
+        request,
+        refinement,
+        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(request)),
+    )
+}
+
+pub(super) fn materialize_non_workspace_artifact_with_execution_strategy(
+    app: &AppHandle,
+    thread_id: &str,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    execution_strategy: StudioExecutionStrategy,
+) -> Result<MaterializedContentArtifact, String> {
     let runtime_profile = configured_studio_runtime_profile();
     let (memory_runtime, inference_runtime, acceptance_inference_runtime) = {
         let app_state = app.state::<Mutex<AppState>>();
@@ -73,6 +105,9 @@ pub(super) fn materialize_non_workspace_artifact(
         )
     };
     let planning_context = inference_runtime.as_ref().and_then(|runtime| {
+        if execution_strategy == StudioExecutionStrategy::DirectAuthor {
+            return None;
+        }
         let runtime_plan = resolve_studio_artifact_runtime_plan(
             request,
             runtime.clone(),
@@ -90,7 +125,7 @@ pub(super) fn materialize_non_workspace_artifact(
         )
     });
 
-    materialize_non_workspace_artifact_with_dependencies(
+    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy(
         &memory_runtime,
         inference_runtime,
         acceptance_inference_runtime,
@@ -100,6 +135,7 @@ pub(super) fn materialize_non_workspace_artifact(
         request,
         refinement,
         planning_context,
+        execution_strategy,
     )
 }
 
@@ -114,11 +150,72 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies(
     refinement: Option<&StudioArtifactRefinementContext>,
     planning_context: Option<StudioArtifactPlanningContext>,
 ) -> Result<MaterializedContentArtifact, String> {
+    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy(
+        memory_runtime,
+        inference_runtime,
+        acceptance_inference_runtime,
+        thread_id,
+        title,
+        intent,
+        request,
+        refinement,
+        planning_context,
+        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(request)),
+    )
+}
+
+pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution_strategy(
+    memory_runtime: &Arc<MemoryRuntime>,
+    inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    thread_id: &str,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    planning_context: Option<StudioArtifactPlanningContext>,
+    execution_strategy: StudioExecutionStrategy,
+) -> Result<MaterializedContentArtifact, String> {
+    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+        memory_runtime,
+        inference_runtime,
+        acceptance_inference_runtime,
+        thread_id,
+        title,
+        intent,
+        request,
+        refinement,
+        planning_context,
+        execution_strategy,
+        None,
+    )
+}
+
+pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+    memory_runtime: &Arc<MemoryRuntime>,
+    inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    thread_id: &str,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    planning_context: Option<StudioArtifactPlanningContext>,
+    execution_strategy: StudioExecutionStrategy,
+    progress_observer: Option<StudioArtifactGenerationProgressObserver>,
+) -> Result<MaterializedContentArtifact, String> {
     let generation_timeout = inference_runtime
         .as_ref()
-        .map(studio_generation_timeout_for_runtime)
+        .map(|runtime| {
+            studio_generation_timeout_for_request_and_execution_strategy(
+                request,
+                runtime,
+                acceptance_inference_runtime.as_ref(),
+                execution_strategy,
+            )
+        })
         .unwrap_or_else(|| Duration::from_secs(120));
-    materialize_non_workspace_artifact_with_dependencies_and_timeout(
+    materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
         memory_runtime,
         inference_runtime,
         acceptance_inference_runtime,
@@ -129,6 +226,8 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies(
         refinement,
         generation_timeout,
         planning_context,
+        execution_strategy,
+        progress_observer,
     )
 }
 
@@ -154,6 +253,75 @@ pub(super) fn studio_generation_timeout_for_runtime(
     Duration::from_secs(seconds)
 }
 
+pub(super) fn studio_generation_timeout_for_request(
+    request: &StudioOutcomeArtifactRequest,
+    runtime: &Arc<dyn InferenceRuntime>,
+) -> Duration {
+    let timeout = studio_generation_timeout_for_runtime(runtime);
+    if request.renderer == StudioRendererKind::HtmlIframe
+        && runtime.studio_runtime_provenance().kind
+            == crate::models::StudioRuntimeProvenanceKind::RealLocalRuntime
+        && timeout == Duration::from_secs(180)
+    {
+        let runtime_profile = configured_studio_runtime_profile();
+        if studio_extended_local_html_timeout_enabled(request, runtime_profile) {
+            return Duration::from_secs(LOCAL_HTML_SPLIT_ACCEPTANCE_TIMEOUT_SECS);
+        }
+        return Duration::from_secs(LOCAL_HTML_GENERATION_TIMEOUT_SECS);
+    }
+
+    timeout
+}
+
+pub(super) fn studio_generation_timeout_for_request_and_execution_strategy(
+    request: &StudioOutcomeArtifactRequest,
+    runtime: &Arc<dyn InferenceRuntime>,
+    acceptance_runtime: Option<&Arc<dyn InferenceRuntime>>,
+    execution_strategy: StudioExecutionStrategy,
+) -> Duration {
+    if execution_strategy == StudioExecutionStrategy::DirectAuthor {
+        let authoring_budget = Duration::from_millis(
+            execution_budget_envelope_for_strategy(execution_strategy).max_wall_clock_ms as u64,
+        );
+        let render_eval_budget = render_eval_timeout_for_runtime(
+            request.renderer,
+            runtime.studio_runtime_provenance().kind,
+        )
+        .unwrap_or_default();
+        let acceptance_budget = acceptance_timeout_for_execution_strategy(
+            execution_strategy,
+            acceptance_runtime.unwrap_or(runtime),
+        )
+        .unwrap_or_default();
+        let orchestration_slack = Duration::from_secs(5);
+        return authoring_budget
+            .saturating_add(render_eval_budget)
+            .saturating_add(acceptance_budget)
+            .saturating_add(orchestration_slack);
+    }
+
+    studio_generation_timeout_for_request(request, runtime)
+}
+
+fn studio_modal_first_html_enabled_for_request(request: &StudioOutcomeArtifactRequest) -> bool {
+    request.renderer == StudioRendererKind::HtmlIframe
+        && (crate::is_env_var_truthy("AUTOPILOT_STUDIO_MODAL_FIRST_HTML")
+            || crate::is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV"))
+}
+
+fn studio_extended_local_html_timeout_enabled(
+    request: &StudioOutcomeArtifactRequest,
+    runtime_profile: StudioArtifactRuntimePolicyProfile,
+) -> bool {
+    studio_modal_first_html_enabled_for_request(request)
+        && matches!(
+            runtime_profile,
+            StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance
+                | StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration
+                | StudioArtifactRuntimePolicyProfile::PremiumEndToEnd
+        )
+}
+
 fn configured_studio_runtime_profile() -> StudioArtifactRuntimePolicyProfile {
     [
         "AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE",
@@ -177,6 +345,35 @@ fn format_generation_timeout(timeout: Duration) -> String {
     }
 }
 
+async fn await_generation_with_activity_timeout<T, F>(
+    future: F,
+    inactivity_timeout: Duration,
+    last_activity: Arc<Mutex<Instant>>,
+) -> Result<T, Duration>
+where
+    F: std::future::Future<Output = T>,
+{
+    tokio::pin!(future);
+
+    let mut ticker = tokio::time::interval(Duration::from_millis(250));
+    ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+    loop {
+        tokio::select! {
+            output = &mut future => return Ok(output),
+            _ = ticker.tick() => {
+                let idle_for = last_activity
+                    .lock()
+                    .map(|instant| instant.elapsed())
+                    .unwrap_or(inactivity_timeout);
+                if idle_for >= inactivity_timeout {
+                    return Err(idle_for);
+                }
+            }
+        }
+    }
+}
+
 pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
     memory_runtime: &Arc<MemoryRuntime>,
     inference_runtime: Option<Arc<dyn InferenceRuntime>>,
@@ -189,9 +386,40 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
     generation_timeout: Duration,
     planning_context: Option<StudioArtifactPlanningContext>,
 ) -> Result<MaterializedContentArtifact, String> {
+    materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+        memory_runtime,
+        inference_runtime,
+        acceptance_inference_runtime,
+        thread_id,
+        title,
+        intent,
+        request,
+        refinement,
+        generation_timeout,
+        planning_context,
+        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(request)),
+        None,
+    )
+}
+
+pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+    memory_runtime: &Arc<MemoryRuntime>,
+    inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    thread_id: &str,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    generation_timeout: Duration,
+    planning_context: Option<StudioArtifactPlanningContext>,
+    execution_strategy: StudioExecutionStrategy,
+    progress_observer: Option<StudioArtifactGenerationProgressObserver>,
+) -> Result<MaterializedContentArtifact, String> {
     studio_proof_trace(format!(
-        "materialize_non_workspace:start renderer={} title={}",
+        "materialize_non_workspace:start renderer={} strategy={:?} title={}",
         renderer_kind_id(request.renderer),
+        execution_strategy,
         title
     ));
     let runtime_profile = configured_studio_runtime_profile();
@@ -207,25 +435,41 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
             let production_provenance = runtime_plan.generation_runtime.studio_runtime_provenance();
             let acceptance_provenance =
                 runtime_plan.acceptance_runtime.studio_runtime_provenance();
+            let last_activity = Arc::new(Mutex::new(Instant::now()));
+            let observed_progress = progress_observer.as_ref().map(|observer| {
+                let observer = observer.clone();
+                let last_activity = last_activity.clone();
+                Arc::new(move |progress| {
+                    if let Ok(mut activity) = last_activity.lock() {
+                        *activity = Instant::now();
+                    }
+                    observer(progress);
+                }) as StudioArtifactGenerationProgressObserver
+            });
             match tauri::async_runtime::block_on(async {
-                tokio::time::timeout(
-                    generation_timeout,
-                    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator(
+                await_generation_with_activity_timeout(
+                    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
                         runtime_plan,
                         title,
                         intent,
                         request,
                         refinement,
                         planning_context.as_ref(),
+                        execution_strategy,
                         Some(&render_evaluator),
+                        observed_progress,
                     ),
-                )
-                .await
+                    generation_timeout,
+                    last_activity,
+                ).await
             }) {
                 Ok(Ok(bundle)) => {
                     studio_proof_trace(format!(
                         "materialize_non_workspace:bundle_ready winner={} lifecycle={:?} fallback_used={}",
-                        bundle.winning_candidate_id,
+                        bundle
+                            .winning_candidate_id
+                            .clone()
+                            .unwrap_or_else(|| "swarm-merged".to_string()),
                         bundle.ux_lifecycle,
                         bundle.fallback_used
                     ));
@@ -252,10 +496,15 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
                         Some(acceptance_provenance),
                     ));
                 }
-                Err(_) => {
+                Err(idle_for) => {
                     let message = format!(
-                        "Studio artifact generation timed out after {} while drafting artifact candidates.",
-                        format_generation_timeout(generation_timeout)
+                        "Studio artifact generation timed out after {} of inactivity while {}.",
+                        format_generation_timeout(idle_for),
+                        if execution_strategy == StudioExecutionStrategy::DirectAuthor {
+                            "authoring the artifact directly"
+                        } else {
+                            "running the artifact execution plan"
+                        }
                     );
                     studio_proof_trace(format!(
                         "materialize_non_workspace:bundle_timeout {}",
@@ -268,7 +517,9 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
                         refinement,
                         &message,
                         None,
-                        planning_context.as_ref().and_then(|context| context.blueprint.clone()),
+                        planning_context
+                            .as_ref()
+                            .and_then(|context| context.blueprint.clone()),
                         planning_context
                             .as_ref()
                             .and_then(|context| context.artifact_ir.clone()),
@@ -414,6 +665,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
         files.len()
     ));
     let quality_assessment = finalize_presentation_assessment(
+        request,
         assess_materialized_artifact_presentation(request, &quality_files),
         &bundle.judge,
         bundle.render_evaluation.as_ref(),
@@ -439,10 +691,19 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
             retrieved_exemplars.len()
         ));
     }
-    notes.push(format!(
-        "Winning candidate {} selected via typed judging.",
-        bundle.winning_candidate_id
-    ));
+    if let Some(swarm_execution) = bundle.swarm_execution.as_ref() {
+        notes.push(format!(
+            "Swarm execution completed {}/{} work item(s) via {}.",
+            swarm_execution.completed_work_items,
+            swarm_execution.total_work_items,
+            swarm_execution.adapter_label
+        ));
+    } else if let Some(winner_id) = bundle.winning_candidate_id.as_ref() {
+        notes.push(format!(
+            "Winning candidate {} selected via typed judging.",
+            winner_id
+        ));
+    }
 
     studio_proof_trace("materialize_non_workspace:return");
     Ok(MaterializedContentArtifact {
@@ -457,8 +718,15 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(
         retrieved_exemplars,
         edit_intent: bundle_edit_intent.clone(),
         candidate_summaries: bundle.candidate_summaries,
-        winning_candidate_id: Some(bundle.winning_candidate_id),
-        winning_candidate_rationale: Some(bundle.winning_candidate_rationale),
+        winning_candidate_id: bundle.winning_candidate_id,
+        winning_candidate_rationale: bundle.winning_candidate_rationale,
+        execution_envelope: bundle.execution_envelope,
+        swarm_plan: bundle.swarm_plan,
+        swarm_execution: bundle.swarm_execution,
+        swarm_worker_receipts: bundle.swarm_worker_receipts,
+        swarm_change_receipts: bundle.swarm_change_receipts,
+        swarm_merge_receipts: bundle.swarm_merge_receipts,
+        swarm_verification_receipts: bundle.swarm_verification_receipts,
         render_evaluation: bundle.render_evaluation,
         judge: Some(bundle.judge),
         output_origin,
@@ -594,6 +862,13 @@ pub(super) fn blocked_materialized_artifact_from_error(
         candidate_summaries,
         winning_candidate_id: None,
         winning_candidate_rationale: None,
+        execution_envelope: None,
+        swarm_plan: None,
+        swarm_execution: None,
+        swarm_worker_receipts: Vec::new(),
+        swarm_change_receipts: Vec::new(),
+        swarm_merge_receipts: Vec::new(),
+        swarm_verification_receipts: Vec::new(),
         render_evaluation: None,
         judge: Some(judge),
         output_origin: output_origin_from_runtime_provenance(&production_provenance),

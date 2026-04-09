@@ -15,7 +15,7 @@ interface AnswerCardProps {
   answer: AnswerPresentation;
   sourceSummary: SourceSummary | null;
   sourceDurationLabel?: string;
-  onDownloadContext: () => Promise<void> | void;
+  onExportTraceBundle: () => Promise<void> | void;
   onOpenArtifacts?: () => void;
   onOpenSources?: (summary: SourceSummary) => void;
 }
@@ -62,7 +62,7 @@ export function AnswerCard({
   answer,
   sourceSummary,
   sourceDurationLabel,
-  onDownloadContext,
+  onExportTraceBundle,
   onOpenArtifacts,
   onOpenSources,
 }: AnswerCardProps) {
@@ -107,11 +107,11 @@ export function AnswerCard({
   const handleDownload = useCallback(async () => {
     setDownloading(true);
     try {
-      await onDownloadContext();
+      await onExportTraceBundle();
     } finally {
       setDownloading(false);
     }
-  }, [onDownloadContext]);
+  }, [onExportTraceBundle]);
 
   const handleOpenArtifacts = useCallback(() => {
     onOpenArtifacts?.();
@@ -145,10 +145,10 @@ export function AnswerCard({
             onClick={() => void handleDownload()}
             type="button"
             disabled={downloading}
-            title="Download full context"
+            title="Export canonical trace bundle"
           >
             {icons.code}
-            <span>{downloading ? "Exporting..." : "Download Context"}</span>
+            <span>{downloading ? "Exporting..." : "Export Trace"}</span>
           </button>
           <button
             className="answer-action-btn"

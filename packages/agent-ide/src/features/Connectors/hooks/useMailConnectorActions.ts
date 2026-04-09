@@ -3,9 +3,15 @@ import { useEffect, useState } from "react";
 import type {
   AgentRuntime,
   WalletMailConfigureAccountResult,
+  WalletMailConfiguredAccount,
   WalletMailListRecentResult,
   WalletMailReadLatestResult,
 } from "../../../runtime/agent-runtime";
+import {
+  buildConnectorApprovalMemoryRequest,
+  parseShieldApprovalRequest,
+  type ShieldApprovalRequest,
+} from "../../../runtime/shield-approval";
 
 export type MailProviderPresetKey =
   | "auto"
@@ -90,7 +96,17 @@ export interface ConnectedMailAccount {
   mailbox: string;
   accountEmail: string;
   senderDisplayName?: string;
+  defaultChannelIdHex?: string;
+  defaultLeaseIdHex?: string;
   updatedAtMs: number;
+}
+
+export interface MailPendingRunApproval {
+  kind: "shield_policy";
+  actionId: "mail.read_latest" | "mail.list_recent";
+  actionLabel: string;
+  message: string;
+  request: ShieldApprovalRequest;
 }
 
 interface UseMailConnectorActionsOptions {
@@ -106,9 +122,29 @@ function upsertConnectedMailAccount(
     mailbox: result.mailbox,
     accountEmail: result.accountEmail,
     senderDisplayName: result.senderDisplayName,
+    defaultChannelIdHex: undefined,
+    defaultLeaseIdHex: undefined,
     updatedAtMs: result.updatedAtMs,
   });
   return next;
+}
+
+function normalizeConnectedMailAccount(
+  account: WalletMailConfiguredAccount
+): ConnectedMailAccount | null {
+  const mailbox = account.mailbox.trim();
+  const accountEmail = account.accountEmail.trim();
+  if (!mailbox || !accountEmail) {
+    return null;
+  }
+  return {
+    mailbox,
+    accountEmail,
+    senderDisplayName: account.senderDisplayName?.trim() || undefined,
+    defaultChannelIdHex: account.defaultChannelIdHex?.trim() || undefined,
+    defaultLeaseIdHex: account.defaultLeaseIdHex?.trim() || undefined,
+    updatedAtMs: account.updatedAtMs,
+  };
 }
 
 export interface MailConnectorActionsState {
@@ -155,14 +191,19 @@ export interface MailConnectorActionsState {
   mailBusy: boolean;
   mailError: string | null;
   mailResult: string;
+  mailLastRunSummary: string | null;
+  mailLastRunDetails: string[];
   mailSetupNotice: string | null;
   connectedMailAccounts: ConnectedMailAccount[];
   mailConnectorRuntimeReady: boolean;
   mailSetupRuntimeReady: boolean;
   effectivePreset: MailProviderPreset | null;
+  pendingRunApproval: MailPendingRunApproval | null;
   selectConfiguredAccount: (mailbox: string) => void;
   runMailListRecent: () => Promise<void>;
   runMailReadLatest: () => Promise<void>;
+  approvePendingRun: () => Promise<void>;
+  cancelPendingRun: () => void;
   saveMailAccount: () => Promise<void>;
 }
 
@@ -194,8 +235,12 @@ export function useMailConnectorActions(
   const [mailBusy, setMailBusy] = useState(false);
   const [mailError, setMailError] = useState<string | null>(null);
   const [mailResult, setMailResult] = useState<string>("");
+  const [mailLastRunSummary, setMailLastRunSummary] = useState<string | null>(null);
+  const [mailLastRunDetails, setMailLastRunDetails] = useState<string[]>([]);
   const [mailSetupNotice, setMailSetupNotice] = useState<string | null>(null);
   const [connectedMailAccounts, setConnectedMailAccounts] = useState<ConnectedMailAccount[]>([]);
+  const [pendingRunApproval, setPendingRunApproval] =
+    useState<MailPendingRunApproval | null>(null);
 
   const mailConnectorRuntimeReady = Boolean(
     runtime.walletMailReadLatest && runtime.walletMailListRecent
@@ -233,12 +278,77 @@ export function useMailConnectorActions(
     setMailMailbox(mailSetupMailbox.trim() || "primary");
   }, [mailSetupMailbox]);
 
+  useEffect(() => {
+    if (!runtime.walletMailListAccounts) {
+      return;
+    }
+
+    let cancelled = false;
+    runtime
+      .walletMailListAccounts()
+      .then((accounts) => {
+        if (cancelled) {
+          return;
+        }
+        const hydrated = (Array.isArray(accounts) ? accounts : [])
+          .map(normalizeConnectedMailAccount)
+          .filter((account): account is ConnectedMailAccount => account !== null);
+        if (hydrated.length === 0) {
+          return;
+        }
+        setConnectedMailAccounts(hydrated);
+        const selectedMailbox = mailMailbox.trim() || "primary";
+        if (!hydrated.some((account) => account.mailbox === selectedMailbox)) {
+          const primaryAccount = hydrated[0];
+          setMailSetupMailbox(primaryAccount.mailbox);
+          setMailMailbox(primaryAccount.mailbox);
+          setMailSetupEmail(primaryAccount.accountEmail);
+          setMailSetupSenderDisplayName(primaryAccount.senderDisplayName ?? "");
+        }
+      })
+      .catch(() => {
+        // Leave Mail in setup-first mode if hydrated account discovery is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [runtime, mailMailbox]);
+
+  useEffect(() => {
+    const selectedMailbox = mailMailbox.trim() || "primary";
+    const selectedAccount = connectedMailAccounts.find(
+      (account) => account.mailbox === selectedMailbox
+    );
+    if (!selectedAccount) {
+      return;
+    }
+    if (!mailChannelId.trim() && selectedAccount.defaultChannelIdHex) {
+      setMailChannelId(selectedAccount.defaultChannelIdHex);
+    }
+    if (!mailLeaseId.trim() && selectedAccount.defaultLeaseIdHex) {
+      setMailLeaseId(selectedAccount.defaultLeaseIdHex);
+    }
+  }, [connectedMailAccounts, mailMailbox, mailChannelId, mailLeaseId]);
+
   const validateMailContext = (requireConnectorRuntime: boolean) => {
-    const channelId = mailChannelId.trim();
-    const leaseId = mailLeaseId.trim();
+    const selectedMailbox = mailMailbox.trim() || "primary";
+    const selectedAccount = connectedMailAccounts.find(
+      (account) => account.mailbox === selectedMailbox
+    );
+    const channelId =
+      mailChannelId.trim() || selectedAccount?.defaultChannelIdHex?.trim() || "";
+    const leaseId =
+      mailLeaseId.trim() || selectedAccount?.defaultLeaseIdHex?.trim() || "";
     if (requireConnectorRuntime && !mailConnectorRuntimeReady) {
       setMailError("Runtime is missing wallet mail connector methods.");
       return null;
+    }
+    if (!mailChannelId.trim() && channelId) {
+      setMailChannelId(channelId);
+    }
+    if (!mailLeaseId.trim() && leaseId) {
+      setMailLeaseId(leaseId);
     }
     if (!channelId || !leaseId) {
       setMailError("Channel ID and Lease ID are required.");
@@ -315,11 +425,36 @@ export function useMailConnectorActions(
     }
   };
 
-  const runMailListRecent = async () => {
+  const rememberShieldApproval = async (approvalRequest: ShieldApprovalRequest) => {
+    if (!runtime.rememberConnectorApproval) {
+      return;
+    }
+    const input = buildConnectorApprovalMemoryRequest(
+      approvalRequest,
+      "Mail connector panel"
+    );
+    if (!input) {
+      return;
+    }
+    try {
+      await runtime.rememberConnectorApproval(input);
+    } catch (error) {
+      console.warn("Failed to remember Shield approval for Mail connector:", error);
+    }
+  };
+
+  const runMailListRecent = async (
+    options?: {
+      shieldApproved?: boolean;
+    }
+  ) => {
     const context = validateMailContext(true);
     if (!context || !runtime.walletMailListRecent) return;
     setMailBusy(true);
     setMailError(null);
+    setMailLastRunSummary(null);
+    setMailLastRunDetails([]);
+    setPendingRunApproval(null);
     try {
       const result: WalletMailListRecentResult = await runtime.walletMailListRecent({
         channelId: context.channelId,
@@ -327,35 +462,100 @@ export function useMailConnectorActions(
         opSeq: mailOpSeq,
         mailbox: mailMailbox.trim() || "primary",
         limit: mailLimit,
+        shieldApproved: options?.shieldApproved ?? false,
       });
       setMailResult(JSON.stringify(result, null, 2));
+      setMailLastRunSummary(
+        `Listed ${result.messages.length} recent message${
+          result.messages.length === 1 ? "" : "s"
+        } from mailbox "${result.mailbox}".`
+      );
+      setMailLastRunDetails(
+        result.messages
+          .slice(0, 3)
+          .map((message) => `${message.subject} — ${message.from}`)
+      );
       setMailOpSeq((value) => value + 1);
     } catch (error) {
+      const approvalRequest = parseShieldApprovalRequest(error);
+      if (approvalRequest && !(options?.shieldApproved ?? false)) {
+        setPendingRunApproval({
+          kind: "shield_policy",
+          actionId: "mail.list_recent",
+          actionLabel: approvalRequest.actionLabel,
+          message: approvalRequest.message,
+          request: approvalRequest,
+        });
+        return;
+      }
       setMailError(error instanceof Error ? error.message : String(error));
     } finally {
       setMailBusy(false);
     }
   };
 
-  const runMailReadLatest = async () => {
+  const runMailReadLatest = async (
+    options?: {
+      shieldApproved?: boolean;
+    }
+  ) => {
     const context = validateMailContext(true);
     if (!context || !runtime.walletMailReadLatest) return;
     setMailBusy(true);
     setMailError(null);
+    setMailLastRunSummary(null);
+    setMailLastRunDetails([]);
+    setPendingRunApproval(null);
     try {
       const result: WalletMailReadLatestResult = await runtime.walletMailReadLatest({
         channelId: context.channelId,
         leaseId: context.leaseId,
         opSeq: mailOpSeq,
         mailbox: mailMailbox.trim() || "primary",
+        shieldApproved: options?.shieldApproved ?? false,
       });
       setMailResult(JSON.stringify(result, null, 2));
+      setMailLastRunSummary(
+        `Read the latest message from mailbox "${result.mailbox}".`
+      );
+      setMailLastRunDetails([
+        `${result.message.subject} — ${result.message.from}`,
+        result.message.preview,
+      ]);
       setMailOpSeq((value) => value + 1);
     } catch (error) {
+      const approvalRequest = parseShieldApprovalRequest(error);
+      if (approvalRequest && !(options?.shieldApproved ?? false)) {
+        setPendingRunApproval({
+          kind: "shield_policy",
+          actionId: "mail.read_latest",
+          actionLabel: approvalRequest.actionLabel,
+          message: approvalRequest.message,
+          request: approvalRequest,
+        });
+        return;
+      }
       setMailError(error instanceof Error ? error.message : String(error));
     } finally {
       setMailBusy(false);
     }
+  };
+
+  const approvePendingRun = async () => {
+    if (!pendingRunApproval) {
+      return;
+    }
+    await rememberShieldApproval(pendingRunApproval.request);
+    if (pendingRunApproval.actionId === "mail.list_recent") {
+      await runMailListRecent({ shieldApproved: true });
+      return;
+    }
+    await runMailReadLatest({ shieldApproved: true });
+  };
+
+  const cancelPendingRun = () => {
+    setPendingRunApproval(null);
+    setMailError(null);
   };
 
   const selectConfiguredAccount = (mailbox: string) => {
@@ -367,6 +567,12 @@ export function useMailConnectorActions(
     if (account) {
       setMailSetupEmail(account.accountEmail);
       setMailSetupSenderDisplayName(account.senderDisplayName ?? "");
+      if (account.defaultChannelIdHex) {
+        setMailChannelId(account.defaultChannelIdHex);
+      }
+      if (account.defaultLeaseIdHex) {
+        setMailLeaseId(account.defaultLeaseIdHex);
+      }
     }
   };
 
@@ -414,14 +620,19 @@ export function useMailConnectorActions(
     mailBusy,
     mailError,
     mailResult,
+    mailLastRunSummary,
+    mailLastRunDetails,
     mailSetupNotice,
     connectedMailAccounts,
     mailConnectorRuntimeReady,
     mailSetupRuntimeReady,
     effectivePreset,
+    pendingRunApproval,
     selectConfiguredAccount,
-    runMailListRecent,
-    runMailReadLatest,
+    runMailListRecent: () => runMailListRecent(),
+    runMailReadLatest: () => runMailReadLatest(),
+    approvePendingRun,
+    cancelPendingRun,
     saveMailAccount,
   };
 }

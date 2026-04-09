@@ -1,0 +1,367 @@
+{
+  "version": 1,
+  "status": "blocked",
+  "runId": "fixture-interrupted-run",
+  "generatedAt": "2026-04-05T22:50:16.168Z",
+  "presetCatalogPath": "apps/autopilot/src-tauri/dev/model-matrix-presets.json",
+  "benchmarkCatalogPath": "docs/evidence/agent-model-matrix/benchmark-suite.catalog.json",
+  "summaryPath": "docs/evidence/agent-model-matrix/latest-summary.json",
+  "runRootPath": "docs/evidence/agent-model-matrix",
+  "plannedPresetCount": 2,
+  "summarizedPresetCount": 2,
+  "completedPresetCount": 1,
+  "fullyCompletedPresetCount": 1,
+  "executedPresetCount": 2,
+  "comparedPresetCount": 2,
+  "preservedDefault": true,
+  "scorecardSchema": {
+    "version": 1,
+    "categories": [
+      {
+        "id": "artifactQuality",
+        "label": "Artifact quality",
+        "requiredForPromotion": true,
+        "metrics": [
+          "averageJudgeScore",
+          "verifierPassRate",
+          "averageRepairLoopIterations",
+          "routeMatchRate"
+        ]
+      },
+      {
+        "id": "codingCompletion",
+        "label": "Coding completion",
+        "requiredForPromotion": true,
+        "metrics": [
+          "taskPassRate",
+          "targetedTestPassRate",
+          "verifierPassRate"
+        ]
+      },
+      {
+        "id": "researchQuality",
+        "label": "Research quality",
+        "requiredForPromotion": true,
+        "metrics": [
+          "citationVerifierPassRate",
+          "sourceIndependenceRate",
+          "synthesisCompleteness"
+        ]
+      },
+      {
+        "id": "computerUseCompletion",
+        "label": "Computer-use completion",
+        "requiredForPromotion": true,
+        "metrics": [
+          "rewardFloorPassRate",
+          "postconditionPassRate",
+          "meanStepCount"
+        ]
+      },
+      {
+        "id": "latencyAndResourcePressure",
+        "label": "Latency and resource pressure",
+        "requiredForPromotion": true,
+        "metrics": [
+          "meanWallClockMs",
+          "p95WallClockMs",
+          "residentModelBytes",
+          "processorKind"
+        ]
+      },
+      {
+        "id": "operationalDiscipline",
+        "label": "Operational discipline",
+        "requiredForPromotion": false,
+        "metrics": [
+          "malformedToolCallRate",
+          "noOpStallRate",
+          "repairLoopIterations",
+          "interruptionRecoveryQuality"
+        ]
+      }
+    ]
+  },
+  "decision": {
+    "outcome": "keep_default",
+    "summary": "Planner-grade local OSS (Qwen3 8B) leads the retained artifact slice, but the matrix still lacks required workload coverage for codingCompletion, researchQuality, computerUseCompletion. Keep the shipped default unchanged. Run blocked: Run interrupted by SIGINT.",
+    "leaderPresetId": "planner-grade-local-oss-qwen3-8b",
+    "artifactLeaderPresetId": "planner-grade-local-oss-qwen3-8b",
+    "missingCoverage": [
+      "codingCompletion",
+      "researchQuality",
+      "computerUseCompletion"
+    ]
+  },
+  "runAbortReason": "Run interrupted by SIGINT.",
+  "presets": [
+    {
+      "presetId": "planner-grade-local-oss-qwen3-8b",
+      "label": "Planner-grade local OSS (Qwen3 8B)",
+      "role": "planner_verifier",
+      "benchmarkTier": "tier1",
+      "deploymentProfile": "consumerLocal",
+      "experimental": false,
+      "shippedDefault": true,
+      "runtimeModel": "qwen3:8b",
+      "artifactAcceptanceModel": "qwen3:8b",
+      "availabilityStatus": "ready",
+      "availabilitySummary": "Local runtime is healthy and exposes 'qwen3:8b'.",
+      "caseCount": 1,
+      "availableWorkloadCount": 1,
+      "topFindings": [],
+      "scorecards": {
+        "artifactQuality": {
+          "available": true,
+          "reason": "",
+          "metrics": {
+            "benchmarkCount": 1,
+            "passRate": 1,
+            "averageJudgeScore": 0.8,
+            "verifierPassRate": 1,
+            "averageRepairLoopIterations": 0,
+            "routeMatchRate": 1
+          }
+        },
+        "codingCompletion": {
+          "available": false,
+          "reason": "No retained coding benchmark was executed for this preset in the current pass.",
+          "metrics": {
+            "benchmarkCount": 0,
+            "taskPassRate": null,
+            "targetedTestPassRate": null,
+            "verifierPassRate": null
+          }
+        },
+        "researchQuality": {
+          "available": false,
+          "reason": "No retained research benchmark was executed for this preset in the current pass.",
+          "metrics": {
+            "benchmarkCount": 0,
+            "citationVerifierPassRate": null,
+            "sourceIndependenceRate": null,
+            "synthesisCompleteness": null
+          }
+        },
+        "computerUseCompletion": {
+          "available": false,
+          "reason": "No retained computer-use benchmark was executed for this preset in the current pass.",
+          "metrics": {
+            "benchmarkCount": 0,
+            "rewardFloorPassRate": null,
+            "postconditionPassRate": null,
+            "meanStepCount": null
+          }
+        },
+        "latencyAndResourcePressure": {
+          "available": true,
+          "reason": "",
+          "metrics": {
+            "meanWallClockMs": 14988,
+            "p95WallClockMs": 14988,
+            "residentModelBytes": 5225388164,
+            "processorKind": null
+          }
+        },
+        "operationalDiscipline": {
+          "available": true,
+          "reason": "",
+          "metrics": {
+            "malformedToolCallRate": null,
+            "noOpStallRate": null,
+            "repairLoopIterations": 0,
+            "interruptionRecoveryQuality": null
+          }
+        }
+      },
+      "cases": [
+        {
+          "benchmarkId": "artifact-download-bundle",
+          "title": "Artifact download bundle",
+          "workload": "artifacts",
+          "runner": "artifact_generate",
+          "status": "completed",
+          "result": "pass",
+          "elapsedMs": 14988,
+          "timedOut": false,
+          "interrupted": false,
+          "signal": null,
+          "summary": "Completed artifact benchmark."
+        }
+      ],
+      "summaryPath": "docs/evidence/agent-model-matrix/latest-summary.json",
+      "runRootPath": "docs/evidence/agent-model-matrix"
+    },
+    {
+      "presetId": "coding-executor-local-oss",
+      "label": "Coding executor local OSS",
+      "role": "coding_executor",
+      "benchmarkTier": "tier2",
+      "deploymentProfile": "consumerLocal",
+      "experimental": true,
+      "shippedDefault": false,
+      "runtimeModel": "qwen2.5:7b",
+      "artifactAcceptanceModel": "qwen2.5:7b",
+      "availabilityStatus": "ready",
+      "availabilitySummary": "Local runtime is healthy and exposes 'qwen2.5:7b'.",
+      "caseCount": 1,
+      "availableWorkloadCount": 1,
+      "topFindings": [
+        "Artifact download bundle: Artifact benchmark interrupted by SIGINT. Last trace: outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384."
+      ],
+      "scorecards": {
+        "artifactQuality": {
+          "available": true,
+          "reason": "",
+          "metrics": {
+            "benchmarkCount": 1,
+            "passRate": 0,
+            "averageJudgeScore": null,
+            "verifierPassRate": 0,
+            "averageRepairLoopIterations": 0,
+            "routeMatchRate": 0
+          }
+        },
+        "codingCompletion": {
+          "available": false,
+          "reason": "No retained coding benchmark was executed for this preset in the current pass.",
+          "metrics": {
+            "benchmarkCount": 0,
+            "taskPassRate": null,
+            "targetedTestPassRate": null,
+            "verifierPassRate": null
+          }
+        },
+        "researchQuality": {
+          "available": false,
+          "reason": "No retained research benchmark was executed for this preset in the current pass.",
+          "metrics": {
+            "benchmarkCount": 0,
+            "citationVerifierPassRate": null,
+            "sourceIndependenceRate": null,
+            "synthesisCompleteness": null
+          }
+        },
+        "computerUseCompletion": {
+          "available": false,
+          "reason": "No retained computer-use benchmark was executed for this preset in the current pass.",
+          "metrics": {
+            "benchmarkCount": 0,
+            "rewardFloorPassRate": null,
+            "postconditionPassRate": null,
+            "meanStepCount": null
+          }
+        },
+        "latencyAndResourcePressure": {
+          "available": true,
+          "reason": "",
+          "metrics": {
+            "meanWallClockMs": 1370,
+            "p95WallClockMs": 1370,
+            "residentModelBytes": 4683087332,
+            "processorKind": "100% GPU"
+          }
+        },
+        "operationalDiscipline": {
+          "available": true,
+          "reason": "",
+          "metrics": {
+            "malformedToolCallRate": null,
+            "noOpStallRate": null,
+            "repairLoopIterations": 0,
+            "interruptionRecoveryQuality": null
+          }
+        }
+      },
+      "cases": [
+        {
+          "benchmarkId": "artifact-download-bundle",
+          "title": "Artifact download bundle",
+          "workload": "artifacts",
+          "runner": "artifact_generate",
+          "status": "interrupted",
+          "result": "unknown",
+          "elapsedMs": 1370,
+          "timedOut": false,
+          "interrupted": true,
+          "signal": "SIGINT",
+          "summary": "Artifact benchmark interrupted by SIGINT."
+        }
+      ],
+      "summaryPath": "docs/evidence/agent-model-matrix/latest-summary.json",
+      "runRootPath": "docs/evidence/agent-model-matrix"
+    }
+  ],
+  "candidateLedger": [
+    {
+      "candidateId": "candidate:planner-grade-local-oss-qwen3-8b",
+      "parentCandidateId": null,
+      "presetId": "planner-grade-local-oss-qwen3-8b",
+      "deploymentProfile": "consumerLocal",
+      "status": "retained_default",
+      "summary": "Current default anchor kept in place while stronger candidates continue to be validated.",
+      "mutationIntent": "Stabilize low-footprint local behavior and hold the baseline until a cleaner successor exists.",
+      "targetFamily": "Artifact / Latency",
+      "changedContracts": [
+        "default preservation",
+        "coverage guard",
+        "latency/resource fit"
+      ],
+      "validationSummary": {
+        "requiredReadyCount": 2,
+        "requiredCategoryCount": 5,
+        "bestRequiredCount": 1,
+        "coverageStatus": "3 blocked"
+      },
+      "regressions": [
+        "codingCompletion",
+        "researchQuality",
+        "computerUseCompletion"
+      ],
+      "evidenceLinks": [
+        {
+          "label": "summary",
+          "path": "docs/evidence/agent-model-matrix/latest-summary.json"
+        },
+        {
+          "label": "retained_run",
+          "path": "docs/evidence/agent-model-matrix"
+        }
+      ]
+    },
+    {
+      "candidateId": "candidate:coding-executor-local-oss",
+      "parentCandidateId": "candidate:planner-grade-local-oss-qwen3-8b",
+      "presetId": "coding-executor-local-oss",
+      "deploymentProfile": "consumerLocal",
+      "status": "candidate",
+      "summary": "Experimental retained candidate that is visible for comparison but not yet promoted.",
+      "mutationIntent": "Preserve baseline behavior while improving coverage and trustworthiness.",
+      "targetFamily": "Artifact / Latency",
+      "changedContracts": [
+        "default preservation",
+        "coverage guard",
+        "latency/resource fit"
+      ],
+      "validationSummary": {
+        "requiredReadyCount": 2,
+        "requiredCategoryCount": 5,
+        "bestRequiredCount": 4,
+        "coverageStatus": "3 blocked"
+      },
+      "regressions": [
+        "Artifact download bundle: Artifact benchmark interrupted by SIGINT. Last trace: outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384."
+      ],
+      "evidenceLinks": [
+        {
+          "label": "summary",
+          "path": "docs/evidence/agent-model-matrix/latest-summary.json"
+        },
+        {
+          "label": "retained_run",
+          "path": "docs/evidence/agent-model-matrix"
+        }
+      ]
+    }
+  ]
+}

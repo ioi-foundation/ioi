@@ -2,9 +2,11 @@ import {
   AgentEditor,
   AgentsDashboard,
   BuilderView,
-  MarketplaceView,
+  type RuntimeCatalogEntry,
   type AgentRuntime,
+  type ProjectFile,
   type AgentSummary,
+  RuntimeCatalogView,
 } from "@ioi/agent-ide";
 import { StudioWelcomeView } from "./StudioWelcomeView";
 
@@ -32,7 +34,9 @@ interface MissionControlWorkflowsViewProps {
   onOpenSettings: () => void;
   onOpenAgent: (agent: AgentSummary | null) => void;
   onCloseAgent: () => void;
-  onInstallAgent: (agent: any) => void;
+  onStageCatalogEntry: (entry: RuntimeCatalogEntry) => void;
+  composeSeedProject: ProjectFile | null;
+  onConsumeComposeSeedProject: () => void;
   onAddBuilderConfigToCanvas: (config: any) => void;
 }
 
@@ -43,7 +47,7 @@ function workflowSurfaceLabel(surface: MissionControlWorkflowsViewProps["surface
     case "agents":
       return "Agents";
     case "catalog":
-      return "Catalog";
+      return "Runtime catalog";
     default:
       return "Canvas";
   }
@@ -65,7 +69,9 @@ export function MissionControlWorkflowsView({
   onOpenSettings,
   onOpenAgent,
   onCloseAgent,
-  onInstallAgent,
+  onStageCatalogEntry,
+  composeSeedProject,
+  onConsumeComposeSeedProject,
   onAddBuilderConfigToCanvas,
 }: MissionControlWorkflowsViewProps) {
   const surfaceLabel = workflowSurfaceLabel(surface);
@@ -146,7 +152,12 @@ export function MissionControlWorkflowsView({
         {surface === "canvas" ? (
           <div className="mission-control-stage-frame mission-control-stage-frame--workflow">
             <div className="mission-control-workflow-plane">
-              <AgentEditor runtime={runtime} onOpenSystemSettings={onOpenSettings} />
+              <AgentEditor
+                runtime={runtime}
+                initialFile={composeSeedProject ?? undefined}
+                onInitialFileLoaded={onConsumeComposeSeedProject}
+                onOpenSystemSettings={onOpenSettings}
+              />
             </div>
           </div>
         ) : null}
@@ -171,7 +182,10 @@ export function MissionControlWorkflowsView({
 
         {surface === "catalog" ? (
           <div className="mission-control-stage-frame mission-control-stage-frame--workflow">
-            <MarketplaceView runtime={runtime} onInstall={onInstallAgent} />
+            <RuntimeCatalogView
+              runtime={runtime}
+              onStageEntry={onStageCatalogEntry}
+            />
           </div>
         ) : null}
       </div>

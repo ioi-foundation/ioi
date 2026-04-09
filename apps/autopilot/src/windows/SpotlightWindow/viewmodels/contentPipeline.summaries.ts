@@ -5,6 +5,7 @@ import type {
   Artifact,
   ArtifactRef,
   ExecutionMoment,
+  PlanSelectedSkill,
   PlanSummary,
   SourceBrowseRow,
   SourceSearchRow,
@@ -312,6 +313,63 @@ function arrayFromRecord(
     .filter((value) => value.length > 0);
 }
 
+function planSelectedSkillFromValue(value: unknown): PlanSelectedSkill | null {
+  if (typeof value === "string") {
+    const id = value.trim();
+    if (!id) {
+      return null;
+    }
+    return {
+      id,
+      entryId: `skill:${id}`,
+      label: humanizeToken(id) || id,
+    };
+  }
+
+  const record = asRecord(value);
+  if (!record) {
+    return null;
+  }
+
+  const id =
+    firstStringValue(
+      record.skill_hash,
+      record.skillHash,
+      record.id,
+      record.skill_id,
+      record.skillId,
+    )?.trim() || "";
+  if (!id) {
+    return null;
+  }
+
+  const entryId =
+    firstStringValue(record.entry_id, record.entryId)?.trim() || `skill:${id}`;
+  const label =
+    firstStringValue(record.label, record.name, record.title)?.trim() ||
+    humanizeToken(id) ||
+    id;
+
+  return {
+    id,
+    entryId,
+    label,
+  };
+}
+
+function selectedSkillsFromRecord(
+  record: Record<string, unknown>,
+  key: string,
+): PlanSelectedSkill[] {
+  const raw = record[key];
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .map((value) => planSelectedSkillFromValue(value))
+    .filter((value): value is PlanSelectedSkill => value !== null);
+}
+
 function normalizedSignalText(...values: Array<string | undefined>): string {
   return values
     .filter(
@@ -528,10 +586,10 @@ function inferredRouteFamily(
 }
 
 function explicitRoutePrep(events: ActivityEventRef[]): {
-  selectedSkills: string[];
+  selectedSkills: PlanSelectedSkill[];
   prepSummary: string | null;
 } {
-  const selectedSkills: string[] = [];
+  const selectedSkills: PlanSelectedSkill[] = [];
   const seenSkills = new Set<string>();
   let prepSummary: string | null = null;
 
@@ -540,19 +598,15 @@ function explicitRoutePrep(events: ActivityEventRef[]): {
     const details = detailsRecord(entry);
 
     for (const skill of [
-      ...arrayFromRecord(details, "selected_skills"),
-      ...arrayFromRecord(digest, "selected_skills"),
+      ...selectedSkillsFromRecord(details, "selected_skills"),
+      ...selectedSkillsFromRecord(digest, "selected_skills"),
     ]) {
-      const trimmed = skill.trim();
-      if (!trimmed) {
-        continue;
-      }
-      const dedupeKey = trimmed.toLowerCase();
+      const dedupeKey = `${skill.entryId}::${skill.id}`.trim().toLowerCase();
       if (seenSkills.has(dedupeKey)) {
         continue;
       }
       seenSkills.add(dedupeKey);
-      selectedSkills.push(trimmed);
+      selectedSkills.push(skill);
     }
 
     if (!prepSummary) {

@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import {
   AgentsIcon,
   AutopilotIcon,
+  CatalogIcon,
   ComposeIcon,
   IntegrationsIcon,
-  MarketplaceIcon,
   NotificationsIcon,
 } from "./ActivityBarIcons";
 
@@ -92,7 +92,7 @@ export function StudioWelcomeView({
     {
       id: "capabilities",
       label: "Bind governed capabilities",
-      detail: "Attach tools, skills, and extensions under explicit policy instead of ad hoc prompts.",
+      detail: "Attach tools, skills, and extension manifests under explicit policy instead of ad hoc prompts.",
       icon: <IntegrationsIcon />,
       onClick: onOpenCapabilities,
     },
@@ -110,7 +110,7 @@ export function StudioWelcomeView({
       id: "catalog",
       label: "Browse the service catalog",
       detail: "Promote workflows into reusable packages that belong in the Autopilot runtime.",
-      icon: <MarketplaceIcon />,
+      icon: <CatalogIcon />,
       onClick: onOpenCatalog,
     },
   ];

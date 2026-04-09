@@ -1,3 +1,4 @@
+import { buildSessionReplTargets } from "@ioi/agent-ide";
 import { useEffect, useMemo, useState } from "react";
 import {
   countActiveOverrides,
@@ -5,14 +6,22 @@ import {
 } from "../policyCenter";
 import type { PrimaryView } from "../studioWindowModel";
 import { type TauriRuntime } from "../../../services/TauriRuntime";
+import { bootstrapAgentSession, useAgentStore } from "../../../session/autopilotSession";
+import {
+  buildSessionContinuityOverview,
+  currentSessionIdFromTask,
+  mergeCurrentTaskRootIntoTargets,
+} from "../../../session/sessionContinuity";
 import type {
   AssistantWorkbenchSession,
   BenchmarkTraceCaseView,
   BenchmarkTraceFeed,
 } from "../../../types";
+import { StudioArtifactEvidencePanel } from "../../SpotlightWindow/components/StudioArtifactEvidencePanel";
+import { SpotlightReplView } from "../../SpotlightWindow/components/SpotlightReplView";
 import { StudioBenchmarkTraceDeck } from "./StudioBenchmarkTraceDeck";
 
-type UtilityTab = "logs" | "trace" | "receipts";
+type UtilityTab = "logs" | "trace" | "receipts" | "sessions";
 
 interface ProjectScope {
   id: string;
@@ -32,6 +41,7 @@ interface StudioUtilityDrawerProps {
   currentProject: ProjectScope;
   focusedPolicyConnectorId?: string | null;
   assistantWorkbench: AssistantWorkbenchSession | null;
+  onOpenStudioConversation: () => void;
 }
 
 interface UtilityLogItem {
@@ -82,6 +92,7 @@ function defaultTraceSpanId(caseView: BenchmarkTraceCaseView | null): string | n
 
 const TABS: Array<{ id: UtilityTab; label: string }> = [
   { id: "logs", label: "Logs" },
+  { id: "sessions", label: "Sessions" },
   { id: "trace", label: "Trace" },
   { id: "receipts", label: "Receipts" },
 ];
@@ -104,6 +115,7 @@ export function StudioUtilityDrawer({
   currentProject,
   focusedPolicyConnectorId,
   assistantWorkbench,
+  onOpenStudioConversation,
 }: StudioUtilityDrawerProps) {
   const [isOpen, setIsOpen] = useState(activeView !== "studio");
   const [activeTab, setActiveTab] = useState<UtilityTab>(
@@ -114,7 +126,20 @@ export function StudioUtilityDrawer({
   const [traceError, setTraceError] = useState<string | null>(null);
   const [selectedTraceCaseId, setSelectedTraceCaseId] = useState<string | null>(null);
   const [selectedTraceSpanId, setSelectedTraceSpanId] = useState<string | null>(null);
+  const [sessionSurfaceStatus, setSessionSurfaceStatus] = useState<
+    "idle" | "loading" | "ready"
+  >("idle");
+  const [sessionSurfaceError, setSessionSurfaceError] = useState<string | null>(null);
   const activeTabName = utilityTabLabel(activeTab);
+  const {
+    task: sessionTask,
+    sessions: sessionHistory,
+  } = useAgentStore();
+  const activeStudioSession = sessionTask?.studio_session ?? null;
+  const activeArtifactReceipts =
+    sessionTask?.renderer_session?.receipts ??
+    sessionTask?.build_session?.receipts ??
+    [];
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -136,6 +161,42 @@ export function StudioUtilityDrawer({
   }, [activeView]);
 
   useEffect(() => {
+    let cancelled = false;
+    setSessionSurfaceStatus("loading");
+    setSessionSurfaceError(null);
+
+    void bootstrapAgentSession({
+      refreshCurrentTask: false,
+    })
+      .then(async () => {
+        const store = useAgentStore.getState();
+        await Promise.all([store.refreshCurrentTask(), store.refreshSessionHistory()]);
+      })
+      .then(() => {
+        if (!cancelled) {
+          setSessionSurfaceStatus("ready");
+        }
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setSessionSurfaceStatus("idle");
+        setSessionSurfaceError(
+          error instanceof Error ? error.message : String(error ?? ""),
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== "trace") {
+      return;
+    }
+
     let cancelled = false;
     setTraceLoading(true);
     setTraceError(null);
@@ -166,7 +227,7 @@ export function StudioUtilityDrawer({
     return () => {
       cancelled = true;
     };
-  }, [runtime]);
+  }, [activeTab, isOpen, runtime]);
   const logItems = useMemo<UtilityLogItem[]>(() => {
     const items: UtilityLogItem[] = [
       {
@@ -226,6 +287,48 @@ export function StudioUtilityDrawer({
       null,
     [selectedTraceCaseId, traceFeed],
   );
+  const activeSessionId = currentSessionIdFromTask(sessionTask);
+  const continuityTargets = useMemo(() => {
+    const targets = buildSessionReplTargets(sessionHistory, activeSessionId);
+    return mergeCurrentTaskRootIntoTargets(targets, sessionTask, activeSessionId);
+  }, [activeSessionId, sessionHistory, sessionTask]);
+  const continuityOverview = useMemo(
+    () => buildSessionContinuityOverview(continuityTargets, activeSessionId),
+    [activeSessionId, continuityTargets],
+  );
+
+  const handleOpenStudioSession = async (sessionId: string) => {
+    setSessionSurfaceStatus("loading");
+    setSessionSurfaceError(null);
+    try {
+      const store = useAgentStore.getState();
+      await store.loadSession(sessionId);
+      await store.refreshSessionHistory();
+      onOpenStudioConversation();
+      setSessionSurfaceStatus("ready");
+    } catch (error) {
+      setSessionSurfaceStatus("idle");
+      setSessionSurfaceError(
+        error instanceof Error ? error.message : String(error ?? ""),
+      );
+    }
+  };
+
+  const handleStopStudioSession = async () => {
+    setSessionSurfaceStatus("loading");
+    setSessionSurfaceError(null);
+    try {
+      await runtime.stopSessionTask();
+      const store = useAgentStore.getState();
+      await Promise.all([store.refreshCurrentTask(), store.refreshSessionHistory()]);
+      setSessionSurfaceStatus("ready");
+    } catch (error) {
+      setSessionSurfaceStatus("idle");
+      setSessionSurfaceError(
+        error instanceof Error ? error.message : String(error ?? ""),
+      );
+    }
+  };
 
   useEffect(() => {
     const availableSpanIds = new Set(
@@ -294,6 +397,51 @@ export function StudioUtilityDrawer({
             </div>
           ) : null}
 
+          {activeTab === "sessions" ? (
+            <div className="studio-utility-log-list">
+              <article className="studio-utility-card">
+                <div className="studio-utility-card-head">
+                  <span>continuity</span>
+                  <strong>{continuityOverview.statusLabel}</strong>
+                </div>
+                <p>{continuityOverview.detail}</p>
+                <div className="studio-utility-session-meta">
+                  <span>{continuityOverview.targetCount} targets</span>
+                  <span>{continuityOverview.attachableCount} attachable</span>
+                  <span>{continuityOverview.liveCount} live</span>
+                  <span>
+                    Surface:{" "}
+                    {sessionSurfaceStatus === "loading"
+                      ? "Refreshing"
+                      : sessionSurfaceError
+                        ? "Attention"
+                        : "Ready"}
+                  </span>
+                </div>
+              </article>
+              {sessionSurfaceError ? (
+                <article className="studio-utility-card">
+                  <div className="studio-utility-card-head">
+                    <span>bridge</span>
+                    <strong>Session continuity needs attention</strong>
+                  </div>
+                  <p>{sessionSurfaceError}</p>
+                </article>
+              ) : null}
+              <SpotlightReplView
+                activeSessionId={activeSessionId}
+                currentTask={sessionTask}
+                sessions={sessionHistory}
+                onLoadSession={(sessionId) => {
+                  void handleOpenStudioSession(sessionId);
+                }}
+                onStopSession={() => {
+                  void handleStopStudioSession();
+                }}
+              />
+            </div>
+          ) : null}
+
           {activeTab === "trace" ? (
             <StudioBenchmarkTraceDeck
               mode="trace"
@@ -308,16 +456,31 @@ export function StudioUtilityDrawer({
           ) : null}
 
           {activeTab === "receipts" ? (
-            <StudioBenchmarkTraceDeck
-              mode="receipts"
-              feed={traceFeed}
-              loading={traceLoading}
-              error={traceError}
-              selectedCaseId={selectedTraceCaseId}
-              selectedSpanId={selectedTraceSpanId}
-              onSelectCase={setSelectedTraceCaseId}
-              onSelectSpan={setSelectedTraceSpanId}
-            />
+            activeStudioSession ? (
+              <div className="studio-utility-receipts">
+                <StudioArtifactEvidencePanel
+                  manifest={activeStudioSession.artifactManifest}
+                  studioSession={activeStudioSession}
+                  pipelineSteps={activeStudioSession.materialization.pipelineSteps ?? []}
+                  notes={activeStudioSession.materialization.notes}
+                  evidence={activeStudioSession.verifiedReply.evidence}
+                  receipts={activeArtifactReceipts}
+                />
+              </div>
+            ) : (
+              <div className="studio-utility-log-list">
+                <article className="studio-utility-card">
+                  <div className="studio-utility-card-head">
+                    <span>execution</span>
+                    <strong>No active execution receipts yet</strong>
+                  </div>
+                  <p>
+                    Start a Studio run to inspect plan, dispatch, work, merge,
+                    verification, and repair evidence here.
+                  </p>
+                </article>
+              </div>
+            )
           ) : null}
         </div>
       ) : null}
