@@ -43,10 +43,27 @@ export type GoogleWorkspaceConnectorPanelView = {
     actionId: string,
     presetInput?: Record<string, string>,
   ) => void;
+  focusedActionModalOpen: boolean;
+  openFocusedActionModal: () => void;
+  closeFocusedActionModal: () => void;
   openAuthLink: () => void;
   copyAuthLink: () => Promise<void>;
   resetGoogleSetup: () => Promise<void>;
   reopenScopeSelection: () => Promise<void>;
   retryConsent: () => Promise<void>;
+  saveOauthClientAndContinue: () => Promise<void>;
+  unlockBundleContext: {
+    actionLabel: string;
+    recommendations: UnlockBundleRecommendation[];
+  } | null;
+  rememberUnlockBundleContext: (
+    actionLabel: string,
+    recommendations: UnlockBundleRecommendation[],
+  ) => void;
   [key: string]: any;
+};
+
+export type UnlockBundleRecommendation = {
+  bundleId: string;
+  reason: string;
 };

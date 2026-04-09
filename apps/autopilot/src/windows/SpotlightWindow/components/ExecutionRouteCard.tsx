@@ -1,4 +1,10 @@
-import type { PlanSummary } from "../../../types";
+import { useMemo } from "react";
+import type {
+  CapabilityRegistryEntry,
+  PlanSelectedSkill,
+  PlanSummary,
+} from "../../../types";
+import { useSpotlightCapabilityRegistry } from "../hooks/useSpotlightCapabilityRegistry";
 
 type ExecutionRouteCardProps = {
   summary: PlanSummary;
@@ -128,6 +134,46 @@ function researchStatusLabel(value: string): string {
   return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function fallbackSkillLabel(skill: PlanSelectedSkill): string {
+  const label = skill.label.trim();
+  if (label) {
+    return label;
+  }
+
+  const id = skill.id.trim();
+  if (!id) {
+    return "Prepared skill";
+  }
+
+  return id.replace(/[_-]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function capabilitySkillSummary(
+  entry: CapabilityRegistryEntry | null,
+  skill: PlanSelectedSkill,
+): string {
+  if (entry) {
+    return entry.whySelectable;
+  }
+
+  return `Capability registry details are not attached yet for ${fallbackSkillLabel(skill)}.`;
+}
+
+function capabilitySkillMeta(
+  entry: CapabilityRegistryEntry | null,
+  skill: PlanSelectedSkill,
+): string[] {
+  if (entry) {
+    return [
+      entry.authority.tierLabel,
+      entry.lease.modeLabel ?? entry.lease.availabilityLabel,
+      entry.sourceLabel,
+    ].filter(Boolean);
+  }
+
+  return [skill.id];
+}
+
 export function ExecutionRouteCard({
   summary,
   currentStep,
@@ -135,6 +181,20 @@ export function ExecutionRouteCard({
   onOpenArtifacts,
 }: ExecutionRouteCardProps) {
   const currentStage = currentStep?.trim() || summary.currentStage;
+  const { entryLookup } = useSpotlightCapabilityRegistry(
+    summary.selectedSkills.length > 0,
+  );
+  const preparedSkills = useMemo(
+    () =>
+      summary.selectedSkills.map((skill) => ({
+        skill,
+        registryEntry:
+          entryLookup.get(skill.entryId) ??
+          entryLookup.get(`skill:${skill.id}`) ??
+          null,
+      })),
+    [entryLookup, summary.selectedSkills],
+  );
 
   return (
     <section
@@ -251,13 +311,48 @@ export function ExecutionRouteCard({
             {summary.prepSummary && <p>{summary.prepSummary}</p>}
           </div>
           {summary.selectedSkills.length > 0 && (
-            <div className="spot-execution-card-policy">
-              {summary.selectedSkills.slice(0, 4).map((skill) => (
-                <span key={skill} className="spot-execution-card-policy-chip">
-                  {skill}
-                </span>
-              ))}
-            </div>
+            <>
+              <div className="spot-execution-card-policy">
+                {preparedSkills.slice(0, 4).map(({ skill, registryEntry }) => (
+                  <span
+                    key={skill.entryId}
+                    className="spot-execution-card-policy-chip"
+                  >
+                    {registryEntry?.label ?? fallbackSkillLabel(skill)}
+                  </span>
+                ))}
+              </div>
+              <div className="spot-execution-card-capability-list">
+                {preparedSkills.slice(0, 2).map(({ skill, registryEntry }) => (
+                  <article
+                    key={`${skill.entryId}-detail`}
+                    className="spot-execution-card-capability"
+                  >
+                    <div className="spot-execution-card-capability-head">
+                      <div className="spot-execution-card-capability-copy">
+                        <strong>
+                          {registryEntry?.label ?? fallbackSkillLabel(skill)}
+                        </strong>
+                        <span>{capabilitySkillSummary(registryEntry, skill)}</span>
+                      </div>
+                      <span className="spot-execution-card-capability-badge">
+                        {registryEntry?.authority.tierLabel ?? "Registry pending"}
+                      </span>
+                    </div>
+                    <div className="spot-execution-card-policy">
+                      {capabilitySkillMeta(registryEntry, skill).map((item) => (
+                        <span
+                          key={`${skill.entryId}-${item}`}
+                          className="spot-execution-card-policy-chip"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}

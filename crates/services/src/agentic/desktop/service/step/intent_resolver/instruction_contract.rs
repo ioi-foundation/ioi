@@ -295,6 +295,22 @@ fn query_contains_any(haystack: &str, needles: &[&str]) -> bool {
     needles.iter().any(|needle| haystack.contains(needle))
 }
 
+fn query_requests_explanatory_reply(query: &str) -> bool {
+    let normalized = normalized_query_text(query);
+    query_contains_any(
+        &normalized,
+        &[
+            " summarize what you can ",
+            " summarize what you can help me do ",
+            " summarize what you can do ",
+            " explain what you can ",
+            " explain what you can help me do ",
+            " describe what you can ",
+            " describe what you can help me do ",
+        ],
+    )
+}
+
 fn query_requests_code_change_work(query: &str) -> bool {
     let normalized = normalized_query_text(query);
     let code_action = query_contains_any(
@@ -725,6 +741,35 @@ fn fallback_instruction_contract(query: &str, intent_id: &str) -> Option<Instruc
     Some(contract)
 }
 
+fn instruction_contract_inference_needed(
+    query: &str,
+    intent_id: &str,
+    required_capabilities: &[CapabilityId],
+    provider_selection: Option<&ProviderSelectionState>,
+) -> bool {
+    if query_requests_explanatory_reply(query) {
+        return false;
+    }
+
+    if provider_selection.is_some() {
+        return true;
+    }
+
+    if preferred_delegation_template_for_intent(query, intent_id).is_some() {
+        return true;
+    }
+
+    required_capabilities.iter().any(|capability_id| {
+        capability_id == &capability("ui.interact")
+            || capability_id == &capability("ui.inspect")
+            || capability_id == &capability("browser.interact")
+            || capability_id == &capability("browser.inspect")
+            || capability_id == &capability("delegation.manage")
+            || capability_id == &capability("automation.monitor.install")
+            || capability_id == &capability("model.registry.manage")
+    })
+}
+
 pub fn seeded_instruction_contract_for_intent(
     query: &str,
     intent_id: &str,
@@ -741,6 +786,15 @@ pub(super) async fn synthesize_instruction_contract(
     required_capabilities: &[CapabilityId],
     provider_selection: Option<&ProviderSelectionState>,
 ) -> Option<InstructionContract> {
+    if !instruction_contract_inference_needed(
+        query,
+        intent_id,
+        required_capabilities,
+        provider_selection,
+    ) {
+        return fallback_instruction_contract(query, intent_id);
+    }
+
     let payload = json!([
         {
             "role": "system",
@@ -1264,5 +1318,35 @@ mod tests {
             .find(|binding| binding.slot == "template_id")
             .expect("research template binding should exist");
         assert_eq!(template_binding.value.as_deref(), Some("researcher"));
+    }
+
+    #[test]
+    fn skips_instruction_contract_inference_for_plain_conversation_reply() {
+        assert!(!instruction_contract_inference_needed(
+            "summarize what you can help me do in this repository in one short paragraph",
+            "conversation.reply",
+            &[capability("conversation.reply")],
+            None,
+        ));
+    }
+
+    #[test]
+    fn skips_instruction_contract_inference_for_explanatory_repo_summary_with_provider_selection() {
+        assert!(!instruction_contract_inference_needed(
+            "summarize what you can help me do in this repository in one short paragraph",
+            "workspace.ops",
+            &[capability("workspace.read")],
+            Some(&ProviderSelectionState::default()),
+        ));
+    }
+
+    #[test]
+    fn keeps_instruction_contract_inference_for_delegated_repo_work() {
+        assert!(instruction_contract_inference_needed(
+            "investigate this repository and fix the failing rust test",
+            "delegation.task",
+            &[capability("delegation.manage")],
+            None,
+        ));
     }
 }

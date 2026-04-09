@@ -706,10 +706,10 @@ mod tests {
     #[test]
     fn bridge_startup_failure_is_classified_as_infra_even_without_kernel_success() {
         let case = ComputerUseCase {
-            id: "miniwob_click_button_smoke".to_string(),
+            id: "miniwob_click_button_baseline".to_string(),
             env_id: "click-button".to_string(),
             seed: 101,
-            task_set: TaskSet::Smoke,
+            task_set: TaskSet::Baseline,
             max_steps: 8,
             timeout_seconds: 20,
             allowed_tool_profile: AllowedToolProfile::BrowserCore,
@@ -722,7 +722,7 @@ mod tests {
         let mut result = base_result();
         result.case_id = case.id.clone();
         result.env_id = case.env_id.clone();
-        result.task_set = TaskSet::Smoke;
+        result.task_set = TaskSet::Baseline;
         result.mode = ComputerUseMode::Agent;
         result.agent_backend = Some(AgentBackend::LiveHttp);
         result.kernel_behavior = KernelBehaviorObservation::default();

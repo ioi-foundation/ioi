@@ -1,0 +1,32 @@
+[studio-proof-trace] outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2814 max_tokens=384
+[studio-proof-trace] outcome_route:raw bytes=461 preview={
+  "outcomeKind": "artifact",
+  "confidence": 0.8,
+  "needsClarification": false,
+  "clarificationQuestions": [],
+  "artifact": {
+    "artifactClass": "interactive_single_file",
+    "renderer": "html_iframe",
+    "workspaceRecipeId": null,...
+[studio-proof-trace] outcome_route:parsed outcome=Artifact confidence=0.8 needs_clarification=false artifact_present=true
+[studio-proof-trace] artifact_generation:start renderer=HtmlIframe profile=LocalGenerationRemoteAcceptance planning_model=Some("qwen2.5:7b") production_model=Some("qwen2.5:14b") acceptance_model=Some("qwen2.5:7b") repair_model=Some("qwen2.5:7b") refinement=false
+[studio-proof-trace] artifact_brief:start renderer=HtmlIframe runtime=openai-compatible model=Some("qwen2.5:7b") prompt_bytes=1744 max_tokens=320
+[studio-proof-trace] artifact_brief:planner_output {
+  "audience": "tech enthusiasts and industry professionals",
+  "jobToBeDone": "explore and learn about new AI tools for editorial purposes",
+  "subjectDomain": "AI tools in content creation and management",
+  "artifactThesis": "An interactive HTML artifact that showcases the latest AI tools for editorial use, providing a seamless learning experience through engaging interactions.",
+  "requiredConcepts": ["AI tool demonstrations", "editorial workflow optimization", "content generation examples"],
+  "requiredInteractions": ["tool demo video playback", "interactive quiz on AI applications"],
+  "visualTone": ["modern and sleek", "informative and educational"],
+  "factualAnchors": ["Gartner's Hype Cycle for Media and Entertainment Technologies, 2023"],
+  "styleDirectives": ["use high-quality images and videos", "keep text concise and informative"],
+  "referenceHints": ["AI-driven content creation platforms like Grammarly and Hemingway Editor"]
+}
+[studio-proof-trace] artifact_generation:brief_ready
+[studio-proof-trace] artifact_generation:edit_intent_ready present=false
+[studio-proof-trace] artifact_generation:generation_warmup:start model=Some("qwen2.5:14b")
+[studio-proof-trace] artifact_generation:generation_warmup:ok model=Some("qwen2.5:14b")
+[studio-proof-trace] artifact_generation:candidate_config initial_count=1 max_count=1 shortlist_limit=1 max_refine=1 temperature=0.32 configured_temperature=0.54 strategy=request-grounded_html
+[studio-proof-trace] artifact_generation:candidate_materialize:start id=candidate-1 seed=7555423378802501711
+[studio-proof-trace] artifact_generation:materialization_inference:start id=candidate-1 prompt_bytes=6083 temperature=0.32 max_tokens=1600

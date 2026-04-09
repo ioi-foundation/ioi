@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "generatedAt": "2026-04-05T00:00:00.000Z",
+  "profiles": [
+    {
+      "id": "local_cpu_consumer",
+      "label": "CPU consumer",
+      "sublabel": "lowest-footprint local lane",
+      "trustPosture": "local_only",
+      "cloudEgressPosture": "forbidden",
+      "roleScope": "single-model local fallback",
+      "defaultSelectionPolicy": "retained default must be decided inside this lane only",
+      "screeningPackIds": ["text_foundation_pack"],
+      "retainedBatteryPolicy": "repo_native_retained",
+      "notes": [
+        "Used for low-footprint fallback and safety-anchor comparisons.",
+        "Should not inherit a default from richer GPU or blind-cloud lanes."
+      ]
+    },
+    {
+      "id": "local_gpu_8gb_class",
+      "label": "8GB-class local",
+      "sublabel": "constrained local GPU default",
+      "trustPosture": "local_only",
+      "cloudEgressPosture": "forbidden",
+      "roleScope": "single-model or compact split-role local",
+      "defaultSelectionPolicy": "default selection is constrained by residency, latency, and retained required-family coverage",
+      "screeningPackIds": ["text_foundation_pack", "coding_agent_pack", "tool_api_pack"],
+      "retainedBatteryPolicy": "repo_native_retained",
+      "notes": [
+        "Primary current local default lane in this repo.",
+        "Must preserve honest resource fit instead of borrowing winners from workstation or cloud tiers."
+      ]
+    },
+    {
+      "id": "local_gpu_16gb_class",
+      "label": "16GB-class local",
+      "sublabel": "stronger local GPU lane",
+      "trustPosture": "local_only",
+      "cloudEgressPosture": "forbidden",
+      "roleScope": "heavier local reasoning and tool loops",
+      "defaultSelectionPolicy": "prefer stronger retained local completions without crossing trust-posture boundaries",
+      "screeningPackIds": ["text_foundation_pack", "coding_agent_pack", "tool_api_pack"],
+      "retainedBatteryPolicy": "repo_native_retained",
+      "notes": [
+        "Intermediate local tier for stronger single-model or modest split-role setups."
+      ]
+    },
+    {
+      "id": "local_workstation",
+      "label": "Workstation local",
+      "sublabel": "high-capacity local lane",
+      "trustPosture": "local_only",
+      "cloudEgressPosture": "forbidden",
+      "roleScope": "richer local role composition",
+      "defaultSelectionPolicy": "promote only from retained workstation-local evidence and conformance-clean candidates",
+      "screeningPackIds": ["text_foundation_pack", "coding_agent_pack", "tool_api_pack", "computer_use_pack"],
+      "retainedBatteryPolicy": "repo_native_retained",
+      "notes": [
+        "Lane for larger local planners, verifiers, and richer tool loops."
+      ]
+    },
+    {
+      "id": "hybrid_privacy_preserving",
+      "label": "Hybrid private",
+      "sublabel": "mostly local with bounded remote help",
+      "trustPosture": "hybrid",
+      "cloudEgressPosture": "approved_bounded",
+      "roleScope": "local-first with explicit remote assists",
+      "defaultSelectionPolicy": "remote help must remain explicit and bounded; promotion cannot silently widen egress",
+      "screeningPackIds": [
+        "text_foundation_pack",
+        "coding_agent_pack",
+        "tool_api_pack",
+        "computer_use_pack",
+        "multimodal_foundation_pack"
+      ],
+      "retainedBatteryPolicy": "repo_native_retained",
+      "notes": [
+        "Future lane for sovereign-actor-compatible bounded egress patterns."
+      ]
+    },
+    {
+      "id": "blind_cloud_standard",
+      "label": "Blind cloud",
+      "sublabel": "remote capacity with standard blind posture",
+      "trustPosture": "blind_cloud",
+      "cloudEgressPosture": "approved_blind",
+      "roleScope": "cloud-backed blind lane",
+      "defaultSelectionPolicy": "blind-cloud leaders stay shadow-scoped unless promoted inside this trust posture",
+      "screeningPackIds": [
+        "text_foundation_pack",
+        "coding_agent_pack",
+        "tool_api_pack",
+        "computer_use_pack",
+        "general_agent_pack",
+        "multimodal_foundation_pack"
+      ],
+      "retainedBatteryPolicy": "repo_native_retained",
+      "notes": [
+        "Visible in the scorecard and candidate surfaces, but kept separate from local defaults."
+      ]
+    },
+    {
+      "id": "blind_cloud_premium",
+      "label": "Blind cloud premium",
+      "sublabel": "highest approved blind-cloud tier",
+      "trustPosture": "blind_cloud",
+      "cloudEgressPosture": "approved_blind",
+      "roleScope": "premium cloud-backed blind lane",
+      "defaultSelectionPolicy": "same trust posture as standard blind cloud, but measured separately for higher-tier role assignment",
+      "screeningPackIds": [
+        "text_foundation_pack",
+        "coding_agent_pack",
+        "tool_api_pack",
+        "computer_use_pack",
+        "general_agent_pack",
+        "multimodal_foundation_pack"
+      ],
+      "retainedBatteryPolicy": "repo_native_retained",
+      "notes": [
+        "Reserved for premium remote capacity without collapsing it into standard blind-cloud decisions."
+      ]
+    }
+  ]
+}

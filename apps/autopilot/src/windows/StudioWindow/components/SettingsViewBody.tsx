@@ -2,6 +2,7 @@ import { SettingsEnvironmentSection } from "./SettingsEnvironmentSection";
 import { SettingsIdentitySection } from "./SettingsIdentitySection";
 import { SettingsKnowledgeSection } from "./SettingsKnowledgeSection";
 import { SettingsMaintenanceSection } from "./SettingsMaintenanceSection";
+import { SettingsManagedSection } from "./SettingsManagedSection";
 import { SettingsRuntimeSection } from "./SettingsRuntimeSection";
 import { SettingsSkillSourcesSection } from "./SettingsSkillSourcesSection";
 import { SettingsSourcesSection } from "./SettingsSourcesSection";
@@ -53,6 +54,16 @@ export function SettingsViewBody({
         >
           <strong>Skill sources</strong>
           <span>Repo or local skill roots, sync status, and provenance controls.</span>
+        </button>
+        <button
+          type="button"
+          className={`studio-settings-target ${
+            selectedSection === "managed_settings" ? "active" : ""
+          }`}
+          onClick={() => setSelectedSection("managed_settings")}
+        >
+          <strong>Managed settings</strong>
+          <span>Signed sync channels, effective policy, and local override posture.</span>
         </button>
         <button
           type="button"
@@ -131,6 +142,9 @@ export function SettingsViewBody({
 
         {selectedSection === "identity" ? (
           <SettingsIdentitySection view={view} />
+        ) : null}
+        {selectedSection === "managed_settings" ? (
+          <SettingsManagedSection view={view} />
         ) : null}
         {selectedSection === "runtime" ? (
           <SettingsRuntimeSection view={view} />

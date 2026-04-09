@@ -77,6 +77,15 @@ pub async fn monitor_kernel_events(app: tauri::AppHandle) {
                         system::handle_system(&app, update).await;
                     }
                     ChainEventEnum::Block(block) => {
+                        let app_clone = app.clone();
+                        let refresh_reason = format!("block#{}", block.height);
+                        tauri::async_runtime::spawn(async move {
+                            crate::kernel::session::emit_session_projection_update_if_history_changed(
+                                &app_clone,
+                                &refresh_reason,
+                            )
+                            .await;
+                        });
                         #[cfg(debug_assertions)]
                         println!(
                             "[Autopilot] Block #{} committed (Tx: {})",

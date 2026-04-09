@@ -7,10 +7,12 @@ import { ArtifactRendererHost } from "./ArtifactRendererHost";
 import { ArtifactSourceWorkbench } from "./ArtifactSourceWorkbench";
 import { StudioArtifactEvidencePanel } from "./StudioArtifactEvidencePanel";
 import { StudioArtifactStageHeader } from "./StudioArtifactStageHeader";
+import { formatStudioExecutionPreviewPhase } from "./studioExecutionPreview";
 import {
   artifactSurfaceTitle,
   displayArtifactClassLabel,
   displayRendererLabel,
+  formatStatusLabel,
   type LogicalArtifactSurfaceProps,
 } from "./studioArtifactSurfaceShared";
 import {
@@ -23,6 +25,44 @@ import {
   resolveSourceFilePath,
   shouldSwitchToSourceForSelection,
 } from "./studioArtifactSurfaceModel";
+import { deriveStudioExecutionChrome } from "./studioExecutionChrome";
+
+function isTextMime(mime: string | null | undefined): boolean {
+  const normalized = String(mime || "").trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+
+  return (
+    normalized.startsWith("text/") ||
+    normalized.includes("json") ||
+    normalized.includes("javascript") ||
+    normalized.includes("typescript") ||
+    normalized.includes("xml") ||
+    normalized.includes("yaml") ||
+    normalized.includes("svg") ||
+    normalized.includes("html") ||
+    normalized.includes("markdown")
+  );
+}
+
+function decodeArtifactPayloadText(
+  payload: ArtifactContentPayload | null,
+): string | null {
+  if (!payload) {
+    return null;
+  }
+
+  if (payload.encoding === "base64") {
+    try {
+      return window.atob(payload.content);
+    } catch {
+      return null;
+    }
+  }
+
+  return payload.content;
+}
 
 export function StudioArtifactLogicalSurface({
   manifest,
@@ -30,6 +70,7 @@ export function StudioArtifactLogicalSurface({
   rendererSession,
   retrying,
   onRetry,
+  onBrowseArtifacts,
   onCollapse,
   onSeedIntent,
 }: LogicalArtifactSurfaceProps) {
@@ -44,6 +85,24 @@ export function StudioArtifactLogicalSurface({
   const [artifactPayload, setArtifactPayload] = useState<ArtifactContentPayload | null>(null);
   const [artifactError, setArtifactError] = useState<string | null>(null);
   const [artifactLoading, setArtifactLoading] = useState(false);
+  const executionEnvelope = studioSession.materialization.executionEnvelope ?? null;
+  const executionChrome = deriveStudioExecutionChrome({
+    executionEnvelope,
+    swarmExecution: studioSession.materialization.swarmExecution,
+    swarmPlan: studioSession.materialization.swarmPlan,
+    workerReceipts: studioSession.materialization.swarmWorkerReceipts,
+    changeReceipts: studioSession.materialization.swarmChangeReceipts,
+  });
+  const livePreview = executionChrome.livePreview;
+  const codePreview = executionChrome.codePreview;
+  const renderExecutionPreviewAriaLabel = (
+    preview: NonNullable<typeof livePreview>,
+  ) =>
+    `${preview.label}. ${formatStudioExecutionPreviewPhase(preview)}. ${preview.content}`;
+  const isNonArtifactRoute = studioSession.outcomeRequest.outcomeKind !== "artifact";
+  const routeLabel = formatStatusLabel(studioSession.outcomeRequest.outcomeKind);
+  const showRouteSummary = isNonArtifactRoute && manifest.files.length === 0;
+  const showZeroFileArtifactStage = !showRouteSummary && manifest.files.length === 0;
 
   useEffect(() => {
     setStageMode(resolveInitialStageMode(manifest, rendererSession));
@@ -67,6 +126,12 @@ export function StudioArtifactLogicalSurface({
     [manifest, sourceFilePath],
   );
   const activeStageFile = stageMode === "source" ? selectedSourceFile : renderFile;
+  const headerCopyText = useMemo(() => {
+    if (!activeStageFile || !isTextMime(activeStageFile.mime)) {
+      return null;
+    }
+    return decodeArtifactPayloadText(artifactPayload);
+  }, [activeStageFile, artifactPayload]);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,18 +172,22 @@ export function StudioArtifactLogicalSurface({
   }, [activeStageFile?.artifactId]);
 
   const rendererLabel = displayRendererLabel(
-    stageMode === "source"
-      ? manifest.renderer
-      : renderFile?.mime === "application/pdf"
-        ? "pdf_embed"
-        : manifest.renderer,
+    showRouteSummary
+      ? studioSession.outcomeRequest.outcomeKind
+      : stageMode === "source"
+        ? manifest.renderer
+        : renderFile?.mime === "application/pdf"
+          ? "pdf_embed"
+          : manifest.renderer,
   );
-  const stageTitle = artifactSurfaceTitle(
-    manifest.artifactClass,
-    manifest.renderer,
-    stageMode === "source" ? selectedSourceFile : renderFile,
-    manifest.title,
-  );
+  const stageTitle = showRouteSummary
+    ? studioSession.verifiedReply.title
+    : artifactSurfaceTitle(
+        manifest.artifactClass,
+        manifest.renderer,
+        stageMode === "source" ? selectedSourceFile : renderFile,
+        manifest.title,
+      );
   const tree = useMemo(() => buildArtifactTree(manifest.files), [manifest.files]);
   const hasRender = hasVerifiedRender(manifest, rendererSession);
 
@@ -141,38 +210,60 @@ export function StudioArtifactLogicalSurface({
   return (
     <section className="studio-artifact-surface" aria-label="Studio artifact surface">
       <aside className="studio-artifact-sidebar studio-artifact-sidebar--explorer">
-        <WorkspaceExplorerPane
-          tree={tree}
-          activePath={sourceFilePath}
-          expandedPaths={expandedPaths}
-          loadingDirectories={{}}
-          git={{ isRepo: false, branch: null, dirty: false, lastCommit: null }}
-          rootPath={`artifact://${manifest.artifactId}`}
-          eyebrow="Artifact"
-          title="Explorer"
-          readOnly={true}
-          showGitSummary={false}
-          showRefreshButton={false}
-          onToggleDirectory={(node) =>
-            setExpandedPaths((current) => ({
-              ...current,
-              [node.path]: !current[node.path],
-            }))
-          }
-          onOpenFile={handleSelectPath}
-          onRefresh={() => undefined}
-          onCreateFile={() => undefined}
-          onCreateDirectory={() => undefined}
-          onRenamePath={(_path: string) => undefined}
-          onDeletePath={(_path: string) => undefined}
-        />
+        {showRouteSummary ? (
+          <div className="studio-artifact-renderer-empty">
+            <strong>{routeLabel} stays primary</strong>
+            <p>{studioSession.verifiedReply.summary}</p>
+          </div>
+        ) : showZeroFileArtifactStage ? (
+          <div className="studio-artifact-renderer-empty">
+                <strong>
+              {manifest.verification.lifecycleState === "blocked"
+                ? "Artifact build blocked before the first file landed."
+                : manifest.verification.lifecycleState === "failed"
+                  ? "Artifact build failed before the first file landed."
+                  : "Artifact files are still materializing."}
+            </strong>
+            <p>{manifest.verification.summary || studioSession.verifiedReply.summary}</p>
+          </div>
+        ) : (
+          <WorkspaceExplorerPane
+            tree={tree}
+            activePath={sourceFilePath}
+            expandedPaths={expandedPaths}
+            loadingDirectories={{}}
+            git={{ isRepo: false, branch: null, dirty: false, lastCommit: null }}
+            rootPath={`artifact://${manifest.artifactId}`}
+            eyebrow="Artifact"
+            title="Explorer"
+            readOnly={true}
+            showGitSummary={false}
+            showRefreshButton={false}
+            onToggleDirectory={(node) =>
+              setExpandedPaths((current) => ({
+                ...current,
+                [node.path]: !current[node.path],
+              }))
+            }
+            onOpenFile={handleSelectPath}
+            onRefresh={() => undefined}
+            onCreateFile={() => undefined}
+            onCreateDirectory={() => undefined}
+            onRenamePath={(_path: string) => undefined}
+            onDeletePath={(_path: string) => undefined}
+          />
+        )}
 
         <div className="studio-artifact-sidebar-footer">
           <span className="studio-artifact-badge">
-            {manifest.files.length} {manifest.files.length === 1 ? "file" : "files"}
+            {showRouteSummary
+              ? routeLabel
+              : `${manifest.files.length} ${manifest.files.length === 1 ? "file" : "files"}`}
           </span>
           <span className="studio-artifact-badge is-muted">
-            {displayArtifactClassLabel(manifest.artifactClass)}
+            {showRouteSummary
+              ? formatStatusLabel(studioSession.outcomeRequest.executionStrategy)
+              : displayArtifactClassLabel(manifest.artifactClass)}
           </span>
         </div>
       </aside>
@@ -181,14 +272,20 @@ export function StudioArtifactLogicalSurface({
         <StudioArtifactStageHeader
           manifest={manifest}
           title={stageTitle}
+          stageKicker={showRouteSummary ? `${routeLabel} route` : undefined}
           activePath={stageMode === "source" ? selectedSourceFile?.path ?? null : renderFile?.path ?? null}
+          copyText={headerCopyText}
+          copyPath={activeStageFile?.path ?? null}
           rendererLabel={rendererLabel}
+          swarmExecution={studioSession.materialization.swarmExecution}
           retrying={retrying}
           stageMode={stageMode}
           evidenceOpen={evidenceOpen}
+          showStageModes={!showRouteSummary && !showZeroFileArtifactStage}
           onSelectStageMode={setStageMode}
           onToggleEvidence={() => setEvidenceOpen((current) => !current)}
           onRetry={onRetry}
+          onBrowseArtifacts={onBrowseArtifacts}
           onCollapse={onCollapse}
         />
 
@@ -203,7 +300,99 @@ export function StudioArtifactLogicalSurface({
 
         <div className={`studio-artifact-stage-layout ${evidenceOpen ? "is-evidence-open" : ""}`}>
           <div className="studio-artifact-stage-main">
-            {stageMode === "source" ? (
+            {showRouteSummary ? (
+              <section className="studio-artifact-renderer-shell">
+                <div className="studio-artifact-renderer-empty">
+                  <strong>{routeLabel} route verified</strong>
+                  <p>{studioSession.verifiedReply.summary}</p>
+                  {studioSession.materialization.swarmExecution ? (
+                    <p>
+                      {studioSession.materialization.swarmExecution.completedWorkItems}/
+                      {studioSession.materialization.swarmExecution.totalWorkItems} work items
+                      completed · {formatStatusLabel(studioSession.materialization.swarmExecution.verificationStatus)}
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+            ) : showZeroFileArtifactStage ? (
+              <section className="studio-artifact-renderer-shell">
+                <div className="studio-artifact-renderer-empty">
+                  <strong>
+                    {manifest.verification.lifecycleState === "blocked"
+                      ? "Artifact build blocked before the first renderable file landed."
+                      : manifest.verification.lifecycleState === "failed"
+                        ? "Artifact build failed before the first renderable file landed."
+                        : "Building the first renderable artifact files…"}
+                  </strong>
+                <p>{manifest.verification.summary || studioSession.verifiedReply.summary}</p>
+                {studioSession.materialization.swarmExecution ? (
+                  <p>
+                    {studioSession.materialization.swarmExecution.completedWorkItems}/
+                    {studioSession.materialization.swarmExecution.totalWorkItems} work items
+                    completed · {formatStatusLabel(
+                      studioSession.materialization.swarmExecution.currentStage,
+                    )}
+                  </p>
+                ) : null}
+                {executionChrome.processes.length ? (
+                  <div
+                    className="spot-studio-status-process-list"
+                    aria-label="Thinking processes"
+                  >
+                    {executionChrome.processes.map((process) => (
+                      <div
+                        key={process.id}
+                        className={`spot-studio-status-process ${
+                          process.isActive ? "is-active" : ""
+                        }`}
+                        aria-label={`${process.label}. ${process.status}. ${process.summary}`}
+                      >
+                        <div className="spot-studio-status-process-row">
+                          <strong>{process.label}</strong>
+                          <span>{process.status}</span>
+                        </div>
+                        <p>{process.summary}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {livePreview?.content ? (
+                  <div
+                    className="spot-studio-status-preview"
+                    aria-live="polite"
+                    aria-label={renderExecutionPreviewAriaLabel(livePreview)}
+                  >
+                    <div className="spot-studio-status-preview-head">
+                      <span>{livePreview.label}</span>
+                      <span>
+                        {formatStudioExecutionPreviewPhase(livePreview)}
+                      </span>
+                    </div>
+                    <pre className="studio-artifact-pending-preview">
+                      <code aria-label={livePreview.content}>{livePreview.content}</code>
+                    </pre>
+                  </div>
+                ) : null}
+                {codePreview?.content && codePreview.content !== livePreview?.content ? (
+                  <div
+                    className="spot-studio-status-preview"
+                    aria-live="polite"
+                    aria-label={renderExecutionPreviewAriaLabel(codePreview)}
+                  >
+                    <div className="spot-studio-status-preview-head">
+                      <span>{codePreview.label}</span>
+                      <span>
+                        {formatStudioExecutionPreviewPhase(codePreview)}
+                      </span>
+                    </div>
+                    <pre className="studio-artifact-pending-preview">
+                      <code aria-label={codePreview.content}>{codePreview.content}</code>
+                    </pre>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+            ) : stageMode === "source" ? (
               <ArtifactSourceWorkbench
                 artifactId={manifest.artifactId}
                 files={manifest.files}

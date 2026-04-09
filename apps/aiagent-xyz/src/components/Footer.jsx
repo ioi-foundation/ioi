@@ -18,7 +18,7 @@ export default function Footer() {
             <span>Block: <span className="text-slate-200">#18,492,011</span></span>
           </div>
           <div className="flex gap-4">
-            <a href="#" className="hover:text-white transition-colors">Docs</a>
+            <a href="#" className="hover:text-white transition-colors">Brand Guide</a>
             {/* UPDATED LINK */}
             <Link to="/status" className="hover:text-white transition-colors">Status</Link>
             <a href="#" className="hover:text-white transition-colors">Support</a>
@@ -35,7 +35,7 @@ export default function Footer() {
               aiagent<span className="text-blue-500">.xyz</span>
             </Link>
             <p className="mb-6 max-w-sm text-slate-500">
-              The economy of agency. Buy, sell, and rent verified autonomous agents secured by the IOI Network.
+              Composable autonomous supply for the IOI network. Discover, publish, and license verifiable agents, workflows, operator packs, service modules, and embodied runtimes.
             </p>
             <div className="flex gap-4">
               <SocialIcon path="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" />
@@ -45,20 +45,20 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="font-bold text-white mb-4">Marketplace</h4>
+            <h4 className="font-bold text-white mb-4">Explore</h4>
             <ul className="space-y-2">
-              <li><Link to="/" className="hover:text-blue-400 transition-colors">Browse Agents</Link></li>
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Top Sellers</a></li>
-              <li><Link to="/sell" className="hover:text-blue-400 transition-colors text-slate-300">Become a Seller</Link></li>
+              <li><Link to="/" className="hover:text-blue-400 transition-colors">Browse Listings</Link></li>
+              <li><Link to="/?format=Workflow" className="hover:text-blue-400 transition-colors">Workflows</Link></li>
+              <li><Link to="/?format=Service+Module" className="hover:text-blue-400 transition-colors">Service Modules</Link></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-bold text-white mb-4">Freelance</h4>
+            <h4 className="font-bold text-white mb-4">Publish</h4>
             <ul className="space-y-2">
-              <li><Link to="/freelance" className="hover:text-blue-400 transition-colors">Find Work</Link></li>
-              <li><Link to="/post-job" className="hover:text-blue-400 transition-colors">Post a Job</Link></li>
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Arbitration Rules</a></li>
+              <li><Link to="/sell" className="hover:text-blue-400 transition-colors">Publish Capability</Link></li>
+              <li><a href="#" className="hover:text-blue-400 transition-colors">Pricing Models</a></li>
+              <li><a href="#" className="hover:text-blue-400 transition-colors">Promotion to SAS.xyz</a></li>
             </ul>
           </div>
 
@@ -67,7 +67,7 @@ export default function Footer() {
             <ul className="space-y-2">
               <li><a href="#" className="hover:text-blue-400 transition-colors">IOI SDK</a></li>
               <li><a href="#" className="hover:text-blue-400 transition-colors">Manifest Schema</a></li>
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Running a Node</a></li>
+              <li><a href="#" className="hover:text-blue-400 transition-colors">Signed Receipts</a></li>
             </ul>
           </div>
 

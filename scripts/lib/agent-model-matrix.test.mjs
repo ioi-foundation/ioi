@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import {
@@ -88,7 +89,36 @@ test("renderAgentModelMatrixMarkdown includes the decision and preset table", ()
   });
 
   assert.match(markdown, /Artifact-only evidence is not enough for promotion/);
-  assert.match(markdown, /\| preset \| role \| availability \|/);
-  assert.match(markdown, /artifact verifier \| coding \| research \| computer use \| latency/);
-  assert.match(markdown, /\| Baseline \| baseline_local \| ready \|/);
+  assert.match(markdown, /\| preset \| deployment \| role \| base model \|/);
+  assert.match(
+    markdown,
+    /artifacts \| coding \| research \| computer use \| tool\/api \| general agent \| latency \| conformance/,
+  );
+  assert.match(markdown, /\| Baseline \| local_cpu_consumer \| baseline_local \|/);
+});
+
+test("normalizeAgentModelMatrixView preserves interrupted-run summary semantics", () => {
+  const fixture = JSON.parse(
+    fs.readFileSync(
+      new URL("./fixtures/agent-model-matrix-interrupted.json", import.meta.url),
+      "utf8",
+    ),
+  );
+
+  const view = normalizeAgentModelMatrixView(fixture, process.cwd());
+
+  assert.equal(view.status, "blocked");
+  assert.equal(view.runAbortReason, "Run interrupted by SIGINT.");
+  assert.equal(view.plannedPresetCount, 2);
+  assert.equal(view.summarizedPresetCount, 2);
+  assert.equal(view.fullyCompletedPresetCount, 1);
+  assert.equal(view.comparedPresetCount, 2);
+  assert.equal(view.executedPresetCount, 2);
+  assert.equal(view.presets[0].deploymentProfile, "local_gpu_8gb_class");
+  assert.equal(view.presets[1].deploymentProfile, "local_gpu_8gb_class");
+  assert.equal(view.candidateLedger.length, 2);
+  assert.equal(view.candidateLedger[1].status, "candidate");
+  assert.equal(view.candidateLedger[1].evidenceLinks.length, 2);
+  assert.equal(view.candidateLedger[1].comparisonIntent, "model_change");
+  assert.equal(view.candidateLedger[1].executionScope, "fleet_shared");
 });

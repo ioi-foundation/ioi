@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { SessionClarificationRequest as ClarificationRequest } from "@ioi/agent-ide";
 import { icons } from "./Icons";
-import type { ClarificationRequest } from "../../../types";
 import "../styles/Chat.css";
 
 interface ClarificationCardProps {
@@ -67,6 +67,42 @@ export function SpotlightClarificationCard({
     setError(null);
     onCancel();
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (submitting) {
+        return;
+      }
+
+      const target = event.target;
+      const targetIsTextarea = target instanceof HTMLTextAreaElement;
+      const submitWithModifier =
+        event.key === "Enter" && (event.metaKey || event.ctrlKey);
+      const submitWithoutModifier =
+        event.key === "Enter" &&
+        !event.shiftKey &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !targetIsTextarea;
+
+      if ((submitWithModifier || submitWithoutModifier) && canSubmit) {
+        event.preventDefault();
+        void handleSubmit();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleCancel();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [canSubmit, submitting, handleCancel, handleSubmit]);
 
   return (
     <div className="spot-clarification-card">

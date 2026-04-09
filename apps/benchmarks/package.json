@@ -8,6 +8,8 @@
     "dev": "npm run generate:data && vite --host 0.0.0.0 --port 4177",
     "build": "npm run generate:data && tsc -b && vite build",
     "preview": "vite preview",
+    "test:generate-data": "node --test ./scripts/generate-benchmark-data.test.mjs",
+    "test:viewmodel": "npm run generate:data && node --experimental-strip-types --test --test-concurrency=1 ./src/appShellState.test.mjs ./src/scorecardViewModel.test.mjs ./src/scorecardPanels.render.test.mjs ./src/appShell.render.test.mjs",
     "typecheck": "npm run generate:data && tsc -b"
   },
   "dependencies": {

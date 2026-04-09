@@ -1,8 +1,8 @@
+import { AUTOMATION_RECIPES, OVERVIEW_QUICKSTARTS } from "./googleWorkspaceConnectorPanelConfig";
 import {
-  AUTOMATION_RECIPES,
-  OVERVIEW_QUICKSTARTS,
-  TAB_DEFINITIONS,
-} from "./googleWorkspaceConnectorPanelConfig";
+  ConnectorActionWorkbench,
+  ConnectorFocusedFormCard,
+} from "./ConnectorExecutionWorkbench";
 import {
   WorkspaceActionComposer,
   WorkspaceSubscriptionCard,
@@ -23,7 +23,6 @@ export function GoogleWorkspaceConnectorPanelConnected({
     onOpenPolicyCenter,
     policySummary,
     activeTab,
-    setActiveTab,
     setSettingsModalOpen,
     actionsById,
     capabilityGroups,
@@ -33,32 +32,13 @@ export function GoogleWorkspaceConnectorPanelConnected({
     attentionSubscriptions,
     availability,
     openAction,
+    focusedActionModalOpen,
+    openFocusedActionModal,
+    closeFocusedActionModal,
   } = view;
 
   return (
     <>
-      <div
-        className="workspace-tab-nav"
-        role="tablist"
-        aria-label="Google Workspace sections"
-      >
-        {TAB_DEFINITIONS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            className={`workspace-tab-button ${
-              activeTab === tab.id ? "active" : ""
-            }`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            <strong>{tab.label}</strong>
-            <span>{tab.blurb}</span>
-          </button>
-        ))}
-      </div>
-
       {activeTab === "overview" ? (
         <div className="workspace-tab-panel">
           <div className="workspace-overview-grid">
@@ -234,59 +214,115 @@ export function GoogleWorkspaceConnectorPanelConnected({
 
       {activeTab === "capabilities" ? (
         <div className="workspace-tab-panel">
-          <div className="workspace-section-header">
-            <div>
-              <h4>Capability catalog</h4>
-              <p>
-                Lead with common jobs to be done, then open the full action
-                composer only when needed.
-              </p>
+          <ConnectorActionWorkbench
+            title="Capability workspace"
+            summary="Select a common Google task from the catalog or the quick picks below. The runnable form stays pinned here while you browse."
+            actionLabel={workspace.selectedAction?.label ?? null}
+            shortcuts={OVERVIEW_QUICKSTARTS.filter(
+              (item) =>
+                item.actionId &&
+                item.tab === "capabilities" &&
+                actionsById.has(item.actionId),
+            ).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`workspace-featured-action ${
+                  workspace.selectedActionId === item.actionId ? "active" : ""
+                }`}
+                onClick={() =>
+                  openAction("capabilities", item.actionId!, item.presetInput)
+                }
+              >
+                {item.title}
+              </button>
+            ))}
+            composer={
+              focusedActionModalOpen ? (
+                <ConnectorFocusedFormCard
+                  actionLabel={workspace.selectedAction?.label ?? null}
+                  description="The full form is open in a modal so the fields and primary action stay in view while you work."
+                  onReturn={closeFocusedActionModal}
+                />
+              ) : (
+                <WorkspaceActionComposer
+                  action={workspace.selectedAction}
+                  workspace={workspace}
+                  eyebrow="Capability workspace"
+                  showFocusedFormButton
+                  onOpenFocusedForm={openFocusedActionModal}
+                />
+              )
+            }
+          >
+            <div className="workspace-section-header">
+              <div>
+                <h4>Capability catalog</h4>
+                <p>
+                  Lead with common jobs to be done, then open the full action
+                  composer only when needed.
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="workspace-capability-grid">
-            {capabilityGroups.map((group) => (
-              <article key={group.service} className="workspace-service-card">
-                {(() => {
-                  const serviceState = workspace.serviceStates[group.service];
-                  return (
-                    <>
-                      <div className="workspace-service-card-head">
-                        <div>
-                          <h4>{group.title}</h4>
-                          <p>{serviceState?.summary ?? group.summary}</p>
-                        </div>
-                        <div className="workspace-service-card-meta">
-                          <span
-                            className={`workspace-health-pill tone-${serviceStateTone(serviceState?.status)}`}
-                          >
-                            {serviceStateLabel(serviceState?.status)}
-                          </span>
-                          <span className="workspace-service-count">
-                            {group.actions.length} tools
-                          </span>
-                        </div>
+            <div className="workspace-capability-grid">
+              {capabilityGroups.map((group) => {
+                const serviceState = workspace.serviceStates[group.service];
+                return (
+                  <article key={group.service} className="workspace-service-card">
+                    <div className="workspace-service-card-head">
+                      <div>
+                        <h4>{group.title}</h4>
+                        <p>{serviceState?.summary ?? group.summary}</p>
                       </div>
-                      {serviceState?.missingScopes?.length ? (
-                        <span className="workspace-state-detail">
-                          Missing scopes: {serviceState.missingScopes.join(", ")}
+                      <div className="workspace-service-card-meta">
+                        <span
+                          className={`workspace-health-pill tone-${serviceStateTone(serviceState?.status)}`}
+                        >
+                          {serviceStateLabel(serviceState?.status)}
                         </span>
-                      ) : null}
-                      <div className="workspace-kind-list">
-                        {group.kinds.map((kind) => (
-                          <span
-                            key={`${group.service}-${kind}`}
-                            className="workspace-kind-chip"
-                          >
-                            {kind}
-                          </span>
-                        ))}
+                        <span className="workspace-service-count">
+                          {group.actions.length} tools
+                        </span>
                       </div>
-                      <div className="workspace-featured-actions">
-                        {group.featuredActions.map((action) => (
+                    </div>
+                    {serviceState?.missingScopes?.length ? (
+                      <span className="workspace-state-detail">
+                        Missing scopes: {serviceState.missingScopes.join(", ")}
+                      </span>
+                    ) : null}
+                    <div className="workspace-kind-list">
+                      {group.kinds.map((kind) => (
+                        <span
+                          key={`${group.service}-${kind}`}
+                          className="workspace-kind-chip"
+                        >
+                          {kind}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="workspace-featured-actions">
+                      {group.featuredActions.map((action) => (
+                        <button
+                          key={action.id}
+                          type="button"
+                          className={`workspace-featured-action ${
+                            workspace.selectedActionId === action.id
+                              ? "active"
+                              : ""
+                          }`}
+                          onClick={() => openAction("capabilities", action.id)}
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                    {group.supportingActions.length > 0 ? (
+                      <div className="workspace-supporting-actions">
+                        {group.supportingActions.map((action) => (
                           <button
                             key={action.id}
                             type="button"
-                            className={`workspace-featured-action ${
+                            className={`workspace-tool-chip ${
                               workspace.selectedActionId === action.id
                                 ? "active"
                                 : ""
@@ -297,189 +333,233 @@ export function GoogleWorkspaceConnectorPanelConnected({
                           </button>
                         ))}
                       </div>
-                      {group.supportingActions.length > 0 ? (
-                        <div className="workspace-supporting-actions">
-                          {group.supportingActions.map((action) => (
-                            <button
-                              key={action.id}
-                              type="button"
-                              className={`workspace-tool-chip ${
-                                workspace.selectedActionId === action.id
-                                  ? "active"
-                                  : ""
-                              }`}
-                              onClick={() => openAction("capabilities", action.id)}
-                            >
-                              {action.label}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </>
-                  );
-                })()}
-              </article>
-            ))}
-          </div>
-
-          <WorkspaceActionComposer
-            action={workspace.selectedAction}
-            workspace={workspace}
-            eyebrow="Capability workspace"
-          />
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </ConnectorActionWorkbench>
         </div>
       ) : null}
 
       {activeTab === "automations" ? (
         <div className="workspace-tab-panel">
-          <div className="workspace-section-header">
-            <div>
-              <h4>Automation center</h4>
-              <p>
-                Manage durable Gmail watches and Workspace event ingestion as
-                long-lived product state.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={workspace.refreshSubscriptions}
-              disabled={workspace.busy || !workspace.subscriptionRuntimeReady}
-            >
-              Refresh automations
-            </button>
-          </div>
-
-          <div className="workspace-overview-grid">
-            <article className="workspace-stat-card">
-              <span>Running</span>
-              <strong>{activeSubscriptions.length}</strong>
-              <p>
-                Watches and event streams currently kept alive by the desktop
-                runtime.
-              </p>
-            </article>
-            <article className="workspace-stat-card">
-              <span>Attention</span>
-              <strong>{attentionSubscriptions.length}</strong>
-              <p>
-                Subscriptions needing reauth or repair before they can keep
-                consuming.
-              </p>
-            </article>
-            <article className="workspace-stat-card">
-              <span>Total subscriptions</span>
-              <strong>{workspace.subscriptions.length}</strong>
-              <p>Pause, renew, and inspect them directly from this surface.</p>
-            </article>
-            <article className="workspace-stat-card">
-              <span>Automation entry points</span>
-              <strong>{automationGroups.length}</strong>
-              <p>
-                Admin-grade actions are packaged separately from the day-to-day
-                capability grid.
-              </p>
-            </article>
-          </div>
-
-          <div className="workspace-automation-grid">
-            {AUTOMATION_RECIPES.map((recipe) => (
-              <article key={recipe.id} className="workspace-automation-card">
-                <strong>{recipe.title}</strong>
-                <p>{recipe.summary}</p>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() =>
-                    openAction("automations", recipe.actionId, recipe.presetInput)
-                  }
-                  disabled={!actionsById.has(recipe.actionId)}
-                >
-                  Configure recipe
-                </button>
-              </article>
+          <ConnectorActionWorkbench
+            title="Automation setup"
+            summary="Keep the long-lived recipe form in view while you compare watches, event streams, and subscription health."
+            actionLabel={workspace.selectedAction?.label ?? null}
+            shortcuts={AUTOMATION_RECIPES.filter((recipe) =>
+              actionsById.has(recipe.actionId),
+            ).map((recipe) => (
+              <button
+                key={recipe.id}
+                type="button"
+                className={`workspace-featured-action ${
+                  workspace.selectedActionId === recipe.actionId ? "active" : ""
+                }`}
+                onClick={() =>
+                  openAction("automations", recipe.actionId, recipe.presetInput)
+                }
+              >
+                {recipe.title}
+              </button>
             ))}
-          </div>
-
-          {workspace.subscriptions.length > 0 ? (
-            <div className="workspace-subscription-list">
-              {workspace.subscriptions.map((subscription) => (
-                <WorkspaceSubscriptionCard
-                  key={subscription.subscriptionId}
-                  subscription={subscription}
-                  workspace={workspace}
+            composer={
+              focusedActionModalOpen ? (
+                <ConnectorFocusedFormCard
+                  actionLabel={workspace.selectedAction?.label ?? null}
+                  description="The automation form is open in a modal so the longer recipe fields stay visible."
+                  onReturn={closeFocusedActionModal}
                 />
+              ) : (
+                <WorkspaceActionComposer
+                  action={workspace.selectedAction}
+                  workspace={workspace}
+                  eyebrow="Automation setup"
+                  showFocusedFormButton
+                  onOpenFocusedForm={openFocusedActionModal}
+                />
+              )
+            }
+          >
+            <div className="workspace-section-header">
+              <div>
+                <h4>Automation center</h4>
+                <p>
+                  Manage durable Gmail watches and Workspace event ingestion as
+                  long-lived product state.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={workspace.refreshSubscriptions}
+                disabled={workspace.busy || !workspace.subscriptionRuntimeReady}
+              >
+                Refresh automations
+              </button>
+            </div>
+
+            <div className="workspace-overview-grid">
+              <article className="workspace-stat-card">
+                <span>Running</span>
+                <strong>{activeSubscriptions.length}</strong>
+                <p>
+                  Watches and event streams currently kept alive by the desktop
+                  runtime.
+                </p>
+              </article>
+              <article className="workspace-stat-card">
+                <span>Attention</span>
+                <strong>{attentionSubscriptions.length}</strong>
+                <p>
+                  Subscriptions needing reauth or repair before they can keep
+                  consuming.
+                </p>
+              </article>
+              <article className="workspace-stat-card">
+                <span>Total subscriptions</span>
+                <strong>{workspace.subscriptions.length}</strong>
+                <p>Pause, renew, and inspect them directly from this surface.</p>
+              </article>
+              <article className="workspace-stat-card">
+                <span>Automation entry points</span>
+                <strong>{automationGroups.length}</strong>
+                <p>
+                  Admin-grade actions are packaged separately from the day-to-day
+                  capability grid.
+                </p>
+              </article>
+            </div>
+
+            <div className="workspace-automation-grid">
+              {AUTOMATION_RECIPES.map((recipe) => (
+                <article key={recipe.id} className="workspace-automation-card">
+                  <strong>{recipe.title}</strong>
+                  <p>{recipe.summary}</p>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() =>
+                      openAction("automations", recipe.actionId, recipe.presetInput)
+                    }
+                    disabled={!actionsById.has(recipe.actionId)}
+                  >
+                    Configure recipe
+                  </button>
+                </article>
               ))}
             </div>
-          ) : (
-            <div className="workspace-empty-state">
-              <strong>No automations running yet</strong>
-              <p>
-                Configure Gmail Watch Emails or Workspace Events Subscribe to
-                create the first durable job.
-              </p>
-            </div>
-          )}
 
-          <WorkspaceActionComposer
-            action={workspace.selectedAction}
-            workspace={workspace}
-            eyebrow="Automation setup"
-          />
+            {workspace.subscriptions.length > 0 ? (
+              <div className="workspace-subscription-list">
+                {workspace.subscriptions.map((subscription) => (
+                  <WorkspaceSubscriptionCard
+                    key={subscription.subscriptionId}
+                    subscription={subscription}
+                    workspace={workspace}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="workspace-empty-state">
+                <strong>No automations running yet</strong>
+                <p>
+                  Configure Gmail Watch Emails or Workspace Events Subscribe to
+                  create the first durable job.
+                </p>
+              </div>
+            )}
+          </ConnectorActionWorkbench>
         </div>
       ) : null}
 
       {activeTab === "advanced" ? (
         <div className="workspace-tab-panel">
-          <div className="workspace-section-header">
-            <div>
-              <h4>Advanced tool catalog</h4>
-              <p>
-                Keep the full connector catalog available for power users,
-                debugging, and edge cases.
-              </p>
+          <ConnectorActionWorkbench
+            title="Advanced execution"
+            summary="Browse the full tool catalog without losing the live action form or the current result pane."
+            actionLabel={workspace.selectedAction?.label ?? null}
+            shortcuts={advancedGroups
+              .flatMap((group) => group.featuredActions)
+              .slice(0, 6)
+              .map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                  className={`workspace-featured-action ${
+                    workspace.selectedActionId === action.id ? "active" : ""
+                  }`}
+                  onClick={() => openAction("advanced", action.id)}
+                >
+                  {action.label}
+                </button>
+              ))}
+            composer={
+              focusedActionModalOpen ? (
+                <ConnectorFocusedFormCard
+                  actionLabel={workspace.selectedAction?.label ?? null}
+                  description="The full execution form is open in a modal so the advanced tool fields do not compete with the catalog."
+                  onReturn={closeFocusedActionModal}
+                />
+              ) : (
+                <>
+                  <WorkspaceActionComposer
+                    action={workspace.selectedAction}
+                    workspace={workspace}
+                    eyebrow="Advanced execution"
+                    showFocusedFormButton
+                    onOpenFocusedForm={openFocusedActionModal}
+                  />
+                  {workspace.formattedResult ? (
+                    <pre className="connector-test-result workspace-result-panel">
+                      {workspace.formattedResult}
+                    </pre>
+                  ) : null}
+                </>
+              )
+            }
+          >
+            <div className="workspace-section-header">
+              <div>
+                <h4>Advanced tool catalog</h4>
+                <p>
+                  Keep the full connector catalog available for power users,
+                  debugging, and edge cases.
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="workspace-service-panel">
-            {advancedGroups.map((group) => (
-              <section key={group.service} className="workspace-service-group">
-                <div className="workspace-service-head">
-                  <div>
-                    <h4>{group.title}</h4>
-                    <p>{group.detail}</p>
+            <div className="workspace-service-panel">
+              {advancedGroups.map((group) => (
+                <section key={group.service} className="workspace-service-group">
+                  <div className="workspace-service-head">
+                    <div>
+                      <h4>{group.title}</h4>
+                      <p>{group.detail}</p>
+                    </div>
+                    <div className="workspace-service-tools">
+                      {group.actions.map((action) => (
+                        <button
+                          key={action.id}
+                          type="button"
+                          className={`workspace-tool-chip ${
+                            workspace.selectedActionId === action.id ? "active" : ""
+                          }`}
+                          onClick={() => openAction("advanced", action.id)}
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="workspace-service-tools">
-                    {group.actions.map((action) => (
-                      <button
-                        key={action.id}
-                        type="button"
-                        className={`workspace-tool-chip ${
-                          workspace.selectedActionId === action.id ? "active" : ""
-                        }`}
-                        onClick={() => openAction("advanced", action.id)}
-                      >
-                        {action.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            ))}
-          </div>
+                </section>
+              ))}
+            </div>
 
-          <WorkspaceActionComposer
-            action={workspace.selectedAction}
-            workspace={workspace}
-            eyebrow="Advanced execution"
-          />
-          {connector.notes ? (
-            <p className="workspace-inline-note">{connector.notes}</p>
-          ) : null}
-          {workspace.formattedResult ? (
-            <pre className="connector-test-result workspace-result-panel">
-              {workspace.formattedResult}
-            </pre>
-          ) : null}
+            {connector.notes ? (
+              <p className="workspace-inline-note">{connector.notes}</p>
+            ) : null}
+          </ConnectorActionWorkbench>
         </div>
       ) : null}
     </>

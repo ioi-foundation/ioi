@@ -433,6 +433,7 @@ pub(crate) async fn infer_web_retrieval_contract(
         temperature: 0.0,
         json_mode: true,
         max_tokens: 300,
+        stop_sequences: Vec::new(),
         required_finality_tier: Default::default(),
         sealed_finality_proof: None,
         canonical_collapse_object: None,

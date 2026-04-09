@@ -117,6 +117,25 @@ jobs:
           cargo test --locked -p ioi-consensus --features convergent experimental_nested_guardian_accepts_deterministically_assigned_witness_certificate -- --nocapture
           cargo test --locked -p ioi-services rejects_unsafe_odd_sized_guardian_committee_under_production_policy -- --nocapture
 
+  benchmarks_verification:
+    name: Benchmarks Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Verify benchmarks runner and scorecard contracts
+        run: npm run verify:benchmarks
+
   reliability_browser_e2e:
     name: Reliability Browser E2E
     runs-on: ubuntu-latest

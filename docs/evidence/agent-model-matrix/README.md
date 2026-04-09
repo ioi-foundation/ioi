@@ -14,7 +14,7 @@ Key files:
 
 - `benchmark-suite.catalog.json`
   Fixed benchmark definitions for the first comparison window. The initial
-  window runs retained artifact prompts and a narrow computer-use smoke slice.
+  window runs retained artifact prompts and a narrow computer-use baseline slice.
 - `latest-summary.json`
   Machine-readable comparison summary for the most recent retained matrix run.
   This includes preset availability, scorecards, workload coverage, and the

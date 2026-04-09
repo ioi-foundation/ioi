@@ -143,7 +143,7 @@ function summaryForView(props: StudioInspectorProps): {
           editingAgentName
             ? `Builder open: ${editingAgentName}`
             : workflowSurface === "catalog"
-              ? "Catalog: installable assets"
+              ? "Catalog: live runtime entries"
               : "Builder: no agent selected",
         ],
       };
@@ -186,7 +186,7 @@ function summaryForView(props: StudioInspectorProps): {
     case "capabilities":
       return {
         title: "Capability surface",
-        body: "Capabilities answer what workers can use. Keep authenticated reach, reusable skills, and installable extensions together while leaving posture and approval rules to Policy.",
+        body: "Capabilities answer what workers can use. Keep authenticated reach, reusable skills, and manifest-backed extensions together while leaving posture and approval rules to Policy.",
         items: [
           `Global reads: ${shieldPolicy.global.reads}`,
           `Global writes: ${shieldPolicy.global.writes}`,

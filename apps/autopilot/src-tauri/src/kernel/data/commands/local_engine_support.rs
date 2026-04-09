@@ -58,10 +58,17 @@ fn humanize_token(value: &str) -> String {
         .join(" ")
 }
 
+const LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION: u32 = 1;
+const LOCAL_ENGINE_CONTROL_PLANE_PROFILE_ID: &str = "local-engine.primary";
+
 pub fn default_local_engine_runtime_profile() -> crate::models::LocalEngineRuntimeProfile {
     let openai_model = std::env::var("OPENAI_MODEL")
         .or_else(|_| std::env::var("AUTOPILOT_LOCAL_RUNTIME_MODEL"))
         .unwrap_or_else(|_| "gpt-4o".to_string());
+    let local_bootstrap_model = std::env::var("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+        .or_else(|_| std::env::var("AUTOPILOT_LOCAL_MODEL_ID"))
+        .or_else(|_| std::env::var("OLLAMA_DEFAULT_MODEL"))
+        .unwrap_or_else(|_| "Kernel-managed".to_string());
     let local_runtime_url = std::env::var("LOCAL_LLM_URL")
         .ok()
         .or_else(|| std::env::var("AUTOPILOT_LOCAL_RUNTIME_URL").ok());
@@ -90,17 +97,25 @@ pub fn default_local_engine_runtime_profile() -> crate::models::LocalEngineRunti
         }
     } else {
         crate::models::LocalEngineRuntimeProfile {
-            mode: "mock".to_string(),
-            endpoint: "mock://reasoning-runtime".to_string(),
-            default_model: "mock".to_string(),
+            mode: "local_asset_bootstrap".to_string(),
+            endpoint: String::new(),
+            default_model: local_bootstrap_model,
             baseline_role:
-                "Mock substrate for UX and receipt validation without live model weight execution."
+                "Local asset bootstrap profile for bringing a kernel-managed runtime online without claiming live inference before it is ready."
                     .to_string(),
             kernel_authority:
-                "Kernel semantics are active even when model execution falls back to mock mode."
+                "Kernel remains planner-of-record, receipt authority, and policy boundary while local runtime assets are provisioned."
                     .to_string(),
         }
     }
+}
+
+fn runtime_profile_uses_legacy_mock_surface(
+    runtime: &crate::models::LocalEngineRuntimeProfile,
+) -> bool {
+    runtime.mode.eq_ignore_ascii_case("mock")
+        || runtime.endpoint.eq_ignore_ascii_case("mock://reasoning-runtime")
+        || runtime.default_model.eq_ignore_ascii_case("mock")
 }
 
 pub fn default_local_engine_control_plane() -> crate::models::LocalEngineControlPlane {
@@ -300,6 +315,15 @@ pub fn default_local_engine_control_plane() -> crate::models::LocalEngineControl
     }
 }
 
+pub fn default_local_engine_control_plane_document() -> crate::models::LocalEngineControlPlaneDocument {
+    crate::models::LocalEngineControlPlaneDocument {
+        schema_version: LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION,
+        profile_id: LOCAL_ENGINE_CONTROL_PLANE_PROFILE_ID.to_string(),
+        migrations: Vec::new(),
+        control_plane: default_local_engine_control_plane(),
+    }
+}
+
 pub fn normalize_local_engine_control_plane(
     mut control_plane: crate::models::LocalEngineControlPlane,
 ) -> crate::models::LocalEngineControlPlane {
@@ -382,6 +406,9 @@ pub fn normalize_local_engine_control_plane(
         .filter(|note| !note.is_empty())
         .collect();
 
+    if runtime_profile_uses_legacy_mock_surface(&control_plane.runtime) {
+        control_plane.runtime = default_local_engine_runtime_profile();
+    }
     if control_plane.galleries.is_empty() {
         control_plane.galleries = default_local_engine_control_plane().galleries;
     }
@@ -396,6 +423,39 @@ pub fn normalize_local_engine_control_plane(
     }
 
     control_plane
+}
+
+pub fn normalize_local_engine_control_plane_document(
+    mut document: crate::models::LocalEngineControlPlaneDocument,
+) -> crate::models::LocalEngineControlPlaneDocument {
+    document.schema_version = document
+        .schema_version
+        .max(LOCAL_ENGINE_CONTROL_PLANE_SCHEMA_VERSION);
+    document.profile_id = trim_or_empty(document.profile_id);
+    if document.profile_id.is_empty() {
+        document.profile_id = LOCAL_ENGINE_CONTROL_PLANE_PROFILE_ID.to_string();
+    }
+    document.migrations = document
+        .migrations
+        .into_iter()
+        .filter_map(|mut record| {
+            record.migration_id = trim_or_empty(record.migration_id);
+            record.summary = trim_or_empty(record.summary);
+            record.details = record
+                .details
+                .into_iter()
+                .map(trim_or_empty)
+                .filter(|detail| !detail.is_empty())
+                .collect();
+            if record.migration_id.is_empty() || record.summary.is_empty() {
+                None
+            } else {
+                Some(record)
+            }
+        })
+        .collect();
+    document.control_plane = normalize_local_engine_control_plane(document.control_plane);
+    document
 }
 
 fn local_engine_base_url(bind_address: &str) -> String {
@@ -479,11 +539,24 @@ fn build_local_engine_compatibility_routes(
 pub fn load_or_initialize_local_engine_control_plane(
     memory_runtime: &std::sync::Arc<ioi_memory::MemoryRuntime>,
 ) -> crate::models::LocalEngineControlPlane {
-    let control_plane = orchestrator::load_local_engine_control_plane(memory_runtime)
-        .map(normalize_local_engine_control_plane)
-        .unwrap_or_else(default_local_engine_control_plane);
-    orchestrator::save_local_engine_control_plane(memory_runtime, &control_plane);
-    control_plane
+    load_or_initialize_effective_local_engine_control_plane_state(memory_runtime).control_plane
+}
+
+pub fn load_or_initialize_local_engine_control_plane_state(
+    memory_runtime: &std::sync::Arc<ioi_memory::MemoryRuntime>,
+) -> crate::models::LocalEngineControlPlaneDocument {
+    let document = orchestrator::load_local_engine_control_plane_document(memory_runtime)
+        .map(normalize_local_engine_control_plane_document)
+        .unwrap_or_else(default_local_engine_control_plane_document);
+    orchestrator::save_local_engine_control_plane_document(memory_runtime, &document);
+    document
+}
+
+pub fn load_or_initialize_effective_local_engine_control_plane_state(
+    memory_runtime: &std::sync::Arc<ioi_memory::MemoryRuntime>,
+) -> crate::kernel::local_engine::LocalEngineEffectiveControlPlaneState {
+    let document = load_or_initialize_local_engine_control_plane_state(memory_runtime);
+    crate::kernel::local_engine::effective_control_plane_state(memory_runtime, &document)
 }
 
 fn default_worker_templates() -> Vec<crate::models::LocalEngineWorkerTemplateRecord> {
@@ -546,7 +619,7 @@ fn load_or_initialize_worker_templates(
     }
 }
 
-fn default_agent_playbooks() -> Vec<crate::models::LocalEngineAgentPlaybookRecord> {
+pub(crate) fn default_agent_playbooks() -> Vec<crate::models::LocalEngineAgentPlaybookRecord> {
     builtin_agent_playbooks()
         .into_iter()
         .map(|playbook| {

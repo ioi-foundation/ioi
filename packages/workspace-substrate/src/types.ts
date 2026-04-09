@@ -68,6 +68,28 @@ export interface WorkspaceFileDocument {
   readOnly: boolean;
 }
 
+export interface WorkspaceNotebookCell {
+  id: string;
+  index: number;
+  cellType: string;
+  source: string;
+  sourceKind: "string" | "array";
+  executionCount: number | null;
+  outputCount: number;
+  outputPreview: string[];
+  metadataEntryCount: number;
+}
+
+export interface WorkspaceNotebookDocument {
+  path: string;
+  nbformat: number;
+  nbformatMinor: number;
+  language: string | null;
+  kernelDisplayName: string | null;
+  cellCount: number;
+  cells: WorkspaceNotebookCell[];
+}
+
 export interface WorkspaceSearchMatch {
   path: string;
   line: number;
@@ -99,6 +121,18 @@ export interface WorkspaceSourceControlState {
   entries: WorkspaceSourceControlEntry[];
 }
 
+export interface WorkspaceCommitMessage {
+  headline: string;
+  body?: string | null;
+}
+
+export interface WorkspaceCommitResult {
+  state: WorkspaceSourceControlState;
+  committedFileCount: number;
+  remainingChangeCount: number;
+  commitSummary: string;
+}
+
 export interface WorkspaceDiffDocument {
   id: string;
   path: string;
@@ -124,6 +158,70 @@ export interface WorkspacePathStat {
   sizeBytes: number;
   modifiedAtMs: number | null;
   readOnly: boolean;
+}
+
+export interface WorkspaceLanguageDiagnostic {
+  severity: "error" | "warning" | "info";
+  title: string;
+  detail: string;
+  code?: string | null;
+  source?: string | null;
+  path: string;
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+}
+
+export interface WorkspaceLanguageLocation {
+  path: string;
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+}
+
+export interface WorkspaceLanguageTextEdit {
+  path: string;
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+  newText: string;
+}
+
+export interface WorkspaceLanguageCodeAction {
+  title: string;
+  kind?: string | null;
+  isPreferred: boolean;
+  disabledReason?: string | null;
+  edits: WorkspaceLanguageTextEdit[];
+}
+
+export interface WorkspaceLanguageSymbol {
+  name: string;
+  kind: string;
+  detail?: string | null;
+  path: string;
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+  children: WorkspaceLanguageSymbol[];
+}
+
+export interface WorkspaceLanguageServiceSnapshot {
+  generatedAtMs: number;
+  workspaceRoot: string;
+  path: string;
+  languageId: string;
+  availability: string;
+  statusLabel: string;
+  serviceLabel: string;
+  serverLabel?: string | null;
+  detail?: string | null;
+  diagnostics: WorkspaceLanguageDiagnostic[];
+  symbols: WorkspaceLanguageSymbol[];
 }
 
 export interface WorkspaceTerminalSession {
@@ -162,6 +260,7 @@ export interface WorkspaceTerminalController {
   subscribe: (listener: (text: string) => void) => () => void;
   subscribeState: (listener: () => void) => () => void;
   start: () => void;
+  stop: () => void;
   write: (data: string) => Promise<void>;
   resize: (cols: number, rows: number) => Promise<void>;
 }
@@ -181,6 +280,34 @@ export interface WorkspaceAdapter {
   inspectWorkspace: (root: string) => Promise<WorkspaceSnapshot>;
   listDirectory: (root: string, path: string) => Promise<WorkspaceNode[]>;
   readFile: (root: string, path: string) => Promise<WorkspaceFileDocument>;
+  getLanguageServiceSnapshot: (
+    root: string,
+    path: string,
+    content?: string,
+  ) => Promise<WorkspaceLanguageServiceSnapshot>;
+  getLanguageDefinition: (
+    root: string,
+    path: string,
+    line: number,
+    column: number,
+    content?: string,
+  ) => Promise<WorkspaceLanguageLocation[]>;
+  getLanguageReferences: (
+    root: string,
+    path: string,
+    line: number,
+    column: number,
+    content?: string,
+  ) => Promise<WorkspaceLanguageLocation[]>;
+  getLanguageCodeActions: (
+    root: string,
+    path: string,
+    line: number,
+    column: number,
+    endLine: number,
+    endColumn: number,
+    content?: string,
+  ) => Promise<WorkspaceLanguageCodeAction[]>;
   writeFile: (
     root: string,
     path: string,
@@ -202,6 +329,10 @@ export interface WorkspaceAdapter {
     path: string,
     staged: boolean,
   ) => Promise<WorkspaceDiffDocument>;
+  commitChanges: (
+    root: string,
+    message: WorkspaceCommitMessage,
+  ) => Promise<WorkspaceCommitResult>;
   stagePaths: (root: string, paths: string[]) => Promise<WorkspaceSourceControlState>;
   unstagePaths: (root: string, paths: string[]) => Promise<WorkspaceSourceControlState>;
   discardPaths: (root: string, paths: string[]) => Promise<WorkspaceSourceControlState>;

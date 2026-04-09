@@ -17,6 +17,67 @@ pub enum StudioOutcomeKind {
     Artifact,
 }
 
+/// The orchestration strategy chosen for this Studio outcome.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioExecutionStrategy {
+    SinglePass,
+    DirectAuthor,
+    PlanExecute,
+    MicroSwarm,
+    #[serde(rename = "adaptive_work_graph", alias = "swarm")]
+    AdaptiveWorkGraph,
+}
+
+fn default_studio_execution_strategy() -> StudioExecutionStrategy {
+    StudioExecutionStrategy::PlanExecute
+}
+
+/// How the execution controller may expand work once a mode is chosen.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioExecutionBudgetExpansionPolicy {
+    Fixed,
+    ConfidenceGated,
+    FrontierAdaptive,
+}
+
+/// Execution-time budget envelope assigned by the escalation gate.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioExecutionBudgetEnvelope {
+    pub max_workers: u32,
+    pub max_parallel_depth: u32,
+    pub max_replans: u32,
+    pub max_wall_clock_ms: u64,
+    pub max_tokens: u32,
+    pub max_tool_calls: u32,
+    pub max_repairs: u32,
+    pub expansion_policy: StudioExecutionBudgetExpansionPolicy,
+}
+
+/// Typed execution-mode decision recorded after routing and before
+/// decomposition.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioExecutionModeDecision {
+    pub requested_strategy: StudioExecutionStrategy,
+    pub resolved_strategy: StudioExecutionStrategy,
+    pub mode_confidence: f32,
+    pub one_shot_sufficiency: f32,
+    pub ambiguity: f32,
+    pub work_graph_size_estimate: u32,
+    pub hidden_dependency_likelihood: f32,
+    pub verification_pressure: f32,
+    pub revision_cost: f32,
+    pub evidence_breadth: f32,
+    pub merge_burden: f32,
+    pub decomposition_payoff: f32,
+    pub work_graph_required: bool,
+    pub decomposition_reason: String,
+    pub budget_envelope: StudioExecutionBudgetEnvelope,
+}
+
 /// The broad class of artifact being produced.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -110,6 +171,7 @@ pub enum StudioArtifactFileRole {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum StudioArtifactVerificationStatus {
+    Pending,
     Ready,
     Blocked,
     Failed,
@@ -222,6 +284,10 @@ pub struct StudioOutcomeRequest {
     pub raw_prompt: String,
     pub active_artifact_id: Option<String>,
     pub outcome_kind: StudioOutcomeKind,
+    #[serde(default = "default_studio_execution_strategy")]
+    pub execution_strategy: StudioExecutionStrategy,
+    #[serde(default)]
+    pub execution_mode_decision: Option<StudioExecutionModeDecision>,
     pub confidence: f32,
     pub needs_clarification: bool,
     pub clarification_questions: Vec<String>,
@@ -233,6 +299,10 @@ pub struct StudioOutcomeRequest {
 #[serde(rename_all = "camelCase")]
 pub struct StudioOutcomePlanningPayload {
     pub outcome_kind: StudioOutcomeKind,
+    #[serde(default = "default_studio_execution_strategy")]
+    pub execution_strategy: StudioExecutionStrategy,
+    #[serde(default)]
+    pub execution_mode_decision: Option<StudioExecutionModeDecision>,
     #[serde(default)]
     pub confidence: f32,
     #[serde(default)]

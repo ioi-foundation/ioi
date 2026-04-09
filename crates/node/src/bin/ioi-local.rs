@@ -101,12 +101,32 @@ fn desktop_agent_allowed_system_prefixes() -> Vec<String> {
     ]
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn local_runtime_thread_stack_size_bytes() -> usize {
+    std::env::var("IOI_LOCAL_TOKIO_STACK_SIZE_BYTES")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|value| *value >= 4 * 1024 * 1024)
+        .unwrap_or(32 * 1024 * 1024)
+}
+
+fn main() -> Result<()> {
     // Install default crypto provider for rustls 0.23+
     let _ = rustls::crypto::ring::default_provider().install_default();
     ioi_telemetry::init::init_tracing()?;
+    let runtime_stack_size = local_runtime_thread_stack_size_bytes();
+    println!(
+        "Configured tokio runtime worker stack size: {} bytes",
+        runtime_stack_size
+    );
 
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(runtime_stack_size)
+        .build()?
+        .block_on(async_main())
+}
+
+async fn async_main() -> Result<()> {
     let opts = LocalOpts::parse();
     fs::create_dir_all(&opts.data_dir)?;
 

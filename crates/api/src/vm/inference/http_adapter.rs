@@ -34,7 +34,11 @@ pub trait ProviderStrategy: Send + Sync {
 
     /// Parses the raw response bytes into the standard IOI Kernel output format.
     /// (UTF-8 string or JSON tool call).
-    async fn parse_response(&self, response: reqwest::Response) -> Result<Vec<u8>, VmError>;
+    async fn parse_response(
+        &self,
+        response: reqwest::Response,
+        options: &InferenceOptions,
+    ) -> Result<Vec<u8>, VmError>;
 
     /// Parses a streaming chunk.
     async fn parse_stream_chunk(&self, chunk: &[u8]) -> Result<Option<String>, VmError>;
@@ -76,6 +80,8 @@ struct OpenAiRequest {
     temperature: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stop: Option<Vec<String>>,
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     response_format: Option<ResponseFormat>,
@@ -111,6 +117,26 @@ struct ResponseFormat {
     type_: String,
 }
 
+fn decode_openai_messages(input_context: &[u8]) -> Result<Vec<Message>, VmError> {
+    if let Ok(json_val) = serde_json::from_slice::<Value>(input_context) {
+        if let Ok(msgs) = serde_json::from_value::<Vec<Message>>(json_val.clone()) {
+            Ok(msgs)
+        } else {
+            Ok(vec![Message {
+                role: "user".to_string(),
+                content: json_val,
+            }])
+        }
+    } else {
+        let prompt_str = String::from_utf8(input_context.to_vec())
+            .map_err(|e| VmError::InvalidBytecode(format!("Input must be UTF-8: {}", e)))?;
+        Ok(vec![Message {
+            role: "user".to_string(),
+            content: Value::String(prompt_str),
+        }])
+    }
+}
+
 #[async_trait]
 impl ProviderStrategy for OpenAiStrategy {
     fn build_request(
@@ -123,24 +149,7 @@ impl ProviderStrategy for OpenAiStrategy {
         options: &InferenceOptions,
         stream: bool,
     ) -> Result<RequestBuilder, VmError> {
-        let messages: Vec<Message> =
-            if let Ok(json_val) = serde_json::from_slice::<Value>(input_context) {
-                if let Ok(msgs) = serde_json::from_value::<Vec<Message>>(json_val.clone()) {
-                    msgs
-                } else {
-                    vec![Message {
-                        role: "user".to_string(),
-                        content: json_val,
-                    }]
-                }
-            } else {
-                let prompt_str = String::from_utf8(input_context.to_vec())
-                    .map_err(|e| VmError::InvalidBytecode(format!("Input must be UTF-8: {}", e)))?;
-                vec![Message {
-                    role: "user".to_string(),
-                    content: Value::String(prompt_str),
-                }]
-            };
+        let mut messages = decode_openai_messages(input_context)?;
 
         let tools = if options.tools.is_empty() {
             None
@@ -165,6 +174,8 @@ impl ProviderStrategy for OpenAiStrategy {
             )
         };
 
+        apply_local_qwen_no_think_prompt_for_request(api_url, model_name, &mut messages);
+
         let has_tools = tools.is_some();
         let response_format = if options.json_mode && !has_tools {
             Some(ResponseFormat {
@@ -174,8 +185,9 @@ impl ProviderStrategy for OpenAiStrategy {
             None
         };
         let max_tokens = (options.max_tokens > 0).then_some(options.max_tokens);
+        let stop = (!options.stop_sequences.is_empty()).then(|| options.stop_sequences.clone());
         let local_runtime_options = ollama_request_options_for_api_url(api_url);
-        let reasoning_effort = local_openai_reasoning_effort_for_api_url(api_url);
+        let reasoning_effort = local_openai_reasoning_effort_for_request(api_url, model_name);
 
         let body = OpenAiRequest {
             model: model_name.to_string(),
@@ -185,6 +197,7 @@ impl ProviderStrategy for OpenAiStrategy {
             parallel_tool_calls: has_tools.then_some(false),
             temperature: options.temperature,
             max_tokens,
+            stop,
             stream,
             response_format,
             reasoning_effort,
@@ -197,7 +210,11 @@ impl ProviderStrategy for OpenAiStrategy {
             .json(&body))
     }
 
-    async fn parse_response(&self, response: reqwest::Response) -> Result<Vec<u8>, VmError> {
+    async fn parse_response(
+        &self,
+        response: reqwest::Response,
+        options: &InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
         #[derive(Deserialize)]
         struct OpenAiResponse {
             choices: Vec<Choice>,
@@ -223,7 +240,11 @@ impl ProviderStrategy for OpenAiStrategy {
             arguments: String,
         }
 
-        fn decode_openai_response(resp: OpenAiResponse, text: &str) -> Result<Vec<u8>, VmError> {
+        fn decode_openai_response(
+            resp: OpenAiResponse,
+            text: &str,
+            options: &InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
             let choice = resp
                 .choices
                 .first()
@@ -242,8 +263,11 @@ impl ProviderStrategy for OpenAiStrategy {
                     return Ok(json.to_string().into_bytes());
                 }
             }
-
-            let content = choice.message.content.clone().unwrap_or_default();
+            let content = restore_consumed_stop_sequence(
+                &choice.message.content.clone().unwrap_or_default(),
+                choice.finish_reason.as_deref(),
+                &options.stop_sequences,
+            );
             if content.trim().is_empty() {
                 let reason = choice
                     .finish_reason
@@ -272,7 +296,7 @@ impl ProviderStrategy for OpenAiStrategy {
             if let Ok(resp) = serde_json::from_slice::<OpenAiResponse>(&body) {
                 let text = String::from_utf8(body.clone())
                     .map_err(|e| VmError::HostError(format!("UTF-8 decode error: {}", e)))?;
-                return decode_openai_response(resp, &text);
+                return decode_openai_response(resp, &text, options);
             }
         }
 
@@ -281,7 +305,7 @@ impl ProviderStrategy for OpenAiStrategy {
         let resp: OpenAiResponse = serde_json::from_str(&text)
             .map_err(|e| VmError::HostError(format!("Parse error: {} | Raw: {}", e, text)))?;
 
-        decode_openai_response(resp, &text)
+        decode_openai_response(resp, &text, options)
     }
 
     async fn parse_stream_chunk(&self, _chunk: &[u8]) -> Result<Option<String>, VmError> {
@@ -483,7 +507,11 @@ impl ProviderStrategy for AnthropicStrategy {
         Ok(builder)
     }
 
-    async fn parse_response(&self, response: reqwest::Response) -> Result<Vec<u8>, VmError> {
+    async fn parse_response(
+        &self,
+        response: reqwest::Response,
+        _options: &InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
         let text = response
             .text()
             .await
@@ -545,6 +573,7 @@ struct OpenAiStreamAccumulator {
     content: String,
     refusal: Option<String>,
     tool_calls: BTreeMap<usize, PartialToolCall>,
+    stop_sequences: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -582,7 +611,7 @@ struct OpenAiStreamFunctionDelta {
 impl OpenAiStreamAccumulator {
     fn apply_data_line(&mut self, line: &str) -> Result<Option<Vec<u8>>, VmError> {
         if line == "[DONE]" {
-            return self.finalize();
+            return self.finalize(None);
         }
 
         let envelope: OpenAiStreamEnvelope = serde_json::from_str(line).map_err(|e| {
@@ -601,7 +630,7 @@ impl OpenAiStreamAccumulator {
                 choice.finish_reason.as_deref(),
                 Some("stop" | "length" | "tool_calls" | "content_filter")
             ) {
-                return self.finalize();
+                return self.finalize(choice.finish_reason.as_deref());
             }
         }
 
@@ -645,7 +674,7 @@ impl OpenAiStreamAccumulator {
         Ok(None)
     }
 
-    fn finalize(&self) -> Result<Option<Vec<u8>>, VmError> {
+    fn finalize(&self, finish_reason: Option<&str>) -> Result<Option<Vec<u8>>, VmError> {
         if let Some(refusal) = &self.refusal {
             return Err(VmError::HostError(format!("LLM_REFUSAL: {}", refusal)));
         }
@@ -655,11 +684,126 @@ impl OpenAiStreamAccumulator {
         }
 
         if !self.content.trim().is_empty() {
-            return Ok(Some(self.content.clone().into_bytes()));
+            return Ok(Some(
+                restore_consumed_stop_sequence(
+                    &self.content,
+                    finish_reason,
+                    &self.stop_sequences,
+                )
+                .into_bytes(),
+            ));
         }
 
         Ok(None)
     }
+}
+
+#[derive(Serialize)]
+struct OllamaNativeChatRequest {
+    model: String,
+    messages: Vec<OllamaNativeMessage>,
+    stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    think: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    options: Option<Value>,
+}
+
+#[derive(Serialize)]
+struct OllamaNativeMessage {
+    role: String,
+    content: String,
+}
+
+#[derive(Deserialize)]
+struct OllamaNativeChatEnvelope {
+    message: Option<OllamaNativeChatMessage>,
+    #[serde(default)]
+    done: bool,
+}
+
+#[derive(Deserialize)]
+struct OllamaNativeChatMessage {
+    content: Option<String>,
+}
+
+fn local_ollama_native_chat_url(api_url: &str) -> Option<String> {
+    if runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime {
+        return None;
+    }
+
+    let trimmed = api_url.trim_end_matches('/');
+    if trimmed.ends_with("/api/chat") {
+        return Some(trimmed.to_string());
+    }
+    trimmed
+        .strip_suffix("/v1/chat/completions")
+        .map(|prefix| format!("{prefix}/api/chat"))
+}
+
+fn message_content_as_text(content: &Value) -> Option<String> {
+    match content {
+        Value::String(text) => Some(text.clone()),
+        Value::Array(items) => {
+            let parts = items
+                .iter()
+                .filter_map(|item| {
+                    let kind = item.get("type").and_then(Value::as_str)?;
+                    if kind != "text" {
+                        return None;
+                    }
+                    item.get("text").and_then(Value::as_str).map(str::to_string)
+                })
+                .collect::<Vec<_>>();
+            (!parts.is_empty()).then(|| parts.join("\n\n"))
+        }
+        _ => None,
+    }
+}
+
+fn decode_ollama_native_messages(
+    input_context: &[u8],
+) -> Result<Option<Vec<OllamaNativeMessage>>, VmError> {
+    let messages = decode_openai_messages(input_context)?;
+    let mut native = Vec::with_capacity(messages.len());
+    for message in messages {
+        let Some(content) = message_content_as_text(&message.content) else {
+            return Ok(None);
+        };
+        native.push(OllamaNativeMessage {
+            role: message.role,
+            content,
+        });
+    }
+    Ok(Some(native))
+}
+
+fn stop_sequence_match(text: &str, stop_sequences: &[String]) -> Option<(usize, usize)> {
+    stop_sequences
+        .iter()
+        .filter_map(|stop| text.find(stop).map(|index| (index, stop.len())))
+        .min_by_key(|(index, _)| *index)
+}
+
+fn restore_consumed_stop_sequence(
+    content: &str,
+    finish_reason: Option<&str>,
+    stop_sequences: &[String],
+) -> String {
+    if finish_reason != Some("stop") || stop_sequences.is_empty() {
+        return content.to_string();
+    }
+
+    if stop_sequences
+        .iter()
+        .any(|stop| content.trim_end().ends_with(stop))
+    {
+        return content.to_string();
+    }
+
+    let mut completed = content.to_string();
+    completed.push_str(&stop_sequences[0]);
+    completed
 }
 
 pub struct HttpInferenceRuntime {
@@ -709,6 +853,127 @@ impl HttpInferenceRuntime {
         }
     }
 
+    async fn execute_ollama_native_chat(
+        &self,
+        input_context: &[u8],
+        options: &InferenceOptions,
+        token_stream: Option<Sender<String>>,
+    ) -> Result<Vec<u8>, VmError> {
+        let native_url = local_ollama_native_chat_url(&self.api_url)
+            .ok_or_else(|| VmError::HostError("Local Ollama native chat URL unavailable".into()))?;
+        let messages = decode_ollama_native_messages(input_context)?.ok_or_else(|| {
+            VmError::HostError(
+                "Local Ollama native chat requires text-only messages for this request".into(),
+            )
+        })?;
+
+        let body = OllamaNativeChatRequest {
+            model: self.model_name.clone(),
+            messages,
+            stream: true,
+            think: local_qwen_family_model(&self.model_name).then_some(false),
+            options: ollama_native_request_options_for_request(&self.api_url, options),
+        };
+
+        let response = self
+            .client
+            .post(native_url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| VmError::HostError(format!("Network Error: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = read_error_response_body(response).await;
+            log::error!("Provider Error {}: {}", status, body);
+            return Err(VmError::HostError(format!(
+                "Provider Error {}: {}",
+                status, body
+            )));
+        }
+
+        let mut byte_stream = response.bytes_stream();
+        let mut pending = String::new();
+        let mut content = String::new();
+
+        while let Some(chunk) = byte_stream.next().await {
+            let chunk = chunk.map_err(|e| VmError::HostError(format!("Stream Error: {}", e)))?;
+            let chunk_text = std::str::from_utf8(&chunk).map_err(|e| {
+                VmError::HostError(format!("Streaming chunk was not valid UTF-8: {}", e))
+            })?;
+            pending.push_str(chunk_text);
+
+            while let Some(newline_pos) = pending.find('\n') {
+                let mut line = pending.drain(..=newline_pos).collect::<String>();
+                if line.ends_with('\n') {
+                    line.pop();
+                }
+                if line.ends_with('\r') {
+                    line.pop();
+                }
+                if line.trim().is_empty() {
+                    continue;
+                }
+                let envelope: OllamaNativeChatEnvelope =
+                    serde_json::from_str(&line).map_err(|e| {
+                        VmError::HostError(format!(
+                            "Ollama native streaming parse error: {} | Chunk: {}",
+                            e, line
+                        ))
+                    })?;
+                if let Some(delta) = envelope.message.and_then(|message| message.content) {
+                    if !delta.is_empty() {
+                        content.push_str(&delta);
+                        if let Some(sender) = token_stream.as_ref() {
+                            let _ = sender.send(delta).await;
+                        }
+                        if let Some((stop_index, stop_len)) =
+                            stop_sequence_match(&content, &options.stop_sequences)
+                        {
+                            return Ok(content[..stop_index + stop_len].to_string().into_bytes());
+                        }
+                    }
+                }
+                if envelope.done {
+                    if !content.trim().is_empty() {
+                        return Ok(content.into_bytes());
+                    }
+                    return Err(VmError::HostError(
+                        "Local Ollama native chat ended without content".into(),
+                    ));
+                }
+            }
+        }
+
+        if !pending.trim().is_empty() {
+            let envelope: OllamaNativeChatEnvelope =
+                serde_json::from_str(pending.trim()).map_err(|e| {
+                    VmError::HostError(format!(
+                        "Ollama native streaming parse error: {} | Chunk: {}",
+                        e, pending
+                    ))
+                })?;
+            if let Some(delta) = envelope.message.and_then(|message| message.content) {
+                content.push_str(&delta);
+            }
+        }
+
+        if let Some((stop_index, stop_len)) = stop_sequence_match(&content, &options.stop_sequences)
+        {
+            return Ok(content[..stop_index + stop_len].to_string().into_bytes());
+        }
+
+        if !content.trim().is_empty() {
+            return Ok(content.into_bytes());
+        }
+
+        Err(VmError::HostError(
+            "Local Ollama native chat ended without content".into(),
+        ))
+    }
+
     async fn execute_openai_streaming(
         &self,
         input_context: &[u8],
@@ -742,7 +1007,10 @@ impl HttpInferenceRuntime {
 
         let mut byte_stream = response.bytes_stream();
         let mut pending = String::new();
-        let mut accumulator = OpenAiStreamAccumulator::default();
+        let mut accumulator = OpenAiStreamAccumulator {
+            stop_sequences: options.stop_sequences.clone(),
+            ..Default::default()
+        };
         let mut emitted_text_len = 0usize;
 
         while let Some(chunk) = byte_stream.next().await {
@@ -789,7 +1057,7 @@ impl HttpInferenceRuntime {
             }
         }
 
-        accumulator.finalize()?.ok_or_else(|| {
+        accumulator.finalize(None)?.ok_or_else(|| {
             VmError::HostError("OpenAI streaming response ended without content".into())
         })
     }
@@ -814,12 +1082,63 @@ fn ollama_request_options_for_api_url(api_url: &str) -> Option<Value> {
     Some(json!({ "num_ctx": num_ctx }))
 }
 
-fn local_openai_reasoning_effort_for_api_url(api_url: &str) -> Option<String> {
-    local_openai_reasoning_effort_for_api_url_with_lookup(api_url, |key| std::env::var(key).ok())
+fn ollama_native_request_options_for_request(
+    api_url: &str,
+    options: &InferenceOptions,
+) -> Option<Value> {
+    if runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime {
+        return None;
+    }
+
+    let mut request_options = serde_json::Map::new();
+    if let Some(num_ctx) = std::env::var("OLLAMA_CONTEXT_LENGTH")
+        .ok()
+        .and_then(|value| value.trim().parse::<u32>().ok())
+        .filter(|value| *value > 0)
+    {
+        request_options.insert("num_ctx".to_string(), json!(num_ctx));
+    }
+    if options.max_tokens > 0 {
+        request_options.insert("num_predict".to_string(), json!(options.max_tokens));
+    }
+    if !options.stop_sequences.is_empty() {
+        request_options.insert("stop".to_string(), json!(options.stop_sequences));
+    }
+
+    if request_options.is_empty() {
+        None
+    } else {
+        Some(Value::Object(request_options))
+    }
 }
 
-fn local_openai_reasoning_effort_for_api_url_with_lookup<F>(
+fn local_qwen_family_model(model_name: &str) -> bool {
+    model_name.to_ascii_lowercase().contains("qwen")
+}
+
+fn local_openai_reasoning_effort_override_with_lookup<F>(lookup: F) -> Option<Option<String>>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    let configured = lookup("AUTOPILOT_LOCAL_OPENAI_REASONING_EFFORT")
+        .or_else(|| lookup("IOI_LOCAL_OPENAI_REASONING_EFFORT"));
+
+    match configured.as_deref().map(str::trim) {
+        Some("") | Some("omit") => Some(None),
+        Some(value) => Some(Some(value.to_string())),
+        None => None,
+    }
+}
+
+fn local_openai_reasoning_effort_for_request(api_url: &str, model_name: &str) -> Option<String> {
+    local_openai_reasoning_effort_for_request_with_lookup(api_url, model_name, |key| {
+        std::env::var(key).ok()
+    })
+}
+
+fn local_openai_reasoning_effort_for_request_with_lookup<F>(
     api_url: &str,
+    model_name: &str,
     lookup: F,
 ) -> Option<String>
 where
@@ -829,13 +1148,88 @@ where
         return None;
     }
 
-    let configured = lookup("AUTOPILOT_LOCAL_OPENAI_REASONING_EFFORT")
-        .or_else(|| lookup("IOI_LOCAL_OPENAI_REASONING_EFFORT"));
-
-    match configured.as_deref().map(str::trim) {
-        Some("") | Some("omit") => None,
-        Some(value) => Some(value.to_string()),
+    match local_openai_reasoning_effort_override_with_lookup(lookup) {
+        Some(value) => value,
+        None if local_qwen_family_model(model_name) => None,
         None => Some("none".to_string()),
+    }
+}
+
+fn apply_local_qwen_no_think_prompt_for_request(
+    api_url: &str,
+    model_name: &str,
+    messages: &mut Vec<Message>,
+) {
+    apply_local_qwen_no_think_prompt_for_request_with_lookup(
+        api_url,
+        model_name,
+        messages,
+        |key| std::env::var(key).ok(),
+    );
+}
+
+fn apply_local_qwen_no_think_prompt_for_request_with_lookup<F>(
+    api_url: &str,
+    model_name: &str,
+    messages: &mut Vec<Message>,
+    lookup: F,
+) where
+    F: Fn(&str) -> Option<String>,
+{
+    if runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime {
+        return;
+    }
+    if !local_qwen_family_model(model_name) {
+        return;
+    }
+    if local_openai_reasoning_effort_override_with_lookup(lookup).is_some() {
+        return;
+    }
+
+    if let Some(message) = messages.iter_mut().find(|message| message.role == "system") {
+        if prepend_no_think_to_content(&mut message.content) {
+            return;
+        }
+    }
+
+    messages.insert(
+        0,
+        Message {
+            role: "system".to_string(),
+            content: Value::String("/no_think".to_string()),
+        },
+    );
+}
+
+fn prepend_no_think_to_content(content: &mut Value) -> bool {
+    match content {
+        Value::String(text) => {
+            if text.starts_with("/no_think") {
+                return true;
+            }
+            *text = format!("/no_think\n{text}");
+            true
+        }
+        Value::Array(items) => {
+            for item in items.iter_mut() {
+                let Some(map) = item.as_object_mut() else {
+                    continue;
+                };
+                let Some(text_value) = map.get_mut("text") else {
+                    continue;
+                };
+                let Some(text) = text_value.as_str() else {
+                    continue;
+                };
+                if text.starts_with("/no_think") {
+                    return true;
+                }
+                *text_value = Value::String(format!("/no_think\n{text}"));
+                return true;
+            }
+            false
+        }
+        _ => false,
     }
 }
 
@@ -968,6 +1362,15 @@ impl InferenceRuntime for HttpInferenceRuntime {
         options: InferenceOptions,
         token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
+        if local_ollama_native_chat_url(&self.api_url).is_some()
+            && options.tools.is_empty()
+            && !options.json_mode
+        {
+            return self
+                .execute_ollama_native_chat(input_context, &options, token_stream)
+                .await;
+        }
+
         let can_stream = should_use_openai_streaming(
             &self.api_url,
             self.provider_kind,
@@ -1006,7 +1409,7 @@ impl InferenceRuntime for HttpInferenceRuntime {
             )));
         }
 
-        self.strategy.parse_response(response).await
+        self.strategy.parse_response(response, &options).await
     }
 
     async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
@@ -1143,10 +1546,13 @@ fn runtime_kind_for_api_url(api_url: &str) -> StudioRuntimeProvenanceKind {
 #[cfg(test)]
 mod tests {
     use super::{
-        default_inference_http_timeout_seconds, local_openai_reasoning_effort_for_api_url_with_lookup,
-        inference_http_timeout_seconds_for_api_url_with_lookup, resolve_embedding_model_with,
-        resolve_embedding_target_url, should_use_openai_streaming, HttpInferenceRuntime,
-        OpenAiStrategy, OpenAiStreamAccumulator, ProviderKind, ProviderStrategy,
+        apply_local_qwen_no_think_prompt_for_request_with_lookup,
+        default_inference_http_timeout_seconds,
+        inference_http_timeout_seconds_for_api_url_with_lookup, local_ollama_native_chat_url,
+        local_openai_reasoning_effort_for_request_with_lookup, resolve_embedding_model_with,
+        resolve_embedding_target_url, restore_consumed_stop_sequence,
+        should_use_openai_streaming, HttpInferenceRuntime, Message, OpenAiStrategy,
+        OpenAiStreamAccumulator, ProviderKind, ProviderStrategy,
     };
     use crate::vm::inference::InferenceRuntime;
     use ioi_types::app::agentic::{InferenceOptions, LlmToolDefinition};
@@ -1223,6 +1629,38 @@ mod tests {
         assert!(accumulator.apply_data_line(&first).unwrap().is_none());
         let output = accumulator.apply_data_line(&second).unwrap().unwrap();
         assert_eq!(String::from_utf8(output).unwrap(), "hello world");
+    }
+
+    #[test]
+    fn restore_consumed_stop_sequence_appends_boundary_for_stop_finish_reason() {
+        let restored = restore_consumed_stop_sequence(
+            "<!doctype html><html><body><main>Quantum</main></body>",
+            Some("stop"),
+            &["</html>".to_string()],
+        );
+        assert_eq!(restored, "<!doctype html><html><body><main>Quantum</main></body></html>");
+    }
+
+    #[test]
+    fn openai_stream_accumulator_restores_configured_stop_sequence() {
+        let mut accumulator = OpenAiStreamAccumulator {
+            stop_sequences: vec!["</html>".to_string()],
+            ..Default::default()
+        };
+
+        let line = json!({
+            "choices": [{
+                "delta": { "content": "<!doctype html><html><body><main>Quantum</main></body>" },
+                "finish_reason": "stop"
+            }]
+        })
+        .to_string();
+
+        let output = accumulator.apply_data_line(&line).unwrap().unwrap();
+        assert_eq!(
+            String::from_utf8(output).unwrap(),
+            "<!doctype html><html><body><main>Quantum</main></body></html>"
+        );
     }
 
     #[test]
@@ -1308,7 +1746,36 @@ mod tests {
     }
 
     #[test]
-    fn local_ollama_requests_disable_reasoning_effort_by_runtime_shape() {
+    fn openai_requests_include_stop_sequences_when_configured() {
+        let request = OpenAiStrategy
+            .build_request(
+                &Client::new(),
+                "http://127.0.0.1:11434/v1/chat/completions",
+                "",
+                "qwen3.5:9b",
+                br#"[{"role":"user","content":"Return only one HTML document."}]"#,
+                &InferenceOptions {
+                    max_tokens: 32,
+                    stop_sequences: vec!["</html>".to_string()],
+                    ..Default::default()
+                },
+                false,
+            )
+            .expect("request builder")
+            .build()
+            .expect("request");
+
+        let body = request
+            .body()
+            .and_then(|payload| payload.as_bytes())
+            .expect("request body");
+        let parsed: Value = serde_json::from_slice(body).expect("json body");
+
+        assert_eq!(parsed["stop"], json!(["</html>"]));
+    }
+
+    #[test]
+    fn local_non_qwen_ollama_requests_default_reasoning_effort_to_none() {
         let request = OpenAiStrategy
             .build_request(
                 &Client::new(),
@@ -1337,8 +1804,9 @@ mod tests {
 
     #[test]
     fn local_reasoning_effort_policy_can_be_explicitly_omitted() {
-        let effort = local_openai_reasoning_effort_for_api_url_with_lookup(
+        let effort = local_openai_reasoning_effort_for_request_with_lookup(
             "http://127.0.0.1:11434/v1/chat/completions",
+            "qwen3.5:9b",
             |key| match key {
                 "AUTOPILOT_LOCAL_OPENAI_REASONING_EFFORT" => Some("omit".to_string()),
                 _ => None,
@@ -1346,6 +1814,61 @@ mod tests {
         );
 
         assert!(effort.is_none());
+    }
+
+    #[test]
+    fn local_qwen_requests_omit_reasoning_effort_and_prefix_no_think() {
+        let request = OpenAiStrategy
+            .build_request(
+                &Client::new(),
+                "http://127.0.0.1:11434/v1/chat/completions",
+                "",
+                "qwen3.5:9b",
+                br#"[{"role":"system","content":"Return only one HTML document."},{"role":"user","content":"Create the artifact."}]"#,
+                &InferenceOptions {
+                    max_tokens: 32,
+                    ..Default::default()
+                },
+                true,
+            )
+            .expect("request builder")
+            .build()
+            .expect("request");
+
+        let body = request
+            .body()
+            .and_then(|payload| payload.as_bytes())
+            .expect("request body");
+        let parsed: Value = serde_json::from_slice(body).expect("json body");
+
+        assert!(parsed.get("reasoning_effort").is_none());
+        assert_eq!(
+            parsed["messages"][0]["content"],
+            "/no_think\nReturn only one HTML document."
+        );
+    }
+
+    #[test]
+    fn local_qwen_no_think_prompt_is_not_added_when_reasoning_policy_is_explicit() {
+        let mut messages = vec![Message {
+            role: "system".to_string(),
+            content: Value::String("Return only one HTML document.".to_string()),
+        }];
+
+        apply_local_qwen_no_think_prompt_for_request_with_lookup(
+            "http://127.0.0.1:11434/v1/chat/completions",
+            "qwen3.5:9b",
+            &mut messages,
+            |key| match key {
+                "AUTOPILOT_LOCAL_OPENAI_REASONING_EFFORT" => Some("low".to_string()),
+                _ => None,
+            },
+        );
+
+        assert_eq!(
+            messages[0].content,
+            Value::String("Return only one HTML document.".to_string())
+        );
     }
 
     #[test]
@@ -1460,6 +1983,70 @@ mod tests {
             .expect("non-stream parse should not wait for terminal chunk")
             .expect("inference result");
         assert_eq!(String::from_utf8(output).unwrap(), "{\"ok\":true}");
+    }
+
+    #[tokio::test]
+    async fn local_qwen_raw_text_requests_use_native_ollama_chat_streaming() {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind local listener");
+        let address = listener.local_addr().expect("listener address");
+
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept test client");
+            let mut request = vec![0u8; 16384];
+            let bytes_read = socket.read(&mut request).await.expect("read request");
+            let request_text = String::from_utf8_lossy(&request[..bytes_read]);
+            assert!(request_text.starts_with("POST /api/chat HTTP/1.1"));
+            assert!(request_text.contains("\"think\":false"));
+            assert!(request_text.contains("\"stream\":true"));
+            assert!(request_text.contains("\"num_predict\":321"));
+            assert!(request_text.contains("\"stop\":[\"</html>\"]"));
+
+            let response_body = concat!(
+                "{\"message\":{\"content\":\"<!doctype html><html><body>\"},\"done\":false}\n",
+                "{\"message\":{\"content\":\"ok</body></html>\"},\"done\":true}\n"
+            );
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nContent-Length: {}\r\n\r\n{}",
+                response_body.len(),
+                response_body
+            );
+            socket
+                .write_all(response.as_bytes())
+                .await
+                .expect("write response");
+        });
+
+        let runtime = HttpInferenceRuntime::new(
+            format!("http://{address}/v1/chat/completions"),
+            String::new(),
+            "qwen3.5:9b".to_string(),
+        );
+        let expected_url = format!("http://{address}/api/chat");
+        assert_eq!(
+            local_ollama_native_chat_url(&format!("http://{address}/v1/chat/completions"))
+                .as_deref(),
+            Some(expected_url.as_str())
+        );
+
+        let output = runtime
+            .execute_inference(
+                [0u8; 32],
+                br#"[{"role":"user","content":"Return only html."}]"#,
+                InferenceOptions {
+                    max_tokens: 321,
+                    stop_sequences: vec!["</html>".to_string()],
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect("inference result");
+
+        assert_eq!(
+            String::from_utf8(output).unwrap(),
+            "<!doctype html><html><body>ok</body></html>"
+        );
     }
 
     #[test]

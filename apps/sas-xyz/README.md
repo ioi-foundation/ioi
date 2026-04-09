@@ -1,22 +1,66 @@
-# sas.xyz - The AWS of Agentic AI
+# sas.xyz
 
-Welcome to the frontend shell for **sas.xyz**, the premier production fleet manager and financial hub for autonomous AI agents. Built on the principles of the IOI (Intent-Oriented Infrastructure) protocol, this platform provides developers with the tools to deploy, monitor, and economically secure their agentic swarms.
+**Buy outcomes, not seats.**
 
-## 🌟 Core Philosophy
+`sas.xyz` is the demand-side service layer for the IOI network. It is where enterprises buy, deploy, govern, and measure finished AI-native services with SLAs, policy controls, liability boundaries, evidence, and reporting.
 
-*"The model can be fuzzy. The consequences cannot."*
+The clean split is:
 
-sas.xyz bridges the gap between probabilistic LLM outputs and deterministic execution. It provides a "Glass Box" environment where developers can trace every action, verify cryptographic receipts, and manage the economic lifecycle of their agents.
+*   `aiagent.xyz` packages autonomous supply.
+*   `sas.xyz` sells outcome-based services built from that supply.
 
-## 🚀 Features
+## 🌐 Positioning
 
-*   **Global Dashboard (`/`)**: A high-level overview of your agent fleet, active compute nodes, and total Labor Gas (LGAS) yield.
-*   **Agent IDE / Canvas (`/canvas`)**: A node-based visual editor for designing agent workflows, defining deterministic firewalls, and local testing.
-*   **Fleet Registry (`/registry`)**: Manage deployed agents, view their active status, and track their SLA bonds.
-*   **Agent Detail & Trace Explorer (`/registry/:id`)**: The "Etherscan for Agency." Inspect live execution logs and dive into the Trace Inspector to see the exact transition from Probabilistic Intent -> Determinism Boundary -> Cryptographic Receipt.
-*   **Arbitration Inbox (`/disputes`)**: Manage contested executions. Review the 3-Lane Arbitration funnel (Cryptographic Filter, Objective Evaluators, AI Judiciary) and defend your staked SLA bonds.
-*   **Fleet Observability (`/analytics`)**: Zero-idle telemetry. Monitor global agent routing across hardware profiles (TEE vs. Standard GPU), latency, and Labor Gas velocity.
-*   **Financial Vault (`/vault`)**: Manage your Labor Gas earnings, SLA bonds, and fiat/crypto off-ramps.
+Use this rule everywhere:
+
+*   If the buyer is choosing **how it works**, it belongs closer to `aiagent.xyz`.
+*   If the buyer is choosing **what result they want**, it belongs closer to `sas.xyz`.
+
+That keeps the hierarchy based on abstraction level rather than size.
+
+## 🚀 Product Surface
+
+The frontend includes both a marketing site and an authenticated operating surface:
+
+*   **Marketing Landing (`/`)**: Outcome-led positioning for enterprise buyers.
+*   **Solutions (`/solutions`)**: Business-function and industry service lanes.
+*   **Catalog (`/templates`)**: Finished services grouped by business outcome.
+*   **Docs (`/docs`)**: Brand architecture, promotion path, governance model, and pricing split.
+*   **Pricing (`/economics`)**: Per-outcome, managed SLA, gainshare, and hybrid commercial models.
+*   **Trust (`/security`)**: Governance, audit trails, approvals, attestation, and signed receipts.
+*   **Dashboard (`/app`)**: Buyer-facing service operations, evidence, billing, and customer controls.
+
+## 🧱 Relationship to aiagent.xyz
+
+`sas.xyz` is not a separate universe from `aiagent.xyz`.
+
+The intended maturity ladder is:
+
+1.  Agent
+2.  Workflow
+3.  Operator Pack
+4.  Service Module
+5.  Managed Service
+6.  Enterprise SaS Offering
+
+`aiagent.xyz` is the substrate marketplace. `sas.xyz` is the productized service layer on top of it.
+
+## 💸 Commercial Model
+
+Supply-side pricing belongs in `aiagent.xyz`:
+
+*   metered execution
+*   license
+*   rev share
+*   lease
+*   settlement-based compensation
+
+Demand-side pricing belongs in `sas.xyz`:
+
+*   per outcome
+*   managed SLA
+*   gainshare
+*   hybrid base fee + outcome kicker
 
 ## 🛠 Tech Stack
 
@@ -26,17 +70,31 @@ sas.xyz bridges the gap between probabilistic LLM outputs and deterministic exec
 *   **Animations**: Framer Motion (`motion/react`)
 *   **Routing**: React Router DOM
 
----
+## 🔐 Trust Language
 
-## 🗺️ Roadmap: How do we make it real?
+Both properties inherit the same IOI substrate, but the framing changes:
 
-If you are ready to move from the Frontend UI to the **Backend & Infrastructure**, here are the three logical paths we can take:
+`aiagent.xyz`
 
-#### Path 1: The CLI Tool (`ioi-cli`)
-Build the actual command-line interface that developers use. A real Node.js or Rust CLI that allows a user to run `ioi init`, `ioi test --sandbox`, and `ioi deploy`. This makes the "Cloud Shell" in your UI actually functional via WebSockets.
+*   verifiable execution
+*   bounded autonomy
+*   programmable policy
+*   signed receipts
+*   sovereign deployment
 
-#### Path 2: The IOI Node / Hypervisor (The Execution Engine)
-Build a lightweight Python or Node.js server that acts as the "IOI Kernel." It takes a JSON payload representing a prompt, runs it through an LLM, evaluates it against a real `policy.json` (the Agency Firewall), and outputs the exact Cryptographic Receipts you mocked up in the Trace Inspector.
+`sas.xyz`
 
-#### Path 3: The Smart Contracts (Solidity / Foundry)
-Build the actual Web3 economic layer on an EVM testnet (Base or Arbitrum). Write the `GigEscrow.sol` contract (where clients deposit funds), the `ServiceNFT.sol` contract (minting the agent identity), and the `DisputeResolution.sol` contract.
+*   governed outcomes
+*   approval controls
+*   audit trails
+*   measurable service delivery
+*   policy-backed automation
+
+## 🗺️ Next Steps
+
+The next product work should keep reinforcing the split:
+
+*   classify `aiagent.xyz` by execution shape
+*   classify `sas.xyz` by business outcome
+*   make promotion from verified components to managed services explicit
+*   keep the buyer experience focused on results, not agent topology

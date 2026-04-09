@@ -1,13 +1,14 @@
 import type {
-  ClarificationRequest,
-  CredentialRequest,
-  GateInfo,
-} from "../../../types";
+  SessionClarificationRequest as ClarificationRequest,
+  SessionCredentialRequest as CredentialRequest,
+  SessionGateInfo as GateInfo,
+} from "@ioi/agent-ide";
 import { SpotlightApprovalCard } from "./SpotlightApprovalCard";
 import { SpotlightPasswordCard } from "./SpotlightPasswordCard";
 import { SpotlightClarificationCard } from "./SpotlightClarificationCard";
 
 type SpotlightGateDockProps = {
+  inline?: boolean;
   isGated: boolean;
   gateInfo?: GateInfo;
   isPiiGate: boolean;
@@ -27,6 +28,7 @@ type SpotlightGateDockProps = {
 };
 
 export function SpotlightGateDock({
+  inline = false,
   isGated,
   gateInfo,
   isPiiGate,
@@ -44,10 +46,12 @@ export function SpotlightGateDock({
   onSubmitClarification,
   onCancelClarification,
 }: SpotlightGateDockProps) {
+  const dockClassName = inline ? "spot-gate-stack" : "spot-gate-dock";
+
   return (
     <>
       {isGated && gateInfo && (
-        <div className="spot-gate-dock">
+        <div className={dockClassName}>
           <SpotlightApprovalCard
             title={gateInfo.title}
             description={gateInfo.description}
@@ -78,7 +82,7 @@ export function SpotlightGateDock({
       )}
 
       {showPasswordPrompt && (
-        <div className="spot-gate-dock">
+        <div className={dockClassName}>
           <SpotlightPasswordCard
             prompt={
               credentialRequest?.prompt ||
@@ -91,7 +95,7 @@ export function SpotlightGateDock({
       )}
 
       {showClarificationPrompt && clarificationRequest && (
-        <div className="spot-gate-dock">
+        <div className={dockClassName}>
           <SpotlightClarificationCard
             request={clarificationRequest}
             onSubmit={onSubmitClarification}

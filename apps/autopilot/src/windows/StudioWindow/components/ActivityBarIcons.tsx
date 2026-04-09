@@ -147,7 +147,7 @@ export const FleetIcon = () => (
   </svg>
 );
 
-export const MarketplaceIcon = () => (
+export const CatalogIcon = () => (
   <svg
     width="22"
     height="22"

@@ -290,6 +290,47 @@ async fn resolver_forces_reply_format_prompts_to_conversation_reply_even_when_bi
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn resolver_forces_explanatory_summary_prompts_to_conversation_reply() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(CasualConversationVsProbeRuntime);
+    let service = DesktopAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal =
+        "Summarize what you can help me do in this repository in one short paragraph.".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v17-casual-conversation-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "conversation.reply" | "command.probe"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "conversation.reply");
+    assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
+    assert!(!should_pause_for_clarification(
+        &resolved,
+        &rules.ontology_policy.intent_routing
+    ));
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn resolver_routes_workspace_creation_queries_to_workspace_ops_via_semantic_matrix() {
     let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
     let terminal = Arc::new(TerminalDriver::new());

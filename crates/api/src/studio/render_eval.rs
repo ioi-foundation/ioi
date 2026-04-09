@@ -45,6 +45,9 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
     mut judge: StudioArtifactJudgeResult,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
 ) -> StudioArtifactJudgeResult {
+    if request.renderer == StudioRendererKind::HtmlIframe && studio_modal_first_html_enabled() {
+        return judge;
+    }
     let Some(render_evaluation) = render_evaluation else {
         return judge;
     };

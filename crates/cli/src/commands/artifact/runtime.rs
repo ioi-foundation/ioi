@@ -110,7 +110,11 @@ pub(super) fn runtime_provenance_matches(
         let filtered_pairs = query
             .split('&')
             .filter(|pair| {
-                let key = pair.split_once('=').map(|(key, _)| key).unwrap_or(*pair).trim();
+                let key = pair
+                    .split_once('=')
+                    .map(|(key, _)| key)
+                    .unwrap_or(*pair)
+                    .trim();
                 !key.is_empty() && !key.eq_ignore_ascii_case("lane")
             })
             .collect::<Vec<_>>();

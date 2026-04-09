@@ -35,6 +35,8 @@ pub mod consensus;
 pub mod crypto;
 /// Re-exports all core error types from the central `ioi-types` crate.
 pub mod error;
+/// Shared execution substrate and strategy helpers across Studio domains.
+pub mod execution;
 /// Defines traits for Inter-Blockchain Communication (IBC).
 pub mod ibc;
 /// Defines the `CredentialsView` trait for decoupled identity lookups.

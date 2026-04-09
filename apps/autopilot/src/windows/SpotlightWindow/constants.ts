@@ -15,6 +15,8 @@ export const modelOptions: DropdownOption[] = [
 export const BASE_PANEL_WIDTH = 450;
 export const SIDEBAR_PANEL_WIDTH = 280;
 export const ARTIFACT_PANEL_WIDTH = 468;
+export const COMPACT_SIDEBAR_PANEL_WIDTH = 112;
+export const COMPACT_ARTIFACT_PANEL_WIDTH = 336;
 
 const CONTENT_PIPELINE_V2_FLAG = "AUTOPILOT_CONTENT_PIPELINE_V2";
 

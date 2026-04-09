@@ -13,16 +13,16 @@ pub(super) fn verification_status_for_lifecycle(
     state: StudioArtifactLifecycleState,
 ) -> StudioArtifactVerificationStatus {
     match state {
-        StudioArtifactLifecycleState::Ready => StudioArtifactVerificationStatus::Ready,
-        StudioArtifactLifecycleState::Partial => StudioArtifactVerificationStatus::Partial,
-        StudioArtifactLifecycleState::Failed => StudioArtifactVerificationStatus::Failed,
-        StudioArtifactLifecycleState::Blocked => StudioArtifactVerificationStatus::Blocked,
         StudioArtifactLifecycleState::Draft
         | StudioArtifactLifecycleState::Planned
         | StudioArtifactLifecycleState::Materializing
         | StudioArtifactLifecycleState::Rendering
         | StudioArtifactLifecycleState::Implementing
-        | StudioArtifactLifecycleState::Verifying => StudioArtifactVerificationStatus::Blocked,
+        | StudioArtifactLifecycleState::Verifying => StudioArtifactVerificationStatus::Pending,
+        StudioArtifactLifecycleState::Ready => StudioArtifactVerificationStatus::Ready,
+        StudioArtifactLifecycleState::Partial => StudioArtifactVerificationStatus::Partial,
+        StudioArtifactLifecycleState::Failed => StudioArtifactVerificationStatus::Failed,
+        StudioArtifactLifecycleState::Blocked => StudioArtifactVerificationStatus::Blocked,
     }
 }
 

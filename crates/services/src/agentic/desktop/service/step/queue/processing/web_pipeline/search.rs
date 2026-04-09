@@ -15,8 +15,8 @@ include!("search/planning.rs");
 #[cfg(test)]
 mod tests {
     use super::{
-        briefing_authority_link_expansion_required,
-        briefing_authority_link_out_sources_from_html, briefing_authority_seed_admission,
+        briefing_authority_link_expansion_required, briefing_authority_link_out_sources_from_html,
+        briefing_authority_seed_admission,
         defer_search_planning_failure_while_recovery_actions_remain,
         deterministic_local_business_expansion_alignment_urls, effective_semantic_alignment_urls,
         planning_bundle_after_surface_filter, pre_read_batch_urls,

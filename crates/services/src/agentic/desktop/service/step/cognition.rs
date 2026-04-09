@@ -428,6 +428,21 @@ fn should_prefer_browser_semantics(is_browser: bool, tools: &[LlmToolDefinition]
     is_browser && tools.iter().any(|tool| tool.name.starts_with("browser__"))
 }
 
+fn reply_safe_browser_semantics_enabled(
+    is_browser: bool,
+    tools: &[LlmToolDefinition],
+    resolved_intent: Option<&ResolvedIntentState>,
+) -> bool {
+    if resolved_intent
+        .map(|intent| intent.intent_id == "conversation.reply")
+        .unwrap_or(false)
+    {
+        return false;
+    }
+
+    should_prefer_browser_semantics(is_browser, tools)
+}
+
 fn goal_prefers_sustained_hover_browser_surface(goal: &str) -> bool {
     browser_rule_relevant(
         goal,
@@ -1795,8 +1810,11 @@ pub async fn think(
         .available_tools
         .iter()
         .any(|t| t.name == "computer");
-    let prefer_browser_semantics =
-        should_prefer_browser_semantics(is_browser, &perception.available_tools);
+    let prefer_browser_semantics = reply_safe_browser_semantics_enabled(
+        is_browser,
+        &perception.available_tools,
+        agent_state.resolved_intent.as_ref(),
+    );
 
     // 3. System 1 Router
     // Use the latest user message for routing, as it might change the mode (e.g. "stop" -> Chat)
@@ -2424,7 +2442,7 @@ mod tests {
         inference_error_system_fail_reason, mailbox_connector_instruction,
         preflight_missing_capability, render_active_worker_instruction,
         render_selected_parent_playbook_instruction, render_workspace_scope_instruction,
-        top_edge_jump_name, top_edge_jump_tool_call,
+        reply_safe_browser_semantics_enabled, top_edge_jump_name, top_edge_jump_tool_call,
         top_edge_jump_tool_call_with_grounded_selector, workspace_reference_context, PromptSection,
     };
     use crate::agentic::desktop::service::step::perception::PerceptionContext;
@@ -3394,6 +3412,46 @@ mod tests {
                 "system__fail"
             ]
         );
+    }
+
+    #[test]
+    fn pure_conversation_reply_disables_browser_semantics_even_in_browser_window() {
+        let resolved = ResolvedIntentState {
+            intent_id: "conversation.reply".to_string(),
+            scope: IntentScopeProfile::Conversation,
+            band: ioi_types::app::agentic::IntentConfidenceBand::High,
+            score: 1.0,
+            top_k: vec![],
+            required_capabilities: vec![],
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "test".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "test".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "test".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
+            constrained: false,
+        };
+
+        assert!(!reply_safe_browser_semantics_enabled(
+            true,
+            &[tool("browser__snapshot"), tool("chat__reply")],
+            Some(&resolved),
+        ));
+        assert!(reply_safe_browser_semantics_enabled(
+            true,
+            &[tool("browser__snapshot"), tool("chat__reply")],
+            None,
+        ));
     }
 
     #[test]

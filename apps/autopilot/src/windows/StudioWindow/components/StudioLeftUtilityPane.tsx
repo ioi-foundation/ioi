@@ -1,11 +1,13 @@
-import type { AgentRuntime } from "@ioi/agent-ide";
+import type { AgentRuntime, AgentSessionRuntime } from "@ioi/agent-ide";
 import type { AssistantWorkbenchSession } from "../../../types";
 import { MissionControlChatView } from "./MissionControlChatView";
+
+type SessionCapableRuntime = AgentRuntime & AgentSessionRuntime;
 
 interface StudioLeftUtilityPaneProps {
   surface: "chat" | "reply-composer" | "meeting-prep";
   session: AssistantWorkbenchSession | null;
-  runtime: AgentRuntime;
+  runtime: SessionCapableRuntime;
   maximized: boolean;
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;

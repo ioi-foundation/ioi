@@ -56,6 +56,21 @@ fn obvious_casual_conversation_query(
     let first_three = words.iter().take(3).copied().collect::<Vec<_>>().join(" ");
     let first_word = words.first().copied().unwrap_or_default();
 
+    let explanatory_reply_format = matches!(
+        first_two.as_str(),
+        "explain what" | "describe what" | "summarize what"
+    ) || matches!(
+        first_three.as_str(),
+        "summarize what you" | "explain what you" | "describe what you"
+    );
+    if explanatory_reply_format
+        && words
+            .iter()
+            .any(|word| matches!(*word, "you" | "your" | "me" | "we"))
+    {
+        return true;
+    }
+
     let action_verbs = [
         "open",
         "launch",

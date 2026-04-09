@@ -1,4 +1,10 @@
-import type { ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  type ChangeEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { icons } from "./Icons";
 import "../styles/Components.css";
 
@@ -22,21 +28,75 @@ export type SlashMenuSection = {
 type SpotlightSlashMenuProps = {
   sections: SlashMenuSection[];
   emptyState?: string;
+  mode?: "slash" | "palette";
+  selectedItemId?: string | null;
+  onHighlightItem?: (itemId: string) => void;
+  searchPlaceholder?: string;
+  searchQuery?: string;
+  onSearchQueryChange?: (value: string) => void;
+  onSearchKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
 };
 
 export function SpotlightSlashMenu({
   sections,
   emptyState = "No commands match that filter.",
+  mode = "slash",
+  selectedItemId = null,
+  onHighlightItem,
+  searchPlaceholder = "Search commands, sessions, tools, and skills",
+  searchQuery = "",
+  onSearchQueryChange,
+  onSearchKeyDown,
 }: SpotlightSlashMenuProps) {
   const visibleSections = sections.filter((section) => section.items.length > 0);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const commandPaletteMode = mode === "palette";
+
+  useEffect(() => {
+    if (!selectedItemId || !menuRef.current) {
+      return;
+    }
+
+    const selectedItem = menuRef.current.querySelector<HTMLElement>(
+      `[data-slash-item-id="${selectedItemId}"]`,
+    );
+    selectedItem?.scrollIntoView({ block: "nearest" });
+  }, [selectedItemId]);
 
   return (
     <div
-      className="spot-slash-menu"
+      ref={menuRef}
+      className={`spot-slash-menu ${
+        commandPaletteMode ? "spot-slash-menu--palette" : ""
+      }`}
       onClick={(event) => event.stopPropagation()}
       role="menu"
-      aria-label="Slash commands"
+      aria-label={commandPaletteMode ? "Command palette" : "Slash commands"}
     >
+      {commandPaletteMode ? (
+        <div className="spot-slash-menu-header">
+          <div className="spot-slash-menu-header-topline">
+            <span className="spot-slash-menu-title">Command Palette</span>
+            <span className="spot-slash-menu-hint">Esc</span>
+          </div>
+
+          <label className="spot-slash-menu-search" aria-label="Search commands">
+            <span className="spot-slash-menu-search-icon">{icons.search}</span>
+            <input
+              autoFocus
+              className="spot-slash-menu-search-input"
+              onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                onSearchQueryChange?.(event.target.value)
+              }
+              onKeyDown={onSearchKeyDown}
+              placeholder={searchPlaceholder}
+              type="text"
+              value={searchQuery}
+            />
+          </label>
+        </div>
+      ) : null}
+
       <div className="spot-slash-menu-scroll">
         {visibleSections.length > 0 ? (
           visibleSections.map((section) => (
@@ -50,11 +110,15 @@ export function SpotlightSlashMenu({
                   item.onSelect && !item.disabled ? (
                     <button
                       key={item.id}
-                      className={`spot-slash-item ${item.active ? "active" : ""}`}
+                      className={`spot-slash-item ${
+                        item.active ? "active" : ""
+                      } ${selectedItemId === item.id ? "selected" : ""}`}
+                      data-slash-item-id={item.id}
                       onClick={(event) => {
                         event.stopPropagation();
                         item.onSelect?.();
                       }}
+                      onMouseEnter={() => onHighlightItem?.(item.id)}
                       type="button"
                       role="menuitem"
                     >

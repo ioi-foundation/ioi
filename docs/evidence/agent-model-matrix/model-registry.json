@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "generatedAt": "2026-04-05T00:00:00.000Z",
+  "models": [
+    {
+      "modelId": "llama3.2:3b",
+      "label": "Llama 3.2 3B",
+      "runtimeKind": "local_http",
+      "sourceClass": "local_oss",
+      "supportedModalities": ["text"],
+      "roleCompatibility": ["baseline_local", "routing_floor", "summarizer"],
+      "supportedDeploymentProfiles": [
+        "local_cpu_consumer",
+        "local_gpu_8gb_class"
+      ],
+      "discoveryStatus": "retained",
+      "notes": [
+        "Low-footprint local fallback and validation floor.",
+        "Useful as a control anchor, not the default winner for richer retained batteries."
+      ]
+    },
+    {
+      "modelId": "qwen2.5:7b",
+      "label": "Qwen 2.5 7B",
+      "runtimeKind": "local_http",
+      "sourceClass": "local_oss",
+      "supportedModalities": ["text"],
+      "roleCompatibility": ["coding_executor", "artifact_judge", "verifier"],
+      "supportedDeploymentProfiles": [
+        "local_gpu_8gb_class",
+        "local_gpu_16gb_class"
+      ],
+      "discoveryStatus": "retained",
+      "notes": [
+        "Current local executor and lightweight judge candidate.",
+        "Used where short tool loops matter more than longer-horizon reasoning depth."
+      ]
+    },
+    {
+      "modelId": "qwen2.5:14b",
+      "label": "Qwen 2.5 14B",
+      "runtimeKind": "local_http",
+      "sourceClass": "local_oss",
+      "supportedModalities": ["text"],
+      "roleCompatibility": ["planner", "verifier", "artifact_judge"],
+      "supportedDeploymentProfiles": [
+        "local_gpu_16gb_class",
+        "local_workstation"
+      ],
+      "discoveryStatus": "retained",
+      "notes": [
+        "Current stronger local planner-grade candidate in the repo.",
+        "Useful for workstation and richer local split-role lanes."
+      ]
+    },
+    {
+      "modelId": "qwen3:8b",
+      "label": "Qwen 3 8B",
+      "runtimeKind": "local_http",
+      "sourceClass": "local_oss",
+      "supportedModalities": ["text"],
+      "roleCompatibility": ["planner_verifier", "artifact_judge"],
+      "supportedDeploymentProfiles": [
+        "local_gpu_8gb_class",
+        "local_gpu_16gb_class"
+      ],
+      "discoveryStatus": "default_retained",
+      "notes": [
+        "Current shipped default on 8GB-class local systems.",
+        "Chosen because it stays GPU-resident cleanly in the current repo setup."
+      ]
+    },
+    {
+      "modelId": "qwen3-omni-flash",
+      "label": "Qwen 3 Omni Flash",
+      "runtimeKind": "remote_http",
+      "sourceClass": "blind_cloud",
+      "supportedModalities": ["text", "image", "audio"],
+      "roleCompatibility": ["multimodal_realtime", "vision_assist", "voice_assist"],
+      "supportedDeploymentProfiles": [
+        "blind_cloud_standard",
+        "blind_cloud_premium"
+      ],
+      "discoveryStatus": "configured_shadow",
+      "notes": [
+        "Configured multimodal blind-cloud lane.",
+        "Visible for comparison and future multimodal battery expansion, but not currently a default."
+      ]
+    }
+  ]
+}

@@ -5,8 +5,9 @@ use tauri::{AppHandle, Manager, WebviewWindow};
 
 use super::monitor::get_target_monitor;
 use super::{
-    SpotlightLayout, ARTIFACT_PANEL_WIDTH, BASE_WIDTH, SIDEBAR_WIDTH, SPOTLIGHT_HEIGHT,
-    TASKBAR_MARGIN,
+    should_surface_overlay_windows_in_task_switcher, SpotlightLayout, ARTIFACT_PANEL_WIDTH,
+    BASE_WIDTH, COMPACT_ARTIFACT_PANEL_WIDTH, COMPACT_SIDEBAR_WIDTH, SIDEBAR_WIDTH,
+    SPOTLIGHT_HEIGHT, TASKBAR_MARGIN,
 };
 
 pub(super) fn focus_window_best_effort(window: &WebviewWindow) {
@@ -42,6 +43,15 @@ fn set_window_geometry(
 
     let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize { width, height }));
     let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+
+    #[cfg(target_os = "linux")]
+    if let Ok(gtk_window) = window.gtk_window() {
+        // Tauri's position update can be ignored on X11 after a live resize.
+        // Mirror the geometry through GTK so expanded Spotlight panels stay on-screen.
+        gtk_window.resize(width as i32, height as i32);
+        gtk_window.move_(x, y);
+        gtk_window.queue_resize();
+    }
 }
 
 pub(super) fn apply_layout(app: &AppHandle, layout: &SpotlightLayout) -> Result<(), String> {
@@ -60,13 +70,26 @@ pub(super) fn apply_layout(app: &AppHandle, layout: &SpotlightLayout) -> Result<
     let monitor_x = monitor_pos.x as f64;
     let monitor_y = monitor_pos.y as f64;
 
-    let mut window_width_px = BASE_WIDTH * scale;
-    if layout.sidebar_visible {
-        window_width_px += SIDEBAR_WIDTH * scale;
-    }
-    if layout.artifact_panel_visible {
-        window_width_px += ARTIFACT_PANEL_WIDTH * scale;
-    }
+    let sidebar_width = if layout.sidebar_visible {
+        if layout.artifact_panel_visible {
+            COMPACT_SIDEBAR_WIDTH
+        } else {
+            SIDEBAR_WIDTH
+        }
+    } else {
+        0.0
+    };
+    let artifact_width = if layout.artifact_panel_visible {
+        if layout.sidebar_visible {
+            COMPACT_ARTIFACT_PANEL_WIDTH
+        } else {
+            ARTIFACT_PANEL_WIDTH
+        }
+    } else {
+        0.0
+    };
+
+    let mut window_width_px = (BASE_WIDTH + sidebar_width + artifact_width) * scale;
 
     // Keep width within the monitor even when both side panels are visible.
     let max_window_width = (screen_w - (32.0 * scale)).max(1.0);
@@ -89,7 +112,9 @@ pub(super) fn apply_layout(app: &AppHandle, layout: &SpotlightLayout) -> Result<
 
     #[cfg(target_os = "linux")]
     {
-        let _ = window.set_skip_taskbar(true);
+        let reveal_in_task_switcher = should_surface_overlay_windows_in_task_switcher();
+        let _ = window.set_skip_taskbar(!reveal_in_task_switcher);
+        let _ = window.set_visible_on_all_workspaces(reveal_in_task_switcher);
         let _ = window.set_always_on_top(true);
     }
 

@@ -20,6 +20,36 @@
         "height": 1
       },
       {
+        "label": "spotlight",
+        "title": "Autopilot",
+        "url": "/spotlight",
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "resizable": false,
+        "width": 450,
+        "height": 600,
+        "center": true,
+        "focus": true
+      },
+      {
+        "label": "pill",
+        "title": "Autopilot Pill",
+        "url": "/pill",
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "resizable": false,
+        "width": 440,
+        "height": 138,
+        "center": true,
+        "focus": false
+      },
+      {
         "label": "studio",
         "title": "Autopilot Studio",
         "url": "/studio",

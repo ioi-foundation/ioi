@@ -60,8 +60,15 @@ struct LocalGpuDevPresetCatalogEntry {
     #[serde(default)]
     backend_id: Option<String>,
     #[serde(default)]
+    backend_env: BTreeMap<String, String>,
+    #[serde(default)]
+    auto_hardware_profiles: Vec<String>,
+    #[serde(default)]
     backend_autostart: Option<bool>,
 }
+
+const LOCAL_GPU_DEV_8GB_CLASS_PROFILE: &str = "nvidia-vram-8gb-class";
+const LOCAL_GPU_DEV_8GB_CLASS_MAX_MEMORY_MIB: u64 = 9_000;
 
 fn local_gpu_dev_preset_catalog_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -118,6 +125,7 @@ fn catalog_entry_to_local_gpu_dev_preset(
     preset_id: String,
     entry: LocalGpuDevPresetCatalogEntry,
     local_gpu_dev_enabled: bool,
+    hardware_profile: Option<String>,
     explicit_runtime_url: Option<String>,
     explicit_health_url: Option<String>,
     explicit_backend_source: Option<String>,
@@ -125,6 +133,7 @@ fn catalog_entry_to_local_gpu_dev_preset(
 ) -> LocalGpuDevPreset {
     LocalGpuDevPreset {
         preset_id,
+        hardware_profile,
         runtime_url: explicit_runtime_url.or(entry.runtime_url),
         runtime_health_url: explicit_health_url.or(entry.runtime_health_url),
         runtime_model: env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
@@ -135,12 +144,12 @@ fn catalog_entry_to_local_gpu_dev_preset(
             .or_else(|| env_text("LOCAL_LLM_EMBEDDING_MODEL"))
             .or_else(|| env_text("OPENAI_EMBEDDING_MODEL"))
             .or(entry.embedding_model),
-        backend_source: explicit_backend_source.or_else(|| {
-            resolve_catalog_backend_source(entry.backend_source)
-        }),
+        backend_source: explicit_backend_source
+            .or_else(|| resolve_catalog_backend_source(entry.backend_source)),
         backend_id: explicit_backend_id.or(entry.backend_id),
         model_cache_dir: env_text("AUTOPILOT_LOCAL_MODEL_CACHE_DIR")
             .or_else(|| Some(default_local_gpu_dev_model_cache_dir())),
+        backend_env: entry.backend_env,
         backend_autostart: crate::is_env_var_truthy("AUTOPILOT_LOCAL_BACKEND_AUTOSTART")
             || entry.backend_autostart.unwrap_or(false)
             || local_gpu_dev_enabled,
@@ -167,6 +176,12 @@ fn apply_dev_bootstrap_overrides(control_plane: &mut LocalEngineControlPlane) ->
     let local_backend_id = env_text("AUTOPILOT_LOCAL_BACKEND_ID");
     let local_dev_preset = env_text("AUTOPILOT_LOCAL_DEV_PRESET");
     let local_model_cache_dir = env_text("AUTOPILOT_LOCAL_MODEL_CACHE_DIR");
+    let local_hardware_profile = env_text("AUTOPILOT_LOCAL_HARDWARE_PROFILE");
+    let ollama_default_model = env_text("OLLAMA_DEFAULT_MODEL");
+    let ollama_max_loaded_models = env_text("OLLAMA_MAX_LOADED_MODELS");
+    let ollama_num_parallel = env_text("OLLAMA_NUM_PARALLEL");
+    let ollama_context_length = env_text("OLLAMA_CONTEXT_LENGTH");
+    let ollama_keep_alive = env_text("OLLAMA_KEEP_ALIVE");
     let data_profile = env_text("AUTOPILOT_DATA_PROFILE");
     let dev_bootstrap_enabled = crate::is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV")
         || local_runtime_url.is_some()
@@ -268,6 +283,36 @@ fn apply_dev_bootstrap_overrides(control_plane: &mut LocalEngineControlPlane) ->
     );
     upsert_environment_binding(
         &mut control_plane.environment,
+        "AUTOPILOT_LOCAL_HARDWARE_PROFILE",
+        local_hardware_profile,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "OLLAMA_DEFAULT_MODEL",
+        ollama_default_model,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "OLLAMA_MAX_LOADED_MODELS",
+        ollama_max_loaded_models,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "OLLAMA_NUM_PARALLEL",
+        ollama_num_parallel,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "OLLAMA_CONTEXT_LENGTH",
+        ollama_context_length,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
+        "OLLAMA_KEEP_ALIVE",
+        ollama_keep_alive,
+    );
+    upsert_environment_binding(
+        &mut control_plane.environment,
         "AUTOPILOT_DATA_PROFILE",
         data_profile,
     );
@@ -284,6 +329,54 @@ fn default_local_gpu_dev_model_cache_dir() -> String {
         .to_string()
 }
 
+fn detect_nvidia_gpu_total_memory_mib() -> Option<u64> {
+    if let Some(explicit) = env_text("AUTOPILOT_LOCAL_GPU_TOTAL_MEMORY_MIB") {
+        if let Ok(parsed) = explicit.parse::<u64>() {
+            return Some(parsed);
+        }
+    }
+    let output = run_command_capture_stdout(
+        "nvidia-smi",
+        &["--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+    )
+    .ok()?;
+    output
+        .lines()
+        .filter_map(|line| line.trim().parse::<u64>().ok())
+        .max()
+}
+
+pub(crate) fn detect_local_gpu_hardware_profile() -> Option<String> {
+    if let Some(explicit) = env_text("AUTOPILOT_LOCAL_HARDWARE_PROFILE") {
+        return Some(explicit);
+    }
+    let total_memory_mib = detect_nvidia_gpu_total_memory_mib()?;
+    if total_memory_mib <= LOCAL_GPU_DEV_8GB_CLASS_MAX_MEMORY_MIB {
+        return Some(LOCAL_GPU_DEV_8GB_CLASS_PROFILE.to_string());
+    }
+    None
+}
+
+fn autoselect_local_gpu_dev_preset_id(hardware_profile: Option<&str>) -> Option<String> {
+    let profile = hardware_profile?.trim();
+    if profile.is_empty() {
+        return None;
+    }
+    let catalog = load_local_gpu_dev_preset_catalog()?;
+    catalog
+        .presets
+        .into_iter()
+        .find(|entry| {
+            entry.runtime_kind.as_deref() != Some("remote_http")
+                && entry
+                    .auto_hardware_profiles
+                    .iter()
+                    .any(|candidate| normalize_text(candidate) == profile)
+        })
+        .map(|entry| normalize_text(&entry.id))
+        .filter(|value| !value.is_empty())
+}
+
 fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
     let local_gpu_dev_enabled = crate::is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV");
     let explicit_runtime_url =
@@ -291,9 +384,11 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
     let explicit_health_url = env_text("AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL");
     let explicit_backend_source = env_text("AUTOPILOT_LOCAL_BACKEND_SOURCE");
     let explicit_backend_id = env_text("AUTOPILOT_LOCAL_BACKEND_ID");
+    let hardware_profile = detect_local_gpu_hardware_profile();
     let preset_id = env_text("AUTOPILOT_LOCAL_DEV_PRESET").or_else(|| {
         if local_gpu_dev_enabled {
-            Some(catalog_default_local_gpu_dev_preset_id())
+            autoselect_local_gpu_dev_preset_id(hardware_profile.as_deref())
+                .or_else(|| Some(catalog_default_local_gpu_dev_preset_id()))
         } else {
             None
         }
@@ -309,6 +404,7 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
             normalized_preset_id.clone(),
             entry,
             local_gpu_dev_enabled,
+            hardware_profile.clone(),
             explicit_runtime_url.clone(),
             explicit_health_url.clone(),
             explicit_backend_source.clone(),
@@ -327,6 +423,7 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
                 );
                 return Some(LocalGpuDevPreset {
                     preset_id: catalog_preset.preset_id,
+                    hardware_profile: catalog_preset.hardware_profile,
                     runtime_url: None,
                     runtime_health_url: catalog_preset.runtime_health_url,
                     runtime_model: catalog_preset
@@ -342,6 +439,7 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
                     model_cache_dir: catalog_preset
                         .model_cache_dir
                         .or_else(|| Some(default_local_gpu_dev_model_cache_dir())),
+                    backend_env: catalog_preset.backend_env,
                     backend_autostart: false,
                 });
             }
@@ -353,6 +451,7 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
     if normalized_preset_id != LOCAL_GPU_DEV_DEFAULT_PRESET {
         return Some(LocalGpuDevPreset {
             preset_id: normalized_preset_id,
+            hardware_profile,
             runtime_url: explicit_runtime_url,
             runtime_health_url: explicit_health_url,
             runtime_model: env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
@@ -364,6 +463,7 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
             backend_source: explicit_backend_source,
             backend_id: explicit_backend_id,
             model_cache_dir: env_text("AUTOPILOT_LOCAL_MODEL_CACHE_DIR"),
+            backend_env: BTreeMap::new(),
             backend_autostart: crate::is_env_var_truthy("AUTOPILOT_LOCAL_BACKEND_AUTOSTART"),
         });
     }
@@ -376,6 +476,7 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
         );
         return Some(LocalGpuDevPreset {
             preset_id: normalized_preset_id,
+            hardware_profile,
             runtime_url: None,
             runtime_health_url: explicit_health_url,
             runtime_model: env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
@@ -390,12 +491,14 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
                 .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_BACKEND_ID.to_string())),
             model_cache_dir: env_text("AUTOPILOT_LOCAL_MODEL_CACHE_DIR")
                 .or_else(|| Some(default_local_gpu_dev_model_cache_dir())),
+            backend_env: BTreeMap::new(),
             backend_autostart: false,
         });
     }
 
     Some(LocalGpuDevPreset {
         preset_id: normalized_preset_id,
+        hardware_profile,
         runtime_url: explicit_runtime_url
             .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_RUNTIME_URL.to_string())),
         runtime_health_url: explicit_health_url
@@ -414,6 +517,7 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
             .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_BACKEND_ID.to_string())),
         model_cache_dir: env_text("AUTOPILOT_LOCAL_MODEL_CACHE_DIR")
             .or_else(|| Some(default_local_gpu_dev_model_cache_dir())),
+        backend_env: BTreeMap::new(),
         backend_autostart: crate::is_env_var_truthy("AUTOPILOT_LOCAL_BACKEND_AUTOSTART")
             || local_gpu_dev_enabled,
     })
@@ -421,6 +525,9 @@ fn resolve_local_gpu_dev_preset() -> Option<LocalGpuDevPreset> {
 
 fn apply_local_gpu_dev_preset_env(preset: &LocalGpuDevPreset) {
     std::env::set_var("AUTOPILOT_LOCAL_DEV_PRESET", &preset.preset_id);
+    if let Some(hardware_profile) = preset.hardware_profile.as_ref() {
+        std::env::set_var("AUTOPILOT_LOCAL_HARDWARE_PROFILE", hardware_profile);
+    }
     if let Some(runtime_url) = preset.runtime_url.as_ref() {
         std::env::set_var("AUTOPILOT_LOCAL_RUNTIME_URL", runtime_url);
     }
@@ -429,6 +536,23 @@ fn apply_local_gpu_dev_preset_env(preset: &LocalGpuDevPreset) {
     }
     if let Some(runtime_model) = preset.runtime_model.as_ref() {
         std::env::set_var("AUTOPILOT_LOCAL_RUNTIME_MODEL", runtime_model);
+        std::env::set_var("OLLAMA_DEFAULT_MODEL", runtime_model);
+    }
+    let acceptance_model = env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL").or_else(|| {
+        default_local_gpu_dev_artifact_specialist_model(preset.runtime_model.as_deref())
+    });
+    if let Some(runtime_url) = preset.runtime_url.as_ref() {
+        if env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_URL").is_none() {
+            std::env::set_var("AUTOPILOT_ACCEPTANCE_RUNTIME_URL", runtime_url);
+        }
+    }
+    if let Some(runtime_health_url) = preset.runtime_health_url.as_ref() {
+        if env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_HEALTH_URL").is_none() {
+            std::env::set_var("AUTOPILOT_ACCEPTANCE_RUNTIME_HEALTH_URL", runtime_health_url);
+        }
+    }
+    if let Some(acceptance_model) = acceptance_model.as_ref() {
+        std::env::set_var("AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL", acceptance_model);
     }
     if let Some(embedding_model) = preset.embedding_model.as_ref() {
         std::env::set_var("AUTOPILOT_LOCAL_EMBEDDING_MODEL", embedding_model);
@@ -443,6 +567,9 @@ fn apply_local_gpu_dev_preset_env(preset: &LocalGpuDevPreset) {
     }
     if let Some(model_cache_dir) = preset.model_cache_dir.as_ref() {
         std::env::set_var("AUTOPILOT_LOCAL_MODEL_CACHE_DIR", model_cache_dir);
+    }
+    for (key, value) in &preset.backend_env {
+        std::env::set_var(key, value);
     }
     if preset.backend_autostart {
         std::env::set_var("AUTOPILOT_LOCAL_BACKEND_AUTOSTART", "1");
@@ -604,7 +731,7 @@ fn local_runtime_health_ready(control_plane: &LocalEngineControlPlane) -> bool {
 }
 
 fn ensure_local_gpu_dev_model_ready(control_plane: &LocalEngineControlPlane) {
-    if env_text("AUTOPILOT_LOCAL_DEV_PRESET").as_deref() != Some(LOCAL_GPU_DEV_DEFAULT_PRESET) {
+    if env_text("AUTOPILOT_LOCAL_DEV_PRESET").is_none() {
         return;
     }
     if !local_runtime_health_ready(control_plane) {
@@ -618,6 +745,8 @@ fn ensure_local_gpu_dev_model_ready(control_plane: &LocalEngineControlPlane) {
     let runtime_model = env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL")
         .or_else(|| Some(control_plane.runtime.default_model.clone()))
         .filter(|value| !value.trim().is_empty());
+    let acceptance_model = env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL")
+        .filter(|value| !value.trim().is_empty());
     let embedding_model = env_text("AUTOPILOT_LOCAL_EMBEDDING_MODEL")
         .or_else(|| env_text("LOCAL_LLM_EMBEDDING_MODEL"))
         .or_else(|| env_text("OPENAI_EMBEDDING_MODEL"))
@@ -626,11 +755,26 @@ fn ensure_local_gpu_dev_model_ready(control_plane: &LocalEngineControlPlane) {
     if let Some(model) = runtime_model.as_ref() {
         ensure_ollama_model_ready(model, "Default local GPU chat model");
     }
-    if let Some(model) = embedding_model.as_ref() {
+    if let Some(model) = acceptance_model.as_ref() {
         if runtime_model.as_deref() != Some(model.as_str()) {
+            ensure_ollama_model_ready(model, "Default local GPU artifact specialist model");
+        }
+    }
+    if let Some(model) = embedding_model.as_ref() {
+        if runtime_model.as_deref() != Some(model.as_str())
+            && acceptance_model.as_deref() != Some(model.as_str())
+        {
             ensure_ollama_model_ready(model, "Default local GPU embedding model");
         }
     }
+}
+
+fn default_local_gpu_dev_artifact_specialist_model(runtime_model: Option<&str>) -> Option<String> {
+    runtime_model
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| Some(LOCAL_GPU_DEV_DEFAULT_ARTIFACT_SPECIALIST_MODEL.to_string()))
 }
 
 fn ollama_model_is_available(model: &str) -> Result<bool, String> {
@@ -729,9 +873,14 @@ mod bootstrap_tests {
     const LOCAL_GPU_ENV_KEYS: &[&str] = &[
         "AUTOPILOT_LOCAL_GPU_DEV",
         "AUTOPILOT_LOCAL_DEV_PRESET",
+        "AUTOPILOT_LOCAL_HARDWARE_PROFILE",
+        "AUTOPILOT_LOCAL_GPU_TOTAL_MEMORY_MIB",
         "AUTOPILOT_LOCAL_RUNTIME_URL",
         "AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL",
         "AUTOPILOT_LOCAL_RUNTIME_MODEL",
+        "AUTOPILOT_ACCEPTANCE_RUNTIME_URL",
+        "AUTOPILOT_ACCEPTANCE_RUNTIME_HEALTH_URL",
+        "AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL",
         "AUTOPILOT_LOCAL_MODEL_ID",
         "AUTOPILOT_LOCAL_EMBEDDING_MODEL",
         "AUTOPILOT_LOCAL_BACKEND_SOURCE",
@@ -740,6 +889,11 @@ mod bootstrap_tests {
         "AUTOPILOT_LOCAL_BACKEND_AUTOSTART",
         "LOCAL_LLM_URL",
         "LOCAL_LLM_EMBEDDING_MODEL",
+        "OLLAMA_DEFAULT_MODEL",
+        "OLLAMA_MAX_LOADED_MODELS",
+        "OLLAMA_NUM_PARALLEL",
+        "OLLAMA_CONTEXT_LENGTH",
+        "OLLAMA_KEEP_ALIVE",
         "OPENAI_MODEL",
         "OPENAI_EMBEDDING_MODEL",
     ];
@@ -782,10 +936,9 @@ mod bootstrap_tests {
 
     #[test]
     fn catalog_backend_source_resolves_relative_paths() {
-        let resolved = resolve_catalog_backend_source(Some(
-            "dev/local-backends/ollama-openai".to_string(),
-        ))
-        .expect("relative backend source should resolve");
+        let resolved =
+            resolve_catalog_backend_source(Some("dev/local-backends/ollama-openai".to_string()))
+                .expect("relative backend source should resolve");
 
         assert!(std::path::PathBuf::from(&resolved).is_absolute());
         assert!(resolved.ends_with("/dev/local-backends/ollama-openai"));
@@ -794,7 +947,10 @@ mod bootstrap_tests {
     #[test]
     fn resolve_local_gpu_dev_preset_uses_catalog_for_explicit_local_preset() {
         with_local_gpu_env(
-            &[("AUTOPILOT_LOCAL_DEV_PRESET", Some("coding-executor-local-oss"))],
+            &[(
+                "AUTOPILOT_LOCAL_DEV_PRESET",
+                Some("coding-executor-local-oss"),
+            )],
             || {
                 let preset = resolve_local_gpu_dev_preset()
                     .expect("explicit local catalog preset should resolve");
@@ -802,15 +958,16 @@ mod bootstrap_tests {
                 assert_eq!(preset.preset_id, "coding-executor-local-oss");
                 assert_eq!(preset.runtime_model.as_deref(), Some("qwen2.5:7b"));
                 assert_eq!(preset.embedding_model.as_deref(), Some("nomic-embed-text"));
-                assert_eq!(preset.runtime_url.as_deref(), Some(LOCAL_GPU_DEV_DEFAULT_RUNTIME_URL));
-                assert_eq!(preset.backend_id.as_deref(), Some("ollama-openai"));
-                assert!(
-                    preset
-                        .backend_source
-                        .as_deref()
-                        .unwrap_or_default()
-                        .ends_with("/dev/local-backends/ollama-openai")
+                assert_eq!(
+                    preset.runtime_url.as_deref(),
+                    Some(LOCAL_GPU_DEV_DEFAULT_RUNTIME_URL)
                 );
+                assert_eq!(preset.backend_id.as_deref(), Some("ollama-openai"));
+                assert!(preset
+                    .backend_source
+                    .as_deref()
+                    .unwrap_or_default()
+                    .ends_with("/dev/local-backends/ollama-openai"));
             },
         );
     }
@@ -823,5 +980,107 @@ mod bootstrap_tests {
                 assert!(resolve_local_gpu_dev_preset().is_none());
             },
         );
+    }
+
+    #[test]
+    fn resolve_local_gpu_dev_preset_autoselects_qwen3_5_for_8gb_class_gpu() {
+        with_local_gpu_env(
+            &[
+                ("AUTOPILOT_LOCAL_GPU_DEV", Some("1")),
+                ("AUTOPILOT_LOCAL_GPU_TOTAL_MEMORY_MIB", Some("8151")),
+            ],
+            || {
+                let preset =
+                    resolve_local_gpu_dev_preset().expect("small-gpu local preset should resolve");
+
+                assert_eq!(preset.preset_id, "planner-grade-local-oss-qwen3-8b");
+                assert_eq!(
+                    preset.hardware_profile.as_deref(),
+                    Some(LOCAL_GPU_DEV_8GB_CLASS_PROFILE)
+                );
+                assert_eq!(preset.runtime_model.as_deref(), Some("qwen3.5:9b"));
+                assert_eq!(
+                    preset
+                        .backend_env
+                        .get("OLLAMA_MAX_LOADED_MODELS")
+                        .map(String::as_str),
+                    Some("1")
+                );
+                assert_eq!(
+                    preset
+                        .backend_env
+                        .get("OLLAMA_NUM_PARALLEL")
+                        .map(String::as_str),
+                    Some("1")
+                );
+                assert_eq!(
+                    preset
+                        .backend_env
+                        .get("OLLAMA_CONTEXT_LENGTH")
+                        .map(String::as_str),
+                    Some("4096")
+                );
+                assert_eq!(
+                    preset
+                        .backend_env
+                        .get("OLLAMA_KEEP_ALIVE")
+                        .map(String::as_str),
+                    Some("10m")
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn apply_local_gpu_dev_preset_env_carries_runtime_model_and_backend_env() {
+        with_local_gpu_env(&[], || {
+            let mut backend_env = BTreeMap::new();
+            backend_env.insert("OLLAMA_MAX_LOADED_MODELS".to_string(), "1".to_string());
+            backend_env.insert("OLLAMA_NUM_PARALLEL".to_string(), "1".to_string());
+            backend_env.insert("OLLAMA_KEEP_ALIVE".to_string(), "10m".to_string());
+            let preset = LocalGpuDevPreset {
+                preset_id: "planner-grade-local-oss-qwen3-8b".to_string(),
+                hardware_profile: Some(LOCAL_GPU_DEV_8GB_CLASS_PROFILE.to_string()),
+                runtime_url: Some(LOCAL_GPU_DEV_DEFAULT_RUNTIME_URL.to_string()),
+                runtime_health_url: Some(LOCAL_GPU_DEV_DEFAULT_HEALTH_URL.to_string()),
+                runtime_model: Some("qwen3.5:9b".to_string()),
+                embedding_model: Some("nomic-embed-text".to_string()),
+                backend_source: Some(LOCAL_GPU_DEV_DEFAULT_BACKEND_SOURCE.to_string()),
+                backend_id: Some(LOCAL_GPU_DEV_DEFAULT_BACKEND_ID.to_string()),
+                model_cache_dir: Some(default_local_gpu_dev_model_cache_dir()),
+                backend_env,
+                backend_autostart: true,
+            };
+
+            apply_local_gpu_dev_preset_env(&preset);
+
+            assert_eq!(
+                env_text("AUTOPILOT_LOCAL_HARDWARE_PROFILE").as_deref(),
+                Some(LOCAL_GPU_DEV_8GB_CLASS_PROFILE)
+            );
+            assert_eq!(
+                env_text("AUTOPILOT_LOCAL_RUNTIME_MODEL").as_deref(),
+                Some("qwen3.5:9b")
+            );
+            assert_eq!(
+                env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_URL").as_deref(),
+                Some(LOCAL_GPU_DEV_DEFAULT_RUNTIME_URL)
+            );
+            assert_eq!(
+                env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_HEALTH_URL").as_deref(),
+                Some(LOCAL_GPU_DEV_DEFAULT_HEALTH_URL)
+            );
+            assert_eq!(
+                env_text("AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL").as_deref(),
+                Some("qwen3.5:9b")
+            );
+            assert_eq!(
+                env_text("OLLAMA_DEFAULT_MODEL").as_deref(),
+                Some("qwen3.5:9b")
+            );
+            assert_eq!(env_text("OLLAMA_MAX_LOADED_MODELS").as_deref(), Some("1"));
+            assert_eq!(env_text("OLLAMA_NUM_PARALLEL").as_deref(), Some("1"));
+            assert_eq!(env_text("OLLAMA_KEEP_ALIVE").as_deref(), Some("10m"));
+        });
     }
 }

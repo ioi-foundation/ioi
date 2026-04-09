@@ -329,6 +329,20 @@ pub fn validate_generated_artifact_payload(
             if !(lower.contains("<html") || lower.contains("<!doctype html")) {
                 return Err("HTML iframe artifacts must contain an HTML document.".to_string());
             }
+            if let Some(failure) = html_document_completeness_failure(html, &lower) {
+                return Err(failure.to_string());
+            }
+            if studio_modal_first_html_enabled() {
+                if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
+                    && !contains_html_interaction_hooks(&lower)
+                {
+                    return Err(
+                        "Interactive HTML iframe artifacts must contain real interactive controls or handlers."
+                            .to_string(),
+                    );
+                }
+                return Ok(());
+            }
             if !lower.contains("<main") {
                 return Err("HTML iframe artifacts must contain a <main> region.".to_string());
             }
@@ -493,51 +507,298 @@ pub fn validate_generated_artifact_payload(
     Ok(())
 }
 
+fn html_document_completeness_failure<'a>(html: &'a str, lower: &'a str) -> Option<&'static str> {
+    if !lower.contains("</body>") || !lower.contains("</html>") {
+        return Some(
+            "HTML iframe artifacts must contain a fully closed </body></html> document.",
+        );
+    }
+    if lower.contains("<main") && !lower.contains("</main>") {
+        return Some("HTML iframe artifacts must contain a closed <main> region.");
+    }
+    if html_has_trailing_unclosed_tag_fragment(html) {
+        return Some(
+            "HTML iframe artifacts must not end with an unfinished tag or trailing fragment.",
+        );
+    }
+    None
+}
+
+fn html_has_trailing_unclosed_tag_fragment(html: &str) -> bool {
+    let trimmed = html.trim_end();
+    if trimmed.is_empty() {
+        return true;
+    }
+    let Some(last_gt) = trimmed.rfind('>') else {
+        return true;
+    };
+    !trimmed[last_gt + 1..].trim().is_empty()
+}
+
 pub(crate) fn parse_and_validate_generated_artifact_payload(
     raw: &str,
     request: &StudioOutcomeArtifactRequest,
 ) -> Result<StudioGeneratedArtifactPayload, String> {
-    let mut generated = match parse_studio_generated_artifact_payload(raw) {
-        Ok(payload) => payload,
-        Err(error) if request.renderer == StudioRendererKind::HtmlIframe => {
-            synthesize_generated_artifact_payload_from_raw_html(raw).ok_or(error)?
+    let synthesized_from_raw = synthesize_generated_artifact_payload_from_raw_document(raw, request);
+    let parsed_payload = parse_studio_generated_artifact_payload(raw).ok();
+    let mut generated = parsed_payload
+        .clone()
+        .or_else(|| synthesized_from_raw.clone())
+        .ok_or_else(|| {
+            "Failed to parse Studio artifact materialization payload: Studio artifact materialization output missing JSON payload".to_string()
+        })?;
+
+    match normalize_and_validate_generated_payload(&mut generated, raw, request) {
+        Ok(payload) => Ok(payload),
+        Err(primary_error) => {
+            let Some(mut recovered) = synthesized_from_raw else {
+                return Err(primary_error);
+            };
+            let recovered_matches_primary = primary_generated_artifact_file(&generated)
+                .zip(primary_generated_artifact_file(&recovered))
+                .is_some_and(|(existing, candidate)| {
+                    existing.body.trim() == candidate.body.trim()
+                        && existing.path.trim() == candidate.path.trim()
+                });
+            if recovered_matches_primary {
+                return Err(primary_error);
+            }
+            normalize_and_validate_generated_payload(&mut recovered, raw, request)
+                .or(Err(primary_error))
         }
-        Err(error) => return Err(error),
-    };
-    normalize_generated_artifact_file_paths(&mut generated, request);
-    normalize_generated_artifact_payload(&mut generated, request);
-    if let Err(error) = validate_generated_artifact_payload(&generated, request) {
+    }
+}
+
+fn normalize_and_validate_generated_payload(
+    payload: &mut StudioGeneratedArtifactPayload,
+    raw: &str,
+    request: &StudioOutcomeArtifactRequest,
+) -> Result<StudioGeneratedArtifactPayload, String> {
+    repair_primary_html_body_from_raw_output(payload, raw, request);
+    normalize_generated_artifact_file_paths(payload, request);
+    normalize_generated_artifact_payload(payload, request);
+    if let Err(error) = validate_generated_artifact_payload(payload, request) {
         if studio_artifact_soft_validation_error(&error) {
-            generated.notes.push(format!("soft validation: {error}"));
+            payload.notes.push(format!("soft validation: {error}"));
         } else {
             return Err(error);
         }
     }
-    Ok(generated)
+    Ok(payload.clone())
 }
 
-fn synthesize_generated_artifact_payload_from_raw_html(
+fn primary_generated_artifact_file(
+    payload: &StudioGeneratedArtifactPayload,
+) -> Option<&StudioGeneratedArtifactFile> {
+    payload.files.iter().find(|file| {
+        matches!(
+            file.role,
+            StudioArtifactFileRole::Primary | StudioArtifactFileRole::Export
+        )
+    })
+}
+
+fn repair_primary_html_body_from_raw_output(
+    payload: &mut StudioGeneratedArtifactPayload,
     raw: &str,
+    request: &StudioOutcomeArtifactRequest,
+) {
+    if request.renderer != StudioRendererKind::HtmlIframe {
+        return;
+    }
+
+    let Some(primary_html) = payload.files.iter_mut().find(|file| {
+        matches!(
+            file.role,
+            StudioArtifactFileRole::Primary | StudioArtifactFileRole::Export
+        ) && (file.mime == "text/html" || file.path.ends_with(".html"))
+    }) else {
+        return;
+    };
+
+    let current_body = primary_html.body.trim();
+    let current_lower = current_body.to_ascii_lowercase();
+    if current_lower.contains("<!doctype html") || current_lower.contains("<html") {
+        return;
+    }
+
+    let Some(extracted_html) = extract_authored_html_document(raw) else {
+        return;
+    };
+    if extracted_html.is_empty() {
+        return;
+    }
+
+    primary_html.body = extracted_html;
+}
+
+fn synthesize_generated_artifact_payload_from_raw_document(
+    raw: &str,
+    request: &StudioOutcomeArtifactRequest,
 ) -> Option<StudioGeneratedArtifactPayload> {
+    let body = extract_authored_document_body(raw, request.renderer)?;
+    let mime = direct_authored_document_mime(request.renderer)?;
+    Some(StudioGeneratedArtifactPayload {
+        summary: direct_authored_document_summary(request.renderer).to_string(),
+        notes: vec![format!(
+            "normalized from raw {} output",
+            direct_authored_document_label(request.renderer)
+        )],
+        files: vec![StudioGeneratedArtifactFile {
+            path: default_generated_artifact_file_path(request.renderer, mime),
+            mime: mime.to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: true,
+            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+            body,
+        }],
+    })
+}
+
+fn extract_authored_html_document(raw: &str) -> Option<String> {
     let trimmed = raw.trim();
-    let lower = trimmed.to_ascii_lowercase();
-    if trimmed.is_empty() || !(lower.contains("<html") || lower.contains("<!doctype html")) {
+    if trimmed.is_empty() {
         return None;
     }
 
-    Some(StudioGeneratedArtifactPayload {
-        summary: "Interactive HTML artifact".to_string(),
-        notes: vec!["normalized from raw html output".to_string()],
-        files: vec![StudioGeneratedArtifactFile {
-            path: "index.html".to_string(),
-            mime: "text/html".to_string(),
-            role: StudioArtifactFileRole::Primary,
-            renderable: true,
-            downloadable: false,
-            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
-            body: trimmed.to_string(),
-        }],
-    })
+    let lower = trimmed.to_ascii_lowercase();
+    let html_start = lower
+        .find("<!doctype html")
+        .or_else(|| lower.find("<html"))?;
+    let html_slice = trimmed.get(html_start..)?.trim();
+    if html_slice.is_empty() {
+        return None;
+    }
+
+    let html_lower = html_slice.to_ascii_lowercase();
+    let html_end = html_lower
+        .rfind("</html>")
+        .map(|index| index + "</html>".len());
+    let extracted = match html_end {
+        Some(end) => html_slice.get(..end).unwrap_or(html_slice).trim(),
+        None => html_slice,
+    };
+    if extracted.is_empty() {
+        return None;
+    }
+
+    Some(extracted.to_string())
+}
+
+fn extract_authored_svg_document(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let lower = trimmed.to_ascii_lowercase();
+    let svg_start = lower.find("<svg")?;
+    let svg_slice = trimmed.get(svg_start..)?.trim();
+    if svg_slice.is_empty() {
+        return None;
+    }
+
+    let svg_lower = svg_slice.to_ascii_lowercase();
+    let svg_end = svg_lower.rfind("</svg>").map(|index| index + "</svg>".len());
+    let extracted = match svg_end {
+        Some(end) => svg_slice.get(..end).unwrap_or(svg_slice).trim(),
+        None => svg_slice,
+    };
+    if extracted.is_empty() || !extracted.to_ascii_lowercase().contains("<svg") {
+        return None;
+    }
+
+    Some(extracted.to_string())
+}
+
+fn extract_authored_document_body(raw: &str, renderer: StudioRendererKind) -> Option<String> {
+    match renderer {
+        StudioRendererKind::HtmlIframe => extract_authored_html_document(raw),
+        StudioRendererKind::Svg => extract_authored_svg_document(raw),
+        StudioRendererKind::Markdown => {
+            extract_authored_text_document(raw, &["markdown", "md", ""])
+        }
+        StudioRendererKind::Mermaid => {
+            extract_authored_text_document(raw, &["mermaid", "mmd", ""])
+        }
+        StudioRendererKind::PdfEmbed => extract_authored_text_document(raw, &["text", ""]),
+        _ => None,
+    }
+}
+
+fn extract_authored_text_document(raw: &str, accepted_fence_labels: &[&str]) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if let Some(fenced) = extract_single_fenced_block(trimmed, accepted_fence_labels) {
+        if !fenced.trim().is_empty() {
+            return Some(fenced.trim().to_string());
+        }
+    }
+
+    Some(trimmed.to_string())
+}
+
+fn extract_single_fenced_block(raw: &str, accepted_labels: &[&str]) -> Option<String> {
+    let trimmed = raw.trim();
+    if !trimmed.starts_with("```") {
+        return None;
+    }
+
+    let after_ticks = trimmed.strip_prefix("```")?;
+    let newline_index = after_ticks.find('\n')?;
+    let label = after_ticks[..newline_index].trim().to_ascii_lowercase();
+    if !accepted_labels
+        .iter()
+        .any(|candidate| label == candidate.to_ascii_lowercase())
+    {
+        return None;
+    }
+
+    let rest = &after_ticks[newline_index + 1..];
+    let end_index = rest.rfind("```")?;
+    let trailing = rest[end_index + 3..].trim();
+    if !trailing.is_empty() {
+        return None;
+    }
+
+    Some(rest[..end_index].trim().to_string())
+}
+
+fn direct_authored_document_label(renderer: StudioRendererKind) -> &'static str {
+    match renderer {
+        StudioRendererKind::Markdown => "markdown document",
+        StudioRendererKind::HtmlIframe => "html document",
+        StudioRendererKind::Svg => "svg document",
+        StudioRendererKind::Mermaid => "mermaid diagram",
+        StudioRendererKind::PdfEmbed => "pdf source document",
+        _ => "document",
+    }
+}
+
+fn direct_authored_document_summary(renderer: StudioRendererKind) -> &'static str {
+    match renderer {
+        StudioRendererKind::Markdown => "Markdown artifact",
+        StudioRendererKind::HtmlIframe => "Interactive HTML artifact",
+        StudioRendererKind::Svg => "SVG artifact",
+        StudioRendererKind::Mermaid => "Mermaid artifact",
+        StudioRendererKind::PdfEmbed => "PDF artifact",
+        _ => "Document artifact",
+    }
+}
+
+fn direct_authored_document_mime(renderer: StudioRendererKind) -> Option<&'static str> {
+    match renderer {
+        StudioRendererKind::Markdown => Some("text/markdown"),
+        StudioRendererKind::HtmlIframe => Some("text/html"),
+        StudioRendererKind::Svg => Some("image/svg+xml"),
+        StudioRendererKind::Mermaid => Some("text/plain"),
+        StudioRendererKind::PdfEmbed => Some("application/pdf"),
+        _ => None,
+    }
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -558,6 +819,9 @@ pub(crate) fn validate_generated_artifact_payload_against_brief_with_edit_intent
     edit_intent: Option<&StudioArtifactEditIntent>,
 ) -> Result<(), String> {
     if request.renderer != StudioRendererKind::HtmlIframe {
+        return Ok(());
+    }
+    if studio_modal_first_html_enabled() {
         return Ok(());
     }
 
@@ -740,15 +1004,59 @@ pub(crate) fn normalize_generated_artifact_payload(
         return;
     };
 
+    if let Some(decoded_body) = decode_json_escaped_html_body(&primary_html.body) {
+        primary_html.body = decoded_body;
+    }
     if let Some(unwrapped_body) = extract_nested_primary_html_body(&primary_html.body) {
         primary_html.body = unwrapped_body;
     }
+    if let Some(extracted_html) = extract_authored_html_document(&primary_html.body) {
+        primary_html.body = extracted_html;
+    }
     primary_html.body = strip_html_comments(&primary_html.body);
+    primary_html.body = normalize_html_terminal_closure(&primary_html.body);
     primary_html.body = normalize_html_custom_font_family_fallbacks(&primary_html.body);
     primary_html.body = normalize_html_semantic_structure(&primary_html.body);
     if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
         primary_html.body = normalize_html_interactions(&primary_html.body);
     }
+}
+
+fn decode_json_escaped_html_body(body: &str) -> Option<String> {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let decode_candidate = |candidate: &str| -> Option<String> {
+        let decoded = serde_json::from_str::<String>(candidate).ok()?;
+        let decoded_trimmed = decoded.trim();
+        let decoded_lower = decoded_trimmed.to_ascii_lowercase();
+        if decoded_trimmed.is_empty()
+            || !(decoded_lower.contains("<html") || decoded_lower.contains("<!doctype html"))
+            || decoded_trimmed == trimmed
+        {
+            return None;
+        }
+        Some(decoded_trimmed.to_string())
+    };
+
+    if trimmed.starts_with('"') {
+        if let Some(decoded) = decode_candidate(trimmed) {
+            return Some(decoded);
+        }
+    }
+
+    if !trimmed.contains("\\n")
+        && !trimmed.contains("\\t")
+        && !trimmed.contains("\\r")
+        && !trimmed.contains("\\\"")
+        && !trimmed.contains("\\/")
+    {
+        return None;
+    }
+
+    decode_candidate(&format!("\"{trimmed}\""))
 }
 
 fn extract_nested_primary_html_body(body: &str) -> Option<String> {
@@ -871,6 +1179,9 @@ pub(crate) fn enrich_generated_artifact_payload(
             primary_svg.body = ensure_svg_accessibility_metadata(&primary_svg.body, brief);
         }
         StudioRendererKind::HtmlIframe => {
+            if studio_modal_first_html_enabled() {
+                return;
+            }
             let Some(primary_html) = payload.files.iter_mut().find(|file| {
                 matches!(
                     file.role,
@@ -904,6 +1215,14 @@ fn renderer_primary_view_contract_failure(
     match request.renderer {
         StudioRendererKind::HtmlIframe => {
             let lower = primary_file.body.to_ascii_lowercase();
+            if let Some(failure) =
+                html_document_completeness_failure(&primary_file.body, &lower)
+            {
+                return Some(failure);
+            }
+            if studio_modal_first_html_enabled() {
+                return None;
+            }
             if count_html_nonempty_sectioning_elements(&lower) < 3 {
                 Some("HTML sectioning regions are empty shells on first paint.")
             } else if html_contains_placeholder_markers(&lower) {

@@ -1,47 +1,64 @@
 // apps/autopilot/src/windows/SpotlightWindow/index.tsx
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { useAgentStore } from "../../store/agentStore";
+import {
+  hideSpotlightShell,
+  setSessionRuntime,
+  showGateShell,
+  stopSessionTask,
+  type AgentSessionRuntime,
+  SessionHistorySidebar,
+  useAssistantWorkbenchState,
+  useSessionGateState,
+  useSessionConversationScroll,
+  useSessionDeferredFocus,
+  useSessionRunSurface,
+  useSessionShellShortcuts,
+  useSessionStudioArtifactDrawer,
+} from "@ioi/agent-ide";
+import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
 import { listenForAutopilotDataReset } from "../../services/autopilotReset";
+import { recordStudioLaunchReceipt } from "../../services/studioLaunchState";
+import { buildAssistantWorkbenchSummary } from "../../lib/assistantWorkbenchSummary";
+import { useLiveValidationSummary } from "../../hooks/useLiveValidationSummary";
+import { useRetainedWorkbenchTrace } from "../../hooks/useRetainedWorkbenchTrace";
 import {
   AgentEvent,
   Artifact,
-  ArtifactHubViewKey,
-  ChatMessage,
-  RunPresentation,
   SourceSummary,
 } from "../../types";
 import { useSpotlightLayout } from "./hooks/useSpotlightLayout";
+import { useSpotlightPlaybookRuns } from "./hooks/useSpotlightPlaybookRuns";
+import { useSpotlightStagedOperations } from "./hooks/useSpotlightStagedOperations";
+import {
+  selectRetainableDrawerSession,
+  useSpotlightSurfaceState,
+} from "./hooks/useSpotlightSurfaceState";
 import { useSpotlightSession } from "./hooks/useSpotlightSession";
-import { useGateState } from "./hooks/useGateState";
-import { useTurnContexts } from "./hooks/useTurnContexts";
 import { useLegacyPresentation } from "./hooks/useLegacyPresentation";
 
 // Sub-components
 import { icons } from "./components/Icons";
 import { IOIWatermark } from "./components/IOIWatermark";
-import { ScrollToBottom } from "./components/ScrollToBottom";
-import { HistorySidebar } from "./components/HistorySidebar";
 import { ThoughtChain } from "./components/ThoughtChain";
+import { OverlayConversationSurface } from "./components/OverlayConversationSurface";
 import { SpotlightArtifactPanel } from "./components/SpotlightArtifactPanel";
 import { ConversationTimeline } from "./components/ConversationTimeline";
 import { SpotlightInputSection } from "./components/SpotlightInputSection";
 import { SpotlightGateDock } from "./components/SpotlightGateDock";
+import { SpotlightOperatorStrip } from "./components/SpotlightOperatorStrip";
+import { SpotlightOrchestrationBoard } from "./components/SpotlightOrchestrationBoard";
+import { StudioConversationSurface } from "./components/StudioConversationSurface";
 import { StudioArtifactSurface } from "./components/StudioArtifactSurface";
-import { hasOpenableArtifactSurface } from "./components/studioArtifactSurfaceModel";
+import { collectAvailableStudioArtifacts } from "./components/studioArtifactConversationModel";
 import {
   StudioConversationWelcome,
   StudioRunStateCard,
 } from "./components/StudioConversationPanels";
-import { buildRunPresentation } from "./viewmodels/contentPipeline";
-import { exportThreadContextBundle } from "./utils/exportContext";
+import { exportThreadTraceBundle } from "./utils/exportContext";
 import {
-  ARTIFACT_PANEL_WIDTH,
-  BASE_PANEL_WIDTH,
   CONTENT_PIPELINE_V2_ENABLED,
   modelOptions,
-  SIDEBAR_PANEL_WIDTH,
   workspaceOptions,
 } from "./constants";
 
@@ -60,6 +77,7 @@ type SpotlightWindowProps = {
   variant?: "overlay" | "studio";
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
+  sessionRuntime?: AgentSessionRuntime;
 };
 
 // ============================================
@@ -70,89 +88,82 @@ export function SpotlightWindow({
   variant = "overlay",
   seedIntent = null,
   onConsumeSeedIntent,
+  sessionRuntime,
 }: SpotlightWindowProps) {
   const isStudioVariant = variant === "studio";
   const [studioArtifactVisible, setStudioArtifactVisible] = useState(false);
+  const [selectedStudioArtifactSessionId, setSelectedStudioArtifactSessionId] =
+    useState<string | null>(null);
 
   // Layout management (synced with Tauri backend)
-  const { layout, toggleSidebar, toggleArtifactPanel } = useSpotlightLayout();
+  const { layout, toggleSidebar, toggleArtifactPanel } = useSpotlightLayout({
+    persistToBackend: !isStudioVariant,
+  });
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isUserAtBottomRef = useRef(true);
-  const autoOpenedStudioArtifactSessionRef = useRef<string | null>(null);
 
   const {
     task,
     events,
     artifacts,
     selectedArtifactId,
+    sessions,
     startTask,
+    dismissTask,
     continueTask,
-    resetSession,
+    loadSession,
+    refreshSessionHistory,
     refreshCurrentTask,
+    resetSession,
     setSelectedArtifactId,
     loadThreadEvents,
     loadThreadArtifacts,
   } = useAgentStore();
-
   const {
-    intent,
-    setIntent,
-    localHistory,
-    submissionInFlight,
-    submissionError,
-    autoContext,
-    setAutoContext,
-    activeDropdown,
-    setActiveDropdown,
-    sessions,
-    workspaceMode,
-    setWorkspaceMode,
-    selectedModel,
-    setSelectedModel,
-    chatEvents,
-    setChatEvents,
-    artifactHubView,
-    setArtifactHubView,
-    artifactHubTurnId,
-    setArtifactHubTurnId,
-    runtimePasswordPending,
-    setRuntimePasswordPending,
-    runtimePasswordSessionId,
-    setRuntimePasswordSessionId,
-    inputFocused,
-    setInputFocused,
-    searchQuery,
-    setSearchQuery,
-    isDraggingFile,
-    openStudio,
-    handleLoadSession,
-    handleSubmit,
-    handleSubmitRuntimePassword,
-    handleCancelRuntimePassword,
-    handleSubmitClarification,
-    handleCancelClarification,
-    handleNewChat,
-    handleGlobalClick,
-    handleInputChange,
-    handleInputKeyDown,
-  } = useSpotlightSession({
-    isStudioVariant,
+    assistantWorkbench,
+    assistantWorkbenchActivities,
+    activeAssistantWorkbenchActivities,
+  } = useAssistantWorkbenchState();
+  const activeWorkbenchSummary = useMemo(
+    () => buildAssistantWorkbenchSummary(assistantWorkbench),
+    [assistantWorkbench],
+  );
+  const retainedWorkbenchActivities = useMemo(
+    () =>
+      activeAssistantWorkbenchActivities.length > 0
+        ? activeAssistantWorkbenchActivities
+        : assistantWorkbenchActivities,
+    [activeAssistantWorkbenchActivities, assistantWorkbenchActivities],
+  );
+  const {
+    evidenceThreadId: retainedWorkbenchEvidenceThreadId,
+    trace: retainedWorkbenchTrace,
+    latestEvent: latestRetainedWorkbenchEvent,
+    latestArtifact: latestRetainedWorkbenchArtifact,
+  } = useRetainedWorkbenchTrace(retainedWorkbenchActivities);
+  const {
+    validationSummary,
+    preferredEvidenceArtifactId,
+  } = useLiveValidationSummary({
     task,
-    inputRef,
-    startTask,
-    continueTask,
-    resetSession,
-    refreshCurrentTask,
-    setSelectedArtifactId,
-    toggleArtifactPanel,
-    loadThreadEvents,
-    loadThreadArtifacts,
+    sessions,
+    retainedWorkbenchActivities,
+    retainedWorkbenchTrace,
+    latestRetainedWorkbenchEvent,
+    latestRetainedWorkbenchArtifact,
+    loadThreadEvents: (threadId) =>
+      loadThreadEvents(threadId) as Promise<AgentEvent[]>,
+    loadThreadArtifacts: (threadId) =>
+      loadThreadArtifacts(threadId) as Promise<Artifact[]>,
   });
 
   const {
+    chatEvents,
+    setChatEvents,
+    setRuntimePasswordPending,
+    setRuntimePasswordSessionId,
     gateActionError,
     credentialRequest,
     clarificationRequest,
@@ -167,21 +178,106 @@ export function SpotlightWindow({
     handleApprove,
     handleDeny,
     handleGrantScopedException,
-  } = useGateState({
+  } = useSessionGateState({
     task,
-    chatEvents,
-    setChatEvents,
-    runtimePasswordPending,
-    runtimePasswordSessionId,
-    setRuntimePasswordPending,
-    setRuntimePasswordSessionId,
   });
 
-  const [showScrollButton, setShowScrollButton] = useState(false);
+  const {
+    intent,
+    setIntent,
+    localHistory,
+    submissionInFlight,
+    submissionError,
+    autoContext,
+    setAutoContext,
+    activeDropdown,
+    setActiveDropdown,
+    workspaceMode,
+    setWorkspaceMode,
+    selectedModel,
+    setSelectedModel,
+    planMode,
+    togglePlanMode,
+    artifactHubView,
+    artifactHubTurnId,
+    openArtifactById,
+    openArtifactHub,
+    closeInspectionSurface,
+    inputFocused,
+    setInputFocused,
+    searchQuery,
+    setSearchQuery,
+    isDraggingFile,
+    openStudio,
+    handleLoadSession,
+    handleSubmit,
+    handleSubmitText,
+    handleSubmitRuntimePassword,
+    handleCancelRuntimePassword,
+    handleSubmitClarification,
+    handleCancelClarification,
+    handleNewChat,
+    handleGlobalClick,
+    handleInputChange,
+    handleInputKeyDown,
+  } = useSpotlightSession({
+    bootstrapSessionController: bootstrapAgentSession,
+    isStudioVariant,
+    task,
+    inputRef,
+    setChatEvents,
+    setRuntimePasswordPending,
+    setRuntimePasswordSessionId,
+    sessions,
+    startTask,
+    continueTask,
+    dismissTask,
+    loadSession,
+    resetSession,
+    setSelectedArtifactId,
+    toggleArtifactPanel,
+    loadThreadEvents,
+    loadThreadArtifacts,
+  });
+
+  const {
+    runs: playbookRuns,
+    loading: playbookRunsLoading,
+    busyRunId: playbookRunsBusyRunId,
+    message: playbookRunsMessage,
+    error: playbookRunsError,
+    retryPlaybookRun,
+    resumePlaybookRun,
+    dismissPlaybookRun,
+    messageWorkerSession,
+    stopWorkerSession,
+    promoteRunResult,
+    promoteStepResult,
+  } = useSpotlightPlaybookRuns(activeSessionId);
+  const {
+    operations: stagedOperations,
+    loading: stagedOperationsLoading,
+    busyOperationId: stagedOperationsBusyId,
+    message: stagedOperationsMessage,
+    error: stagedOperationsError,
+    promoteOperation: promoteStagedOperation,
+    removeOperation: removeStagedOperation,
+  } = useSpotlightStagedOperations();
 
   // ============================================
   // INITIALIZATION
   // ============================================
+
+  useEffect(() => {
+    if (!sessionRuntime) {
+      return;
+    }
+
+    setSessionRuntime(sessionRuntime);
+    return () => {
+      setSessionRuntime(null);
+    };
+  }, [sessionRuntime]);
 
   useEffect(() => {
     if (isStudioVariant) {
@@ -205,12 +301,54 @@ export function SpotlightWindow({
       return;
     }
 
-    setIntent(seedIntent);
-    window.setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
+    const nextIntent = seedIntent.trim();
+    if (isStudioVariant) {
+      console.info("[Studio][SeedIntent] auto-submit requested", {
+        length: nextIntent.length,
+      });
+      void recordStudioLaunchReceipt("studio_seed_intent_submit_requested", {
+        intentLength: nextIntent.length,
+      });
+      window.setTimeout(() => {
+        console.info("[Studio][SeedIntent] auto-submit dispatching");
+        void recordStudioLaunchReceipt("studio_seed_intent_submit_dispatching", {
+          intentLength: nextIntent.length,
+        });
+        void handleSubmitText(nextIntent)
+          .then(() => {
+            console.info("[Studio][SeedIntent] auto-submit resolved");
+            void recordStudioLaunchReceipt("studio_seed_intent_submit_resolved", {
+              intentLength: nextIntent.length,
+            });
+          })
+          .catch((error) => {
+            console.error("[Studio][SeedIntent] auto-submit failed", error);
+            void recordStudioLaunchReceipt("studio_seed_intent_submit_failed", {
+              intentLength: nextIntent.length,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+      }, 0);
+      onConsumeSeedIntent?.();
+      return;
+    }
+
+    setIntent(nextIntent);
     onConsumeSeedIntent?.();
-  }, [inputRef, onConsumeSeedIntent, seedIntent, setIntent]);
+  }, [
+    handleSubmitText,
+    inputRef,
+    isStudioVariant,
+    onConsumeSeedIntent,
+    seedIntent,
+    setIntent,
+  ]);
+
+  useSessionDeferredFocus({
+    focusRef: inputRef,
+    enabled: Boolean(seedIntent?.trim()),
+    focusDeps: [seedIntent],
+  });
 
   useEffect(() => {
     const resetUnlistenPromise = listenForAutopilotDataReset();
@@ -219,225 +357,215 @@ export function SpotlightWindow({
     };
   }, []);
 
-  // ============================================
-  // SCROLL MANAGEMENT
-  // ============================================
-
   useEffect(() => {
-    const chatArea = chatAreaRef.current;
-    if (!chatArea) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = chatArea;
-      const distFromBottom = scrollHeight - scrollTop - clientHeight;
-      const isNearBottom = distFromBottom < 100;
-
-      isUserAtBottomRef.current = isNearBottom;
-      setShowScrollButton(!isNearBottom);
-    };
-
-    chatArea.addEventListener("scroll", handleScroll);
-    return () => chatArea.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const shouldPreferLocalHistory =
-    localHistory.length > 0 &&
-    (!task?.history?.length || task?.phase === "Failed" || submissionInFlight);
-  const activeHistory: ChatMessage[] = shouldPreferLocalHistory
-    ? localHistory
-    : (task?.history ?? []);
-  const activeEvents: AgentEvent[] = task?.events?.length
-    ? task.events
-    : events;
-  const activeArtifacts: Artifact[] = task?.artifacts?.length
-    ? task.artifacts
-    : artifacts;
-  const selectedArtifact =
-    activeArtifacts.find(
-      (artifact) => artifact.artifact_id === selectedArtifactId,
-    ) || null;
-
-  const isRunning = task?.phase === "Running";
-  const hasContent =
-    !!task ||
-    localHistory.length > 0 ||
-    chatEvents.length > 0 ||
-    activeEvents.length > 0;
-  const activeStudioSessionId = task?.studio_session?.sessionId ?? null;
-  const studioArtifactAvailable = useMemo(() => {
-    const manifest = task?.studio_session?.artifactManifest;
-    if (!manifest) {
-      return false;
+    if (!layout.artifactPanelVisible || artifactHubView !== "tasks") {
+      return;
     }
 
-    return hasOpenableArtifactSurface(
-      manifest,
-      task?.renderer_session ?? null,
-      task?.build_session?.workspaceRoot ?? null,
-    );
+    const sessionId = task?.session_id || task?.id || null;
+    const timeout = window.setTimeout(() => {
+      if (sessionId) {
+        void loadSession(sessionId).catch((error) => {
+          console.error("Failed to reload task session for Tasks drawer:", error);
+          void refreshCurrentTask().catch((refreshError) => {
+            console.error(
+              "Failed to refresh task for Tasks drawer:",
+              refreshError,
+            );
+          });
+        });
+        return;
+      }
+
+      void refreshSessionHistory()
+        .then((latestSessions) => {
+          const candidate = selectRetainableDrawerSession(latestSessions);
+          if (!candidate?.session_id) {
+            return refreshCurrentTask();
+          }
+          return loadSession(candidate.session_id);
+        })
+        .catch((error) => {
+          console.error(
+            "Failed to promote retained session for Tasks drawer:",
+            error,
+          );
+          return refreshCurrentTask();
+        })
+        .catch((error) => {
+          console.error("Failed to refresh task for Tasks drawer:", error);
+        });
+    }, 120);
+
+    return () => window.clearTimeout(timeout);
   }, [
-    task?.build_session?.workspaceRoot,
-    task?.renderer_session,
-    task?.studio_session,
-  ]);
-
-  const panelWidth =
-    BASE_PANEL_WIDTH +
-    (layout.sidebarVisible ? SIDEBAR_PANEL_WIDTH : 0) +
-    (layout.artifactPanelVisible ? ARTIFACT_PANEL_WIDTH : 0);
-  const containerStyle = isStudioVariant
-    ? undefined
-    : { width: `${panelWidth}px` };
-
-  const runPresentation: RunPresentation = useMemo(
-    () => buildRunPresentation(activeHistory, activeEvents, activeArtifacts),
-    [activeArtifacts, activeEvents, activeHistory],
-  );
-
-  const { conversationTurns, latestAnsweredTurnIndex, turnContexts } =
-    useTurnContexts({
-      activeHistory,
-      activeEvents,
-      runPresentation,
-    });
-
-  useEffect(() => {
-    if (chatAreaRef.current && isUserAtBottomRef.current) {
-      chatAreaRef.current.scrollTo({
-        top: chatAreaRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  }, [activeHistory, chatEvents, task?.current_step, task?.events, events]);
-
-  const scrollToBottom = useCallback(() => {
-    if (chatAreaRef.current) {
-      chatAreaRef.current.scrollTo({
-        top: chatAreaRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-      isUserAtBottomRef.current = true;
-      setShowScrollButton(false);
-    }
-  }, []);
-
-  // ============================================
-  // KEYBOARD SHORTCUTS
-  // ============================================
-
-  useEffect(() => {
-    const isEditableTarget = (target: EventTarget | null): boolean => {
-      if (!(target instanceof HTMLElement)) return false;
-      const tag = target.tagName.toLowerCase();
-      return (
-        target.isContentEditable ||
-        tag === "input" ||
-        tag === "textarea" ||
-        tag === "select"
-      );
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const editableTarget = isEditableTarget(e.target);
-
-      if (editableTarget) {
-        return;
-      }
-
-      if (e.key === "Escape") {
-        if (activeDropdown) {
-          setActiveDropdown(null);
-        } else if (layout.artifactPanelVisible) {
-          toggleArtifactPanel(false);
-        } else if (!isStudioVariant) {
-          invoke("hide_spotlight").catch(console.error);
-        }
-        return;
-      }
-
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        toggleSidebar();
-        return;
-      }
-
-      if ((e.metaKey || e.ctrlKey) && e.key === "n") {
-        e.preventDefault();
-        handleNewChat();
-        return;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [
-    activeDropdown,
-    handleNewChat,
-    isStudioVariant,
+    artifactHubView,
     layout.artifactPanelVisible,
-    setActiveDropdown,
-    toggleSidebar,
-    toggleArtifactPanel,
+    loadSession,
+    refreshSessionHistory,
+    refreshCurrentTask,
+    task?.id,
+    task?.session_id,
+    task?.phase,
+    task?.current_step,
   ]);
 
-  // ============================================
-  // ARTIFACT PANEL HANDLERS
-  // ============================================
+  const latestLocalHistoryTimestamp =
+    localHistory.length > 0
+      ? localHistory[localHistory.length - 1]?.timestamp ?? 0
+      : 0;
+  const latestRemoteHistoryTimestamp =
+    task?.history && task.history.length > 0
+      ? task.history[task.history.length - 1]?.timestamp ?? 0
+      : 0;
+  const shouldPreferOptimisticHistory =
+    submissionInFlight ||
+    task?.phase === "Failed" ||
+    (task?.phase === "Running" &&
+      localHistory.length > 0 &&
+      (localHistory.length > (task?.history?.length ?? 0) ||
+        latestLocalHistoryTimestamp > latestRemoteHistoryTimestamp));
 
-  const openArtifactById = useCallback(
-    (artifactId: string) => {
-      setArtifactHubView(null);
-      setArtifactHubTurnId(null);
-      setSelectedArtifactId(artifactId);
-      void toggleArtifactPanel(true);
-    },
-    [
-      setArtifactHubTurnId,
-      setArtifactHubView,
-      setSelectedArtifactId,
-      toggleArtifactPanel,
-    ],
+  const {
+    activeHistory,
+    activeEvents,
+    activeArtifacts,
+    selectedArtifact,
+    isRunning,
+  } = useSessionRunSurface({
+    task,
+    localHistory,
+    events,
+    artifacts,
+    preferLocalHistory: shouldPreferOptimisticHistory,
+    selectedArtifactId,
+    getArtifactId: (artifact) => artifact.artifact_id,
+  });
+  const {
+    containerStyle,
+    conversationTurns,
+    hasSessionContent,
+    inlineStudioDecisionPrompt,
+    isDualPanelSpotlight,
+    latestAnsweredTurnIndex,
+    runPresentation,
+    selectedInspectionArtifact,
+    shouldAutoFocusStudioComposer,
+    showInitialLoader,
+    showOverlaySessionChrome,
+    studioArtifactAvailable,
+    studioArtifactExpected,
+    studioStatusCard,
+    suppressConversationPendingIndicators,
+    turnContexts,
+  } = useSpotlightSurfaceState({
+    isStudioVariant,
+    layout,
+    activeHistory,
+    activeEvents,
+    activeArtifacts,
+    selectedArtifact,
+    selectedArtifactId,
+    retainedArtifacts: retainedWorkbenchTrace.artifacts,
+    task,
+    chatEvents,
+    inputLockedByCredential,
+    seedIntent,
+    intent,
+    isRunning,
+    submissionInFlight,
+    submissionError,
+    clarificationRequest,
+    isGated,
+    showPasswordPrompt,
+  });
+  const studioAvailableArtifacts = useMemo(
+    () => collectAvailableStudioArtifacts(activeEvents, task?.studio_session ?? null),
+    [activeEvents, task?.studio_session],
   );
+  const activeArtifactStudioSessionId =
+    task?.studio_session?.outcomeRequest?.outcomeKind === "artifact"
+      ? task.studio_session.sessionId
+      : null;
+  const studioArtifactDrawerAvailable =
+    studioArtifactAvailable || studioArtifactExpected || studioAvailableArtifacts.length > 0;
 
-  const openArtifactHub = useCallback(
-    (preferredView?: ArtifactHubViewKey, preferredTurnId?: string | null) => {
-      setArtifactHubView(preferredView || null);
-      setArtifactHubTurnId(preferredTurnId || null);
-      setSelectedArtifactId(null);
-      void toggleArtifactPanel(true);
-    },
-    [
-      setArtifactHubTurnId,
-      setArtifactHubView,
-      setSelectedArtifactId,
-      toggleArtifactPanel,
+  useEffect(() => {
+    if (!shouldAutoFocusStudioComposer) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [inputRef, shouldAutoFocusStudioComposer]);
+
+  const {
+    showScrollButton,
+    scrollToBottom,
+  } = useSessionConversationScroll({
+    scrollContainerRef: chatAreaRef,
+    autoScrollDeps: [
+      activeHistory,
+      chatEvents,
+      task?.current_step,
+      task?.events,
+      events,
     ],
-  );
+  });
+
+  useSessionShellShortcuts({
+    activeDropdown,
+    clearActiveDropdown: () => setActiveDropdown(null),
+    inspectionVisible: layout.artifactPanelVisible,
+    closeInspectionSurface,
+    canHideShell: !isStudioVariant,
+    hideCurrentShell: hideSpotlightShell,
+    toggleCommandPalette: inputLockedByCredential
+      ? undefined
+      : () => {
+          setActiveDropdown(
+            activeDropdown === "command_palette" ? null : "command_palette",
+          );
+        },
+    toggleSidebar,
+    startNewSession: handleNewChat,
+  });
 
   const openSourceSummaryPanel = useCallback(
     (_summary: SourceSummary) => {
-      openArtifactHub("sources");
+      void openArtifactHub("sources");
     },
     [openArtifactHub],
   );
 
-  const closeRightPanel = useCallback(() => {
-    setArtifactHubView(null);
-    setArtifactHubTurnId(null);
-    void toggleArtifactPanel(false);
-  }, [setArtifactHubTurnId, setArtifactHubView, toggleArtifactPanel]);
+  const handleStopSession = useCallback(async () => {
+    try {
+      await stopSessionTask();
+    } catch (error) {
+      console.error("Failed to stop session task:", error);
+      return;
+    }
 
-  const handleDownloadContext = useCallback(async () => {
+    resetSession();
+    void refreshSessionHistory().catch((error) => {
+      console.error("Failed to refresh session history after stop:", error);
+    });
+  }, [refreshSessionHistory, resetSession]);
+
+  const handleExportTraceBundle = useCallback(async () => {
     if (!activeSessionId) {
       return;
     }
     try {
-      await exportThreadContextBundle({
+      await exportThreadTraceBundle({
         threadId: activeSessionId,
         includeArtifactPayloads: true,
       });
     } catch (error) {
-      console.error("Failed to export run context bundle:", error);
+      console.error("Failed to export canonical trace bundle:", error);
     }
   }, [activeSessionId]);
 
@@ -445,7 +573,7 @@ export function SpotlightWindow({
   // LEGACY PRESENTATION
   // ============================================
 
-  const { legacyChatElements, hasLegacyChainContent } = useLegacyPresentation({
+  const { legacyChatElements } = useLegacyPresentation({
     activeHistory,
     chatEvents,
     activeEvents,
@@ -460,128 +588,74 @@ export function SpotlightWindow({
     onOpenArtifact: openArtifactById,
   });
 
-  const showInitialLoader = CONTENT_PIPELINE_V2_ENABLED
-    ? isRunning && conversationTurns.length === 0
-    : isRunning && !hasLegacyChainContent;
+  useSessionStudioArtifactDrawer({
+    enabled: isStudioVariant,
+    artifactAvailable: studioArtifactDrawerAvailable,
+    artifactExpected: studioArtifactExpected,
+    activeSessionId: activeArtifactStudioSessionId,
+    fallbackSessionId: task?.id || null,
+    setVisible: setStudioArtifactVisible,
+  });
 
   useEffect(() => {
     if (!isStudioVariant) {
       return;
     }
-
-    if (!studioArtifactAvailable) {
-      setStudioArtifactVisible(false);
-      if (!activeStudioSessionId) {
-        autoOpenedStudioArtifactSessionRef.current = null;
+    setSelectedStudioArtifactSessionId((current) => {
+      if (
+        current &&
+        (current === activeArtifactStudioSessionId ||
+          studioAvailableArtifacts.some((artifact) => artifact.sessionId === current))
+      ) {
+        return current;
       }
-      return;
-    }
 
-    const nextSessionId = activeStudioSessionId || task?.id || null;
-    if (!nextSessionId) {
-      return;
-    }
-
-    if (autoOpenedStudioArtifactSessionRef.current === nextSessionId) {
-      return;
-    }
-
-    autoOpenedStudioArtifactSessionRef.current = nextSessionId;
-    setStudioArtifactVisible(true);
-  }, [
-    activeStudioSessionId,
-    isStudioVariant,
-    studioArtifactAvailable,
-    task?.id,
-  ]);
-
-  const studioStatusCard = useMemo(() => {
-    if (!isStudioVariant) {
       return null;
-    }
-
-    if (submissionError) {
-      return (
-        <StudioRunStateCard
-          tone="error"
-          title={
-            task?.studio_session
-              ? "Studio could not produce a usable artifact"
-              : "Studio could not start this run"
-          }
-          detail={submissionError}
-        />
-      );
-    }
-
-    if (submissionInFlight) {
-      return (
-        <StudioRunStateCard
-          title="Routing the request"
-          detail="Studio is choosing whether this should remain conversational, open a tool surface, render a visualizer, or materialize an artifact."
-        />
-      );
-    }
-
-    if (
-      task &&
-      isRunning &&
-      !activeStudioSessionId &&
-      !runPresentation.finalAnswer
-    ) {
-      return (
-        <StudioRunStateCard
-          title="Preparing the outcome surface"
-          detail={
-            task.current_step ||
-            "Studio is materializing the right outcome type and waiting for verification evidence."
-          }
-        />
-      );
-    }
-
-    if (
-      task?.clarification_request &&
-      task.studio_session &&
-      !studioArtifactAvailable
-    ) {
-      return (
-        <StudioRunStateCard
-          title="Studio needs clarification before it can open an artifact"
-          detail={task.current_step || task.clarification_request.question}
-        />
-      );
-    }
-
-    if (
-      task?.studio_session &&
-      !studioArtifactAvailable &&
-      task.studio_session.lifecycleState === "blocked"
-    ) {
-      return (
-        <StudioRunStateCard
-          tone="error"
-          title="Studio stopped before a usable artifact existed"
-          detail={
-            task.current_step ||
-            task.studio_session.artifactManifest.verification.summary ||
-            task.studio_session.verifiedReply.summary
-          }
-        />
-      );
-    }
-
-    return null;
+    });
   }, [
-    activeStudioSessionId,
-    isRunning,
+    activeArtifactStudioSessionId,
     isStudioVariant,
-    runPresentation.finalAnswer,
-    studioArtifactAvailable,
-    submissionError,
-    submissionInFlight,
-    task,
+    studioAvailableArtifacts,
   ]);
+
+  const handleOpenStudioArtifact = useCallback((studioSessionId: string) => {
+    setSelectedStudioArtifactSessionId(studioSessionId);
+    setStudioArtifactVisible(true);
+  }, []);
+  const handleToggleStudioArtifacts = useCallback(() => {
+    if (!studioArtifactVisible) {
+      setSelectedStudioArtifactSessionId(null);
+      setStudioArtifactVisible(true);
+      return;
+    }
+
+    if (selectedStudioArtifactSessionId !== null) {
+      setSelectedStudioArtifactSessionId(null);
+      return;
+    }
+
+    setStudioArtifactVisible(false);
+  }, [selectedStudioArtifactSessionId, studioArtifactVisible]);
+  const studioArtifactToggleLabel = !studioArtifactVisible
+    ? "Show artifacts"
+    : selectedStudioArtifactSessionId !== null
+      ? "Browse artifacts"
+      : "Hide artifacts";
+  const studioArtifactMenuVisible =
+    studioArtifactVisible && selectedStudioArtifactSessionId === null;
+  const showStudioArtifactToggle =
+    isStudioVariant && studioArtifactDrawerAvailable;
+  const studioStatusCardNode = studioStatusCard ? (
+    <StudioRunStateCard
+      tone={studioStatusCard.tone}
+      title={studioStatusCard.title}
+      detail={studioStatusCard.detail}
+      metrics={studioStatusCard.metrics}
+      processes={studioStatusCard.processes}
+      livePreview={studioStatusCard.livePreview}
+      codePreview={studioStatusCard.codePreview}
+    />
+  ) : null;
 
   // ============================================
   // RENDER
@@ -603,37 +677,122 @@ export function SpotlightWindow({
         </button>
       )}
 
-      {isStudioVariant && studioArtifactAvailable ? (
+      {showStudioArtifactToggle ? (
         <div className="spot-studio-toolbar">
           <button
             type="button"
             className={`spot-studio-artifact-toggle ${
               studioArtifactVisible ? "is-open" : ""
             }`}
-            onClick={() => setStudioArtifactVisible((current) => !current)}
-          >
-            <span>
-              {studioArtifactVisible ? "Hide artifact" : "Open artifact"}
-            </span>
-            <small>
-              {task?.studio_session?.artifactManifest?.renderer ===
-              "workspace_surface"
+            onClick={handleToggleStudioArtifacts}
+            aria-label={`${studioArtifactToggleLabel} (${
+              task?.studio_session?.artifactManifest?.renderer === "workspace_surface"
                 ? "Workspace renderer"
-                : "Artifact renderer"}
-            </small>
+                : "Artifact stage"
+            })`}
+            aria-pressed={studioArtifactVisible}
+            title={`${studioArtifactToggleLabel} (${
+              task?.studio_session?.artifactManifest?.renderer === "workspace_surface"
+                ? "Workspace renderer"
+                : "Artifact stage"
+            })`}
+          >
+            {icons.artifacts}
           </button>
         </div>
       ) : null}
 
+      {showOverlaySessionChrome ? (
+        <SpotlightOperatorStrip
+          task={task}
+          canOpenRewind={Boolean(task?.session_id || task?.id || sessions.length > 0)}
+          planSummary={runPresentation.planSummary}
+          artifactCount={activeArtifacts.length}
+          eventCount={activeEvents.length}
+          validationSummary={validationSummary}
+          retainedTraceSummary={
+            retainedWorkbenchEvidenceThreadId
+              ? {
+                  title:
+                    activeWorkbenchSummary?.title ??
+                    "Retained workbench trace",
+                  loading: retainedWorkbenchTrace.loading,
+                  error: retainedWorkbenchTrace.error,
+                  eventCount: retainedWorkbenchTrace.events.length,
+                  artifactCount: retainedWorkbenchTrace.artifacts.length,
+                  latestEventTitle: latestRetainedWorkbenchEvent?.title ?? null,
+                  latestArtifactTitle:
+                    latestRetainedWorkbenchArtifact?.title ?? null,
+                }
+              : null
+          }
+          onOpenGate={() => {
+            void showGateShell();
+          }}
+          onOpenRetainedEvidence={() => {
+            if (preferredEvidenceArtifactId) {
+              void openArtifactById(preferredEvidenceArtifactId);
+              return;
+            }
+            void openArtifactHub("kernel_logs");
+          }}
+          onOpenView={(view) => {
+            void openArtifactHub(view);
+          }}
+        />
+      ) : null}
+
+      {showOverlaySessionChrome ? (
+        <SpotlightOrchestrationBoard
+          task={task}
+          planSummary={runPresentation.planSummary}
+          runs={playbookRuns}
+          loading={playbookRunsLoading}
+          busyRunId={playbookRunsBusyRunId}
+          message={playbookRunsMessage}
+          error={playbookRunsError}
+          onOpenView={(view) => {
+            void openArtifactHub(view);
+          }}
+          onOpenArtifact={(artifactId) => {
+            void openArtifactById(artifactId);
+          }}
+          onLoadSession={(sessionId) => {
+            void handleLoadSession(sessionId);
+          }}
+          onResumeRun={(runId, stepId) => {
+            void resumePlaybookRun(runId, stepId);
+          }}
+          onMessageWorker={(runId, sessionId, message) => {
+            void messageWorkerSession(runId, sessionId, message);
+          }}
+          onStopWorker={(runId, sessionId) => {
+            void stopWorkerSession(runId, sessionId);
+          }}
+          onStopSession={handleStopSession}
+          onPromoteRunResult={(runId) => {
+            void promoteRunResult(runId);
+          }}
+          onPromoteStepResult={(runId, stepId) => {
+            void promoteStepResult(runId, stepId);
+          }}
+        />
+      ) : null}
+
       <div className="spot-chat" ref={chatAreaRef}>
-        {!hasContent &&
+        {!hasSessionContent &&
+          !studioStatusCardNode &&
           (isStudioVariant ? (
             <StudioConversationWelcome
-              onSuggestionClick={(text) => setIntent(text)}
+              onSuggestionClick={(text) => {
+                void handleSubmitText(text);
+              }}
             />
           ) : (
             <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
           ))}
+
+        {studioStatusCardNode}
 
         {CONTENT_PIPELINE_V2_ENABLED ? (
           <ConversationTimeline
@@ -646,10 +805,17 @@ export function SpotlightWindow({
             visualHash={task?.visual_hash || null}
             sourceDurationLabel={task?.receipt?.duration}
             showInitialLoader={showInitialLoader}
+            suppressPendingIndicators={suppressConversationPendingIndicators}
             icons={icons}
-            onDownloadContext={handleDownloadContext}
-            onOpenArtifactHub={openArtifactHub}
+            onExportTraceBundle={handleExportTraceBundle}
+            onOpenArtifactHub={(view, turnId) => {
+              void openArtifactHub(view, turnId);
+            }}
             onOpenSourceSummary={openSourceSummaryPanel}
+            activeStudioArtifactSessionId={selectedStudioArtifactSessionId}
+            onOpenStudioArtifact={
+              isStudioVariant ? handleOpenStudioArtifact : undefined
+            }
           />
         ) : (
           <>{legacyChatElements}</>
@@ -666,29 +832,49 @@ export function SpotlightWindow({
           />
         )}
 
-        {studioStatusCard}
+        {inlineStudioDecisionPrompt ? (
+          <SpotlightGateDock
+            inline={true}
+            isGated={isGated}
+            gateInfo={gateInfo}
+            isPiiGate={isPiiGate}
+            gateDeadlineMs={gateDeadlineMs}
+            gateActionError={gateActionError}
+            onApprove={handleApprove}
+            onGrantScopedException={handleGrantScopedException}
+            onDeny={handleDeny}
+            showPasswordPrompt={showPasswordPrompt}
+            credentialRequest={credentialRequest}
+            onSubmitRuntimePassword={handleSubmitRuntimePassword}
+            onCancelRuntimePassword={handleCancelRuntimePassword}
+            showClarificationPrompt={showClarificationPrompt}
+            clarificationRequest={clarificationRequest}
+            onSubmitClarification={handleSubmitClarification}
+            onCancelClarification={handleCancelClarification}
+          />
+        ) : null}
       </div>
 
-      <ScrollToBottom visible={showScrollButton} onClick={scrollToBottom} />
-
-      <SpotlightGateDock
-        isGated={isGated}
-        gateInfo={gateInfo}
-        isPiiGate={isPiiGate}
-        gateDeadlineMs={gateDeadlineMs}
-        gateActionError={gateActionError}
-        onApprove={handleApprove}
-        onGrantScopedException={handleGrantScopedException}
-        onDeny={handleDeny}
-        showPasswordPrompt={showPasswordPrompt}
-        credentialRequest={credentialRequest}
-        onSubmitRuntimePassword={handleSubmitRuntimePassword}
-        onCancelRuntimePassword={handleCancelRuntimePassword}
-        showClarificationPrompt={showClarificationPrompt}
-        clarificationRequest={clarificationRequest}
-        onSubmitClarification={handleSubmitClarification}
-        onCancelClarification={handleCancelClarification}
-      />
+      {!inlineStudioDecisionPrompt ? (
+        <SpotlightGateDock
+          isGated={isGated}
+          gateInfo={gateInfo}
+          isPiiGate={isPiiGate}
+          gateDeadlineMs={gateDeadlineMs}
+          gateActionError={gateActionError}
+          onApprove={handleApprove}
+          onGrantScopedException={handleGrantScopedException}
+          onDeny={handleDeny}
+          showPasswordPrompt={showPasswordPrompt}
+          credentialRequest={credentialRequest}
+          onSubmitRuntimePassword={handleSubmitRuntimePassword}
+          onCancelRuntimePassword={handleCancelRuntimePassword}
+          showClarificationPrompt={showClarificationPrompt}
+          clarificationRequest={clarificationRequest}
+          onSubmitClarification={handleSubmitClarification}
+          onCancelClarification={handleCancelClarification}
+        />
+      ) : null}
 
       <SpotlightInputSection
         inputRef={inputRef}
@@ -697,6 +883,8 @@ export function SpotlightWindow({
         isDraggingFile={isDraggingFile}
         inputLockedByCredential={inputLockedByCredential}
         showPasswordPrompt={showPasswordPrompt}
+        task={task}
+        sessions={sessions}
         intent={intent}
         setIntent={setIntent}
         onInputChange={handleInputChange}
@@ -705,14 +893,41 @@ export function SpotlightWindow({
         onToggleAutoContext={() => setAutoContext(!autoContext)}
         isRunning={isRunning}
         isGated={isGated}
-        onStop={() => invoke("cancel_task").catch(console.error)}
+        onStop={() => stopSessionTask().catch(console.error)}
         onSubmit={handleSubmit}
+        onNewSession={handleNewChat}
+        onLoadSession={(sessionId) => {
+          void handleLoadSession(sessionId);
+        }}
+        onOpenGate={() => {
+          void showGateShell();
+        }}
+        onOpenView={(view) => {
+          void openArtifactHub(view);
+        }}
+        onSubmitClarification={(optionId, otherText) =>
+          handleSubmitClarification(optionId, otherText)
+        }
+        onOpenValidationEvidence={() => {
+          if (preferredEvidenceArtifactId) {
+            void openArtifactById(preferredEvidenceArtifactId);
+            return;
+          }
+          void openArtifactHub("kernel_logs");
+        }}
         workspaceOptions={workspaceOptions}
         workspaceMode={workspaceMode}
         onSelectWorkspaceMode={setWorkspaceMode}
         modelOptions={modelOptions}
         selectedModel={selectedModel}
         onSelectModel={setSelectedModel}
+        planMode={planMode}
+        onTogglePlanMode={togglePlanMode}
+        artifactCount={activeArtifacts.length}
+        workerCount={Math.max(
+          runPresentation.planSummary?.workerCount ?? 0,
+          task?.swarm_tree.length ?? 0,
+        )}
         activeDropdown={activeDropdown}
         setActiveDropdown={setActiveDropdown}
         onOpenSettings={() => openStudio("settings")}
@@ -725,6 +940,103 @@ export function SpotlightWindow({
     </div>
   );
 
+  const artifactPanelNode = (
+    <SpotlightArtifactPanel
+      visible={layout.artifactPanelVisible}
+      artifactHubView={artifactHubView}
+      artifactHubTurnId={artifactHubTurnId}
+      activeSessionId={activeSessionId}
+      task={task}
+      sessions={sessions}
+      events={activeEvents}
+      artifacts={activeArtifacts}
+      selectedArtifact={selectedInspectionArtifact}
+      sourceSummary={runPresentation.sourceSummary}
+      thoughtSummary={runPresentation.thoughtSummary}
+      playbookRuns={playbookRuns}
+      playbookRunsLoading={playbookRunsLoading}
+      playbookRunsBusyRunId={playbookRunsBusyRunId}
+      playbookRunsMessage={playbookRunsMessage}
+      playbookRunsError={playbookRunsError}
+      stagedOperations={stagedOperations}
+      stagedOperationsLoading={stagedOperationsLoading}
+      stagedOperationsBusyId={stagedOperationsBusyId}
+      stagedOperationsMessage={stagedOperationsMessage}
+      stagedOperationsError={stagedOperationsError}
+      onOpenArtifact={(artifactId) => {
+        void openArtifactById(artifactId);
+      }}
+      onRetryPlaybookRun={(runId) => {
+        void retryPlaybookRun(runId);
+      }}
+      onResumePlaybookRun={(runId, stepId) => {
+        void resumePlaybookRun(runId, stepId);
+      }}
+      onDismissPlaybookRun={(runId) => {
+        void dismissPlaybookRun(runId);
+      }}
+      onMessageWorkerSession={(runId, sessionId, message) => {
+        void messageWorkerSession(runId, sessionId, message);
+      }}
+      onStopWorkerSession={(runId, sessionId) => {
+        void stopWorkerSession(runId, sessionId);
+      }}
+      onPromoteRunResult={(runId) => {
+        void promoteRunResult(runId);
+      }}
+      onPromoteStepResult={(runId, stepId) => {
+        void promoteStepResult(runId, stepId);
+      }}
+      onPromoteStagedOperation={(operationId) => {
+        void promoteStagedOperation(operationId);
+      }}
+      onRemoveStagedOperation={(operationId) => {
+        void removeStagedOperation(operationId);
+      }}
+      onLoadSession={(sessionId) => {
+        void handleLoadSession(sessionId);
+      }}
+      onStopSession={handleStopSession}
+      onOpenGate={() => {
+        void showGateShell();
+      }}
+      isGated={isGated}
+      gateInfo={gateInfo}
+      isPiiGate={isPiiGate}
+      gateDeadlineMs={gateDeadlineMs}
+      gateActionError={gateActionError}
+      credentialRequest={credentialRequest}
+      clarificationRequest={clarificationRequest}
+      onApprove={handleApprove}
+      onGrantScopedException={handleGrantScopedException}
+      onDeny={handleDeny}
+      onSubmitRuntimePassword={handleSubmitRuntimePassword}
+      onCancelRuntimePassword={handleCancelRuntimePassword}
+      onSubmitClarification={handleSubmitClarification}
+      onCancelClarification={handleCancelClarification}
+      onSeedIntent={(nextIntent) => {
+        setIntent(nextIntent);
+        window.setTimeout(() => {
+          inputRef.current?.focus();
+        }, 0);
+      }}
+      onClose={() => {
+        void closeInspectionSurface();
+      }}
+    />
+  );
+
+  const overlaySurface = (
+    <OverlayConversationSurface
+      isStudioVariant={isStudioVariant}
+      conversationContent={conversationSurface}
+      showScrollButton={showScrollButton}
+      onScrollToBottom={scrollToBottom}
+      artifactPanelVisible={layout.artifactPanelVisible}
+      artifactPanel={artifactPanelNode}
+    />
+  );
+
   return (
     <div
       className={`spot-window ${isStudioVariant ? "spot-window--studio" : ""}`}
@@ -735,9 +1047,13 @@ export function SpotlightWindow({
         className={`spot-container ${layout.sidebarVisible ? "sidebar-open" : ""}`}
         style={containerStyle}
       >
-        <div className="spot-content">
+        <div
+          className={`spot-content ${
+            isDualPanelSpotlight ? "spot-content--dual-panel" : ""
+          }`}
+        >
           {layout.sidebarVisible && (
-            <HistorySidebar
+            <SessionHistorySidebar
               sessions={sessions}
               onSelectSession={handleLoadSession}
               onNewChat={handleNewChat}
@@ -745,63 +1061,51 @@ export function SpotlightWindow({
               onSearchChange={setSearchQuery}
               onToggleSidebar={() => toggleSidebar(false)}
               activeSessionId={task?.session_id || task?.id || null}
-              title={isStudioVariant ? "Studio threads" : "Chats"}
-              newLabel={isStudioVariant ? "New artifact" : "New"}
-              emptyLabel={
-                isStudioVariant ? "No Studio threads yet" : "No chats yet"
-              }
+              title="Chats"
+              newLabel="New chat"
+              emptyLabel="No chats yet"
+              icons={{
+                plus: icons.plus,
+                search: icons.search,
+                sidebar: icons.sidebar,
+              }}
             />
           )}
 
-          <div
-            className={`spot-main ${isStudioVariant ? "spot-main--studio" : ""}`}
-          >
-            {isStudioVariant ? (
-              <div
-                className={`spot-studio-shell ${
-                  studioArtifactVisible
-                    ? "is-artifact-open"
-                    : "is-artifact-collapsed"
-                }`}
-              >
-                {conversationSurface}
-                {studioArtifactAvailable ? (
-                  <div
-                    className={`spot-studio-artifact-drawer ${
-                      studioArtifactVisible ? "is-open" : ""
-                    }`}
-                    aria-hidden={!studioArtifactVisible}
-                  >
-                    <StudioArtifactSurface
-                      task={task}
-                      onCollapse={() => setStudioArtifactVisible(false)}
-                      onSeedIntent={(nextIntent) => {
-                        setIntent(nextIntent);
-                        window.setTimeout(() => {
-                          inputRef.current?.focus();
-                        }, 0);
-                      }}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              conversationSurface
-            )}
-          </div>
-
-          <SpotlightArtifactPanel
-            visible={layout.artifactPanelVisible}
-            artifactHubView={artifactHubView}
-            artifactHubTurnId={artifactHubTurnId}
-            events={activeEvents}
-            artifacts={activeArtifacts}
-            selectedArtifact={selectedArtifact}
-            sourceSummary={runPresentation.sourceSummary}
-            thoughtSummary={runPresentation.thoughtSummary}
-            onOpenArtifact={openArtifactById}
-            onClose={closeRightPanel}
-          />
+          {isStudioVariant ? (
+            <StudioConversationSurface
+              artifactVisible={studioArtifactVisible}
+              artifactMenuVisible={studioArtifactMenuVisible}
+              artifactDrawerVisible={
+                studioArtifactDrawerAvailable && studioArtifactVisible
+              }
+              conversationSurface={overlaySurface}
+              artifactDrawer={
+                <div
+                  className={`spot-studio-artifact-drawer ${
+                    studioArtifactVisible ? "is-open" : ""
+                  } ${studioArtifactMenuVisible ? "is-menu" : ""}`}
+                  aria-hidden={!studioArtifactVisible}
+                >
+                  <StudioArtifactSurface
+                    task={task}
+                    events={activeEvents}
+                    selectedStudioSessionId={selectedStudioArtifactSessionId}
+                    onSelectStudioSession={setSelectedStudioArtifactSessionId}
+                    onCollapse={() => setStudioArtifactVisible(false)}
+                    onSeedIntent={(nextIntent) => {
+                      setIntent(nextIntent);
+                      window.setTimeout(() => {
+                        inputRef.current?.focus();
+                      }, 0);
+                    }}
+                  />
+                </div>
+              }
+            />
+          ) : (
+            overlaySurface
+          )}
         </div>
       </div>
     </div>

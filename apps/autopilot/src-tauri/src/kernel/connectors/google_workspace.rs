@@ -14,6 +14,10 @@ use tauri::State;
 
 pub use shared::{ConnectorActionDefinition, ConnectorActionResult, ConnectorConfigureResult};
 
+fn google_mock_fixture_active() -> bool {
+    ioi_services::agentic::desktop::connectors::mock_fixtures::google_mock_fixture_active()
+}
+
 pub async fn connector_list_actions(
     connector_id: String,
 ) -> Result<Vec<ConnectorActionDefinition>, String> {
@@ -30,10 +34,15 @@ pub async fn connector_configure(
     connector_id: String,
     input: Value,
 ) -> Result<ConnectorConfigureResult, String> {
-    let _ = auth::sync_google_auth_from_wallet(&state).await;
+    let mock_fixture_active = google_mock_fixture_active();
+    if !mock_fixture_active {
+        let _ = auth::sync_google_auth_from_wallet(&state).await;
+    }
     let mut result = shared::connector_configure(&connector_id, input).await?;
     if shared::matches_google_connector_id(&connector_id) {
-        auth::sync_google_auth_to_wallet(&state).await?;
+        if !mock_fixture_active {
+            auth::sync_google_auth_to_wallet(&state).await?;
+        }
         let subscriptions = manager
             .list_subscriptions(shared::GOOGLE_CONNECTOR_ID)
             .await?;
@@ -104,6 +113,16 @@ fn enforce_google_connector_policy(
     let approved = approval_marker_present(input);
     let action_id_owned = action.id.clone();
     let action_label = action.label.clone();
+    let policy_family = match action.kind.as_str() {
+        "read" => "reads",
+        "write" | "workflow" => "writes",
+        "expert" => "expert",
+        "admin" if is_automation_action(action_id) => "automations",
+        "admin" => "admin",
+        _ => "connector_action",
+    };
+    let scope_key = format!("connector:{}:action:{}", connector_id, action_id);
+    let scope_label = format!("{} · {}", connector_id, action_label);
     let requires_confirmation = match action.kind.as_str() {
         "read" => match policy.reads {
             PolicyDecisionMode::Auto => false,
@@ -153,6 +172,22 @@ fn enforce_google_connector_policy(
     };
 
     if requires_confirmation && !approved {
+        if policy_manager.match_remembered_approval(
+            connector_id,
+            action_id,
+            policy_family,
+            Some(&scope_key),
+            &action_label,
+        ) {
+            return Ok(());
+        }
+        policy_manager.record_blocker_escalation(
+            connector_id,
+            action_id,
+            &action_label,
+            policy_family,
+            Some(&scope_key),
+        );
         return Err(approval_required_error(&ShieldApprovalRequest {
             connector_id: connector_id.to_string(),
             action_id: action_id_owned,
@@ -161,6 +196,10 @@ fn enforce_google_connector_policy(
                 "Shield policy requires explicit approval before running {}.",
                 action_label
             ),
+            policy_family: Some(policy_family.to_string()),
+            scope_key: Some(scope_key),
+            scope_label: Some(scope_label),
+            rememberable: true,
         }));
     }
 

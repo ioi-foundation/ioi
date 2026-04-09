@@ -69,6 +69,10 @@ export function EngineDetailPane({
   const enabledGalleryCount = controlPlane.galleries.filter(
     (source) => source.enabled,
   ).length;
+  const enabledGallerySources = controlPlane.galleries.filter(
+    (source) => source.enabled,
+  );
+  const defaultModelId = controlPlane.runtime.defaultModel?.trim() ?? "";
   const stagedCount = snapshot.stagedOperations.length;
   const liveJobCount = snapshot.jobs.filter(
     (job) => !["completed", "failed", "cancelled"].includes(job.status),
@@ -93,6 +97,10 @@ export function EngineDetailPane({
   const enabledCompatibilityRouteCount = snapshot.compatibilityRoutes.filter(
     (route) => route.enabled,
   ).length;
+  const latestConfigMigration =
+    snapshot.controlPlaneMigrations
+      .slice()
+      .sort((left, right) => right.appliedAtMs - left.appliedAtMs)[0] ?? null;
   const studioSurfaceCount = snapshot.capabilities.filter((family) =>
     [
       "transcription",
@@ -108,6 +116,41 @@ export function EngineDetailPane({
     stageSubjectKind === "gallery" ||
     stageSourceUri.trim().length > 0 ||
     stageSubjectId.trim().length > 0;
+  const quickStageActions = [
+    ...enabledGallerySources.map((source) => ({
+      key: `gallery:${source.id}`,
+      eyebrow: `${humanize(source.kind)} source`,
+      title: `Sync ${source.label}`,
+      description: source.uri,
+      onClick: () =>
+        controller.engine.stageOperation({
+          subjectKind: "gallery",
+          operation: "sync",
+          subjectId: source.id,
+          sourceUri: source.uri,
+          notes: `Sync the live ${source.label} ${humanize(source.kind).toLowerCase()} source into the kernel catalog.`,
+        }),
+    })),
+    ...(defaultModelId
+      ? [
+          {
+            key: `model:${defaultModelId}`,
+            eyebrow: "Residency",
+            title: `Warm ${defaultModelId}`,
+            description:
+              "Queue the current runtime default model for managed residency and receipts.",
+            onClick: () =>
+              controller.engine.stageOperation({
+                subjectKind: "model",
+                operation: "load",
+                subjectId: defaultModelId,
+                notes:
+                  "Warm the current runtime default model under kernel-native registry control.",
+              }),
+          },
+        ]
+      : []),
+  ];
 
   const sectionTitle =
     controller.engine.detailSection === "families"
@@ -156,6 +199,7 @@ export function EngineDetailPane({
         : controller.engine.detailSection === "activity"
           ? `${snapshot.recentActivity.length} receipts`
           : `${snapshot.totalNativeTools} native tools`;
+  const selectedRegistryEntry = controller.engine.selectedRegistryEntry;
 
   return (
     <div className="capabilities-detail-scroll capabilities-detail-scroll-engine">
@@ -242,11 +286,11 @@ export function EngineDetailPane({
               <span className="capabilities-engine-hero-kicker">
                 Agentic studio
               </span>
-              <h3>Operator visibility for the absorbed local runtime.</h3>
+              <h3>Operator visibility for the local runtime.</h3>
               <p>
                 The kernel is now the source of truth for local model, media,
                 knowledge, and worker actions. Studio stays on top as the
-                operator shell without resurrecting a second LocalAI boundary.
+                operator shell without reviving a second runtime control plane.
               </p>
               <div className="capabilities-engine-hero-actions">
                 <button
@@ -531,6 +575,12 @@ export function EngineDetailPane({
                   Runtime <strong>{humanize(controlPlane.runtime.mode)}</strong>
                 </span>
                 <span>
+                  Profile <strong>{snapshot.controlPlaneProfileId}</strong>
+                </span>
+                <span>
+                  Schema <strong>v{snapshot.controlPlaneSchemaVersion}</strong>
+                </span>
+                <span>
                   Galleries <strong>{enabledGalleryCount}</strong>
                 </span>
                 <span>
@@ -540,6 +590,12 @@ export function EngineDetailPane({
                   Facades <strong>{enabledCompatibilityRouteCount}</strong>
                 </span>
               </div>
+              {latestConfigMigration ? (
+                <p className="capabilities-inline-note">
+                  Latest config upgrade: {latestConfigMigration.summary} at{" "}
+                  {formatEngineTimestamp(latestConfigMigration.appliedAtMs)}.
+                </p>
+              ) : null}
               <div className="capabilities-action-row">
                 <button
                   type="button"
@@ -641,71 +697,37 @@ export function EngineDetailPane({
 
             <article className="capabilities-detail-card capabilities-engine-form-card">
               <div className="capabilities-detail-card-head">
-                <h3>Migration lanes</h3>
-                <span>Quick actions</span>
+                <h3>Runtime quick actions</h3>
+                <span>Live snapshot</span>
               </div>
               <p>
-                Promote the highest-signal LocalAI parity moves without filling
-                the full staging form every time.
+                Stage sync and residency work directly from the current control
+                plane without relying on vendored preset identifiers.
               </p>
-              <div className="capabilities-engine-preset-grid">
-                <button
-                  type="button"
-                  className="capabilities-engine-preset-card"
-                  disabled={controller.engine.stagingBusy}
-                  onClick={() =>
-                    void controller.engine.stageOperation({
-                      subjectKind: "gallery",
-                      operation: "sync",
-                      subjectId: "import.localai.models",
-                      sourceUri: "github:mudler/LocalAI/gallery/index.yaml@master",
-                      notes:
-                        "Sync the vendored LocalAI model gallery into the first-party kernel catalog.",
-                    })
-                  }
-                >
-                  <span>Model gallery</span>
-                  <strong>Sync LocalAI models</strong>
-                  <p>Pull migration manifests into the absorbed registry deck.</p>
-                </button>
-                <button
-                  type="button"
-                  className="capabilities-engine-preset-card"
-                  disabled={controller.engine.stagingBusy}
-                  onClick={() =>
-                    void controller.engine.stageOperation({
-                      subjectKind: "gallery",
-                      operation: "sync",
-                      subjectId: "import.localai.backends",
-                      sourceUri: "github:mudler/LocalAI/backend/index.yaml@master",
-                      notes:
-                        "Sync the vendored LocalAI backend gallery into the kernel control plane.",
-                    })
-                  }
-                >
-                  <span>Backend gallery</span>
-                  <strong>Sync LocalAI backends</strong>
-                  <p>Stage backend migration manifests without restoring a vendor boundary.</p>
-                </button>
-                <button
-                  type="button"
-                  className="capabilities-engine-preset-card"
-                  disabled={controller.engine.stagingBusy}
-                  onClick={() =>
-                    void controller.engine.stageOperation({
-                      subjectKind: "model",
-                      operation: "load",
-                      subjectId: controlPlane.runtime.defaultModel,
-                      notes:
-                        "Warm the current baseline model under kernel-native registry control.",
-                    })
-                  }
-                >
-                  <span>Residency</span>
-                  <strong>Warm default model</strong>
-                  <p>Queue the current baseline model for managed residency and receipts.</p>
-                </button>
-              </div>
+              {quickStageActions.length > 0 ? (
+                <div className="capabilities-engine-preset-grid">
+                  {quickStageActions.map((action) => (
+                    <button
+                      key={action.key}
+                      type="button"
+                      className="capabilities-engine-preset-card"
+                      disabled={controller.engine.stagingBusy}
+                      onClick={() => {
+                        void action.onClick();
+                      }}
+                    >
+                      <span>{action.eyebrow}</span>
+                      <strong>{action.title}</strong>
+                      <p>{action.description}</p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="capabilities-empty-inline">
+                  No live gallery sources or default model are configured for
+                  quick staging yet.
+                </div>
+              )}
             </article>
 
             <article className="capabilities-detail-card capabilities-engine-form-card">
@@ -767,7 +789,7 @@ export function EngineDetailPane({
                   <textarea
                     value={stageNotes}
                     onChange={(event) => setStageNotes(event.target.value)}
-                    placeholder="Why this should be promoted, what it should replace, or how it maps from LocalAI."
+                    placeholder="Why this should be promoted, what it should replace, or how it maps from a legacy local setup."
                   />
                 </label>
               </div>
@@ -882,6 +904,83 @@ export function EngineDetailPane({
 
         {controller.engine.detailSection === "registry" ? (
           <section className="capabilities-engine-stack">
+            {selectedRegistryEntry ? (
+              <article className="capabilities-detail-card capabilities-engine-target-card">
+                <div className="capabilities-detail-card-head">
+                  <h3>Focused runtime member</h3>
+                  <span>{humanize(selectedRegistryEntry.kind)}</span>
+                </div>
+                <div className="capabilities-engine-target-identity">
+                  <p className="capabilities-engine-target-identity-line">
+                    <strong>Focused runtime member:</strong>{" "}
+                    {selectedRegistryEntry.label}
+                  </p>
+                  <p className="capabilities-engine-target-identity-line">
+                    <strong>Registry entry:</strong>{" "}
+                    {selectedRegistryEntry.entryId}
+                  </p>
+                  <p className="capabilities-engine-target-identity-line">
+                    <strong>Kind:</strong> {humanize(selectedRegistryEntry.kind)}
+                  </p>
+                  <p className="capabilities-engine-target-identity-line">
+                    <strong>Authority tier:</strong>{" "}
+                    {selectedRegistryEntry.authority.tierLabel}
+                  </p>
+                  <p className="capabilities-engine-target-identity-line">
+                    <strong>Source:</strong> {selectedRegistryEntry.sourceLabel}
+                  </p>
+                  <p className="capabilities-engine-target-identity-line">
+                    <strong>Status:</strong> {selectedRegistryEntry.statusLabel}
+                  </p>
+                  <p className="capabilities-engine-target-identity-line">
+                    <strong>Lease posture:</strong>{" "}
+                    {selectedRegistryEntry.lease.modeLabel ??
+                      selectedRegistryEntry.lease.availabilityLabel}
+                  </p>
+                  {selectedRegistryEntry.lease.runtimeTargetLabel ? (
+                    <p className="capabilities-engine-target-identity-line">
+                      <strong>Runtime target:</strong>{" "}
+                      {selectedRegistryEntry.lease.runtimeTargetLabel}
+                    </p>
+                  ) : null}
+                  <p className="capabilities-engine-target-summary">
+                    {selectedRegistryEntry.summary}
+                  </p>
+                </div>
+                <div className="capabilities-trust-tier-line">
+                  <div className="capabilities-trust-tier-copy">
+                    <strong>{selectedRegistryEntry.label}</strong>
+                    <span>{selectedRegistryEntry.summary}</span>
+                  </div>
+                  <span className="capabilities-trust-tier-badge">
+                    {selectedRegistryEntry.authority.tierLabel}
+                  </span>
+                </div>
+                <p className="capabilities-inline-note">
+                  Routed here from the governing-family graph so the owning
+                  runtime member stays inspectable even when it came from sparse
+                  fallback registry state.
+                </p>
+                <div className="capabilities-detail-inline-meta">
+                  <span>
+                    Source <strong>{selectedRegistryEntry.sourceLabel}</strong>
+                  </span>
+                  <span>
+                    Status <strong>{selectedRegistryEntry.statusLabel}</strong>
+                  </span>
+                  <span>
+                    Lease <strong>{selectedRegistryEntry.lease.modeLabel ?? selectedRegistryEntry.lease.availabilityLabel}</strong>
+                  </span>
+                  {selectedRegistryEntry.lease.runtimeTargetLabel ? (
+                    <span>
+                      Runtime target{" "}
+                      <strong>{selectedRegistryEntry.lease.runtimeTargetLabel}</strong>
+                    </span>
+                  ) : null}
+                </div>
+              </article>
+            ) : null}
+
             <section className="capabilities-engine-state-grid">
               <article className="capabilities-detail-card">
                 <div className="capabilities-detail-card-head">
@@ -893,7 +992,11 @@ export function EngineDetailPane({
                     {snapshot.registryModels.map((record) => (
                       <div
                         key={record.modelId}
-                        className={`capabilities-engine-state-card status-${record.status}`}
+                        className={`capabilities-engine-state-card status-${record.status} ${
+                          selectedRegistryEntry?.entryId === `model:${record.modelId}`
+                            ? "is-targeted"
+                            : ""
+                        }`.trim()}
                       >
                         <div className="capabilities-detail-card-head">
                           <h3>{record.modelId}</h3>
@@ -952,7 +1055,11 @@ export function EngineDetailPane({
                     {snapshot.managedBackends.map((record) => (
                       <div
                         key={record.backendId}
-                        className={`capabilities-engine-state-card status-${record.status}`}
+                        className={`capabilities-engine-state-card status-${record.status} ${
+                          selectedRegistryEntry?.entryId === `backend:${record.backendId}`
+                            ? "is-targeted"
+                            : ""
+                        }`.trim()}
                       >
                         <div className="capabilities-detail-card-head">
                           <h3>{record.backendId}</h3>

@@ -32,7 +32,12 @@ pub struct WorkflowProvenance {
 pub struct WorkflowTrigger {
     #[serde(rename = "type")]
     pub trigger_type: String,
+    #[serde(default)]
     pub every_seconds: u64,
+    #[serde(default)]
+    pub remote_trigger_id: Option<String>,
+    #[serde(default)]
+    pub wait_until_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -187,6 +192,12 @@ pub struct InstalledWorkflowSummary {
     pub workflow_id: String,
     pub kind: WorkflowKind,
     pub status: WorkflowStatus,
+    pub trigger_kind: String,
+    pub trigger_label: String,
+    #[serde(default)]
+    pub remote_trigger_id: Option<String>,
+    #[serde(default)]
+    pub wait_until_ms: Option<u64>,
     pub title: String,
     pub description: String,
     pub artifact_hash: String,
@@ -215,6 +226,14 @@ pub(super) struct WorkflowRegistryRecord {
     pub(super) workflow_id: String,
     pub(super) kind: WorkflowKind,
     pub(super) status: WorkflowStatus,
+    #[serde(default)]
+    pub(super) trigger_kind: String,
+    #[serde(default)]
+    pub(super) trigger_label: String,
+    #[serde(default)]
+    pub(super) remote_trigger_id: Option<String>,
+    #[serde(default)]
+    pub(super) wait_until_ms: Option<u64>,
     pub(super) title: String,
     pub(super) description: String,
     pub(super) artifact_hash: String,

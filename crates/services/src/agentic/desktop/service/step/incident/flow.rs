@@ -844,6 +844,7 @@ pub async fn start_or_continue_incident_recovery(
                 temperature: 0.0,
                 json_mode: true,
                 max_tokens: 384,
+                stop_sequences: Vec::new(),
                 tools: planner_attempt_tools,
                 required_finality_tier: Default::default(),
                 sealed_finality_proof: None,

@@ -1,7 +1,6 @@
 import type { ConnectorSummary } from "@ioi/agent-ide";
-import { humanize, providerAccent } from "./model";
 import { type CapabilitiesController } from "./useCapabilitiesController";
-import { SearchIcon, XIcon } from "./ui";
+import { XIcon } from "./ui";
 
 export function CapabilitiesModals({
   controller,
@@ -10,120 +9,21 @@ export function CapabilitiesModals({
 }) {
   return (
     <>
-      {controller.connections.catalogModalOpen ? (
-        <div className="capabilities-modal-backdrop" role="presentation">
-          <div
-            className="capabilities-modal capabilities-modal-wide"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Browse connections"
-          >
-            <div className="capabilities-modal-head">
-              <div>
-                <h2>Browse connections</h2>
-                <p>
-                  Add authenticated systems to the workspace shell before wiring
-                  or expanding the underlying adapter.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="capabilities-icon-button"
-                onClick={() => controller.connections.setCatalogModalOpen(false)}
-                aria-label="Close browse connections"
-              >
-                <XIcon />
-              </button>
-            </div>
-
-            <div className="capabilities-modal-toolbar">
-              <label className="capabilities-search">
-                <SearchIcon />
-                <input
-                  value={controller.connections.catalogQuery}
-                  onChange={(event) =>
-                    controller.connections.setCatalogQuery(event.target.value)
-                  }
-                  placeholder="Search connection catalog..."
-                />
-              </label>
-              <label className="capabilities-select">
-                <span>Category</span>
-                <select
-                  value={controller.connections.catalogCategoryFilter}
-                  onChange={(event) =>
-                    controller.connections.setCatalogCategoryFilter(
-                      event.target.value as ConnectorSummary["category"] | "all",
-                    )
-                  }
-                >
-                  <option value="all">All</option>
-                  <option value="communication">Communication</option>
-                  <option value="productivity">Productivity</option>
-                  <option value="storage">Storage</option>
-                  <option value="developer">Developer</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="capabilities-catalog-grid">
-              {controller.connections.availableCatalogItems.map(
-                ({ item, alreadyAdded }) => (
-                  <article key={item.id} className="capabilities-catalog-card">
-                    <div className="capabilities-catalog-card-head">
-                      <span
-                        className="capabilities-provider-badge"
-                        style={{ color: providerAccent(item.provider) }}
-                      >
-                        {item.name.slice(0, 1)}
-                      </span>
-                      <div>
-                        <strong>{item.name}</strong>
-                        <small>{item.popularityLabel}</small>
-                      </div>
-                    </div>
-                    <p>{item.description}</p>
-                    <div className="capabilities-chip-row">
-                      {item.scopes.slice(0, 3).map((scope) => (
-                        <span key={scope} className="capabilities-chip">
-                          {humanize(scope)}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="capabilities-action-row">
-                      <button
-                        type="button"
-                        className="capabilities-primary-button"
-                        onClick={() =>
-                          controller.connections.addCatalogConnection(item)
-                        }
-                        disabled={alreadyAdded}
-                      >
-                        {alreadyAdded ? "Added" : "Add to workspace"}
-                      </button>
-                    </div>
-                  </article>
-                ),
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {controller.connections.customModalOpen ? (
         <div className="capabilities-modal-backdrop" role="presentation">
           <div
             className="capabilities-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Add custom connection"
+            aria-label="Add workspace planning template"
           >
             <div className="capabilities-modal-head">
               <div>
-                <h2>Add custom connection</h2>
+                <h2>Add workspace planning template</h2>
                 <p>
-                  Register a remote MCP or local adapter surface so teams can
-                  design around it before the runtime is fully wired.
+                  Document a remote MCP or local adapter plan in the workspace
+                  planning lane. This does not create a live connector or bind
+                  runtime execution.
                 </p>
               </div>
               <button
@@ -195,9 +95,9 @@ export function CapabilitiesModals({
             </div>
 
             <div className="capabilities-inline-note">
-              Only register custom connections from developers you trust. A
-              staged connection does not grant runtime execution until an
-              adapter is installed and policy allows it.
+              Only record planning templates from developers you trust. A
+              planning template stays outside the live connector catalog until a
+              real adapter is added and policy allows execution.
             </div>
 
             <div className="capabilities-modal-actions">
@@ -213,7 +113,7 @@ export function CapabilitiesModals({
                 className="capabilities-primary-button"
                 onClick={controller.connections.createCustomConnection}
               >
-                Add connection
+                Save template
               </button>
             </div>
           </div>

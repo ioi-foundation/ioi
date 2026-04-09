@@ -6,12 +6,20 @@ interface PasswordCardProps {
   prompt: string;
   onSubmit: (password: string) => Promise<void>;
   onCancel: () => void;
+  title?: string;
+  badgeLabel?: string;
+  placeholder?: string;
+  submitLabel?: string;
 }
 
 export function SpotlightPasswordCard({
   prompt,
   onSubmit,
   onCancel,
+  title = "Sudo Password Required",
+  badgeLabel = "ONE-TIME",
+  placeholder = "Enter sudo password",
+  submitLabel = "Submit Password",
 }: PasswordCardProps) {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -44,9 +52,9 @@ export function SpotlightPasswordCard({
         <div className="gate-header">
           <div className="gate-title-row">
             <span className="gate-icon">{icons.lock}</span>
-            <span className="gate-title">Sudo Password Required</span>
+            <span className="gate-title">{title}</span>
           </div>
-          <span className="gate-badge">ONE-TIME</span>
+          <span className="gate-badge">{badgeLabel}</span>
         </div>
         <p className="gate-desc">{prompt}</p>
         <input
@@ -54,7 +62,7 @@ export function SpotlightPasswordCard({
           className="spot-password-input"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter sudo password"
+          placeholder={placeholder}
           autoComplete="off"
           disabled={submitting}
           onKeyDown={(e) => {
@@ -72,7 +80,7 @@ export function SpotlightPasswordCard({
             disabled={!password || submitting}
           >
             {icons.check}
-            <span>{submitting ? "Submitting..." : "Submit Password"}</span>
+            <span>{submitting ? "Submitting..." : submitLabel}</span>
           </button>
           <button onClick={handleCancel} className="gate-btn secondary">
             {icons.x}

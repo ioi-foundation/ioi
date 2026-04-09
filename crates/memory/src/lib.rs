@@ -63,6 +63,14 @@ pub struct StoredTranscriptMessage {
     pub privacy_metadata: TranscriptPrivacyMetadata,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredCheckpointBlob {
+    pub thread_id: [u8; 32],
+    pub checkpoint_name: String,
+    pub payload: Vec<u8>,
+    pub updated_at_ms: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TranscriptSurface {
     Model,
@@ -231,6 +239,8 @@ pub trait Checkpointer: Send + Sync {
         thread_id: [u8; 32],
         checkpoint_name: &str,
     ) -> Result<Option<Vec<u8>>>;
+
+    fn list_checkpoint_blobs(&self, checkpoint_name: &str) -> Result<Vec<StoredCheckpointBlob>>;
 
     fn delete_checkpoint_blob(&self, thread_id: [u8; 32], checkpoint_name: &str) -> Result<()>;
 }
@@ -440,6 +450,13 @@ impl MemoryRuntime {
     ) -> Result<Option<Vec<u8>>> {
         self.checkpointer
             .load_checkpoint_blob(thread_id, checkpoint_name)
+    }
+
+    pub fn list_checkpoint_blobs(
+        &self,
+        checkpoint_name: &str,
+    ) -> Result<Vec<StoredCheckpointBlob>> {
+        self.checkpointer.list_checkpoint_blobs(checkpoint_name)
     }
 
     pub fn delete_checkpoint_blob(&self, thread_id: [u8; 32], checkpoint_name: &str) -> Result<()> {
@@ -1050,6 +1067,46 @@ impl Checkpointer for SqliteMemoryStore {
             )
             .optional()?;
         Ok(payload)
+    }
+
+    fn list_checkpoint_blobs(&self, checkpoint_name: &str) -> Result<Vec<StoredCheckpointBlob>> {
+        let conn = self.conn.lock().map_err(|_| MemoryError::LockPoisoned)?;
+        let mut stmt = conn.prepare(
+            "
+            SELECT thread_id, checkpoint_name, payload, updated_at_ms
+            FROM checkpoint_blobs
+            WHERE checkpoint_name = ?1
+            ORDER BY updated_at_ms DESC
+            ",
+        )?;
+
+        let rows = stmt.query_map(params![checkpoint_name], |row| {
+            let thread_id_bytes: Vec<u8> = row.get(0)?;
+            let thread_id = if thread_id_bytes.len() == 32 {
+                let mut out = [0u8; 32];
+                out.copy_from_slice(&thread_id_bytes);
+                out
+            } else {
+                return Err(rusqlite::Error::FromSqlConversionFailure(
+                    0,
+                    rusqlite::types::Type::Blob,
+                    "checkpoint thread id must be 32 bytes".into(),
+                ));
+            };
+
+            Ok(StoredCheckpointBlob {
+                thread_id,
+                checkpoint_name: row.get(1)?,
+                payload: row.get(2)?,
+                updated_at_ms: row.get::<_, i64>(3)? as u64,
+            })
+        })?;
+
+        let mut checkpoints = Vec::new();
+        for row in rows {
+            checkpoints.push(row?);
+        }
+        Ok(checkpoints)
     }
 
     fn delete_checkpoint_blob(&self, thread_id: [u8; 32], checkpoint_name: &str) -> Result<()> {

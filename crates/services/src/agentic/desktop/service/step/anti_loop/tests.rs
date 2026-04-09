@@ -340,16 +340,15 @@ fn specialized_attempt_target_id_tracks_awaited_child_progress() {
         )
         .expect("child state insert should succeed");
 
-    let first = specialized_attempt_target_id(
-        &state,
-        None,
-        "agent__await_result",
-        Some(&await_tool_jcs),
-    )
-    .expect("await target should be fingerprinted");
+    let first =
+        specialized_attempt_target_id(&state, None, "agent__await_result", Some(&await_tool_jcs))
+            .expect("await target should be fingerprinted");
     assert_eq!(
         first,
-        format!("await_child={};step=1;status=running", hex::encode(child_session_id))
+        format!(
+            "await_child={};step=1;status=running",
+            hex::encode(child_session_id)
+        )
     );
 
     child_state.step_count = 2;
@@ -361,16 +360,15 @@ fn specialized_attempt_target_id_tracks_awaited_child_progress() {
         )
         .expect("child state update should succeed");
 
-    let second = specialized_attempt_target_id(
-        &state,
-        None,
-        "agent__await_result",
-        Some(&await_tool_jcs),
-    )
-    .expect("await target should update");
+    let second =
+        specialized_attempt_target_id(&state, None, "agent__await_result", Some(&await_tool_jcs))
+            .expect("await target should update");
     assert_eq!(
         second,
-        format!("await_child={};step=2;status=paused", hex::encode(child_session_id))
+        format!(
+            "await_child={};step=2;status=paused",
+            hex::encode(child_session_id)
+        )
     );
     assert_ne!(first, second);
 }

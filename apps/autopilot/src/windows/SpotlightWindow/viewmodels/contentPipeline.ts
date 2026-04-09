@@ -5,6 +5,7 @@ import type {
   ChatMessage,
   RunPresentation,
 } from "../../../types";
+import { buildSessionRunPresentation } from "@ioi/agent-ide";
 import {
   classifyActivityEvent,
   buildSemanticDedupKey,
@@ -28,50 +29,41 @@ import {
 export { classifyActivityEvent } from "./contentPipeline.classification";
 export { normalizeOutputForHash } from "./contentPipeline.helpers";
 
-function dedupeActivityEvents(events: AgentEvent[]): ActivityEventRef[] {
-  const deduped: ActivityEventRef[] = [];
-  const seenKeys = new Set<string>();
-
-  for (const event of events) {
-    const kind = classifyActivityEvent(event);
-    const toolName = eventToolName(event);
-    const normalized = normalizeOutputForHash(eventOutput(event));
-    const outputHash = normalized ? hashString(normalized) : undefined;
-    const key = buildSemanticDedupKey(kind, event);
-
-    if (seenKeys.has(key)) {
-      continue;
-    }
-    seenKeys.add(key);
-
-    deduped.push({
-      key,
-      event,
-      kind,
-      toolName,
-      normalizedOutputHash: outputHash,
-    });
-  }
-
-  return deduped;
-}
-
 export function buildRunPresentation(
   history: ChatMessage[],
   events: AgentEvent[],
   artifacts: Artifact[],
 ): RunPresentation {
-  const deduped = dedupeActivityEvents(events);
-  const activityGroups = buildActivityGroups(deduped);
-
-  return {
-    prompt: latestPrompt(history),
-    finalAnswer: resolveFinalAnswer(history, events),
-    sourceSummary: buildSourceSummary(deduped),
-    thoughtSummary: buildThoughtSummary(activityGroups),
-    planSummary: buildPlanSummary(deduped),
-    activitySummary: buildActivitySummary(deduped, artifacts),
-    activityGroups,
-    artifactRefs: collectArtifactRefs(deduped, artifacts),
-  };
+  return buildSessionRunPresentation<
+    ChatMessage,
+    AgentEvent,
+    Artifact,
+    ActivityEventRef["kind"],
+    ChatMessage,
+    RunPresentation["finalAnswer"],
+    RunPresentation["sourceSummary"],
+    RunPresentation["thoughtSummary"],
+    RunPresentation["planSummary"],
+    RunPresentation["activitySummary"],
+    RunPresentation["activityGroups"][number],
+    RunPresentation["artifactRefs"][number]
+  >({
+    history,
+    events,
+    artifacts,
+    classifyActivityEvent,
+    buildSemanticDedupKey,
+    eventToolName,
+    eventOutput,
+    normalizeOutputForHash,
+    hashString,
+    latestPrompt,
+    resolveFinalAnswer,
+    buildSourceSummary,
+    buildThoughtSummary,
+    buildPlanSummary,
+    buildActivityGroups,
+    buildActivitySummary,
+    collectArtifactRefs,
+  });
 }

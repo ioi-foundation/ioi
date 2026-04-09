@@ -8,6 +8,15 @@ if [[ $# -gt 0 ]]; then
 fi
 EXTRA_TAURI_ARGS=("$@")
 
+default_local_gpu_dev_artifact_specialist_model() {
+  local runtime_model="${1:-}"
+  if [[ -n "$runtime_model" ]]; then
+    printf '%s\n' "$runtime_model"
+  else
+    printf '%s\n' "qwen3.5:9b"
+  fi
+}
+
 REQUESTED_DEV_URL="${DEV_URL:-http://127.0.0.1:1428}"
 AUTO_START_DEV_SERVER="${AUTO_START_DEV_SERVER:-1}"
 TAURI_WATCH="${AUTOPILOT_TAURI_WATCH:-0}"
@@ -15,6 +24,7 @@ REUSE_DEV_SERVER="${AUTOPILOT_REUSE_DEV_SERVER:-1}"
 DEV_CLEAN_INSTANCE="${AUTOPILOT_DEV_CLEAN_INSTANCE:-0}"
 LOCAL_GPU_DEV="${AUTOPILOT_LOCAL_GPU_DEV:-0}"
 LOCAL_KERNEL_AUTOSTART="${AUTOPILOT_LOCAL_KERNEL_AUTOSTART:-$LOCAL_GPU_DEV}"
+LOCAL_KERNEL_STACK_SIZE_BYTES="${IOI_LOCAL_TOKIO_STACK_SIZE_BYTES:-33554432}"
 
 if [[ "$DEV_CLEAN_INSTANCE" == "1" ]]; then
   export AUTOPILOT_DATA_PROFILE="${AUTOPILOT_DATA_PROFILE:-desktop-clean}"
@@ -23,6 +33,7 @@ fi
 
 if [[ "$LOCAL_GPU_DEV" == "1" ]]; then
   export AUTOPILOT_LOCAL_GPU_DEV=1
+  export IOI_STUDIO_PROOF_TRACE="${IOI_STUDIO_PROOF_TRACE:-1}"
   export AUTOPILOT_DATA_PROFILE="${AUTOPILOT_DATA_PROFILE:-desktop-localgpu}"
   export AUTOPILOT_RESET_DATA_ON_BOOT="${AUTOPILOT_RESET_DATA_ON_BOOT:-1}"
   export AUTOPILOT_CONNECTOR_WALLET_BOOTSTRAP="${AUTOPILOT_CONNECTOR_WALLET_BOOTSTRAP:-0}"
@@ -34,19 +45,32 @@ if [[ "$LOCAL_GPU_DEV" == "1" ]]; then
   export IOI_RPC_FAST_ADMIT_MAX_MEMPOOL="${IOI_RPC_FAST_ADMIT_MAX_MEMPOOL:-512}"
   export AUTOPILOT_LOCAL_DEV_PRESET="${AUTOPILOT_LOCAL_DEV_PRESET:-ollama-openai}"
   export AUTOPILOT_LOCAL_RUNTIME_URL="${AUTOPILOT_LOCAL_RUNTIME_URL:-http://127.0.0.1:11434/v1/chat/completions}"
-  export AUTOPILOT_LOCAL_RUNTIME_MODEL="${AUTOPILOT_LOCAL_RUNTIME_MODEL:-qwen2.5:7b}"
+  # Keep the default local desktop lane on one warmed model so Studio routing,
+  # drafting, and acceptance avoid cross-model residency churn.
+  export AUTOPILOT_LOCAL_RUNTIME_MODEL="${AUTOPILOT_LOCAL_RUNTIME_MODEL:-qwen3.5:9b}"
   export AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL="${AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL:-http://127.0.0.1:11434/api/tags}"
   export AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL:-$AUTOPILOT_LOCAL_RUNTIME_URL}"
-  export AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-qwen2.5:7b}"
+  export AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-$AUTOPILOT_LOCAL_RUNTIME_MODEL}"
   export AUTOPILOT_STUDIO_ROUTING_RUNTIME_HEALTH_URL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_HEALTH_URL:-$AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL}"
   export AUTOPILOT_ACCEPTANCE_RUNTIME_URL="${AUTOPILOT_ACCEPTANCE_RUNTIME_URL:-$AUTOPILOT_LOCAL_RUNTIME_URL}"
-  export AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL="${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-qwen2.5:14b}"
+  export AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL="${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-$(default_local_gpu_dev_artifact_specialist_model "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}")}"
+  # Prefer a single local model by default for Studio HTML work. If callers
+  # explicitly configure a different acceptance runtime, preserve it.
+  if [[ -z "${AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE:-}" ]]; then
+    if [[ "${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL:-}" != "${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" ]] \
+      || [[ "${AUTOPILOT_ACCEPTANCE_RUNTIME_URL:-}" != "${AUTOPILOT_LOCAL_RUNTIME_URL:-}" ]]; then
+      export AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE="local_generation_remote_acceptance"
+    else
+      export AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE="fully_local"
+    fi
+  fi
   export AUTOPILOT_LOCAL_EMBEDDING_MODEL="${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-nomic-embed-text}"
   export AUTOPILOT_LOCAL_MODEL_CACHE_DIR="${AUTOPILOT_LOCAL_MODEL_CACHE_DIR:-$HOME/.ollama/models}"
-  export OLLAMA_MAX_LOADED_MODELS="${OLLAMA_MAX_LOADED_MODELS:-2}"
-  export OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:-30m}"
+  export OLLAMA_MAX_LOADED_MODELS="${OLLAMA_MAX_LOADED_MODELS:-1}"
+  export OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-1}"
+  export OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:-10m}"
   export OLLAMA_FLASH_ATTENTION="${OLLAMA_FLASH_ATTENTION:-1}"
-  export OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-8192}"
+  export OLLAMA_CONTEXT_LENGTH="${OLLAMA_CONTEXT_LENGTH:-4096}"
   export AUTOPILOT_LOCAL_BACKEND_AUTOSTART="${AUTOPILOT_LOCAL_BACKEND_AUTOSTART:-1}"
   export LOCAL_LLM_URL="${LOCAL_LLM_URL:-$AUTOPILOT_LOCAL_RUNTIME_URL}"
   export LOCAL_LLM_MODEL="${LOCAL_LLM_MODEL:-$AUTOPILOT_LOCAL_RUNTIME_MODEL}"
@@ -62,7 +86,7 @@ if [[ "$LOCAL_GPU_DEV" == "1" ]]; then
   else
     ollama_status="ollama missing; Studio will surface inference_unavailable until a local runtime is installed or configured"
   fi
-  echo "Autopilot local GPU dev profile: ${AUTOPILOT_DATA_PROFILE} (reset_on_boot=${AUTOPILOT_RESET_DATA_ON_BOOT}, preset=${AUTOPILOT_LOCAL_DEV_PRESET}, model=${AUTOPILOT_LOCAL_RUNTIME_MODEL}, routing_model=${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL}, acceptance_model=${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL}, embeddings=${AUTOPILOT_LOCAL_EMBEDDING_MODEL}, http_timeout_secs=${AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS}, max_loaded_models=${OLLAMA_MAX_LOADED_MODELS}, keep_alive=${OLLAMA_KEEP_ALIVE}, flash_attention=${OLLAMA_FLASH_ATTENTION}, context_length=${OLLAMA_CONTEXT_LENGTH})"
+  echo "Autopilot local GPU dev profile: ${AUTOPILOT_DATA_PROFILE} (reset_on_boot=${AUTOPILOT_RESET_DATA_ON_BOOT}, preset=${AUTOPILOT_LOCAL_DEV_PRESET}, model=${AUTOPILOT_LOCAL_RUNTIME_MODEL}, routing_model=${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL}, routing_profile=${AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE}, acceptance_model=${AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL}, embeddings=${AUTOPILOT_LOCAL_EMBEDDING_MODEL}, http_timeout_secs=${AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS}, max_loaded_models=${OLLAMA_MAX_LOADED_MODELS}, num_parallel=${OLLAMA_NUM_PARALLEL}, keep_alive=${OLLAMA_KEEP_ALIVE}, flash_attention=${OLLAMA_FLASH_ATTENTION}, context_length=${OLLAMA_CONTEXT_LENGTH}, proof_trace=${IOI_STUDIO_PROOF_TRACE})"
   echo "Local GPU dev cache: ${AUTOPILOT_LOCAL_MODEL_CACHE_DIR} (${ollama_status})"
 fi
 
@@ -179,11 +203,15 @@ local_runtime_generate_url() {
 warm_local_runtime_model() {
   local model="$1"
   local generate_url=""
+  local max_time_secs="${AUTOPILOT_LOCAL_GPU_WARM_MAX_TIME_SECS:-20}"
 
   [[ -n "$model" ]] || return 0
   generate_url="$(local_runtime_generate_url)" || return 0
 
-  curl -fsS -X POST "$generate_url" \
+  curl -fsS \
+    --connect-timeout 2 \
+    --max-time "$max_time_secs" \
+    -X POST "$generate_url" \
     -H 'Content-Type: application/json' \
     -d "{\"model\":\"${model}\",\"prompt\":\"warm\",\"stream\":false,\"keep_alive\":\"${OLLAMA_KEEP_ALIVE:-30m}\"}" \
     >/dev/null 2>&1 || true
@@ -199,14 +227,17 @@ warm_local_runtime_models() {
   [[ "${AUTOPILOT_LOCAL_GPU_WARM_MODELS_ON_START:-1}" == "1" ]] || return 0
   local_runtime_ready || return 0
 
-  echo "Warming local runtime models for Studio routing, drafting, and acceptance..."
-  warm_local_runtime_model "$runtime_model"
-  if [[ -n "$routing_model" && "$routing_model" != "$runtime_model" ]]; then
-    warm_local_runtime_model "$routing_model"
-  fi
-  if [[ -n "$acceptance_model" && "$acceptance_model" != "$runtime_model" && "$acceptance_model" != "$routing_model" ]]; then
-    warm_local_runtime_model "$acceptance_model"
-  fi
+  # Model warming is a startup optimization; it should never block the desktop shell.
+  echo "Warming local runtime models for Studio routing, drafting, and acceptance in background..."
+  (
+    warm_local_runtime_model "$runtime_model"
+    if [[ -n "$routing_model" && "$routing_model" != "$runtime_model" ]]; then
+      warm_local_runtime_model "$routing_model"
+    fi
+    if [[ -n "$acceptance_model" && "$acceptance_model" != "$runtime_model" && "$acceptance_model" != "$routing_model" ]]; then
+      warm_local_runtime_model "$acceptance_model"
+    fi
+  ) >/dev/null 2>&1 &
 }
 
 resolve_ollama_bin() {
@@ -469,6 +500,8 @@ start_local_kernel() {
       AUTOPILOT_LOCAL_RUNTIME_MODEL="${AUTOPILOT_LOCAL_RUNTIME_MODEL:-}" \
       AUTOPILOT_LOCAL_EMBEDDING_MODEL="${AUTOPILOT_LOCAL_EMBEDDING_MODEL:-}" \
       OPENAI_EMBEDDING_MODEL="${OPENAI_EMBEDDING_MODEL:-}" \
+      IOI_LOCAL_TOKIO_STACK_SIZE_BYTES="${IOI_LOCAL_TOKIO_STACK_SIZE_BYTES:-$LOCAL_KERNEL_STACK_SIZE_BYTES}" \
+      RUST_MIN_STACK="${RUST_MIN_STACK:-$LOCAL_KERNEL_STACK_SIZE_BYTES}" \
       ORCHESTRATION_RPC_LISTEN_ADDRESS="${ORCHESTRATION_RPC_LISTEN_ADDRESS}" \
       "${ROOT_DIR}/target/debug/ioi-local" \
       --data-dir "$KERNEL_DATA_DIR"

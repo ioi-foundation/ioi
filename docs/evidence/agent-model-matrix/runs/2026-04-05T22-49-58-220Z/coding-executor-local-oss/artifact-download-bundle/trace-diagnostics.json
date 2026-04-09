@@ -1,0 +1,8 @@
+{
+  "timedOut": false,
+  "commandError": "Interrupted by SIGINT.",
+  "studioProofTraceCount": 1,
+  "lastStudioProofTrace": "outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384",
+  "lastProviderError": null,
+  "compactFailure": "[studio-proof-trace] outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384"
+}

@@ -1774,24 +1774,31 @@ function buildSuiteSummaries(latestCases, liveRuns) {
     .map((suite) => {
       const suiteCases = latestCases.filter((entry) => entry.suite === suite);
       const liveRun = liveRunsBySuite.get(suite) ?? null;
-    const counts = { pass: 0, "near-miss": 0, red: 0, unknown: 0 };
-    for (const entry of suiteCases) {
-      counts[entry.result] = (counts[entry.result] ?? 0) + 1;
-    }
-    const focusCase =
-      suiteCases.find((entry) => entry.result === "red") ??
-      suiteCases.find((entry) => entry.result === "near-miss") ??
-      suiteCases[0] ??
-      null;
-    return {
-      suite,
-      counts,
-      focusCaseId: focusCase?.caseId ?? null,
-      focusResult: focusCase?.result ?? "unknown",
-      latestRunId: focusCase?.runId ?? liveRun?.runId ?? null,
-      liveRun,
-    };
-  });
+      const counts = {
+        pass: 0,
+        "near-miss": 0,
+        red: 0,
+        interrupted: 0,
+        unknown: 0,
+      };
+      for (const entry of suiteCases) {
+        counts[entry.result] = (counts[entry.result] ?? 0) + 1;
+      }
+      const focusCase =
+        suiteCases.find((entry) => entry.result === "red") ??
+        suiteCases.find((entry) => entry.result === "interrupted") ??
+        suiteCases.find((entry) => entry.result === "near-miss") ??
+        suiteCases[0] ??
+        null;
+      return {
+        suite,
+        counts,
+        focusCaseId: focusCase?.caseId ?? null,
+        focusResult: focusCase?.result ?? "unknown",
+        latestRunId: focusCase?.runId ?? liveRun?.runId ?? null,
+        liveRun,
+      };
+    });
 }
 
 function collectStudioArtifactParityLoop() {
@@ -1803,7 +1810,6 @@ function collectStudioArtifactParityLoop() {
   const summarizeReceipt = (receipt) =>
     receipt && typeof receipt === "object"
       ? {
-          createdAt: receipt.createdAt ?? null,
           keepChange:
             typeof receipt.keepChange === "boolean" ? receipt.keepChange : null,
           noImprovementStreak: Number(receipt.noImprovementStreak ?? 0),
@@ -2026,37 +2032,55 @@ function collectStudioArtifactReleaseGates(corpusSummary = null) {
   };
 }
 
-function generate() {
-  const studioArtifactCorpus = collectStudioArtifactCorpusIndex({ repoRoot });
-  const studioArtifactArena = collectStudioArtifactArena(studioArtifactCorpus);
-  const studioArtifactReleaseGates =
-    collectStudioArtifactReleaseGates(studioArtifactCorpus);
-  const studioArtifactDistillation = collectStudioArtifactDistillation();
-  const studioArtifactParityLoop = collectStudioArtifactParityLoop();
-  const agentModelMatrix = buildAgentModelMatrixView({ repoRoot });
-  const latestCases = [
-    ...collectLatestCaseDiagnostics(),
-    ...collectStudioArtifactCases(studioArtifactCorpus),
-  ].sort((left, right) => (right.runSort ?? 0) - (left.runSort ?? 0));
-  const liveRuns = collectLiveRunsFromStore();
+function sortLatestCases(cases) {
+  return [...cases].sort((left, right) => (right.runSort ?? 0) - (left.runSort ?? 0));
+}
 
-  const payload = {
-    generatedAt: new Date().toISOString(),
+export function buildBenchmarkDataPayload(options = {}) {
+  const studioArtifactCorpus =
+    options.studioArtifactCorpus ?? collectStudioArtifactCorpusIndex({ repoRoot });
+  const studioArtifactArena =
+    options.studioArtifactArena ?? collectStudioArtifactArena(studioArtifactCorpus);
+  const studioArtifactReleaseGates =
+    options.studioArtifactReleaseGates ??
+    collectStudioArtifactReleaseGates(studioArtifactCorpus);
+  const studioArtifactDistillation =
+    options.studioArtifactDistillation ?? collectStudioArtifactDistillation();
+  const studioArtifactParityLoop =
+    options.studioArtifactParityLoop ?? collectStudioArtifactParityLoop();
+  const agentModelMatrix =
+    options.agentModelMatrix ?? buildAgentModelMatrixView({ repoRoot });
+  const latestCases = sortLatestCases(
+    options.latestCases ?? [
+      ...collectLatestCaseDiagnostics(),
+      ...collectStudioArtifactCases(studioArtifactCorpus),
+    ],
+  );
+  const liveRuns = options.liveRuns ?? collectLiveRunsFromStore();
+
+  return {
+    generatedAt: options.generatedAt ?? new Date().toISOString(),
     repoRoot,
     liveDataPath,
     liveStorePath,
     suiteSummaries: buildSuiteSummaries(latestCases, liveRuns),
     liveRuns,
     latestCases,
-    studioArtifactBenchmarkSuite: studioArtifactCorpus.benchmarkSuite ?? null,
+    studioArtifactBenchmarkSuite: studioArtifactCorpus?.benchmarkSuite ?? null,
     studioArtifactArena,
     studioArtifactReleaseGates,
     studioArtifactDistillation,
     studioArtifactParityLoop,
     agentModelMatrix,
   };
-
-  writeOutputFiles(payload);
 }
 
-generate();
+export function generate() {
+  const payload = buildBenchmarkDataPayload();
+  writeOutputFiles(payload);
+  return payload;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  generate();
+}

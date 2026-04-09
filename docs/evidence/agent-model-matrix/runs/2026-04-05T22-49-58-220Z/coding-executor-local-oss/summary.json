@@ -1,0 +1,115 @@
+{
+  "presetId": "coding-executor-local-oss",
+  "label": "Coding executor local OSS",
+  "role": "coding_executor",
+  "benchmarkTier": "tier2",
+  "deploymentProfile": "consumerLocal",
+  "experimental": true,
+  "shippedDefault": false,
+  "runtimeModel": "qwen2.5:7b",
+  "artifactAcceptanceModel": "qwen2.5:7b",
+  "availabilityStatus": "ready",
+  "availabilitySummary": "Local runtime is healthy and exposes 'qwen2.5:7b'.",
+  "caseCount": 1,
+  "availableWorkloadCount": 1,
+  "topFindings": [
+    "Artifact download bundle: Artifact benchmark interrupted by SIGINT. Last trace: outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384. Last output: [studio-proof-trace] outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384."
+  ],
+  "scorecards": {
+    "artifactQuality": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "benchmarkCount": 1,
+        "passRate": 0,
+        "averageJudgeScore": null,
+        "verifierPassRate": 0,
+        "averageRepairLoopIterations": 0,
+        "routeMatchRate": 0
+      }
+    },
+    "codingCompletion": {
+      "available": false,
+      "reason": "No retained coding benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "taskPassRate": null,
+        "targetedTestPassRate": null,
+        "verifierPassRate": null,
+        "patchSynthesisReadyRate": null
+      }
+    },
+    "researchQuality": {
+      "available": false,
+      "reason": "No retained research benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "taskPassRate": null,
+        "citationVerifierPassRate": null,
+        "sourceIndependenceRate": null,
+        "sourceCountFloorRate": null,
+        "synthesisCompleteness": null,
+        "freshnessPassRate": null,
+        "quoteGroundingPassRate": null
+      }
+    },
+    "computerUseCompletion": {
+      "available": false,
+      "reason": "No retained computer-use benchmark was executed for this preset in the current pass.",
+      "metrics": {
+        "benchmarkCount": 0,
+        "rewardFloorPassRate": null,
+        "postconditionPassRate": null,
+        "meanStepCount": null
+      }
+    },
+    "latencyAndResourcePressure": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "meanWallClockMs": 1370,
+        "p95WallClockMs": 1370,
+        "residentModelBytes": 4683087332,
+        "processorKind": "100% GPU"
+      }
+    },
+    "operationalDiscipline": {
+      "available": true,
+      "reason": "",
+      "metrics": {
+        "malformedToolCallRate": null,
+        "noOpStallRate": null,
+        "repairLoopIterations": 0,
+        "interruptionRecoveryQuality": null
+      }
+    }
+  },
+  "cases": [
+    {
+      "benchmarkId": "artifact-download-bundle",
+      "title": "Artifact download bundle",
+      "workload": "artifacts",
+      "runner": "artifact_generate",
+      "status": "interrupted",
+      "result": "unknown",
+      "elapsedMs": 1370,
+      "timedOut": false,
+      "interrupted": true,
+      "signal": "SIGINT",
+      "judgeScore": null,
+      "verifierPass": false,
+      "repairLoopIterations": 0,
+      "routeMatched": false,
+      "summary": "Artifact benchmark interrupted by SIGINT. Last trace: outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384. Last output: [studio-proof-trace] outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384.",
+      "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/coding-executor-local-oss/artifact-download-bundle/artifact/generation.json",
+      "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/coding-executor-local-oss/artifact-download-bundle/artifact",
+      "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/coding-executor-local-oss/artifact-download-bundle/command.stdout.log",
+      "stderrPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/coding-executor-local-oss/artifact-download-bundle/command.stderr.log",
+      "diagnosticsPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/coding-executor-local-oss/artifact-download-bundle/trace-diagnostics.json",
+      "lastStudioProofTrace": "outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=2800 max_tokens=384",
+      "lastProviderError": null
+    }
+  ],
+  "summaryPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/coding-executor-local-oss/summary.json",
+  "runRootPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-49-58-220Z/coding-executor-local-oss"
+}

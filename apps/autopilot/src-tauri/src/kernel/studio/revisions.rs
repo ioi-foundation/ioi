@@ -581,6 +581,14 @@ pub(super) fn apply_revision_to_studio_session(
     studio_session.materialization.winning_candidate_id = revision.winning_candidate_id.clone();
     studio_session.materialization.winning_candidate_rationale =
         revision.judge.as_ref().map(|judge| judge.rationale.clone());
+    studio_session.materialization.execution_envelope = revision.execution_envelope.clone();
+    studio_session.materialization.swarm_plan = revision.swarm_plan.clone();
+    studio_session.materialization.swarm_execution = revision.swarm_execution.clone();
+    studio_session.materialization.swarm_worker_receipts = revision.swarm_worker_receipts.clone();
+    studio_session.materialization.swarm_change_receipts = revision.swarm_change_receipts.clone();
+    studio_session.materialization.swarm_merge_receipts = revision.swarm_merge_receipts.clone();
+    studio_session.materialization.swarm_verification_receipts =
+        revision.swarm_verification_receipts.clone();
     studio_session.materialization.render_evaluation = revision.render_evaluation.clone();
     studio_session.materialization.judge = revision.judge.clone();
     studio_session.materialization.output_origin = revision.output_origin;
@@ -911,6 +919,16 @@ fn build_revision_from_session(
         edit_intent: studio_session.materialization.edit_intent.clone(),
         candidate_summaries: studio_session.materialization.candidate_summaries.clone(),
         winning_candidate_id: studio_session.materialization.winning_candidate_id.clone(),
+        execution_envelope: studio_session.materialization.execution_envelope.clone(),
+        swarm_plan: studio_session.materialization.swarm_plan.clone(),
+        swarm_execution: studio_session.materialization.swarm_execution.clone(),
+        swarm_worker_receipts: studio_session.materialization.swarm_worker_receipts.clone(),
+        swarm_change_receipts: studio_session.materialization.swarm_change_receipts.clone(),
+        swarm_merge_receipts: studio_session.materialization.swarm_merge_receipts.clone(),
+        swarm_verification_receipts: studio_session
+            .materialization
+            .swarm_verification_receipts
+            .clone(),
         render_evaluation: studio_session.materialization.render_evaluation.clone(),
         judge: studio_session.materialization.judge.clone(),
         output_origin: studio_session.materialization.output_origin,

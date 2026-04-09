@@ -46,11 +46,11 @@ where
 
 #[test]
 #[ignore = "requires Chromium runtime, MiniWoB bridge helper, and local task assets"]
-fn computer_use_suite_oracle_smoke() -> anyhow::Result<()> {
+fn computer_use_suite_oracle_baseline() -> anyhow::Result<()> {
     run_computer_use_suite_test(|| async {
         let mut config = computer_use_suite::config_from_env()?;
         config.modes = vec![computer_use_suite::types::ComputerUseMode::Oracle];
-        config.task_set = computer_use_suite::types::TaskSet::Smoke;
+        config.task_set = computer_use_suite::types::TaskSet::Baseline;
         computer_use_suite::run_computer_use_suite(config).await?;
         Ok(())
     })
@@ -58,11 +58,11 @@ fn computer_use_suite_oracle_smoke() -> anyhow::Result<()> {
 
 #[test]
 #[ignore = "requires Chromium runtime, MiniWoB bridge helper, and local task assets"]
-fn computer_use_suite_runtime_smoke() -> anyhow::Result<()> {
+fn computer_use_suite_runtime_baseline() -> anyhow::Result<()> {
     run_computer_use_suite_test(|| async {
         let mut config = computer_use_suite::config_from_env()?;
         config.modes = vec![computer_use_suite::types::ComputerUseMode::Runtime];
-        config.task_set = computer_use_suite::types::TaskSet::Smoke;
+        config.task_set = computer_use_suite::types::TaskSet::Baseline;
         computer_use_suite::run_computer_use_suite(config).await?;
         Ok(())
     })
@@ -70,11 +70,11 @@ fn computer_use_suite_runtime_smoke() -> anyhow::Result<()> {
 
 #[test]
 #[ignore = "requires Chromium runtime, MiniWoB bridge helper, and local task assets"]
-fn computer_use_suite_agent_smoke() -> anyhow::Result<()> {
+fn computer_use_suite_agent_baseline() -> anyhow::Result<()> {
     run_computer_use_suite_test(|| async {
         let mut config = computer_use_suite::config_from_env()?;
         config.modes = vec![computer_use_suite::types::ComputerUseMode::Agent];
-        config.task_set = computer_use_suite::types::TaskSet::Smoke;
+        config.task_set = computer_use_suite::types::TaskSet::Baseline;
         computer_use_suite::run_computer_use_suite(config).await?;
         Ok(())
     })

@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::Value;
 
 #[tauri::command]
 pub async fn automation_create_monitor(
@@ -67,6 +68,15 @@ pub async fn workflow_run_now(
     workflow_id: String,
 ) -> Result<WorkflowRunReceipt, String> {
     manager.run_workflow_now(&workflow_id).await
+}
+
+#[tauri::command]
+pub async fn workflow_trigger_remote(
+    manager: State<'_, WorkflowManager>,
+    workflow_id: String,
+    payload: Option<Value>,
+) -> Result<WorkflowRunReceipt, String> {
+    manager.trigger_workflow_remote(&workflow_id, payload).await
 }
 
 #[tauri::command]

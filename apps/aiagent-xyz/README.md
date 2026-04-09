@@ -1,30 +1,66 @@
 # aiagent.xyz
 
-**The Economy of Agency.**
+**Composable autonomous supply for the IOI network.**
 
-`aiagent.xyz` is the official marketplace and discovery layer for the [IOI Network](https://ioi.network). It serves as the decentralized "App Store" where users can hire autonomous agents, and the "Freelance Foundry" where developers can earn bounties for building them.
+`aiagent.xyz` is the supply-side marketplace and packaging layer for the [IOI Network](https://ioi.network). It is where builders discover, publish, compose, license, and run verifiable autonomous capabilities, including agents, workflows, swarms, operator packs, service modules, and embodied runtimes.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Status](https://img.shields.io/badge/status-alpha-orange.svg)
 
 ## 🏗 Architecture
 
-This repository contains the **Demand-Side Interface** for the IOI Protocol. It connects users (Demand) with Agents (Supply).
+This repository contains the **supply-side interface** for the IOI protocol. It is the place where autonomous components are packaged and traded before the most mature offerings are promoted into `sas.xyz` as finished, outcome-based services.
 
 *   **Framework:** React + Vite
 *   **Styling:** Tailwind CSS (Utility-first, High-density)
 *   **Routing:** React Router v6
 *   **State:** Local React State (Mocked for Prototype)
 
+### Rule of Abstraction
+
+Use this rule across the ecosystem:
+
+*   If the buyer is choosing **how it works**, it belongs closer to **aiagent.xyz**.
+*   If the buyer is choosing **what result they want**, it belongs closer to **sas.xyz**.
+
+That keeps the boundary based on abstraction level rather than company size or deal size.
+
 ### Key Modules
 
 | Module | Route | Description |
 | :--- | :--- | :--- |
-| **Marketplace** | `/` | Browse, filter, and rent verified agents. |
+| **Explore** | `/` | Browse and filter packaged autonomous capabilities by execution shape. |
+| **Workflows / Services** | `/?format=Workflow` / `/?format=Service Module` | Navigate reusable workflows and packaged service modules. |
 | **Freelance** | `/freelance` | The "Request for Agent" (RFA) job board. |
-| **Foundry** | `/post-job` | Create new Test-Driven Bounties. |
-| **Command Center** | `/dashboard` | Manage active fleet, earnings, and listings. |
+| **Publish** | `/sell` | Package a new agent, workflow, operator pack, or service module. |
+| **Foundry** | `/post-job` | Create new test-driven bounties for net-new capabilities. |
+| **Command Center** | `/dashboard` | Manage active deployments, earnings, and listings. |
 | **Identity** | `/profile/:id` | Reputation and verification badges for developers. |
+
+### Listing Taxonomy
+
+`aiagent.xyz` classifies the market by execution shape:
+
+*   Agents
+*   Workflows
+*   Swarms
+*   Operator Packs
+*   Service Modules
+*   Embodied Runtimes
+
+The goal is to let builders package composables without forcing every listing to pretend it is already a full enterprise service.
+
+### Commercial Models
+
+Supply-side pricing belongs here:
+
+*   metered execution
+*   license
+*   rev share
+*   lease
+*   settlement-based compensation
+
+When a listing matures into a governed, buyer-facing service with SLAs and outcome contracts, it can be promoted into `sas.xyz`.
 
 ## 🚀 Getting Started
 
@@ -68,6 +104,19 @@ Currently, this frontend operates in **Prototype Mode**.
 *   **IOI SDK:** For real wallet signatures and `AuthToken` generation.
 *   **The Graph / Indexer:** For fetching live Agent Manifests from the chain.
 *   **IPFS Gateway:** For resolving agent icons and descriptions.
+
+## 🚀 Promotion Path
+
+Strong listings on `aiagent.xyz` should not dead-end in the marketplace. The intended maturity ladder is:
+
+1.  Agent
+2.  Workflow
+3.  Operator Pack
+4.  Service Module
+5.  Managed Service
+6.  Enterprise SaS Offering
+
+`aiagent.xyz` supplies the verified components. `sas.xyz` assembles those components into outcome-based services with SLAs, governance, escalation, and reporting.
 
 ## 🎨 Design System
 

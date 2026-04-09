@@ -16,6 +16,7 @@ const POLICY_APPROVAL_PREFIX: &str = "SHIELD_APPROVAL_REQUIRED:";
 const POLICY_RULE_PREFIX: &[u8] = b"policy::";
 const SHIELD_POLICY_RULE_PREFIX: &str = "shield_policy::";
 const SHIELD_POLICY_OVERRIDE_ROSTER_RULE_ID: &str = "shield_policy::meta::override_roster";
+const SHIELD_POLICY_MEMORY_FILE: &str = "shield_policy_memory.json";
 const POLICY_FIELD_READS: &str = "reads";
 const POLICY_FIELD_WRITES: &str = "writes";
 const POLICY_FIELD_ADMIN: &str = "admin";
@@ -23,6 +24,8 @@ const POLICY_FIELD_EXPERT: &str = "expert";
 const POLICY_FIELD_AUTOMATIONS: &str = "automations";
 const POLICY_FIELD_DATA_HANDLING: &str = "data_handling";
 const POLICY_FIELD_INHERIT_GLOBAL: &str = "inherit_global";
+const MAX_REMEMBERED_APPROVALS: usize = 48;
+const MAX_REMEMBERED_APPROVAL_RECEIPTS: usize = 24;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -133,20 +136,133 @@ pub struct ShieldApprovalRequest {
     pub action_id: String,
     pub action_label: String,
     pub message: String,
+    #[serde(default)]
+    pub policy_family: Option<String>,
+    #[serde(default)]
+    pub scope_key: Option<String>,
+    #[serde(default)]
+    pub scope_label: Option<String>,
+    #[serde(default)]
+    pub rememberable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ShieldApprovalScopeMode {
+    #[default]
+    ExactAction,
+    ConnectorPolicyFamily,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShieldRememberedApprovalDecision {
+    pub decision_id: String,
+    pub connector_id: String,
+    pub action_id: String,
+    pub action_label: String,
+    pub policy_family: String,
+    pub scope_key: String,
+    pub scope_label: String,
+    #[serde(default)]
+    pub scope_mode: ShieldApprovalScopeMode,
+    pub source_label: String,
+    pub created_at_ms: u64,
+    #[serde(default)]
+    pub last_matched_at_ms: Option<u64>,
+    #[serde(default)]
+    pub expires_at_ms: Option<u64>,
+    pub match_count: u32,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShieldApprovalHookReceipt {
+    pub receipt_id: String,
+    pub timestamp_ms: u64,
+    pub hook_kind: String,
+    pub status: String,
+    pub summary: String,
+    pub connector_id: String,
+    pub action_id: String,
+    #[serde(default)]
+    pub decision_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShieldRememberedApprovalSnapshot {
+    pub generated_at_ms: u64,
+    pub active_decision_count: usize,
+    pub recent_receipt_count: usize,
+    #[serde(default)]
+    pub decisions: Vec<ShieldRememberedApprovalDecision>,
+    #[serde(default)]
+    pub recent_receipts: Vec<ShieldApprovalHookReceipt>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShieldRememberApprovalInput {
+    pub connector_id: String,
+    pub action_id: String,
+    pub action_label: String,
+    pub policy_family: String,
+    #[serde(default)]
+    pub scope_key: Option<String>,
+    #[serde(default)]
+    pub scope_label: Option<String>,
+    #[serde(default)]
+    pub source_label: Option<String>,
+    #[serde(default)]
+    pub scope_mode: Option<ShieldApprovalScopeMode>,
+    #[serde(default)]
+    pub expires_at_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShieldRememberedApprovalScopeUpdateInput {
+    pub decision_id: String,
+    pub scope_mode: ShieldApprovalScopeMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShieldRememberedApprovalExpiryUpdateInput {
+    pub decision_id: String,
+    #[serde(default)]
+    pub expires_at_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct ShieldApprovalMemoryState {
+    #[serde(default)]
+    decisions: Vec<ShieldRememberedApprovalDecision>,
+    #[serde(default)]
+    recent_receipts: Vec<ShieldApprovalHookReceipt>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ShieldPolicyManager {
     path: Arc<PathBuf>,
     state: Arc<Mutex<ShieldPolicyState>>,
+    approval_memory_path: Arc<PathBuf>,
+    approval_memory: Arc<Mutex<ShieldApprovalMemoryState>>,
 }
 
 impl ShieldPolicyManager {
     pub fn new(path: PathBuf) -> Self {
         let state = load_policy_state(&path).unwrap_or_default();
+        let approval_memory_path = approval_memory_path_for(&path);
+        let approval_memory = load_approval_memory_state(&approval_memory_path).unwrap_or_default();
         Self {
             path: Arc::new(path),
             state: Arc::new(Mutex::new(state)),
+            approval_memory_path: Arc::new(approval_memory_path),
+            approval_memory: Arc::new(Mutex::new(approval_memory)),
         }
     }
 
@@ -175,6 +291,504 @@ impl ShieldPolicyManager {
     pub fn resolve_connector_policy(&self, connector_id: &str) -> ResolvedConnectorPolicy {
         let state = self.state.lock().expect("shield policy lock poisoned");
         resolve_connector_policy_from_state(&state, connector_id)
+    }
+
+    fn replace_approval_memory_state(
+        &self,
+        next_state: ShieldApprovalMemoryState,
+    ) -> Result<ShieldApprovalMemoryState, String> {
+        let normalized = normalize_approval_memory_state(next_state);
+        persist_approval_memory_state(&self.approval_memory_path, &normalized)?;
+        let mut state = self
+            .approval_memory
+            .lock()
+            .expect("shield approval memory lock poisoned");
+        *state = normalized.clone();
+        Ok(normalized)
+    }
+
+    pub fn approval_snapshot(&self) -> ShieldRememberedApprovalSnapshot {
+        let now = crate::kernel::state::now();
+        let mut state = self
+            .approval_memory
+            .lock()
+            .expect("shield approval memory lock poisoned")
+            .clone();
+        if sweep_expired_approvals(&mut state, now) {
+            if let Ok(next_state) = self.replace_approval_memory_state(state) {
+                return approval_snapshot_from_state(&next_state);
+            }
+            let fallback = self
+                .approval_memory
+                .lock()
+                .expect("shield approval memory lock poisoned")
+                .clone();
+            return approval_snapshot_from_state(&fallback);
+        }
+        approval_snapshot_from_state(&state)
+    }
+
+    pub fn remember_approval(
+        &self,
+        input: ShieldRememberApprovalInput,
+    ) -> Result<ShieldRememberedApprovalSnapshot, String> {
+        let now = crate::kernel::state::now();
+        let mut state = self
+            .approval_memory
+            .lock()
+            .expect("shield approval memory lock poisoned")
+            .clone();
+        sweep_expired_approvals(&mut state, now);
+        let requested_scope_mode = input.scope_mode.clone();
+        let requested_expiry = input.expires_at_ms;
+        let source_label = normalize_source_label(input.source_label.as_deref());
+
+        if let Some(existing_index) = state.decisions.iter().position(|decision| {
+            decision.connector_id == input.connector_id
+                && decision.action_id == input.action_id
+                && decision.policy_family == input.policy_family
+                && decision.scope_mode
+                    == requested_scope_mode
+                        .clone()
+                        .unwrap_or_else(|| decision.scope_mode.clone())
+        }) {
+            let (decision_id, connector_id, action_id, action_label, scope_label) = {
+                let existing = &mut state.decisions[existing_index];
+                let next_scope_mode = requested_scope_mode
+                    .clone()
+                    .unwrap_or_else(|| existing.scope_mode.clone());
+                let (scope_key, scope_label) = derive_scope_identity(
+                    &next_scope_mode,
+                    &existing.connector_id,
+                    &existing.action_id,
+                    input.action_label.as_str(),
+                    &existing.policy_family,
+                    input.scope_key.as_deref(),
+                    input.scope_label.as_deref(),
+                );
+                existing.action_label = input.action_label.clone();
+                existing.scope_key = scope_key;
+                existing.scope_label = scope_label.clone();
+                existing.scope_mode = next_scope_mode;
+                existing.source_label = source_label.clone();
+                if requested_expiry.is_some() {
+                    existing.expires_at_ms = requested_expiry;
+                }
+                existing.status = "active".to_string();
+                (
+                    existing.decision_id.clone(),
+                    existing.connector_id.clone(),
+                    existing.action_id.clone(),
+                    existing.action_label.clone(),
+                    existing.scope_label.clone(),
+                )
+            };
+            push_approval_hook_receipt(
+                &mut state,
+                ShieldApprovalHookReceipt {
+                    receipt_id: format!("remember:{}:{now}", decision_id),
+                    timestamp_ms: now,
+                    hook_kind: "post_run_evidence_hook".to_string(),
+                    status: "recorded".to_string(),
+                    summary: format!(
+                        "Remembered approval for {} on {}.",
+                        action_label, scope_label
+                    ),
+                    connector_id,
+                    action_id,
+                    decision_id: Some(decision_id),
+                },
+            );
+            let next_state = self.replace_approval_memory_state(state)?;
+            return Ok(approval_snapshot_from_state(&next_state));
+        }
+
+        let connector_id = input.connector_id.trim().to_string();
+        let action_id = input.action_id.trim().to_string();
+        let action_label = input.action_label.trim().to_string();
+        let policy_family = input.policy_family.trim().to_string();
+        let scope_mode = input.scope_mode.unwrap_or_default();
+        let (scope_key, scope_label) = derive_scope_identity(
+            &scope_mode,
+            &connector_id,
+            &action_id,
+            &action_label,
+            &policy_family,
+            input.scope_key.as_deref(),
+            input.scope_label.as_deref(),
+        );
+        let decision_id = format!(
+            "shield-approval:{}:{}:{}:{}:{}",
+            connector_id,
+            action_id,
+            policy_family,
+            scope_mode_token(&scope_mode),
+            hex::encode(scope_key.as_bytes())
+        );
+        let decision = ShieldRememberedApprovalDecision {
+            decision_id: decision_id.clone(),
+            connector_id: connector_id.clone(),
+            action_id: action_id.clone(),
+            action_label: action_label.clone(),
+            policy_family,
+            scope_key: scope_key.clone(),
+            scope_label: scope_label.clone(),
+            scope_mode,
+            source_label,
+            created_at_ms: now,
+            last_matched_at_ms: None,
+            expires_at_ms: requested_expiry,
+            match_count: 0,
+            status: "active".to_string(),
+        };
+        state
+            .decisions
+            .retain(|existing| existing.decision_id != decision_id);
+        state.decisions.insert(0, decision);
+        if state.decisions.len() > MAX_REMEMBERED_APPROVALS {
+            state.decisions.truncate(MAX_REMEMBERED_APPROVALS);
+        }
+        push_approval_hook_receipt(
+            &mut state,
+            ShieldApprovalHookReceipt {
+                receipt_id: format!("remember:{}:{now}", decision_id),
+                timestamp_ms: now,
+                hook_kind: "post_run_evidence_hook".to_string(),
+                status: "recorded".to_string(),
+                summary: format!(
+                    "Remembered approval for {} on {}.",
+                    action_label, scope_label
+                ),
+                connector_id,
+                action_id,
+                decision_id: Some(decision_id),
+            },
+        );
+        let next_state = self.replace_approval_memory_state(state)?;
+        Ok(approval_snapshot_from_state(&next_state))
+    }
+
+    pub fn forget_approval(
+        &self,
+        decision_id: &str,
+    ) -> Result<ShieldRememberedApprovalSnapshot, String> {
+        let trimmed = decision_id.trim();
+        if trimmed.is_empty() {
+            return Err("Decision id is required.".to_string());
+        }
+        let now = crate::kernel::state::now();
+        let mut state = self
+            .approval_memory
+            .lock()
+            .expect("shield approval memory lock poisoned")
+            .clone();
+        sweep_expired_approvals(&mut state, now);
+        let Some(removed) = state
+            .decisions
+            .iter()
+            .find(|decision| decision.decision_id == trimmed)
+            .cloned()
+        else {
+            return Err(format!("Unknown remembered approval '{}'.", trimmed));
+        };
+        state
+            .decisions
+            .retain(|decision| decision.decision_id != trimmed);
+        push_approval_hook_receipt(
+            &mut state,
+            ShieldApprovalHookReceipt {
+                receipt_id: format!("forget:{}:{now}", trimmed),
+                timestamp_ms: now,
+                hook_kind: "post_run_evidence_hook".to_string(),
+                status: "revoked".to_string(),
+                summary: format!("Revoked remembered approval for {}.", removed.action_label),
+                connector_id: removed.connector_id,
+                action_id: removed.action_id,
+                decision_id: Some(trimmed.to_string()),
+            },
+        );
+        let next_state = self.replace_approval_memory_state(state)?;
+        Ok(approval_snapshot_from_state(&next_state))
+    }
+
+    pub fn set_approval_scope_mode(
+        &self,
+        input: ShieldRememberedApprovalScopeUpdateInput,
+    ) -> Result<ShieldRememberedApprovalSnapshot, String> {
+        let decision_id = input.decision_id.trim();
+        if decision_id.is_empty() {
+            return Err("Decision id is required.".to_string());
+        }
+        let now = crate::kernel::state::now();
+        let mut state = self
+            .approval_memory
+            .lock()
+            .expect("shield approval memory lock poisoned")
+            .clone();
+        sweep_expired_approvals(&mut state, now);
+        let Some(decision_index) = state
+            .decisions
+            .iter()
+            .position(|decision| decision.decision_id == decision_id)
+        else {
+            return Err(format!("Unknown remembered approval '{}'.", decision_id));
+        };
+        let (connector_id, action_id, action_label, next_scope_label) = {
+            let decision = &mut state.decisions[decision_index];
+            let (scope_key, scope_label) = derive_scope_identity(
+                &input.scope_mode,
+                &decision.connector_id,
+                &decision.action_id,
+                &decision.action_label,
+                &decision.policy_family,
+                None,
+                None,
+            );
+            decision.scope_mode = input.scope_mode.clone();
+            decision.scope_key = scope_key;
+            decision.scope_label = scope_label.clone();
+            (
+                decision.connector_id.clone(),
+                decision.action_id.clone(),
+                decision.action_label.clone(),
+                scope_label,
+            )
+        };
+        push_approval_hook_receipt(
+            &mut state,
+            ShieldApprovalHookReceipt {
+                receipt_id: format!("scope-update:{}:{now}", decision_id),
+                timestamp_ms: now,
+                hook_kind: "post_run_evidence_hook".to_string(),
+                status: "updated".to_string(),
+                summary: format!(
+                    "Updated remembered approval scope for {} to {}.",
+                    action_label, next_scope_label
+                ),
+                connector_id,
+                action_id,
+                decision_id: Some(decision_id.to_string()),
+            },
+        );
+        let next_state = self.replace_approval_memory_state(state)?;
+        Ok(approval_snapshot_from_state(&next_state))
+    }
+
+    pub fn set_approval_expiry(
+        &self,
+        input: ShieldRememberedApprovalExpiryUpdateInput,
+    ) -> Result<ShieldRememberedApprovalSnapshot, String> {
+        let decision_id = input.decision_id.trim();
+        if decision_id.is_empty() {
+            return Err("Decision id is required.".to_string());
+        }
+        let now = crate::kernel::state::now();
+        let mut state = self
+            .approval_memory
+            .lock()
+            .expect("shield approval memory lock poisoned")
+            .clone();
+        sweep_expired_approvals(&mut state, now);
+        let Some(decision_index) = state
+            .decisions
+            .iter()
+            .position(|decision| decision.decision_id == decision_id)
+        else {
+            return Err(format!("Unknown remembered approval '{}'.", decision_id));
+        };
+        let (connector_id, action_id, action_label, expiry_summary) = {
+            let decision = &mut state.decisions[decision_index];
+            decision.expires_at_ms = input.expires_at_ms;
+            (
+                decision.connector_id.clone(),
+                decision.action_id.clone(),
+                decision.action_label.clone(),
+                match input.expires_at_ms {
+                    Some(expires_at_ms) => {
+                        format!("now expires at {}.", expires_at_ms)
+                    }
+                    None => "no longer expires automatically.".to_string(),
+                },
+            )
+        };
+        push_approval_hook_receipt(
+            &mut state,
+            ShieldApprovalHookReceipt {
+                receipt_id: format!("expiry-update:{}:{now}", decision_id),
+                timestamp_ms: now,
+                hook_kind: "post_run_evidence_hook".to_string(),
+                status: "updated".to_string(),
+                summary: format!(
+                    "Updated remembered approval expiry for {} so it {}",
+                    action_label, expiry_summary
+                ),
+                connector_id,
+                action_id,
+                decision_id: Some(decision_id.to_string()),
+            },
+        );
+        sweep_expired_approvals(&mut state, now);
+        let next_state = self.replace_approval_memory_state(state)?;
+        Ok(approval_snapshot_from_state(&next_state))
+    }
+
+    pub fn match_remembered_approval(
+        &self,
+        connector_id: &str,
+        action_id: &str,
+        policy_family: &str,
+        scope_key: Option<&str>,
+        action_label: &str,
+    ) -> bool {
+        let connector_id = connector_id.trim();
+        let action_id = action_id.trim();
+        let policy_family = policy_family.trim();
+        if connector_id.is_empty() || action_id.is_empty() || policy_family.is_empty() {
+            return false;
+        }
+        let now = crate::kernel::state::now();
+        let scope_key = normalize_scope_key(scope_key);
+        let mut state = self
+            .approval_memory
+            .lock()
+            .expect("shield approval memory lock poisoned")
+            .clone();
+        let mut changed = sweep_expired_approvals(&mut state, now);
+        let Some(decision_index) = state.decisions.iter().position(|decision| {
+            decision_matches_request(decision, connector_id, action_id, policy_family, &scope_key)
+        }) else {
+            if let Some((mismatched_decision_id, mismatched_action_label, mismatched_scope_label)) =
+                state
+                    .decisions
+                    .iter()
+                    .find(|decision| {
+                        decision.status == "active"
+                            && decision.connector_id == connector_id
+                            && decision.policy_family == policy_family
+                            && !decision_matches_request(
+                                decision,
+                                connector_id,
+                                action_id,
+                                policy_family,
+                                &scope_key,
+                            )
+                    })
+                    .map(|decision| {
+                        (
+                            decision.decision_id.clone(),
+                            decision.action_label.clone(),
+                            decision.scope_label.clone(),
+                        )
+                    })
+            {
+                push_approval_hook_receipt(
+                    &mut state,
+                    ShieldApprovalHookReceipt {
+                        receipt_id: format!(
+                            "scope-mismatch:{}:{}:{now}",
+                            connector_id, action_id
+                        ),
+                        timestamp_ms: now,
+                        hook_kind: "pre_run_approval_hook".to_string(),
+                        status: "scope_mismatch".to_string(),
+                        summary: format!(
+                            "Remembered approval for {} did not auto-match because it is scoped to {}.",
+                            mismatched_action_label, mismatched_scope_label
+                        ),
+                        connector_id: connector_id.to_string(),
+                        action_id: action_id.to_string(),
+                        decision_id: Some(mismatched_decision_id),
+                    },
+                );
+                changed = true;
+            }
+            if changed {
+                let _ = self.replace_approval_memory_state(state);
+            }
+            return false;
+        };
+        let (decision_id, remembered_action_label, scope_label) = {
+            let decision = &mut state.decisions[decision_index];
+            decision.last_matched_at_ms = Some(now);
+            decision.match_count = decision.match_count.saturating_add(1);
+            (
+                decision.decision_id.clone(),
+                decision.action_label.clone(),
+                decision.scope_label.clone(),
+            )
+        };
+        push_approval_hook_receipt(
+            &mut state,
+            ShieldApprovalHookReceipt {
+                receipt_id: format!("match:{}:{now}", decision_id),
+                timestamp_ms: now,
+                hook_kind: "pre_run_approval_hook".to_string(),
+                status: "matched".to_string(),
+                summary: format!(
+                    "Used remembered approval for {} within {}.",
+                    if action_label.trim().is_empty() {
+                        remembered_action_label.as_str()
+                    } else {
+                        action_label.trim()
+                    },
+                    scope_label
+                ),
+                connector_id: connector_id.to_string(),
+                action_id: action_id.to_string(),
+                decision_id: Some(decision_id),
+            },
+        );
+        self.replace_approval_memory_state(state).is_ok()
+    }
+
+    pub fn record_blocker_escalation(
+        &self,
+        connector_id: &str,
+        action_id: &str,
+        action_label: &str,
+        policy_family: &str,
+        scope_key: Option<&str>,
+    ) {
+        let now = crate::kernel::state::now();
+        let connector_id = connector_id.trim().to_string();
+        let action_id = action_id.trim().to_string();
+        if connector_id.is_empty() || action_id.is_empty() {
+            return;
+        }
+        let scope_label = normalize_scope_label(scope_key, &normalize_scope_key(scope_key));
+        let summary = format!(
+            "Approval required for {} ({} · {}).",
+            if action_label.trim().is_empty() {
+                action_id.as_str()
+            } else {
+                action_label.trim()
+            },
+            if policy_family.trim().is_empty() {
+                "governed"
+            } else {
+                policy_family.trim()
+            },
+            scope_label
+        );
+        let mut state = self
+            .approval_memory
+            .lock()
+            .expect("shield approval memory lock poisoned")
+            .clone();
+        push_approval_hook_receipt(
+            &mut state,
+            ShieldApprovalHookReceipt {
+                receipt_id: format!("blocker:{}:{}:{now}", connector_id, action_id),
+                timestamp_ms: now,
+                hook_kind: "blocker_escalation_hook".to_string(),
+                status: "requested".to_string(),
+                summary,
+                connector_id,
+                action_id,
+                decision_id: None,
+            },
+        );
+        let _ = self.replace_approval_memory_state(state);
     }
 }
 
@@ -257,6 +871,231 @@ fn persist_policy_state(path: &Path, state: &ShieldPolicyState) -> Result<(), St
 
 pub fn policy_state_path_for(data_dir: &Path) -> PathBuf {
     data_dir.join("shield_policy.json")
+}
+
+fn approval_memory_path_for(policy_path: &Path) -> PathBuf {
+    policy_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(SHIELD_POLICY_MEMORY_FILE)
+}
+
+fn normalize_scope_key(value: Option<&str>) -> String {
+    value
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("connector_action")
+        .to_string()
+}
+
+fn normalize_scope_label(value: Option<&str>, scope_key: &str) -> String {
+    value
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .unwrap_or(scope_key)
+        .to_string()
+}
+
+fn normalize_source_label(value: Option<&str>) -> String {
+    value
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .unwrap_or("operator")
+        .to_string()
+}
+
+fn scope_mode_token(value: &ShieldApprovalScopeMode) -> &'static str {
+    match value {
+        ShieldApprovalScopeMode::ExactAction => "exact_action",
+        ShieldApprovalScopeMode::ConnectorPolicyFamily => "connector_policy_family",
+    }
+}
+
+fn humanize_scope_subject(value: &str) -> String {
+    value
+        .trim()
+        .replace(['_', '-', '.'], " ")
+        .split_whitespace()
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => first.to_ascii_uppercase().to_string() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn derive_scope_identity(
+    scope_mode: &ShieldApprovalScopeMode,
+    connector_id: &str,
+    action_id: &str,
+    action_label: &str,
+    policy_family: &str,
+    requested_scope_key: Option<&str>,
+    requested_scope_label: Option<&str>,
+) -> (String, String) {
+    match scope_mode {
+        ShieldApprovalScopeMode::ExactAction => {
+            let fallback_scope_key = format!("connector:{}:action:{}", connector_id, action_id);
+            let scope_key = requested_scope_key
+                .map(|value| value.trim())
+                .filter(|value| !value.is_empty())
+                .unwrap_or(fallback_scope_key.as_str())
+                .to_string();
+            let fallback_scope_label = format!("{} · {}", connector_id, action_label.trim());
+            let scope_label = requested_scope_label
+                .map(|value| value.trim())
+                .filter(|value| !value.is_empty())
+                .unwrap_or(fallback_scope_label.as_str())
+                .to_string();
+            (scope_key, scope_label)
+        }
+        ShieldApprovalScopeMode::ConnectorPolicyFamily => (
+            format!("connector:{}:policy_family:{}", connector_id, policy_family),
+            format!(
+                "{} · {} family",
+                connector_id,
+                humanize_scope_subject(policy_family)
+            ),
+        ),
+    }
+}
+
+fn decision_matches_request(
+    decision: &ShieldRememberedApprovalDecision,
+    connector_id: &str,
+    action_id: &str,
+    policy_family: &str,
+    scope_key: &str,
+) -> bool {
+    if decision.status != "active"
+        || decision.connector_id != connector_id
+        || decision.policy_family != policy_family
+    {
+        return false;
+    }
+
+    match decision.scope_mode {
+        ShieldApprovalScopeMode::ExactAction => {
+            decision.action_id == action_id && decision.scope_key == scope_key
+        }
+        ShieldApprovalScopeMode::ConnectorPolicyFamily => true,
+    }
+}
+
+fn sweep_expired_approvals(state: &mut ShieldApprovalMemoryState, now: u64) -> bool {
+    let mut changed = false;
+    let mut active_decisions = Vec::with_capacity(state.decisions.len());
+    let mut expired_decisions = Vec::new();
+    for decision in state.decisions.drain(..) {
+        if decision.status == "active"
+            && decision
+                .expires_at_ms
+                .map(|expires_at_ms| expires_at_ms <= now)
+                .unwrap_or(false)
+        {
+            expired_decisions.push(decision);
+            changed = true;
+        } else {
+            active_decisions.push(decision);
+        }
+    }
+    state.decisions = active_decisions;
+    for decision in expired_decisions {
+        push_approval_hook_receipt(
+            state,
+            ShieldApprovalHookReceipt {
+                receipt_id: format!("expired:{}:{now}", decision.decision_id),
+                timestamp_ms: now,
+                hook_kind: "pre_run_approval_hook".to_string(),
+                status: "expired".to_string(),
+                summary: format!(
+                    "Remembered approval for {} expired and no longer auto-matches {}.",
+                    decision.action_label, decision.scope_label
+                ),
+                connector_id: decision.connector_id,
+                action_id: decision.action_id,
+                decision_id: Some(decision.decision_id),
+            },
+        );
+    }
+    changed
+}
+
+fn normalize_approval_memory_state(
+    mut input: ShieldApprovalMemoryState,
+) -> ShieldApprovalMemoryState {
+    input
+        .decisions
+        .retain(|decision| decision.status == "active");
+    input
+        .decisions
+        .sort_by(|left, right| right.created_at_ms.cmp(&left.created_at_ms));
+    if input.decisions.len() > MAX_REMEMBERED_APPROVALS {
+        input.decisions.truncate(MAX_REMEMBERED_APPROVALS);
+    }
+    input
+        .recent_receipts
+        .sort_by(|left, right| right.timestamp_ms.cmp(&left.timestamp_ms));
+    if input.recent_receipts.len() > MAX_REMEMBERED_APPROVAL_RECEIPTS {
+        input
+            .recent_receipts
+            .truncate(MAX_REMEMBERED_APPROVAL_RECEIPTS);
+    }
+    input
+}
+
+fn load_approval_memory_state(path: &Path) -> Result<ShieldApprovalMemoryState, String> {
+    let raw = fs::read_to_string(path)
+        .map_err(|error| format!("Failed to read Shield approval memory: {}", error))?;
+    let parsed: ShieldApprovalMemoryState = serde_json::from_str(&raw)
+        .map_err(|error| format!("Failed to parse Shield approval memory: {}", error))?;
+    Ok(normalize_approval_memory_state(parsed))
+}
+
+fn persist_approval_memory_state(
+    path: &Path,
+    state: &ShieldApprovalMemoryState,
+) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            format!(
+                "Failed to create Shield approval memory directory: {}",
+                error
+            )
+        })?;
+    }
+    let raw = serde_json::to_vec_pretty(state)
+        .map_err(|error| format!("Failed to serialize Shield approval memory: {}", error))?;
+    fs::write(path, raw)
+        .map_err(|error| format!("Failed to persist Shield approval memory: {}", error))?;
+    Ok(())
+}
+
+fn push_approval_hook_receipt(
+    state: &mut ShieldApprovalMemoryState,
+    receipt: ShieldApprovalHookReceipt,
+) {
+    state.recent_receipts.insert(0, receipt);
+    if state.recent_receipts.len() > MAX_REMEMBERED_APPROVAL_RECEIPTS {
+        state
+            .recent_receipts
+            .truncate(MAX_REMEMBERED_APPROVAL_RECEIPTS);
+    }
+}
+
+fn approval_snapshot_from_state(
+    state: &ShieldApprovalMemoryState,
+) -> ShieldRememberedApprovalSnapshot {
+    ShieldRememberedApprovalSnapshot {
+        generated_at_ms: crate::kernel::state::now(),
+        active_decision_count: state.decisions.len(),
+        recent_receipt_count: state.recent_receipts.len(),
+        decisions: state.decisions.clone(),
+        recent_receipts: state.recent_receipts.clone(),
+    }
 }
 
 fn global_policy_fields() -> [&'static str; 6] {
@@ -707,6 +1546,40 @@ pub async fn current_policy_state(
     Ok(manager.current_state())
 }
 
+pub async fn current_remembered_approval_snapshot(
+    manager: State<'_, ShieldPolicyManager>,
+) -> Result<ShieldRememberedApprovalSnapshot, String> {
+    Ok(manager.approval_snapshot())
+}
+
+pub async fn remember_approval_in_runtime(
+    manager: State<'_, ShieldPolicyManager>,
+    input: ShieldRememberApprovalInput,
+) -> Result<ShieldRememberedApprovalSnapshot, String> {
+    manager.remember_approval(input)
+}
+
+pub async fn forget_approval_in_runtime(
+    manager: State<'_, ShieldPolicyManager>,
+    decision_id: String,
+) -> Result<ShieldRememberedApprovalSnapshot, String> {
+    manager.forget_approval(&decision_id)
+}
+
+pub async fn update_approval_scope_mode_in_runtime(
+    manager: State<'_, ShieldPolicyManager>,
+    input: ShieldRememberedApprovalScopeUpdateInput,
+) -> Result<ShieldRememberedApprovalSnapshot, String> {
+    manager.set_approval_scope_mode(input)
+}
+
+pub async fn update_approval_expiry_in_runtime(
+    manager: State<'_, ShieldPolicyManager>,
+    input: ShieldRememberedApprovalExpiryUpdateInput,
+) -> Result<ShieldRememberedApprovalSnapshot, String> {
+    manager.set_approval_expiry(input)
+}
+
 pub async fn replace_policy_state(
     state: State<'_, Mutex<AppState>>,
     manager: tauri::State<'_, ShieldPolicyManager>,
@@ -714,6 +1587,9 @@ pub async fn replace_policy_state(
 ) -> Result<ShieldPolicyState, String> {
     let previous = manager.current_state();
     let normalized = manager.replace_state(policy)?;
+    if !super::wallet_backed_bootstrap_enabled() {
+        return Ok(normalized);
+    }
     if let Err(error) = sync_policy_state_to_wallet(&state, &normalized).await {
         let _ = manager.replace_state(previous);
         return Err(error);
@@ -735,8 +1611,245 @@ pub fn approval_required_error(request: &ShieldApprovalRequest) -> String {
     format!("{}{}", POLICY_APPROVAL_PREFIX, payload)
 }
 
+#[cfg(test)]
 pub fn parse_approval_error(message: &str) -> Option<&str> {
     message
         .split_once(POLICY_APPROVAL_PREFIX)
         .map(|(_, payload)| payload)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_policy_path(name: &str) -> PathBuf {
+        let mut path = std::env::temp_dir();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time before unix epoch")
+            .as_nanos();
+        path.push(format!(
+            "ioi-shield-policy-{name}-{}-{nonce}.json",
+            std::process::id()
+        ));
+        path
+    }
+
+    fn cleanup_policy_artifacts(path: &Path) {
+        let _ = fs::remove_file(path);
+        let _ = fs::remove_file(approval_memory_path_for(path));
+    }
+
+    #[test]
+    fn remembered_approval_matches_and_records_hook_receipts() {
+        let path = temp_policy_path("remembered-approval");
+        cleanup_policy_artifacts(&path);
+
+        let manager = ShieldPolicyManager::new(path.clone());
+        let remembered = manager
+            .remember_approval(ShieldRememberApprovalInput {
+                connector_id: "google_workspace".to_string(),
+                action_id: "gmail.send_email".to_string(),
+                action_label: "Send Gmail reply".to_string(),
+                policy_family: "writes".to_string(),
+                scope_key: Some("connector:google_workspace:action:gmail.send_email".to_string()),
+                scope_label: Some("Google Workspace · Gmail send".to_string()),
+                source_label: Some("Connector panel".to_string()),
+                scope_mode: None,
+                expires_at_ms: None,
+            })
+            .expect("remember approval should succeed");
+
+        assert_eq!(remembered.active_decision_count, 1);
+        assert_eq!(remembered.decisions[0].match_count, 0);
+        assert!(manager.match_remembered_approval(
+            "google_workspace",
+            "gmail.send_email",
+            "writes",
+            Some("connector:google_workspace:action:gmail.send_email"),
+            "Send Gmail reply",
+        ));
+
+        let after_match = manager.approval_snapshot();
+        assert_eq!(after_match.active_decision_count, 1);
+        assert_eq!(after_match.decisions[0].match_count, 1);
+        assert!(
+            after_match
+                .recent_receipts
+                .iter()
+                .any(|receipt| receipt.hook_kind == "pre_run_approval_hook"
+                    && receipt.status == "matched"),
+            "expected remembered approval match receipt"
+        );
+
+        cleanup_policy_artifacts(&path);
+    }
+
+    #[test]
+    fn remembered_approval_can_broaden_scope_and_expire() {
+        let path = temp_policy_path("approval-scope-and-expiry");
+        cleanup_policy_artifacts(&path);
+
+        let manager = ShieldPolicyManager::new(path.clone());
+        let remembered = manager
+            .remember_approval(ShieldRememberApprovalInput {
+                connector_id: "google_workspace".to_string(),
+                action_id: "gmail.send_email".to_string(),
+                action_label: "Send Gmail reply".to_string(),
+                policy_family: "writes".to_string(),
+                scope_key: Some("connector:google_workspace:action:gmail.send_email".to_string()),
+                scope_label: Some("Google Workspace · Gmail send".to_string()),
+                source_label: Some("Connector panel".to_string()),
+                scope_mode: None,
+                expires_at_ms: None,
+            })
+            .expect("remember approval should succeed");
+
+        let decision_id = remembered.decisions[0].decision_id.clone();
+        let broadened = manager
+            .set_approval_scope_mode(ShieldRememberedApprovalScopeUpdateInput {
+                decision_id: decision_id.clone(),
+                scope_mode: ShieldApprovalScopeMode::ConnectorPolicyFamily,
+            })
+            .expect("broadened scope should persist");
+
+        assert_eq!(
+            broadened.decisions[0].scope_mode,
+            ShieldApprovalScopeMode::ConnectorPolicyFamily
+        );
+        assert_eq!(
+            broadened.decisions[0].scope_key,
+            "connector:google_workspace:policy_family:writes"
+        );
+        assert!(manager.match_remembered_approval(
+            "google_workspace",
+            "calendar.create_event",
+            "writes",
+            Some("connector:google_workspace:action:calendar.create_event"),
+            "Create Calendar event",
+        ));
+
+        let expired = manager
+            .set_approval_expiry(ShieldRememberedApprovalExpiryUpdateInput {
+                decision_id: decision_id.clone(),
+                expires_at_ms: Some(1),
+            })
+            .expect("expiry update should succeed");
+        assert_eq!(expired.active_decision_count, 0);
+        assert!(
+            expired
+                .recent_receipts
+                .iter()
+                .any(|receipt| receipt.status == "expired"
+                    && receipt.decision_id.as_deref() == Some(decision_id.as_str())),
+            "expected expiry receipt"
+        );
+        assert!(!manager.match_remembered_approval(
+            "google_workspace",
+            "gmail.send_email",
+            "writes",
+            Some("connector:google_workspace:action:gmail.send_email"),
+            "Send Gmail reply",
+        ));
+
+        cleanup_policy_artifacts(&path);
+    }
+
+    #[test]
+    fn remembered_approval_scope_mismatch_records_receipt() {
+        let path = temp_policy_path("approval-scope-mismatch");
+        cleanup_policy_artifacts(&path);
+
+        let manager = ShieldPolicyManager::new(path.clone());
+        manager
+            .remember_approval(ShieldRememberApprovalInput {
+                connector_id: "google_workspace".to_string(),
+                action_id: "gmail.send_email".to_string(),
+                action_label: "Send Gmail reply".to_string(),
+                policy_family: "writes".to_string(),
+                scope_key: Some("connector:google_workspace:action:gmail.send_email".to_string()),
+                scope_label: Some("Google Workspace · Gmail send".to_string()),
+                source_label: Some("Connector panel".to_string()),
+                scope_mode: None,
+                expires_at_ms: None,
+            })
+            .expect("remember approval should succeed");
+
+        assert!(!manager.match_remembered_approval(
+            "google_workspace",
+            "calendar.create_event",
+            "writes",
+            Some("connector:google_workspace:action:calendar.create_event"),
+            "Create Calendar event",
+        ));
+
+        let snapshot = manager.approval_snapshot();
+        assert!(
+            snapshot.recent_receipts.iter().any(|receipt| {
+                receipt.hook_kind == "pre_run_approval_hook"
+                    && receipt.status == "scope_mismatch"
+                    && receipt.connector_id == "google_workspace"
+                    && receipt.action_id == "calendar.create_event"
+            }),
+            "expected scope mismatch receipt"
+        );
+
+        cleanup_policy_artifacts(&path);
+    }
+
+    #[test]
+    fn forgetting_approval_and_blocker_escalation_update_memory_snapshot() {
+        let path = temp_policy_path("approval-forget");
+        cleanup_policy_artifacts(&path);
+
+        let manager = ShieldPolicyManager::new(path.clone());
+        let remembered = manager
+            .remember_approval(ShieldRememberApprovalInput {
+                connector_id: "google_workspace".to_string(),
+                action_id: "calendar.create_event".to_string(),
+                action_label: "Create Calendar event".to_string(),
+                policy_family: "writes".to_string(),
+                scope_key: Some(
+                    "connector:google_workspace:action:calendar.create_event".to_string(),
+                ),
+                scope_label: Some("Google Workspace · Calendar write".to_string()),
+                source_label: Some("Assistant workbench".to_string()),
+                scope_mode: None,
+                expires_at_ms: None,
+            })
+            .expect("remember approval should succeed");
+
+        let decision_id = remembered.decisions[0].decision_id.clone();
+        let forgotten = manager
+            .forget_approval(&decision_id)
+            .expect("forget approval should succeed");
+        assert_eq!(forgotten.active_decision_count, 0);
+        assert!(
+            forgotten
+                .recent_receipts
+                .iter()
+                .any(|receipt| receipt.status == "revoked"
+                    && receipt.decision_id.as_deref() == Some(decision_id.as_str())),
+            "expected revoked receipt for forgotten approval"
+        );
+
+        manager.record_blocker_escalation(
+            "google_workspace",
+            "calendar.create_event",
+            "Create Calendar event",
+            "writes",
+            Some("connector:google_workspace:action:calendar.create_event"),
+        );
+        let after_blocker = manager.approval_snapshot();
+        assert!(
+            after_blocker
+                .recent_receipts
+                .iter()
+                .any(|receipt| receipt.hook_kind == "blocker_escalation_hook"
+                    && receipt.status == "requested"),
+            "expected blocker escalation hook receipt"
+        );
+
+        cleanup_policy_artifacts(&path);
+    }
 }

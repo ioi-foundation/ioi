@@ -4,6 +4,7 @@ import type {
   AgentEvent,
   Artifact,
   ChatMessage,
+  PlanSelectedSkill,
 } from "../../../types";
 import {
   buildRunPresentation,
@@ -45,6 +46,14 @@ function activityRefsFromEvents(events: AgentEvent[]): ActivityEventRef[] {
           : "workload_event",
     event,
     toolName: String(event.digest?.tool_name || ""),
+  }));
+}
+
+function expectedSelectedSkills(...ids: string[]): PlanSelectedSkill[] {
+  return ids.map((id) => ({
+    id,
+    entryId: `skill:${id}`,
+    label: id.replace(/[_-]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
   }));
 }
 
@@ -396,6 +405,54 @@ function thoughtSummaryTest(): void {
     "Citation Audit",
   );
   assert.equal(presentation.thoughtSummary?.agents[1]?.agentKind, "verifier");
+  assert.equal(presentation.finalAnswer, null);
+}
+
+function clarificationReasoningFallbackTest(): void {
+  const history: ChatMessage[] = [
+    { role: "user", text: "Summarize this repo briefly.", timestamp: Date.now() - 5_000 },
+  ];
+
+  const reasoningClarification: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-clarification-reasoning",
+    step_index: 22,
+    event_type: "INFO_NOTE",
+    title: "Captured reasoning step",
+    digest: {},
+    details: {
+      content:
+        "To provide the correct function call, I need more details about the current goal and the history of actions taken so far. Could you please specify the goal and any relevant context or previous steps that have been executed?",
+    },
+  };
+
+  const presentation = buildRunPresentation(history, [reasoningClarification], []);
+  assert.ok(presentation.finalAnswer);
+  assert.equal(
+    presentation.finalAnswer?.displayText.includes("Could you please specify the goal"),
+    true,
+  );
+}
+
+function ordinaryReasoningDoesNotBecomeAnswerTest(): void {
+  const history: ChatMessage[] = [
+    { role: "user", text: "Summarize this repo briefly.", timestamp: Date.now() - 5_000 },
+  ];
+
+  const reasoningEvent: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-plain-reasoning",
+    step_index: 23,
+    event_type: "INFO_NOTE",
+    title: "Captured reasoning step",
+    digest: {},
+    details: {
+      content: "Compare source agreement and provide concise answer.",
+    },
+  };
+
+  const presentation = buildRunPresentation(history, [reasoningEvent], []);
+  assert.equal(presentation.finalAnswer, null);
 }
 
 function planSummaryCapturesTypedHierarchyTest(): void {
@@ -832,10 +889,13 @@ function planSummaryCarriesResearchPrepContext(): void {
   assert.equal(presentation.planSummary?.plannerAuthority, "kernel");
   assert.equal(presentation.planSummary?.verifierRole, "citation_verifier");
   assert.equal(presentation.planSummary?.verifierOutcome, null);
-  assert.deepEqual(presentation.planSummary?.selectedSkills, [
-    "research__benchmark_scorecard",
-    "research__citation_audit",
-  ]);
+  assert.deepEqual(
+    presentation.planSummary?.selectedSkills,
+    expectedSelectedSkills(
+      "research__benchmark_scorecard",
+      "research__citation_audit",
+    ),
+  );
   assert.equal(
     presentation.planSummary?.prepSummary,
     "Prior note: planner-specialist-verifier routing improved citation coverage on the last pass.",
@@ -982,9 +1042,10 @@ function planSummaryCarriesPrepContextFromCompletionOnlyReceipt(): void {
   const presentation = buildRunPresentation([], [artifactCompletion], []);
 
   assert.ok(presentation.planSummary);
-  assert.deepEqual(presentation.planSummary?.selectedSkills, [
-    "artifact__frontend_judge_spine",
-  ]);
+  assert.deepEqual(
+    presentation.planSummary?.selectedSkills,
+    expectedSelectedSkills("artifact__frontend_judge_spine"),
+  );
   assert.equal(
     presentation.planSummary?.prepSummary,
     "Prior note: keep the hero contrast crisp and the mobile CTA stack stable.",
@@ -1051,9 +1112,10 @@ function planSummaryMergesPrepContextAcrossSplitReceipts(): void {
   const presentation = buildRunPresentation([], [spawnedRoute, blockedRoute], []);
 
   assert.ok(presentation.planSummary);
-  assert.deepEqual(presentation.planSummary?.selectedSkills, [
-    "research__benchmark_scorecard",
-  ]);
+  assert.deepEqual(
+    presentation.planSummary?.selectedSkills,
+    expectedSelectedSkills("research__benchmark_scorecard"),
+  );
   assert.equal(
     presentation.planSummary?.prepSummary,
     "Planner chose the benchmark scorecard skill before verifier handoff.",
@@ -1423,9 +1485,10 @@ function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
 
   assert.ok(presentation.planSummary);
   assert.equal(presentation.planSummary?.routeFamily, "artifacts");
-  assert.deepEqual(presentation.planSummary?.selectedSkills, [
-    "artifact__frontend_judge_spine",
-  ]);
+  assert.deepEqual(
+    presentation.planSummary?.selectedSkills,
+    expectedSelectedSkills("artifact__frontend_judge_spine"),
+  );
   assert.equal(
     presentation.planSummary?.artifactGeneration?.status,
     "generated",
@@ -1789,6 +1852,8 @@ activitySummaryTest();
 sourceSummaryTest();
 sourceSummaryReceiptOnlyTest();
 thoughtSummaryTest();
+clarificationReasoningFallbackTest();
+ordinaryReasoningDoesNotBecomeAnswerTest();
 planSummaryCapturesTypedHierarchyTest();
 planSummaryFallsBackToSingleAgentResearchRoute();
 planSummaryUsesExplicitComputerUseRouteContract();

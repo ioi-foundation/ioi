@@ -1,3 +1,4 @@
+use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -8,16 +9,21 @@ use tauri::{
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 mod execution;
+pub mod file_context_proof;
 mod identity;
 mod ingestion;
 mod kernel;
 mod models;
 mod observability;
 mod orchestrator;
+pub mod plugin_proof;
 mod project;
+pub mod repl_cli;
+pub mod repl_proof;
 pub mod studio_proof;
 mod template;
 mod windows;
+pub mod workflow_proof;
 mod workspace;
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, UnavailableInferenceRuntime};
@@ -56,12 +62,50 @@ fn env_text(key: &str) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
-fn apply_dev_profile_defaults() {
-    let profile_is_local_gpu = env_text("AUTOPILOT_DATA_PROFILE")
-        .map(|profile| profile == "desktop-localgpu")
-        .unwrap_or(false);
+fn should_enable_local_gpu_profile_by_default(
+    local_gpu_dev_enabled: bool,
+    data_profile: Option<&str>,
+    explicit_local_preset: Option<&str>,
+    explicit_local_runtime_url: Option<&str>,
+    detected_hardware_profile: Option<&str>,
+) -> bool {
+    let normalized_profile = data_profile
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    if local_gpu_dev_enabled || matches!(normalized_profile, Some("desktop-localgpu")) {
+        return true;
+    }
+    if normalized_profile.is_some()
+        || explicit_local_preset
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty())
+        || explicit_local_runtime_url
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty())
+    {
+        return false;
+    }
+    detected_hardware_profile
+        .map(str::trim)
+        .is_some_and(|value| !value.is_empty())
+}
 
-    if is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV") || profile_is_local_gpu {
+fn apply_dev_profile_defaults() {
+    let local_gpu_dev_enabled = is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV");
+    let data_profile = env_text("AUTOPILOT_DATA_PROFILE");
+    let explicit_local_preset = env_text("AUTOPILOT_LOCAL_DEV_PRESET");
+    let explicit_local_runtime_url =
+        env_text("AUTOPILOT_LOCAL_RUNTIME_URL").or_else(|| env_text("LOCAL_LLM_URL"));
+    let detected_hardware_profile =
+        crate::kernel::local_engine::detect_local_gpu_hardware_profile();
+
+    if should_enable_local_gpu_profile_by_default(
+        local_gpu_dev_enabled,
+        data_profile.as_deref(),
+        explicit_local_preset.as_deref(),
+        explicit_local_runtime_url.as_deref(),
+        detected_hardware_profile.as_deref(),
+    ) {
         std::env::set_var("AUTOPILOT_LOCAL_GPU_DEV", "1");
         if env_text("AUTOPILOT_DATA_PROFILE").is_none() {
             std::env::set_var("AUTOPILOT_DATA_PROFILE", "desktop-localgpu");
@@ -69,6 +113,44 @@ fn apply_dev_profile_defaults() {
         if env_text("AUTOPILOT_RESET_DATA_ON_BOOT").is_none() {
             std::env::set_var("AUTOPILOT_RESET_DATA_ON_BOOT", "1");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_enable_local_gpu_profile_by_default;
+
+    #[test]
+    fn local_gpu_profile_auto_enables_for_detected_small_gpu_hosts() {
+        assert!(should_enable_local_gpu_profile_by_default(
+            false,
+            None,
+            None,
+            None,
+            Some("nvidia-vram-8gb-class"),
+        ));
+    }
+
+    #[test]
+    fn local_gpu_profile_respects_non_local_explicit_profile() {
+        assert!(!should_enable_local_gpu_profile_by_default(
+            false,
+            Some("desktop-default"),
+            None,
+            None,
+            Some("nvidia-vram-8gb-class"),
+        ));
+    }
+
+    #[test]
+    fn local_gpu_profile_respects_explicit_runtime_override() {
+        assert!(!should_enable_local_gpu_profile_by_default(
+            false,
+            None,
+            None,
+            Some("http://127.0.0.1:9000/v1/chat/completions"),
+            Some("nvidia-vram-8gb-class"),
+        ));
     }
 }
 
@@ -121,7 +203,11 @@ fn runtime_provenance_matches(
         let filtered_pairs = query
             .split('&')
             .filter(|pair| {
-                let key = pair.split_once('=').map(|(key, _)| key).unwrap_or(*pair).trim();
+                let key = pair
+                    .split_once('=')
+                    .map(|(key, _)| key)
+                    .unwrap_or(*pair)
+                    .trim();
                 !key.is_empty() && !key.eq_ignore_ascii_case("lane")
             })
             .collect::<Vec<_>>();
@@ -516,6 +602,9 @@ pub fn run() {
             let _ = app.manage(kernel::connectors::ShieldPolicyManager::new(
                 kernel::connectors::policy_state_path_for(&data_dir),
             ));
+            let _ = app.manage(kernel::plugins::PluginRuntimeManager::new(
+                kernel::plugins::plugin_runtime_state_path_for(&data_dir),
+            ));
             let wallet_auth_handle = app.handle().clone();
             let wallet_policy_handle = app.handle().clone();
             let workflow_handle = app.handle().clone();
@@ -603,11 +692,15 @@ pub fn run() {
                 true,
                 None::<&str>,
             )?;
+            let show_pill_item = MenuItem::with_id(app, "pill", "Show Pill", true, None::<&str>)?;
             let show_studio_item =
                 MenuItem::with_id(app, "studio", "Open Studio", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu =
-                Menu::with_items(app, &[&show_spotlight_item, &show_studio_item, &quit_item])?;
+                Menu::with_items(
+                    app,
+                    &[&show_spotlight_item, &show_pill_item, &show_studio_item, &quit_item],
+                )?;
 
             if let Some(icon) = app.default_window_icon().cloned() {
                 let _ = TrayIconBuilder::new()
@@ -616,6 +709,7 @@ pub fn run() {
                     .icon_as_template(true)
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "spotlight" => windows::show_spotlight(app.clone()),
+                        "pill" => windows::show_pill(app.clone()),
                         "studio" => windows::show_studio(app.clone()),
                         "quit" => std::process::exit(0),
                         _ => {}
@@ -639,7 +733,7 @@ pub fn run() {
                 .global_shortcut()
                 .on_shortcut(shortcut, move |_app, _shortcut, event| {
                     if event.state == ShortcutState::Pressed {
-                        if let Some(window) = app_handle.get_webview_window("studio") {
+                        if let Some(window) = app_handle.get_webview_window("spotlight") {
                             if window.is_visible().unwrap_or(false) {
                                 windows::hide_spotlight(app_handle.clone());
                             } else {
@@ -652,12 +746,46 @@ pub fn run() {
             #[cfg(not(target_os = "macos"))]
             {
                 let handle = app.handle().clone();
+                let start_surface = env_text("AUTOPILOT_DEV_START_SURFACE");
+                let start_intent = env_text("AUTOPILOT_DEV_START_INTENT");
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
-                    if let Some(window) = handle.get_webview_window("studio") {
-                        if let Ok(visible) = window.is_visible() {
-                            if !visible {
-                                windows::show_spotlight(handle);
+                    match start_surface.as_deref() {
+                        Some("studio") => {
+                            if let Some(intent) = start_intent.as_deref() {
+                                let _ = windows::show_studio_with_target(
+                                    handle.clone(),
+                                    json!({
+                                        "kind": "autopilot-intent",
+                                        "intent": intent,
+                                    }),
+                                );
+                            } else {
+                                windows::show_studio(handle);
+                            }
+                        }
+                        Some("spotlight") => {
+                            if let Some(window) = handle.get_webview_window("spotlight") {
+                                if let Ok(visible) = window.is_visible() {
+                                    if !visible {
+                                        windows::show_spotlight(handle);
+                                    }
+                                }
+                            }
+                        }
+                        Some("pill") => windows::show_pill(handle),
+                        Some("gate") => windows::show_gate(handle),
+                        _ => {
+                            if let Some(intent) = start_intent.as_deref() {
+                                let _ = windows::show_studio_with_target(
+                                    handle.clone(),
+                                    json!({
+                                        "kind": "autopilot-intent",
+                                        "intent": intent,
+                                    }),
+                                );
+                            } else {
+                                windows::show_studio(handle);
                             }
                         }
                     }
@@ -668,11 +796,20 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 kernel::monitor_kernel_events(monitor_handle).await;
             });
+            let session_projection_monitor_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                kernel::session::spawn_session_projection_monitor(
+                    session_projection_monitor_handle,
+                )
+                .await;
+            });
 
             println!("[Autopilot] Setup complete.");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            windows::show_pill,
+            windows::hide_pill,
             windows::show_spotlight,
             windows::hide_spotlight,
             windows::toggle_spotlight_sidebar,
@@ -681,7 +818,14 @@ pub fn run() {
             windows::show_gate,
             windows::hide_gate,
             windows::show_studio,
+            windows::show_studio_with_target,
             windows::hide_studio,
+            windows::set_pending_studio_launch,
+            windows::clear_pending_studio_launch,
+            windows::peek_pending_studio_launch,
+            windows::ack_pending_studio_launch,
+            windows::record_studio_launch_receipt,
+            windows::get_studio_launch_receipts,
             kernel::studio::studio_retry_renderer_session,
             kernel::studio::studio_attach_artifact_selection,
             kernel::studio::studio_compare_artifact_revisions,
@@ -692,16 +836,40 @@ pub fn run() {
             kernel::task::update_task,
             kernel::task::complete_task,
             kernel::task::dismiss_task,
+            kernel::task::cancel_task,
             kernel::task::get_current_task,
             kernel::governance::gate_respond,
             kernel::governance::get_gate_response,
             kernel::governance::clear_gate_response,
             kernel::governance::submit_runtime_password,
             kernel::connectors::wallet_mail_configure_account,
+            kernel::connectors::wallet_mail_list_accounts,
             kernel::connectors::wallet_mail_read_latest,
             kernel::connectors::wallet_mail_list_recent,
             kernel::connectors::wallet_mail_delete_spam,
             kernel::connectors::wallet_mail_reply,
+            kernel::connectors::connector_list_catalog,
+            kernel::capabilities::get_capability_registry_snapshot,
+            kernel::capabilities::plan_capability_governance_request,
+            kernel::capabilities::plan_capability_governance_proposal,
+            kernel::capabilities::get_capability_governance_request,
+            kernel::capabilities::set_capability_governance_request,
+            kernel::capabilities::clear_capability_governance_request,
+            kernel::file_context::get_session_file_context,
+            kernel::file_context::pin_session_file_context_path,
+            kernel::file_context::include_session_file_context_path,
+            kernel::file_context::exclude_session_file_context_path,
+            kernel::file_context::remove_session_file_context_path,
+            kernel::file_context::record_session_file_context_recent_path,
+            kernel::file_context::clear_session_file_context,
+            kernel::branches::get_session_branch_snapshot,
+            kernel::branches::create_session_worktree,
+            kernel::branches::switch_session_worktree,
+            kernel::branches::remove_session_worktree,
+            kernel::remote_env::get_session_remote_env_snapshot,
+            kernel::server_mode::get_session_server_snapshot,
+            kernel::voice::transcribe_voice_input,
+            kernel::hooks::get_session_hook_snapshot,
             kernel::connectors::wallet_connector_auth_get,
             kernel::connectors::wallet_connector_auth_list,
             kernel::connectors::wallet_connector_auth_export,
@@ -718,6 +886,11 @@ pub fn run() {
             kernel::connectors::connector_fetch_calendar_event,
             kernel::connectors::connector_policy_get,
             kernel::connectors::connector_policy_set,
+            kernel::connectors::connector_policy_memory_get,
+            kernel::connectors::connector_policy_memory_remember,
+            kernel::connectors::connector_policy_memory_forget,
+            kernel::connectors::connector_policy_memory_set_scope_mode,
+            kernel::connectors::connector_policy_memory_set_expiry,
             kernel::notifications::notification_list_interventions,
             kernel::notifications::notification_list_assistant,
             kernel::notifications::notification_badge_count_get,
@@ -733,6 +906,8 @@ pub fn run() {
             kernel::data::get_available_tools,
             kernel::data::get_local_engine_snapshot,
             kernel::data::save_local_engine_control_plane,
+            kernel::data::refresh_local_engine_managed_settings,
+            kernel::data::clear_local_engine_managed_settings_overrides,
             kernel::data::stage_local_engine_operation,
             kernel::data::remove_local_engine_operation,
             kernel::data::promote_local_engine_operation,
@@ -759,6 +934,16 @@ pub fn run() {
             kernel::knowledge::add_knowledge_collection_source,
             kernel::knowledge::remove_knowledge_collection_source,
             kernel::skill_sources::get_skill_sources,
+            kernel::skill_sources::get_extension_manifests,
+            kernel::plugins::get_session_plugin_snapshot,
+            kernel::plugins::trust_session_plugin,
+            kernel::plugins::set_session_plugin_enabled,
+            kernel::plugins::reload_session_plugin,
+            kernel::plugins::refresh_session_plugin_catalog,
+            kernel::plugins::revoke_session_plugin_trust,
+            kernel::plugins::install_session_plugin_package,
+            kernel::plugins::update_session_plugin_package,
+            kernel::plugins::remove_session_plugin_package,
             kernel::skill_sources::add_skill_source,
             kernel::skill_sources::update_skill_source,
             kernel::skill_sources::remove_skill_source,
@@ -769,8 +954,22 @@ pub fn run() {
             kernel::artifacts::get_thread_artifacts,
             kernel::artifacts::get_artifact_content,
             kernel::artifacts::get_run_bundle,
+            kernel::artifacts::get_trace_bundle,
+            kernel::artifacts::compare_trace_bundles,
+            kernel::artifacts::export_trace_bundle,
             kernel::artifacts::export_thread_bundle,
+            kernel::artifacts::set_active_assistant_workbench_session,
+            kernel::artifacts::get_active_assistant_workbench_session,
+            kernel::artifacts::get_recent_assistant_workbench_activities,
+            kernel::artifacts::record_assistant_workbench_activity,
             kernel::session::get_session_history,
+            kernel::session::get_session_projection,
+            kernel::session::get_session_rewind_snapshot,
+            kernel::session::get_session_compaction_snapshot,
+            kernel::session::compact_session,
+            kernel::session::get_team_memory_snapshot,
+            kernel::session::sync_team_memory,
+            kernel::session::forget_team_memory_entry,
             kernel::session::load_session,
             kernel::session::delete_session,
             kernel::dev::reset_autopilot_data,
@@ -785,6 +984,7 @@ pub fn run() {
             kernel::workflows::workflow_resume,
             kernel::workflows::workflow_delete,
             kernel::workflows::workflow_run_now,
+            kernel::workflows::workflow_trigger_remote,
             kernel::workflows::workflow_export_project,
             ingestion::ingest_file,
             project::save_project,
@@ -800,6 +1000,14 @@ pub fn run() {
             workspace::studio_workspace_list_directory,
             workspace::workspace_read_file,
             workspace::studio_workspace_read_file,
+            workspace::workspace_lsp_snapshot,
+            workspace::studio_workspace_lsp_snapshot,
+            workspace::workspace_lsp_definition,
+            workspace::studio_workspace_lsp_definition,
+            workspace::workspace_lsp_references,
+            workspace::studio_workspace_lsp_references,
+            workspace::workspace_lsp_code_actions,
+            workspace::studio_workspace_lsp_code_actions,
             workspace::workspace_write_file,
             workspace::studio_workspace_write_file,
             workspace::workspace_create_file,
@@ -818,6 +1026,8 @@ pub fn run() {
             workspace::studio_workspace_git_status,
             workspace::workspace_git_diff,
             workspace::studio_workspace_git_diff,
+            workspace::workspace_git_commit,
+            workspace::studio_workspace_git_commit,
             workspace::workspace_git_stage,
             workspace::studio_workspace_git_stage,
             workspace::workspace_git_unstage,

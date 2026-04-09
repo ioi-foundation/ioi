@@ -1,0 +1,8 @@
+{
+  "timedOut": false,
+  "commandError": null,
+  "studioProofTraceCount": 25,
+  "lastStudioProofTrace": "artifact_generation:winner id=candidate-1",
+  "lastProviderError": null,
+  "compactFailure": "}"
+}

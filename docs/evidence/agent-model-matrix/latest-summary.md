@@ -1,12 +1,14 @@
 # Agent Model Matrix
 
 - status: `blocked`
-- run_id: `2026-04-03T12-08-32-754Z`
-- generated_at: `2026-04-03T12:12:33.048Z`
+- run_id: `2026-04-05T22-49-58-220Z`
+- generated_at: `2026-04-05T22:50:16.168Z`
+- comparison_intent: `unavailable`
 - decision: `keep_default`
-- summary: Baseline local smoke leads the retained artifact slice, but the matrix still lacks required workload coverage for artifactQuality, codingCompletion, researchQuality, computerUseCompletion, latencyAndResourcePressure. Keep the shipped default unchanged. Run blocked: Shipped default preset 'ollama-openai' timed out on the first 2 attempted benchmarks, so the local retained environment is unstable for a benchmark-honest comparison.
-- missing_coverage: artifactQuality, codingCompletion, researchQuality, computerUseCompletion, latencyAndResourcePressure
+- summary: Planner-grade local OSS (Qwen3 8B) leads the retained artifact slice, but the matrix still lacks required workload coverage for codingCompletion, researchQuality, computerUseCompletion. Keep the shipped default unchanged. Run blocked: Run interrupted by SIGINT.
+- missing_coverage: codingCompletion, researchQuality, computerUseCompletion
 
-| preset | role | availability | artifact judge | artifact verifier | coding | research | computer use | latency |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Baseline local smoke | baseline_local | ready | n/a | 0% | pending | pending | pending | 120107 ms |
+| preset | deployment | role | base model | artifacts | coding | research | computer use | tool/api | general agent | latency | conformance |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Planner-grade local OSS (Qwen3 8B) | local_gpu_8gb_class | planner_verifier | n/a | 0.800 | pending | pending | pending | pending | pending | 14988 ms | run |
+| Coding executor local OSS | local_gpu_8gb_class | coding_executor | n/a | run | pending | pending | pending | pending | pending | 1370 ms | run |

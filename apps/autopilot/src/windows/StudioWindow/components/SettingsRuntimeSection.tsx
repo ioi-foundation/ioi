@@ -1,5 +1,15 @@
 import type { SettingsViewBodyView } from "./SettingsView.types";
 
+const LIVE_RUNTIME_MODE_OPTIONS = [
+  { value: "openai_baseline", label: "OpenAI baseline" },
+  { value: "http_local_dev", label: "HTTP local bridge" },
+  { value: "local_asset_bootstrap", label: "Local asset bootstrap" },
+] as const;
+
+function humanizeMode(value: string): string {
+  return value.replace(/[_-]/g, " ").replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
 export function SettingsRuntimeSection({
   view,
 }: {
@@ -7,6 +17,18 @@ export function SettingsRuntimeSection({
 }) {
   const { controlPlane, updateEngineDraft } = view;
   if (!controlPlane) return null;
+
+  const runtimeModeOptions = LIVE_RUNTIME_MODE_OPTIONS.some(
+    (option) => option.value === controlPlane.runtime.mode,
+  )
+    ? LIVE_RUNTIME_MODE_OPTIONS
+    : [
+        ...LIVE_RUNTIME_MODE_OPTIONS,
+        {
+          value: controlPlane.runtime.mode,
+          label: `${humanizeMode(controlPlane.runtime.mode)} (Current)`,
+        },
+      ];
 
   return (
     <div className="studio-settings-stack">
@@ -19,10 +41,16 @@ export function SettingsRuntimeSection({
           <span className="studio-settings-pill">Kernel-backed</span>
         </div>
         <p className="studio-settings-body">
-          This absorbs the LocalAI-style runtime settings into a first-party
-          settings plane while keeping the kernel as planner, policy, and
-          receipt authority.
+          This keeps runtime posture in a first-party settings plane while the
+          kernel remains planner, policy, and receipt authority.
         </p>
+        {controlPlane.runtime.mode === "local_asset_bootstrap" ? (
+          <p className="studio-settings-note">
+            This profile is in local bootstrap mode. Start a local backend or
+            configure a runtime URL when you want the shell to execute against
+            a live engine.
+          </p>
+        ) : null}
         <div className="studio-settings-profile-grid">
           <label className="studio-settings-field">
             <span>Runtime mode</span>
@@ -38,9 +66,11 @@ export function SettingsRuntimeSection({
                 }))
               }
             >
-              <option value="openai_baseline">OpenAI baseline</option>
-              <option value="http_local">HTTP local bridge</option>
-              <option value="mock">Mock substrate</option>
+              {runtimeModeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="studio-settings-field">

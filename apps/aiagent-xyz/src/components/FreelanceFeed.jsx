@@ -3,9 +3,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 const jobs = [
-  { id: 1, title: 'Need Arbitrage Bot for Solana/Serum', budget: '$3,500', bids: 12, time: '2h ago' },
-  { id: 2, title: 'Convert Python Scraper to IOI Agent Manifest', budget: '$150', bids: 4, time: '5h ago' },
-  { id: 3, title: 'Medical Research Agent (PubMed Integration)', budget: '$5,000+', bids: 28, time: '1d ago' },
+  { id: 1, title: 'Claims Intake Workflow With Audit Receipts', budget: '$3,500', bids: 12, time: '2h ago' },
+  { id: 2, title: 'Package Browser QA Swarm as Service Module', budget: '$1,250', bids: 4, time: '5h ago' },
+  { id: 3, title: 'Medical Research Operator Pack (PubMed + Drafting)', budget: '$5,000+', bids: 28, time: '1d ago' },
 ];
 
 export default function FreelanceFeed() {
@@ -45,9 +45,9 @@ export default function FreelanceFeed() {
       
       <div className="pt-5 border-t border-gray-100">
         <div className="text-center mb-3">
-          <p className="text-xs text-slate-500 mb-3">Can't find the agent you need?</p>
+          <p className="text-xs text-slate-500 mb-3">Can't find the workflow or operator pack you need?</p>
           <Link to="/post-job" className="block w-full bg-slate-900 text-white py-3 rounded-lg font-bold text-sm hover:bg-slate-800 transition-transform active:scale-[0.98] shadow-md">
-            Post a Request for Agent (RFA)
+            Post a Request for Capability
           </Link>
         </div>
         <div className="text-[10px] text-center text-slate-400">

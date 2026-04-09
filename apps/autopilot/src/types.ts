@@ -8,7 +8,34 @@ import type {
   FirewallPolicy,
   GraphGlobalConfig,
   AgentConfiguration,
+  AssistantWorkbenchSession,
+  CalendarAttendeeDetail,
+  CalendarEventDetail,
+  ConnectorSummary,
+  GmailThreadDetail,
+  GmailThreadMessageDetail,
+  SessionClarificationOption as SharedSessionClarificationOption,
+  SessionClarificationRequest as SharedSessionClarificationRequest,
+  SessionCredentialRequest as SharedSessionCredentialRequest,
+  SessionGateInfo as SharedSessionGateInfo,
+  StudioCapabilityDetailSection,
 } from "@ioi/agent-ide";
+import type {
+  ExecutionEnvelope,
+  ExecutionStage,
+  StudioExecutionModeDecision,
+  StudioExecutionStrategy,
+  StudioRuntimeProvenance,
+  SwarmChangeReceipt,
+  SwarmExecutionSummary,
+  SwarmMergeReceipt,
+  SwarmPlan,
+  SwarmVerificationReceipt,
+  SwarmWorkItem,
+  SwarmWorkItemStatus,
+  SwarmWorkerReceipt,
+  SwarmWorkerRole,
+} from "./types/execution";
 
 // Re-export for local consumption if needed, or update imports in Autopilot components
 export type {
@@ -18,7 +45,53 @@ export type {
   FirewallPolicy,
   GraphGlobalConfig,
   AgentConfiguration,
+  AssistantWorkbenchSession,
+  CalendarAttendeeDetail,
+  CalendarEventDetail,
+  ConnectorSummary,
+  GmailThreadDetail,
+  GmailThreadMessageDetail,
+  SharedSessionClarificationOption as SessionClarificationOption,
+  SharedSessionClarificationRequest as SessionClarificationRequest,
+  SharedSessionCredentialRequest as SessionCredentialRequest,
+  SharedSessionGateInfo as SessionGateInfo,
+  StudioCapabilityDetailSection,
 };
+export type {
+  ExecutionCompletionInvariant,
+  ExecutionCompletionInvariantStatus,
+  ExecutionBudgetSummary,
+  StudioExecutionBudgetEnvelope,
+  StudioExecutionBudgetExpansionPolicy,
+  StudioExecutionModeDecision,
+  ExecutionDispatchBatch,
+  ExecutionDomainKind,
+  ExecutionEnvelope,
+  ExecutionGraphMutationReceipt,
+  ExecutionLivePreview,
+  ExecutionLivePreviewKind,
+  ExecutionRepairReceipt,
+  ExecutionReplanReceipt,
+  ExecutionStage,
+  StudioExecutionStrategy,
+  StudioRuntimeProvenance,
+  StudioRuntimeProvenanceKind,
+  SwarmChangeReceipt,
+  SwarmLeaseMode,
+  SwarmLeaseRequirement,
+  SwarmLeaseScopeKind,
+  SwarmExecutionSummary,
+  SwarmMergeReceipt,
+  SwarmPlan,
+  SwarmVerificationPolicy,
+  SwarmVerificationReceipt,
+  SwarmWorkItem,
+  SwarmWorkItemStatus,
+  SwarmWorkerResultKind,
+  SwarmWorkerReceipt,
+  SwarmWorkerRole,
+} from "./types/execution";
+export { executionStageForCurrentStage } from "./types/execution";
 
 // ============================================
 // OS / Shell Types (Specific to Autopilot)
@@ -138,20 +211,9 @@ export interface StudioArtifactMaterializationVerificationStep {
   status: string;
 }
 
-export type StudioArtifactPipelineStage =
-  | "intake"
-  | "routing"
-  | "requirements"
-  | "specification"
-  | "materialization"
-  | "execution"
-  | "verification"
-  | "presentation"
-  | "reply";
-
 export interface StudioArtifactPipelineStep {
   id: string;
-  stage: StudioArtifactPipelineStage;
+  stage: ExecutionStage;
   label: string;
   status: string;
   summary: string;
@@ -174,22 +236,6 @@ export type StudioArtifactOutputOrigin =
   | "inference_unavailable"
   | "opaque_runtime";
 
-export type StudioRuntimeProvenanceKind =
-  | "real_remote_model_runtime"
-  | "real_local_runtime"
-  | "fixture_runtime"
-  | "mock_runtime"
-  | "deterministic_continuity_fallback"
-  | "inference_unavailable"
-  | "opaque_runtime";
-
-export interface StudioRuntimeProvenance {
-  kind: StudioRuntimeProvenanceKind;
-  label: string;
-  model?: string | null;
-  endpoint?: string | null;
-}
-
 export type StudioArtifactFailureKind =
   | "inference_unavailable"
   | "routing_failure"
@@ -200,6 +246,49 @@ export interface StudioArtifactFailure {
   kind: StudioArtifactFailureKind;
   code: string;
   message: string;
+}
+
+export type StudioArtifactRenderCaptureViewport =
+  | "desktop"
+  | "mobile"
+  | "interaction";
+
+export type StudioArtifactRenderFindingSeverity =
+  | "info"
+  | "warning"
+  | "blocked";
+
+export interface StudioArtifactRenderCapture {
+  viewport: StudioArtifactRenderCaptureViewport;
+  width: number;
+  height: number;
+  screenshotSha256: string;
+  screenshotByteCount: number;
+  visibleElementCount: number;
+  visibleTextChars: number;
+  interactiveElementCount: number;
+  screenshotChangedFromPrevious: boolean;
+}
+
+export interface StudioArtifactRenderFinding {
+  code: string;
+  severity: StudioArtifactRenderFindingSeverity;
+  summary: string;
+}
+
+export interface StudioArtifactRenderEvaluation {
+  supported: boolean;
+  firstPaintCaptured: boolean;
+  interactionCaptureAttempted: boolean;
+  captures: StudioArtifactRenderCapture[];
+  layoutDensityScore: number;
+  spacingAlignmentScore: number;
+  typographyContrastScore: number;
+  visualHierarchyScore: number;
+  blueprintConsistencyScore: number;
+  overallScore: number;
+  findings: StudioArtifactRenderFinding[];
+  summary: string;
 }
 
 export type StudioArtifactUxLifecycle =
@@ -476,6 +565,16 @@ export interface StudioArtifactCandidateConvergenceTrace {
   terminatedReason?: string | null;
 }
 
+export type StudioArtifactWorkerRole = SwarmWorkerRole;
+export type StudioArtifactWorkItemStatus = SwarmWorkItemStatus;
+export type StudioArtifactWorkItem = SwarmWorkItem;
+export type StudioArtifactSwarmPlan = SwarmPlan;
+export type StudioArtifactSwarmExecutionSummary = SwarmExecutionSummary;
+export type StudioArtifactWorkerReceipt = SwarmWorkerReceipt;
+export type StudioArtifactPatchReceipt = SwarmChangeReceipt;
+export type StudioArtifactMergeReceipt = SwarmMergeReceipt;
+export type StudioArtifactVerificationReceipt = SwarmVerificationReceipt;
+
 export interface StudioArtifactMaterializationContract {
   version: number;
   requestKind: string;
@@ -490,6 +589,15 @@ export interface StudioArtifactMaterializationContract {
   candidateSummaries: StudioArtifactCandidateSummary[];
   winningCandidateId?: string | null;
   winningCandidateRationale?: string | null;
+  executionEnvelope?: ExecutionEnvelope | null;
+  swarmPlan?: SwarmPlan | null;
+  swarmExecution?: SwarmExecutionSummary | null;
+  swarmWorkerReceipts: SwarmWorkerReceipt[];
+  swarmChangeReceipts: SwarmChangeReceipt[];
+  swarmPatchReceipts?: SwarmChangeReceipt[];
+  swarmMergeReceipts: SwarmMergeReceipt[];
+  swarmVerificationReceipts: SwarmVerificationReceipt[];
+  renderEvaluation?: StudioArtifactRenderEvaluation | null;
   judge?: StudioArtifactJudgeResult | null;
   outputOrigin?: StudioArtifactOutputOrigin | null;
   productionProvenance?: StudioRuntimeProvenance | null;
@@ -596,6 +704,7 @@ export type StudioArtifactFileRole =
   | "supporting";
 
 export type StudioArtifactVerificationStatus =
+  | "pending"
   | "ready"
   | "blocked"
   | "failed"
@@ -645,6 +754,8 @@ export interface StudioOutcomeRequest {
   rawPrompt: string;
   activeArtifactId?: string | null;
   outcomeKind: StudioOutcomeKind;
+  executionStrategy: StudioExecutionStrategy;
+  executionModeDecision?: StudioExecutionModeDecision | null;
   confidence: number;
   needsClarification: boolean;
   clarificationQuestions: string[];
@@ -653,6 +764,8 @@ export interface StudioOutcomeRequest {
 
 export interface StudioOutcomePlanningPayload {
   outcomeKind: StudioOutcomeKind;
+  executionStrategy: StudioExecutionStrategy;
+  executionModeDecision?: StudioExecutionModeDecision | null;
   confidence: number;
   needsClarification: boolean;
   clarificationQuestions: string[];
@@ -754,6 +867,15 @@ export interface StudioArtifactRevision {
   editIntent?: StudioArtifactEditIntent | null;
   candidateSummaries: StudioArtifactCandidateSummary[];
   winningCandidateId?: string | null;
+  executionEnvelope?: ExecutionEnvelope | null;
+  swarmPlan?: SwarmPlan | null;
+  swarmExecution?: SwarmExecutionSummary | null;
+  swarmWorkerReceipts: SwarmWorkerReceipt[];
+  swarmChangeReceipts: SwarmChangeReceipt[];
+  swarmPatchReceipts?: SwarmChangeReceipt[];
+  swarmMergeReceipts: SwarmMergeReceipt[];
+  swarmVerificationReceipts: SwarmVerificationReceipt[];
+  renderEvaluation?: StudioArtifactRenderEvaluation | null;
   judge?: StudioArtifactJudgeResult | null;
   outputOrigin?: StudioArtifactOutputOrigin | null;
   productionProvenance?: StudioRuntimeProvenance | null;
@@ -1038,59 +1160,6 @@ export type NotificationTarget =
       subscription_id?: string;
     };
 
-export interface GmailThreadMessageDetail {
-  id: string;
-  from?: string;
-  to?: string;
-  subject?: string;
-  date?: string;
-  snippet?: string;
-  rfcMessageId?: string;
-  references?: string;
-  labelIds: string[];
-}
-
-export interface GmailThreadDetail {
-  threadId: string;
-  historyId?: string;
-  snippet?: string;
-  messages: GmailThreadMessageDetail[];
-}
-
-export interface CalendarAttendeeDetail {
-  email?: string;
-  displayName?: string;
-  responseStatus?: string;
-  organizer?: boolean;
-}
-
-export interface CalendarEventDetail {
-  calendarId: string;
-  eventId: string;
-  summary?: string;
-  description?: string;
-  location?: string;
-  status?: string;
-  start?: string;
-  end?: string;
-  htmlLink?: string;
-  attendees: CalendarAttendeeDetail[];
-}
-
-export type AssistantWorkbenchSession =
-  | {
-      kind: "gmail_reply";
-      connectorId: string;
-      thread: GmailThreadDetail;
-      sourceNotificationId?: string | null;
-    }
-  | {
-      kind: "meeting_prep";
-      connectorId: string;
-      event: CalendarEventDetail;
-      sourceNotificationId?: string | null;
-    };
-
 export type InterventionRecord = Omit<GeneratedInterventionRecord, "target"> & {
   target?: NotificationTarget | null;
 };
@@ -1144,20 +1213,9 @@ export type AgentStatus =
   | "completed"
   | "failed";
 
-export interface GateInfo {
-  title: string;
-  description: string;
-  risk: "low" | "medium" | "high";
-  approve_label?: string;
-  deny_label?: string;
-  deadline_ms?: number;
-  surface_label?: string;
-  scope_label?: string;
-  operation_label?: string;
-  target_label?: string;
-  operator_note?: string;
+export type GateInfo = SharedSessionGateInfo & {
   pii?: PiiReviewInfo;
-}
+};
 
 export interface PiiTargetServiceCall {
   kind: "service_call";
@@ -1200,28 +1258,39 @@ export interface Receipt {
   cost?: string;
 }
 
-export interface CredentialRequest {
-  kind: string;
-  prompt: string;
-  one_time?: boolean;
-}
+export type CredentialRequest = SharedSessionCredentialRequest;
 
-export interface ClarificationOption {
-  id: string;
+export type ClarificationOption = SharedSessionClarificationOption;
+
+export type ClarificationRequest = SharedSessionClarificationRequest;
+
+export interface SessionChecklistItem {
+  item_id: string;
   label: string;
-  description: string;
-  recommended?: boolean;
+  status: string;
+  detail?: string | null;
+  updated_at_ms: number;
 }
 
-export interface ClarificationRequest {
-  kind: string;
-  question: string;
-  tool_name?: string;
-  failure_class?: string;
-  evidence_snippet?: string;
-  context_hint?: string;
-  options: ClarificationOption[];
-  allow_other?: boolean;
+export interface SessionBackgroundTaskRecord {
+  task_id: string;
+  session_id?: string | null;
+  label: string;
+  status: string;
+  detail?: string | null;
+  latest_output?: string | null;
+  can_stop?: boolean;
+  updated_at_ms: number;
+}
+
+export interface SessionFileContext {
+  session_id?: string | null;
+  workspace_root: string;
+  pinned_files: string[];
+  recent_files: string[];
+  explicit_includes: string[];
+  explicit_excludes: string[];
+  updated_at_ms: number;
 }
 
 export interface PolicyContext {
@@ -1268,8 +1337,40 @@ export interface AgentTask {
   visual_hash?: string;
   pending_request_hash?: string;
   session_id?: string;
+  policy?: PolicyContext;
+  is_secure_session?: boolean;
   credential_request?: CredentialRequest;
   clarification_request?: ClarificationRequest;
+  session_checklist: SessionChecklistItem[];
+  background_tasks: SessionBackgroundTaskRecord[];
+  studio_session?: StudioArtifactSession | null;
+  studio_outcome?: StudioOutcomeRequest | null;
+  renderer_session?: StudioRendererSession | null;
+  build_session?: BuildArtifactSession | null;
+}
+
+export type AgentTaskModelInput = Omit<AgentTask, "processed_steps"> & {
+  processed_steps?: Set<string> | string[] | null;
+};
+
+export function normalizeAgentTaskModel(task: AgentTaskModelInput): AgentTask {
+  const processedSteps =
+    task.processed_steps instanceof Set
+      ? task.processed_steps
+      : new Set(
+          Array.isArray(task.processed_steps) ? task.processed_steps : [],
+        );
+
+  return {
+    ...task,
+    processed_steps: processedSteps,
+    session_checklist: Array.isArray(task.session_checklist)
+      ? task.session_checklist
+      : [],
+    background_tasks: Array.isArray(task.background_tasks)
+      ? task.background_tasks
+      : [],
+  };
 }
 
 export interface WalletConnectorAuthRecordView {
@@ -1414,6 +1515,159 @@ export interface SkillSourceRecord {
   lastSyncedAtMs?: number | null;
   lastError?: string | null;
   discoveredSkills: SkillSourceDiscoveredSkill[];
+}
+
+export interface CapabilityAuthorityDescriptor {
+  tierId: string;
+  tierLabel: string;
+  governedProfileId?: string | null;
+  governedProfileLabel?: string | null;
+  summary: string;
+  detail: string;
+  signals: string[];
+}
+
+export interface CapabilityLeaseDescriptor {
+  availability: string;
+  availabilityLabel: string;
+  runtimeTargetId?: string | null;
+  runtimeTargetLabel?: string | null;
+  modeId?: string | null;
+  modeLabel?: string | null;
+  summary: string;
+  detail: string;
+  requiresAuth: boolean;
+  signals: string[];
+}
+
+export interface CapabilityRegistryEntry {
+  entryId: string;
+  kind: string;
+  label: string;
+  summary: string;
+  sourceKind: string;
+  sourceLabel: string;
+  sourceUri?: string | null;
+  trustPosture: string;
+  governedProfile?: string | null;
+  availability: string;
+  statusLabel: string;
+  whySelectable: string;
+  governingFamilyId?: string | null;
+  relatedGoverningEntryIds: string[];
+  governingFamilyHints: string[];
+  runtimeTarget?: string | null;
+  leaseMode?: string | null;
+  authority: CapabilityAuthorityDescriptor;
+  lease: CapabilityLeaseDescriptor;
+}
+
+export interface CapabilityRegistrySummary {
+  generatedAtMs: number;
+  totalEntries: number;
+  connectorCount: number;
+  connectedConnectorCount: number;
+  runtimeSkillCount: number;
+  trackedSourceCount: number;
+  filesystemSkillCount: number;
+  extensionCount: number;
+  modelCount: number;
+  backendCount: number;
+  nativeFamilyCount: number;
+  pendingEngineControlCount: number;
+  activeIssueCount: number;
+  authoritativeSourceCount: number;
+}
+
+export interface ExtensionContributionRecord {
+  kind: string;
+  label: string;
+  path?: string | null;
+  itemCount?: number | null;
+  detail?: string | null;
+}
+
+export interface ExtensionManifestRecord {
+  extensionId: string;
+  manifestKind: string;
+  manifestPath: string;
+  rootPath: string;
+  sourceLabel: string;
+  sourceUri: string;
+  sourceKind: string;
+  enabled: boolean;
+  name: string;
+  displayName?: string | null;
+  version?: string | null;
+  description?: string | null;
+  developerName?: string | null;
+  authorName?: string | null;
+  authorEmail?: string | null;
+  authorUrl?: string | null;
+  category?: string | null;
+  trustPosture: string;
+  governedProfile: string;
+  homepage?: string | null;
+  repository?: string | null;
+  license?: string | null;
+  keywords: string[];
+  capabilities: string[];
+  defaultPrompts: string[];
+  contributions: ExtensionContributionRecord[];
+  filesystemSkills: SkillSourceDiscoveredSkill[];
+  marketplaceName?: string | null;
+  marketplaceDisplayName?: string | null;
+  marketplaceCategory?: string | null;
+  marketplaceInstallationPolicy?: string | null;
+  marketplaceAuthenticationPolicy?: string | null;
+  marketplaceProducts: string[];
+  marketplaceAvailableVersion?: string | null;
+  marketplaceCatalogIssuedAtMs?: number | null;
+  marketplaceCatalogExpiresAtMs?: number | null;
+  marketplaceCatalogRefreshedAtMs?: number | null;
+  marketplaceCatalogRefreshSource?: string | null;
+  marketplaceCatalogChannel?: string | null;
+  marketplaceCatalogSourceId?: string | null;
+  marketplaceCatalogSourceLabel?: string | null;
+  marketplaceCatalogSourceUri?: string | null;
+  marketplacePackageUrl?: string | null;
+  marketplaceCatalogRefreshBundleId?: string | null;
+  marketplaceCatalogRefreshBundleLabel?: string | null;
+  marketplaceCatalogRefreshBundleIssuedAtMs?: number | null;
+  marketplaceCatalogRefreshBundleExpiresAtMs?: number | null;
+  marketplaceCatalogRefreshAvailableVersion?: string | null;
+  marketplaceVerificationStatus?: string | null;
+  marketplaceSignatureAlgorithm?: string | null;
+  marketplaceSignerIdentity?: string | null;
+  marketplacePublisherId?: string | null;
+  marketplaceSigningKeyId?: string | null;
+  marketplacePublisherLabel?: string | null;
+  marketplacePublisherTrustStatus?: string | null;
+  marketplacePublisherTrustSource?: string | null;
+  marketplacePublisherRootId?: string | null;
+  marketplacePublisherRootLabel?: string | null;
+  marketplaceAuthorityBundleId?: string | null;
+  marketplaceAuthorityBundleLabel?: string | null;
+  marketplaceAuthorityBundleIssuedAtMs?: number | null;
+  marketplaceAuthorityTrustBundleId?: string | null;
+  marketplaceAuthorityTrustBundleLabel?: string | null;
+  marketplaceAuthorityTrustBundleIssuedAtMs?: number | null;
+  marketplaceAuthorityTrustBundleExpiresAtMs?: number | null;
+  marketplaceAuthorityTrustBundleStatus?: string | null;
+  marketplaceAuthorityTrustIssuerId?: string | null;
+  marketplaceAuthorityTrustIssuerLabel?: string | null;
+  marketplaceAuthorityId?: string | null;
+  marketplaceAuthorityLabel?: string | null;
+  marketplacePublisherStatementIssuedAtMs?: number | null;
+  marketplacePublisherTrustDetail?: string | null;
+  marketplacePublisherRevokedAtMs?: number | null;
+  marketplaceVerificationError?: string | null;
+  marketplaceVerifiedAtMs?: number | null;
+  marketplaceVerificationSource?: string | null;
+  marketplaceVerifiedDigestSha256?: string | null;
+  marketplaceTrustScoreLabel?: string | null;
+  marketplaceTrustScoreSource?: string | null;
+  marketplaceTrustRecommendation?: string | null;
 }
 
 export interface LocalEngineCapabilityFamily {
@@ -1736,6 +1990,15 @@ export interface LocalEngineControlPlane {
   notes: string[];
 }
 
+export interface LocalEngineConfigMigrationRecord {
+  migrationId: string;
+  fromVersion: number;
+  toVersion: number;
+  appliedAtMs: number;
+  summary: string;
+  details: string[];
+}
+
 export interface LocalEngineStagedOperation {
   operationId: string;
   subjectKind: string;
@@ -1746,6 +2009,40 @@ export interface LocalEngineStagedOperation {
   notes?: string | null;
   createdAtMs: number;
   status: string;
+}
+
+export interface LocalEngineManagedSettingsChannelRecord {
+  channelId: string;
+  label: string;
+  sourceUri: string;
+  status: string;
+  verificationStatus: string;
+  summary: string;
+  precedence: number;
+  authorityLabel?: string | null;
+  signatureAlgorithm?: string | null;
+  profileId?: string | null;
+  schemaVersion?: number | null;
+  issuedAtMs?: number | null;
+  expiresAtMs?: number | null;
+  refreshedAtMs?: number | null;
+  localOverrideCount: number;
+  overriddenFields: string[];
+}
+
+export interface LocalEngineManagedSettingsSnapshot {
+  syncStatus: string;
+  summary: string;
+  activeChannelId?: string | null;
+  activeChannelLabel?: string | null;
+  activeSourceUri?: string | null;
+  lastRefreshedAtMs?: number | null;
+  lastSuccessfulRefreshAtMs?: number | null;
+  lastFailedRefreshAtMs?: number | null;
+  refreshError?: string | null;
+  localOverrideCount: number;
+  localOverrideFields: string[];
+  channels: LocalEngineManagedSettingsChannelRecord[];
 }
 
 export interface LocalEngineSnapshot {
@@ -1765,14 +2062,693 @@ export interface LocalEngineSnapshot {
   workerTemplates: LocalEngineWorkerTemplateRecord[];
   agentPlaybooks: LocalEngineAgentPlaybookRecord[];
   parentPlaybookRuns: LocalEngineParentPlaybookRunRecord[];
+  controlPlaneSchemaVersion: number;
+  controlPlaneProfileId: string;
+  controlPlaneMigrations: LocalEngineConfigMigrationRecord[];
   controlPlane: LocalEngineControlPlane;
+  managedSettings: LocalEngineManagedSettingsSnapshot;
   stagedOperations: LocalEngineStagedOperation[];
+}
+
+export interface CapabilityRegistrySnapshot {
+  generatedAtMs: number;
+  summary: CapabilityRegistrySummary;
+  entries: CapabilityRegistryEntry[];
+  connectors: ConnectorSummary[];
+  skillCatalog: SkillCatalogEntry[];
+  skillSources: SkillSourceRecord[];
+  extensionManifests: ExtensionManifestRecord[];
+  localEngine: LocalEngineSnapshot;
 }
 
 export interface SessionSummary {
   session_id: string;
   title: string;
   timestamp: number;
+  phase?: string | null;
+  current_step?: string | null;
+  resume_hint?: string | null;
+  workspace_root?: string | null;
+}
+
+export type SessionMemoryClass =
+  | "ephemeral"
+  | "carry_forward"
+  | "pinned"
+  | "governance_critical";
+
+export type SessionCompactionMode = "manual" | "auto";
+
+export interface SessionCompactionPolicy {
+  carryPinnedOnly: boolean;
+  preserveChecklistState: boolean;
+  preserveBackgroundTasks: boolean;
+  preserveLatestOutputExcerpt: boolean;
+  preserveGovernanceBlockers: boolean;
+  aggressiveTranscriptPruning: boolean;
+}
+
+export type SessionCompactionDisposition =
+  | "carry_forward"
+  | "retained_summary"
+  | "pruned";
+
+export type SessionCompactionResumeSafetyStatus = "protected" | "degraded";
+
+export interface SessionCompactionResumeSafetyReceipt {
+  status: SessionCompactionResumeSafetyStatus;
+  reasons: string[];
+}
+
+export interface SessionCompactionMemoryItem {
+  key: string;
+  label: string;
+  memoryClass: SessionMemoryClass;
+  values: string[];
+}
+
+export interface SessionCompactionPruneDecision {
+  key: string;
+  label: string;
+  disposition: SessionCompactionDisposition;
+  detailCount: number;
+  rationale: string;
+  summary: string;
+  examples: string[];
+}
+
+export interface SessionCompactionCarryForwardState {
+  workspaceRoot?: string | null;
+  pinnedFiles: string[];
+  explicitIncludes: string[];
+  explicitExcludes: string[];
+  checklistLabels: string[];
+  backgroundTaskLabels: string[];
+  blockedOn?: string | null;
+  pendingDecisionContext?: string | null;
+  latestArtifactOutcome?: string | null;
+  executionTargets: string[];
+  latestOutputExcerpt?: string | null;
+  memoryItems: SessionCompactionMemoryItem[];
+}
+
+export interface SessionCompactionPreview {
+  sessionId: string;
+  title: string;
+  phase?: string | null;
+  policy: SessionCompactionPolicy;
+  preCompactionSpan: string;
+  summary: string;
+  resumeAnchor: string;
+  carriedForwardState: SessionCompactionCarryForwardState;
+  resumeSafety: SessionCompactionResumeSafetyReceipt;
+  pruneDecisions: SessionCompactionPruneDecision[];
+}
+
+export interface SessionCompactionRecord {
+  compactionId: string;
+  sessionId: string;
+  title: string;
+  compactedAtMs: number;
+  mode: SessionCompactionMode;
+  phase?: string | null;
+  policy: SessionCompactionPolicy;
+  preCompactionSpan: string;
+  summary: string;
+  resumeAnchor: string;
+  carriedForwardState: SessionCompactionCarryForwardState;
+  resumeSafety: SessionCompactionResumeSafetyReceipt;
+  pruneDecisions: SessionCompactionPruneDecision[];
+}
+
+export interface SessionCompactionRecommendation {
+  shouldCompact: boolean;
+  reasonLabels: string[];
+  recommendedPolicy: SessionCompactionPolicy;
+  recommendedPolicyLabel: string;
+  recommendedPolicyReasonLabels: string[];
+  resumeSafeguardLabels: string[];
+  historyCount: number;
+  eventCount: number;
+  artifactCount: number;
+  pinnedFileCount: number;
+  explicitIncludeCount: number;
+  idleAgeMs: number;
+  blockedAgeMs?: number | null;
+}
+
+export interface SessionDurabilityPortfolio {
+  retainedSessionCount: number;
+  compactedSessionCount: number;
+  replayReadySessionCount: number;
+  uncompactedSessionCount: number;
+  staleCompactionCount: number;
+  degradedCompactionCount: number;
+  recommendedCompactionCount: number;
+  compactedWithoutTeamMemoryCount: number;
+  teamMemoryEntryCount: number;
+  teamMemoryCoveredSessionCount: number;
+  teamMemoryRedactedSessionCount: number;
+  teamMemoryReviewRequiredSessionCount: number;
+  coverageSummary: string;
+  teamMemorySummary: string;
+  attentionSummary: string;
+  attentionLabels: string[];
+}
+
+export interface SessionCompactionSnapshot {
+  generatedAtMs: number;
+  activeSessionId?: string | null;
+  activeSessionTitle?: string | null;
+  policyForActive: SessionCompactionPolicy;
+  recordCount: number;
+  latestForActive?: SessionCompactionRecord | null;
+  previewForActive?: SessionCompactionPreview | null;
+  recommendationForActive?: SessionCompactionRecommendation | null;
+  durabilityPortfolio?: SessionDurabilityPortfolio;
+  records: SessionCompactionRecord[];
+}
+
+export type TeamMemoryScopeKind = "workspace" | "session";
+
+export type TeamMemorySyncStatus = "synced" | "redacted" | "review_required";
+
+export interface TeamMemoryRedactionSummary {
+  redactionCount: number;
+  redactedFields: string[];
+  redactionVersion: string;
+}
+
+export interface TeamMemorySyncEntry {
+  entryId: string;
+  sessionId: string;
+  sessionTitle: string;
+  syncedAtMs: number;
+  scopeKind: TeamMemoryScopeKind;
+  scopeId: string;
+  scopeLabel: string;
+  actorId: string;
+  actorLabel: string;
+  actorRole: string;
+  syncStatus: TeamMemorySyncStatus;
+  reviewSummary: string;
+  omittedGovernanceItemCount: number;
+  resumeAnchor: string;
+  preCompactionSpan: string;
+  summary: string;
+  sharedMemoryItems: SessionCompactionMemoryItem[];
+  redaction: TeamMemoryRedactionSummary;
+}
+
+export interface TeamMemorySyncSnapshot {
+  generatedAtMs: number;
+  activeSessionId?: string | null;
+  activeScopeId?: string | null;
+  activeScopeKind?: TeamMemoryScopeKind | null;
+  activeScopeLabel?: string | null;
+  entryCount: number;
+  redactedEntryCount: number;
+  reviewRequiredCount: number;
+  summary: string;
+  entries: TeamMemorySyncEntry[];
+}
+
+export interface SessionRewindCandidate {
+  sessionId: string;
+  title: string;
+  timestamp: number;
+  phase?: string | null;
+  currentStep?: string | null;
+  resumeHint?: string | null;
+  workspaceRoot?: string | null;
+  isCurrent: boolean;
+  isLastStable: boolean;
+  actionLabel: string;
+  previewHeadline: string;
+  previewDetail: string;
+  discardSummary: string;
+}
+
+export interface SessionRewindSnapshot {
+  activeSessionId?: string | null;
+  activeSessionTitle?: string | null;
+  lastStableSessionId?: string | null;
+  candidates: SessionRewindCandidate[];
+}
+
+export interface SessionHookReceiptSummary {
+  title: string;
+  timestampMs: number;
+  toolName: string;
+  status: string;
+  summary: string;
+}
+
+export interface SessionHookRecord {
+  hookId: string;
+  entryId?: string | null;
+  label: string;
+  ownerLabel: string;
+  sourceLabel: string;
+  sourceKind: string;
+  sourceUri?: string | null;
+  contributionPath?: string | null;
+  triggerLabel: string;
+  enabled: boolean;
+  statusLabel: string;
+  trustPosture: string;
+  governedProfile: string;
+  authorityTierLabel: string;
+  availabilityLabel: string;
+  sessionScopeLabel: string;
+  whyActive: string;
+}
+
+export interface SessionHookSnapshot {
+  generatedAtMs: number;
+  sessionId?: string | null;
+  workspaceRoot?: string | null;
+  activeHookCount: number;
+  disabledHookCount: number;
+  runtimeReceiptCount: number;
+  approvalReceiptCount: number;
+  hooks: SessionHookRecord[];
+  recentReceipts: SessionHookReceiptSummary[];
+}
+
+export interface SessionBranchRecord {
+  branchName: string;
+  upstreamBranch?: string | null;
+  isCurrent: boolean;
+  aheadCount: number;
+  behindCount: number;
+  lastCommit?: string | null;
+}
+
+export interface SessionWorktreeRecord {
+  path: string;
+  branchName?: string | null;
+  head?: string | null;
+  lastCommit?: string | null;
+  changedFileCount: number;
+  dirty: boolean;
+  isCurrent: boolean;
+  locked: boolean;
+  lockReason?: string | null;
+  prunable: boolean;
+  pruneReason?: string | null;
+  statusLabel: string;
+  statusDetail: string;
+}
+
+export interface SessionBranchSnapshot {
+  generatedAtMs: number;
+  sessionId?: string | null;
+  workspaceRoot?: string | null;
+  isRepo: boolean;
+  repoLabel?: string | null;
+  currentBranch?: string | null;
+  upstreamBranch?: string | null;
+  lastCommit?: string | null;
+  aheadCount: number;
+  behindCount: number;
+  changedFileCount: number;
+  dirty: boolean;
+  worktreeRiskLabel: string;
+  worktreeRiskDetail: string;
+  recentBranches: SessionBranchRecord[];
+  worktrees: SessionWorktreeRecord[];
+}
+
+export interface SessionRemoteEnvBinding {
+  key: string;
+  valuePreview: string;
+  sourceLabel: string;
+  scopeLabel: string;
+  provenanceLabel: string;
+  secret: boolean;
+  redacted: boolean;
+}
+
+export interface SessionRemoteEnvSnapshot {
+  generatedAtMs: number;
+  sessionId?: string | null;
+  workspaceRoot?: string | null;
+  focusedScopeLabel: string;
+  governingSourceLabel: string;
+  postureLabel: string;
+  postureDetail: string;
+  bindingCount: number;
+  controlPlaneBindingCount: number;
+  processBindingCount: number;
+  overlappingBindingCount: number;
+  secretBindingCount: number;
+  redactedBindingCount: number;
+  notes: string[];
+  bindings: SessionRemoteEnvBinding[];
+}
+
+export interface SessionServerSessionRecord {
+  sessionId: string;
+  title: string;
+  timestamp: number;
+  sourceLabel: string;
+  presenceState: string;
+  presenceLabel: string;
+  resumeHint?: string | null;
+  workspaceRoot?: string | null;
+}
+
+export interface SessionServerSnapshot {
+  generatedAtMs: number;
+  sessionId?: string | null;
+  workspaceRoot?: string | null;
+  rpcUrl: string;
+  rpcSourceLabel: string;
+  continuityModeLabel: string;
+  continuityStatusLabel: string;
+  continuityDetail: string;
+  kernelConnectionLabel: string;
+  kernelConnectionDetail: string;
+  explicitRpcTarget: boolean;
+  remoteKernelTarget: boolean;
+  kernelReachable: boolean;
+  remoteHistoryAvailable: boolean;
+  localSessionCount: number;
+  remoteSessionCount: number;
+  mergedSessionCount: number;
+  remoteOnlySessionCount: number;
+  overlappingSessionCount: number;
+  remoteAttachableSessionCount: number;
+  remoteHistoryOnlySessionCount: number;
+  currentSessionVisibleRemotely: boolean;
+  currentSessionContinuityState: string;
+  currentSessionContinuityLabel: string;
+  currentSessionContinuityDetail: string;
+  notes: string[];
+  recentRemoteSessions: SessionServerSessionRecord[];
+}
+
+export interface VoiceInputTranscriptionResult {
+  text: string;
+  mimeType: string;
+  fileName?: string | null;
+  language?: string | null;
+  modelId?: string | null;
+}
+
+export interface SessionPluginRecord {
+  pluginId: string;
+  entryId?: string | null;
+  label: string;
+  description?: string | null;
+  version?: string | null;
+  sourceEnabled: boolean;
+  enabled: boolean;
+  statusLabel: string;
+  sourceLabel: string;
+  sourceKind: string;
+  sourceUri?: string | null;
+  category?: string | null;
+  marketplaceDisplayName?: string | null;
+  marketplaceInstallationPolicy?: string | null;
+  marketplaceAuthenticationPolicy?: string | null;
+  marketplaceProducts: string[];
+  authenticityState: string;
+  authenticityLabel: string;
+  authenticityDetail: string;
+  operatorReviewState: string;
+  operatorReviewLabel: string;
+  operatorReviewReason: string;
+  catalogStatus: string;
+  catalogStatusLabel: string;
+  catalogStatusDetail: string;
+  catalogIssuedAtMs?: number | null;
+  catalogExpiresAtMs?: number | null;
+  catalogRefreshedAtMs?: number | null;
+  catalogRefreshSource?: string | null;
+  catalogChannel?: string | null;
+  catalogSourceId?: string | null;
+  catalogSourceLabel?: string | null;
+  catalogSourceUri?: string | null;
+  marketplacePackageUrl?: string | null;
+  catalogRefreshBundleId?: string | null;
+  catalogRefreshBundleLabel?: string | null;
+  catalogRefreshBundleIssuedAtMs?: number | null;
+  catalogRefreshBundleExpiresAtMs?: number | null;
+  catalogRefreshAvailableVersion?: string | null;
+  catalogRefreshError?: string | null;
+  lastCatalogRefreshAtMs?: number | null;
+  verificationError?: string | null;
+  verificationAlgorithm?: string | null;
+  publisherLabel?: string | null;
+  publisherId?: string | null;
+  signerIdentity?: string | null;
+  signingKeyId?: string | null;
+  verificationTimestampMs?: number | null;
+  verificationSource?: string | null;
+  verifiedDigestSha256?: string | null;
+  publisherTrustState?: string | null;
+  publisherTrustLabel?: string | null;
+  publisherTrustDetail?: string | null;
+  publisherTrustSource?: string | null;
+  publisherRootId?: string | null;
+  publisherRootLabel?: string | null;
+  authorityBundleId?: string | null;
+  authorityBundleLabel?: string | null;
+  authorityBundleIssuedAtMs?: number | null;
+  authorityTrustBundleId?: string | null;
+  authorityTrustBundleLabel?: string | null;
+  authorityTrustBundleIssuedAtMs?: number | null;
+  authorityTrustBundleExpiresAtMs?: number | null;
+  authorityTrustBundleStatus?: string | null;
+  authorityTrustIssuerId?: string | null;
+  authorityTrustIssuerLabel?: string | null;
+  authorityId?: string | null;
+  authorityLabel?: string | null;
+  publisherStatementIssuedAtMs?: number | null;
+  publisherRevokedAtMs?: number | null;
+  trustScoreLabel?: string | null;
+  trustScoreSource?: string | null;
+  trustRecommendation?: string | null;
+  updateSeverity?: string | null;
+  updateSeverityLabel?: string | null;
+  updateDetail?: string | null;
+  requestedCapabilities: string[];
+  trustPosture: string;
+  governedProfile: string;
+  authorityTierLabel: string;
+  availabilityLabel: string;
+  sessionScopeLabel: string;
+  reloadable: boolean;
+  reloadabilityLabel: string;
+  contributionCount: number;
+  hookContributionCount: number;
+  filesystemSkillCount: number;
+  capabilityCount: number;
+  runtimeTrustState: string;
+  runtimeTrustLabel: string;
+  runtimeLoadState: string;
+  runtimeLoadLabel: string;
+  runtimeStatusDetail: string;
+  loadError?: string | null;
+  lastTrustedAtMs?: number | null;
+  lastReloadedAtMs?: number | null;
+  lastInstalledAtMs?: number | null;
+  lastUpdatedAtMs?: number | null;
+  lastRemovedAtMs?: number | null;
+  trustRemembered: boolean;
+  packageManaged: boolean;
+  packageInstallState: string;
+  packageInstallLabel: string;
+  packageInstallDetail: string;
+  packageInstallSource?: string | null;
+  packageInstallSourceLabel?: string | null;
+  packageRootPath?: string | null;
+  packageManifestPath?: string | null;
+  installedVersion?: string | null;
+  availableVersion?: string | null;
+  updateAvailable: boolean;
+  packageError?: string | null;
+  whyAvailable: string;
+}
+
+export interface SessionPluginLifecycleReceipt {
+  receiptId: string;
+  timestampMs: number;
+  pluginId: string;
+  pluginLabel: string;
+  action: string;
+  status: string;
+  summary: string;
+}
+
+export interface SessionPluginCatalogChannelRecord {
+  catalogId: string;
+  label: string;
+  sourceUri: string;
+  refreshSource?: string | null;
+  channel?: string | null;
+  status: string;
+  statusLabel: string;
+  statusDetail: string;
+  issuedAtMs?: number | null;
+  expiresAtMs?: number | null;
+  refreshedAtMs?: number | null;
+  pluginCount: number;
+  validPluginCount: number;
+  invalidPluginCount: number;
+  refreshBundleCount: number;
+  refreshError?: string | null;
+  conformanceStatus: string;
+  conformanceLabel: string;
+  conformanceError?: string | null;
+}
+
+export interface SessionPluginSnapshot {
+  generatedAtMs: number;
+  sessionId?: string | null;
+  workspaceRoot?: string | null;
+  pluginCount: number;
+  enabledPluginCount: number;
+  disabledPluginCount: number;
+  trustedPluginCount: number;
+  untrustedPluginCount: number;
+  blockedPluginCount: number;
+  reloadablePluginCount: number;
+  managedPackageCount: number;
+  updateAvailableCount: number;
+  installablePackageCount: number;
+  verifiedPluginCount: number;
+  unverifiedPluginCount: number;
+  signatureMismatchPluginCount: number;
+  recommendedPluginCount: number;
+  reviewRequiredPluginCount: number;
+  staleCatalogCount: number;
+  expiredCatalogCount: number;
+  criticalUpdateCount: number;
+  refreshAvailableCount: number;
+  refreshFailedCount: number;
+  catalogChannelCount: number;
+  nonconformantChannelCount: number;
+  catalogSourceCount: number;
+  localCatalogSourceCount: number;
+  remoteCatalogSourceCount: number;
+  failedCatalogSourceCount: number;
+  nonconformantSourceCount: number;
+  hookContributionCount: number;
+  filesystemSkillCount: number;
+  recentReceiptCount: number;
+  recentReceipts: SessionPluginLifecycleReceipt[];
+  catalogSources: SessionPluginCatalogSourceRecord[];
+  catalogChannels: SessionPluginCatalogChannelRecord[];
+  plugins: SessionPluginRecord[];
+}
+
+export interface SessionPluginCatalogSourceRecord {
+  sourceId: string;
+  label: string;
+  sourceUri: string;
+  transportKind: string;
+  channel?: string | null;
+  authorityBundleId?: string | null;
+  authorityBundleLabel?: string | null;
+  status: string;
+  statusLabel: string;
+  statusDetail: string;
+  lastSuccessfulRefreshAtMs?: number | null;
+  lastFailedRefreshAtMs?: number | null;
+  refreshError?: string | null;
+  conformanceStatus: string;
+  conformanceLabel: string;
+  conformanceError?: string | null;
+  catalogCount: number;
+  validCatalogCount: number;
+  invalidCatalogCount: number;
+}
+
+export interface AssistantWorkbenchActivityRecord {
+  activityId: string;
+  sessionKind: string;
+  surface: string;
+  action: string;
+  status: string;
+  message: string;
+  timestampMs: number;
+  sourceNotificationId?: string | null;
+  connectorId?: string | null;
+  threadId?: string | null;
+  eventId?: string | null;
+  evidenceThreadId?: string | null;
+  detail?: string | null;
+}
+
+export interface TraceBundleStats {
+  eventCount: number;
+  receiptCount: number;
+  artifactCount: number;
+  runBundleCount: number;
+  reportArtifactCount: number;
+  interventionCount: number;
+  assistantNotificationCount: number;
+  assistantWorkbenchActivityCount: number;
+  includedArtifactPayloads: boolean;
+  includedArtifactPayloadCount: number;
+}
+
+export interface TraceBundleArtifactPayloadEntry {
+  artifactId: string;
+  artifactType: ArtifactType;
+  path: string;
+}
+
+export interface CanonicalTraceBundle {
+  schemaVersion: number;
+  exportedAtUtc: string;
+  threadId: string;
+  sessionId: string;
+  latestAnswerMarkdown: string;
+  stats: TraceBundleStats;
+  sessionSummary?: SessionSummary | null;
+  task?: AgentTask | null;
+  history: ChatMessage[];
+  events: AgentEvent[];
+  receipts: AgentEvent[];
+  artifacts: Artifact[];
+  artifactPayloads: TraceBundleArtifactPayloadEntry[];
+  interventions: InterventionRecord[];
+  assistantNotifications: AssistantNotificationRecord[];
+  assistantWorkbenchActivities: AssistantWorkbenchActivityRecord[];
+}
+
+export interface TraceBundleDiffStat {
+  label: string;
+  leftValue: string;
+  rightValue: string;
+}
+
+export interface TraceBundleDiffSection {
+  key: string;
+  label: string;
+  changed: boolean;
+  summary: string;
+  leftValue?: string | null;
+  rightValue?: string | null;
+  details: string[];
+}
+
+export interface TraceBundleDiffResult {
+  schemaVersion: number;
+  comparedAtUtc: string;
+  leftThreadId: string;
+  rightThreadId: string;
+  leftSessionSummary?: SessionSummary | null;
+  rightSessionSummary?: SessionSummary | null;
+  firstDivergenceKey?: string | null;
+  firstDivergenceSummary?: string | null;
+  changedSectionCount: number;
+  stats: TraceBundleDiffStat[];
+  sections: TraceBundleDiffSection[];
 }
 
 export interface MutationLogEntry {
@@ -2040,6 +3016,12 @@ export interface PlanArtifactRepairSummary {
   nextStep: string | null;
 }
 
+export interface PlanSelectedSkill {
+  id: string;
+  entryId: string;
+  label: string;
+}
+
 export interface PlanSummary {
   selectedRoute: string;
   routeFamily: PlanRouteFamily;
@@ -2058,7 +3040,7 @@ export interface PlanSummary {
   verifierRole: PlanVerifierRole | null;
   verifierOutcome: PlanVerifierOutcome | null;
   approvalState: PlanApprovalState;
-  selectedSkills: string[];
+  selectedSkills: PlanSelectedSkill[];
   prepSummary: string | null;
   artifactGeneration: PlanArtifactGenerationSummary | null;
   computerUsePerception: PlanComputerUsePerceptionSummary | null;
@@ -2074,6 +3056,30 @@ export interface PlanSummary {
 
 export type ArtifactHubViewKey =
   | "active_context"
+  | "doctor"
+  | "compact"
+  | "branch"
+  | "commit"
+  | "review"
+  | "pr_comments"
+  | "mobile"
+  | "voice"
+  | "server"
+  | "repl"
+  | "export"
+  | "share"
+  | "remote_env"
+  | "mcp"
+  | "plugins"
+  | "vim"
+  | "privacy"
+  | "keybindings"
+  | "hooks"
+  | "permissions"
+  | "rewind"
+  | "tasks"
+  | "replay"
+  | "compare"
   | "thoughts"
   | "substrate"
   | "sources"

@@ -1,0 +1,8 @@
+{
+  "timedOut": false,
+  "commandError": "Interrupted by SIGINT.",
+  "studioProofTraceCount": 23,
+  "lastStudioProofTrace": "artifact_generation:render_eval:browser_launch:start elapsed_ms=0",
+  "lastProviderError": null,
+  "compactFailure": "[studio-proof-trace] artifact_generation:render_eval:browser_launch:start elapsed_ms=0"
+}

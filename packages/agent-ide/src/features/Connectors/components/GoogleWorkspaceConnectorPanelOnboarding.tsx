@@ -1,5 +1,39 @@
-import { formatTimestamp } from "./googleWorkspaceConnectorPanelParts";
-import type { GoogleWorkspaceConnectorPanelView } from "./googleWorkspaceConnectorPanelView";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  ConnectorActionPreviewStage,
+  ConnectorActionUnlockModal,
+} from "./ConnectorUnlockSurface";
+import { GOOGLE_SCOPE_BUNDLES } from "./googleWorkspaceConnectorPanelConfig";
+import {
+  formatTimestamp,
+  normalizeGoogleScope,
+} from "./googleWorkspaceConnectorPanelParts";
+import type {
+  GoogleWorkspaceConnectorPanelView,
+  UnlockBundleRecommendation,
+} from "./googleWorkspaceConnectorPanelView";
+
+function buildBundleRecommendationReason({
+  actionLabel,
+  actionKind,
+  bundleTitle,
+}: {
+  actionLabel: string;
+  actionKind: string;
+  bundleTitle: string;
+}) {
+  const bundleTarget = bundleTitle.toLowerCase();
+  if (actionKind === "read") {
+    return `Needed so ${actionLabel} can read ${bundleTarget} data.`;
+  }
+  if (actionKind === "write") {
+    return `Needed so ${actionLabel} can create or update ${bundleTarget} data.`;
+  }
+  if (actionKind === "admin") {
+    return `Needed so ${actionLabel} can manage ${bundleTarget} configuration safely.`;
+  }
+  return `Needed so ${actionLabel} can run its ${bundleTarget} workflow end to end.`;
+}
 
 export function GoogleWorkspaceConnectorPanelOnboarding({
   view,
@@ -7,6 +41,10 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
   view: GoogleWorkspaceConnectorPanelView;
 }) {
   const {
+    activeTab,
+    capabilityGroups,
+    automationGroups,
+    advancedGroups,
     workspace,
     onboardingStep,
     missingOauthClient,
@@ -22,17 +60,206 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
     setScopeModalOpen,
     setConsentModalOpen,
     setSetupHelpModalOpen,
+    saveOauthClientAndContinue,
+    unlockBundleContext,
+    rememberUnlockBundleContext,
     openAuthLink,
     copyAuthLink,
     resetGoogleSetup,
     reopenScopeSelection,
     retryConsent,
   } = view;
+  const setupStageRef = useRef<HTMLElement | null>(null);
+  const credentialsInputRef = useRef<HTMLInputElement | null>(null);
+  const chooseBundlesButtonRef = useRef<HTMLButtonElement | null>(null);
+  const openAuthButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [selectedPreviewActionId, setSelectedPreviewActionId] = useState<
+    string | null
+  >(null);
+
+  const previewGroups =
+    activeTab === "automations"
+      ? automationGroups
+      : activeTab === "advanced"
+        ? advancedGroups
+        : capabilityGroups;
+  const previewTitle =
+    activeTab === "automations"
+      ? "Connect to unlock durable Google automations"
+      : activeTab === "advanced"
+        ? "Connect to unlock the full Google tool catalog"
+        : "Connect to unlock Google actions";
+  const previewSummary =
+    activeTab === "automations"
+      ? "Browse the recipes and subscriptions you’ll be able to configure once Google auth is attached locally."
+      : activeTab === "advanced"
+        ? "The full catalog stays available after connect, but it should still feel like a guided action surface."
+        : "You opened the action surface. These task-first flows become runnable as soon as local Google auth is configured.";
+  const previewActions = previewGroups
+    .flatMap((group) =>
+      group.featuredActions.map((action) => ({
+        serviceTitle: group.title,
+        action,
+      })),
+    )
+    .slice(0, 8);
+  const setupDrilldownLabel =
+    onboardingStep === "scopes"
+      ? "bundle selection"
+      : onboardingStep === "consent"
+        ? "Google sign-in"
+        : "local client setup";
+  const setupDrilldownTitle =
+    onboardingStep === "scopes"
+      ? "Review bundle selection"
+      : onboardingStep === "consent"
+        ? "Continue to Google sign-in"
+        : "Continue to local client setup";
+  const focusCurrentSetupTarget = useCallback(() => {
+    const preferredTarget =
+      onboardingStep === "scopes"
+        ? chooseBundlesButtonRef.current
+        : onboardingStep === "consent"
+          ? openAuthButtonRef.current
+          : credentialsInputRef.current;
+    const target = preferredTarget ?? setupStageRef.current;
+    if (!target) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.focus({ preventScroll: true });
+    });
+  }, [onboardingStep]);
+  const selectedPreviewAction = useMemo(
+    () =>
+      previewActions.find(
+        ({ action }) => action.id === selectedPreviewActionId,
+      ) ?? null,
+    [previewActions, selectedPreviewActionId],
+  );
+  const previewCards = useMemo(
+    () =>
+      previewActions.map(({ serviceTitle, action }) => ({
+        id: action.id,
+        categoryLabel: serviceTitle,
+        title: action.label,
+        description: action.description,
+        hint: `Unlock this action: jump to ${setupDrilldownLabel}`,
+        ariaLabel: `Unlock ${action.label}. Open action setup details.`,
+      })),
+    [previewActions, setupDrilldownLabel],
+  );
+  const unlockDetail = useMemo(() => {
+    if (!selectedPreviewAction) {
+      return null;
+    }
+    const requiredScopes = Array.from(
+      new Set(
+        (selectedPreviewAction.action.requiredScopes ?? []).map(
+          normalizeGoogleScope,
+        ),
+      ),
+    );
+    const requiredBundles = GOOGLE_SCOPE_BUNDLES.filter((bundle) =>
+      bundle.scopes.some((scope) =>
+        requiredScopes.includes(normalizeGoogleScope(scope)),
+      ),
+    );
+    const selectedBundleIds = new Set(selectedBundles.map((bundle) => bundle.id));
+    const activeRequiredBundles = requiredBundles.filter((bundle) =>
+      selectedBundleIds.has(bundle.id),
+    );
+    const missingRequiredBundles = requiredBundles.filter(
+      (bundle) => !selectedBundleIds.has(bundle.id),
+    );
+    const blockerHeadline =
+      onboardingStep === "credentials"
+        ? "Local Google client setup is still blocking this action."
+        : onboardingStep === "consent"
+          ? "Google consent is still pending for this action."
+          : missingRequiredBundles.length > 0
+            ? `This action still needs ${missingRequiredBundles.length === 1 ? "a capability bundle" : "capability bundles"} selected before sign-in.`
+            : "This action is ready for consent once you continue to Google sign-in.";
+    const blockerDetail =
+      onboardingStep === "credentials"
+        ? "Save a Desktop OAuth client locally first, then you can choose the exact Google bundles for this action."
+        : onboardingStep === "consent"
+          ? "The local setup is ready. Finish the Google account approval flow to unlock this action."
+          : missingRequiredBundles.length > 0
+            ? `Select ${missingRequiredBundles.map((bundle) => bundle.title).join(", ")} during scope selection so this action has the right access.`
+            : "The required bundle is already selected. The next step is Google consent.";
+    const bundleRecommendations: UnlockBundleRecommendation[] =
+      requiredBundles.map((bundle) => ({
+        bundleId: bundle.id,
+        reason: buildBundleRecommendationReason({
+          actionLabel: selectedPreviewAction.action.label,
+          actionKind: selectedPreviewAction.action.kind,
+          bundleTitle: bundle.title,
+        }),
+      }));
+    return {
+      requiredScopes,
+      requiredBundles,
+      activeRequiredBundles,
+      missingRequiredBundles,
+      blockerHeadline,
+      blockerDetail,
+      bundleRecommendations,
+    };
+  }, [onboardingStep, selectedBundles, selectedPreviewAction]);
+  const openUnlockDrilldown = useCallback((actionId: string) => {
+    setSelectedPreviewActionId(actionId);
+  }, []);
+  const closeUnlockDrilldown = useCallback(() => {
+    setSelectedPreviewActionId(null);
+  }, []);
+  const continueSetupFromUnlockDrilldown = useCallback(() => {
+    if (selectedPreviewAction && unlockDetail) {
+      rememberUnlockBundleContext(
+        selectedPreviewAction.action.label,
+        unlockDetail.bundleRecommendations,
+      );
+    }
+    closeUnlockDrilldown();
+    if (onboardingStep === "scopes") {
+      setScopeModalOpen(true);
+      return;
+    }
+    focusCurrentSetupTarget();
+  }, [
+    closeUnlockDrilldown,
+    focusCurrentSetupTarget,
+    onboardingStep,
+    rememberUnlockBundleContext,
+    selectedPreviewAction,
+    setScopeModalOpen,
+    unlockDetail,
+  ]);
+  const saveAndContinueLabel = unlockBundleContext
+    ? "Save client and continue"
+    : "Save locally";
+  const saveAndContinueAriaLabel = unlockBundleContext
+    ? `${saveAndContinueLabel}. Unlocking ${unlockBundleContext.actionLabel}.`
+    : saveAndContinueLabel;
 
   return (
     <div className="workspace-tab-panel">
+      {activeTab !== "overview" ? (
+        <ConnectorActionPreviewStage
+          title={previewTitle}
+          summary={previewSummary}
+          actions={previewCards}
+          onSelectAction={openUnlockDrilldown}
+        />
+      ) : null}
+
       {onboardingStep === "credentials" ? (
-        <section className="workspace-auth-stage">
+        <section
+          ref={setupStageRef}
+          className="workspace-auth-stage"
+          tabIndex={-1}
+        >
           <div className="workspace-auth-stage-head">
             <div>
               <span className="workspace-hero-kicker">Step 1</span>
@@ -127,6 +354,39 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
             </div>
           </div>
 
+          {unlockBundleContext ? (
+            <div className="workspace-onboarding-summary workspace-onboarding-summary-recommended">
+              <strong>Continue unlocking {unlockBundleContext.actionLabel}</strong>
+              <p>
+                Save your local Google client once, then Autopilot will open
+                bundle selection already centered on the access this action
+                needs.
+              </p>
+              <div className="workspace-bundle-strip">
+                {unlockBundleContext.recommendations.length > 0 ? (
+                  unlockBundleContext.recommendations.map(({ bundleId }) => {
+                    const bundle = GOOGLE_SCOPE_BUNDLES.find(
+                      (item) => item.id === bundleId,
+                    );
+                    return (
+                      <span key={bundleId} className="workspace-bundle-chip">
+                        {bundle?.title ?? bundleId}
+                      </span>
+                    );
+                  })
+                ) : (
+                  <span className="workspace-bundle-chip">
+                    Recommended bundles will appear after save
+                  </span>
+                )}
+              </div>
+              <p className="workspace-inline-note">
+                Next: save your client, then review the recommended bundles for{" "}
+                {unlockBundleContext.actionLabel}.
+              </p>
+            </div>
+          ) : null}
+
           <section className="workspace-byok-panel">
             <div className="workspace-byok-head">
               <div>
@@ -145,6 +405,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
               <label className="workspace-field">
                 Google OAuth client ID
                 <input
+                  ref={credentialsInputRef}
                   type="text"
                   value={oauthClientIdInput}
                   onChange={(event) => setOauthClientIdInput(event.target.value)}
@@ -187,23 +448,37 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
                 the consent screen, and Autopilot stores the result locally.
               </span>
             </div>
+            {unlockBundleContext ? (
+              <div
+                className="workspace-auth-pending-action"
+                role="status"
+                aria-live="polite"
+                aria-label={`Unlocking ${unlockBundleContext.actionLabel}`}
+              >
+                <strong>Unlocking:</strong>
+                <span>{unlockBundleContext.actionLabel}</span>
+              </div>
+            ) : null}
             <div className="workspace-auth-stage-actions">
               <button
                 type="button"
                 className="btn-primary"
                 onClick={() =>
-                  void workspace.saveOauthClient(
-                    oauthClientIdInput,
-                    oauthClientSecretInput,
-                  )
+                  void (unlockBundleContext
+                    ? saveOauthClientAndContinue()
+                    : workspace.saveOauthClient(
+                        oauthClientIdInput,
+                        oauthClientSecretInput,
+                      ))
                 }
                 disabled={
                   workspace.busy ||
                   !workspace.runtimeReady ||
                   !oauthClientIdInput.trim()
                 }
+                aria-label={saveAndContinueAriaLabel}
               >
-                Save locally
+                {saveAndContinueLabel}
               </button>
               <button
                 type="button"
@@ -227,7 +502,11 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
       ) : null}
 
       {onboardingStep === "scopes" ? (
-        <section className="workspace-auth-stage">
+        <section
+          ref={setupStageRef}
+          className="workspace-auth-stage"
+          tabIndex={-1}
+        >
           <div className="workspace-auth-stage-head">
             <div>
               <span className="workspace-hero-kicker">Step 2</span>
@@ -285,6 +564,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
 
           <div className="workspace-auth-stage-actions">
             <button
+              ref={chooseBundlesButtonRef}
               type="button"
               className="btn-secondary"
               onClick={() => setScopeModalOpen(true)}
@@ -329,7 +609,11 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
       ) : null}
 
       {onboardingStep === "consent" ? (
-        <section className="workspace-auth-stage">
+        <section
+          ref={setupStageRef}
+          className="workspace-auth-stage"
+          tabIndex={-1}
+        >
           <div className="workspace-auth-stage-head">
             <div>
               <span className="workspace-hero-kicker">Step 3</span>
@@ -368,6 +652,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
           </div>
           <div className="workspace-auth-stage-actions">
             <button
+              ref={openAuthButtonRef}
               type="button"
               className="btn-primary"
               onClick={openAuthLink}
@@ -435,6 +720,109 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
           ) : null}
         </section>
       ) : null}
+
+      <ConnectorActionUnlockModal
+        open={Boolean(selectedPreviewAction && unlockDetail)}
+        title={
+          selectedPreviewAction
+            ? `Unlock ${selectedPreviewAction.action.label}`
+            : "Unlock Google action"
+        }
+        description={
+          selectedPreviewAction
+            ? `See what ${selectedPreviewAction.serviceTitle} access this action needs before you continue setup.`
+            : undefined
+        }
+        summaryCategory={selectedPreviewAction?.serviceTitle ?? "Google"}
+        summaryTitle={selectedPreviewAction?.action.label ?? "Google action"}
+        summaryDescription={selectedPreviewAction?.action.description ?? ""}
+        onClose={closeUnlockDrilldown}
+      >
+        {selectedPreviewAction && unlockDetail ? (
+          <>
+            <div className="workspace-unlock-grid">
+              <article className="workspace-stat-card workspace-summary-card">
+                <span>Current blocker</span>
+                <strong>{unlockDetail.blockerHeadline}</strong>
+                <p>{unlockDetail.blockerDetail}</p>
+              </article>
+
+              <article className="workspace-stat-card workspace-summary-card">
+                <span>Setup target</span>
+                <strong>{setupDrilldownTitle}</strong>
+                <p>
+                  The primary action below jumps straight to the current setup
+                  control for this action.
+                </p>
+              </article>
+            </div>
+
+            {unlockDetail.requiredBundles.length > 0 ? (
+              <div className="workspace-panel-heading">
+                <strong>Required capability bundles</strong>
+                <div className="workspace-bundle-strip">
+                  {unlockDetail.requiredBundles.map((bundle) => (
+                    <span key={bundle.id} className="workspace-bundle-chip">
+                      {bundle.title}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {unlockDetail.missingRequiredBundles.length > 0 ? (
+              <div className="workspace-warning-panel">
+                <strong>Still missing before this action can run</strong>
+                <div className="workspace-warning-list">
+                  {unlockDetail.missingRequiredBundles.map((bundle) => (
+                    <span key={bundle.id}>
+                      {bundle.title}: {bundle.summary}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {unlockDetail.activeRequiredBundles.length > 0 ? (
+              <div className="workspace-storage-list">
+                {unlockDetail.activeRequiredBundles.map((bundle) => (
+                  <span key={bundle.id}>
+                    Already selected: <code>{bundle.title}</code>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            {unlockDetail.requiredScopes.length > 0 ? (
+              <div className="workspace-panel-heading">
+                <strong>Exact Google scopes</strong>
+                <div className="workspace-required-scopes">
+                  {unlockDetail.requiredScopes.map((scope) => (
+                    <code key={scope}>{scope}</code>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="workspace-modal-actions workspace-unlock-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={continueSetupFromUnlockDrilldown}
+              >
+                {setupDrilldownTitle}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={closeUnlockDrilldown}
+              >
+                Keep browsing
+              </button>
+            </div>
+          </>
+        ) : null}
+      </ConnectorActionUnlockModal>
     </div>
   );
 }

@@ -6,16 +6,35 @@ export interface SpotlightLayout {
   artifactPanelVisible: boolean;
 }
 
-export function useSpotlightLayout() {
+interface UseSpotlightLayoutOptions {
+  persistToBackend?: boolean;
+  initialSidebarVisible?: boolean;
+  initialArtifactPanelVisible?: boolean;
+}
+
+export function useSpotlightLayout({
+  persistToBackend = true,
+  initialSidebarVisible = false,
+  initialArtifactPanelVisible = false,
+}: UseSpotlightLayoutOptions = {}) {
   const [layout, setLayout] = useState<SpotlightLayout>({
-    sidebarVisible: false,
-    artifactPanelVisible: false,
+    sidebarVisible: initialSidebarVisible,
+    artifactPanelVisible: initialArtifactPanelVisible,
   });
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(persistToBackend);
 
   // Sync layout from backend on mount
   useEffect(() => {
+    if (!persistToBackend) {
+      setLayout({
+        sidebarVisible: initialSidebarVisible,
+        artifactPanelVisible: initialArtifactPanelVisible,
+      });
+      setIsLoading(false);
+      return;
+    }
+
     const syncLayout = async () => {
       try {
         const [sidebarVisible, artifactPanelVisible] = await invoke<
@@ -34,11 +53,20 @@ export function useSpotlightLayout() {
     };
 
     syncLayout();
-  }, []);
+  }, [
+    initialArtifactPanelVisible,
+    initialSidebarVisible,
+    persistToBackend,
+  ]);
 
   const toggleSidebar = useCallback(
     async (visible?: boolean) => {
       const newVisible = visible ?? !layout.sidebarVisible;
+
+      if (!persistToBackend) {
+        setLayout((prev) => ({ ...prev, sidebarVisible: newVisible }));
+        return;
+      }
 
       try {
         await invoke("toggle_spotlight_sidebar", { visible: newVisible });
@@ -47,12 +75,17 @@ export function useSpotlightLayout() {
         console.error("Failed to toggle sidebar:", e);
       }
     },
-    [layout.sidebarVisible],
+    [layout.sidebarVisible, persistToBackend],
   );
 
   const toggleArtifactPanel = useCallback(
     async (visible?: boolean) => {
       const newVisible = visible ?? !layout.artifactPanelVisible;
+
+      if (!persistToBackend) {
+        setLayout((prev) => ({ ...prev, artifactPanelVisible: newVisible }));
+        return;
+      }
 
       try {
         await invoke("toggle_spotlight_artifact_panel", {
@@ -63,7 +96,7 @@ export function useSpotlightLayout() {
         console.error("Failed to toggle artifact panel:", e);
       }
     },
-    [layout.artifactPanelVisible],
+    [layout.artifactPanelVisible, persistToBackend],
   );
 
   return {

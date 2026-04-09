@@ -120,6 +120,29 @@ fn connect_cached_public_api(app: &AppHandle) -> Result<PublicApiClient<Channel>
     Ok(client)
 }
 
+async fn connect_cached_public_api_async(
+    app: &AppHandle,
+) -> Result<PublicApiClient<Channel>, String> {
+    let state = app.state::<Mutex<AppState>>();
+    if let Ok(guard) = state.lock() {
+        if let Some(client) = guard.rpc_client.clone() {
+            return Ok(client);
+        }
+    }
+
+    let client = connect_public_api().await?;
+    if let Ok(mut guard) = state.lock() {
+        if guard.rpc_client.is_none() {
+            guard.rpc_client = Some(client.clone());
+        }
+    }
+    Ok(client)
+}
+
+fn planning_context_discovery_timeout(planning_timeout: Duration) -> Duration {
+    planning_timeout.min(Duration::from_secs(8))
+}
+
 async fn query_raw_state(
     client: &mut PublicApiClient<Channel>,
     key: Vec<u8>,
@@ -245,33 +268,52 @@ pub(super) fn prepare_studio_artifact_planning_context(
     };
     let blueprint = derive_studio_artifact_blueprint(request, &brief);
     let artifact_ir = compile_studio_artifact_ir(request, &brief, &blueprint);
-    let retrieved_exemplars = tauri::async_runtime::block_on(retrieve_studio_artifact_exemplars(
-        memory_runtime,
-        inference_runtime.clone(),
-        &brief,
-        &blueprint,
-        &artifact_ir,
-        refinement.and_then(|context| context.taste_memory.as_ref()),
-    ))
-    .unwrap_or_else(|error| {
-        studio_skill_trace(format!("planning_context:exemplar_error {}", error));
-        Vec::new()
-    });
-    let selected_skills = match connect_cached_public_api(app) {
-        Ok(mut client) => tauri::async_runtime::block_on(resolve_selected_skills_with_client(
-            &mut client,
-            memory_runtime,
-            inference_runtime,
-            &brief,
-            &blueprint,
-            &artifact_ir,
-        ))
-        .unwrap_or_else(|error| {
+    let discovery_timeout = planning_context_discovery_timeout(planning_timeout);
+    let retrieved_exemplars = match tauri::async_runtime::block_on(async {
+        tokio::time::timeout(
+            discovery_timeout,
+            retrieve_studio_artifact_exemplars(
+                memory_runtime,
+                inference_runtime.clone(),
+                &brief,
+                &blueprint,
+                &artifact_ir,
+                refinement.and_then(|context| context.taste_memory.as_ref()),
+            ),
+        )
+        .await
+    }) {
+        Ok(Ok(exemplars)) => exemplars,
+        Ok(Err(error)) => {
+            studio_skill_trace(format!("planning_context:exemplar_error {}", error));
+            Vec::new()
+        }
+        Err(_) => {
+            studio_skill_trace("planning_context:exemplar_timeout");
+            Vec::new()
+        }
+    };
+    let selected_skills = match tauri::async_runtime::block_on(async {
+        tokio::time::timeout(
+            discovery_timeout,
+            resolve_selected_skills(
+                app,
+                memory_runtime,
+                inference_runtime,
+                &brief,
+                &blueprint,
+                &artifact_ir,
+            ),
+        )
+        .await
+    }) {
+        Ok(Ok(skills)) => skills,
+        Ok(Err(error)) => {
             studio_skill_trace(format!("planning_context:skill_error {}", error));
             Vec::new()
-        }),
-        Err(error) => {
-            studio_skill_trace(format!("planning_context:rpc_unavailable {}", error));
+        }
+        Err(_) => {
+            studio_skill_trace("planning_context:skill_timeout");
             Vec::new()
         }
     };
@@ -283,6 +325,26 @@ pub(super) fn prepare_studio_artifact_planning_context(
         selected_skills,
         retrieved_exemplars,
     })
+}
+
+async fn resolve_selected_skills(
+    app: &AppHandle,
+    memory_runtime: &Arc<MemoryRuntime>,
+    inference_runtime: Arc<dyn InferenceRuntime>,
+    brief: &StudioArtifactBrief,
+    blueprint: &StudioArtifactBlueprint,
+    artifact_ir: &StudioArtifactIR,
+) -> Result<Vec<StudioArtifactSelectedSkill>, String> {
+    let mut client = connect_cached_public_api_async(app).await?;
+    resolve_selected_skills_with_client(
+        &mut client,
+        memory_runtime,
+        inference_runtime,
+        brief,
+        blueprint,
+        artifact_ir,
+    )
+    .await
 }
 
 async fn retrieve_studio_artifact_exemplars(
@@ -433,7 +495,7 @@ async fn resolve_selected_skills_with_client(
         }
     }
 
-    let mut selected = accumulators
+    let selected = accumulators
         .into_iter()
         .map(|(skill_hash, accumulator)| {
             let required_matches = accumulator.required_matches;

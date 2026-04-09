@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import ForceGraph3DFactory from "3d-force-graph";
-import type { SubstrateReceiptRow } from "./ArtifactHubViews";
+import type { SubstrateReceiptRow } from "./ArtifactHubViewModels";
 
 type GraphNodeKind =
   | "query"

@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ConnectorActionDefinition,
   ConnectorSummary,
 } from "../../../runtime/agent-runtime";
 import { useGoogleWorkspaceConnector } from "../hooks/useGoogleWorkspaceConnector";
 import {
+  AUTOMATION_RECIPES,
   GOOGLE_OAUTH_TROUBLESHOOTING,
   GOOGLE_SCOPE_BUNDLES,
+  OVERVIEW_QUICKSTARTS,
   SERVICE_META,
   type GoogleWorkspaceConnectorPanelProps,
   type WorkspaceOnboardingStepId,
@@ -15,6 +17,7 @@ import {
 } from "./googleWorkspaceConnectorPanelConfig";
 import { GoogleWorkspaceConnectorPanelBody } from "./GoogleWorkspaceConnectorPanelBody";
 import {
+  WorkspaceActionComposer,
   WorkspaceModal,
   actionKindLabel,
   availabilityLabel,
@@ -24,15 +27,19 @@ import {
   isMissingOauthClientError,
   orderIndex,
 } from "./googleWorkspaceConnectorPanelParts";
+import type { UnlockBundleRecommendation } from "./googleWorkspaceConnectorPanelView";
 
 export function GoogleWorkspaceConnectorPanel({
   runtime,
   connector,
+  initialTab,
   onConfigured,
   onOpenPolicyCenter,
   policySummary,
 }: GoogleWorkspaceConnectorPanelProps) {
-  const [activeTab, setActiveTab] = useState<WorkspaceTabId>("overview");
+  const [activeTab, setActiveTab] = useState<WorkspaceTabId>(
+    initialTab ?? "overview",
+  );
   const [oauthClientIdInput, setOauthClientIdInput] = useState("");
   const [oauthClientSecretInput, setOauthClientSecretInput] = useState("");
   const [selectedBundleIds, setSelectedBundleIds] = useState<string[]>([]);
@@ -40,6 +47,13 @@ export function GoogleWorkspaceConnectorPanel({
   const [consentModalOpen, setConsentModalOpen] = useState(false);
   const [setupHelpModalOpen, setSetupHelpModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [focusedActionModalOpen, setFocusedActionModalOpen] = useState(false);
+  const [unlockBundleContext, setUnlockBundleContext] = useState<{
+    actionLabel: string;
+    recommendations: UnlockBundleRecommendation[];
+  } | null>(null);
+  const firstRecommendedBundleInputRef = useRef<HTMLInputElement | null>(null);
   const workspace = useGoogleWorkspaceConnector(runtime, connector, {
     onConfigured,
   });
@@ -151,12 +165,30 @@ export function GoogleWorkspaceConnectorPanel({
         : "credentials";
 
   useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
     if (workspace.authPending && workspace.requestedScopes.length > 0) {
       setSelectedBundleIds(
         inferBundleSelectionFromScopes(workspace.requestedScopes),
       );
     }
   }, [workspace.authPending, workspace.requestedScopes]);
+
+  useEffect(() => {
+    if (!workspace.selectedAction) {
+      setFocusedActionModalOpen(false);
+    }
+  }, [workspace.selectedAction]);
+
+  useEffect(() => {
+    if (isConnected) {
+      setUnlockBundleContext(null);
+    }
+  }, [isConnected]);
 
   const selectedBundles = GOOGLE_SCOPE_BUNDLES.filter((bundle) =>
     selectedBundleIds.includes(bundle.id),
@@ -200,6 +232,68 @@ export function GoogleWorkspaceConnectorPanel({
     };
   };
 
+  const preferredActionTarget = useMemo(() => {
+    if (!isConnected) return null;
+
+    if (activeTab === "capabilities") {
+      const quickstartTarget =
+        OVERVIEW_QUICKSTARTS.find(
+          (item) =>
+            item.tab === "capabilities" &&
+            item.actionId &&
+            actionsById.has(item.actionId),
+        ) ?? null;
+      if (quickstartTarget?.actionId) {
+        return {
+          actionId: quickstartTarget.actionId,
+          presetInput: quickstartTarget.presetInput,
+        };
+      }
+      const featuredCapabilityAction =
+        capabilityGroups.flatMap((group) => group.featuredActions)[0] ??
+        capabilityGroups.flatMap((group) => group.actions)[0] ??
+        null;
+      return featuredCapabilityAction
+        ? { actionId: featuredCapabilityAction.id, presetInput: undefined }
+        : null;
+    }
+
+    if (activeTab === "automations") {
+      const recipeTarget =
+        AUTOMATION_RECIPES.find((recipe) => actionsById.has(recipe.actionId)) ?? null;
+      if (recipeTarget) {
+        return {
+          actionId: recipeTarget.actionId,
+          presetInput: recipeTarget.presetInput,
+        };
+      }
+      const automationAction =
+        automationGroups.flatMap((group) => group.featuredActions)[0] ??
+        automationGroups.flatMap((group) => group.actions)[0] ??
+        null;
+      return automationAction
+        ? { actionId: automationAction.id, presetInput: undefined }
+        : null;
+    }
+
+    if (activeTab === "advanced") {
+      const advancedAction =
+        advancedGroups.flatMap((group) => group.actions)[0] ?? null;
+      return advancedAction
+        ? { actionId: advancedAction.id, presetInput: undefined }
+        : null;
+    }
+
+    return null;
+  }, [
+    actionsById,
+    activeTab,
+    advancedGroups,
+    automationGroups,
+    capabilityGroups,
+    isConnected,
+  ]);
+
   const openAction = (
     tab: WorkspaceTabId,
     actionId: string,
@@ -210,6 +304,49 @@ export function GoogleWorkspaceConnectorPanel({
     workspace.selectAction(actionId, presetForAction(action, presetInput));
     setActiveTab(tab);
   };
+
+  useEffect(() => {
+    if (!preferredActionTarget) return;
+
+    const visibleActionIds =
+      activeTab === "capabilities"
+        ? new Set(capabilityGroups.flatMap((group) => group.actions.map((action) => action.id)))
+        : activeTab === "automations"
+          ? new Set(
+              automationGroups.flatMap((group) =>
+                group.actions.map((action) => action.id),
+              ),
+            )
+          : activeTab === "advanced"
+            ? new Set(
+                advancedGroups.flatMap((group) => group.actions.map((action) => action.id)),
+              )
+            : new Set<string>();
+
+    if (
+      workspace.selectedActionId &&
+      visibleActionIds.has(workspace.selectedActionId)
+    ) {
+      return;
+    }
+
+    const nextAction = actionsById.get(preferredActionTarget.actionId);
+    if (!nextAction) return;
+
+    workspace.selectAction(
+      preferredActionTarget.actionId,
+      presetForAction(nextAction, preferredActionTarget.presetInput),
+    );
+  }, [
+    actionsById,
+    activeTab,
+    advancedGroups,
+    automationGroups,
+    capabilityGroups,
+    preferredActionTarget,
+    workspace.selectAction,
+    workspace.selectedActionId,
+  ]);
 
   const openAuthLink = () => {
     if (!workspace.authUrl || typeof window === "undefined") return;
@@ -233,13 +370,121 @@ export function GoogleWorkspaceConnectorPanel({
     );
   };
 
-  const resetGoogleSetup = async () => {
-    const confirmed = window.confirm(
-      "Reset Google setup? This will remove local OAuth tokens and the saved local client configuration.",
+  const rememberUnlockBundleContext = (
+    actionLabel: string,
+    recommendations: UnlockBundleRecommendation[],
+  ) => {
+    if (recommendations.length === 0) {
+      setUnlockBundleContext({ actionLabel, recommendations: [] });
+      return;
+    }
+    setUnlockBundleContext({ actionLabel, recommendations });
+    setSelectedBundleIds((current) => {
+      const merged = new Set(current);
+      for (const bundleId of recommendations.map((item) => item.bundleId)) {
+        merged.add(bundleId);
+      }
+      return Array.from(merged);
+    });
+  };
+
+  const orderedScopeBundles = useMemo(() => {
+    if (!unlockBundleContext || unlockBundleContext.recommendations.length === 0) {
+      return GOOGLE_SCOPE_BUNDLES;
+    }
+    const recommended = new Set(
+      unlockBundleContext.recommendations.map((item) => item.bundleId),
     );
-    if (!confirmed) return;
+    return [...GOOGLE_SCOPE_BUNDLES].sort((left, right) => {
+      const leftRecommended = recommended.has(left.id) ? 1 : 0;
+      const rightRecommended = recommended.has(right.id) ? 1 : 0;
+      return rightRecommended - leftRecommended;
+    });
+  }, [unlockBundleContext]);
+  const recommendedBundleIds = useMemo(
+    () => unlockBundleContext?.recommendations.map((item) => item.bundleId) ?? [],
+    [unlockBundleContext],
+  );
+  const missingRecommendedBundleIds = useMemo(
+    () =>
+      recommendedBundleIds.filter(
+        (bundleId) => !selectedBundleIds.includes(bundleId),
+      ),
+    [recommendedBundleIds, selectedBundleIds],
+  );
+  const firstRecommendedBundleId = useMemo(() => {
+    if (!recommendedBundleIds.length) {
+      return null;
+    }
+    const recommended = new Set(recommendedBundleIds);
+    return (
+      orderedScopeBundles.find((bundle) => recommended.has(bundle.id))?.id ?? null
+    );
+  }, [orderedScopeBundles, recommendedBundleIds]);
+
+  useEffect(() => {
+    if (!scopeModalOpen || !firstRecommendedBundleId) {
+      return;
+    }
+    const target = firstRecommendedBundleInputRef.current;
+    if (!target) {
+      return;
+    }
+    const rafId = window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [scopeModalOpen, firstRecommendedBundleId]);
+
+  const ensureRecommendedBundlesSelected = () => {
+    if (recommendedBundleIds.length === 0) {
+      return;
+    }
+    setSelectedBundleIds((current) => {
+      const merged = new Set(current);
+      for (const bundleId of recommendedBundleIds) {
+        merged.add(bundleId);
+      }
+      return Array.from(merged);
+    });
+  };
+
+  const useRecommendedBundlesAndContinue = () => {
+    if (recommendedBundleIds.length === 0) {
+      return;
+    }
+    const mergedBundleIds = Array.from(
+      new Set([...selectedBundleIds, ...recommendedBundleIds]),
+    );
+    const nextScopes = Array.from(
+      new Set(
+        GOOGLE_SCOPE_BUNDLES.filter((bundle) =>
+          mergedBundleIds.includes(bundle.id),
+        ).flatMap((bundle) => bundle.scopes),
+      ),
+    );
+    setSelectedBundleIds(mergedBundleIds);
+    setScopeModalOpen(false);
+    void workspace.beginAuth(nextScopes);
+  };
+
+  const saveOauthClientAndContinue = async () => {
+    const saved = await workspace.saveOauthClient(
+      oauthClientIdInput,
+      oauthClientSecretInput,
+    );
+    if (!saved) {
+      return;
+    }
+    setScopeModalOpen(true);
+  };
+
+  const resetGoogleSetup = async () => {
     setScopeModalOpen(false);
     setConsentModalOpen(false);
+    setResetConfirmOpen(false);
+    setUnlockBundleContext(null);
     await workspace.resetLocalSetup();
     setSelectedBundleIds([]);
     setOauthClientIdInput("");
@@ -257,11 +502,30 @@ export function GoogleWorkspaceConnectorPanel({
     await workspace.beginAuth(requestedScopes);
   };
 
-  const view = { connector, workspace, onOpenPolicyCenter, policySummary, activeTab, setActiveTab, oauthClientIdInput, setOauthClientIdInput, oauthClientSecretInput, setOauthClientSecretInput, selectedBundleIds, setSelectedBundleIds, scopeModalOpen, setScopeModalOpen, consentModalOpen, setConsentModalOpen, setupHelpModalOpen, setSetupHelpModalOpen, settingsModalOpen, setSettingsModalOpen, actionsById, groupedActions, capabilityGroups, automationGroups, advancedGroups, activeSubscriptions, attentionSubscriptions, connectorStatus, availability, availabilityStyle, isConnected, missingOauthClient, onboardingStep, selectedBundles, requestedScopes, canBeginAuth, reconnectScopes, tokenStoragePath, clientStoragePath, troubleshootingScopes, troubleshootingApis, oauthClientPreview, presetForAction, openAction, openAuthLink, copyAuthLink, toggleBundle, resetGoogleSetup, reopenScopeSelection, retryConsent };
+  const view = { connector, workspace, onOpenPolicyCenter, policySummary, activeTab, setActiveTab, oauthClientIdInput, setOauthClientIdInput, oauthClientSecretInput, setOauthClientSecretInput, selectedBundleIds, setSelectedBundleIds, scopeModalOpen, setScopeModalOpen, consentModalOpen, setConsentModalOpen, setupHelpModalOpen, setSetupHelpModalOpen, settingsModalOpen, setSettingsModalOpen, focusedActionModalOpen, openFocusedActionModal: () => setFocusedActionModalOpen(true), closeFocusedActionModal: () => setFocusedActionModalOpen(false), actionsById, groupedActions, capabilityGroups, automationGroups, advancedGroups, activeSubscriptions, attentionSubscriptions, connectorStatus, availability, availabilityStyle, isConnected, missingOauthClient, onboardingStep, selectedBundles, requestedScopes, canBeginAuth, reconnectScopes, tokenStoragePath, clientStoragePath, troubleshootingScopes, troubleshootingApis, oauthClientPreview, presetForAction, openAction, openAuthLink, copyAuthLink, toggleBundle, resetGoogleSetup, reopenScopeSelection, retryConsent, saveOauthClientAndContinue, unlockBundleContext, rememberUnlockBundleContext };
 
   return (
     <div className="connector-test-panel workspace-connector-panel workspace-product-panel">
       <GoogleWorkspaceConnectorPanelBody view={view} />
+
+      <WorkspaceModal
+        open={focusedActionModalOpen && Boolean(workspace.selectedAction)}
+        title={workspace.selectedAction?.label ?? "Focused action form"}
+        description="Use the full form in a dedicated modal when the side panel feels too cramped."
+        onClose={() => setFocusedActionModalOpen(false)}
+      >
+        <WorkspaceActionComposer
+          action={workspace.selectedAction}
+          workspace={workspace}
+          eyebrow="Focused action form"
+          pinActionControls
+        />
+        {workspace.formattedResult ? (
+          <pre className="connector-test-result workspace-result-panel">
+            {workspace.formattedResult}
+          </pre>
+        ) : null}
+      </WorkspaceModal>
 
       <WorkspaceModal
         open={settingsModalOpen}
@@ -386,12 +650,48 @@ export function GoogleWorkspaceConnectorPanel({
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => void resetGoogleSetup()}
+                onClick={() => {
+                  setResetConfirmOpen(true);
+                }}
                 disabled={workspace.busy || !workspace.runtimeReady}
               >
                 Reset Google setup
               </button>
             </div>
+            {resetConfirmOpen ? (
+              <div className="workspace-approval-card">
+                <div className="workspace-approval-card-head">
+                  <strong>Reset local Google setup?</strong>
+                  <span>Local credentials only</span>
+                </div>
+                <p>
+                  This removes local OAuth tokens and the saved local client
+                  configuration for this connector surface.
+                </p>
+                <div className="workspace-action-actions">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      void resetGoogleSetup();
+                    }}
+                    disabled={workspace.busy || !workspace.runtimeReady}
+                  >
+                    Confirm reset
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      setResetConfirmOpen(false);
+                    }}
+                    disabled={workspace.busy}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </article>
         </div>
       </WorkspaceModal>
@@ -402,16 +702,80 @@ export function GoogleWorkspaceConnectorPanel({
         description="Select the Google services this local assistant should request before browser consent."
         onClose={() => setScopeModalOpen(false)}
       >
+        {unlockBundleContext?.recommendations.length ? (
+          <div className="workspace-onboarding-summary workspace-onboarding-summary-recommended">
+            <strong>Recommended for {unlockBundleContext.actionLabel}</strong>
+            <p>
+              The highlighted bundles below unlock the action you just chose.
+              You can keep them selected and add more if needed.
+            </p>
+            <div className="workspace-auth-stage-actions">
+              <button
+                type="button"
+                className={
+                  missingRecommendedBundleIds.length === 0
+                    ? "btn-secondary"
+                    : "btn-primary"
+                }
+                onClick={
+                  missingRecommendedBundleIds.length === 0
+                    ? ensureRecommendedBundlesSelected
+                    : useRecommendedBundlesAndContinue
+                }
+                disabled={
+                  missingRecommendedBundleIds.length === 0
+                    ? true
+                    : workspace.busy || !workspace.runtimeReady
+                }
+              >
+                {missingRecommendedBundleIds.length === 0
+                  ? "Recommended bundles selected"
+                  : "Use recommended bundles and continue"}
+              </button>
+            </div>
+            <p className="workspace-inline-note">
+              {missingRecommendedBundleIds.length === 0
+                ? "Next: continue to Google consent."
+                : "Next: use the recommended bundles and continue to Google consent in one step."}
+            </p>
+            <div className="workspace-bundle-strip">
+              {unlockBundleContext.recommendations.map(({ bundleId }) => {
+                const bundle = GOOGLE_SCOPE_BUNDLES.find(
+                  (item) => item.id === bundleId,
+                );
+                return (
+                  <span key={bundleId} className="workspace-bundle-chip">
+                    {bundle?.title ?? bundleId}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
         <div className="workspace-scope-grid">
-          {GOOGLE_SCOPE_BUNDLES.map((bundle) => {
+          {orderedScopeBundles.map((bundle) => {
             const selected = selectedBundleIds.includes(bundle.id);
+            const recommendation =
+              unlockBundleContext?.recommendations.find(
+                (item) => item.bundleId === bundle.id,
+              ) ?? null;
+            const recommended = Boolean(
+              recommendation,
+            );
             return (
               <label
                 key={bundle.id}
-                className={`workspace-scope-card ${selected ? "selected" : ""}`}
+                className={`workspace-scope-card ${selected ? "selected" : ""} ${
+                  recommended ? "recommended" : ""
+                }`}
               >
                 <div className="workspace-scope-card-head">
                   <input
+                    ref={
+                      bundle.id === firstRecommendedBundleId
+                        ? firstRecommendedBundleInputRef
+                        : undefined
+                    }
                     type="checkbox"
                     checked={selected}
                     onChange={() => toggleBundle(bundle.id)}
@@ -419,6 +783,16 @@ export function GoogleWorkspaceConnectorPanel({
                   <div>
                     <strong>{bundle.title}</strong>
                     <p>{bundle.summary}</p>
+                    {recommended ? (
+                      <span className="workspace-scope-card-callout">
+                        Recommended for {unlockBundleContext?.actionLabel}
+                      </span>
+                    ) : null}
+                    {recommendation ? (
+                      <span className="workspace-scope-card-reason">
+                        {recommendation.reason}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
                 <span className="workspace-state-detail">{bundle.detail}</span>

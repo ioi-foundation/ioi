@@ -8,6 +8,7 @@ import type {
 export interface GoogleWorkspaceConnectorPanelProps {
   runtime: AgentRuntime;
   connector: ConnectorSummary;
+  initialTab?: WorkspaceTabId;
   onConfigured?: (result: ConnectorConfigureResult) => void;
   onOpenPolicyCenter?: (connector: ConnectorSummary) => void;
   policySummary?: {
@@ -235,7 +236,8 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
   {
     id: "gmail-to-task",
     title: "Inbox to task",
-    summary: "Convert new Gmail deliveries into Google Tasks using the built-in workflow.",
+    summary:
+      "Convert new Gmail deliveries into Google Tasks using the first-party workflow.",
     actionId: "gmail.watch_emails",
     presetInput: {
       labelIds: "INBOX",
@@ -376,4 +378,3 @@ export const GOOGLE_OAUTH_TROUBLESHOOTING: GoogleOauthTroubleshootingItem[] = [
       "Use Retry sign-in to force the account chooser again. You do not need to re-enter the saved local client just to switch accounts.",
   },
 ];
-

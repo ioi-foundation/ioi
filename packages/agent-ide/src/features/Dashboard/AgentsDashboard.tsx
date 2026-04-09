@@ -10,9 +10,33 @@ interface AgentsDashboardProps {
 export function AgentsDashboard({ runtime, onSelectAgent }: AgentsDashboardProps) {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    runtime.getAgents().then(setAgents);
+    let active = true;
+
+    setLoading(true);
+    setError(null);
+    runtime
+      .getAgents()
+      .then((items) => {
+        if (!active) return;
+        setAgents(items);
+      })
+      .catch((nextError) => {
+        if (!active) return;
+        setError(String(nextError));
+        setAgents([]);
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [runtime]);
 
   const selectedAgent = agents.find(a => a.id === selectedId);
@@ -31,6 +55,8 @@ export function AgentsDashboard({ runtime, onSelectAgent }: AgentsDashboardProps
           </button>
         </div>
         <div className="agents-list">
+          {loading ? <div className="empty-state">Loading live agents…</div> : null}
+          {error ? <div className="empty-state">{error}</div> : null}
           {agents.map(agent => (
             <div 
               key={agent.id} 
@@ -71,8 +97,14 @@ export function AgentsDashboard({ runtime, onSelectAgent }: AgentsDashboardProps
         ) : (
           <div className="empty-state">
             <div className="empty-icon">🤖</div>
-            <h3>No agent selected</h3>
-            <p>Select an agent to view details or create a new one.</p>
+            <h3>{error ? "Agents unavailable" : loading ? "Loading agents" : "No agent selected"}</h3>
+            <p>
+              {error
+                ? "The live runtime did not return the current agent catalog."
+                : loading
+                  ? "Fetching the current agent catalog from the live runtime."
+                  : "Select an agent to view details or create a new one."}
+            </p>
           </div>
         )}
       </div>

@@ -5,23 +5,24 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
+import {
+  buildTraceBundleDefaultFilename,
+  traceBundleExportPreset,
+  type TraceBundleExportVariant,
+} from "./traceBundleExportModel";
 
 interface ExportContextOptions {
   threadId: string;
   includeArtifactPayloads?: boolean;
+  variant?: TraceBundleExportVariant;
+  dialogTitle?: string;
+  filenamePrefix?: string;
 }
 
-function formatIsoForFilename(timestamp: string): string {
-  return timestamp.replace(/[:]/g, "-").replace(/\.\d+Z$/, "Z");
-}
-
-function buildDefaultFilename(threadId: string): string {
-  const shortId = threadId.slice(0, 8) || "thread";
-  const stamp = formatIsoForFilename(new Date().toISOString());
-  return `autopilot-run-${shortId}-${stamp}.zip`;
-}
-
-async function notifySuccess(exportedPath: string): Promise<void> {
+async function notifySuccess(
+  exportedPath: string,
+  title: string,
+): Promise<void> {
   try {
     let granted = await isPermissionGranted();
     if (!granted) {
@@ -30,7 +31,7 @@ async function notifySuccess(exportedPath: string): Promise<void> {
     }
     if (granted) {
       await sendNotification({
-        title: "Context Export Complete",
+        title,
         body: exportedPath,
       });
     }
@@ -39,13 +40,22 @@ async function notifySuccess(exportedPath: string): Promise<void> {
   }
 }
 
-export async function exportThreadContextBundle({
+export async function exportThreadTraceBundle({
   threadId,
-  includeArtifactPayloads = true,
+  includeArtifactPayloads,
+  variant = "trace_bundle",
+  dialogTitle,
+  filenamePrefix,
 }: ExportContextOptions): Promise<string | null> {
+  const preset = traceBundleExportPreset(variant);
+  const effectiveIncludeArtifactPayloads =
+    includeArtifactPayloads ?? preset.includeArtifactPayloads;
   const outputPath = await save({
-    title: "Export Autopilot Run Context",
-    defaultPath: buildDefaultFilename(threadId),
+    title: dialogTitle ?? preset.dialogTitle,
+    defaultPath: buildTraceBundleDefaultFilename(
+      threadId,
+      filenamePrefix ?? preset.filenamePrefix,
+    ),
     filters: [{ name: "Zip Archive", extensions: ["zip"] }],
   });
 
@@ -53,15 +63,15 @@ export async function exportThreadContextBundle({
     return null;
   }
 
-  const exportedPath = await invoke<string>("export_thread_bundle", {
+  const exportedPath = await invoke<string>("export_trace_bundle", {
     threadId,
     thread_id: threadId,
     outputPath,
     output_path: outputPath,
-    includeArtifactPayloads,
-    include_artifact_payloads: includeArtifactPayloads,
+    includeArtifactPayloads: effectiveIncludeArtifactPayloads,
+    include_artifact_payloads: effectiveIncludeArtifactPayloads,
   });
 
-  await notifySuccess(exportedPath);
+  await notifySuccess(exportedPath, preset.notificationTitle);
   return exportedPath;
 }

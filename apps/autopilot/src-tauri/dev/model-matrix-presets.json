@@ -1,17 +1,18 @@
 {
   "version": 1,
-  "defaultPresetId": "ollama-openai",
+  "defaultPresetId": "planner-grade-local-oss-qwen3-8b",
   "presets": [
     {
       "id": "ollama-openai",
-      "label": "Baseline local smoke",
+      "label": "Baseline local validation",
       "role": "baseline_local",
       "benchmarkTier": "tier0",
+      "deploymentProfile": "consumerLocal",
       "runtimeKind": "local_http",
       "family": "ollama_openai",
-      "shippedDefault": true,
+      "shippedDefault": false,
       "experimental": false,
-      "routingIntent": "Fast smoke tests, routing floor, and low-cost local sanity runs.",
+      "routingIntent": "Fast baseline validation, routing floor, and low-cost local sanity runs.",
       "runtimeUrl": "http://127.0.0.1:11434/v1/chat/completions",
       "runtimeHealthUrl": "http://127.0.0.1:11434/api/tags",
       "runtimeModel": "llama3.2:3b",
@@ -21,12 +22,12 @@
       "backendAutostart": true,
       "artifactAcceptanceModel": "qwen2.5:14b",
       "workloadIntents": [
-        "smoke",
+        "baseline",
         "routing",
         "summarization"
       ],
       "notes": [
-        "This is the current shipped default. Phase 0 preserves it until a challenger wins repeatedly."
+        "This remains the lightweight fallback and local baseline-validation lane after the Qwen3 8B default promotion for small-GPU systems."
       ]
     },
     {
@@ -34,6 +35,7 @@
       "label": "Planner-grade local OSS",
       "role": "planner_verifier",
       "benchmarkTier": "tier1",
+      "deploymentProfile": "workstationLocal",
       "runtimeKind": "local_http",
       "family": "ollama_openai",
       "shippedDefault": false,
@@ -61,32 +63,43 @@
     },
     {
       "id": "planner-grade-local-oss-qwen3-8b",
-      "label": "Planner-grade local OSS (Qwen3 8B)",
+      "label": "Planner-grade local OSS (Qwen3.5 9B)",
       "role": "planner_verifier",
       "benchmarkTier": "tier1",
+      "deploymentProfile": "consumerLocal",
       "runtimeKind": "local_http",
       "family": "ollama_openai",
-      "shippedDefault": false,
-      "experimental": true,
-      "routingIntent": "Single-model planner/verifier challenger for artifact reliability when the split 7B/14B lane is runtime-bound by local prefill or residency churn.",
+      "shippedDefault": true,
+      "experimental": false,
+      "routingIntent": "Single-model planner/verifier challenger for artifact reliability when Studio is more latency-bound by split-lane model churn than by raw per-token speed.",
       "runtimeUrl": "http://127.0.0.1:11434/v1/chat/completions",
       "runtimeHealthUrl": "http://127.0.0.1:11434/api/tags",
-      "runtimeModel": "qwen3:8b",
+      "runtimeModel": "qwen3.5:9b",
       "cognitionInferenceTimeoutSecs": 60,
       "embeddingModel": "nomic-embed-text",
       "backendId": "ollama-openai",
       "backendSource": "dev/local-backends/ollama-openai",
+      "backendEnv": {
+        "OLLAMA_MAX_LOADED_MODELS": "1",
+        "OLLAMA_NUM_PARALLEL": "1",
+        "OLLAMA_CONTEXT_LENGTH": "4096",
+        "OLLAMA_KEEP_ALIVE": "10m"
+      },
+      "autoHardwareProfiles": [
+        "nvidia-vram-8gb-class"
+      ],
       "backendAutostart": true,
-      "artifactAcceptanceModel": "qwen3:8b",
+      "artifactAcceptanceModel": "qwen3.5:9b",
       "workloadIntents": [
         "planning",
         "verification",
         "artifact_judging"
       ],
       "notes": [
-        "This challenger stays experimental and does not affect the shipped default.",
-        "The lane intentionally uses one official 8B model for both generation and acceptance first, so the benchmark isolates model quality versus the current 7B/14B residency and prefill blocker.",
-        "Only retained wins across required workload coverage can justify any future promotion."
+        "This is now the default local preset for the desktop local-GPU path so Studio stays on one warmed model for routing, generation, and acceptance.",
+        "The lane intentionally keeps generation and acceptance on the same 9B model first, so interactive Studio artifact requests avoid split-lane residency churn before we optimize anything else.",
+        "Auto-setup chooses this preset for the local GPU desktop path so the runtime defaults to one model by default.",
+        "The old ollama-openai baseline remains available as an explicit fallback lane."
       ]
     },
     {
@@ -94,6 +107,7 @@
       "label": "Coding executor local OSS",
       "role": "coding_executor",
       "benchmarkTier": "tier2",
+      "deploymentProfile": "consumerLocal",
       "runtimeKind": "local_http",
       "family": "ollama_openai",
       "shippedDefault": false,
@@ -125,6 +139,7 @@
       "label": "Remote multimodal / voice lane",
       "role": "multimodal_realtime",
       "benchmarkTier": "tier3",
+      "deploymentProfile": "blindCloud",
       "runtimeKind": "remote_http",
       "family": "remote_http",
       "shippedDefault": false,

@@ -99,6 +99,45 @@ const commonCapabilities = [
   },
 ];
 
+const knownCapabilitiesByKey = new Map(
+  commonCapabilities.map((capability) => [capability.key, capability]),
+);
+
+const knownCapabilitiesByFamilyId = new Map(
+  commonCapabilities.map((capability) => [capability.familyId, capability]),
+);
+
+function capabilityDefinitionsFromCatalog(catalog: GraphCapabilityCatalog) {
+  if (catalog.capabilities.length === 0) {
+    return commonCapabilities;
+  }
+
+  const seen = new Set<string>();
+  const resolved = catalog.capabilities.map((capability) => {
+    const knownCapability =
+      knownCapabilitiesByKey.get(capability.capabilityId) ??
+      knownCapabilitiesByFamilyId.get(capability.familyId);
+    const key = knownCapability?.key ?? capability.capabilityId;
+    seen.add(key);
+
+    return {
+      key,
+      label: knownCapability?.label ?? capability.label,
+      familyId: capability.familyId,
+      description:
+        knownCapability?.description ??
+        capability.operatorSummary ??
+        `${capability.label} capability surfaced from the live Local Engine runtime.`,
+      defaultBindingKey: knownCapability?.defaultBindingKey,
+    };
+  });
+
+  return [
+    ...resolved,
+    ...commonCapabilities.filter((capability) => !seen.has(capability.key)),
+  ];
+}
+
 function modelStatusIsRunnable(status?: string): boolean {
   if (!status) return false;
   return !UNRUNNABLE_MODEL_STATUSES.has(status.trim().toLowerCase());
@@ -202,6 +241,10 @@ export function GraphConfigView({
     () => new Map(capabilityCatalog.capabilities.map((capability) => [capability.capabilityId, capability])),
     [capabilityCatalog.capabilities]
   );
+  const capabilityDefinitions = useMemo(
+    () => capabilityDefinitionsFromCatalog(capabilityCatalog),
+    [capabilityCatalog],
+  );
 
   const updateBinding = (
     bindingKey: string,
@@ -235,7 +278,7 @@ export function GraphConfigView({
     });
   };
 
-  const requiredCapabilityIssues = commonCapabilities
+  const requiredCapabilityIssues = capabilityDefinitions
     .map((capability) => {
       const requirement = requiredCapabilities[capability.key] || {};
       if (!requirement.required) return null;
@@ -389,7 +432,7 @@ export function GraphConfigView({
             control plane when the environment is not ready.
           </div>
 
-          {commonCapabilities.map((capability) => {
+          {capabilityDefinitions.map((capability) => {
             const requirement = requiredCapabilities[capability.key] || {};
             const bindingKey = requirement.bindingKey || capability.defaultBindingKey;
             const runtimeCapability = capabilitiesById.get(capability.key);

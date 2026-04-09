@@ -66,17 +66,15 @@ export interface AgentSummary {
   model?: string;
 }
 
-// [NEW] Marketplace Types
-export interface MarketplaceAgent {
+export interface RuntimeCatalogEntry {
   id: string;
   name: string;
   description: string;
-  developer: string;   
-  price: string;       
-  rating?: number;     
-  downloads?: number;  
-  icon?: string;       
-  requirements?: string; 
+  ownerLabel: string;
+  entryKind: string;
+  runtimeNotes: string;
+  statusLabel?: string;
+  icon?: string;
 }
 
 // Connector Types
@@ -132,6 +130,16 @@ export interface ConnectorActionRequest {
   connectorId: string;
   actionId: string;
   input: Record<string, unknown>;
+}
+
+export interface ConnectorApprovalMemoryRequest {
+  connectorId: string;
+  actionId: string;
+  actionLabel: string;
+  policyFamily: string;
+  scopeKey?: string | null;
+  scopeLabel?: string | null;
+  sourceLabel?: string | null;
 }
 
 export interface ConnectorActionResult {
@@ -207,6 +215,7 @@ export interface WalletMailReadLatestInput {
   leaseId: string;
   opSeq: number;
   mailbox?: string;
+  shieldApproved?: boolean;
 }
 
 export interface WalletMailListRecentInput {
@@ -215,6 +224,7 @@ export interface WalletMailListRecentInput {
   opSeq: number;
   mailbox?: string;
   limit?: number;
+  shieldApproved?: boolean;
 }
 
 export interface WalletMailReadLatestResult {
@@ -243,6 +253,7 @@ export interface WalletMailDeleteSpamInput {
   opSeq: number;
   mailbox?: string;
   maxDelete?: number;
+  shieldApproved?: boolean;
 }
 
 export interface WalletMailDeleteSpamResult {
@@ -264,6 +275,7 @@ export interface WalletMailReplyInput {
   subject: string;
   body: string;
   replyToMessageId?: string;
+  shieldApproved?: boolean;
 }
 
 export interface WalletMailReplyResult {
@@ -316,6 +328,15 @@ export interface WalletMailConfigureAccountResult {
   updatedAtMs: number;
 }
 
+export interface WalletMailConfiguredAccount {
+  mailbox: string;
+  accountEmail: string;
+  senderDisplayName?: string;
+  defaultChannelIdHex?: string;
+  defaultLeaseIdHex?: string;
+  updatedAtMs: number;
+}
+
 export type InstalledWorkflowStatus = "active" | "paused" | "degraded";
 export type InstalledWorkflowKind = "monitor";
 
@@ -323,6 +344,10 @@ export interface InstalledWorkflowSummary {
   workflowId: string;
   kind: InstalledWorkflowKind;
   status: InstalledWorkflowStatus;
+  triggerKind: string;
+  triggerLabel: string;
+  remoteTriggerId?: string;
+  waitUntilMs?: number;
   title: string;
   description: string;
   artifactHash: string;
@@ -362,6 +387,185 @@ export interface CreateMonitorWorkflowRequest {
   keywords: string[];
   intervalSeconds?: number;
   sourcePrompt?: string;
+}
+
+export type StudioViewTarget = string;
+
+export type StudioCapabilityDetailSection =
+  | "overview"
+  | "setup"
+  | "actions"
+  | "policy";
+
+export interface GmailThreadMessageDetail {
+  id: string;
+  from?: string;
+  to?: string;
+  subject?: string;
+  date?: string;
+  snippet?: string;
+  rfcMessageId?: string;
+  references?: string;
+  labelIds: string[];
+}
+
+export interface GmailThreadDetail {
+  threadId: string;
+  historyId?: string;
+  snippet?: string;
+  messages: GmailThreadMessageDetail[];
+}
+
+export interface CalendarAttendeeDetail {
+  email?: string;
+  displayName?: string;
+  responseStatus?: string;
+  organizer?: boolean;
+}
+
+export interface CalendarEventDetail {
+  calendarId: string;
+  eventId: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  status?: string;
+  start?: string;
+  end?: string;
+  htmlLink?: string;
+  attendees: CalendarAttendeeDetail[];
+}
+
+export type AssistantWorkbenchSession =
+  | {
+      kind: "gmail_reply";
+      connectorId: string;
+      thread: GmailThreadDetail;
+      sourceNotificationId?: string | null;
+    }
+  | {
+      kind: "meeting_prep";
+      connectorId: string;
+      event: CalendarEventDetail;
+      sourceNotificationId?: string | null;
+    };
+
+export type AgentSessionEventName =
+  | "task-started"
+  | "task-updated"
+  | "task-completed"
+  | "task-dismissed"
+  | "agent-event"
+  | "artifact-created";
+
+export interface AgentSessionProjection<TTask = unknown, TSessionSummary = unknown> {
+  task: TTask | null;
+  sessions: TSessionSummary[];
+}
+
+export type AssistantWorkbenchActivityAction =
+  | "open"
+  | "draft"
+  | "send"
+  | "copy"
+  | "autopilot_handoff"
+  | "shield_approval";
+
+export type AssistantWorkbenchActivityStatus =
+  | "started"
+  | "succeeded"
+  | "failed"
+  | "requested";
+
+export interface AssistantWorkbenchActivity {
+  activityId: string;
+  sessionKind: AssistantWorkbenchSession["kind"];
+  surface: "reply-composer" | "meeting-prep";
+  action: AssistantWorkbenchActivityAction;
+  status: AssistantWorkbenchActivityStatus;
+  message: string;
+  timestampMs: number;
+  sourceNotificationId?: string | null;
+  connectorId?: string | null;
+  threadId?: string | null;
+  eventId?: string | null;
+  evidenceThreadId?: string | null;
+  detail?: string | null;
+}
+
+export interface AgentSessionThreadLoadOptions {
+  limit?: number;
+  cursor?: number;
+}
+
+export interface AgentSessionGateResponse {
+  approved: boolean;
+  requestHash?: string;
+  action?: string;
+}
+
+export interface AgentSessionRuntime {
+  startSessionTask<T>(intent: string): Promise<T>;
+  continueSessionTask(sessionId: string, userInput: string): Promise<void>;
+  dismissSessionTask(): Promise<void>;
+  stopSessionTask(): Promise<void>;
+  getCurrentSessionTask<T>(): Promise<T | null>;
+  listSessionHistory<T>(): Promise<T[]>;
+  getSessionProjection<TTask, TSessionSummary>(): Promise<
+    AgentSessionProjection<TTask, TSessionSummary>
+  >;
+  loadSessionTask<T>(sessionId: string): Promise<T>;
+  loadSessionThreadEvents<T>(
+    threadId: string,
+    options?: AgentSessionThreadLoadOptions,
+  ): Promise<T[]>;
+  loadSessionThreadArtifacts<T>(threadId: string): Promise<T[]>;
+  showPillShell(): Promise<void>;
+  hidePillShell(): Promise<void>;
+  showSpotlightShell(): Promise<void>;
+  hideSpotlightShell(): Promise<void>;
+  showGateShell(): Promise<void>;
+  hideGateShell(): Promise<void>;
+  showStudioShell(): Promise<void>;
+  openStudioView(view: StudioViewTarget): Promise<void>;
+  openStudioSessionTarget(sessionId: string): Promise<void>;
+  openStudioCapabilityTarget(
+    connectorId?: string | null,
+    detailSection?: StudioCapabilityDetailSection | null,
+  ): Promise<void>;
+  openStudioPolicyTarget(connectorId?: string | null): Promise<void>;
+  openStudioAssistantWorkbench(
+    session: AssistantWorkbenchSession,
+  ): Promise<void>;
+  activateAssistantWorkbenchSession(
+    session: AssistantWorkbenchSession,
+  ): Promise<void>;
+  openStudioAutopilotIntent(intent: string): Promise<void>;
+  getActiveAssistantWorkbenchSession(): Promise<AssistantWorkbenchSession | null>;
+  listenAssistantWorkbenchSession(
+    handler: (session: AssistantWorkbenchSession) => void,
+  ): Promise<() => void>;
+  reportAssistantWorkbenchActivity(
+    activity: AssistantWorkbenchActivity,
+  ): Promise<void>;
+  getRecentAssistantWorkbenchActivities?(
+    limit?: number,
+  ): Promise<AssistantWorkbenchActivity[]>;
+  listenAssistantWorkbenchActivity(
+    handler: (activity: AssistantWorkbenchActivity) => void,
+  ): Promise<() => void>;
+  submitSessionRuntimePassword(
+    sessionId: string,
+    password: string,
+  ): Promise<void>;
+  respondToSessionGate(input: AgentSessionGateResponse): Promise<void>;
+  listenSessionProjection<TTask, TSessionSummary>(
+    handler: (projection: AgentSessionProjection<TTask, TSessionSummary>) => void,
+  ): Promise<() => void>;
+  listenSessionEvent<T>(
+    eventName: AgentSessionEventName,
+    handler: (payload: T) => void,
+  ): Promise<() => void>;
 }
 
 // Fleet Types
@@ -422,9 +626,9 @@ export interface AgentRuntime {
   // Fleet Management
   getFleetState(): Promise<FleetState>;
 
-  // [NEW] Marketplace Management
-  getMarketplaceAgents(): Promise<MarketplaceAgent[]>;
-  installAgent(agentId: string): Promise<void>;
+  // Runtime Catalog Management
+  getRuntimeCatalogEntries(): Promise<RuntimeCatalogEntry[]>;
+  stageRuntimeCatalogEntry(entryId: string, notes?: string): Promise<void>;
 
   // Integrations / Connectors
   getConnectors?(): Promise<ConnectorSummary[]>;
@@ -432,6 +636,9 @@ export interface AgentRuntime {
   runConnectorAction?(
     request: ConnectorActionRequest
   ): Promise<ConnectorActionResult>;
+  rememberConnectorApproval?(
+    request: ConnectorApprovalMemoryRequest
+  ): Promise<void>;
   configureConnector?(
     request: ConnectorConfigureRequest
   ): Promise<ConnectorConfigureResult>;
@@ -463,12 +670,17 @@ export interface AgentRuntime {
   walletMailConfigureAccount?(
     input: WalletMailConfigureAccountInput
   ): Promise<WalletMailConfigureAccountResult>;
+  walletMailListAccounts?(): Promise<WalletMailConfiguredAccount[]>;
   listInstalledWorkflows?(): Promise<InstalledWorkflowSummary[]>;
   getInstalledWorkflowProject?(workflowId: string): Promise<ProjectFile>;
   pauseWorkflow?(workflowId: string): Promise<InstalledWorkflowSummary>;
   resumeWorkflow?(workflowId: string): Promise<InstalledWorkflowSummary>;
   deleteWorkflow?(workflowId: string): Promise<InstalledWorkflowSummary>;
   runWorkflowNow?(workflowId: string): Promise<WorkflowRunReceipt>;
+  triggerRemoteWorkflow?(
+    workflowId: string,
+    payload?: Record<string, unknown>
+  ): Promise<WorkflowRunReceipt>;
   createMonitorWorkflow?(
     request: CreateMonitorWorkflowRequest
   ): Promise<InstalledWorkflowSummary>;

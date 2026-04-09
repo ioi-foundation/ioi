@@ -1,5 +1,8 @@
 import { Icons } from "../../../ui/icons";
-import { ONBOARDING_STEPS } from "./googleWorkspaceConnectorPanelConfig";
+import {
+  ONBOARDING_STEPS,
+  TAB_DEFINITIONS,
+} from "./googleWorkspaceConnectorPanelConfig";
 import { onboardingStepIndex } from "./googleWorkspaceConnectorPanelParts";
 import { GoogleWorkspaceConnectorPanelConnected } from "./GoogleWorkspaceConnectorPanelConnected";
 import { GoogleWorkspaceConnectorPanelOnboarding } from "./GoogleWorkspaceConnectorPanelOnboarding";
@@ -14,6 +17,8 @@ export function GoogleWorkspaceConnectorPanelBody({
     connector,
     workspace,
     onOpenPolicyCenter,
+    activeTab,
+    setActiveTab,
     setSettingsModalOpen,
     availability,
     availabilityStyle,
@@ -26,7 +31,7 @@ export function GoogleWorkspaceConnectorPanelBody({
     <>
       <div className="workspace-overview-hero">
         <div className="workspace-hero-copy">
-          <span className="workspace-hero-kicker">Built-in Google Connector</span>
+          <span className="workspace-hero-kicker">Kernel-backed Google connector</span>
           <h3>Google Workspace</h3>
           <p>
             Local-first Google access for Gmail, Calendar, Docs, Sheets,
@@ -135,6 +140,28 @@ export function GoogleWorkspaceConnectorPanelBody({
       {workspace.error ? (
         <p className="connector-test-error">{workspace.error}</p>
       ) : null}
+
+      <div
+        className="workspace-tab-nav"
+        role="tablist"
+        aria-label="Google Workspace sections"
+      >
+        {TAB_DEFINITIONS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={`workspace-tab-button ${
+              activeTab === tab.id ? "active" : ""
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <strong>{tab.label}</strong>
+            <span>{tab.blurb}</span>
+          </button>
+        ))}
+      </div>
 
       {!isConnected ? (
         <GoogleWorkspaceConnectorPanelOnboarding view={view} />

@@ -324,7 +324,7 @@ fn build_parent_playbook_runs(
     projected
 }
 
-fn visible_parent_playbook_runs(
+pub(crate) fn visible_parent_playbook_runs(
     memory_runtime: &std::sync::Arc<ioi_memory::MemoryRuntime>,
     sessions: &[crate::models::SessionSummary],
     playbooks: &[crate::models::LocalEngineAgentPlaybookRecord],
@@ -481,4 +481,3 @@ fn mark_parent_playbook_operator_state(
         }
     });
 }
-

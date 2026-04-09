@@ -7,6 +7,7 @@ import { WorkspaceSourceControlPane } from "./WorkspaceSourceControlPane";
 import { WorkspaceEditorPane } from "./WorkspaceEditorPane";
 import { WorkspaceBottomPanel } from "./WorkspaceBottomPanel";
 import { useWorkspaceSession } from "../useWorkspaceSession";
+import { useWorkspaceLanguageService } from "../useWorkspaceLanguageService";
 import { useWorkspaceTerminalSession } from "../useWorkspaceTerminalSession";
 import type {
   WorkspaceAdapter,
@@ -84,6 +85,11 @@ export function WorkspaceHost({
     externalOpenRequest: requestedOpen,
     onActivePathChange,
     onActivityChange,
+  });
+  const languageService = useWorkspaceLanguageService({
+    adapter,
+    root,
+    activeDocument: session.activeDocument,
   });
 
   useEffect(() => {
@@ -229,16 +235,20 @@ export function WorkspaceHost({
 
         <div className="workspace-main">
           <WorkspaceEditorPane
+            adapter={adapter}
+            root={root}
             monacoBasePath={monacoBasePath}
             documents={session.documents}
             activeDocument={session.activeDocument}
             activeDocumentId={session.activeDocumentId}
             revealRequest={session.revealRequest}
+            languageServiceSnapshot={languageService.snapshot}
             onConsumeRevealRequest={session.consumeRevealRequest}
             onSelectDocument={session.setActiveDocumentId}
             onCloseDocument={session.closeDocument}
             onChangeFileContent={session.updateFileContent}
             onSaveFile={(path) => void session.saveFile(path)}
+            onOpenRequest={(request) => void session.openFile(request)}
             onAttachSelection={onAttachSelection}
           />
 
@@ -250,7 +260,7 @@ export function WorkspaceHost({
               activePanel={session.activeBottomPanel}
               isOpen={session.bottomPanelOpen}
               outputEntries={session.outputEntries}
-              problems={session.problems}
+              problems={[...languageService.problems, ...session.problems].slice(0, 120)}
               ports={session.ports}
               onSelectPanel={(panel) => {
                 session.setBottomPanelOpen(true);

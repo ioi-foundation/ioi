@@ -1,9 +1,13 @@
+import type { ConnectorSummary } from "@ioi/agent-ide";
 import {
+  buildExtensionTrustProfile,
   connectorStatusLabel,
   formatSuccessRate,
   groupLabelForConnection,
   humanize,
   providerAccent,
+  templateLabelForConnection,
+  type CapabilityTrustProfile,
   type CapabilityTreeEntry,
   type WorkspaceSkill,
 } from "./model";
@@ -16,7 +20,6 @@ import {
   ChevronRightIcon,
   CpuIcon,
   MenuButton,
-  PlusIcon,
   SearchIcon,
   SparklesIcon,
   XIcon,
@@ -48,39 +51,89 @@ function renderTreeEntries(entries: CapabilityTreeEntry[]) {
   );
 }
 
-function renderSkillList(controller: CapabilitiesController) {
-  const starter = controller.skills.filteredItems.filter(
-    (skill) => skill.origin === "starter",
-  );
+function renderSkillList(
+  controller: CapabilitiesController,
+  onOpenSkillSources?: () => void,
+) {
   const runtimeObserved = controller.skills.filteredItems.filter(
     (skill) => skill.origin === "runtime",
   );
+  const filesystemBacked = controller.skills.filteredItems.filter(
+    (skill) => skill.origin === "filesystem",
+  );
+
+  if (controller.skills.loading) {
+    return (
+      <div className="capabilities-empty-state">
+        Loading runtime and filesystem skill inventory...
+      </div>
+    );
+  }
+
+  if (controller.skills.error) {
+    if (controller.skills.filteredItems.length === 0) {
+      return (
+        <div className="capabilities-empty-state">
+          Skill inventory unavailable: {controller.skills.error}
+        </div>
+      );
+    }
+  }
 
   const skillEntriesFor = (skill: WorkspaceSkill): CapabilityTreeEntry[] => [
     {
       id: "guide",
       label: "SKILL.md",
-      note: "Primary markdown instructions for the reusable behavior",
-      meta: "Markdown",
+      note:
+        skill.origin === "runtime"
+          ? "Primary markdown instructions for the reusable behavior"
+          : "Filesystem-backed instructions discovered on disk",
+      meta:
+        skill.origin === "filesystem"
+          ? skill.relativePath ?? "Filesystem"
+          : skill.detailStatus === "error"
+          ? "Unavailable"
+          : skill.detailStatus === "ready"
+            ? "Markdown"
+            : "Loading",
       active: controller.skills.detailSection === "guide",
       onSelect: () => controller.skills.setDetailSection("guide"),
     },
     {
       id: "overview",
       label: "Overview",
-      note: "Benchmarks, tool bundle, and operating posture",
-      meta: formatSuccessRate(skill.detail.benchmark.success_rate_bps),
+      note:
+        skill.origin === "runtime"
+          ? "Benchmarks, tool bundle, and operating posture"
+          : "Source root, sync posture, and runtime readiness",
+      meta:
+        skill.origin === "filesystem"
+          ? skill.sourceLabel ?? "Filesystem"
+          : skill.detailStatus === "ready" && skill.detail
+          ? formatSuccessRate(skill.detail.benchmark.success_rate_bps)
+          : skill.detailStatus === "error"
+            ? "Unavailable"
+            : "Loading",
       active: controller.skills.detailSection === "overview",
       onSelect: () => controller.skills.setDetailSection("overview"),
     },
     {
       id: "procedure",
-      label: "Procedure",
-      note: "Observed execution outline and tool sequence",
+      label: skill.origin === "runtime" ? "Procedure" : "Selection",
+      note:
+        skill.origin === "runtime"
+          ? "Observed execution outline and tool sequence"
+          : "Why this filesystem skill is available for future runtime selection",
       meta:
-        skill.detail.steps.length > 0
-          ? `${skill.detail.steps.length} steps`
-          : "Macro",
+        skill.origin === "filesystem"
+          ? skill.syncStatus ? humanize(skill.syncStatus) : "Filesystem"
+          : skill.detailStatus === "ready" && skill.detail
+          ? skill.detail.steps.length > 0
+            ? `${skill.detail.steps.length} steps`
+            : "Macro"
+          : skill.detailStatus === "error"
+            ? "Unavailable"
+            : "Loading",
       active: controller.skills.detailSection === "procedure",
       onSelect: () => controller.skills.setDetailSection("procedure"),
     },
@@ -117,7 +170,7 @@ function renderSkillList(controller: CapabilitiesController) {
                     <small>{skill.catalog.description}</small>
                   </span>
                   <span className="capabilities-row-meta">
-                    {skill.origin === "starter" ? "Starter" : "Runtime"}
+                    {skill.origin === "runtime" ? "Runtime" : "Filesystem"}
                   </span>
                   <span
                     className={`capabilities-row-caret ${isSelected ? "is-open" : ""}`}
@@ -138,31 +191,99 @@ function renderSkillList(controller: CapabilitiesController) {
 
   return (
     <>
-      {renderSkillGroup("Starter library", starter)}
+      <div className="capabilities-list-toolbar">
+        {onOpenSkillSources ? (
+          <button
+            type="button"
+            className="capabilities-secondary-button"
+            onClick={onOpenSkillSources}
+          >
+            Open skill sources
+          </button>
+        ) : null}
+        <span className="capabilities-list-toolbar-meta">
+          {controller.sourceRegistry.count === 1
+            ? "1 tracked root"
+            : `${controller.sourceRegistry.count} tracked roots`}
+        </span>
+      </div>
+      {controller.sourceRegistry.message ? (
+        <div className="capabilities-inline-note">
+          {controller.sourceRegistry.message}
+        </div>
+      ) : null}
+      {controller.sourceRegistry.error ? (
+        <div className="capabilities-inline-note">
+          {controller.sourceRegistry.error}
+        </div>
+      ) : null}
+      {controller.skills.error && controller.skills.filteredItems.length > 0 ? (
+        <div className="capabilities-inline-note">
+          Inventory partially unavailable: {controller.skills.error}
+        </div>
+      ) : null}
       {renderSkillGroup("Observed in runtime", runtimeObserved)}
+      {renderSkillGroup("Filesystem-backed", filesystemBacked)}
       {controller.skills.filteredItems.length === 0 ? (
         <div className="capabilities-empty-state">
-          No skills match the current search.
+          {controller.skills.items.length === 0
+            ? "No runtime or filesystem-backed skills are visible yet."
+            : "No skills match the current search."}
         </div>
       ) : null}
     </>
   );
 }
 
-function renderConnectionList(controller: CapabilitiesController) {
+function renderConnectionList(
+  controller: CapabilitiesController,
+  getConnectorTrustProfile?: (
+    connector: ConnectorSummary,
+    options?: { template?: boolean },
+  ) => CapabilityTrustProfile | null,
+) {
+  const hasTemplates = controller.connections.filteredTemplates.length > 0;
+
+  if (
+    controller.connections.loading &&
+    controller.connections.items.length === 0 &&
+    !hasTemplates
+  ) {
+    return (
+      <div className="capabilities-empty-state">
+        Loading live connector catalog...
+      </div>
+    );
+  }
+
+  if (
+    controller.connections.error &&
+    controller.connections.items.length === 0 &&
+    !hasTemplates
+  ) {
+    return (
+      <div className="capabilities-empty-state">
+        Live connector catalog unavailable: {controller.connections.error}
+      </div>
+    );
+  }
+
   const groups = [
     "Not connected",
     "Connected",
     "Needs attention",
-    "Workspace planned",
   ];
 
   return (
     <>
+      {controller.connections.error && hasTemplates ? (
+        <div className="capabilities-inline-note">
+          Live connector catalog unavailable: {controller.connections.error}
+        </div>
+      ) : null}
       {groups.map((group) => {
         const groupItems = controller.connections.filteredItems.filter(
-          ({ connector, origin }) =>
-            groupLabelForConnection(connector, origin) === group,
+          ({ connector }) => groupLabelForConnection(connector) === group,
         );
         if (groupItems.length === 0) return null;
         return (
@@ -172,9 +293,14 @@ function renderConnectionList(controller: CapabilitiesController) {
               <span>{groupItems.length}</span>
             </div>
             <div className="capabilities-list-rows">
-              {groupItems.map(({ connector, origin }) => {
+              {groupItems.map(({ connector }) => {
                 const isSelected =
                   controller.connections.selectedConnectionId === connector.id;
+                const trustProfile =
+                  getConnectorTrustProfile?.(connector) ?? null;
+                const actionState = controller.connections.getActionState(
+                  connector.id,
+                );
                 const entries: CapabilityTreeEntry[] = [
                   {
                     id: "overview",
@@ -189,20 +315,35 @@ function renderConnectionList(controller: CapabilitiesController) {
                     id: "setup",
                     label: "Setup",
                     note:
-                      origin === "workspace"
-                        ? "Stage the adapter before runtime execution is available"
-                        : "Attach auth and unlock callable actions",
-                    meta: origin === "workspace" ? "Planned" : "Live",
+                      "Attach auth and unlock callable actions",
+                    meta: "Live",
                     active: controller.connections.detailSection === "setup",
                     onSelect: () =>
                       controller.connections.setDetailSection("setup"),
+                  },
+                  {
+                    id: "actions",
+                    label: "Actions",
+                    note:
+                      "Inspect live tools, field requirements, and confirm-before-run posture",
+                    meta:
+                      actionState.status === "ready"
+                        ? `${actionState.actions.length} tools`
+                        : actionState.status === "error"
+                          ? "Retry"
+                          : actionState.status === "loading"
+                            ? "Loading"
+                            : "Live tools",
+                    active: controller.connections.detailSection === "actions",
+                    onSelect: () =>
+                      controller.connections.setDetailSection("actions"),
                   },
                   {
                     id: "policy",
                     label: "Policy",
                     note:
                       "Governance, approvals, and connector-specific controls",
-                    meta: "Guardrails",
+                    meta: trustProfile?.tierLabel ?? "Guardrails",
                     active: controller.connections.detailSection === "policy",
                     onSelect: () =>
                       controller.connections.setDetailSection("policy"),
@@ -236,9 +377,7 @@ function renderConnectionList(controller: CapabilitiesController) {
                       <span
                         className={`capabilities-row-status status-${connector.status}`}
                       >
-                        {origin === "workspace"
-                          ? "Staged"
-                          : connectorStatusLabel(connector.status)}
+                        {connectorStatusLabel(connector.status)}
                       </span>
                       <span
                         className={`capabilities-row-caret ${isSelected ? "is-open" : ""}`}
@@ -256,45 +395,192 @@ function renderConnectionList(controller: CapabilitiesController) {
           </section>
         );
       })}
-      {controller.connections.filteredItems.length === 0 ? (
+      {controller.connections.filteredTemplates.length > 0 ? (
+        <section className="capabilities-list-group">
+          <div className="capabilities-list-group-head">
+            <h3>Workspace planning templates</h3>
+            <span>{controller.connections.filteredTemplates.length}</span>
+          </div>
+          <div className="capabilities-list-rows">
+            {controller.connections.filteredTemplates.map((template) => {
+              const { connector } = template;
+              const isSelected =
+                controller.connections.selectedTemplateId === connector.id;
+              const trustProfile =
+                getConnectorTrustProfile?.(connector, { template: true }) ??
+                null;
+              const entries: CapabilityTreeEntry[] = [
+                {
+                  id: "overview",
+                  label: "Overview",
+                  note: "Planned scopes, notes, and intended capability reach",
+                  meta: `${connector.scopes.length} scopes`,
+                  active: controller.connections.detailSection === "overview",
+                  onSelect: () =>
+                    controller.connections.setDetailSection("overview"),
+                },
+                {
+                  id: "setup",
+                  label: "Planning notes",
+                  note:
+                    "Track adapter intent, ownership, and runtime prerequisites outside the live catalog",
+                  meta: templateLabelForConnection(template),
+                  active: controller.connections.detailSection === "setup",
+                  onSelect: () =>
+                    controller.connections.setDetailSection("setup"),
+                },
+                {
+                  id: "policy",
+                  label: "Policy",
+                  note:
+                    "Review guardrails teams expect once this template becomes a live connector",
+                  meta: trustProfile?.tierLabel ?? "Guardrails",
+                  active: controller.connections.detailSection === "policy",
+                  onSelect: () =>
+                    controller.connections.setDetailSection("policy"),
+                },
+              ];
+
+              return (
+                <div
+                  key={connector.id}
+                  className={`capabilities-tree-item ${isSelected ? "is-open" : ""}`}
+                >
+                  <button
+                    type="button"
+                    className={`capabilities-list-row ${isSelected ? "is-selected" : ""}`}
+                    onClick={() =>
+                      controller.connections.setSelectedTemplateId(connector.id)
+                    }
+                  >
+                    <span
+                      className="capabilities-provider-badge"
+                      style={{ color: providerAccent(connector.provider) }}
+                    >
+                      {connector.name.slice(0, 1)}
+                    </span>
+                    <span className="capabilities-row-copy">
+                      <strong>{connector.name}</strong>
+                      <small>{connector.description}</small>
+                    </span>
+                    <span className="capabilities-row-meta">
+                      {templateLabelForConnection(template)}
+                    </span>
+                    <span
+                      className={`capabilities-row-caret ${isSelected ? "is-open" : ""}`}
+                      aria-hidden="true"
+                    >
+                      <ChevronRightIcon />
+                    </span>
+                  </button>
+
+                  {isSelected ? renderTreeEntries(entries) : null}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+      {controller.connections.filteredItems.length === 0 &&
+      controller.connections.filteredTemplates.length === 0 ? (
         <div className="capabilities-empty-state">
-          No connections match the current search.
+          No live connectors or workspace planning templates match the current search.
         </div>
       ) : null}
     </>
   );
 }
 
-function renderExtensionList(controller: CapabilitiesController) {
+function renderExtensionList(
+  controller: CapabilitiesController,
+  onOpenSkillSources?: () => void,
+) {
+  if (controller.extensions.loading) {
+    return (
+      <div className="capabilities-empty-state">
+        Loading extension manifests...
+      </div>
+    );
+  }
+
+  if (controller.extensions.error && controller.extensions.filteredItems.length === 0) {
+    return (
+      <div className="capabilities-empty-state">
+        Extension inventory unavailable: {controller.extensions.error}
+      </div>
+    );
+  }
+
   return (
     <>
+      <div className="capabilities-list-toolbar">
+        {onOpenSkillSources ? (
+          <button
+            type="button"
+            className="capabilities-secondary-button"
+            onClick={onOpenSkillSources}
+          >
+            Open skill sources
+          </button>
+        ) : null}
+        <span className="capabilities-list-toolbar-meta">
+          {controller.sourceRegistry.count === 1
+            ? "1 tracked root"
+            : `${controller.sourceRegistry.count} tracked roots`}
+        </span>
+      </div>
+      {controller.sourceRegistry.message ? (
+        <div className="capabilities-inline-note">
+          {controller.sourceRegistry.message}
+        </div>
+      ) : null}
+      {controller.sourceRegistry.error ? (
+        <div className="capabilities-inline-note">
+          {controller.sourceRegistry.error}
+        </div>
+      ) : null}
+      {controller.extensions.error && controller.extensions.filteredItems.length > 0 ? (
+        <div className="capabilities-inline-note">
+          Extension inventory partially unavailable: {controller.extensions.error}
+        </div>
+      ) : null}
       <section className="capabilities-list-group">
         <div className="capabilities-list-group-head">
-          <h3>Installed surfaces</h3>
+          <h3>Manifest-backed extensions</h3>
           <span>{controller.extensions.filteredItems.length}</span>
         </div>
         <div className="capabilities-list-rows">
           {controller.extensions.filteredItems.map((extension) => {
             const isSelected =
               controller.extensions.selectedExtensionId === extension.id;
+            const trustProfile = buildExtensionTrustProfile(extension);
             const entries: CapabilityTreeEntry[] = [
               {
                 id: "overview",
                 label: "Overview",
-                note: "Why this package exists in the capability model",
-                meta: extension.status,
+                note: "Manifest provenance, policy posture, and source visibility",
+                meta: trustProfile.governedProfileLabel,
                 active: controller.extensions.detailSection === "overview",
                 onSelect: () =>
                   controller.extensions.setDetailSection("overview"),
               },
               {
-                id: "surface",
-                label: "Surfaces",
-                note: "Callable capability surfaces contributed by the package",
-                meta: `${extension.surfaces.length} items`,
-                active: controller.extensions.detailSection === "surface",
+                id: "manifest",
+                label: "Manifest",
+                note: "Display metadata, prompts, and declared package identity",
+                meta: extension.version ? `v${extension.version}` : extension.manifestKind,
+                active: controller.extensions.detailSection === "manifest",
                 onSelect: () =>
-                  controller.extensions.setDetailSection("surface"),
+                  controller.extensions.setDetailSection("manifest"),
+              },
+              {
+                id: "contributions",
+                label: "Contributions",
+                note: "Filesystem skills, MCP servers, hooks, apps, and capabilities",
+                meta: `${extension.contributionCount} items`,
+                active: controller.extensions.detailSection === "contributions",
+                onSelect: () =>
+                  controller.extensions.setDetailSection("contributions"),
               },
             ];
 
@@ -318,7 +604,7 @@ function renderExtensionList(controller: CapabilitiesController) {
                     <small>{extension.description}</small>
                   </span>
                   <span className="capabilities-row-meta">
-                    {extension.status}
+                    {trustProfile.tierLabel}
                   </span>
                   <span
                     className={`capabilities-row-caret ${isSelected ? "is-open" : ""}`}
@@ -336,7 +622,9 @@ function renderExtensionList(controller: CapabilitiesController) {
       </section>
       {controller.extensions.filteredItems.length === 0 ? (
         <div className="capabilities-empty-state">
-          No extensions match the current search.
+          {controller.extensions.items.length === 0
+            ? "No extension manifests are visible from the workspace, registered skill roots, or home plugin directory."
+            : "No extension manifests match the current search."}
         </div>
       ) : null}
     </>
@@ -490,6 +778,9 @@ function CapabilitiesHomePane({
   connectedCount,
   connectionCount,
   extensionCount,
+  registrySummary,
+  registryLoading,
+  registryError,
   onOpenSurface,
 }: {
   pendingEngineControls: number;
@@ -497,8 +788,18 @@ function CapabilitiesHomePane({
   connectedCount: number;
   connectionCount: number;
   extensionCount: number;
+  registrySummary: CapabilitiesController["registry"]["summary"];
+  registryLoading: boolean;
+  registryError: string | null;
   onOpenSurface: (surface: "engine" | "skills" | "connections" | "extensions") => void;
 }) {
+  const registryGeneratedLabel = registrySummary
+    ? new Date(registrySummary.generatedAtMs).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
+
   return (
     <section className="capabilities-home-pane">
       <div className="capabilities-home-shell">
@@ -509,7 +810,7 @@ function CapabilitiesHomePane({
           <h2>Equip workers without fragmenting the runtime.</h2>
           <p>
             Capabilities is for what the workspace can use: reusable skills,
-            governed connections, packaged extensions, and the runtime deck for
+            governed connections, extension manifests, and the runtime deck for
             monitoring absorbed local-engine behavior. Authoritative runtime
             configuration now lives in System Settings.
           </p>
@@ -519,8 +820,72 @@ function CapabilitiesHomePane({
             <span>
               {connectedCount}/{connectionCount} connections active
             </span>
-            <span>{extensionCount} extensions installed</span>
+            <span>{extensionCount} extensions visible</span>
           </div>
+        </div>
+        <div className="capabilities-home-registry">
+          <div className="capabilities-home-registry-head">
+            <span className="capabilities-home-surface-kicker">Canonical registry</span>
+            <strong>One runtime-owned capability snapshot</strong>
+            <p>
+              Skills, connections, extensions, and kernel-native runtime families
+              now land from the same backend registry instead of stitched-together
+              shell fetches.
+            </p>
+            <span className="capabilities-home-registry-meta">
+              {registryLoading
+                ? "Refreshing registry snapshot..."
+                : registryError
+                  ? "Registry snapshot unavailable"
+                  : registryGeneratedLabel
+                    ? `Last refreshed ${registryGeneratedLabel}`
+                    : "Live snapshot ready"}
+            </span>
+          </div>
+          {registryLoading ? (
+            <div className="capabilities-home-registry-empty">
+              Loading the authoritative capability registry...
+            </div>
+          ) : registryError ? (
+            <div className="capabilities-home-registry-empty">
+              Capability registry unavailable: {registryError}
+            </div>
+          ) : registrySummary ? (
+            <div className="capabilities-home-registry-grid">
+              <article className="capabilities-home-registry-card">
+                <span>Total entries</span>
+                <strong>{registrySummary.totalEntries}</strong>
+                <p>
+                  {registrySummary.connectorCount} connectors, {registrySummary.runtimeSkillCount} runtime skills, and {registrySummary.extensionCount} manifest-backed extensions.
+                </p>
+              </article>
+              <article className="capabilities-home-registry-card">
+                <span>Authority roots</span>
+                <strong>{registrySummary.authoritativeSourceCount}</strong>
+                <p>
+                  {registrySummary.trackedSourceCount} tracked source roots feeding {registrySummary.filesystemSkillCount} filesystem skills into the catalog lane.
+                </p>
+              </article>
+              <article className="capabilities-home-registry-card">
+                <span>Governed runtime</span>
+                <strong>
+                  {registrySummary.connectedConnectorCount}/{registrySummary.connectorCount}
+                </strong>
+                <p>
+                  Live governed connectors plus {registrySummary.pendingEngineControlCount} pending engine controls visible in the same deck.
+                </p>
+              </article>
+              <article className="capabilities-home-registry-card">
+                <span>Kernel-native</span>
+                <strong>
+                  {registrySummary.modelCount + registrySummary.backendCount}
+                </strong>
+                <p>
+                  {registrySummary.modelCount} models, {registrySummary.backendCount} backends, and {registrySummary.nativeFamilyCount} native families under one absorbed runtime view.
+                </p>
+              </article>
+            </div>
+          ) : null}
         </div>
         <div className="capabilities-home-grid">
           <button
@@ -557,7 +922,9 @@ function CapabilitiesHomePane({
           >
             <span className="capabilities-home-surface-kicker">Packaged</span>
             <strong>Extensions</strong>
-            <p>See which packages widen the workspace surface without fragmenting the operator model.</p>
+            <p>
+              Inspect real manifest-backed plugins, filesystem skills, and policy posture from one runtime-backed view.
+            </p>
           </button>
         </div>
       </div>
@@ -565,11 +932,20 @@ function CapabilitiesHomePane({
   );
 }
 
+interface CapabilitiesNavigationPaneProps {
+  controller: CapabilitiesController;
+  getConnectorTrustProfile?: (
+    connector: ConnectorSummary,
+    options?: { template?: boolean },
+  ) => CapabilityTrustProfile | null;
+  onOpenSkillSources?: () => void;
+}
+
 export function CapabilitiesNavigationPane({
   controller,
-}: {
-  controller: CapabilitiesController;
-}) {
+  getConnectorTrustProfile,
+  onOpenSkillSources,
+}: CapabilitiesNavigationPaneProps) {
   return (
     <>
       <StudioLeftSidebarShell
@@ -628,6 +1004,9 @@ export function CapabilitiesNavigationPane({
           connectedCount={controller.connectedConnectionCount}
           connectionCount={controller.connections.items.length}
           extensionCount={controller.extensions.items.length}
+          registrySummary={controller.registry.summary}
+          registryLoading={controller.registry.loading}
+          registryError={controller.registry.error}
           onOpenSurface={controller.openSurface}
         />
       ) : (
@@ -638,6 +1017,8 @@ export function CapabilitiesNavigationPane({
               <h2>
                 {controller.surface === "engine"
                   ? "Runtime Deck"
+                  : controller.surface === "extensions"
+                    ? "Extensions"
                   : humanize(controller.surface)}
               </h2>
               <span className="capabilities-pane-count">
@@ -646,10 +1027,24 @@ export function CapabilitiesNavigationPane({
                     ? "Loading posture"
                     : `${controller.engine.snapshot?.totalNativeTools ?? 0} native tools`
                   : controller.surface === "skills"
-                  ? `${controller.skills.items.length} available`
+                  ? controller.skills.loading
+                    ? "Loading catalog"
+                    : controller.skills.error
+                      ? "Catalog unavailable"
+                      : `${controller.skills.items.length} visible`
                   : controller.surface === "connections"
-                    ? `${controller.connections.items.length} total`
-                    : `${controller.extensions.items.length} installed`}
+                    ? controller.connections.loading &&
+                      controller.connections.liveCount === 0 &&
+                      controller.connections.templateCount === 0
+                      ? "Loading catalog"
+                      : controller.connections.error &&
+                          controller.connections.liveCount === 0 &&
+                          controller.connections.templateCount === 0
+                        ? "Catalog unavailable"
+                        : controller.connections.filteredTemplateCount > 0
+                          ? `${controller.connections.filteredLiveCount} live · ${controller.connections.filteredTemplateCount} planning`
+                          : `${controller.connections.filteredLiveCount} live`
+                    : `${controller.extensions.items.length} visible`}
               </span>
             </div>
             <div className="capabilities-pane-controls">
@@ -663,53 +1058,13 @@ export function CapabilitiesNavigationPane({
                 />
               </label>
               {controller.surface === "connections" ? (
-                <div
-                  ref={controller.connectionsMenuRef}
-                  className="capabilities-popover"
+                <button
+                  type="button"
+                  className="capabilities-secondary-button"
+                  onClick={() => controller.connections.setCustomModalOpen(true)}
                 >
-                  <button
-                    type="button"
-                    className="capabilities-icon-button"
-                    onClick={() =>
-                      controller.connections.setMenuOpen(
-                        !controller.connections.menuOpen,
-                      )
-                    }
-                    aria-label="Browse connections"
-                    aria-expanded={controller.connections.menuOpen}
-                    aria-haspopup="menu"
-                  >
-                    <PlusIcon />
-                  </button>
-                  {controller.connections.menuOpen ? (
-                    <div className="capabilities-popover-menu" role="menu">
-                      <button
-                        type="button"
-                        className="capabilities-popover-item"
-                        role="menuitem"
-                        onClick={() => {
-                          controller.connections.setMenuOpen(false);
-                          controller.connections.setCatalogModalOpen(true);
-                        }}
-                      >
-                        <strong>Browse connections</strong>
-                        <span>Choose from the starter catalog</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="capabilities-popover-item"
-                        role="menuitem"
-                        onClick={() => {
-                          controller.connections.setMenuOpen(false);
-                          controller.connections.setCustomModalOpen(true);
-                        }}
-                      >
-                        <strong>Add custom connection</strong>
-                        <span>Register a remote MCP surface</span>
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
+                  Add planning template
+                </button>
               ) : null}
             </div>
           </header>
@@ -730,12 +1085,14 @@ export function CapabilitiesNavigationPane({
 
           <div className="capabilities-list-scroll">
             {controller.surface === "engine" ? renderEngineList(controller) : null}
-            {controller.surface === "skills" ? renderSkillList(controller) : null}
+            {controller.surface === "skills"
+              ? renderSkillList(controller, onOpenSkillSources)
+              : null}
             {controller.surface === "connections"
-              ? renderConnectionList(controller)
+              ? renderConnectionList(controller, getConnectorTrustProfile)
               : null}
             {controller.surface === "extensions"
-              ? renderExtensionList(controller)
+              ? renderExtensionList(controller, onOpenSkillSources)
               : null}
           </div>
         </section>

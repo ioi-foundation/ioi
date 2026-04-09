@@ -1,7 +1,6 @@
 // src/pages/SellAgent.jsx
 import React, { useState } from 'react';
 import Header from '../components/Header';
-import { Link } from 'react-router-dom';
 
 export default function SellAgent() {
   const [step, setStep] = useState(1);
@@ -23,7 +22,7 @@ export default function SellAgent() {
         
         {/* Progress Bar */}
         <div className="mb-8">
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-6">Publish New Agent</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-6">Publish New Capability</h1>
           <div className="flex items-center justify-between relative">
             <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200 -z-10"></div>
             <StepIndicator number={1} label="Manifest" current={step} />
@@ -38,27 +37,29 @@ export default function SellAgent() {
           {/* STEP 1: Manifest */}
           {step === 1 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-              <h2 className="text-xl font-bold text-slate-900">Define Your Agent</h2>
-              <p className="text-slate-500 text-sm">The Manifest tells the network what your agent does and what resources it needs.</p>
+              <h2 className="text-xl font-bold text-slate-900">Define Your Capability</h2>
+              <p className="text-slate-500 text-sm">The manifest tells the network what your agent, workflow, or service module does, how it composes, and what resources it needs.</p>
               
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Agent Name</label>
-                <input type="text" className="w-full bg-slate-50 border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. DeepResearch v4" />
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Capability Name</label>
+                <input type="text" className="w-full bg-slate-50 border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. Claims Resolution Service Module" />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Description</label>
-                <textarea className="w-full bg-slate-50 border border-gray-300 rounded-lg p-3 text-sm h-32 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="What problem does it solve? What inputs does it take?"></textarea>
+                <textarea className="w-full bg-slate-50 border border-gray-300 rounded-lg p-3 text-sm h-32 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="What problem does it solve? What inputs, policies, and receipts does it expose?"></textarea>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Category</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Execution Shape</label>
                   <select className="w-full bg-slate-50 border border-gray-300 rounded-lg p-3 text-sm">
-                    <option>Finance</option>
-                    <option>Research</option>
-                    <option>Coding</option>
-                    <option>Utility</option>
+                    <option>Agent</option>
+                    <option>Workflow</option>
+                    <option>Swarm</option>
+                    <option>Operator Pack</option>
+                    <option>Service Module</option>
+                    <option>Embodied Runtime</option>
                   </select>
                 </div>
                 <div>
@@ -102,7 +103,7 @@ export default function SellAgent() {
           {step === 3 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <h2 className="text-xl font-bold text-slate-900">Verification Audit</h2>
-              <p className="text-slate-500 text-sm">The network is running a "Dry Run" of your agent in a sandbox to verify safety policies.</p>
+              <p className="text-slate-500 text-sm">The network is running a dry run of your package in a sandbox to verify capability boundaries, policies, and deployability.</p>
               
               <div className="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-300 h-48 overflow-y-auto">
                 <div className="text-green-400">&gt; Initializing sandbox environment...</div>
@@ -110,7 +111,7 @@ export default function SellAgent() {
                 <div className="text-white">&gt; Analyzing capability manifest...</div>
                 <div className="text-white">&gt; Detected network access: api.coingecko.com</div>
                 <div className="text-white">&gt; Detected filesystem access: /tmp/output</div>
-                <div className="text-yellow-400">&gt; WARNING: Agent requests unrestricted outbound traffic.</div>
+                <div className="text-yellow-400">&gt; WARNING: Capability requests unrestricted outbound traffic.</div>
                 <div className="text-green-400">&gt; Policy check passed. (Score: 92/100)</div>
                 <div className="mt-2 animate-pulse">_</div>
               </div>
@@ -126,12 +127,12 @@ export default function SellAgent() {
           {step === 4 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <h2 className="text-xl font-bold text-slate-900">Monetization</h2>
-              <p className="text-slate-500 text-sm">How do you want to capture value?</p>
+              <p className="text-slate-500 text-sm">Choose the pricing model that fits a composable capability. Full managed SLA and hybrid outcome contracts live on SAS.xyz.</p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 border-2 border-blue-600 bg-blue-50 rounded-lg cursor-pointer">
-                  <div className="font-bold text-slate-900">Usage Fee (Rental)</div>
-                  <div className="text-xs text-slate-500 mt-1">Charge per execution run.</div>
+                  <div className="font-bold text-slate-900">Metered Execution</div>
+                  <div className="text-xs text-slate-500 mt-1">Charge per execution, document, or compute burst.</div>
                   <div className="mt-3 flex items-center gap-2">
                     <span className="text-sm font-bold">$</span>
                     <input type="number" className="w-24 p-1 rounded border border-blue-200 text-sm" placeholder="0.05" />
@@ -139,13 +140,23 @@ export default function SellAgent() {
                   </div>
                 </div>
 
-                <div className="p-4 border border-gray-200 hover:border-gray-300 rounded-lg cursor-pointer opacity-60">
-                  <div className="font-bold text-slate-900">License Fee (Sale)</div>
-                  <div className="text-xs text-slate-500 mt-1">One-time payment for source code.</div>
+                <div className="p-4 border border-gray-200 hover:border-gray-300 rounded-lg cursor-pointer">
+                  <div className="font-bold text-slate-900">License</div>
+                  <div className="text-xs text-slate-500 mt-1">One-time payment for private deployment or packaging rights.</div>
                   <div className="mt-3 flex items-center gap-2">
                     <span className="text-sm font-bold">$</span>
-                    <input type="number" className="w-24 p-1 rounded border border-gray-300 text-sm" placeholder="5000" disabled />
+                    <input type="number" className="w-24 p-1 rounded border border-gray-300 text-sm" placeholder="5000" />
                   </div>
+                </div>
+
+                <div className="p-4 border border-gray-200 hover:border-gray-300 rounded-lg cursor-pointer opacity-70">
+                  <div className="font-bold text-slate-900">Revenue Share</div>
+                  <div className="text-xs text-slate-500 mt-1">Take a percentage of the revenue generated downstream.</div>
+                </div>
+
+                <div className="p-4 border border-gray-200 hover:border-gray-300 rounded-lg cursor-pointer opacity-70">
+                  <div className="font-bold text-slate-900">Settlement-Based</div>
+                  <div className="text-xs text-slate-500 mt-1">Attach compensation to verified completion events and receipts.</div>
                 </div>
               </div>
               
@@ -158,6 +169,9 @@ export default function SellAgent() {
                    <span>Protocol Fee</span>
                    <span>10%</span>
                  </div>
+                 <p className="text-xs text-slate-500 mt-4">
+                   Enterprise-grade managed services can be promoted into SAS.xyz once the package clears governance, reporting, and SLA thresholds.
+                 </p>
               </div>
             </div>
           )}
@@ -176,7 +190,7 @@ export default function SellAgent() {
               </button>
             ) : (
               <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition-colors">
-                Mint & Publish
+                Sign & Publish
               </button>
             )}
           </div>

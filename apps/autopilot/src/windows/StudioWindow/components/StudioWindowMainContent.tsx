@@ -4,6 +4,7 @@ import { WORKSPACE_NAME } from "../studioWindowModel";
 import { useStudioWindowController } from "../useStudioWindowController";
 import { type TauriRuntime } from "../../../services/TauriRuntime";
 import { StatusBar } from "../../../components/StatusBar";
+import { buildConnectorTrustProfile } from "./capabilities/model";
 import { LocalActivityBar } from "./LocalActivityBar";
 import { CapabilitiesView } from "./CapabilitiesView";
 import { MissionControlControlView } from "./MissionControlControlView";
@@ -70,6 +71,7 @@ export function StudioWindowMainContent({
                 <StudioCopilotView
                   seedIntent={controller.chat.seedIntent}
                   onConsumeSeedIntent={controller.chat.consumeSeedIntent}
+                  sessionRuntime={runtime}
                 />
               ) : null}
 
@@ -96,11 +98,13 @@ export function StudioWindowMainContent({
                   }
                   onOpenAgent={controller.agents.openBuilder}
                   onCloseAgent={controller.agents.closeBuilder}
-                  onInstallAgent={controller.agents.openInstallModalForAgent}
+                  onStageCatalogEntry={controller.catalog.openStageModalForEntry}
+                  composeSeedProject={controller.workflow.composeSeedProject}
+                  onConsumeComposeSeedProject={
+                    controller.workflow.consumeComposeSeedProject
+                  }
                   onAddBuilderConfigToCanvas={(config) => {
-                    void runtime.loadBuilderConfigToCompose(config).catch((error) => {
-                      console.error("Builder->Compose handoff unavailable:", error);
-                    });
+                    controller.workflow.queueBuilderConfigToCanvas(config);
                   }}
                 />
               ) : null}
@@ -141,15 +145,30 @@ export function StudioWindowMainContent({
                       connector.id,
                     )
                   }
+                  getConnectorTrustProfile={(connector, options) =>
+                    buildConnectorTrustProfile(
+                      connector,
+                      controller.policy.shieldPolicy,
+                      options,
+                    )
+                  }
                   onOpenPolicyCenter={(connector) =>
-                    controller.policy.openPolicyCenter(connector.id)
+                    controller.policy.openPolicyCenter(connector?.id ?? null)
                   }
                   onOpenInbox={() => controller.changePrimaryView("inbox")}
                   onOpenSettings={() => controller.changePrimaryView("settings")}
+                  onOpenSkillSources={() =>
+                    controller.settings.openSection("skill_sources")
+                  }
                   seedSurface={controller.capabilities.seedSurface}
+                  seedConnectorId={controller.capabilities.targetConnectorId}
+                  seedConnectionDetailSection={
+                    controller.capabilities.targetDetailSection
+                  }
                   onConsumeSeedSurface={
                     controller.capabilities.consumeSeedSurface
                   }
+                  onConsumeSeedConnector={controller.capabilities.consumeTarget}
                 />
               ) : null}
 
@@ -162,17 +181,28 @@ export function StudioWindowMainContent({
                   profileDraft={controller.profile.draft}
                   profileSaving={controller.profile.saving}
                   profileError={controller.profile.error}
+                  governanceRequest={controller.policy.governanceRequest}
                   focusedConnectorId={controller.policy.focusedConnectorId}
                   onSurfaceChange={(surface) =>
                     controller.changePrimaryView(
                       surface === "policy" ? "policy" : "settings",
                     )
                   }
+                  settingsSeedSection={controller.settings.seedSection}
+                  onConsumeSettingsSeedSection={
+                    controller.settings.consumeSeedSection
+                  }
                   onPolicyChange={controller.policy.setShieldPolicy}
                   onProfileDraftChange={controller.profile.updateDraft}
                   onResetProfileDraft={controller.profile.resetDraft}
                   onSaveProfile={controller.profile.saveDraft}
                   onFocusConnector={controller.policy.focusConnector}
+                  onApplyGovernanceRequest={
+                    controller.policy.applyGovernanceRequest
+                  }
+                  onDismissGovernanceRequest={
+                    controller.policy.dismissGovernanceRequest
+                  }
                   onOpenConnections={() =>
                     controller.changePrimaryView("capabilities")
                   }
@@ -190,6 +220,7 @@ export function StudioWindowMainContent({
               currentProject={currentProject}
               focusedPolicyConnectorId={controller.policy.focusedConnectorId}
               assistantWorkbench={controller.chat.assistantWorkbench}
+              onOpenStudioConversation={() => controller.changePrimaryView("studio")}
             />
           </div>
 

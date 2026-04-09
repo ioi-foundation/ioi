@@ -7,8 +7,8 @@ use super::{normalize_web_research_tool_call, reconcile_pending_web_research_too
 use crate::agentic::desktop::runtime_secret;
 use crate::agentic::desktop::service::DesktopAgentService;
 use crate::agentic::desktop::types::{
-    AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier,
-    PendingSearchCompletion, PendingSearchReadSummary, WorkerAssignment,
+    AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, PendingSearchCompletion,
+    PendingSearchReadSummary, WorkerAssignment,
 };
 use async_trait::async_trait;
 use ioi_api::state::StateScanIter;

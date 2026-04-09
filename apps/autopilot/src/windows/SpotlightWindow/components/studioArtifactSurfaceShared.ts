@@ -1,17 +1,22 @@
 import type { WorkspaceActivityEntry } from "@ioi/workspace-substrate";
 
-import type { AgentTask } from "../../../store/agentStore";
 import type {
+  AgentEvent,
+  AgentTask,
   BuildArtifactSession,
   StudioArtifactManifest,
   StudioArtifactManifestFile,
   StudioArtifactPipelineStep,
+  StudioArtifactSwarmExecutionSummary,
   StudioRendererSession,
 } from "../../../types";
 import type { StudioArtifactStageMode } from "./studioArtifactSurfaceModel";
 
 export interface StudioArtifactSurfaceProps {
   task: AgentTask | null;
+  events?: AgentEvent[];
+  selectedStudioSessionId?: string | null;
+  onSelectStudioSession: (studioSessionId: string | null) => void;
   onSeedIntent: (intent: string) => void;
   onCollapse?: () => void;
 }
@@ -19,14 +24,20 @@ export interface StudioArtifactSurfaceProps {
 export interface SurfaceStageHeaderProps {
   manifest: StudioArtifactManifest;
   title: string;
+  stageKicker?: string;
   activePath: string | null;
+  copyText?: string | null;
+  copyPath?: string | null;
   rendererLabel: string;
+  swarmExecution?: StudioArtifactSwarmExecutionSummary | null;
   retrying: boolean;
   stageMode: StudioArtifactStageMode;
   evidenceOpen: boolean;
+  showStageModes?: boolean;
   onSelectStageMode: (mode: StudioArtifactStageMode) => void;
   onToggleEvidence: () => void;
   onRetry: (() => void) | null;
+  onBrowseArtifacts?: (() => void) | null;
   onCollapse?: (() => void) | null;
 }
 
@@ -57,6 +68,7 @@ export interface LogicalArtifactSurfaceProps {
   rendererSession: StudioRendererSession | null;
   retrying: boolean;
   onRetry: (() => void) | null;
+  onBrowseArtifacts?: (() => void) | null;
   onCollapse?: (() => void) | null;
   onSeedIntent: (intent: string) => void;
 }
@@ -67,6 +79,7 @@ export interface WorkspaceArtifactSurfaceProps {
   rendererSession: StudioRendererSession;
   retrying: boolean;
   onRetry: (() => void) | null;
+  onBrowseArtifacts?: (() => void) | null;
   onCollapse?: (() => void) | null;
   onSeedIntent: (intent: string) => void;
 }
