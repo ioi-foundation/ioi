@@ -54,10 +54,9 @@ use crate::agentic::desktop::service::step::incident::{
 };
 use crate::agentic::desktop::service::step::intent_resolver::is_tool_allowed_for_resolution;
 use crate::agentic::desktop::service::step::queue::web_pipeline::{
-    append_final_web_completion_receipts,
     append_final_web_completion_receipts_with_rendered_summary,
     append_pending_web_success_fallback, append_pending_web_success_from_bundle,
-    final_web_completion_facts, final_web_completion_facts_with_rendered_summary,
+    final_web_completion_facts_with_rendered_summary,
     is_human_challenge_error, mark_pending_web_attempted, mark_pending_web_blocked,
     parse_web_evidence_bundle, remaining_pending_web_candidates,
     render_mailbox_access_limited_reply, synthesize_web_pipeline_reply,

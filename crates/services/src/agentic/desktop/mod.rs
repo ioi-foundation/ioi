@@ -12,6 +12,7 @@ pub mod service;
 pub mod tools;
 pub mod types;
 pub mod utils;
+pub(crate) mod worker_context;
 pub mod worker_templates;
 
 pub use service::DesktopAgentService;

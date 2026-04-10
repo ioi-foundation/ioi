@@ -9,6 +9,10 @@ use crate::agentic::desktop::types::{
     AgentMode, AgentState, AgentStatus, ExecutionTier, SessionSummary, WorkerAssignment,
 };
 use crate::agentic::desktop::utils::persist_agent_state;
+use crate::agentic::desktop::worker_context::{
+    collect_goal_literals, extract_worker_context_field, looks_like_command_literal,
+    split_parent_playbook_context, PARENT_PLAYBOOK_CONTEXT_MARKER,
+};
 use crate::agentic::desktop::worker_templates::builtin_worker_workflow;
 use crate::agentic::desktop::worker_templates::default_worker_role_label;
 use ioi_api::state::StateAccess;
@@ -31,8 +35,6 @@ use super::{
     load_worker_assignment, persist_worker_assignment, register_parent_playbook_step_spawn,
     resolve_worker_assignment,
 };
-
-const PARENT_PLAYBOOK_CONTEXT_MARKER: &str = "[PARENT PLAYBOOK CONTEXT]";
 
 #[derive(Debug, Clone)]
 pub struct DelegatedChildSpawnOutcome {
@@ -67,90 +69,6 @@ fn resolve_worker_name(role: &str, child_session_id: &[u8; 32]) -> String {
     }
 }
 
-fn split_parent_playbook_context(goal: &str) -> (&str, Option<&str>) {
-    if let Some((head, tail)) = goal.split_once(PARENT_PLAYBOOK_CONTEXT_MARKER) {
-        (head.trim(), Some(tail.trim()))
-    } else {
-        (goal.trim(), None)
-    }
-}
-
-fn normalize_worker_context_key(key: &str) -> String {
-    key.trim().to_ascii_lowercase().replace([' ', '-'], "_")
-}
-
-fn extract_worker_context_field(text: &str, keys: &[&str]) -> Option<String> {
-    let normalized_keys = keys
-        .iter()
-        .map(|key| normalize_worker_context_key(key))
-        .collect::<Vec<_>>();
-    for line in text.lines() {
-        let trimmed = line
-            .trim()
-            .trim_start_matches('-')
-            .trim_start_matches('*')
-            .trim();
-        let Some((key, value)) = trimmed.split_once(':') else {
-            continue;
-        };
-        if normalized_keys
-            .iter()
-            .any(|candidate| *candidate == normalize_worker_context_key(key))
-        {
-            let value = value.trim();
-            if !value.is_empty() {
-                return Some(value.to_string());
-            }
-        }
-    }
-    None
-}
-
-fn quoted_goal_literals(goal: &str) -> Vec<String> {
-    let mut literals = Vec::new();
-    let mut current = String::new();
-    let mut delimiter: Option<char> = None;
-
-    for ch in goal.chars() {
-        if let Some(active) = delimiter {
-            if ch == active {
-                let trimmed = current.trim();
-                if !trimmed.is_empty() {
-                    literals.push(trimmed.to_string());
-                }
-                current.clear();
-                delimiter = None;
-            } else {
-                current.push(ch);
-            }
-            continue;
-        }
-
-        if matches!(ch, '"' | '\'' | '`') {
-            delimiter = Some(ch);
-        }
-    }
-
-    literals
-}
-
-fn looks_like_command_literal(value: &str) -> bool {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return false;
-    }
-    let lowered = trimmed.to_ascii_lowercase();
-    lowered.contains("python")
-        || lowered.contains("cargo")
-        || lowered.contains("pytest")
-        || lowered.contains("unittest")
-        || lowered.contains("npm")
-        || lowered.contains("pnpm")
-        || lowered.contains("yarn")
-        || lowered.contains("bash")
-        || trimmed.contains(' ')
-}
-
 fn looks_like_file_hint(value: &str) -> bool {
     let trimmed = value.trim();
     if trimmed.is_empty() || trimmed.chars().any(|ch| ch.is_whitespace()) {
@@ -175,7 +93,7 @@ fn parent_goal_likely_files(goal: &str) -> Vec<String> {
     }
 
     let mut seen = HashSet::new();
-    quoted_goal_literals(goal)
+    collect_goal_literals(goal)
         .into_iter()
         .map(|literal| literal.trim().to_string())
         .filter(|literal| looks_like_file_hint(literal))
@@ -202,7 +120,7 @@ fn parent_goal_targeted_checks(goal: &str) -> Option<String> {
         }
     }
 
-    quoted_goal_literals(goal)
+    collect_goal_literals(goal)
         .into_iter()
         .find(|literal| looks_like_command_literal(literal))
 }
@@ -372,7 +290,7 @@ pub(crate) fn infer_delegated_child_working_directory(
     parent_working_directory: &str,
     goal: &str,
 ) -> String {
-    for literal in quoted_goal_literals(goal) {
+    for literal in collect_goal_literals(goal) {
         if let Some(path) = normalize_existing_goal_path(&literal) {
             return path.to_string_lossy().to_string();
         }

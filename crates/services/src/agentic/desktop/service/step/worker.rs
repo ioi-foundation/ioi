@@ -5,6 +5,10 @@ use crate::agentic::desktop::service::step::anti_loop::{latest_failure_class, Fa
 use crate::agentic::desktop::service::{DesktopAgentService, ServiceCallContext};
 use crate::agentic::desktop::types::{AgentState, AgentStatus, WorkerAssignment};
 use crate::agentic::desktop::utils::persist_agent_state;
+use crate::agentic::desktop::worker_context::{
+    collect_goal_literals, extract_worker_context_field, looks_like_command_literal,
+    normalize_whitespace, split_parent_playbook_context,
+};
 use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::{AgentTool, LlmToolDefinition};
@@ -166,94 +170,6 @@ pub(crate) fn filter_tools_for_worker_assignment(
         .filter(|tool| worker_assignment_allows_tool_name(Some(assignment), &tool.name))
         .cloned()
         .collect()
-}
-
-fn split_parent_playbook_context(goal: &str) -> (&str, Option<&str>) {
-    if let Some((head, tail)) = goal.split_once("[PARENT PLAYBOOK CONTEXT]") {
-        (head.trim(), Some(tail.trim()))
-    } else {
-        (goal.trim(), None)
-    }
-}
-
-fn normalize_worker_context_key(key: &str) -> String {
-    key.trim().to_ascii_lowercase().replace([' ', '-'], "_")
-}
-
-fn extract_worker_context_field(text: &str, keys: &[&str]) -> Option<String> {
-    let normalized_keys = keys
-        .iter()
-        .map(|key| normalize_worker_context_key(key))
-        .collect::<Vec<_>>();
-    for line in text.lines() {
-        let trimmed = line
-            .trim()
-            .trim_start_matches('-')
-            .trim_start_matches('*')
-            .trim();
-        let Some((key, value)) = trimmed.split_once(':') else {
-            continue;
-        };
-        if normalized_keys
-            .iter()
-            .any(|candidate| *candidate == normalize_worker_context_key(key))
-        {
-            let value = value.trim();
-            if !value.is_empty() {
-                return Some(value.to_string());
-            }
-        }
-    }
-    None
-}
-
-fn normalize_whitespace(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join(" ")
-}
-
-fn looks_like_command_literal(value: &str) -> bool {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return false;
-    }
-    let lowered = trimmed.to_ascii_lowercase();
-    lowered.contains("python")
-        || lowered.contains("cargo")
-        || lowered.contains("pytest")
-        || lowered.contains("unittest")
-        || lowered.contains("npm")
-        || lowered.contains("pnpm")
-        || lowered.contains("yarn")
-        || lowered.contains("bash")
-        || trimmed.contains(' ')
-}
-
-fn collect_goal_literals(goal: &str) -> Vec<String> {
-    let mut literals = Vec::new();
-    let mut current = String::new();
-    let mut delimiter: Option<char> = None;
-
-    for ch in goal.chars() {
-        if let Some(active) = delimiter {
-            if ch == active {
-                let trimmed = current.trim();
-                if !trimmed.is_empty() {
-                    literals.push(trimmed.to_string());
-                }
-                current.clear();
-                delimiter = None;
-            } else {
-                current.push(ch);
-            }
-            continue;
-        }
-
-        if matches!(ch, '"' | '\'' | '`') {
-            delimiter = Some(ch);
-        }
-    }
-
-    literals
 }
 
 fn normalize_existing_goal_path(candidate: &str) -> Option<PathBuf> {
