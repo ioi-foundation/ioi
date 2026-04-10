@@ -43,7 +43,7 @@ fn has_review_request_for_hash(
     state: &IAVLTree<HashCommitmentScheme>,
     request_hash: [u8; 32],
 ) -> bool {
-    let key = ioi_services::agentic::desktop::keys::pii::review::request(&request_hash);
+    let key = ioi_services::agentic::runtime::keys::pii::review::request(&request_hash);
     state.get(&key).ok().flatten().is_some()
 }
 
@@ -166,12 +166,12 @@ fn seed_resolved_intent(
     let mut agent_state: AgentState =
         codec::from_bytes_canonical(&bytes).expect("agent state should decode");
     let instruction_contract =
-        ioi_services::agentic::desktop::service::step::intent_resolver::seeded_instruction_contract_for_intent(
+        ioi_services::agentic::runtime::service::step::intent_resolver::seeded_instruction_contract_for_intent(
             query,
             intent_id,
         );
     let required_capabilities =
-        ioi_services::agentic::desktop::service::step::intent_resolver::required_capabilities_with_instruction_contract(
+        ioi_services::agentic::runtime::service::step::intent_resolver::required_capabilities_with_instruction_contract(
             &seeded_required_capabilities(scope, intent_id),
             instruction_contract.as_ref(),
         );
@@ -464,7 +464,7 @@ pub async fn run_case(
     let (event_tx, mut event_rx) = broadcast::channel(1024);
     let gui = Arc::new(MockGuiDriver);
     let memory_runtime = build_memory_runtime()?;
-    let service = DesktopAgentService::new_hybrid(
+    let service = RuntimeAgentService::new_hybrid(
         gui,
         Arc::new(TerminalDriver::new()),
         Arc::new(BrowserDriver::new()),

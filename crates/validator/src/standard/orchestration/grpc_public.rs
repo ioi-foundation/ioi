@@ -26,7 +26,7 @@ use tonic::{Request, Response, Status};
 use crate::metrics::rpc_metrics as metrics;
 use ioi_api::chain::WorkloadClientApi;
 use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
-use ioi_services::agentic::desktop::runtime_secret;
+use ioi_services::agentic::runtime::runtime_secret;
 use ioi_services::agentic::intent::IntentResolver;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{

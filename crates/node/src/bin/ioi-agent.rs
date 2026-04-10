@@ -14,7 +14,7 @@ use ioi_drivers::gui::IoiGuiDriver;
 use ioi_drivers::os::NativeOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
-use ioi_services::agentic::desktop::DesktopAgentService;
+use ioi_services::agentic::runtime::RuntimeAgentService;
 use ioi_services::market::licensing::LicenseVerifier;
 use ioi_types::app::{account_id_from_key_material, AccountId, SignatureSuite};
 use ioi_validator::common::GuardianContainer;
@@ -182,7 +182,7 @@ async fn main() -> Result<()> {
     }
 
     // 8. Launch the Agent Service
-    let _agent_service = DesktopAgentService::new_hybrid(
+    let _agent_service = RuntimeAgentService::new_hybrid(
         gui_driver,
         terminal_driver,
         browser_driver,

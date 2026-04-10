@@ -14,7 +14,7 @@ use ioi_api::studio::{
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_memory::{HybridArchivalMemoryQuery, MemoryRuntime, SemanticArchivalMemoryQuery};
-use ioi_services::agentic::desktop::keys::{
+use ioi_services::agentic::runtime::keys::{
     get_skill_doc_key, get_skill_record_key, get_skill_stats_key,
 };
 use ioi_services::agentic::skill_registry::{

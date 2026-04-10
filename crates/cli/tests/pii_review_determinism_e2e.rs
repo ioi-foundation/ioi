@@ -20,12 +20,12 @@ use ioi_pii::{
     route_pii_decision_for_target, validate_review_request_compat, RiskSurface,
     REVIEW_REQUEST_VERSION,
 };
-use ioi_services::agentic::desktop::keys::{get_incident_key, get_state_key, pii};
-use ioi_services::agentic::desktop::service::step::helpers::default_safe_policy;
-use ioi_services::agentic::desktop::service::step::incident::{
+use ioi_services::agentic::runtime::keys::{get_incident_key, get_state_key, pii};
+use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
+use ioi_services::agentic::runtime::service::step::incident::{
     action_fingerprint_from_tool_jcs, load_incident_state, register_pending_approval,
 };
-use ioi_services::agentic::desktop::{AgentMode, AgentState, AgentStatus, DesktopAgentService};
+use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus, RuntimeAgentService};
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
@@ -228,7 +228,7 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
 
     let memory_runtime = Arc::new(MemoryRuntime::open_sqlite_in_memory()?);
 
-    let service = DesktopAgentService::new_hybrid(
+    let service = RuntimeAgentService::new_hybrid(
         gui,
         Arc::new(TerminalDriver::new()),
         Arc::new(BrowserDriver::new()),
@@ -374,7 +374,7 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         approver_sig: vec![],
         approver_suite: SignatureSuite::ED25519,
     };
-    let resume_params = ioi_services::agentic::desktop::ResumeAgentParams {
+    let resume_params = ioi_services::agentic::runtime::ResumeAgentParams {
         session_id,
         approval_token: Some(approval_token.clone()),
     };
@@ -443,7 +443,7 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         .handle_service_call(&mut state, "resume@v1", &resume_bytes, &mut ctx)
         .await?;
 
-    let step_params = ioi_services::agentic::desktop::StepAgentParams { session_id };
+    let step_params = ioi_services::agentic::runtime::StepAgentParams { session_id };
     service
         .handle_service_call(
             &mut state,

@@ -4,10 +4,10 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
-use ioi_services::agentic::desktop::service::step::cognition::think;
-use ioi_services::agentic::desktop::service::step::perception::PerceptionContext;
-use ioi_services::agentic::desktop::types::{AgentState, AgentStatus, ExecutionTier};
-use ioi_services::agentic::desktop::{AgentMode, DesktopAgentService};
+use ioi_services::agentic::runtime::service::step::cognition::think;
+use ioi_services::agentic::runtime::service::step::perception::PerceptionContext;
+use ioi_services::agentic::runtime::types::{AgentState, AgentStatus, ExecutionTier};
+use ioi_services::agentic::runtime::{AgentMode, RuntimeAgentService};
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
@@ -131,7 +131,7 @@ fn reflection_test_agent_state(session_id: [u8; 32]) -> AgentState {
 #[tokio::test]
 async fn cognition_injects_failure_analysis_block_on_error() {
     let runtime = Arc::new(MockReflectionRuntime::default());
-    let service = DesktopAgentService::new_hybrid(
+    let service = RuntimeAgentService::new_hybrid(
         Arc::new(NoOpGui),
         Arc::new(TerminalDriver::new()),
         Arc::new(BrowserDriver::new()),

@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use ioi_services::agentic::desktop::execution::ToolExecutionResult;
+use ioi_services::agentic::runtime::execution::ToolExecutionResult;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::KernelEvent;
 use serde_json::{json, Value};
@@ -66,7 +66,7 @@ pub(super) struct CaseHarness {
     pub(super) client: BridgeClient,
     pub(super) session_id: String,
     session_bytes: [u8; 32],
-    exec: std::sync::Arc<ioi_services::agentic::desktop::execution::ToolExecutor>,
+    exec: std::sync::Arc<ioi_services::agentic::runtime::execution::ToolExecutor>,
     browser: std::sync::Arc<ioi_drivers::browser::BrowserDriver>,
     step_index: u32,
     pub(super) bridge_state: BridgeState,

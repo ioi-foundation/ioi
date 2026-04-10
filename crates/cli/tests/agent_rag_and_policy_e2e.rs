@@ -16,8 +16,8 @@ use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::{MemoryRuntime, NewArchivalMemoryRecord};
-use ioi_services::agentic::desktop::{
-    AgentMode, DesktopAgentService, StartAgentParams, StepAgentParams,
+use ioi_services::agentic::runtime::{
+    AgentMode, RuntimeAgentService, StartAgentParams, StepAgentParams,
 };
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
@@ -205,7 +205,7 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
     let gui = Arc::new(MockGuiDriver);
 
     // 3. Setup Service
-    let service = DesktopAgentService::new_hybrid(
+    let service = RuntimeAgentService::new_hybrid(
         gui,
         Arc::new(TerminalDriver::new()),
         Arc::new(BrowserDriver::new()),

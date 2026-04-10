@@ -6,9 +6,9 @@
 //! It observes agent execution failures, synthesizes code patches (mutations),
 //! verifies them in a sandbox, and submits upgrade transactions to evolve the agent.
 
-use crate::agentic::desktop::keys::TRACE_PREFIX;
-use crate::agentic::desktop::types::AgentState;
-use crate::agentic::desktop::utils::load_agent_state_checkpoint;
+use crate::agentic::runtime::keys::TRACE_PREFIX;
+use crate::agentic::runtime::types::AgentState;
+use crate::agentic::runtime::utils::load_agent_state_checkpoint;
 use async_trait::async_trait;
 use ioi_api::services::UpgradableService;
 use ioi_api::state::StateAccess;
@@ -274,7 +274,7 @@ impl OptimizerService {
     pub async fn crystallize_skill(
         &self,
         state: &mut dyn StateAccess,
-        params: crate::agentic::desktop::types::StepAgentParams,
+        params: crate::agentic::runtime::types::StepAgentParams,
         _ctx: &TxContext<'_>,
     ) -> Result<(), TransactionError> {
         let traces = fetch_session_traces(state, params.session_id)?;

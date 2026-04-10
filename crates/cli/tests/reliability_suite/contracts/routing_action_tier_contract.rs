@@ -1,14 +1,14 @@
 // Path: crates/cli/tests/routing_action_tier_contract.rs
 
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_services::agentic::desktop::service::step::action::{
+use ioi_services::agentic::runtime::service::step::action::{
     canonical_intent_hash, canonical_tool_identity, resolve_action_routing_context,
 };
-use ioi_services::agentic::desktop::service::step::anti_loop::{
+use ioi_services::agentic::runtime::service::step::anti_loop::{
     build_post_state_summary, failure_attempt_fingerprint, policy_binding_hash, FailureClass,
 };
-use ioi_services::agentic::desktop::types::{ExecutionTier, InteractionTarget};
-use ioi_services::agentic::desktop::{AgentMode, AgentState, AgentStatus};
+use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
+use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::RoutingReceiptEvent;
 use serde_json::json;

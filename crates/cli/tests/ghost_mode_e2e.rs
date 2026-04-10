@@ -12,7 +12,7 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_cli::testing::build_test_artifacts;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{chain_event::Event as ChainEventEnum, SubscribeEventsRequest};
-use ioi_services::agentic::desktop::{DesktopAgentService, StartAgentParams, StepAgentParams};
+use ioi_services::agentic::runtime::{RuntimeAgentService, StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::agentic::InferenceOptions;
@@ -115,7 +115,7 @@ async fn test_ghost_mode_event_pipeline() -> Result<()> {
     });
     let brain = Arc::new(ClickerBrain);
 
-    let mut service = DesktopAgentService::new_hybrid(gui, brain.clone(), brain.clone());
+    let mut service = RuntimeAgentService::new_hybrid(gui, brain.clone(), brain.clone());
     // Important: The service itself doesn't emit the GhostInput, the DRIVER does.
     // But the service emits AgentStep. We will check for both.
     service = service.with_event_sender(event_tx.clone());

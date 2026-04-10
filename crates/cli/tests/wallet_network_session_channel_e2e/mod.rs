@@ -11,7 +11,7 @@ use ioi_cli::testing::{
 use ioi_crypto::security::SecurityLevel;
 use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
-use ioi_services::agentic::desktop::{AgentMode, StartAgentParams};
+use ioi_services::agentic::runtime::{AgentMode, StartAgentParams};
 use ioi_services::wallet_network::{
     ApprovalConsumptionState, BumpRevocationEpochParams, ConsumeApprovalTokenParams,
     IssueSessionGrantParams, LeaseConsumptionState, SessionDelegationState,

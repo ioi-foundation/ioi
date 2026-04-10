@@ -1,4 +1,4 @@
-use crate::agentic::desktop::keys::{
+use crate::agentic::runtime::keys::{
     get_skill_doc_key, get_skill_record_key, SKILL_CATALOG_INDEX_KEY, SKILL_DOC_INDEX_KEY,
 };
 use ioi_api::state::StateAccess;

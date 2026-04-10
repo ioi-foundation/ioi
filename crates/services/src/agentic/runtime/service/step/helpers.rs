@@ -1,0 +1,378 @@
+// Path: crates/services/src/agentic/runtime/service/step/helpers.rs
+
+use crate::agentic::runtime::connectors::google_workspace;
+use crate::agentic::runtime::service::step::signals;
+use crate::agentic::rules::{
+    ActionRules, IntentFailureOverride, OntologyPolicy, Rule, RuleConditions, Verdict,
+};
+
+fn browser_allow_apps() -> Vec<String> {
+    vec![
+        "Chrome".to_string(),
+        "Chromium".to_string(),
+        "Brave".to_string(),
+        "Firefox".to_string(),
+        "Edge".to_string(),
+        "Safari".to_string(),
+        "Arc".to_string(),
+    ]
+}
+
+pub fn default_safe_policy() -> ActionRules {
+    let mut rules = vec![
+        // Lifecycle / Meta-Tools
+        Rule {
+            rule_id: Some("allow-complete".into()),
+            target: "agent__complete".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-pause".into()),
+            target: "agent__pause".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-await".into()),
+            target: "agent__await_result".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        // Read-Only Capability Defaults
+        Rule {
+            rule_id: Some("gate-ui-screenshot".into()),
+            target: "gui::screenshot".into(),
+            conditions: Default::default(),
+            action: Verdict::RequireApproval,
+        },
+        Rule {
+            rule_id: Some("gate-ui-inspect".into()),
+            target: "gui::inspect".into(),
+            conditions: Default::default(),
+            action: Verdict::RequireApproval,
+        },
+        Rule {
+            rule_id: Some("allow-browser-inspect".into()),
+            target: "browser::inspect".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-web-retrieve".into()),
+            target: "web::retrieve".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        // Memory (runtime-backed, read-only) defaults.
+        Rule {
+            rule_id: Some("allow-memory-search".into()),
+            target: "memory::search".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-memory-inspect".into()),
+            target: "memory::inspect".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        // Low-risk browser interaction defaults.
+        Rule {
+            rule_id: Some("allow-browser-gui-click".into()),
+            target: "gui::click".into(),
+            conditions: RuleConditions {
+                allow_apps: Some(browser_allow_apps()),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-browser-gui-type".into()),
+            target: "gui::type".into(),
+            conditions: RuleConditions {
+                allow_apps: Some(browser_allow_apps()),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        },
+        Rule {
+            rule_id: Some("allow-browser-gui-scroll".into()),
+            target: "gui::scroll".into(),
+            conditions: RuleConditions {
+                allow_apps: Some(browser_allow_apps()),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        },
+        // Allow Chat Reply
+        Rule {
+            rule_id: Some("allow-chat-reply".into()),
+            target: "chat__reply".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        // Deterministic local arithmetic evaluation.
+        Rule {
+            rule_id: Some("allow-math-eval".into()),
+            target: "math::eval".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+        // [NEW] Allow Echo for testing/feedback
+        // The PolicyEngine's internal allowlist ensures this is safe (only allows safe commands)
+        Rule {
+            rule_id: Some("allow-sys-exec-echo".into()),
+            target: "sys::exec".into(),
+            conditions: Default::default(),
+            action: Verdict::Allow,
+        },
+    ];
+
+    rules.extend(
+        google_workspace::google_read_policy_targets()
+            .into_iter()
+            .map(|target| Rule {
+                rule_id: Some(format!("allow-{}", target.replace("__", "-"))),
+                target,
+                conditions: Default::default(),
+                action: Verdict::Allow,
+            }),
+    );
+
+    ActionRules {
+        policy_id: "default-safe".to_string(),
+        defaults: crate::agentic::rules::DefaultPolicy::RequireApproval,
+        ontology_policy: OntologyPolicy {
+            intent_failure_overrides: vec![
+                IntentFailureOverride {
+                    intent_class: "BrowserTask".to_string(),
+                    failure_class: "UnexpectedState".to_string(),
+                    strategy_name: None,
+                    max_transitions: Some(2),
+                },
+                IntentFailureOverride {
+                    intent_class: "BrowserTask".to_string(),
+                    failure_class: "TimeoutOrHang".to_string(),
+                    strategy_name: None,
+                    max_transitions: Some(2),
+                },
+            ],
+            ..OntologyPolicy::default()
+        },
+        pii_controls: Default::default(),
+        rules,
+    }
+}
+
+pub fn sanitize_llm_json(input: &str) -> String {
+    let trimmed = input.trim();
+    // Check for markdown code blocks
+    if trimmed.starts_with("```") {
+        let lines: Vec<&str> = trimmed.lines().collect();
+        // Remove first line (```json or ```) and last line (```) if valid
+        if lines.len() >= 2 && lines.last().unwrap().trim().starts_with("```") {
+            return lines[1..lines.len() - 1].join("\n");
+        }
+    }
+    // Also handle raw strings that might just have the json prefix without backticks
+    if let Some(json_start) = trimmed.strip_prefix("json") {
+        return json_start.to_string();
+    }
+
+    input.to_string()
+}
+
+/// Extracts top-level window names for a lightweight "Glance" at the desktop state.
+pub fn extract_window_titles(xml: &str) -> String {
+    let mut titles = Vec::new();
+    for line in xml.lines() {
+        // Simple string matching to avoid XML parsing overhead in the hot loop
+        if line.contains("role=\"window\"") {
+            if let Some(start) = line.find("name=\"") {
+                let rest = &line[start + 6..];
+                if let Some(end) = rest.find('"') {
+                    if !rest[..end].trim().is_empty() {
+                        titles.push(rest[..end].to_string());
+                    }
+                }
+            }
+        }
+    }
+    if titles.is_empty() {
+        "Desktop / Unknown".to_string()
+    } else {
+        titles.join(", ")
+    }
+}
+
+pub fn should_log_raw_prompt_content() -> bool {
+    std::env::var("IOI_LOG_RAW_PROMPTS")
+        .ok()
+        .map(|value| {
+            let normalized = value.trim().to_ascii_lowercase();
+            normalized == "1" || normalized == "true" || normalized == "yes"
+        })
+        .unwrap_or(false)
+}
+
+pub const LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION: &str =
+    signals::LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION;
+
+pub fn is_live_external_research_goal(goal: &str) -> bool {
+    signals::is_live_external_research_goal(goal)
+}
+
+pub fn is_mailbox_connector_goal(goal: &str) -> bool {
+    signals::is_mailbox_connector_intent(goal)
+}
+
+pub fn should_auto_complete_open_app_goal(
+    goal: &str,
+    app_name: &str,
+    target_hint: Option<&str>,
+) -> bool {
+    let goal_lc = goal.to_ascii_lowercase();
+    if goal_lc.trim().is_empty() {
+        return false;
+    }
+
+    let has_launch_verb = ["open ", "launch ", "start ", "run "]
+        .iter()
+        .any(|verb| goal_lc.contains(verb));
+    if !has_launch_verb {
+        return false;
+    }
+
+    let app_lc = app_name.trim().to_ascii_lowercase();
+    let hint_lc = target_hint.unwrap_or("").trim().to_ascii_lowercase();
+    if app_lc.is_empty() && hint_lc.is_empty() {
+        return false;
+    }
+    let mentions_target = (!app_lc.is_empty() && goal_lc.contains(&app_lc))
+        || (!hint_lc.is_empty() && goal_lc.contains(&hint_lc));
+    if !mentions_target {
+        return false;
+    }
+
+    // If the goal clearly includes follow-up interaction, launching is not terminal.
+    let follow_up_actions = [
+        " click ",
+        " type ",
+        " enter ",
+        " compute ",
+        " calculate ",
+        " solve ",
+        " search ",
+        " browse ",
+        " navigate ",
+        " extract ",
+        " summarize ",
+        " read ",
+        " write ",
+        " edit ",
+        " create ",
+        " delete ",
+        " screenshot ",
+        " test ",
+        " run tests",
+    ];
+    !follow_up_actions
+        .iter()
+        .any(|marker| goal_lc.contains(marker))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        default_safe_policy, is_live_external_research_goal, is_mailbox_connector_goal,
+        should_auto_complete_open_app_goal, LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION,
+    };
+
+    #[test]
+    fn auto_complete_open_app_goal_for_simple_launch() {
+        assert!(should_auto_complete_open_app_goal(
+            "Open calculator",
+            "calculator",
+            Some("calculator")
+        ));
+    }
+
+    #[test]
+    fn does_not_auto_complete_when_follow_up_actions_exist() {
+        assert!(!should_auto_complete_open_app_goal(
+            "Open calculator and compute 2+2",
+            "calculator",
+            Some("calculator")
+        ));
+    }
+
+    #[test]
+    fn requires_goal_to_mention_target_app() {
+        assert!(!should_auto_complete_open_app_goal(
+            "Open the app",
+            "calculator",
+            Some("calculator")
+        ));
+    }
+
+    #[test]
+    fn browser_recovery_defaults_have_low_transition_caps() {
+        let rules = default_safe_policy();
+        let mut saw_unexpected = false;
+        let mut saw_timeout = false;
+        for ov in &rules.ontology_policy.intent_failure_overrides {
+            if ov.intent_class == "BrowserTask" && ov.failure_class == "UnexpectedState" {
+                saw_unexpected = ov.max_transitions == Some(2);
+            }
+            if ov.intent_class == "BrowserTask" && ov.failure_class == "TimeoutOrHang" {
+                saw_timeout = ov.max_transitions == Some(2);
+            }
+        }
+        assert!(saw_unexpected);
+        assert!(saw_timeout);
+    }
+
+    #[test]
+    fn detects_live_external_research_goals() {
+        assert_eq!(LIVE_EXTERNAL_RESEARCH_SIGNAL_VERSION, "ontology_signals_v3");
+        assert!(is_live_external_research_goal(
+            "As of now (UTC), top active cloud incidents with status page citations and user impact"
+        ));
+        assert!(is_live_external_research_goal(
+            "Latest SaaS outage updates from major provider status pages with sources"
+        ));
+    }
+
+    #[test]
+    fn does_not_misclassify_workspace_edit_requests_as_live_research() {
+        assert!(!is_live_external_research_goal(
+            "Search this repo for intent resolver logic and patch the rust file"
+        ));
+        assert!(!is_live_external_research_goal(
+            "Update tests in the workspace and commit the diff"
+        ));
+        assert!(!is_live_external_research_goal(
+            "As of now, search this repository for incident handler changes and cite the files"
+        ));
+    }
+
+    #[test]
+    fn detects_mailbox_connector_goals() {
+        assert!(is_mailbox_connector_goal(
+            "Read me the latest email in my inbox"
+        ));
+        assert!(!is_mailbox_connector_goal(
+            "Find the latest cloud outage updates with citations"
+        ));
+    }
+
+    #[test]
+    fn default_safe_policy_uses_current_intent_matrix_version() {
+        let upgraded = default_safe_policy();
+        assert_eq!(
+            upgraded.ontology_policy.intent_routing.matrix_version,
+            "intent-matrix-v15"
+        );
+    }
+}

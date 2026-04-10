@@ -589,7 +589,7 @@ Suggested integration points with existing surfaces:
 - benchmark app:
   `apps/benchmarks`
 - playbook runtime:
-  `crates/services/src/agentic/desktop/agent_playbooks.rs`
+  `crates/services/src/agentic/runtime/agent_playbooks.rs`
 - current artifact proto-loop:
   `scripts/lib/studio-artifact-parity-loop.mjs`
 

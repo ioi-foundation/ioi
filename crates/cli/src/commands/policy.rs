@@ -8,7 +8,7 @@ use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{
     GetTransactionStatusRequest, SetRuntimeSecretRequest, SubmitTransactionRequest,
 };
-use ioi_services::agentic::desktop::ResumeAgentParams;
+use ioi_services::agentic::runtime::ResumeAgentParams;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken};
 use ioi_types::app::agentic::StepTrace;
 use ioi_types::app::{SignatureSuite, SystemPayload};

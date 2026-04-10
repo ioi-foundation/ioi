@@ -1,6 +1,6 @@
 // Path: crates/cli/tests/routing_failure_class_contract.rs
 
-use ioi_services::agentic::desktop::service::step::anti_loop::{
+use ioi_services::agentic::runtime::service::step::anti_loop::{
     classify_failure, to_routing_failure_class, FailureClass,
 };
 use ioi_types::app::{

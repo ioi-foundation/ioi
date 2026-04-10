@@ -1,7 +1,7 @@
 use super::harness::build_executor_with_events;
 use anyhow::{anyhow, Result};
-use ioi_services::agentic::desktop::execution::ToolExecutionResult;
-use ioi_services::agentic::desktop::types::{CommandExecution, ExecutionTier};
+use ioi_services::agentic::runtime::execution::ToolExecutionResult;
+use ioi_services::agentic::runtime::types::{CommandExecution, ExecutionTier};
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{KernelEvent, WorkloadActivityKind, WorkloadReceipt, WorkloadReceiptEvent};
 use tokio::sync::broadcast;
@@ -55,7 +55,7 @@ fn drain_events(rx: &mut broadcast::Receiver<KernelEvent>, all_events: &mut Vec<
 }
 
 async fn execute_with_event_drain(
-    exec: &ioi_services::agentic::desktop::execution::ToolExecutor,
+    exec: &ioi_services::agentic::runtime::execution::ToolExecutor,
     tool: AgentTool,
     session_id: [u8; 32],
     step_index: u32,

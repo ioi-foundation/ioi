@@ -859,15 +859,15 @@ fn score_render_evaluation(
         .any(|finding| finding.severity == StudioArtifactRenderFindingSeverity::Blocked)
     {
         format!(
-            "Render evaluation blocked the primary view after desktop/mobile capture with an overall score of {overall_score}/25."
+            "Render evaluation blocked the primary view after runtime/mobile capture with an overall score of {overall_score}/25."
         )
     } else if findings.is_empty() {
         format!(
-            "Render evaluation cleared desktop/mobile capture with an overall score of {overall_score}/25."
+            "Render evaluation cleared runtime/mobile capture with an overall score of {overall_score}/25."
         )
     } else {
         format!(
-            "Render evaluation found repairable desktop/mobile issues with an overall score of {overall_score}/25."
+            "Render evaluation found repairable runtime/mobile issues with an overall score of {overall_score}/25."
         )
     };
 

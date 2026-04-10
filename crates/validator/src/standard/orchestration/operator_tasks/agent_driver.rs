@@ -1,6 +1,6 @@
 use super::*;
 use ioi_memory::MemoryRuntime;
-use ioi_services::agentic::desktop::utils::load_agent_state_checkpoint;
+use ioi_services::agentic::runtime::utils::load_agent_state_checkpoint;
 
 fn parse_session_id_from_state_key(state_key: &[u8], full_scan_prefix: &[u8]) -> Option<[u8; 32]> {
     let suffix = state_key.strip_prefix(full_scan_prefix)?;
@@ -354,8 +354,8 @@ mod tests {
     use async_trait::async_trait;
     use ioi_api::app::{Block, ChainStatus};
     use ioi_api::chain::QueryStateResponse;
-    use ioi_services::agentic::desktop::types::ExecutionTier;
-    use ioi_services::agentic::desktop::AgentMode;
+    use ioi_services::agentic::runtime::types::ExecutionTier;
+    use ioi_services::agentic::runtime::AgentMode;
     use ioi_types::app::{StateAnchor, StateRoot};
     use ioi_types::error::ChainError;
     use std::any::Any;

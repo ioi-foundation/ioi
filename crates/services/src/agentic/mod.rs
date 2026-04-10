@@ -4,7 +4,7 @@
 use ioi_api::impl_service_base;
 
 pub mod automation;
-pub mod desktop;
+pub mod runtime;
 pub mod evolution; // [NEW] Register Evolution module
 pub mod firewall;
 pub mod fitness;

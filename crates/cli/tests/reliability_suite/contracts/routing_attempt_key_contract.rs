@@ -1,16 +1,16 @@
 // Path: crates/cli/tests/routing_attempt_key_contract.rs
 
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_services::agentic::desktop::service::step::action::{
+use ioi_services::agentic::runtime::service::step::action::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
 };
-use ioi_services::agentic::desktop::service::step::anti_loop::{
+use ioi_services::agentic::runtime::service::step::anti_loop::{
     build_attempt_key, build_post_state_summary, build_state_summary, escalation_path_for_failure,
     register_failure_attempt, retry_budget_remaining, should_block_retry_without_change,
     to_routing_failure_class, FailureClass,
 };
-use ioi_services::agentic::desktop::types::{ExecutionTier, InteractionTarget};
-use ioi_services::agentic::desktop::{AgentMode, AgentState, AgentStatus};
+use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
+use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{RoutingFailureClass, RoutingReceiptEvent};
 use serde_json::json;

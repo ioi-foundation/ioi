@@ -15,7 +15,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 // [FIX] Import params from services
-use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams};
+use ioi_services::agentic::runtime::{StartAgentParams, StepAgentParams};
 
 // --- Mock Components for Validation ---
 
@@ -100,11 +100,11 @@ async fn test_agent_trace_and_skill_injection() -> Result<()> {
     // --- Manual Setup (In-Process Service Test) ---
     use ioi_api::services::BlockchainService;
     use ioi_api::state::StateAccess;
-    use ioi_services::agentic::desktop::DesktopAgentService;
+    use ioi_services::agentic::runtime::RuntimeAgentService;
     use ioi_state::primitives::hash::HashCommitmentScheme;
     use ioi_state::tree::iavl::IAVLTree;
 
-    let service = DesktopAgentService::new(mock_gui, mock_brain);
+    let service = RuntimeAgentService::new(mock_gui, mock_brain);
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
     // 2. Inject a Skill into the Substrate

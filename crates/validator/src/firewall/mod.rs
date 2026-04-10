@@ -19,9 +19,9 @@ use ioi_pii::{
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, Verdict};
 // [NEW] Imports for state lookup
-use ioi_services::agentic::desktop::keys::{get_incident_key, get_state_key, pii};
-use ioi_services::agentic::desktop::service::step::incident::IncidentState;
-use ioi_services::agentic::desktop::{AgentState, ResumeAgentParams, StepAgentParams};
+use ioi_services::agentic::runtime::keys::{get_incident_key, get_state_key, pii};
+use ioi_services::agentic::runtime::service::step::incident::IncidentState;
+use ioi_services::agentic::runtime::{AgentState, ResumeAgentParams, StepAgentParams};
 
 use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::{LocalSafetyModel, PiiRiskSurface};

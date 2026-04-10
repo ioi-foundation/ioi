@@ -7,7 +7,7 @@ use super::subscriptions::{
     build_registration_from_result, GoogleAutomationManager, GoogleConnectorSubscriptionView,
 };
 use crate::models::AppState;
-use ioi_services::agentic::desktop::connectors::google_workspace as shared;
+use ioi_services::agentic::runtime::connectors::google_workspace as shared;
 use serde_json::{json, Value};
 use std::sync::Mutex;
 use tauri::State;
@@ -15,7 +15,7 @@ use tauri::State;
 pub use shared::{ConnectorActionDefinition, ConnectorActionResult, ConnectorConfigureResult};
 
 fn google_mock_fixture_active() -> bool {
-    ioi_services::agentic::desktop::connectors::mock_fixtures::google_mock_fixture_active()
+    ioi_services::agentic::runtime::connectors::mock_fixtures::google_mock_fixture_active()
 }
 
 pub async fn connector_list_actions(

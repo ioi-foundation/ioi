@@ -4,7 +4,7 @@ This module implements the core logic for autonomous agents within the IOI Kerne
 
 ## Structure
 
-*   **`desktop/`**: The `DesktopAgentService`. This is the high-level state machine that manages long-running agent sessions, history, and tool execution loops.
+*   **`runtime/`**: The `RuntimeAgentService`. This is the high-level state machine that manages long-running agent sessions, history, and tool execution loops.
 *   **`policy.rs` & `rules.rs`**: The **Agency Firewall**. The deterministic security kernel that sits between the AI model's output and the actual execution drivers.
 *   **`pii_scrubber/`**: The **PII Scrubber Privacy Airlock**. A deterministic system for sanitizing data (PII/Secrets) before it leaves the user's secure environment.
 *   **`intent.rs`**: The **Intent Resolver**. Maps natural language user requests (e.g., "Send money to Bob") into precise, signable transactions.

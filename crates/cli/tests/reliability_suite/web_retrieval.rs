@@ -1,7 +1,7 @@
 use super::harness::build_executor_with_events;
 use anyhow::{anyhow, Result};
 use axum::{response::Html, routing::get, Router};
-use ioi_services::agentic::desktop::types::ExecutionTier;
+use ioi_services::agentic::runtime::types::ExecutionTier;
 use ioi_types::app::agentic::{AgentTool, WebEvidenceBundle};
 use ioi_types::app::{KernelEvent, WorkloadActivityKind, WorkloadNetFetchReceipt, WorkloadReceipt};
 use serde_json::Value;

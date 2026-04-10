@@ -17,7 +17,7 @@ use crate::orchestrator::{
 };
 use chrono::{DateTime, Utc};
 use ioi_memory::MemoryRuntime;
-use ioi_services::agentic::desktop::connectors::google_api::{
+use ioi_services::agentic::runtime::connectors::google_api::{
     self, CalendarMeetingPrepCandidate, GmailFollowUpCandidate,
 };
 use std::collections::HashSet;

@@ -23,7 +23,7 @@ Implements the JSON-RPC 2.0 transport over **Standard Input/Output (Stdio)**.
 ## Usage Flow
 
 1.  **Agent:** Requests a dynamic extension tool (for example `slack__post_message`).
-2.  **Kernel:** Calls `DesktopAgentService`.
+2.  **Kernel:** Calls `RuntimeAgentService`.
 3.  **Firewall:** Intercepts the call. Checks workload lease + policy targets.
 4.  **Router:** If allowed, `McpManager` resolves the correct server and applies runtime containment checks.
 5.  **Execution:** The JSON-RPC request is sent to the child process via Stdin.

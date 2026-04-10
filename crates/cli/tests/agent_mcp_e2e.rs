@@ -11,7 +11,7 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_api::vm::drivers::os::OsDriver;
 
 use ioi_cli::testing::build_test_artifacts;
-use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams};
+use ioi_services::agentic::runtime::{StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::{ActionRequest, ContextSlice};
@@ -153,7 +153,7 @@ rl.on('line', (line) => {
         .start_server("echo_server", McpMode::Development, config)
         .await?;
 
-    use ioi_services::agentic::desktop::DesktopAgentService;
+    use ioi_services::agentic::runtime::RuntimeAgentService;
     let gui = Arc::new(MockGuiDriver);
     let brain = Arc::new(McpBrain);
     let terminal = Arc::new(TerminalDriver::new());
@@ -162,7 +162,7 @@ rl.on('line', (line) => {
     let os_driver = Arc::new(MockOsDriver);
 
     let service =
-        DesktopAgentService::new_hybrid(gui, terminal, browser, brain.clone(), brain.clone())
+        RuntimeAgentService::new_hybrid(gui, terminal, browser, brain.clone(), brain.clone())
             .with_mcp_manager(mcp_manager)
             .with_os_driver(os_driver);
 
@@ -238,8 +238,8 @@ rl.on('line', (line) => {
         )
         .await?;
 
-    use ioi_services::agentic::desktop::AgentState;
-    let key = ioi_services::agentic::desktop::keys::get_state_key(&session_id);
+    use ioi_services::agentic::runtime::AgentState;
+    let key = ioi_services::agentic::runtime::keys::get_state_key(&session_id);
     let bytes = state.get(&key).unwrap().unwrap();
     let agent_state: AgentState = codec::from_bytes_canonical(&bytes).unwrap();
 

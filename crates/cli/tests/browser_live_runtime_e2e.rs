@@ -15,11 +15,11 @@ use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
-use ioi_services::agentic::desktop::keys::{AGENT_POLICY_PREFIX, INCIDENT_PREFIX};
-use ioi_services::agentic::desktop::service::step::helpers::default_safe_policy;
-use ioi_services::agentic::desktop::service::step::incident::IncidentState;
-use ioi_services::agentic::desktop::{
-    AgentMode, AgentState, AgentStatus, DesktopAgentService, ResumeAgentParams, StartAgentParams,
+use ioi_services::agentic::runtime::keys::{AGENT_POLICY_PREFIX, INCIDENT_PREFIX};
+use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
+use ioi_services::agentic::runtime::service::step::incident::IncidentState;
+use ioi_services::agentic::runtime::{
+    AgentMode, AgentState, AgentStatus, RuntimeAgentService, ResumeAgentParams, StartAgentParams,
     StepAgentParams,
 };
 use ioi_services::agentic::rules::DefaultPolicy;
@@ -315,7 +315,7 @@ async fn browser_live_http_runtime_validation() -> Result<()> {
     let memory_runtime = build_memory_runtime()?;
 
     let (tx, mut rx) = broadcast::channel(512);
-    let service = DesktopAgentService::new_hybrid(
+    let service = RuntimeAgentService::new_hybrid(
         Arc::new(NoopGuiDriver),
         Arc::new(TerminalDriver::new()),
         browser.clone(),

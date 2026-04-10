@@ -12,11 +12,11 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::GetContextBlobRequest;
-use ioi_services::agentic::desktop::keys::{
+use ioi_services::agentic::runtime::keys::{
     get_skill_doc_key, get_skill_external_evidence_key, get_skill_record_key, get_state_key,
     get_trace_key, SKILL_CATALOG_INDEX_KEY,
 };
-use ioi_services::agentic::desktop::AgentState as DesktopAgentState;
+use ioi_services::agentic::runtime::AgentState as RuntimeAgentState;
 use ioi_types::app::agentic::{
     ExternalSkillEvidence, LlmToolDefinition, PublishedSkillDoc, SkillCatalogIndex, SkillRecord,
     StepTrace,

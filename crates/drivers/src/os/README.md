@@ -24,7 +24,7 @@ This prevents "Context Confusion" attacks where an agent might accidentally (or 
 
 ## Usage
 
-This driver is typically injected into the `DesktopAgentService` and the `PolicyEngine` during node startup.
+This driver is typically injected into the `RuntimeAgentService` and the `PolicyEngine` during node startup.
 
 ### Example
 

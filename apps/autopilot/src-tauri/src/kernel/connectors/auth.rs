@@ -8,7 +8,7 @@ use crate::kernel::state::get_rpc_client;
 use crate::models::AppState;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ioi_crypto::key_store::decrypt_key;
-use ioi_services::agentic::desktop::connectors::google_auth::{
+use ioi_services::agentic::runtime::connectors::google_auth::{
     self, GoogleAuthSnapshot, GoogleOauthClientSnapshot,
 };
 use ioi_types::app::{

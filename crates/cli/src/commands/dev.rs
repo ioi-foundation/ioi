@@ -7,7 +7,7 @@ use ioi_crypto::algorithms::hash::sha256;
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{GetTransactionStatusRequest, SubmitTransactionRequest};
-use ioi_services::agentic::desktop::keys::{
+use ioi_services::agentic::runtime::keys::{
     get_skill_doc_key, get_skill_record_key, SKILL_DOC_INDEX_KEY,
 };
 use ioi_services::agentic::skill_registry::{

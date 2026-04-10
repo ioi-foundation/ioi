@@ -12,7 +12,7 @@ mod utils;
 
 use crate::models::AppState;
 use chrono::{TimeZone, Utc};
-use ioi_services::agentic::desktop::connectors::mock_fixtures::{
+use ioi_services::agentic::runtime::connectors::mock_fixtures::{
     generic_connector_mock_records as shared_generic_connector_mock_records,
     google_mock_fixture_active as shared_google_mock_fixture_active,
     mail_mock_fixture as shared_mail_mock_fixture, GenericConnectorMockRecord,
@@ -551,7 +551,7 @@ mod tests {
         GOOGLE_CONNECTOR_ID, MAIL_CONNECTOR_ID, MAIL_MOCK_DEFAULT_CHANNEL_ID_HEX,
         MAIL_MOCK_DEFAULT_LEASE_ID_HEX,
     };
-    use ioi_services::agentic::desktop::connectors::mock_fixtures::{
+    use ioi_services::agentic::runtime::connectors::mock_fixtures::{
         CONNECTOR_MOCK_FIXTURE_PATH_ENV, LEGACY_GENERIC_CONNECTOR_MOCK_FIXTURE_PATH_ENV,
         LEGACY_GOOGLE_MOCK_FIXTURE_PATH_ENV, LEGACY_MAIL_MOCK_FIXTURE_PATH_ENV,
     };

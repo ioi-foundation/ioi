@@ -1,5 +1,5 @@
 use super::*;
-use crate::agentic::desktop::keys::get_skill_external_evidence_key;
+use crate::agentic::runtime::keys::get_skill_external_evidence_key;
 use crate::agentic::skill_registry::{
     build_skill_archival_metadata_json, canonical_skill_hash, generate_published_skill_doc, now_ms,
     skill_archival_content, upsert_published_skill_doc, upsert_skill_record, SKILL_ARCHIVAL_KIND,
@@ -59,7 +59,7 @@ fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> Ac
     }
 }
 
-// Keep this key in sync with queue execution (`crates/services/src/agentic/desktop/service/step/queue/support.rs`).
+// Keep this key in sync with queue execution (`crates/services/src/agentic/runtime/service/step/queue/support.rs`).
 const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
 const GUI_CLICK_ELEMENT_TOOL_NAME: &str = "gui__click_element";
 

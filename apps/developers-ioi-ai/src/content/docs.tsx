@@ -783,7 +783,7 @@ cargo run -p ioi-cli --bin cli -- query status`}
       'crates/cli/src/commands/policy.rs',
       'crates/cli/src/commands/verify.rs',
       'crates/cli/src/commands/ghost.rs',
-      'crates/services/src/agentic/desktop/README.md',
+      'crates/services/src/agentic/runtime/README.md',
     ],
     canonicalLinks: [
       {

@@ -13,11 +13,11 @@ use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
-use ioi_services::agentic::desktop::keys::AGENT_POLICY_PREFIX;
-use ioi_services::agentic::desktop::service::step::helpers::default_safe_policy;
-use ioi_services::agentic::desktop::types::PostMessageParams;
-use ioi_services::agentic::desktop::{
-    AgentMode, AgentState, AgentStatus, DesktopAgentService, StartAgentParams, StepAgentParams,
+use ioi_services::agentic::runtime::keys::AGENT_POLICY_PREFIX;
+use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
+use ioi_services::agentic::runtime::types::PostMessageParams;
+use ioi_services::agentic::runtime::{
+    AgentMode, AgentState, AgentStatus, RuntimeAgentService, StartAgentParams, StepAgentParams,
 };
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
@@ -255,7 +255,7 @@ async fn test_agent_self_healing() -> Result<()> {
     let brain = Arc::new(ResilientBrain);
     let memory_runtime = build_memory_runtime()?;
 
-    let service = DesktopAgentService::new_hybrid(
+    let service = RuntimeAgentService::new_hybrid(
         gui,
         Arc::new(TerminalDriver::new()),
         Arc::new(BrowserDriver::new()),
@@ -324,7 +324,7 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
     let brain = Arc::new(WebTimeoutBrain);
     let memory_runtime = build_memory_runtime()?;
 
-    let service = DesktopAgentService::new_hybrid(
+    let service = RuntimeAgentService::new_hybrid(
         gui,
         Arc::new(TerminalDriver::new()),
         Arc::new(BrowserDriver::new()),

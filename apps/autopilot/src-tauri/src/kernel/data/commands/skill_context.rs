@@ -11,11 +11,11 @@ pub async fn get_skill_catalog(
 pub async fn get_memory_runtime_session_status(
     state: State<'_, Mutex<AppState>>,
     session_id: String,
-) -> Result<ioi_services::agentic::desktop::service::memory::MemorySessionStatus, String> {
+) -> Result<ioi_services::agentic::runtime::service::memory::MemorySessionStatus, String> {
     let parsed_session_id = parse_hex_32(&session_id)?;
     let memory_runtime =
         app_memory_runtime(&state).ok_or_else(|| "Memory runtime unavailable".to_string())?;
-    ioi_services::agentic::desktop::service::memory::load_memory_session_status(
+    ioi_services::agentic::runtime::service::memory::load_memory_session_status(
         memory_runtime.as_ref(),
         parsed_session_id,
     )
@@ -245,7 +245,7 @@ fn active_evidence_items(active_bundles: &[SkillBundle]) -> Vec<ActiveContextIte
     items
 }
 
-fn active_constraints(agent_state: &DesktopAgentState) -> Vec<ContextConstraint> {
+fn active_constraints(agent_state: &RuntimeAgentState) -> Vec<ContextConstraint> {
     let mut constraints = vec![
         ContextConstraint {
             id: "mode".to_string(),
@@ -298,7 +298,7 @@ fn active_constraints(agent_state: &DesktopAgentState) -> Vec<ContextConstraint>
 
 fn build_context_neighborhood(
     session_id: &str,
-    agent_state: &DesktopAgentState,
+    agent_state: &RuntimeAgentState,
     active_bundles: &[SkillBundle],
     constraints: &[ContextConstraint],
 ) -> AtlasNeighborhood {
@@ -549,7 +549,7 @@ async fn load_active_context_snapshot(
                         normalized_session_id
                     ));
                 };
-                codec::from_bytes_canonical::<DesktopAgentState>(&agent_state_bytes)
+                codec::from_bytes_canonical::<RuntimeAgentState>(&agent_state_bytes)
                     .map_err(|e| format!("Failed to decode agent state: {}", e))?
             }
             Err(error) => {
@@ -567,7 +567,7 @@ async fn load_active_context_snapshot(
                 normalized_session_id
             ));
         };
-        codec::from_bytes_canonical::<DesktopAgentState>(&agent_state_bytes)
+        codec::from_bytes_canonical::<RuntimeAgentState>(&agent_state_bytes)
             .map_err(|e| format!("Failed to decode agent state: {}", e))?
     };
 
@@ -735,4 +735,3 @@ pub async fn get_skill_detail(
     }
     Ok(detail)
 }
-

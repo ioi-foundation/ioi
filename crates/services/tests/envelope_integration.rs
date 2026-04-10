@@ -9,7 +9,7 @@ use ioi_api::vm::inference::mock::MockInferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
-use ioi_services::agentic::desktop::service::DesktopAgentService;
+use ioi_services::agentic::runtime::service::RuntimeAgentService;
 use ioi_types::app::agentic::ChatMessage;
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
@@ -53,8 +53,8 @@ impl GuiDriver for NoopGuiDriver {
     }
 }
 
-fn build_service_with_memory_runtime() -> DesktopAgentService {
-    let service = DesktopAgentService::new(
+fn build_service_with_memory_runtime() -> RuntimeAgentService {
+    let service = RuntimeAgentService::new(
         Arc::new(NoopGuiDriver),
         Arc::new(TerminalDriver::new()),
         Arc::new(BrowserDriver::new()),

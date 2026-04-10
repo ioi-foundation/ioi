@@ -8,7 +8,7 @@ use ioi_api::services::BlockchainService;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_cli::testing::build_test_artifacts;
-use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams};
+use ioi_services::agentic::runtime::{StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, ContextSlice};
@@ -96,13 +96,13 @@ async fn test_agentic_loop_end_to_end() -> Result<()> {
     });
 
     // 1. Setup Service with Mocks
-    use ioi_services::agentic::desktop::DesktopAgentService;
+    use ioi_services::agentic::runtime::RuntimeAgentService;
 
     // [NEW] Instantiate drivers
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
 
-    let service = DesktopAgentService::new_hybrid(
+    let service = RuntimeAgentService::new_hybrid(
         mock_gui,
         terminal,
         browser, // Injected
