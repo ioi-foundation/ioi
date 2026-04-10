@@ -1452,6 +1452,7 @@ pub(super) fn lifecycle_state_label(state: StudioArtifactLifecycleState) -> Stri
 
 pub(super) fn verification_status_label(manifest: &StudioArtifactManifest) -> String {
     match manifest.verification.status {
+        StudioArtifactVerificationStatus::Pending => "pending",
         StudioArtifactVerificationStatus::Ready => "ready",
         StudioArtifactVerificationStatus::Blocked => "blocked",
         StudioArtifactVerificationStatus::Failed => "failed",
