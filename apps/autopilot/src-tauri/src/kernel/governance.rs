@@ -10,9 +10,9 @@ use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{
     GetTransactionStatusRequest, SetRuntimeSecretRequest, SubmitTransactionRequest,
 };
-use ioi_services::agentic::desktop::keys as desktop_keys;
-use ioi_services::agentic::desktop::service::step::incident::IncidentState;
-use ioi_services::agentic::desktop::AgentState;
+use ioi_services::agentic::runtime::keys as runtime_keys;
+use ioi_services::agentic::runtime::service::step::incident::IncidentState;
+use ioi_services::agentic::runtime::AgentState;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken, PiiApprovalAction};
 use ioi_types::app::agentic::ResumeAgentParams;
 use ioi_types::app::{
@@ -99,9 +99,9 @@ async fn wait_for_committed_gate_ready(
     // This path intentionally polls committed raw state rather than runtime checkpoints because
     // validator approval logic binds to chain-visible pending hashes, not local mirrors.
     let ns_prefix = service_namespace_prefix("desktop_agent");
-    let agent_state_key_local = desktop_keys::get_state_key(&session_id);
+    let agent_state_key_local = runtime_keys::get_state_key(&session_id);
     let agent_state_key = [ns_prefix.as_slice(), agent_state_key_local.as_slice()].concat();
-    let incident_key_local = desktop_keys::get_incident_key(&session_id);
+    let incident_key_local = runtime_keys::get_incident_key(&session_id);
     let incident_key = [ns_prefix.as_slice(), incident_key_local.as_slice()].concat();
 
     let poll_ms = 150u64;

@@ -94,6 +94,6 @@ Resume must reject on any of:
 
 The same deterministic rule set is enforced in:
 
-- `crates/services/src/agentic/desktop/service/actions/resume.rs`
+- `crates/services/src/agentic/runtime/service/actions/resume.rs`
 - `crates/validator/src/firewall/mod.rs`
 - `crates/validator/src/standard/orchestration/ingestion.rs`

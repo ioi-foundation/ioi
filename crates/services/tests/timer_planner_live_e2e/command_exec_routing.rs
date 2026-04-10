@@ -9,7 +9,7 @@ async fn timer_query_routes_to_command_exec_without_planner_fast_path() -> Resul
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(TimerIntentRuntime);
-    let service = DesktopAgentService::new_hybrid(gui, terminal, browser, runtime.clone(), runtime)
+    let service = RuntimeAgentService::new_hybrid(gui, terminal, browser, runtime.clone(), runtime)
         .with_memory_runtime(memory_runtime)
         .with_event_sender(tx)
         .with_os_driver(Arc::new(NoopOsDriver));

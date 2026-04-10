@@ -4,8 +4,8 @@ use super::harness::{
 use anyhow::{anyhow, Result};
 use ioi_api::vm::drivers::gui::InputEvent;
 use ioi_api::vm::drivers::os::WindowInfo;
-use ioi_services::agentic::desktop::execution::ToolExecutor;
-use ioi_services::agentic::desktop::types::ExecutionTier;
+use ioi_services::agentic::runtime::execution::ToolExecutor;
+use ioi_services::agentic::runtime::types::ExecutionTier;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{KernelEvent, WorkloadActivityKind};
 use std::fs;

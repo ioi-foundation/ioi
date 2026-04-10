@@ -34,7 +34,7 @@ use std::time::Instant;
 
 use reqwest::Client;
 
-use ioi_services::agentic::desktop::{AgentState, AgentStatus, StepAgentParams};
+use ioi_services::agentic::runtime::{AgentState, AgentStatus, StepAgentParams};
 use tokio::sync::{watch, Mutex as TokioMutex};
 
 mod agent_driver;

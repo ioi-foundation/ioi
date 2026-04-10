@@ -5,15 +5,15 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::os::UnavailableOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_services::agentic::desktop::execution::ToolExecutor;
-use ioi_services::agentic::desktop::service::step::action::{
+use ioi_services::agentic::runtime::execution::ToolExecutor;
+use ioi_services::agentic::runtime::service::step::action::{
     canonical_intent_hash, canonical_tool_identity,
 };
-use ioi_services::agentic::desktop::service::step::anti_loop::{
+use ioi_services::agentic::runtime::service::step::anti_loop::{
     build_post_state_summary, build_state_summary, policy_binding_hash,
 };
-use ioi_services::agentic::desktop::types::{ExecutionTier, InteractionTarget};
-use ioi_services::agentic::desktop::{AgentMode, AgentState, AgentStatus};
+use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
+use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};
 use ioi_types::app::agentic::{AgentTool, ComputerAction};
 use ioi_types::app::{ActionRequest, ContextSlice, RoutingReceiptEvent};
 use ioi_types::error::VmError;

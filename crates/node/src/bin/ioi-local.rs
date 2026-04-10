@@ -51,7 +51,7 @@ use ioi_validator::standard::orchestration::operator_tasks::{
 
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
 use ioi_drivers::os::NativeOsDriver;
-use ioi_services::agentic::desktop::DesktopAgentService;
+use ioi_services::agentic::runtime::RuntimeAgentService;
 use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
 use ioi_types::codec;
@@ -781,7 +781,7 @@ async fn async_main() -> Result<()> {
         .await
         .map_err(|e| anyhow!("Failed to start: {}", e))?;
 
-    let agent = DesktopAgentService::new_hybrid(
+    let agent = RuntimeAgentService::new_hybrid(
         gui_driver_arc,
         Arc::new(ioi_drivers::terminal::TerminalDriver::new()),
         browser_driver,
@@ -810,9 +810,9 @@ async fn async_main() -> Result<()> {
         let mut machine_guard = machine.lock().await;
         let service_arc = Arc::new(agent);
         if let Err(e) = machine_guard.service_manager.register_service(service_arc) {
-            eprintln!("Failed to register enhanced DesktopAgentService: {}", e);
+            eprintln!("Failed to register enhanced RuntimeAgentService: {}", e);
         } else {
-            println!("✅ Enhanced DesktopAgentService (MCP+Path) registered via Hot Swap.");
+            println!("✅ Enhanced RuntimeAgentService (MCP+Path) registered via Hot Swap.");
         }
 
         let market_service = Arc::new(MarketService::default());

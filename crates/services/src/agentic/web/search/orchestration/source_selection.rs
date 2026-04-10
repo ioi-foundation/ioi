@@ -429,7 +429,7 @@ fn provider_request_query(
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| query.trim());
     if contract_requires_geo_scoped_entity_expansion(retrieval_contract) {
-        let entity_discovery_query = crate::agentic::desktop::service::step::queue::web_pipeline::local_business_entity_discovery_query_contract(
+        let entity_discovery_query = crate::agentic::runtime::service::step::queue::web_pipeline::local_business_entity_discovery_query_contract(
             selection_query_contract,
             locality_scope,
         );

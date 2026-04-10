@@ -16,7 +16,7 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
 use ioi_memory::MemoryRuntime;
 use ioi_services::{
-    agentic::desktop::DesktopAgentService,
+    agentic::runtime::RuntimeAgentService,
     agentic::media_runtime::KernelMediaRuntime,
     agentic::optimizer::OptimizerService, // Import Optimizer
     governance::GovernanceModule,
@@ -525,8 +525,8 @@ where
             }
         }
 
-        // [MODIFIED] Pass MCP Manager to DesktopAgentService
-        let mut agent = DesktopAgentService::new_hybrid(
+        // [MODIFIED] Pass MCP Manager to RuntimeAgentService
+        let mut agent = RuntimeAgentService::new_hybrid(
             gui,
             terminal_driver,
             browser,

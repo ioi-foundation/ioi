@@ -12,8 +12,8 @@ use ioi_pii::{
     route_pii_decision_for_target, verify_scoped_exception_for_decision, CimAssistReceipt,
     PiiRoutingOutcome, RiskSurface, ScopedExceptionVerifyError, REVIEW_REQUEST_VERSION,
 };
-use ioi_services::agentic::desktop::cloud_airlock::execute_cloud_inference;
-use ioi_services::agentic::desktop::keys::pii::review::request as review_request_key;
+use ioi_services::agentic::runtime::cloud_airlock::execute_cloud_inference;
+use ioi_services::agentic::runtime::keys::pii::review::request as review_request_key;
 use ioi_services::agentic::pii_scrubber::PiiScrubber;
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Verdict};
@@ -561,7 +561,7 @@ fn hard_gate_desktop_cloud_inference_callsites_use_airlock_path() {
             .unwrap_or(entry.path());
         let rel_str = rel.to_string_lossy();
 
-        if rel_str.ends_with("desktop/cloud_airlock.rs") {
+        if rel_str.ends_with("runtime/cloud_airlock.rs") {
             continue;
         }
 

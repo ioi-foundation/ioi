@@ -7,7 +7,7 @@ use ioi_api::services::BlockchainService;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_cli::testing::build_test_artifacts;
-use ioi_services::agentic::desktop::{StartAgentParams, StepAgentParams};
+use ioi_services::agentic::runtime::{StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::{
@@ -132,13 +132,13 @@ async fn test_hybrid_routing_logic() -> Result<()> {
         called: fast_called.clone(),
     });
 
-    use ioi_services::agentic::desktop::DesktopAgentService;
+    use ioi_services::agentic::runtime::RuntimeAgentService;
 
     // [NEW] Instantiate drivers
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
 
-    let service = DesktopAgentService::new_hybrid(gui, terminal, browser, fast, reasoning);
+    let service = RuntimeAgentService::new_hybrid(gui, terminal, browser, fast, reasoning);
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
     use ioi_api::services::access::ServiceDirectory;

@@ -1,4 +1,4 @@
-use crate::agentic::desktop::service::step::queue::web_pipeline::resolved_query_contract_with_locality_hint;
+use crate::agentic::runtime::service::step::queue::web_pipeline::resolved_query_contract_with_locality_hint;
 use crate::agentic::web::util::domain_for_url;
 use ioi_types::app::agentic::WebSource;
 use url::Url;

@@ -19,7 +19,7 @@ async fn timer_query_live_openai_e2e_with_model_arbiter() -> Result<()> {
     let (tx, mut rx) = tokio::sync::broadcast::channel(512);
     let memory_runtime = build_memory_runtime();
 
-    let service = DesktopAgentService::new_hybrid(
+    let service = RuntimeAgentService::new_hybrid(
         Arc::new(NoopGuiDriver),
         Arc::new(TerminalDriver::new()),
         Arc::new(BrowserDriver::new()),

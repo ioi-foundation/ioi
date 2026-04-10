@@ -9,7 +9,7 @@ use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_cli::testing::build_test_artifacts;
-use ioi_services::agentic::desktop::{
+use ioi_services::agentic::runtime::{
     AgentState, AgentStatus, ResumeAgentParams, StartAgentParams, StepAgentParams,
 };
 use ioi_state::primitives::hash::HashCommitmentScheme;
@@ -88,8 +88,8 @@ async fn test_agent_pause_resume() -> Result<()> {
     let gui = Arc::new(MockGuiDriver);
     let brain = Arc::new(PausingBrain);
 
-    use ioi_services::agentic::desktop::DesktopAgentService;
-    let service = DesktopAgentService::new_hybrid(gui, brain.clone(), brain.clone());
+    use ioi_services::agentic::runtime::RuntimeAgentService;
+    let service = RuntimeAgentService::new_hybrid(gui, brain.clone(), brain.clone());
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
     use ioi_api::services::access::ServiceDirectory;

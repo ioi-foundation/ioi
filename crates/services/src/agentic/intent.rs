@@ -1,6 +1,6 @@
 // Path: crates/services/src/agentic/intent.rs
 
-use crate::agentic::desktop::{AgentMode, StartAgentParams};
+use crate::agentic::runtime::{AgentMode, StartAgentParams};
 use crate::agentic::prompt_wrapper::PolicyGuardrails; // [FIX] Removed PromptWrapper
 use anyhow::{anyhow, Result};
 use hex;
@@ -353,7 +353,7 @@ struct IntentPlan {
 #[cfg(test)]
 mod tests {
     use super::{decode_session_id_hex_compat, parse_prefixed_agent_start};
-    use crate::agentic::desktop::AgentMode;
+    use crate::agentic::runtime::AgentMode;
 
     #[test]
     fn session_id_32_bytes_is_preserved() {

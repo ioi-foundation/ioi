@@ -23,7 +23,7 @@ async fn collect_available_tools(
         .map(|tool| tool.name.clone())
         .collect::<std::collections::HashSet<_>>();
     tools.extend(
-        ioi_services::agentic::desktop::connectors::google_workspace::google_connector_tool_definitions()
+        ioi_services::agentic::runtime::connectors::google_workspace::google_connector_tool_definitions()
             .into_iter()
             .filter(|tool| !existing.contains(&tool.name)),
     );
@@ -44,4 +44,3 @@ async fn collect_available_tools(
 
     Ok(tools)
 }
-

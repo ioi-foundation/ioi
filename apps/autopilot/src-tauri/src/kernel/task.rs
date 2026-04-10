@@ -10,8 +10,8 @@ use crate::windows;
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{GetTransactionStatusRequest, SubmitTransactionRequest, TxStatus};
-use ioi_services::agentic::desktop::keys::get_state_key;
-use ioi_services::agentic::desktop::{
+use ioi_services::agentic::runtime::keys::get_state_key;
+use ioi_services::agentic::runtime::{
     AgentMode, AgentState, AgentStatus, StartAgentParams, StepAgentParams,
 };
 use ioi_types::app::{

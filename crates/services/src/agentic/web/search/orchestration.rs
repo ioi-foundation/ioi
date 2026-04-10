@@ -31,11 +31,11 @@ use super::{
         SearchProviderCandidateSelectionInput, SearchProviderDescriptor,
     },
 };
-use crate::agentic::desktop::service::step::queue::web_pipeline::{
+use crate::agentic::runtime::service::step::queue::web_pipeline::{
     constraint_grounded_search_query_with_contract_and_hints_and_locality_hint,
     effective_locality_scope_hint, explicit_query_scope_hint, retrieval_contract_min_sources,
 };
-use crate::agentic::desktop::service::step::signals::analyze_metric_schema;
+use crate::agentic::runtime::service::step::signals::analyze_metric_schema;
 use crate::agentic::web::constants::EDGE_WEB_SEARCH_TOTAL_BUDGET_MS;
 use crate::agentic::web::{
     contract_requires_geo_scoped_entity_expansion, contract_requires_semantic_source_alignment,
