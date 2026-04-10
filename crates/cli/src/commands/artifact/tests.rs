@@ -491,7 +491,7 @@ async fn workspace_generate_uses_scaffold_path_and_judges_pass() -> Result<()> {
         bundle.judge.classification,
         StudioArtifactJudgeClassification::Pass
     );
-    assert_eq!(bundle.winning_candidate_id, "candidate-1");
+    assert_eq!(bundle.winning_candidate_id.as_deref(), Some("candidate-1"));
     assert!(bundle
         .winner
         .files
