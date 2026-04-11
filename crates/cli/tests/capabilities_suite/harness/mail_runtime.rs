@@ -2,7 +2,6 @@
 struct MailRuntimeBootstrapConfig {
     auth_mode: MailConnectorAuthMode,
     mailbox: String,
-    provider_driver: Option<String>,
     account_email: String,
     imap_host: String,
     imap_port: u16,
@@ -246,8 +245,6 @@ fn parse_mail_runtime_bootstrap_config() -> Result<MailRuntimeBootstrapConfig> {
         auth_mode,
         mailbox: optional_env_value(MAIL_E2E_KEY_MAILBOX, MAIL_E2E_DEFAULT_MAILBOX)
             .to_ascii_lowercase(),
-        provider_driver: nonempty_env_value(MAIL_E2E_KEY_PROVIDER_DRIVER)
-            .map(|value| value.to_ascii_lowercase()),
         account_email: required_env_value(MAIL_E2E_KEY_ACCOUNT_EMAIL)?.to_ascii_lowercase(),
         imap_host: required_env_value(MAIL_E2E_KEY_IMAP_HOST)?.to_ascii_lowercase(),
         imap_port: parse_u16_env(MAIL_E2E_KEY_IMAP_PORT)?,
@@ -353,7 +350,6 @@ fn mail_runtime_env_bootstrap_keys() -> &'static [&'static str] {
         MAIL_E2E_KEY_SMTP_USERNAME_SECRET_ID,
         MAIL_E2E_KEY_SMTP_PASSWORD_SECRET_ID,
         MAIL_E2E_KEY_SMTP_BEARER_TOKEN_SECRET_ID,
-        MAIL_E2E_KEY_PROVIDER_DRIVER,
     ]
 }
 
@@ -363,53 +359,13 @@ fn mail_runtime_env_bootstrap_configured() -> bool {
         .any(|key| nonempty_env_value(key).is_some())
 }
 
-fn synthetic_mock_mail_runtime_bootstrap_config(
-    run_index: usize,
-    provider_driver_override: Option<&str>,
-) -> MailRuntimeBootstrapConfig {
-    let account_email = format!("wallet-test-{}@example.invalid", run_index);
-    let provider_driver = provider_driver_override
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(|value| value.to_ascii_lowercase())
-        .or_else(|| Some("mock".to_string()));
-    MailRuntimeBootstrapConfig {
-        auth_mode: MailConnectorAuthMode::Password,
-        mailbox: MAIL_E2E_DEFAULT_MAILBOX.to_string(),
-        provider_driver,
-        account_email: account_email.clone(),
-        imap_host: "mock-imap.invalid".to_string(),
-        imap_port: 993,
-        imap_tls_mode: MailConnectorTlsMode::Tls,
-        smtp_host: "mock-smtp.invalid".to_string(),
-        smtp_port: 587,
-        smtp_tls_mode: MailConnectorTlsMode::StartTls,
-        imap_username_alias: MAIL_E2E_DEFAULT_IMAP_USERNAME_ALIAS.to_string(),
-        imap_secret_alias: MAIL_E2E_DEFAULT_IMAP_PASSWORD_ALIAS.to_string(),
-        smtp_username_alias: MAIL_E2E_DEFAULT_SMTP_USERNAME_ALIAS.to_string(),
-        smtp_secret_alias: MAIL_E2E_DEFAULT_SMTP_PASSWORD_ALIAS.to_string(),
-        imap_username_secret_id: MAIL_E2E_DEFAULT_IMAP_USERNAME_SECRET_ID.to_string(),
-        imap_secret_secret_id: MAIL_E2E_DEFAULT_IMAP_PASSWORD_SECRET_ID.to_string(),
-        smtp_username_secret_id: MAIL_E2E_DEFAULT_SMTP_USERNAME_SECRET_ID.to_string(),
-        smtp_secret_secret_id: MAIL_E2E_DEFAULT_SMTP_PASSWORD_SECRET_ID.to_string(),
-        imap_username: account_email.clone(),
-        imap_secret: format!("wallet-test-imap-secret-{}", run_index),
-        smtp_username: account_email,
-        smtp_secret: format!("wallet-test-smtp-secret-{}", run_index),
+fn resolve_mail_runtime_bootstrap_config() -> Result<(MailRuntimeBootstrapConfig, &'static str)> {
+    if !mail_runtime_env_bootstrap_configured() {
+        return Err(anyhow!(
+            "mail connector runtime bootstrap requires configured MAIL_E2E_* environment variables"
+        ));
     }
-}
-
-fn resolve_mail_runtime_bootstrap_config(
-    run_index: usize,
-    provider_driver_override: Option<&str>,
-) -> Result<(MailRuntimeBootstrapConfig, &'static str)> {
-    if mail_runtime_env_bootstrap_configured() {
-        return parse_mail_runtime_bootstrap_config().map(|config| (config, "workspace_env"));
-    }
-    Ok((
-        synthetic_mock_mail_runtime_bootstrap_config(run_index, provider_driver_override),
-        "wallet_synthetic_mock",
-    ))
+    parse_mail_runtime_bootstrap_config().map(|config| (config, "workspace_env"))
 }
 
 fn accumulate_environment_receipts_from_checks(

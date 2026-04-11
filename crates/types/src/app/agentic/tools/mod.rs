@@ -4,8 +4,8 @@
 
 mod agent_tool;
 mod commerce;
-mod computer;
 mod pii;
+mod screen;
 mod target;
 
 #[cfg(test)]
@@ -13,5 +13,5 @@ mod tests;
 
 pub use agent_tool::{AgentTool, AgentToolCall};
 pub use commerce::CommerceItem;
-pub use computer::ComputerAction;
 pub use pii::{PiiEgressField, PiiEgressRiskSurface, PiiEgressSpec};
+pub use screen::ScreenAction;

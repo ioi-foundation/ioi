@@ -40,9 +40,8 @@ pub(crate) fn merged_story_sources(
     };
     let successful_urls = successful_source_url_set(pending);
     let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
-    let preserve_successful_reads =
-        (document_briefing_layout && !headline_lookup_mode)
-            || local_business_entity_diversity_required;
+    let preserve_successful_reads = (document_briefing_layout && !headline_lookup_mode)
+        || local_business_entity_diversity_required;
 
     let mut merged: Vec<PendingSearchReadSummary> = Vec::new();
     let mut seen = BTreeSet::new();

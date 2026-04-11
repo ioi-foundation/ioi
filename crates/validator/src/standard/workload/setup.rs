@@ -16,9 +16,10 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_execution::{util::load_state_from_genesis_file, ExecutionMachine};
 use ioi_memory::MemoryRuntime;
 use ioi_services::{
-    agentic::runtime::RuntimeAgentService,
+    agentic::leakage::LeakageController,
     agentic::media_runtime::KernelMediaRuntime,
     agentic::optimizer::OptimizerService, // Import Optimizer
+    agentic::runtime::RuntimeAgentService,
     governance::GovernanceModule,
     guardian_registry::GuardianRegistry,
     identity::IdentityHub,
@@ -31,8 +32,8 @@ use ioi_types::{
     app::agentic::InferenceOptions,
     app::{to_root_hash, Membership},
     config::{
-        InferenceConfig, InitialServiceConfig, McpMode, OrchestrationConfig, ValidatorRole,
-        WorkloadConfig,
+        ConsensusType, InferenceConfig, InitialServiceConfig, McpMode, OrchestrationConfig,
+        ValidatorRole, WorkloadConfig,
     },
     keys::{STATUS_KEY, VALIDATOR_SET_KEY},
 };
@@ -47,7 +48,7 @@ use crate::standard::workload::hydration::ModelHydrator;
 use crate::standard::workload::runtime::StandardInferenceRuntime;
 
 use ioi_api::vm::inference::LocalSafetyModel;
-use ioi_api::vm::inference::{mock::MockInferenceRuntime, HttpInferenceRuntime};
+use ioi_api::vm::inference::{HttpInferenceRuntime, UnavailableInferenceRuntime};
 
 use crate::standard::workload::drivers::verified_http::VerifiedHttpRuntime;
 use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
@@ -73,6 +74,73 @@ use ioi_types::app::KernelEvent;
 
 use ioi_drivers::mcp::{McpManager, McpServerConfig};
 use std::collections::HashMap;
+
+const AFT_RESTART_RECOVERY_WINDOW: u64 = 4;
+
+fn aft_restart_recovery_start_height(end_height: u64) -> u64 {
+    end_height
+        .saturating_sub(AFT_RESTART_RECOVERY_WINDOW.saturating_sub(1))
+        .max(1)
+}
+
+fn rehydrate_recovery_anchor_key<ST>(
+    state_tree: &mut ST,
+    anchor: &[u8; 32],
+    key: &[u8],
+    key_name: &str,
+) -> Result<()>
+where
+    ST: StateManager + ProofProvider,
+{
+    if let Ok((Membership::Present(bytes), _)) = state_tree.get_with_proof_at_anchor(anchor, key) {
+        state_tree.insert(key, &bytes)?;
+        tracing::info!(
+            target: "workload",
+            key = key_name,
+            "Re-hydrated recovery anchor key into current state."
+        );
+    }
+    Ok(())
+}
+
+fn recover_restart_safe_aft_anchor<ST>(
+    state_tree: &mut ST,
+    store: &RedbEpochStore,
+    raw_head_height: u64,
+) -> Result<Option<(u64, Vec<u8>)>>
+where
+    ST: StateManager + ProofProvider,
+{
+    for height in (1..=raw_head_height).rev() {
+        let Some(block) = store.get_block_by_height(height)? else {
+            continue;
+        };
+        let recovered_root = block.header.state_root.0;
+        if recovered_root.is_empty() {
+            continue;
+        }
+
+        state_tree.adopt_known_root(&recovered_root, height)?;
+        let start_height = aft_restart_recovery_start_height(height);
+        match GuardianRegistry::extract_aft_recovered_state_surface(
+            state_tree,
+            start_height,
+            height,
+        ) {
+            Ok(_) => return Ok(Some((height, recovered_root))),
+            Err(error) => tracing::info!(
+                target: "workload",
+                raw_head_height,
+                candidate_height = height,
+                start_height,
+                error = %error,
+                "Skipping recovered AFT anchor that does not satisfy bounded replay continuity."
+            ),
+        }
+    }
+
+    Ok(None)
+}
 
 async fn create_guardian_channel(certs_dir: &str) -> Result<Channel> {
     let ca_pem = std::fs::read(format!("{}/ca.pem", certs_dir))?;
@@ -155,10 +223,9 @@ async fn build_runtime_from_config(
                 Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name))
                     as Arc<dyn InferenceRuntime>
             }
-            "mock" => {
-                tracing::info!(target: "workload", "Initializing Mock Inference Runtime");
-                Arc::new(MockInferenceRuntime) as Arc<dyn InferenceRuntime>
-            }
+            "unavailable" => Arc::new(UnavailableInferenceRuntime::new(
+                "Inference runtime is unavailable. Configure inference.provider with a real backend or connector_ref.",
+            )) as Arc<dyn InferenceRuntime>,
             other => {
                 if other == "standard" {
                     tracing::info!(target: "workload", "Initializing Standard Inference Runtime (Local Hardware)");
@@ -232,27 +299,63 @@ where
             path = %db_path.display(),
             "Existing state DB found. Attempting recovery from stored state.",
         );
-        if let Ok((head_height, _)) = store.head() {
-            if head_height > 0 {
-                if let Ok(Some(head_block)) = store.get_block_by_height(head_height) {
-                    let recovered_root = &head_block.header.state_root.0;
-                    state_tree.adopt_known_root(recovered_root, head_height)?;
-                    tracing::warn!(target: "workload", event = "state_recovered", height = head_height, "Recovered and adopted durable head into state backend.");
+        if let Ok((raw_head_height, _)) = store.head() {
+            if raw_head_height > 0 {
+                let recovered_anchor = match config.consensus_type {
+                    ConsensusType::Aft => recover_restart_safe_aft_anchor(
+                        &mut state_tree,
+                        store.as_ref(),
+                        raw_head_height,
+                    )?,
+                    _ => store
+                        .get_block_by_height(raw_head_height)?
+                        .map(|block| (raw_head_height, block.header.state_root.0)),
+                };
 
-                    let anchor = to_root_hash(recovered_root)?;
-                    if let Ok((Membership::Present(status_bytes), _)) =
-                        state_tree.get_with_proof_at_anchor(&anchor, STATUS_KEY)
-                    {
-                        state_tree.insert(STATUS_KEY, &status_bytes)?;
-                        tracing::info!(target: "workload", "Re-hydrated STATUS_KEY into current state.");
+                let Some((recovered_height, recovered_root)) = recovered_anchor else {
+                    if matches!(config.consensus_type, ConsensusType::Aft) {
+                        return Err(anyhow!(
+                            "Existing AFT state DB could not find a restart-safe canonical-collapse anchor below raw durable head {}",
+                            raw_head_height
+                        ));
                     }
-                    if let Ok((Membership::Present(vs_bytes), _)) =
-                        state_tree.get_with_proof_at_anchor(&anchor, VALIDATOR_SET_KEY)
-                    {
-                        state_tree.insert(VALIDATOR_SET_KEY, &vs_bytes)?;
-                        tracing::info!(target: "workload", "Re-hydrated VALIDATOR_SET_KEY into current state.");
-                    }
+                    tracing::warn!(
+                        target: "workload",
+                        raw_head_height,
+                        "Existing state DB head did not have a recoverable block surface."
+                    );
+                    return Err(anyhow!(
+                        "Existing state DB head {} did not have a recoverable block surface",
+                        raw_head_height
+                    ));
+                };
+
+                state_tree.adopt_known_root(&recovered_root, recovered_height)?;
+                if recovered_height != raw_head_height {
+                    store.override_head(recovered_height)?;
+                    tracing::warn!(
+                        target: "workload",
+                        raw_head_height,
+                        recovered_height,
+                        "Recovered AFT state from the highest restart-safe canonical-collapse anchor below the raw durable head."
+                    );
+                } else {
+                    tracing::warn!(
+                        target: "workload",
+                        event = "state_recovered",
+                        height = recovered_height,
+                        "Recovered and adopted durable head into state backend."
+                    );
                 }
+
+                let anchor = to_root_hash(&recovered_root)?;
+                rehydrate_recovery_anchor_key(&mut state_tree, &anchor, STATUS_KEY, "STATUS_KEY")?;
+                rehydrate_recovery_anchor_key(
+                    &mut state_tree,
+                    &anchor,
+                    VALIDATOR_SET_KEY,
+                    "VALIDATOR_SET_KEY",
+                )?;
             }
         }
     }
@@ -377,6 +480,12 @@ where
                 let _registry = GuardianRegistry::new(_params.clone());
                 initial_services
                     .push(Arc::new(_registry) as Arc<dyn ioi_api::services::UpgradableService>);
+            }
+            InitialServiceConfig::LeakageController => {
+                tracing::info!(target: "workload", event = "service_init", name = "LeakageController", impl="native", capabilities="budget_control");
+                initial_services
+                    .push(Arc::new(LeakageController)
+                        as Arc<dyn ioi_api::services::UpgradableService>);
             }
             #[cfg(feature = "ibc-deps")]
             InitialServiceConfig::Ibc(ibc_config) => {

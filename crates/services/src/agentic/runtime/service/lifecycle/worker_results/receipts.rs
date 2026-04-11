@@ -141,7 +141,7 @@ pub(crate) fn emit_parent_playbook_step_completed_receipt(
         step_index,
         &run.playbook_id,
         WorkloadParentPlaybookReceipt {
-            tool_name: "agent__await_result".to_string(),
+            tool_name: "agent__await".to_string(),
             phase: "step_completed".to_string(),
             parent_session_id: hex::encode(run.parent_session_id),
             playbook_id: run.playbook_id.clone(),
@@ -196,7 +196,7 @@ pub(crate) fn emit_parent_playbook_blocked_receipt(
         step_index,
         &run.playbook_id,
         WorkloadParentPlaybookReceipt {
-            tool_name: "agent__await_result".to_string(),
+            tool_name: "agent__await".to_string(),
             phase: "blocked".to_string(),
             parent_session_id: hex::encode(run.parent_session_id),
             playbook_id: run.playbook_id.clone(),
@@ -251,7 +251,7 @@ pub(crate) fn emit_parent_playbook_completed_receipt(
         step_index,
         &run.playbook_id,
         WorkloadParentPlaybookReceipt {
-            tool_name: "agent__await_result".to_string(),
+            tool_name: "agent__await".to_string(),
             phase: "completed".to_string(),
             parent_session_id: hex::encode(run.parent_session_id),
             playbook_id: run.playbook_id.clone(),
@@ -365,7 +365,7 @@ pub(crate) fn emit_worker_merge_receipt(
         parent_step_index,
         format!("worker::{}::merge", hex::encode(result.child_session_id)),
         WorkloadWorkerReceipt {
-            tool_name: "agent__await_result".to_string(),
+            tool_name: "agent__await".to_string(),
             phase: "merged".to_string(),
             child_session_id: hex::encode(result.child_session_id),
             parent_session_id: hex::encode(result.parent_session_id),

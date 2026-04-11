@@ -365,18 +365,20 @@ pub struct CaseOutcome {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToolNamespace {
+    App,
     Browser,
-    Computer,
-    Filesystem,
-    Gui,
+    Clipboard,
+    File,
     Mail,
     Math,
     Memory,
-    Net,
-    Os,
-    Sys,
+    Http,
+    Package,
+    Screen,
+    Shell,
     Time,
     Web,
+    Window,
 }
 
 pub fn contains_any(haystack: &str, needles: &[&str]) -> bool {
@@ -388,8 +390,8 @@ pub fn tool_namespace(tool_name: &str) -> Option<ToolNamespace> {
     if normalized.is_empty() {
         return None;
     }
-    if normalized == "computer" {
-        return Some(ToolNamespace::Computer);
+    if normalized == "screen" {
+        return Some(ToolNamespace::Screen);
     }
     if normalized == "time" || normalized.starts_with("time__") {
         return Some(ToolNamespace::Time);
@@ -403,11 +405,11 @@ pub fn tool_namespace(tool_name: &str) -> Option<ToolNamespace> {
     if normalized.starts_with("browser__") {
         return Some(ToolNamespace::Browser);
     }
-    if normalized.starts_with("filesystem__") {
-        return Some(ToolNamespace::Filesystem);
+    if normalized.starts_with("file__") {
+        return Some(ToolNamespace::File);
     }
-    if normalized.starts_with("gui__") {
-        return Some(ToolNamespace::Gui);
+    if normalized.starts_with("screen__") {
+        return Some(ToolNamespace::Screen);
     }
     if normalized.starts_with("math__") {
         return Some(ToolNamespace::Math);
@@ -415,14 +417,23 @@ pub fn tool_namespace(tool_name: &str) -> Option<ToolNamespace> {
     if normalized.starts_with("memory__") {
         return Some(ToolNamespace::Memory);
     }
-    if normalized.starts_with("net__") {
-        return Some(ToolNamespace::Net);
+    if normalized.starts_with("http__") {
+        return Some(ToolNamespace::Http);
     }
-    if normalized.starts_with("os__") {
-        return Some(ToolNamespace::Os);
+    if normalized.starts_with("window__") {
+        return Some(ToolNamespace::Window);
     }
-    if normalized.starts_with("sys__") {
-        return Some(ToolNamespace::Sys);
+    if normalized.starts_with("clipboard__") {
+        return Some(ToolNamespace::Clipboard);
+    }
+    if normalized.starts_with("app__") {
+        return Some(ToolNamespace::App);
+    }
+    if normalized.starts_with("shell__") {
+        return Some(ToolNamespace::Shell);
+    }
+    if normalized.starts_with("package__") {
+        return Some(ToolNamespace::Package);
     }
     if normalized.starts_with("web__") {
         return Some(ToolNamespace::Web);
@@ -511,15 +522,18 @@ pub fn has_tool_with_token(tools: &[String], token: &str) -> bool {
     }
 
     match normalized.as_str() {
-        "computer" => has_tool_name(tools, "computer"),
+        "screen" => has_tool_name(tools, "screen"),
         "browser__" => has_tool_namespace(tools, ToolNamespace::Browser),
-        "filesystem__" => has_tool_namespace(tools, ToolNamespace::Filesystem),
-        "gui__" => has_tool_namespace(tools, ToolNamespace::Gui),
+        "file__" => has_tool_namespace(tools, ToolNamespace::File),
+        "screen__" => has_tool_namespace(tools, ToolNamespace::Screen),
         "math__" => has_tool_namespace(tools, ToolNamespace::Math),
         "memory__" => has_tool_namespace(tools, ToolNamespace::Memory),
-        "net__" => has_tool_namespace(tools, ToolNamespace::Net),
-        "os__" => has_tool_namespace(tools, ToolNamespace::Os),
-        "sys__" => has_tool_namespace(tools, ToolNamespace::Sys),
+        "http__" => has_tool_namespace(tools, ToolNamespace::Http),
+        "window__" => has_tool_namespace(tools, ToolNamespace::Window),
+        "clipboard__" => has_tool_namespace(tools, ToolNamespace::Clipboard),
+        "app__" => has_tool_namespace(tools, ToolNamespace::App),
+        "shell__" => has_tool_namespace(tools, ToolNamespace::Shell),
+        "package__" => has_tool_namespace(tools, ToolNamespace::Package),
         "time__" => has_tool_namespace(tools, ToolNamespace::Time),
         "web__" => has_tool_namespace(tools, ToolNamespace::Web),
         "mail_read_latest" => has_any_tool_name(

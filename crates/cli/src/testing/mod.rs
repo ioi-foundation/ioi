@@ -29,4 +29,7 @@ pub use genesis::{add_genesis_identity, add_genesis_identity_custom};
 pub use rpc::{submit_transaction, submit_transaction_no_wait};
 // [RENAMED] Re-export SigningOracleGuard
 pub use signing_oracle::SigningOracleGuard;
-pub use validator::{TestValidator, ValidatorGuard};
+pub use validator::{
+    reserve_free_validator_ports, reserve_validator_ports, ReservedValidatorPorts, TestValidator,
+    ValidatorGuard,
+};

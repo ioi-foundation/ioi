@@ -100,7 +100,7 @@ fn patch_build_verify_patch_miss_receipt_evidence(
     tool_call_result: &str,
     step_index: u32,
 ) -> Option<String> {
-    if current_tool_name != "filesystem__patch" {
+    if current_tool_name != "file__edit" {
         return None;
     }
     let normalized_error = error_msg?.trim().to_ascii_lowercase();
@@ -130,7 +130,7 @@ fn patch_build_verify_patch_miss_receipt_evidence(
     }
 
     Some(format!(
-        "step={step_index};tool=filesystem__patch;path={path};reason=search_block_not_found"
+        "step={step_index};tool=file__edit;path={path};reason=search_block_not_found"
     ))
 }
 
@@ -1076,8 +1076,7 @@ fn maybe_enqueue_lowercase_rename_recovery(
     failure_class: FailureClass,
     root_tool_name: &str,
 ) -> Result<bool, TransactionError> {
-    if !matches!(failure_class, FailureClass::NoEffectAfterAction)
-        || root_tool_name != "filesystem__list_directory"
+    if !matches!(failure_class, FailureClass::NoEffectAfterAction) || root_tool_name != "file__list"
     {
         return Ok(false);
     }
@@ -1163,10 +1162,10 @@ const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
 fn should_embed_queue_tool_name_metadata(target: &ActionTarget, tool_name: &str) -> bool {
     matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite)
         || (matches!(target, ActionTarget::GuiClick | ActionTarget::UiClick)
-            && tool_name == "gui__click_element")
+            && tool_name == "screen__click")
         || matches!(target, ActionTarget::BrowserInteract)
         || (matches!(target, ActionTarget::SysExec)
-            && matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset"))
+            && matches!(tool_name, "shell__start" | "shell__reset"))
 }
 
 fn queue_tool_name(tool: &AgentTool) -> String {

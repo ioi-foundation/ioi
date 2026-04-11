@@ -347,6 +347,38 @@ where
         }
     }
 
+    fn canonical_collapse_for_committed_height(
+        &self,
+        height: u64,
+    ) -> Option<ioi_types::app::CanonicalCollapseObject> {
+        match self {
+            #[cfg(feature = "aft")]
+            Consensus::Aft(engine) => {
+                <AftEngine as ConsensusEngine<T>>::canonical_collapse_for_committed_height(
+                    engine, height,
+                )
+            }
+            #[cfg(feature = "poa")]
+            Consensus::ProofOfAuthority(engine) => {
+                <ProofOfAuthorityEngine as ConsensusEngine<T>>::canonical_collapse_for_committed_height(
+                    engine, height,
+                )
+            }
+            #[cfg(feature = "pos")]
+            Consensus::ProofOfStake(engine) => {
+                <ProofOfStakeEngine as ConsensusEngine<T>>::canonical_collapse_for_committed_height(
+                    engine, height,
+                )
+            }
+            Consensus::Solo(engine) => {
+                <SoloEngine as ConsensusEngine<T>>::canonical_collapse_for_committed_height(
+                    engine, height,
+                )
+            }
+            Consensus::_Phantom(_) => unreachable!(),
+        }
+    }
+
     fn observe_aft_recovered_consensus_header(
         &mut self,
         header: &AftRecoveredConsensusHeaderEntry,

@@ -11,7 +11,7 @@
         "required": ["text"]
     });
     tools.push(LlmToolDefinition {
-        name: "gui__type".to_string(),
+        name: "screen__type".to_string(),
         description: "Type text into the focused UI control.".to_string(),
         parameters: gui_type_params.to_string(),
     });

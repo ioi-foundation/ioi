@@ -42,8 +42,7 @@ use html::*;
 use html_registry::*;
 
 pub use generation::{
-    acceptance_timeout_for_execution_strategy,
-    build_studio_artifact_candidate_refinement_prompt,
+    acceptance_timeout_for_execution_strategy, build_studio_artifact_candidate_refinement_prompt,
     build_studio_artifact_candidate_refinement_repair_prompt,
     build_studio_artifact_materialization_prompt,
     build_studio_artifact_materialization_repair_prompt,

@@ -69,8 +69,8 @@ impl OsDriver for DummyOs {
 
 #[test]
 fn custom_copy_target_keeps_exact_name_and_fs_write_alias() {
-    let aliases = policy_target_aliases(&ActionTarget::Custom("filesystem__copy_path".into()));
-    assert_eq!(aliases[0], "filesystem__copy_path");
+    let aliases = policy_target_aliases(&ActionTarget::Custom("file__copy".into()));
+    assert_eq!(aliases[0], "file__copy");
     assert!(aliases.iter().any(|alias| alias == "fs::write"));
 }
 
@@ -83,9 +83,8 @@ fn model_registry_target_keeps_exact_name_and_model_control_alias() {
 
 #[test]
 fn copy_and_move_require_source_and_destination_paths() {
-    let keys =
-        required_filesystem_path_keys(&ActionTarget::Custom("filesystem__move_path".to_string()))
-            .expect("move path should require deterministic path keys");
+    let keys = required_filesystem_path_keys(&ActionTarget::Custom("file__move".to_string()))
+        .expect("move path should require deterministic path keys");
     assert_eq!(keys, ["source_path", "destination_path"]);
 }
 
@@ -100,7 +99,7 @@ fn allow_paths_blocks_copy_when_destination_outside_allowed_roots() {
 
     let allowed_by_policy = validate_allow_paths_condition(
         &allowed,
-        &ActionTarget::Custom("filesystem__copy_path".into()),
+        &ActionTarget::Custom("file__copy".into()),
         &params,
     );
     assert!(!allowed_by_policy);
@@ -117,7 +116,7 @@ fn allow_paths_accepts_copy_when_all_paths_are_within_allowed_roots() {
 
     let allowed_by_policy = validate_allow_paths_condition(
         &allowed,
-        &ActionTarget::Custom("filesystem__copy_path".into()),
+        &ActionTarget::Custom("file__copy".into()),
         &params,
     );
     assert!(allowed_by_policy);
@@ -355,7 +354,7 @@ fn sys_exec_allowlist_ignores_missing_command_field() -> Result<()> {
         .build()?;
 
     // Simulates a sys::exec-targeted tool whose params do not include `command`
-    // (for example: sys__change_directory).
+    // (for example: shell__cd).
     let params = serde_json::json!({ "path": "/tmp" });
     let params = serde_json::to_vec(&params)?;
     let request = ActionRequest {

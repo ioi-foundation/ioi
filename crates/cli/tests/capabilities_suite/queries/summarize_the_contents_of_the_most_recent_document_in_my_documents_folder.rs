@@ -25,8 +25,8 @@ pub fn case() -> QueryCase {
             "Summarize the contents of the most recent document in my Documents folder. ",
             "For deterministic repeatable testing, inspect only ",
             "\"{DOCS_FIXTURE_DIR}\". ",
-            "Use local deterministic filesystem tools (`filesystem__list_directory`, ",
-            "`filesystem__stat`, `filesystem__read_file`) to identify the most recently modified ",
+            "Use local deterministic filesystem tools (`file__list`, ",
+            "`file__info`, `file__read`) to identify the most recently modified ",
             "document by metadata and then summarize that document. ",
             "Do not use web, browser, net, or shell execution tools. ",
             "Do not modify files. Return a concise summary that includes the selected absolute path ",
@@ -78,9 +78,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .action_evidence
         .iter()
         .filter(|entry| {
-            entry
-                .tool_name
-                .eq_ignore_ascii_case("filesystem__list_directory")
+            entry.tool_name.eq_ignore_ascii_case("file__list")
                 && !entry.agent_status.eq_ignore_ascii_case("failed")
                 && !action_has_hard_error_class(entry)
         })
@@ -94,23 +92,23 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || obs.cec_receipts.is_empty()
         || (cec_execution_seen && cec_verification_seen);
 
-    let action_path_seen = has_tool_with_token(&obs.action_tools, "filesystem__read_file")
-        && has_tool_with_token(&obs.action_tools, "filesystem__stat")
-        && has_tool_with_token(&obs.action_tools, "filesystem__list_directory");
-    let routing_path_seen = has_tool_with_token(&obs.routing_tools, "filesystem__read_file")
-        && has_tool_with_token(&obs.routing_tools, "filesystem__stat")
-        && has_tool_with_token(&obs.routing_tools, "filesystem__list_directory");
+    let action_path_seen = has_tool_with_token(&obs.action_tools, "file__read")
+        && has_tool_with_token(&obs.action_tools, "file__info")
+        && has_tool_with_token(&obs.action_tools, "file__list");
+    let routing_path_seen = has_tool_with_token(&obs.routing_tools, "file__read")
+        && has_tool_with_token(&obs.routing_tools, "file__info")
+        && has_tool_with_token(&obs.routing_tools, "file__list");
     let remote_path_seen = has_tool_with_token(&obs.action_tools, "web__")
         || has_tool_with_token(&obs.routing_tools, "web__")
         || has_tool_with_token(&obs.workload_tools, "web__")
         || has_tool_with_token(&obs.action_tools, "browser__")
         || has_tool_with_token(&obs.routing_tools, "browser__")
         || has_tool_with_token(&obs.workload_tools, "browser__")
-        || has_tool_with_token(&obs.action_tools, "net__fetch")
-        || has_tool_with_token(&obs.routing_tools, "net__fetch")
-        || has_tool_with_token(&obs.workload_tools, "net__fetch");
-    let shell_exec_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec");
+        || has_tool_with_token(&obs.action_tools, "http__fetch")
+        || has_tool_with_token(&obs.routing_tools, "http__fetch")
+        || has_tool_with_token(&obs.workload_tools, "http__fetch");
+    let shell_exec_seen = has_tool_with_token(&obs.action_tools, "shell__run")
+        || has_tool_with_token(&obs.routing_tools, "shell__run");
     let mutating_filesystem_action_seen = has_mutating_filesystem_action(obs);
     let tool_and_route_path_evidence_present = action_path_seen
         && routing_path_seen
@@ -392,9 +390,7 @@ fn is_recent_document_read_success(
     entry: &super::super::types::ActionEvidence,
     _expected_latest_path: &str,
 ) -> bool {
-    entry
-        .tool_name
-        .eq_ignore_ascii_case("filesystem__read_file")
+    entry.tool_name.eq_ignore_ascii_case("file__read")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
         && !action_has_hard_error_class(entry)
 }
@@ -403,20 +399,20 @@ fn is_recent_document_stat_success(
     entry: &super::super::types::ActionEvidence,
     _expected_latest_path: &str,
 ) -> bool {
-    entry.tool_name.eq_ignore_ascii_case("filesystem__stat")
+    entry.tool_name.eq_ignore_ascii_case("file__info")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
         && !action_has_hard_error_class(entry)
 }
 
 fn has_mutating_filesystem_action(obs: &RunObservation) -> bool {
     [
-        "filesystem__write_file",
-        "filesystem__patch",
-        "filesystem__delete_path",
-        "filesystem__create_directory",
-        "filesystem__create_zip",
-        "filesystem__move_path",
-        "filesystem__copy_path",
+        "file__write",
+        "file__edit",
+        "file__delete",
+        "file__create_dir",
+        "file__zip",
+        "file__move",
+        "file__copy",
     ]
     .iter()
     .any(|token| {

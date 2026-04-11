@@ -2,7 +2,7 @@
 
 This module implements the [Model Context Protocol](https://github.com/modelcontextprotocol), a standardized interface for connecting AI models to external tools and data sources.
 
-In the IOI Kernel, MCP is the **extension bus for software integrations**. Core/kernel-grade capabilities (`filesystem__*`, `sys__*`, browser/UI primitives) stay typed and native; MCP is used for dynamic plugin tools.
+In the IOI Kernel, MCP is the **extension bus for software integrations**. Core/kernel-grade capabilities (`file__*`, `shell__*`, browser/UI primitives) stay typed and native; MCP is used for dynamic plugin tools.
 
 ## Architecture
 

@@ -97,7 +97,7 @@ pub(super) fn event_type_for_tool(tool_name: &str) -> EventType {
     let t = tool_name.to_lowercase();
     if t.contains("browser__navigate") || t.contains("browser::navigate") {
         EventType::BrowserNavigate
-    } else if t.contains("browser__snapshot") || t.contains("browser::inspect") {
+    } else if t.contains("browser__inspect") || t.contains("browser::inspect") {
         EventType::BrowserSnapshot
     } else if t.contains("search")
         || t.contains("grep")
@@ -123,7 +123,7 @@ pub(super) fn event_type_for_tool(tool_name: &str) -> EventType {
 
 pub(super) fn is_install_package_tool(tool_name: &str) -> bool {
     let tool = tool_name.to_ascii_lowercase();
-    tool == "sys__install_package"
+    tool == "package__install"
         || tool == "sys::install_package"
         || tool.ends_with("install_package")
 }
@@ -162,7 +162,7 @@ pub(super) fn is_install_package_lookup_failure(tool_name: &str, output: &str) -
 
 pub(super) fn is_launch_app_lookup_failure(tool_name: &str, output: &str) -> bool {
     let tool = tool_name.to_ascii_lowercase();
-    if tool != "os__launch_app" && tool != "os::launch_app" && !tool.ends_with("launch_app") {
+    if tool != "app__launch" && tool != "os::launch_app" && !tool.ends_with("launch_app") {
         return false;
     }
     let text = output.to_ascii_lowercase();
@@ -216,7 +216,7 @@ pub(super) fn clarification_preset_for_tool(tool_name: &str) -> Option<Clarifica
         return Some(ClarificationPreset::InstallLookup);
     }
     let tool = tool_name.to_ascii_lowercase();
-    if tool == "os__launch_app" || tool == "os::launch_app" || tool.ends_with("launch_app") {
+    if tool == "app__launch" || tool == "os::launch_app" || tool.ends_with("launch_app") {
         return Some(ClarificationPreset::LaunchLookup);
     }
     None

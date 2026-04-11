@@ -23,19 +23,11 @@ fn filesystem_scope_for_target(target: &ActionTarget) -> Option<FilesystemScope>
         ActionTarget::FsRead => Some(FilesystemScope::Read),
         ActionTarget::FsWrite => Some(FilesystemScope::Write),
         ActionTarget::Custom(name) => match name.as_str() {
-            "fs::read"
-            | "filesystem__read_file"
-            | "filesystem__list_directory"
-            | "filesystem__search"
-            | "filesystem__stat" => Some(FilesystemScope::Read),
-            "fs::write"
-            | "filesystem__write_file"
-            | "filesystem__patch"
-            | "filesystem__delete_path"
-            | "filesystem__create_directory"
-            | "filesystem__create_zip"
-            | "filesystem__move_path"
-            | "filesystem__copy_path" => Some(FilesystemScope::Write),
+            "fs::read" | "file__read" | "file__list" | "file__search" | "file__info" => {
+                Some(FilesystemScope::Read)
+            }
+            "fs::write" | "file__write" | "file__edit" | "file__delete" | "file__create_dir"
+            | "file__zip" | "file__move" | "file__copy" => Some(FilesystemScope::Write),
             _ => None,
         },
         _ => None,
@@ -52,20 +44,12 @@ pub(super) fn required_filesystem_path_keys(
     match target {
         ActionTarget::FsRead | ActionTarget::FsWrite => Some(&["path"]),
         ActionTarget::Custom(name) => match name.as_str() {
-            "fs::read"
-            | "filesystem__read_file"
-            | "filesystem__list_directory"
-            | "filesystem__search"
-            | "filesystem__stat"
-            | "fs::write"
-            | "filesystem__write_file"
-            | "filesystem__patch"
-            | "filesystem__delete_path"
-            | "filesystem__create_directory" => Some(&["path"]),
-            "filesystem__create_zip" => Some(&["source_path", "destination_zip_path"]),
-            "filesystem__move_path" | "filesystem__copy_path" => {
-                Some(&["source_path", "destination_path"])
+            "fs::read" | "file__read" | "file__list" | "file__search" | "file__info"
+            | "fs::write" | "file__write" | "file__edit" | "file__delete" | "file__create_dir" => {
+                Some(&["path"])
             }
+            "file__zip" => Some(&["source_path", "destination_zip_path"]),
+            "file__move" | "file__copy" => Some(&["source_path", "destination_path"]),
             _ => None,
         },
         _ => None,

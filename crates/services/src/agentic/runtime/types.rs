@@ -718,7 +718,7 @@ pub struct AgentState {
     #[serde(default)]
     pub awaiting_intent_clarification: bool,
 
-    /// Persistent working directory used by `sys__exec`.
+    /// Persistent working directory used by `shell__run`.
     #[serde(default = "default_working_directory")]
     pub working_directory: String,
 

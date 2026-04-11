@@ -427,7 +427,7 @@ export interface WorkloadExecReceipt {
 }
 
 export interface WorkloadNetFetchReceipt {
-  /** "net__fetch" */
+  /** "http__fetch" */
   toolName: string;
   /** "GET" */
   method: string;

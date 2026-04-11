@@ -270,7 +270,8 @@ async fn browser_snapshot_then_click_element_updates_fixture() -> Result<()> {
 
     let click = exec
         .execute(
-            AgentTool::BrowserClickElement {
+            AgentTool::BrowserClick {
+                selector: String::new(),
                 id: Some(target_id.clone()),
                 ids: Vec::new(),
                 delay_ms_between_ids: None,
@@ -291,7 +292,7 @@ async fn browser_snapshot_then_click_element_updates_fixture() -> Result<()> {
         browser.stop().await;
         fixture.stop().await;
         return Err(anyhow!(
-            "browser__click_element failed for id '{}': {}",
+            "browser__click failed for id '{}': {}",
             target_id,
             describe_result(&click)
         ));

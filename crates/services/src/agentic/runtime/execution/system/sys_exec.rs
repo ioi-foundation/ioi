@@ -44,7 +44,7 @@ pub(super) async fn handle_sys_exec(
     let receipt_cwd =
         scrub_workload_text_field_for_receipt(exec, resolved_cwd_string.as_str()).await;
     let receipt_preview = command_preview(&receipt_command, &receipt_args);
-    let workload_id = compute_workload_id(session_id, step_index, "sys__exec", &receipt_preview);
+    let workload_id = compute_workload_id(session_id, step_index, "shell__run", &receipt_preview);
     let observer = if detach {
         None
     } else {
@@ -147,7 +147,7 @@ pub(super) async fn handle_sys_exec(
             step_index,
             workload_id.clone(),
             WorkloadReceipt::Exec(WorkloadExecReceipt {
-                tool_name: "sys__exec".to_string(),
+                tool_name: "shell__run".to_string(),
                 command: receipt_command,
                 args: receipt_args,
                 cwd: receipt_cwd,
@@ -181,8 +181,7 @@ pub(super) async fn handle_sys_exec_session(
     let trimmed = command.trim();
     if trimmed.is_empty() {
         return ToolExecutionResult::failure(
-            "ERROR_CLASS=ToolUnavailable sys__exec_session requires a non-empty command."
-                .to_string(),
+            "ERROR_CLASS=ToolUnavailable shell__start requires a non-empty command.".to_string(),
         );
     }
 
@@ -194,12 +193,7 @@ pub(super) async fn handle_sys_exec_session(
     let receipt_cwd =
         scrub_workload_text_field_for_receipt(exec, resolved_cwd_string.as_str()).await;
     let receipt_preview = command_preview(&receipt_command, &receipt_args);
-    let workload_id = compute_workload_id(
-        session_id,
-        step_index,
-        "sys__exec_session",
-        &receipt_preview,
-    );
+    let workload_id = compute_workload_id(session_id, step_index, "shell__start", &receipt_preview);
     let observer = process_stream_observer(exec, session_id, step_index, workload_id.clone());
     let options = CommandExecutionOptions::default()
         .with_timeout(timeout)
@@ -285,7 +279,7 @@ pub(super) async fn handle_sys_exec_session(
             step_index,
             workload_id.clone(),
             WorkloadReceipt::Exec(WorkloadExecReceipt {
-                tool_name: "sys__exec_session".to_string(),
+                tool_name: "shell__start".to_string(),
                 command: receipt_command,
                 args: receipt_args,
                 cwd: receipt_cwd,
@@ -308,13 +302,8 @@ pub(super) async fn handle_sys_exec_session_reset(
     session_id: [u8; 32],
     step_index: u32,
 ) -> ToolExecutionResult {
-    let command_preview = "sys__exec_session_reset".to_string();
-    let workload_id = compute_workload_id(
-        session_id,
-        step_index,
-        "sys__exec_session_reset",
-        &command_preview,
-    );
+    let command_preview = "shell__reset".to_string();
+    let workload_id = compute_workload_id(session_id, step_index, "shell__reset", &command_preview);
 
     if let Some(tx) = exec.event_sender.as_ref() {
         emit_workload_activity(
@@ -368,8 +357,8 @@ pub(super) async fn handle_sys_exec_session_reset(
             step_index,
             workload_id.clone(),
             WorkloadReceipt::Exec(WorkloadExecReceipt {
-                tool_name: "sys__exec_session_reset".to_string(),
-                command: "sys__exec_session_reset".to_string(),
+                tool_name: "shell__reset".to_string(),
+                command: "shell__reset".to_string(),
                 args: Vec::new(),
                 cwd: receipt_cwd,
                 detach: false,
@@ -469,7 +458,7 @@ pub(super) fn resolve_sys_exec_invocation(
 ) -> Result<SysExecInvocation, String> {
     let trimmed = command.trim();
     if trimmed.is_empty() {
-        return Err("ERROR_CLASS=ToolUnavailable sys__exec requires a non-empty command.".into());
+        return Err("ERROR_CLASS=ToolUnavailable shell__run requires a non-empty command.".into());
     }
 
     if should_shell_wrap_sys_exec(trimmed) {
@@ -510,7 +499,7 @@ pub(super) fn resolve_sys_exec_invocation(
 
     let mut tokens = trimmed.split_whitespace();
     let binary = tokens.next().ok_or_else(|| {
-        "ERROR_CLASS=ToolUnavailable sys__exec requires a non-empty command.".to_string()
+        "ERROR_CLASS=ToolUnavailable shell__run requires a non-empty command.".to_string()
     })?;
 
     Ok(SysExecInvocation {
@@ -937,7 +926,7 @@ pub(super) fn summarize_sys_exec_failure_output(output: &str) -> String {
 pub(super) fn sys_exec_failure_result(command: &str, error: &str) -> ToolExecutionResult {
     let class = classify_sys_exec_failure(error, command);
     ToolExecutionResult::failure(format!(
-        "ERROR_CLASS={} sys__exec '{}' failed: {}",
+        "ERROR_CLASS={} shell__run '{}' failed: {}",
         class,
         command,
         summarize_sys_exec_failure_output(error)

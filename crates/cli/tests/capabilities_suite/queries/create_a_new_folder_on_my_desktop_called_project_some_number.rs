@@ -11,23 +11,15 @@ use super::super::types::{
 
 const CASE_ID: &str = "create_a_new_folder_on_my_desktop_called_project_some_number";
 const EXPECTED_FIXTURE_MODE: &str = "desktop_project_create_fixture_v1";
-const CREATE_TOOL_NAMES: [&str; 3] = [
-    "filesystem__create_directory",
-    "sys__exec",
-    "sys__exec_session",
-];
-const VERIFICATION_TOOL_NAMES: [&str; 3] = [
-    "filesystem__list_directory",
-    "sys__exec",
-    "sys__exec_session",
-];
+const CREATE_TOOL_NAMES: [&str; 3] = ["file__create_dir", "shell__run", "shell__start"];
+const VERIFICATION_TOOL_NAMES: [&str; 3] = ["file__list", "shell__run", "shell__start"];
 const DISALLOWED_MUTATING_TOOL_NAMES: [&str; 6] = [
-    "filesystem__write_file",
-    "filesystem__patch",
-    "filesystem__delete_path",
-    "filesystem__move_path",
-    "filesystem__copy_path",
-    "filesystem__create_zip",
+    "file__write",
+    "file__edit",
+    "file__delete",
+    "file__move",
+    "file__copy",
+    "file__zip",
 ];
 
 #[derive(Debug, Clone, Serialize)]
@@ -142,8 +134,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let routing_path_seen = has_any_tool_name(&obs.routing_tools, &CREATE_TOOL_NAMES);
     let remote_path_seen = observation_has_tool_namespace(obs, ToolNamespace::Web)
         || observation_has_tool_namespace(obs, ToolNamespace::Browser)
-        || observation_has_tool_name(obs, "net__fetch");
-    let install_path_seen = observation_has_tool_name(obs, "sys__install_package");
+        || observation_has_tool_name(obs, "http__fetch");
+    let install_path_seen = observation_has_tool_name(obs, "package__install");
     let disallowed_mutation_seen =
         observation_has_any_tool_name(obs, &DISALLOWED_MUTATING_TOOL_NAMES);
     let tool_and_route_path_evidence_present = action_path_seen

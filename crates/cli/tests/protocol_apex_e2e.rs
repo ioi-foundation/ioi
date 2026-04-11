@@ -36,6 +36,7 @@ fn forge_divergence(
         state_root: StateRoot(vec![0xAA; 32]),
         transactions_root: vec![],
         timestamp: 1000,
+        timestamp_ms: 1_000_000,
         gas_used: 0,
         validator_set: vec![],
         producer_account_id: account_id,
@@ -49,6 +50,10 @@ fn forge_divergence(
         guardian_certificate: None,
         sealed_finality_proof: None,
         canonical_order_certificate: None,
+        timeout_certificate: None,
+        previous_canonical_collapse_commitment_hash: [0u8; 32],
+        canonical_collapse_extension_certificate: None,
+        publication_frontier: None,
     };
 
     // Sign A

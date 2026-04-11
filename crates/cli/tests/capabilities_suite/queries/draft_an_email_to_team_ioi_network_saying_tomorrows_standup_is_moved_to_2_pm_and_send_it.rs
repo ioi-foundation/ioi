@@ -3,16 +3,13 @@ use serde::Serialize;
 
 use super::super::types::{
     has_cec_receipt, has_cec_stage, has_contract_failure_evidence, has_tool_with_token,
-    has_verification_pair, truncate_chars, uri_scheme, verification_bool, verification_u64,
-    verification_value, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    has_verification_pair, truncate_chars, uri_scheme, verification_value, ExecutionProfile,
+    LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 const CASE_ID: &str =
     "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it";
 const EXPECTED_RECIPIENT: &str = "team@ioi.network";
-const EXPECTED_MAIL_FIXTURE_MODE: &str = "mail_reply_mock_driver_fixture_v1";
-const EXPECTED_GOOGLE_FIXTURE_MODE: &str = "google_connector_mock_fixture_v1";
-const EXPECTED_GOOGLE_ACCOUNT: &str = "fixtures.google@ioi.invalid";
 
 #[derive(Debug, Clone, Serialize)]
 struct EnvironmentEvidenceReceipt {
@@ -84,8 +81,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         has_tool_with_token(&obs.action_tools, "connector__google__gmail_send_email");
     let gmail_send_tool_route_seen =
         has_tool_with_token(&obs.routing_tools, "connector__google__gmail_send_email");
-    let system_fail_seen = has_tool_with_token(&obs.action_tools, "system__fail")
-        || has_tool_with_token(&obs.routing_tools, "system__fail");
+    let system_fail_seen = has_tool_with_token(&obs.action_tools, "agent__escalate")
+        || has_tool_with_token(&obs.routing_tools, "agent__escalate");
     let web_or_browser_path_seen = has_tool_with_token(&obs.routing_tools, "web__")
         || has_tool_with_token(&obs.routing_tools, "browser__")
         || has_tool_with_token(&obs.routing_tools, "memory__search")
@@ -94,14 +91,14 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || has_tool_with_token(&obs.action_tools, "memory__search")
         || has_tool_with_token(&obs.workload_tools, "web__")
         || has_tool_with_token(&obs.workload_tools, "browser__");
-    let non_mail_mutating_path_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec")
-        || has_tool_with_token(&obs.action_tools, "filesystem__")
-        || has_tool_with_token(&obs.routing_tools, "filesystem__")
-        || has_tool_with_token(&obs.action_tools, "sys__install_package")
-        || has_tool_with_token(&obs.routing_tools, "sys__install_package")
-        || has_tool_with_token(&obs.action_tools, "net__fetch")
-        || has_tool_with_token(&obs.routing_tools, "net__fetch");
+    let non_mail_mutating_path_seen = has_tool_with_token(&obs.action_tools, "shell__run")
+        || has_tool_with_token(&obs.routing_tools, "shell__run")
+        || has_tool_with_token(&obs.action_tools, "file__")
+        || has_tool_with_token(&obs.routing_tools, "file__")
+        || has_tool_with_token(&obs.action_tools, "package__install")
+        || has_tool_with_token(&obs.routing_tools, "package__install")
+        || has_tool_with_token(&obs.action_tools, "http__fetch")
+        || has_tool_with_token(&obs.routing_tools, "http__fetch");
     let disallowed_mail_tool_seen = has_tool_with_token(&obs.action_tools, "mail_read_latest")
         || has_tool_with_token(&obs.action_tools, "mail_list_recent")
         || has_tool_with_token(&obs.action_tools, "mail_delete_spam")
@@ -231,44 +228,9 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let setup_binding_ready = has_verification_pair(obs, "env_receipt::mail_binding_ready", "true");
     let setup_send_capability_bound =
         has_verification_pair(obs, "env_receipt::mail_send_capability_bound", "true");
-    let setup_provider_driver =
-        verification_value(obs, "env_receipt::mail_provider_driver").unwrap_or_default();
-    let setup_provider_driver_source =
-        verification_value(obs, "env_receipt::mail_provider_driver_source").unwrap_or_default();
-    let setup_provider_driver_satisfied = setup_provider_driver.eq_ignore_ascii_case("mock")
-        && setup_provider_driver_source.eq_ignore_ascii_case("fixture_override");
     let setup_receipt_timestamp_present =
         verification_value(obs, "env_receipt::mail_setup_timestamp_ms").is_some();
 
-    let mail_fixture_mode =
-        verification_value(obs, "env_receipt::mail_reply_fixture_mode").unwrap_or_default();
-    let mail_fixture_probe_source =
-        verification_value(obs, "env_receipt::mail_reply_fixture_probe_source").unwrap_or_default();
-    let mail_fixture_timestamp_ms =
-        verification_u64(obs, "env_receipt::mail_reply_fixture_timestamp_ms")
-            .unwrap_or(obs.run_timestamp_ms);
-    let mail_fixture_satisfied =
-        verification_bool(obs, "env_receipt::mail_reply_fixture_satisfied").unwrap_or(false);
-    let mail_fixture_cleanup_satisfied =
-        verification_bool(obs, "env_receipt::mail_reply_fixture_cleanup_satisfied")
-            .unwrap_or(false);
-    let mail_fixture_run_unique_satisfied =
-        verification_bool(obs, "env_receipt::mail_reply_fixture_run_unique_satisfied")
-            .unwrap_or(false);
-
-    let google_fixture_mode =
-        verification_value(obs, "env_receipt::google_connector_fixture_mode").unwrap_or_default();
-    let google_fixture_account =
-        verification_value(obs, "env_receipt::google_connector_fixture_account")
-            .unwrap_or_default();
-    let google_fixture_message_count =
-        verification_u64(obs, "env_receipt::google_connector_fixture_message_count")
-            .unwrap_or_default();
-    let google_fixture_cleanup_satisfied = has_verification_pair(
-        obs,
-        "env_receipt::google_connector_fixture_cleanup_satisfied",
-        "true",
-    );
     let google_provider_selected = provider_surface == "google_gmail_send"
         || gmail_send_tool_action_seen
         || gmail_send_tool_route_seen
@@ -278,7 +240,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && setup_connector_bootstrap
         && setup_binding_ready
         && setup_send_capability_bound
-        && setup_provider_driver_satisfied
         && setup_receipt_timestamp_present;
 
     let cec_discovery_seen = has_cec_stage(obs, "discovery", Some(true));
@@ -323,22 +284,10 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let environment_receipts = build_environment_receipts(
         obs,
-        mail_fixture_mode.clone(),
-        mail_fixture_probe_source.clone(),
-        mail_fixture_timestamp_ms,
-        mail_fixture_satisfied,
-        mail_fixture_cleanup_satisfied,
-        mail_fixture_run_unique_satisfied,
         connector_environment_setup_receipts_present,
-        setup_provider_driver.clone(),
-        setup_provider_driver_source.clone(),
         setup_send_capability_bound,
         provider_surface,
         google_provider_selected,
-        google_fixture_mode.clone(),
-        google_fixture_account.clone(),
-        google_fixture_message_count,
-        google_fixture_cleanup_satisfied,
         verification_postcondition_present,
         provider_execution_satisfied,
         provider_recipient_binding_present,
@@ -420,8 +369,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             "connector_environment_setup_receipts_present",
             connector_environment_setup_receipts_present,
             format!(
-                "setup_provider_driver={} setup_provider_driver_source={} verification_checks={:?}",
-                setup_provider_driver, setup_provider_driver_source, obs.verification_checks
+                "setup_send_capability_bound={} verification_checks={:?}",
+                setup_send_capability_bound, obs.verification_checks
             ),
         ),
         LocalCheck::new(
@@ -484,86 +433,47 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 #[allow(clippy::too_many_arguments)]
 fn build_environment_receipts(
     obs: &RunObservation,
-    mail_fixture_mode: String,
-    mail_fixture_probe_source: String,
-    mail_fixture_timestamp_ms: u64,
-    mail_fixture_satisfied: bool,
-    mail_fixture_cleanup_satisfied: bool,
-    mail_fixture_run_unique_satisfied: bool,
     connector_environment_setup_receipts_present: bool,
-    setup_provider_driver: String,
-    setup_provider_driver_source: String,
     setup_send_capability_bound: bool,
     provider_surface: &'static str,
     google_provider_selected: bool,
-    google_fixture_mode: String,
-    google_fixture_account: String,
-    google_fixture_message_count: u64,
-    google_fixture_cleanup_satisfied: bool,
     verification_postcondition_present: bool,
     provider_execution_satisfied: bool,
     provider_recipient_binding_present: bool,
     provider_artifact_satisfied: bool,
 ) -> Vec<EnvironmentEvidenceReceipt> {
-    let google_fixture_runtime_satisfied = google_fixture_mode
-        .eq_ignore_ascii_case(EXPECTED_GOOGLE_FIXTURE_MODE)
-        && google_fixture_account.eq_ignore_ascii_case(EXPECTED_GOOGLE_ACCOUNT)
-        && google_fixture_message_count > 0
-        && google_fixture_cleanup_satisfied;
-
     vec![
-        EnvironmentEvidenceReceipt {
-            key: "mail_reply_fixture_mode_observed",
-            observed_value: format!(
-                "mode={} fixture_satisfied={} fixture_cleanup_satisfied={} fixture_run_unique_satisfied={}",
-                mail_fixture_mode,
-                mail_fixture_satisfied,
-                mail_fixture_cleanup_satisfied,
-                mail_fixture_run_unique_satisfied
-            ),
-            probe_source: if mail_fixture_probe_source.trim().is_empty() {
-                "RunObservation.verification_facts".to_string()
-            } else {
-                mail_fixture_probe_source
-            },
-            timestamp_ms: mail_fixture_timestamp_ms,
-            satisfied: mail_fixture_mode.eq_ignore_ascii_case(EXPECTED_MAIL_FIXTURE_MODE)
-                && mail_fixture_satisfied
-                && mail_fixture_cleanup_satisfied
-                && mail_fixture_run_unique_satisfied,
-        },
         EnvironmentEvidenceReceipt {
             key: "mail_connector_runtime_configured",
             observed_value: format!(
-                "connector_setup_receipts_present={} provider_driver={} provider_driver_source={} setup_send_capability_bound={}",
+                "connector_setup_receipts_present={} setup_send_capability_bound={}",
                 connector_environment_setup_receipts_present,
-                setup_provider_driver,
-                setup_provider_driver_source,
                 setup_send_capability_bound
             ),
             probe_source: "RunObservation.verification_facts".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
-            satisfied: connector_environment_setup_receipts_present
-                && setup_provider_driver.eq_ignore_ascii_case("mock")
-                && setup_provider_driver_source.eq_ignore_ascii_case("fixture_override")
-                && setup_send_capability_bound,
+            satisfied: connector_environment_setup_receipts_present && setup_send_capability_bound,
         },
         EnvironmentEvidenceReceipt {
             key: "mail_send_provider_surface_observed",
             observed_value: format!(
-                "provider_surface={} google_provider_selected={} google_fixture_mode={} google_fixture_account={} google_fixture_message_count={} google_fixture_cleanup_satisfied={}",
+                "provider_surface={} google_provider_selected={} provider_execution_satisfied={} provider_recipient_binding_present={} provider_artifact_satisfied={}",
                 provider_surface,
                 google_provider_selected,
-                google_fixture_mode,
-                google_fixture_account,
-                google_fixture_message_count,
-                google_fixture_cleanup_satisfied
+                provider_execution_satisfied,
+                provider_recipient_binding_present,
+                provider_artifact_satisfied
             ),
             probe_source: "RunObservation.environment_receipts".to_string(),
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: match provider_surface {
-                "google_gmail_send" => google_fixture_runtime_satisfied,
-                "wallet_mail_reply" => !google_provider_selected || google_fixture_runtime_satisfied,
+                "google_gmail_send" => {
+                    google_provider_selected
+                        && provider_execution_satisfied
+                        && provider_recipient_binding_present
+                        && provider_artifact_satisfied
+                }
+                "wallet_mail_reply" => !google_provider_selected,
                 _ => false,
             },
         },

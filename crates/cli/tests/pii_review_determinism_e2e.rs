@@ -20,13 +20,13 @@ use ioi_pii::{
     route_pii_decision_for_target, validate_review_request_compat, RiskSurface,
     REVIEW_REQUEST_VERSION,
 };
+use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
 use ioi_services::agentic::runtime::keys::{get_incident_key, get_state_key, pii};
 use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::service::step::incident::{
     action_fingerprint_from_tool_jcs, load_incident_state, register_pending_approval,
 };
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus, RuntimeAgentService};
-use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken, PiiApprovalAction};
@@ -42,7 +42,7 @@ use ioi_types::codec;
 use ioi_types::error::VmError;
 use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
-use ioi_validator::firewall::{enforce_firewall, inference::MockBitNet};
+use ioi_validator::firewall::{enforce_firewall, inference::HeuristicBitNet};
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -155,6 +155,7 @@ fn build_agent_state(session_id: [u8; 32], tool_jcs: Vec<u8>, tool_hash: [u8; 32
         pending_tool_call: None,
         pending_tool_jcs: Some(tool_jcs),
         pending_tool_hash: Some(tool_hash),
+        pending_request_nonce: None,
         pending_visual_hash: Some([0u8; 32]),
         recent_actions: vec![],
         mode: AgentMode::Agent,
@@ -310,7 +311,7 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         &agent_state,
         session_id,
         &hex::encode(tool_hash),
-        "os__copy",
+        "clipboard__copy",
         &tool_jcs,
         &action_fingerprint,
         &hex::encode(decision_hash),
@@ -423,7 +424,7 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         now_secs,
         false,
         true,
-        Arc::new(MockBitNet),
+        Arc::new(HeuristicBitNet),
         Arc::new(DummyOs),
         &no_events,
     )

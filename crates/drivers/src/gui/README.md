@@ -10,7 +10,10 @@ This module provides the IOI Kernel with the ability to perceive and interact wi
 *   **Privacy:** These bytes are fed into the **PII Scrubber** before ever leaving the device or being stored in the runtime-backed evidence layer.
 
 ### 2. Accessibility (`platform.rs`)
-*   **Tree Parsing:** Uses platform-specific APIs (via `accesskit` or native stubs) to read the UI Accessibility Tree (DOM).
+*   **Tree Parsing:** Uses platform-specific accessibility APIs to read the UI Accessibility Tree (DOM).
+    *   **Linux:** Uses AT-SPI to crawl the active or focused application subtree when available.
+    *   **macOS:** Uses AXUIElement.
+    *   **Windows:** Uses UI Automation.
 *   **Semantic Filtering:** The raw tree is too large for an LLM context window. The driver applies heuristics (`accessibility.rs`) to prune irrelevant nodes (invisible elements, empty containers) and produces a compact XML representation.
 
 ### 3. Action Injection (`operator.rs`)

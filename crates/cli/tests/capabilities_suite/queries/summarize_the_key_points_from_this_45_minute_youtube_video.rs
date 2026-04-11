@@ -27,7 +27,7 @@ struct EnvironmentEvidenceReceipt {
 pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
-        query: "Summarize the key points from this 45-minute YouTube video: [https://www.youtube.com/watch?v=9Tm2c6NJH4Y]. Use direct media-content retrieval from the video itself. Prefer `media__extract_multimodal_evidence`, summarize the multimodal evidence you extract, and do not substitute webpage metadata, browser summaries, or shell execution workflows. Do not use `web__search`, `web__read`, `net__fetch`, `browser__*`, or `sys__exec*`. Return a concise key-point summary of the video.",
+        query: "Summarize the key points from this 45-minute YouTube video: [https://www.youtube.com/watch?v=9Tm2c6NJH4Y]. Use direct media-content retrieval from the video itself. Prefer `media__extract_evidence`, summarize the multimodal evidence you extract, and do not substitute webpage metadata, browser summaries, or shell execution workflows. Do not use `web__search`, `web__read`, `http__fetch`, `browser__*`, or `shell__run*`. Return a concise key-point summary of the video.",
         success_definition: "Extract direct multimodal evidence from the target YouTube video via the dedicated media tool, using either transcript+visual or timeline+visual evidence with discovery/provider-selection/execution/verification receipts, return a non-raw summary reply, and satisfy isolated fixture + cleanup environment receipts.",
         seeded_intent_id: "web.research",
         intent_scope: IntentScopeProfile::WebResearch,
@@ -128,13 +128,13 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let completion_evidence_present =
         obs.completed && !obs.failed && obs.chat_reply_count > 0 && completion_gate_satisfied;
     let media_tool_path_evidence_present =
-        observation_has_tool_name(obs, "media__extract_multimodal_evidence")
+        observation_has_tool_name(obs, "media__extract_evidence")
             && !observation_has_tool_name(obs, "web__search")
             && !observation_has_tool_name(obs, "web__read")
-            && !observation_has_tool_name(obs, "net__fetch")
+            && !observation_has_tool_name(obs, "http__fetch")
             && !observation_has_tool_name(obs, "browser__navigate")
-            && !observation_has_tool_name(obs, "sys__exec")
-            && !observation_has_tool_name(obs, "sys__exec_session");
+            && !observation_has_tool_name(obs, "shell__run")
+            && !observation_has_tool_name(obs, "shell__start");
     let cec_phase_receipts_present = has_cec_stage(obs, "discovery", Some(true))
         && has_cec_stage(obs, "provider_selection", Some(true))
         && has_cec_stage(obs, "execution", Some(true))

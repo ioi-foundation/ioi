@@ -49,11 +49,13 @@ use ioi_validator::standard::orchestration::operator_tasks::{
     run_agent_driver_task_with_handles, run_oracle_operator_task_with_client,
 };
 
-use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
+use ioi_api::vm::inference::{
+    HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel, UnavailableInferenceRuntime,
+};
 use ioi_drivers::os::NativeOsDriver;
-use ioi_services::agentic::runtime::RuntimeAgentService;
 use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy, Rule, Verdict};
+use ioi_services::agentic::runtime::RuntimeAgentService;
 use ioi_types::codec;
 
 // Import Market Service types
@@ -240,7 +242,7 @@ async fn async_main() -> Result<()> {
             },
             Rule {
                 rule_id: Some("allow-await".into()),
-                target: "agent__await_result".into(),
+                target: "agent__await".into(),
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
@@ -257,22 +259,22 @@ async fn async_main() -> Result<()> {
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
-            // Allow Computer Use for UI-TARS
+            // Allow screen control for UI-TARS
             Rule {
                 rule_id: Some("allow-computer".into()),
-                target: "gui::click".into(), // Maps to computer.left_click AND ui__click_component
+                target: "gui::click".into(), // Maps to screen.left_click AND screen__click
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
             Rule {
                 rule_id: Some("allow-computer-type".into()),
-                target: "gui::type".into(), // Maps to computer.type
+                target: "gui::type".into(), // Maps to screen.type
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
             Rule {
                 rule_id: Some("allow-computer-mouse".into()),
-                target: "gui::mouse_move".into(), // Maps to computer.mouse_move
+                target: "gui::mouse_move".into(), // Maps to screen.mouse_move
                 conditions: Default::default(),
                 action: Verdict::Allow,
             },
@@ -373,8 +375,21 @@ async fn async_main() -> Result<()> {
         println!("🤖 LOCAL_LLM_URL detected.");
         ("local", url, None, local_model)
     } else {
-        println!("⚠️ No API Key found. Fallback to Mock.");
-        ("mock", "".to_string(), None, "mock-model".to_string())
+        let local_model = std::env::var("LOCAL_LLM_MODEL")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                std::env::var("AUTOPILOT_LOCAL_RUNTIME_MODEL")
+                    .ok()
+                    .filter(|value| !value.trim().is_empty())
+            })
+            .unwrap_or_else(|| "llama3".to_string());
+        let default_local_url = "http://localhost:11434/v1/chat/completions".to_string();
+        println!(
+            "⚠️ No inference credentials configured. Defaulting to local runtime at {}.",
+            default_local_url
+        );
+        ("local", default_local_url, None, local_model)
     };
 
     let user_home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
@@ -690,36 +705,36 @@ async fn async_main() -> Result<()> {
     let signer = Arc::new(LocalSigner::new(internal_kp));
 
     let inference_runtime: Arc<dyn InferenceRuntime> =
-        if let Some(key) = &workload_config.inference.api_key {
-            let model_name = workload_config
-                .inference
-                .model_name
-                .clone()
-                .unwrap_or("gpt-4o".to_string());
-            let api_url = workload_config
-                .inference
-                .api_url
-                .clone()
-                .unwrap_or("https://api.openai.com/v1/chat/completions".to_string());
-            Arc::new(HttpInferenceRuntime::new(api_url, key.clone(), model_name))
-        } else if workload_config.inference.provider == "mock" {
-            Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
-        } else {
-            let model_name = workload_config
-                .inference
-                .model_name
-                .clone()
-                .unwrap_or("llama3".to_string());
-            let api_url = workload_config
-                .inference
-                .api_url
-                .clone()
-                .unwrap_or("http://localhost:11434/v1/chat/completions".to_string());
-            Arc::new(HttpInferenceRuntime::new(
-                api_url,
-                "".to_string(),
-                model_name,
-            ))
+        match workload_config.inference.provider.as_str() {
+            "openai" | "local" => {
+                let model_name = workload_config
+                    .inference
+                    .model_name
+                    .clone()
+                    .unwrap_or_else(|| {
+                        if workload_config.inference.provider == "openai" {
+                            "gpt-4o".to_string()
+                        } else {
+                            "llama3".to_string()
+                        }
+                    });
+                let api_url = workload_config
+                    .inference
+                    .api_url
+                    .clone()
+                    .unwrap_or_else(|| {
+                        if workload_config.inference.provider == "openai" {
+                            "https://api.openai.com/v1/chat/completions".to_string()
+                        } else {
+                            "http://localhost:11434/v1/chat/completions".to_string()
+                        }
+                    });
+                let api_key = workload_config.inference.api_key.clone().unwrap_or_default();
+                Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name))
+            }
+            _ => Arc::new(UnavailableInferenceRuntime::new(
+                "Local node inference runtime is unavailable. Configure OPENAI_API_KEY or LOCAL_LLM_URL, or provide a workload inference backend.",
+            )),
         };
 
     let safety_model: Arc<dyn LocalSafetyModel> =

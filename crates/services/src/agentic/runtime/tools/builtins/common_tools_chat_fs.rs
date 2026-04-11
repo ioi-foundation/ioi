@@ -21,7 +21,7 @@
         "required": ["child_session_id_hex"]
     });
     tools.push(LlmToolDefinition {
-        name: "agent__await_result".to_string(),
+        name: "agent__await".to_string(),
         description:
             "Check whether a delegated child worker has completed its bounded task. Returns 'Running' if not finished, otherwise returns the worker handoff rendered through its deterministic merge contract."
                 .to_string(),
@@ -98,8 +98,8 @@
         "required": ["path", "content"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__write_file".to_string(),
-        description: "Write full text content to a file, or edit a single line deterministically by setting line_number. Prefer this when the change is tiny or an exact filesystem__patch search block would be awkward to encode."
+        name: "file__write".to_string(),
+        description: "Write full text content to a file, or edit a single line deterministically by setting line_number. Prefer this when the change is tiny or an exact file__edit search block would be awkward to encode."
             .to_string(),
         parameters: fs_write_params.to_string(),
     });
@@ -118,8 +118,8 @@
         "required": ["path", "line_number", "content"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__edit_line".to_string(),
-        description: "Deterministically replace exactly one line in a file (alias of filesystem__write_file with line_number). Prefer this for single-line code fixes instead of a brittle filesystem__patch block.".to_string(),
+        name: "file__replace_line".to_string(),
+        description: "Deterministically replace exactly one line in a file (alias of file__write with line_number). Prefer this for single-line code fixes instead of a brittle file__edit block.".to_string(),
         parameters: fs_edit_line_params.to_string(),
     });
 
@@ -136,9 +136,9 @@
         "required": ["path", "search", "replace"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__patch".to_string(),
+        name: "file__edit".to_string(),
         description:
-            "Replace a unique text block in a file. Copy the search block exactly from the latest read, including newlines and indentation; this fails if the search block is missing or ambiguous. For one-line or escape-heavy edits, prefer filesystem__edit_line or filesystem__write_file."
+            "Replace a unique text block in a file. Copy the search block exactly from the latest read, including newlines and indentation; this fails if the search block is missing or ambiguous. For one-line or escape-heavy edits, prefer file__replace_line or file__write."
                 .to_string(),
         parameters: fs_patch_params.to_string(),
     });
@@ -151,8 +151,8 @@
         "required": ["path"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__read_file".to_string(),
-        description: "Read exact text content from a file, preserving newlines so the result can be reused directly in filesystem__patch search blocks.".to_string(),
+        name: "file__read".to_string(),
+        description: "Read exact text content from a file, preserving newlines so the result can be reused directly in file__edit search blocks.".to_string(),
         parameters: fs_read_params.to_string(),
     });
 
@@ -164,7 +164,7 @@
         "required": ["path"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__list_directory".to_string(),
+        name: "file__list".to_string(),
         description: "List files and directories at a given path.".to_string(),
         parameters: fs_ls_params.to_string(),
     });
@@ -179,7 +179,7 @@
         "required": ["path", "regex"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__search".to_string(),
+        name: "file__search".to_string(),
         description:
             "Recursively search for a valid Rust regex pattern in files under a directory and return matching lines. Use this only when the exact file path is still unknown; if you already know the file, read it directly."
                 .to_string(),
@@ -194,7 +194,7 @@
         "required": ["path"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__stat".to_string(),
+        name: "file__info".to_string(),
         description:
             "Return deterministic metadata for a file or directory, including modified timestamp."
                 .to_string(),
@@ -226,14 +226,14 @@
         "required": ["source_path", "destination_path"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__copy_path".to_string(),
+        name: "file__copy".to_string(),
         description: "Copy a file/directory deterministically without invoking shell commands."
             .to_string(),
         parameters: fs_copy_params.to_string(),
     });
 
     tools.push(LlmToolDefinition {
-        name: "filesystem__move_path".to_string(),
+        name: "file__move".to_string(),
         description:
             "Move or rename a file/directory deterministically without invoking shell commands."
                 .to_string(),
@@ -256,7 +256,7 @@
         "required": ["path"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__delete_path".to_string(),
+        name: "file__delete".to_string(),
         description:
             "Delete a file/symlink, or a directory when recursive=true, using deterministic filesystem APIs."
                 .to_string(),
@@ -275,7 +275,7 @@
         "required": ["path"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__create_directory".to_string(),
+        name: "file__create_dir".to_string(),
         description: "Create a directory deterministically without invoking shell commands."
             .to_string(),
         parameters: fs_create_directory_params.to_string(),
@@ -294,7 +294,7 @@
         "required": ["source_path", "destination_zip_path"]
     });
     tools.push(LlmToolDefinition {
-        name: "filesystem__create_zip".to_string(),
+        name: "file__zip".to_string(),
         description:
             "Create a zip archive from a source directory deterministically without invoking shell commands."
                 .to_string(),
@@ -317,8 +317,8 @@
         "required": ["package"]
     });
     tools.push(LlmToolDefinition {
-        name: "sys__install_package".to_string(),
-        description: "Install a dependency via a deterministic manager mapping. Prefer this over raw sys__exec for package installs."
+        name: "package__install".to_string(),
+        description: "Install a dependency via a deterministic manager mapping. Prefer this over raw shell__run for package installs."
             .to_string(),
         parameters: install_pkg_params.to_string(),
     });

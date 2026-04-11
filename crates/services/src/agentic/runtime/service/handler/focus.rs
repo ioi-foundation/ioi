@@ -1,25 +1,25 @@
 use ioi_api::vm::drivers::os::WindowInfo;
-use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use ioi_types::app::agentic::{AgentTool, ScreenAction};
 
 pub(super) fn is_focus_sensitive_tool(tool: &AgentTool) -> bool {
     match tool {
         AgentTool::GuiClick { .. }
         | AgentTool::GuiScroll { .. }
         | AgentTool::GuiClickElement { .. } => true,
-        AgentTool::Computer(action) => matches!(
+        AgentTool::Screen(action) => matches!(
             action,
-            ComputerAction::LeftClick { .. }
-                | ComputerAction::LeftClickId { .. }
-                | ComputerAction::LeftClickElement { .. }
-                | ComputerAction::RightClick { .. }
-                | ComputerAction::DoubleClick { .. }
-                | ComputerAction::RightClickId { .. }
-                | ComputerAction::RightClickElement { .. }
-                | ComputerAction::LeftClickDrag { .. }
-                | ComputerAction::DragDrop { .. }
-                | ComputerAction::DragDropId { .. }
-                | ComputerAction::DragDropElement { .. }
-                | ComputerAction::Scroll { .. }
+            ScreenAction::LeftClick { .. }
+                | ScreenAction::LeftClickId { .. }
+                | ScreenAction::LeftClickElement { .. }
+                | ScreenAction::RightClick { .. }
+                | ScreenAction::DoubleClick { .. }
+                | ScreenAction::RightClickId { .. }
+                | ScreenAction::RightClickElement { .. }
+                | ScreenAction::LeftClickDrag { .. }
+                | ScreenAction::DragDrop { .. }
+                | ScreenAction::DragDropId { .. }
+                | ScreenAction::DragDropElement { .. }
+                | ScreenAction::Scroll { .. }
         ),
         _ => false,
     }

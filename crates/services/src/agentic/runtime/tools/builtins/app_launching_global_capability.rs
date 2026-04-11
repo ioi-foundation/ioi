@@ -12,9 +12,9 @@
         "required": ["app_name"]
     });
     tools.push(LlmToolDefinition {
-        name: "os__launch_app".to_string(),
+        name: "app__launch".to_string(),
         description:
-            "Intelligently find and launch a local application. Prefer this over 'sys__exec' for GUI apps."
+            "Intelligently find and launch a local application. Prefer this over 'shell__run' for GUI apps."
                 .to_string(),
         parameters: launch_params.to_string(),
     });

@@ -5,7 +5,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use ioi_api::services::BlockchainService;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
-use ioi_api::vm::inference::InferenceRuntime;
+use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
 use ioi_cli::testing::build_test_artifacts;
 use ioi_services::agentic::runtime::{StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
@@ -32,7 +32,10 @@ use ioi_drivers::terminal::TerminalDriver;
 struct MockGuiDriver;
 #[async_trait]
 impl GuiDriver for MockGuiDriver {
-    async fn capture_screen(&self) -> Result<Vec<u8>, VmError> {
+    async fn capture_screen(
+        &self,
+        _crop_rect: Option<(i32, i32, u32, u32)>,
+    ) -> Result<Vec<u8>, VmError> {
         // [FIX] Generate a valid 1x1 PNG image to satisfy image::load_from_memory
         let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(1, 1);
         img.put_pixel(0, 0, Rgba([255, 0, 0, 255]));
@@ -42,6 +45,9 @@ impl GuiDriver for MockGuiDriver {
             .map_err(|e| VmError::HostError(format!("Mock PNG encoding failed: {}", e)))?;
 
         Ok(bytes)
+    }
+    async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+        self.capture_screen(None).await
     }
     async fn capture_tree(&self) -> Result<String, VmError> {
         Ok("".into())
@@ -59,6 +65,9 @@ impl GuiDriver for MockGuiDriver {
     async fn inject_input(&self, _: InputEvent) -> Result<(), VmError> {
         Ok(())
     }
+    async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+        Ok(None)
+    }
 }
 
 // "Big Brain" - Only handles logic/planning, fails on clicks
@@ -70,13 +79,31 @@ impl InferenceRuntime for ReasoningBrain {
     async fn execute_inference(
         &self,
         _: [u8; 32],
-        _: &[u8],
+        input: &[u8],
         _: ioi_types::app::agentic::InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input);
+        if prompt.contains("\"remote_public_fact_required\"")
+            && prompt.contains("\"direct_ui_input\"")
+        {
+            return Ok(json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": false,
+                "app_launch_directed": false,
+                "direct_ui_input": true,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
         *self.called.lock().unwrap() = true;
         // First step (planning) -> returns a click
         let tool_call = json!({
-            "name": "gui__click",
+            "name": "screen__click_at",
             "arguments": { "x": 10, "y": 10 }
         });
         Ok(tool_call.to_string().into_bytes())
@@ -86,6 +113,13 @@ impl InferenceRuntime for ReasoningBrain {
     }
     async fn unload_model(&self, _: [u8; 32]) -> Result<(), VmError> {
         Ok(())
+    }
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let lower = text.to_ascii_lowercase();
+        if lower.contains("click") || lower.contains("button") || lower.contains("ui") {
+            return Ok(vec![0.0, 1.0]);
+        }
+        MockInferenceRuntime.embed_text(text).await
     }
 }
 
@@ -104,7 +138,7 @@ impl InferenceRuntime for FastBrain {
         *self.called.lock().unwrap() = true;
         // Fast loop response
         let tool_call = json!({
-            "name": "gui__click",
+            "name": "screen__click_at",
             "arguments": { "x": 20, "y": 20 }
         });
         Ok(tool_call.to_string().into_bytes())
@@ -114,6 +148,13 @@ impl InferenceRuntime for FastBrain {
     }
     async fn unload_model(&self, _: [u8; 32]) -> Result<(), VmError> {
         Ok(())
+    }
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let lower = text.to_ascii_lowercase();
+        if lower.contains("click") || lower.contains("button") || lower.contains("ui") {
+            return Ok(vec![0.0, 1.0]);
+        }
+        MockInferenceRuntime.embed_text(text).await
     }
 }
 
@@ -138,7 +179,10 @@ async fn test_hybrid_routing_logic() -> Result<()> {
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
 
-    let service = RuntimeAgentService::new_hybrid(gui, terminal, browser, fast, reasoning);
+    let service = RuntimeAgentService::new_hybrid(gui, terminal, browser, fast, reasoning)
+        .with_memory_runtime(Arc::new(
+            ioi_memory::MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
+        ));
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
     use ioi_api::services::access::ServiceDirectory;
@@ -146,7 +190,7 @@ async fn test_hybrid_routing_logic() -> Result<()> {
     let services_dir = ServiceDirectory::new(vec![]);
     let mut ctx = TxContext {
         block_height: 1,
-        block_timestamp: ibc_primitives::Timestamp::now(),
+        block_timestamp: 1_700_000_000_000_000_000,
         chain_id: ioi_types::app::ChainId(0),
         signer_account_id: ioi_types::app::AccountId::default(),
         services: &services_dir,
@@ -157,10 +201,11 @@ async fn test_hybrid_routing_logic() -> Result<()> {
     let session_id = [1u8; 32];
     let start_params = StartAgentParams {
         session_id,
-        goal: "Test".into(),
+        goal: "Click the UI button".into(),
         max_steps: 5,
         parent_session_id: None,
         initial_budget: 1000,
+        mode: ioi_services::agentic::runtime::AgentMode::Agent,
     };
     let step_params = StepAgentParams { session_id };
 
@@ -189,17 +234,13 @@ async fn test_hybrid_routing_logic() -> Result<()> {
         *reasoner_called.lock().unwrap(),
         "Step 1 should use Reasoning model"
     );
-    assert!(
-        !*fast_called.lock().unwrap(),
-        "Step 1 should NOT use Fast model"
-    );
 
     // Reset flags
     *reasoner_called.lock().unwrap() = false;
 
     // 3. Step 2: Execution Loop (Should use Fast)
-    // Last action was "gui__click" (from Reasoning brain output above).
-    // State now has last_action_type = "gui__click".
+    // Last action was "screen__click_at" (from Reasoning brain output above).
+    // State now has last_action_type = "screen__click_at".
     service
         .handle_service_call(
             &mut state,

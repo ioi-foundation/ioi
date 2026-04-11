@@ -1,7 +1,7 @@
 // Path: crates/services/src/agentic/intent.rs
 
-use crate::agentic::runtime::{AgentMode, StartAgentParams};
 use crate::agentic::prompt_wrapper::PolicyGuardrails; // [FIX] Removed PromptWrapper
+use crate::agentic::runtime::{AgentMode, StartAgentParams};
 use anyhow::{anyhow, Result};
 use hex;
 use ioi_api::vm::inference::InferenceRuntime;

@@ -175,7 +175,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let web_search_path_seen = observation_has_tool_name(obs, "web__search");
     let web_read_path_seen = observation_has_tool_name(obs, "web__read");
-    let direct_fetch_path_seen = observation_has_tool_name(obs, "net__fetch");
+    let direct_fetch_path_seen = observation_has_tool_name(obs, "http__fetch");
     let tool_and_route_path_evidence_present =
         web_search_path_seen && web_read_path_seen && !direct_fetch_path_seen;
 

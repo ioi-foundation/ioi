@@ -16,35 +16,35 @@ use ioi_types::app::{
     aft_canonical_bulletin_close_key, aft_canonical_collapse_object_key,
     aft_canonical_order_abort_key, aft_publication_frontier_key,
     build_bulletin_availability_certificate, build_canonical_bulletin_close,
-    build_publication_frontier, build_reference_canonical_order_proof_bytes,
-    canonical_asymptote_observer_assignments_hash, canonical_asymptote_observer_challenges_hash,
-    canonical_asymptote_observer_transcripts_hash, canonical_collapse_commitment,
-    canonical_collapse_commitment_hash_from_object, canonical_collapse_continuity_public_inputs,
-    canonical_collapse_recursive_proof_hash, canonical_collapse_succinct_mock_proof_bytes,
-    canonical_order_public_inputs, canonical_order_public_inputs_hash,
-    canonical_sealed_finality_proof_signing_bytes, derive_asymptote_observer_assignments,
-    derive_canonical_collapse_object, derive_canonical_collapse_object_with_previous,
-    derive_guardian_witness_assignments, derive_reference_ordering_randomness_beacon,
-    guardian_registry_asymptote_policy_key, guardian_registry_checkpoint_key,
-    guardian_registry_committee_account_key, guardian_registry_committee_key,
-    guardian_registry_log_key, guardian_registry_observer_canonical_abort_key,
-    guardian_registry_observer_canonical_close_key,
+    build_publication_frontier, build_reference_canonical_order_certificate,
+    build_reference_canonical_order_proof_bytes, canonical_asymptote_observer_assignments_hash,
+    canonical_asymptote_observer_challenges_hash, canonical_asymptote_observer_transcripts_hash,
+    canonical_collapse_commitment, canonical_collapse_commitment_hash_from_object,
+    canonical_collapse_continuity_public_inputs, canonical_collapse_recursive_proof_hash,
+    canonical_collapse_succinct_mock_proof_bytes, canonical_order_public_inputs,
+    canonical_order_public_inputs_hash, canonical_sealed_finality_proof_signing_bytes,
+    derive_asymptote_observer_assignments, derive_canonical_collapse_object,
+    derive_canonical_collapse_object_with_previous, derive_guardian_witness_assignments,
+    derive_reference_ordering_randomness_beacon, guardian_registry_asymptote_policy_key,
+    guardian_registry_checkpoint_key, guardian_registry_committee_account_key,
+    guardian_registry_committee_key, guardian_registry_log_key,
+    guardian_registry_observer_canonical_abort_key, guardian_registry_observer_canonical_close_key,
     guardian_registry_observer_challenge_commitment_key,
     guardian_registry_observer_transcript_commitment_key, guardian_registry_witness_key,
     guardian_registry_witness_seed_key, guardian_registry_witness_set_key,
-    recovered_restart_block_header_entry, write_validator_sets, AftRecoveredStateSurface,
-    AsymptoteObserverCanonicalAbort, AsymptoteObserverCanonicalClose, AsymptoteObserverCertificate,
-    AsymptoteObserverChallenge, AsymptoteObserverChallengeCommitment,
-    AsymptoteObserverCloseCertificate, AsymptoteObserverCorrelationBudget,
-    AsymptoteObserverTranscript, AsymptoteObserverTranscriptCommitment, AsymptoteObserverVerdict,
-    AsymptotePolicy, AsymptoteVetoKind, AsymptoteVetoProof, BulletinAvailabilityCertificate,
-    BulletinCommitment, CanonicalCollapseContinuityProofSystem, CanonicalOrderAbort,
-    CanonicalOrderAbortReason, CanonicalOrderCertificate, CanonicalOrderProof,
-    CanonicalOrderProofSystem, CollapseState, FinalityTier, GuardianCommitteeMember,
-    GuardianLogCheckpoint, GuardianLogProof, GuardianTransparencyLogDescriptor,
-    GuardianWitnessCommitteeManifest, GuardianWitnessRecoveryBinding, OmissionProof,
-    RecoverableSlotPayloadV5, SealedFinalityProof, SignatureProof, SignatureSuite, StateRoot,
-    ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
+    recovered_restart_block_header_entry, set_canonical_collapse_archived_recovered_history_anchor,
+    write_validator_sets, AftRecoveredStateSurface, AsymptoteObserverCanonicalAbort,
+    AsymptoteObserverCanonicalClose, AsymptoteObserverCertificate, AsymptoteObserverChallenge,
+    AsymptoteObserverChallengeCommitment, AsymptoteObserverCloseCertificate,
+    AsymptoteObserverCorrelationBudget, AsymptoteObserverTranscript,
+    AsymptoteObserverTranscriptCommitment, AsymptoteObserverVerdict, AsymptotePolicy,
+    AsymptoteVetoKind, AsymptoteVetoProof, BulletinAvailabilityCertificate, BulletinCommitment,
+    CanonicalCollapseContinuityProofSystem, CanonicalOrderAbort, CanonicalOrderAbortReason,
+    CanonicalOrderCertificate, CanonicalOrderProof, CanonicalOrderProofSystem, CollapseState,
+    FinalityTier, GuardianCommitteeMember, GuardianLogCheckpoint, GuardianLogProof,
+    GuardianTransparencyLogDescriptor, GuardianWitnessCommitteeManifest,
+    GuardianWitnessRecoveryBinding, OmissionProof, RecoverableSlotPayloadV5, SealedFinalityProof,
+    SignatureProof, SignatureSuite, StateRoot, ValidatorSetV1, ValidatorSetsV1, ValidatorV1,
 };
 use ioi_types::codec;
 use ioi_types::error::ChainError;
@@ -5971,6 +5971,143 @@ fn asymptote_observe_committed_block_with_matching_collapse_enables_reset_promot
 
     assert_eq!(engine.highest_qc.height, 5);
     assert_eq!(engine.highest_qc.block_hash, committed_hash);
+}
+
+#[test]
+fn asymptote_reset_replaces_stale_same_height_qc_with_latest_committed_header() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let previous_collapse = test_canonical_collapse_object(4, None, [0x51u8; 32], [0x52u8; 32]);
+    engine
+        .committed_collapses
+        .insert(previous_collapse.height, previous_collapse.clone());
+
+    let mut original_header = build_progress_parent_header(5, 0);
+    link_header_to_previous_collapse(&mut original_header, &previous_collapse);
+    let original_hash = to_root_hash(&original_header.hash().unwrap()).unwrap();
+    let original_collapse = derive_canonical_collapse_object_with_previous(
+        &original_header,
+        &[],
+        Some(&previous_collapse),
+    )
+    .unwrap();
+
+    let original_accepted =
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &original_header,
+            Some(&original_collapse),
+        );
+    assert!(original_accepted);
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::reset(&mut engine, 5);
+    assert_eq!(engine.highest_qc.block_hash, original_hash);
+
+    let mut enriched_header = original_header.clone();
+    enriched_header.signature[0] ^= 0xFF;
+    let enriched_hash = to_root_hash(&enriched_header.hash().unwrap()).unwrap();
+    assert_ne!(enriched_hash, original_hash);
+    let enriched_collapse = derive_canonical_collapse_object_with_previous(
+        &enriched_header,
+        &[],
+        Some(&previous_collapse),
+    )
+    .unwrap();
+
+    let enriched_accepted =
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &enriched_header,
+            Some(&enriched_collapse),
+        );
+    assert!(enriched_accepted);
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::reset(&mut engine, 5);
+
+    assert_eq!(engine.highest_qc.height, 5);
+    assert_eq!(engine.highest_qc.block_hash, enriched_hash);
+}
+
+#[test]
+fn asymptote_observe_committed_block_accepts_archived_anchor_upgrade() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let previous_collapse = test_canonical_collapse_object(4, None, [0x61u8; 32], [0x62u8; 32]);
+    engine
+        .committed_collapses
+        .insert(previous_collapse.height, previous_collapse.clone());
+    let mut committed_header = build_progress_parent_header(5, 0);
+    link_header_to_previous_collapse(&mut committed_header, &previous_collapse);
+    let committed_hash = to_root_hash(&committed_header.hash().unwrap()).unwrap();
+    let mut committed_collapse = derive_canonical_collapse_object_with_previous(
+        &committed_header,
+        &[],
+        Some(&previous_collapse),
+    )
+    .unwrap();
+    set_canonical_collapse_archived_recovered_history_anchor(
+        &mut committed_collapse,
+        [0x71u8; 32],
+        [0x72u8; 32],
+        [0x73u8; 32],
+    )
+    .expect("anchor upgrade");
+
+    let accepted =
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &committed_header,
+            Some(&committed_collapse),
+        );
+
+    assert!(accepted);
+    <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::reset(&mut engine, 5);
+
+    assert_eq!(engine.highest_qc.height, 5);
+    assert_eq!(engine.highest_qc.block_hash, committed_hash);
+}
+
+#[test]
+fn asymptote_observe_committed_block_accepts_header_compatible_materialized_collapse() {
+    let mut engine = GuardianMajorityEngine::new(AftSafetyMode::Asymptote);
+    let previous_collapse = test_canonical_collapse_object(4, None, [0x74u8; 32], [0x75u8; 32]);
+    engine
+        .committed_collapses
+        .insert(previous_collapse.height, previous_collapse.clone());
+    let mut committed_header = build_progress_parent_header(5, 0);
+    link_header_to_previous_collapse(&mut committed_header, &previous_collapse);
+    committed_header.canonical_order_certificate = Some(
+        build_reference_canonical_order_certificate(&committed_header, &[])
+            .expect("reference canonical-order certificate"),
+    );
+    let committed_collapse = derive_canonical_collapse_object_with_previous(
+        &committed_header,
+        &[],
+        Some(&previous_collapse),
+    )
+    .expect("materialized collapse");
+    let header_surface = engine
+        .canonical_collapse_from_header_surface_with_previous(
+            &committed_header,
+            Some(&previous_collapse),
+        )
+        .expect("header-surface collapse");
+    assert!(
+        !canonical_collapse_eq_ignoring_archived_recovered_history_anchor(
+            &committed_collapse,
+            &header_surface,
+        ),
+        "full-object equality should differ once ordering materialization is present"
+    );
+    assert!(
+        canonical_collapse_eq_on_header_surface(&committed_collapse, &header_surface),
+        "header-surface equality should accept the same committed header"
+    );
+
+    let accepted =
+        <GuardianMajorityEngine as ConsensusEngine<ChainTransaction>>::observe_committed_block(
+            &mut engine,
+            &committed_header,
+            Some(&committed_collapse),
+        );
+
+    assert!(accepted);
 }
 
 #[test]

@@ -511,8 +511,7 @@ fn artifact_supports_direct_authoring(
             | ioi_types::app::StudioRendererKind::Svg
             | ioi_types::app::StudioRendererKind::Mermaid
             | ioi_types::app::StudioRendererKind::PdfEmbed
-    )
-        && request.deliverable_shape == ioi_types::app::StudioArtifactDeliverableShape::SingleFile
+    ) && request.deliverable_shape == ioi_types::app::StudioArtifactDeliverableShape::SingleFile
         && request.execution_substrate != ioi_types::app::StudioExecutionSubstrate::WorkspaceRuntime
         && !request.scope.create_new_workspace
         && !has_active_artifact

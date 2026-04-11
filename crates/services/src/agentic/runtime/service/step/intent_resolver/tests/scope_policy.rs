@@ -36,8 +36,14 @@ fn conversation_scope_blocks_browser() {
         Some(&state),
         "browser__navigate"
     ));
-    assert!(!is_tool_allowed_for_resolution(Some(&state), "os__copy"));
-    assert!(!is_tool_allowed_for_resolution(Some(&state), "os__paste"));
+    assert!(!is_tool_allowed_for_resolution(
+        Some(&state),
+        "clipboard__copy"
+    ));
+    assert!(!is_tool_allowed_for_resolution(
+        Some(&state),
+        "clipboard__paste"
+    ));
     assert!(is_tool_allowed_for_resolution(Some(&state), "chat__reply"));
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
@@ -83,7 +89,7 @@ fn math_intent_allows_math_eval_and_chat_reply_only() {
     };
     assert!(is_tool_allowed_for_resolution(Some(&state), "math__eval"));
     assert!(is_tool_allowed_for_resolution(Some(&state), "chat__reply"));
-    assert!(!is_tool_allowed_for_resolution(Some(&state), "sys__exec"));
+    assert!(!is_tool_allowed_for_resolution(Some(&state), "shell__run"));
 }
 
 #[test]
@@ -191,7 +197,7 @@ fn model_registry_scope_allows_native_control_tools_without_shell_exec() {
         Some(&state),
         "gallery__sync"
     ));
-    assert!(!is_tool_allowed_for_resolution(Some(&state), "sys__exec"));
+    assert!(!is_tool_allowed_for_resolution(Some(&state), "shell__run"));
     assert!(!is_tool_allowed_for_resolution(
         Some(&state),
         "model__responses"
@@ -215,8 +221,8 @@ fn media_extract_tools_use_specific_action_targets() {
 
     let multimodal_binding = super::tool_capability_bindings()
         .into_iter()
-        .find(|binding| binding.tool_name == "media__extract_multimodal_evidence")
-        .expect("media__extract_multimodal_evidence binding should exist");
+        .find(|binding| binding.tool_name == "media__extract_evidence")
+        .expect("media__extract_evidence binding should exist");
     assert_eq!(
         multimodal_binding.action_target,
         ioi_types::app::ActionTarget::MediaExtractMultimodalEvidence
@@ -315,7 +321,7 @@ fn unregistered_prefixed_tools_do_not_gain_capabilities_by_name_shape() {
     };
     assert!(!is_tool_allowed_for_resolution(
         Some(&state),
-        "sys__nonexistent_custom_tool"
+        "shell__nonexistent_custom_tool"
     ));
     assert!(!is_tool_allowed_for_resolution(
         Some(&state),
@@ -353,8 +359,14 @@ fn ui_interaction_scope_allows_clipboard() {
         instruction_contract: None,
         constrained: false,
     };
-    assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
-    assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "clipboard__copy"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "clipboard__paste"
+    ));
 }
 
 #[test]
@@ -387,11 +399,11 @@ fn ui_interaction_scope_allows_browser_safe_followups() {
 
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
-        "browser__snapshot"
+        "browser__inspect"
     ));
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
-        "browser__click_element"
+        "browser__click"
     ));
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
@@ -402,10 +414,7 @@ fn ui_interaction_scope_allows_browser_safe_followups() {
         "agent__complete"
     ));
     assert!(is_tool_allowed_for_resolution(Some(&state), "agent__pause"));
-    assert!(is_tool_allowed_for_resolution(
-        Some(&state),
-        "agent__await_result"
-    ));
+    assert!(is_tool_allowed_for_resolution(Some(&state), "agent__await"));
 }
 
 #[test]
@@ -438,8 +447,14 @@ fn command_execution_scope_allows_clipboard() {
         instruction_contract: None,
         constrained: false,
     };
-    assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
-    assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "clipboard__copy"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "clipboard__paste"
+    ));
 }
 
 #[test]
@@ -472,8 +487,14 @@ fn workspace_ops_scope_allows_clipboard() {
         instruction_contract: None,
         constrained: false,
     };
-    assert!(is_tool_allowed_for_resolution(Some(&state), "os__copy"));
-    assert!(is_tool_allowed_for_resolution(Some(&state), "os__paste"));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "clipboard__copy"
+    ));
+    assert!(is_tool_allowed_for_resolution(
+        Some(&state),
+        "clipboard__paste"
+    ));
 }
 
 #[test]
@@ -560,15 +581,15 @@ fn browser_interaction_scope_allows_pointer_followups() {
     ));
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
-        "browser__move_mouse"
+        "browser__move_pointer"
     ));
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
-        "browser__mouse_down"
+        "browser__pointer_down"
     ));
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
-        "browser__mouse_up"
+        "browser__pointer_up"
     ));
 }
 
@@ -602,11 +623,11 @@ fn browser_interaction_scope_allows_inspection_followups() {
 
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
-        "browser__snapshot"
+        "browser__inspect"
     ));
     assert!(is_tool_allowed_for_resolution(
         Some(&state),
-        "browser__canvas_summary"
+        "browser__inspect_canvas"
     ));
 }
 

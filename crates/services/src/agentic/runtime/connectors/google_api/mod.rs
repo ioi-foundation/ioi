@@ -1,23 +1,19 @@
 mod bootstrap;
-mod fixture;
 mod types;
 
 use super::google_auth;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use reqwest::{header, Client, Method};
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::path::PathBuf;
 use time::format_description::well_known::{Rfc2822, Rfc3339};
 use time::{Duration as TimeDuration, OffsetDateTime};
 use tokio::time::{sleep, timeout, Duration};
 
 pub use bootstrap::bootstrap_workspace_profile;
 use bootstrap::{default_google_project_id, parse_google_command};
-use fixture::{execute_mock_google_command, load_mock_fixture_state, mock_fixture_path};
 pub use types::{CalendarMeetingPrepCandidate, GmailFollowUpCandidate, GmailMessageReadback};
 use types::{
     ParsedGoogleCommand, BIGQUERY_BASE_URL, CALENDAR_BASE_URL, CHAT_BASE_URL, DOCS_BASE_URL,
@@ -30,11 +26,6 @@ pub async fn run_google_command(
     required_scopes: &[&str],
 ) -> Result<String, String> {
     let parsed = parse_google_command(args)?;
-    if let Some(path) = mock_fixture_path() {
-        let data = execute_mock_google_command(&path, parsed)?;
-        return serde_json::to_string_pretty(&data)
-            .map_err(|error| format!("Failed to serialize Google mock response: {}", error));
-    }
     let future = async move {
         let auth = google_auth::access_context(required_scopes).await?;
         let client = Client::builder()
@@ -57,22 +48,6 @@ pub async fn run_google_command(
 }
 
 pub async fn gmail_readback_message(message_id: &str) -> Result<GmailMessageReadback, String> {
-    if let Some(path) = mock_fixture_path() {
-        let state = load_mock_fixture_state(&path)?;
-        let message = state
-            .messages
-            .iter()
-            .find(|message| message.id == message_id)
-            .ok_or_else(|| format!("Mock Gmail message '{}' was not found.", message_id))?;
-        return Ok(GmailMessageReadback {
-            message_id: message.id.clone(),
-            thread_id: Some(message.thread_id.clone()),
-            to: Some(message.to.clone()),
-            subject: Some(message.subject.clone()),
-            body_text: Some(message.body_text.clone()),
-            label_ids: message.label_ids.clone(),
-        });
-    }
     let auth = google_auth::access_context(&["gmail.readonly", "gmail.modify"]).await?;
     let client = Client::builder()
         .timeout(Duration::from_secs(20))

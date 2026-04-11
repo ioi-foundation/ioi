@@ -38,7 +38,7 @@ use super::support::{
     WEIGHTED_INSIGHT_SIGNAL_VERSION,
 };
 use crate::agentic::runtime::types::{PendingSearchCompletion, PendingSearchReadSummary};
-use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use ioi_types::app::agentic::{AgentTool, ScreenAction};
 use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebRetrievalContract, WebSource};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use std::collections::{BTreeMap, BTreeSet};

@@ -1,6 +1,6 @@
 use crate::app::ActionTarget;
 
-use super::{AgentTool, ComputerAction};
+use super::{AgentTool, ScreenAction};
 
 pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
     match tool {
@@ -11,12 +11,10 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         | AgentTool::FsList { .. }
         | AgentTool::FsSearch { .. }
         | AgentTool::FsStat { .. } => ActionTarget::FsRead,
-        AgentTool::FsCreateDirectory { .. } => {
-            ActionTarget::Custom("filesystem__create_directory".into())
-        }
-        AgentTool::FsCreateZip { .. } => ActionTarget::Custom("filesystem__create_zip".into()),
-        AgentTool::FsMove { .. } => ActionTarget::Custom("filesystem__move_path".into()),
-        AgentTool::FsCopy { .. } => ActionTarget::Custom("filesystem__copy_path".into()),
+        AgentTool::FsCreateDirectory { .. } => ActionTarget::Custom("file__create_dir".into()),
+        AgentTool::FsCreateZip { .. } => ActionTarget::Custom("file__zip".into()),
+        AgentTool::FsMove { .. } => ActionTarget::Custom("file__move".into()),
+        AgentTool::FsCopy { .. } => ActionTarget::Custom("file__copy".into()),
 
         AgentTool::SysExec { .. }
         | AgentTool::SysExecSession { .. }
@@ -33,7 +31,6 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
 
         AgentTool::BrowserNavigate { .. }
         | AgentTool::BrowserClick { .. }
-        | AgentTool::BrowserClickElement { .. }
         | AgentTool::BrowserHover { .. }
         | AgentTool::BrowserMoveMouse { .. }
         | AgentTool::BrowserMouseDown { .. }
@@ -75,30 +72,28 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         AgentTool::MathEval { .. } => ActionTarget::Custom("math::eval".into()),
 
         AgentTool::ChatReply { .. } => ActionTarget::Custom("chat__reply".into()),
-        AgentTool::AutomationCreateMonitor { .. } => {
-            ActionTarget::Custom("automation__create_monitor".into())
-        }
+        AgentTool::AutomationCreateMonitor { .. } => ActionTarget::Custom("monitor__create".into()),
 
-        AgentTool::Computer(action) => match action {
-            ComputerAction::LeftClickId { .. }
-            | ComputerAction::LeftClickElement { .. }
-            | ComputerAction::RightClickId { .. }
-            | ComputerAction::RightClickElement { .. } => ActionTarget::GuiClick,
+        AgentTool::Screen(action) => match action {
+            ScreenAction::LeftClickId { .. }
+            | ScreenAction::LeftClickElement { .. }
+            | ScreenAction::RightClickId { .. }
+            | ScreenAction::RightClickElement { .. } => ActionTarget::GuiClick,
 
-            ComputerAction::Type { .. }
-            | ComputerAction::Key { .. }
-            | ComputerAction::Hotkey { .. } => ActionTarget::GuiType,
-            ComputerAction::MouseMove { .. } => ActionTarget::GuiMouseMove,
-            ComputerAction::LeftClick { .. }
-            | ComputerAction::RightClick { .. }
-            | ComputerAction::DoubleClick { .. } => ActionTarget::GuiClick,
-            ComputerAction::LeftClickDrag { .. }
-            | ComputerAction::DragDrop { .. }
-            | ComputerAction::DragDropId { .. }
-            | ComputerAction::DragDropElement { .. } => ActionTarget::GuiClick,
-            ComputerAction::Screenshot => ActionTarget::GuiScreenshot,
-            ComputerAction::CursorPosition => ActionTarget::Custom("computer::cursor".into()),
-            ComputerAction::Scroll { .. } => ActionTarget::GuiScroll,
+            ScreenAction::Type { .. } | ScreenAction::Key { .. } | ScreenAction::Hotkey { .. } => {
+                ActionTarget::GuiType
+            }
+            ScreenAction::MouseMove { .. } => ActionTarget::GuiMouseMove,
+            ScreenAction::LeftClick { .. }
+            | ScreenAction::RightClick { .. }
+            | ScreenAction::DoubleClick { .. } => ActionTarget::GuiClick,
+            ScreenAction::LeftClickDrag { .. }
+            | ScreenAction::DragDrop { .. }
+            | ScreenAction::DragDropId { .. }
+            | ScreenAction::DragDropElement { .. } => ActionTarget::GuiClick,
+            ScreenAction::Screenshot => ActionTarget::GuiScreenshot,
+            ScreenAction::CursorPosition => ActionTarget::Custom("screen::cursor".into()),
+            ScreenAction::Scroll { .. } => ActionTarget::GuiScroll,
         },
 
         AgentTool::CommerceCheckout { .. } => ActionTarget::CommerceCheckout,
@@ -110,61 +105,55 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
         AgentTool::MemoryClearCore { .. } => ActionTarget::Custom("memory::clear_core".into()),
 
         AgentTool::AgentDelegate { .. } => ActionTarget::Custom("agent__delegate".into()),
-        AgentTool::AgentAwait { .. } => ActionTarget::Custom("agent__await_result".into()),
+        AgentTool::AgentAwait { .. } => ActionTarget::Custom("agent__await".into()),
         AgentTool::AgentPause { .. } => ActionTarget::Custom("agent__pause".into()),
         AgentTool::AgentComplete { .. } => ActionTarget::Custom("agent__complete".into()),
-        AgentTool::SystemFail { .. } => ActionTarget::Custom("system__fail".into()),
+        AgentTool::SystemFail { .. } => ActionTarget::Custom("agent__escalate".into()),
 
         AgentTool::Dynamic(val) => {
             if let Some(name) = val.get("name").and_then(|n| n.as_str()) {
                 match name {
-                    "ui__click_component" | "gui__click_element" => ActionTarget::GuiClick,
-                    "gui__snapshot" => ActionTarget::GuiInspect,
+                    "screen__click" => ActionTarget::GuiClick,
+                    "screen__inspect" => ActionTarget::GuiInspect,
                     "web__search" | "web__read" => ActionTarget::WebRetrieve,
                     "model__responses" => ActionTarget::ModelRespond,
                     "model__embeddings" => ActionTarget::ModelEmbed,
                     "model__rerank" => ActionTarget::ModelRerank,
                     "media__extract_transcript" => ActionTarget::MediaExtractTranscript,
-                    "media__extract_multimodal_evidence" => {
-                        ActionTarget::MediaExtractMultimodalEvidence
-                    }
-                    "browser__snapshot" => ActionTarget::BrowserInspect,
+                    "media__extract_evidence" => ActionTarget::MediaExtractMultimodalEvidence,
+                    "browser__inspect" => ActionTarget::BrowserInspect,
                     "browser__navigate"
                     | "browser__click"
-                    | "browser__click_element"
                     | "browser__hover"
-                    | "browser__move_mouse"
-                    | "browser__mouse_down"
-                    | "browser__mouse_up"
-                    | "browser__synthetic_click"
+                    | "browser__move_pointer"
+                    | "browser__pointer_down"
+                    | "browser__pointer_up"
+                    | "browser__click_at"
                     | "browser__scroll"
                     | "browser__type"
-                    | "browser__select_text"
-                    | "browser__key"
-                    | "browser__copy_selection"
-                    | "browser__paste_clipboard"
+                    | "browser__select"
+                    | "browser__press_key"
+                    | "browser__copy"
+                    | "browser__paste"
                     | "browser__find_text"
                     | "browser__wait"
-                    | "browser__upload_file"
-                    | "browser__dropdown_options"
-                    | "browser__select_dropdown"
-                    | "browser__go_back"
-                    | "browser__tab_list"
-                    | "browser__tab_switch"
-                    | "browser__tab_close" => ActionTarget::BrowserInteract,
-                    "browser__screenshot" | "browser__canvas_summary" => {
+                    | "browser__upload"
+                    | "browser__list_options"
+                    | "browser__select_option"
+                    | "browser__back"
+                    | "browser__list_tabs"
+                    | "browser__switch_tab"
+                    | "browser__close_tab" => ActionTarget::BrowserInteract,
+                    "browser__screenshot" | "browser__inspect_canvas" => {
                         ActionTarget::BrowserInspect
                     }
-                    "sys__exec"
-                    | "sys__exec_session"
-                    | "sys__exec_session_reset"
-                    | "sys__change_directory" => ActionTarget::SysExec,
-                    "os__launch_app" => ActionTarget::Custom("os::launch_app".to_string()),
-                    "math__eval" => ActionTarget::Custom("math::eval".to_string()),
-                    "automation__create_monitor" => {
-                        ActionTarget::Custom("automation__create_monitor".to_string())
+                    "shell__run" | "shell__start" | "shell__reset" | "shell__cd" => {
+                        ActionTarget::SysExec
                     }
-                    "sys__install_package" => ActionTarget::SysInstallPackage,
+                    "app__launch" => ActionTarget::Custom("os::launch_app".to_string()),
+                    "math__eval" => ActionTarget::Custom("math::eval".to_string()),
+                    "monitor__create" => ActionTarget::Custom("monitor__create".to_string()),
+                    "package__install" => ActionTarget::SysInstallPackage,
                     "connector__google__bigquery_execute_query" => {
                         let query = val
                             .get("arguments")

@@ -210,7 +210,7 @@ pub fn build_post_state_summary(
 pub fn escalation_path_for_failure(failure_class: FailureClass) -> &'static str {
     match failure_class {
         FailureClass::FocusMismatch => {
-            "Escalate to focused-window recovery via os__focus_window before retry."
+            "Escalate to focused-window recovery via window__focus before retry."
         }
         FailureClass::TargetNotFound => {
             "Escalate to VisualForeground and refresh SoM/AX targeting."

@@ -7,9 +7,12 @@ use ioi_api::services::BlockchainService;
 // [FIX] Import StateAccess trait to use .get()
 use ioi_api::state::StateAccess;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
-use ioi_api::vm::inference::InferenceRuntime;
+use ioi_api::vm::inference::mock::MockInferenceRuntime;
 use ioi_cli::testing::build_test_artifacts;
-use ioi_services::agentic::runtime::{AgentState, AgentStatus, StartAgentParams, StepAgentParams};
+use ioi_drivers::browser::BrowserDriver;
+use ioi_drivers::terminal::TerminalDriver;
+use ioi_memory::MemoryRuntime;
+use ioi_services::agentic::runtime::{AgentState, AgentStatus, StartAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::{
@@ -17,8 +20,6 @@ use ioi_types::{
     codec,
     error::VmError,
 };
-use serde_json::json;
-use std::path::Path;
 use std::sync::Arc;
 
 // [FIX] Imports for valid PNG generation
@@ -29,7 +30,10 @@ use std::io::Cursor;
 struct MockGuiDriver;
 #[async_trait]
 impl GuiDriver for MockGuiDriver {
-    async fn capture_screen(&self) -> Result<Vec<u8>, VmError> {
+    async fn capture_screen(
+        &self,
+        _crop_rect: Option<(i32, i32, u32, u32)>,
+    ) -> Result<Vec<u8>, VmError> {
         // [FIX] Generate a valid 1x1 PNG image to satisfy image::load_from_memory
         let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(1, 1);
         img.put_pixel(0, 0, Rgba([255, 0, 0, 255]));
@@ -40,44 +44,27 @@ impl GuiDriver for MockGuiDriver {
 
         Ok(bytes)
     }
+    async fn capture_raw_screen(&self) -> Result<Vec<u8>, VmError> {
+        self.capture_screen(None).await
+    }
     async fn capture_tree(&self) -> Result<String, VmError> {
         Ok("".into())
     }
     async fn capture_context(&self, _: &ActionRequest) -> Result<ContextSlice, VmError> {
         Ok(ContextSlice {
             slice_id: [0; 32],
-            data: vec![],
-            provenance_proof: vec![],
+            frame_id: 0,
+            chunks: vec![],
+            mhnsw_root: [0; 32],
+            traversal_proof: None,
             intent_id: [0; 32],
         })
     }
     async fn inject_input(&self, _: InputEvent) -> Result<(), VmError> {
         Ok(())
     }
-}
-
-struct CostlyBrain;
-#[async_trait]
-impl InferenceRuntime for CostlyBrain {
-    async fn execute_inference(
-        &self,
-        _: [u8; 32],
-        _input: &[u8],
-        _: ioi_types::app::agentic::InferenceOptions,
-    ) -> Result<Vec<u8>, VmError> {
-        // Return a verbose output to consume budget
-        let verbose_output = "a".repeat(100);
-        let tool_call = json!({
-            "name": "gui__click",
-            "arguments": { "x": 10, "y": 10, "note": verbose_output }
-        });
-        Ok(tool_call.to_string().into_bytes())
-    }
-    async fn load_model(&self, _: [u8; 32], _: &Path) -> Result<(), VmError> {
-        Ok(())
-    }
-    async fn unload_model(&self, _: [u8; 32]) -> Result<(), VmError> {
-        Ok(())
+    async fn get_element_center(&self, _id: u32) -> Result<Option<(u32, u32)>, VmError> {
+        Ok(None)
     }
 }
 
@@ -86,10 +73,19 @@ async fn test_agent_budget_limit() -> Result<()> {
     build_test_artifacts();
 
     let gui = Arc::new(MockGuiDriver);
-    let brain = Arc::new(CostlyBrain);
+    let brain = Arc::new(MockInferenceRuntime);
 
     use ioi_services::agentic::runtime::RuntimeAgentService;
-    let service = RuntimeAgentService::new_hybrid(gui, brain.clone(), brain.clone());
+    let service = RuntimeAgentService::new_hybrid(
+        gui,
+        Arc::new(TerminalDriver::new()),
+        Arc::new(BrowserDriver::new()),
+        brain.clone(),
+        brain.clone(),
+    )
+    .with_memory_runtime(Arc::new(
+        MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
+    ));
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
     use ioi_api::services::access::ServiceDirectory;
@@ -97,7 +93,7 @@ async fn test_agent_budget_limit() -> Result<()> {
     let services_dir = ServiceDirectory::new(vec![]);
     let mut ctx = TxContext {
         block_height: 1,
-        block_timestamp: ibc_primitives::Timestamp::now(),
+        block_timestamp: 1_700_000_000_000_000_000,
         chain_id: ioi_types::app::ChainId(0),
         signer_account_id: ioi_types::app::AccountId::default(),
         services: &services_dir,
@@ -105,15 +101,16 @@ async fn test_agent_budget_limit() -> Result<()> {
         is_internal: false,
     };
 
-    let session_id = [1u8; 32];
+    let parent_id = [1u8; 32];
 
-    // 1. Start with VERY LOW budget
+    // Start a parent agent with a small delegation budget.
     let start_params = StartAgentParams {
-        session_id,
-        goal: "Spend".into(),
+        session_id: parent_id,
+        goal: "Coordinate a small task".into(),
         max_steps: 5,
         parent_session_id: None,
-        initial_budget: 20, // 20 tokens is approx 80 chars.
+        initial_budget: 20,
+        mode: ioi_services::agentic::runtime::AgentMode::Agent,
     };
     service
         .handle_service_call(
@@ -124,65 +121,55 @@ async fn test_agent_budget_limit() -> Result<()> {
         )
         .await?;
 
-    let step_params = StepAgentParams { session_id };
-    let step_bytes = codec::to_bytes_canonical(&step_params).unwrap();
-
-    // 2. Trigger Step.
-    // The prompt + verbose output > 80 chars. Should fail.
-    // However, the cost calculation happens AFTER the call.
-    // So the first step might succeed but zero the budget, and the SECOND step fails.
-
-    // Step 1: Might succeed but drain budget.
-    let res1 = service
-        .handle_service_call(&mut state, "step@v1", &step_bytes, &mut ctx)
+    let child_id = [2u8; 32];
+    let child_start = StartAgentParams {
+        session_id: child_id,
+        goal: "Click the UI button".into(),
+        max_steps: 5,
+        parent_session_id: Some(parent_id),
+        initial_budget: 100,
+        mode: ioi_services::agentic::runtime::AgentMode::Agent,
+    };
+    let res = service
+        .handle_service_call(
+            &mut state,
+            "start@v1",
+            &codec::to_bytes_canonical(&child_start).unwrap(),
+            &mut ctx,
+        )
         .await;
 
-    // Check state after step 1
-    let key = [b"agent::state::".as_slice(), session_id.as_slice()].concat();
-    let state_1: AgentState =
+    let key = [b"agent::state::".as_slice(), parent_id.as_slice()].concat();
+    let state_after_step: AgentState =
         codec::from_bytes_canonical(&state.get(&key).unwrap().unwrap()).unwrap();
+    assert_eq!(
+        state_after_step.budget, 20,
+        "A rejected child start should not burn the parent's budget"
+    );
+    assert!(
+        state_after_step.child_session_ids.is_empty(),
+        "A rejected child start should not register a child session"
+    );
+    assert!(
+        matches!(state_after_step.status, AgentStatus::Running),
+        "A rejected child start should leave the parent running, got {:?}",
+        state_after_step.status
+    );
+    let child_key = [b"agent::state::".as_slice(), child_id.as_slice()].concat();
+    assert!(
+        state.get(&child_key).unwrap().is_none(),
+        "A rejected child start should not create child state"
+    );
 
-    // Step 1 drained it?
-    if state_1.budget == 0 {
-        // Step 2 should fail immediately
-        let res2 = service
-            .handle_service_call(&mut state, "step@v1", &step_bytes, &mut ctx)
-            .await;
-
-        // [FIX] Robust assertion: either "Agent not running" (if state persisted as Failed)
-        // OR "Budget Exhausted" (if check happens before status check) is acceptable proof of enforcement.
-        match res2 {
-            Err(e) => {
-                let msg = e.to_string();
-                assert!(
-                    msg.contains("Budget Exhausted") || msg.contains("Agent not running"),
-                    "Unexpected error: {}",
-                    msg
-                );
-            }
-            Ok(_) => panic!("Step 2 should have failed due to zero budget"),
-        }
-
-        let state_final: AgentState =
-            codec::from_bytes_canonical(&state.get(&key).unwrap().unwrap()).unwrap();
-
-        // Ensure status reflects failure
-        assert!(
-            matches!(state_final.status, AgentStatus::Failed(_)),
-            "Final status should be Failed, got {:?}",
-            state_final.status
-        );
-    } else {
-        // If initial step didn't drain it fully (due to short prompt in test), loop until it does.
-        // But with initial_budget=20, and output=100 chars, it MUST drain in step 1.
-        // Cost = (input + output) / 4. 100/4 = 25 tokens. 25 > 20.
-        // So step 1 should have set budget to 0 and status to Failed.
-        // And `handle_service_call` returns error.
-
-        assert!(res1.is_err());
-        assert_eq!(state_1.budget, 0);
-        assert!(matches!(state_1.status, AgentStatus::Failed(_)));
-    }
+    let msg = match res {
+        Err(e) => e.to_string(),
+        Ok(_) => panic!("Over-budget child start should fail immediately"),
+    };
+    assert!(
+        msg.contains("Insufficient parent budget for delegation"),
+        "Unexpected error: {}",
+        msg
+    );
 
     println!("✅ Agent Budget Enforcement E2E Passed");
     Ok(())

@@ -368,11 +368,11 @@ mod tests {
 
     use super::{
         required_citations_per_story, retrieval_contract_min_sources,
-        retrieval_or_query_requests_comparison,
         retrieval_contract_required_distinct_citations,
         retrieval_contract_required_document_briefing_citation_count,
         retrieval_contract_required_support_count,
         retrieval_contract_requires_document_briefing_identifier_evidence,
+        retrieval_or_query_requests_comparison,
     };
 
     #[test]

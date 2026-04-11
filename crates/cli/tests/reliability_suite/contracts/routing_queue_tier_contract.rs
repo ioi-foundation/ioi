@@ -45,7 +45,7 @@ fn queue_failure_state() -> AgentState {
         current_tier: ExecutionTier::DomHeadless,
         last_screen_phash: None,
         execution_queue: vec![ActionRequest {
-            target: ActionTarget::Custom("gui__click_element".to_string()),
+            target: ActionTarget::Custom("screen__click".to_string()),
             params: serde_jcs::to_vec(&json!({ "id": "btn_submit" })).unwrap(),
             context: ioi_types::app::ActionContext {
                 agent_id: "desktop_agent".to_string(),
@@ -94,13 +94,13 @@ fn queue_routing_receipt_uses_visual_last_tier_for_pre_state_and_intent_hash() {
     let (routing_decision, pre_state) = resolve_queue_routing_context(&mut state);
 
     let tool = AgentTool::Dynamic(json!({
-        "name": "gui__click_element",
+        "name": "screen__click",
         "arguments": {
             "id": "btn_submit"
         }
     }));
     let (tool_name, args) = canonical_tool_identity(&tool);
-    assert_eq!(tool_name, "gui__click_element");
+    assert_eq!(tool_name, "screen__click");
 
     let intent_hash = canonical_intent_hash(
         &tool_name,
@@ -111,7 +111,7 @@ fn queue_routing_receipt_uses_visual_last_tier_for_pre_state_and_intent_hash() {
     );
 
     let expected_payload = json!({
-        "tool_name": "gui__click_element",
+        "tool_name": "screen__click",
         "args": { "id": "btn_submit" },
         "tier": "VisualLast",
         "step_index": 9,
@@ -295,7 +295,7 @@ fn queue_custom_browser_click_target_maps_selector_and_id_variants() {
     let selector_tool =
         queue_action_request_to_tool(&selector_request).expect("selector variant should normalize");
     match selector_tool {
-        AgentTool::BrowserClick { ref selector } => {
+        AgentTool::BrowserClick { ref selector, .. } => {
             assert_eq!(selector, "#submit");
         }
         other => panic!("expected BrowserClick, got {:?}", other),
@@ -316,18 +316,19 @@ fn queue_custom_browser_click_target_maps_selector_and_id_variants() {
     };
     let id_tool = queue_action_request_to_tool(&id_request).expect("id variant should normalize");
     match id_tool {
-        AgentTool::BrowserClickElement {
+        AgentTool::BrowserClick {
             ref id,
             ref ids,
             delay_ms_between_ids,
             continue_with,
+            ..
         } => {
             assert_eq!(id.as_deref(), Some("btn_submit"));
             assert!(ids.is_empty());
             assert!(delay_ms_between_ids.is_none());
             assert!(continue_with.is_none());
         }
-        other => panic!("expected BrowserClickElement, got {:?}", other),
+        other => panic!("expected BrowserClick, got {:?}", other),
     }
 }
 

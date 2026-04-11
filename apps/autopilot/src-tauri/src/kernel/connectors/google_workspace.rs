@@ -14,10 +14,6 @@ use tauri::State;
 
 pub use shared::{ConnectorActionDefinition, ConnectorActionResult, ConnectorConfigureResult};
 
-fn google_mock_fixture_active() -> bool {
-    ioi_services::agentic::runtime::connectors::mock_fixtures::google_mock_fixture_active()
-}
-
 pub async fn connector_list_actions(
     connector_id: String,
 ) -> Result<Vec<ConnectorActionDefinition>, String> {
@@ -34,15 +30,12 @@ pub async fn connector_configure(
     connector_id: String,
     input: Value,
 ) -> Result<ConnectorConfigureResult, String> {
-    let mock_fixture_active = google_mock_fixture_active();
-    if !mock_fixture_active {
+    if shared::matches_google_connector_id(&connector_id) {
         let _ = auth::sync_google_auth_from_wallet(&state).await;
     }
     let mut result = shared::connector_configure(&connector_id, input).await?;
     if shared::matches_google_connector_id(&connector_id) {
-        if !mock_fixture_active {
-            auth::sync_google_auth_to_wallet(&state).await?;
-        }
+        auth::sync_google_auth_to_wallet(&state).await?;
         let subscriptions = manager
             .list_subscriptions(shared::GOOGLE_CONNECTOR_ID)
             .await?;

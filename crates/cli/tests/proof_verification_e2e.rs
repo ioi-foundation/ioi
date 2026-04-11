@@ -8,7 +8,10 @@
 ))]
 
 use anyhow::Result;
-use ioi_cli::testing::{assert_log_contains, build_test_artifacts, wait_for_height, TestValidator};
+use ioi_cli::testing::{
+    assert_log_contains, build_test_artifacts, reserve_free_validator_ports, wait_for_height,
+    TestValidator,
+};
 use ioi_types::{
     app::{
         ActiveKeyRecord, BlockTimingParams, BlockTimingRuntime, SignatureSuite, ValidatorSetV1,
@@ -78,10 +81,12 @@ async fn test_orchestration_rejects_tampered_proof() -> Result<()> {
         .to_string()
     };
 
+    let mut port_block = reserve_free_validator_ports()?;
     let node_guard = TestValidator::launch(
         keypair,
         genesis_content,
-        7000,
+        port_block.base_port,
+        port_block.take_reservations(),
         1.into(),
         None,
         "Aft",

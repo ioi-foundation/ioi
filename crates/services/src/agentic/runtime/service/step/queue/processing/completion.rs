@@ -6,7 +6,7 @@ use crate::agentic::runtime::service::step::browser_completion::browser_snapshot
 use crate::agentic::runtime::service::step::helpers::should_auto_complete_open_app_goal;
 use crate::agentic::runtime::service::step::intent_resolver::tool_has_capability;
 use crate::agentic::runtime::types::{AgentState, AgentStatus};
-use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use ioi_types::app::agentic::{AgentTool, ScreenAction};
 
 pub(super) fn complete_with_summary(
     agent_state: &mut AgentState,
@@ -228,10 +228,7 @@ pub(super) fn maybe_complete_screenshot_capture(
         return;
     }
 
-    let screenshot_tool = matches!(
-        tool_wrapper,
-        AgentTool::Computer(ComputerAction::Screenshot)
-    );
+    let screenshot_tool = matches!(tool_wrapper, AgentTool::Screen(ScreenAction::Screenshot));
     if !screenshot_tool {
         return;
     }

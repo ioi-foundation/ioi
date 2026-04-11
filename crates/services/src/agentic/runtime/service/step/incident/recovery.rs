@@ -2,11 +2,11 @@ use super::core::{
     canonical_tool_args, canonical_tool_name, tool_fingerprint, IncidentState,
     FORBIDDEN_LIFECYCLE_TOOLS,
 };
+use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::middleware;
 use crate::agentic::runtime::service::step::anti_loop::FailureClass;
 use crate::agentic::runtime::service::step::ontology::{IntentClass, StrategyName};
 use crate::agentic::runtime::types::AgentState;
-use crate::agentic::rules::ActionRules;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::error::TransactionError;
@@ -101,7 +101,7 @@ fn is_browser_root_tool(root_tool_name: &str) -> bool {
 fn is_browser_snapshot_root_tool(root_tool_name: &str) -> bool {
     root_tool_name
         .trim()
-        .eq_ignore_ascii_case("browser__snapshot")
+        .eq_ignore_ascii_case("browser__inspect")
 }
 
 fn is_browser_reacquisition_failure(class: FailureClass) -> bool {
@@ -134,7 +134,7 @@ pub(super) fn browser_root_failure_prefers_direct_retry(incident_state: &Inciden
             incident_state
                 .root_tool_name
                 .trim()
-                .eq_ignore_ascii_case("browser__click_element")
+                .eq_ignore_ascii_case("browser__click")
                 && root_error_has_click_dispatch_timeout(root_error)
         }
         _ => false,
@@ -169,7 +169,7 @@ fn root_error_verify_payload(root_error: &str) -> Option<Value> {
 fn is_gui_click_root_tool(root_tool_name: &str) -> bool {
     matches!(
         root_tool_name.trim().to_ascii_lowercase().as_str(),
-        "gui__click" | "gui__click_element" | "computer"
+        "screen__click_at" | "screen__click" | "screen"
     )
 }
 
@@ -201,16 +201,16 @@ pub(super) fn deterministic_recovery_tool(
         && root_failure_class
             .map(is_browser_reacquisition_failure)
             .unwrap_or(false)
-        && available_tool_names.contains("browser__snapshot")
+        && available_tool_names.contains("browser__inspect")
         && !(is_browser_snapshot_root_tool(&incident_state.root_tool_name)
             && matches!(root_failure_class, Some(FailureClass::NoEffectAfterAction)))
     {
         let payload = json!({
-            "name": "browser__snapshot",
+            "name": "browser__inspect",
             "arguments": {}
         });
         let tool = middleware::normalize_tool_call(&payload.to_string()).map_err(|e| {
-            TransactionError::Invalid(format!("browser__snapshot fallback invalid: {}", e))
+            TransactionError::Invalid(format!("browser__inspect fallback invalid: {}", e))
         })?;
         if !is_duplicate_recovery_fingerprint(&tool, &incident_state.visited_node_fingerprints) {
             return Ok(Some(tool));
@@ -218,15 +218,15 @@ pub(super) fn deterministic_recovery_tool(
     }
 
     if is_phase0_browser_gui_click_violation(incident_state)
-        && available_tool_names.contains("browser__snapshot")
+        && available_tool_names.contains("browser__inspect")
     {
         let payload = json!({
-            "name": "browser__snapshot",
+            "name": "browser__inspect",
             "arguments": {}
         });
         let tool = middleware::normalize_tool_call(&payload.to_string()).map_err(|e| {
             TransactionError::Invalid(format!(
-                "browser__snapshot fallback invalid for phase0 click guard: {}",
+                "browser__inspect fallback invalid for phase0 click guard: {}",
                 e
             ))
         })?;
@@ -235,7 +235,7 @@ pub(super) fn deterministic_recovery_tool(
         }
     }
 
-    if available_tool_names.contains("ui__find") {
+    if available_tool_names.contains("screen__find") {
         let query = parse_launch_app_name(&incident_state.root_tool_jcs)
             .or_else(|| {
                 agent_state
@@ -245,28 +245,29 @@ pub(super) fn deterministic_recovery_tool(
             })
             .unwrap_or_else(|| agent_state.goal.clone());
         let payload = json!({
-            "name": "ui__find",
+            "name": "screen__find",
             "arguments": { "query": query }
         });
-        let tool = middleware::normalize_tool_call(&payload.to_string())
-            .map_err(|e| TransactionError::Invalid(format!("ui__find fallback invalid: {}", e)))?;
+        let tool = middleware::normalize_tool_call(&payload.to_string()).map_err(|e| {
+            TransactionError::Invalid(format!("screen__find fallback invalid: {}", e))
+        })?;
         if !is_duplicate_recovery_fingerprint(&tool, &incident_state.visited_node_fingerprints) {
             return Ok(Some(tool));
         }
     }
 
-    if available_tool_names.contains("os__focus_window") {
+    if available_tool_names.contains("window__focus") {
         if let Some(hint) = agent_state
             .target
             .as_ref()
             .and_then(|target| target.app_hint.clone())
         {
             let payload = json!({
-                "name": "os__focus_window",
+                "name": "window__focus",
                 "arguments": { "title": hint }
             });
             let tool = middleware::normalize_tool_call(&payload.to_string()).map_err(|e| {
-                TransactionError::Invalid(format!("os__focus_window fallback invalid: {}", e))
+                TransactionError::Invalid(format!("window__focus fallback invalid: {}", e))
             })?;
             if !is_duplicate_recovery_fingerprint(&tool, &incident_state.visited_node_fingerprints)
             {
@@ -288,9 +289,9 @@ pub(super) fn incident_specific_forbidden_tools(
     {
         for tool_name in [
             "browser__navigate",
-            "browser__go_back",
-            "browser__tab_switch",
-            "browser__tab_close",
+            "browser__back",
+            "browser__switch_tab",
+            "browser__close_tab",
         ] {
             forbidden.insert(tool_name.to_string());
         }
@@ -407,10 +408,10 @@ fn tool_to_action_request(
 fn should_embed_queue_tool_name_metadata(target: &ActionTarget, tool_name: &str) -> bool {
     matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite)
         || (matches!(target, ActionTarget::GuiClick | ActionTarget::UiClick)
-            && tool_name == "gui__click_element")
+            && tool_name == "screen__click")
         || matches!(target, ActionTarget::BrowserInteract)
         || (matches!(target, ActionTarget::SysExec)
-            && matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset"))
+            && matches!(tool_name, "shell__start" | "shell__reset"))
 }
 
 pub(super) fn queue_recovery_action(
@@ -452,10 +453,10 @@ mod tests {
         build_planner_prompt, deterministic_recovery_tool, incident_specific_forbidden_tools,
         tool_fingerprint, tool_to_action_request, IncidentState, QUEUE_TOOL_NAME_KEY,
     };
+    use crate::agentic::rules::ActionRules;
     use crate::agentic::runtime::types::{
         AgentMode, AgentState, AgentStatus, ExecutionTier, InteractionTarget,
     };
-    use crate::agentic::rules::ActionRules;
     use ioi_types::app::{agentic::AgentTool, ActionTarget};
     use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -528,11 +529,11 @@ mod tests {
 
     #[test]
     fn planner_prompt_includes_pending_browser_state_when_present() {
-        let incident = test_incident_state("browser__snapshot", "NoEffectAfterAction");
+        let incident = test_incident_state("browser__inspect", "NoEffectAfterAction");
         let prompt = build_planner_prompt(
             &incident,
             &BTreeSet::new(),
-            Some("RECENT PENDING BROWSER STATE:\nUse `browser__click_element` on `lnk_443422`."),
+            Some("RECENT PENDING BROWSER STATE:\nUse `browser__click` on `lnk_443422`."),
         );
         assert!(prompt.contains("Current pending browser state"));
         assert!(prompt.contains("lnk_443422"));
@@ -555,7 +556,7 @@ mod tests {
             .get(QUEUE_TOOL_NAME_KEY)
             .and_then(|v| v.as_str())
             .expect("fs queue metadata should be present");
-        assert_eq!(tool_name, "filesystem__patch");
+        assert_eq!(tool_name, "file__edit");
     }
 
     #[test]
@@ -567,7 +568,7 @@ mod tests {
             .get(QUEUE_TOOL_NAME_KEY)
             .and_then(|v| v.as_str())
             .expect("gui click element metadata should be present");
-        assert_eq!(tool_name, "gui__click_element");
+        assert_eq!(tool_name, "screen__click");
     }
 
     #[test]
@@ -588,13 +589,14 @@ mod tests {
             serde_json::from_slice(&request.params).expect("params should decode as JSON");
         assert_eq!(
             value.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
-            Some("sys__exec_session")
+            Some("shell__start")
         );
     }
 
     #[test]
     fn browser_targets_embed_tool_name_metadata() {
-        let value = queued_params(AgentTool::BrowserClickElement {
+        let value = queued_params(AgentTool::BrowserClick {
+            selector: String::new(),
             id: Some("submit_button".to_string()),
             ids: Vec::new(),
             delay_ms_between_ids: None,
@@ -606,14 +608,15 @@ mod tests {
         );
         assert_eq!(
             value.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
-            Some("browser__click_element")
+            Some("browser__click")
         );
     }
 
     #[test]
     fn deterministic_recovery_prefers_browser_snapshot_for_browser_target_not_found() {
-        let available = BTreeSet::from(["browser__snapshot".to_string(), "ui__find".to_string()]);
-        let incident = test_incident_state("browser__click_element", "TargetNotFound");
+        let available =
+            BTreeSet::from(["browser__inspect".to_string(), "screen__find".to_string()]);
+        let incident = test_incident_state("browser__click", "TargetNotFound");
         let agent_state = test_agent_state("click sign in");
 
         let tool = deterministic_recovery_tool(
@@ -633,8 +636,9 @@ mod tests {
 
     #[test]
     fn deterministic_recovery_prefers_browser_snapshot_for_browser_timeout() {
-        let available = BTreeSet::from(["browser__snapshot".to_string(), "ui__find".to_string()]);
-        let incident = test_incident_state("browser__click_element", "TimeoutOrHang");
+        let available =
+            BTreeSet::from(["browser__inspect".to_string(), "screen__find".to_string()]);
+        let incident = test_incident_state("browser__click", "TimeoutOrHang");
         let agent_state = test_agent_state("click sign in");
 
         let tool = deterministic_recovery_tool(
@@ -654,7 +658,7 @@ mod tests {
 
     #[test]
     fn browser_root_failure_prefers_direct_retry_for_browser_session_unstable_timeout() {
-        let mut incident = test_incident_state("browser__click_element", "TimeoutOrHang");
+        let mut incident = test_incident_state("browser__click", "TimeoutOrHang");
         incident.root_error = Some(
             "ERROR_CLASS=TimeoutOrHang Click element 'btn_buy' could not continue. verify={\"browser_session_unstable\":true,\"retry_recommended\":true}".to_string(),
         );
@@ -664,14 +668,14 @@ mod tests {
 
     #[test]
     fn browser_root_failure_does_not_prefer_direct_retry_without_retry_signal() {
-        let incident = test_incident_state("browser__click_element", "TimeoutOrHang");
+        let incident = test_incident_state("browser__click", "TimeoutOrHang");
 
         assert!(!super::browser_root_failure_prefers_direct_retry(&incident));
     }
 
     #[test]
     fn browser_root_failure_prefers_direct_retry_for_click_dispatch_timeout_no_effect() {
-        let mut incident = test_incident_state("browser__click_element", "NoEffectAfterAction");
+        let mut incident = test_incident_state("browser__click", "NoEffectAfterAction");
         incident.root_error = Some(
             "ERROR_CLASS=NoEffectAfterAction Failed to click element 'btn_buy'. verify={\"dispatch_failures\":[{\"error\":\"dispatch timed out after 2500 ms. Retry the action.\",\"method\":\"selector_grounded\",\"selector\":\"#buy\"}],\"id\":\"btn_buy\"}".to_string(),
         );
@@ -681,7 +685,7 @@ mod tests {
 
     #[test]
     fn browser_root_failure_does_not_prefer_direct_retry_for_non_click_no_effect() {
-        let mut incident = test_incident_state("browser__snapshot", "NoEffectAfterAction");
+        let mut incident = test_incident_state("browser__inspect", "NoEffectAfterAction");
         incident.root_error =
             Some("ERROR_CLASS=NoEffectAfterAction duplicate replay guard".to_string());
 
@@ -690,8 +694,8 @@ mod tests {
 
     #[test]
     fn deterministic_recovery_falls_back_to_ui_find_without_browser_snapshot() {
-        let available = BTreeSet::from(["ui__find".to_string()]);
-        let incident = test_incident_state("browser__click_element", "TargetNotFound");
+        let available = BTreeSet::from(["screen__find".to_string()]);
+        let incident = test_incident_state("browser__click", "TargetNotFound");
         let agent_state = test_agent_state("find login button");
 
         let tool = deterministic_recovery_tool(
@@ -711,8 +715,9 @@ mod tests {
 
     #[test]
     fn deterministic_recovery_prefers_browser_snapshot_for_phase0_gui_click_violation() {
-        let available = BTreeSet::from(["browser__snapshot".to_string(), "ui__find".to_string()]);
-        let mut incident = test_incident_state("gui__click_element", "TierViolation");
+        let available =
+            BTreeSet::from(["browser__inspect".to_string(), "screen__find".to_string()]);
+        let mut incident = test_incident_state("screen__click", "TierViolation");
         incident.root_error = Some(
             "ERROR_CLASS=TierViolation ERROR_CODE=BrowserGuiClickDisallowedPhase0".to_string(),
         );
@@ -735,8 +740,8 @@ mod tests {
 
     #[test]
     fn deterministic_recovery_phase0_violation_falls_back_without_browser_snapshot() {
-        let available = BTreeSet::from(["ui__find".to_string()]);
-        let mut incident = test_incident_state("computer", "TierViolation");
+        let available = BTreeSet::from(["screen__find".to_string()]);
+        let mut incident = test_incident_state("screen", "TierViolation");
         incident.root_error = Some(
             "ERROR_CLASS=TierViolation ERROR_CODE=BrowserGuiClickDisallowedPhase0".to_string(),
         );
@@ -759,8 +764,8 @@ mod tests {
 
     #[test]
     fn deterministic_recovery_skips_visited_ui_find_without_alternative() {
-        let available = BTreeSet::from(["ui__find".to_string()]);
-        let mut incident = test_incident_state("browser__click_element", "TargetNotFound");
+        let available = BTreeSet::from(["screen__find".to_string()]);
+        let mut incident = test_incident_state("browser__click", "TargetNotFound");
         let agent_state = test_agent_state("find login button");
         incident
             .visited_node_fingerprints
@@ -778,14 +783,14 @@ mod tests {
 
         assert!(
             tool.is_none(),
-            "visited ui__find fingerprint should not be selected again"
+            "visited screen__find fingerprint should not be selected again"
         );
     }
 
     #[test]
     fn deterministic_recovery_falls_back_to_focus_window_when_ui_find_is_visited() {
-        let available = BTreeSet::from(["ui__find".to_string(), "os__focus_window".to_string()]);
-        let mut incident = test_incident_state("browser__click_element", "TargetNotFound");
+        let available = BTreeSet::from(["screen__find".to_string(), "window__focus".to_string()]);
+        let mut incident = test_incident_state("browser__click", "TargetNotFound");
         let mut agent_state = test_agent_state("find login button");
         agent_state.target = Some(InteractionTarget {
             app_hint: Some("Firefox".to_string()),
@@ -814,8 +819,9 @@ mod tests {
 
     #[test]
     fn deterministic_recovery_does_not_replay_browser_snapshot_after_duplicate_no_effect() {
-        let available = BTreeSet::from(["browser__snapshot".to_string(), "ui__find".to_string()]);
-        let incident = test_incident_state("browser__snapshot", "NoEffectAfterAction");
+        let available =
+            BTreeSet::from(["browser__inspect".to_string(), "screen__find".to_string()]);
+        let incident = test_incident_state("browser__inspect", "NoEffectAfterAction");
         let agent_state = test_agent_state("click sign in");
 
         let tool = deterministic_recovery_tool(
@@ -835,12 +841,12 @@ mod tests {
 
     #[test]
     fn duplicate_browser_snapshot_incident_forbids_navigation_remedies() {
-        let incident = test_incident_state("browser__snapshot", "NoEffectAfterAction");
+        let incident = test_incident_state("browser__inspect", "NoEffectAfterAction");
         let forbidden = incident_specific_forbidden_tools(&incident);
 
         assert!(forbidden.contains("browser__navigate"));
-        assert!(forbidden.contains("browser__go_back"));
-        assert!(forbidden.contains("browser__tab_switch"));
-        assert!(forbidden.contains("browser__tab_close"));
+        assert!(forbidden.contains("browser__back"));
+        assert!(forbidden.contains("browser__switch_tab"));
+        assert!(forbidden.contains("browser__close_tab"));
     }
 }

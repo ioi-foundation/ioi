@@ -10,7 +10,7 @@ pub(in super::super) fn maybe_handle_browser_snapshot(
     err: &mut Option<String>,
     completion_summary: &mut Option<String>,
 ) {
-    if is_gated || tool_name != "browser__snapshot" {
+    if is_gated || tool_name != "browser__inspect" {
         return;
     }
     let Some(pending) = agent_state.pending_search_completion.clone() else {
@@ -31,7 +31,7 @@ pub(in super::super) fn maybe_handle_browser_snapshot(
         true,
     );
     log::info!(
-        "Search flow completed after browser__snapshot for session {}.",
+        "Search flow completed after browser__inspect for session {}.",
         hex::encode(&session_id[..4])
     );
 }

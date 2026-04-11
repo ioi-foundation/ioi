@@ -264,13 +264,13 @@ impl InferenceRuntime for MockInferenceRuntime {
             })
         } else if input_str.contains("click") {
             json!({
-                "name": "gui__click",
+                "name": "screen__click_at",
                 "arguments": { "x": 500, "y": 500, "button": "left" }
             })
         } else {
             // Default thought/action
             json!({
-                "name": "sys__exec",
+                "name": "shell__run",
                 "arguments": { "command": "echo", "args": ["Mock Brain Thinking..."] }
             })
         };

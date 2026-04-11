@@ -205,8 +205,9 @@ fn extract_inline_python_function_blocks(
                 let trimmed_following = following.trim();
                 if trimmed_following.is_empty()
                     || trimmed_following.starts_with("```")
-                    || trimmed_following.starts_with("sys__")
-                    || trimmed_following.starts_with("filesystem__")
+                    || trimmed_following.starts_with("shell__")
+                    || trimmed_following.starts_with("package__")
+                    || trimmed_following.starts_with("file__")
                     || trimmed_following.starts_with("agent__")
                     || trimmed_following.starts_with('{')
                     || trimmed_following.starts_with('[')
@@ -380,7 +381,8 @@ fn extract_inline_python_return_line(raw_tool_output: &str) -> Option<String> {
             if trimmed.is_empty()
                 || trimmed.starts_with('#')
                 || trimmed.starts_with("```")
-                || trimmed.starts_with("sys__")
+                || trimmed.starts_with("shell__")
+                || trimmed.starts_with("package__")
                 || trimmed.starts_with('{')
                 || trimmed.starts_with('[')
             {
@@ -388,7 +390,7 @@ fn extract_inline_python_return_line(raw_tool_output: &str) -> Option<String> {
             }
             let start = trimmed.find("return ")?;
             let candidate = trimmed[start..].trim();
-            if candidate.contains("filesystem__") || candidate.contains("agent__") {
+            if candidate.contains("file__") || candidate.contains("agent__") {
                 return None;
             }
             Some(candidate.to_string())

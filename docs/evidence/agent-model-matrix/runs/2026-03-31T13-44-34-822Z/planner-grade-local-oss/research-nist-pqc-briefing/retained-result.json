@@ -56,19 +56,19 @@
     "final_reply": "",
     "chat_reply_count": 0,
     "action_tools": [
-      "system__fail"
+      "agent__escalate"
     ],
     "planned_tool_calls": [
       {
         "step_index": 0,
-        "tool_name": "system__fail",
+        "tool_name": "agent__escalate",
         "arguments": {
           "reason": "ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms."
         }
       }
     ],
     "routing_tools": [
-      "system__fail"
+      "agent__escalate"
     ],
     "workload_tools": [],
     "routing_policy_decisions": [
@@ -496,13 +496,13 @@
     "parent_playbook_receipts": [],
     "action_evidence": [
       {
-        "tool_name": "system__fail",
+        "tool_name": "agent__escalate",
         "agent_status": "Failed",
         "output_excerpt": "Agent Failure: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.",
         "error_class": null
       },
       {
-        "tool_name": "system__fail",
+        "tool_name": "agent__escalate",
         "agent_status": "Failed",
         "output_excerpt": "Agent Failed: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.",
         "error_class": "TimeoutOrHang"
@@ -520,7 +520,7 @@
         "satisfied": true,
         "timestamp_ms": 1774964943725,
         "probe_source": "service_action_execution",
-        "observed_value": "{\"elapsed_ms\":3,\"finished_at_ms\":1774964943725,\"foreground_window_bound\":true,\"started_at_ms\":1774964943722,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"Custom(\\\"system__fail\\\")\"}",
+        "observed_value": "{\"elapsed_ms\":3,\"finished_at_ms\":1774964943725,\"foreground_window_bound\":true,\"started_at_ms\":1774964943722,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"Custom(\\\"agent__escalate\\\")\"}",
         "evidence_type": "json",
         "provider_id": null
       },
@@ -531,7 +531,7 @@
         "satisfied": true,
         "timestamp_ms": 1774964943728,
         "probe_source": "service_action_execution",
-        "observed_value": "{\"elapsed_ms\":2,\"finished_at_ms\":1774964943728,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"Custom(\\\"system__fail\\\")\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1774964943726,\"status\":\"completed\"}",
+        "observed_value": "{\"elapsed_ms\":2,\"finished_at_ms\":1774964943728,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"Custom(\\\"agent__escalate\\\")\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1774964943726,\"status\":\"completed\"}",
         "evidence_type": "json",
         "provider_id": null
       },
@@ -685,21 +685,21 @@
       "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"web....",
       "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"web....",
       "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"web....",
-      "action tool=system__fail status=Failed error_class=none output=Agent Failure: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.",
+      "action tool=agent__escalate status=Failed error_class=none output=Agent Failure: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.",
       "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0...",
-      "action tool=system__fail status=Failed error_class=TimeoutOrHang output=Agent Failed: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.",
-      "routing tool=system__fail decision=allowed success=false checks=incident_active=false,attempt_repeat_count=1,attempt_key_hash=876d6f2360fa30f52e506261c30bbfb39cdb6f9817f85c1daee15954e4d33d4e,attempt_retry_budget_remaining=2,attempt_retry_blocked_without_change=false,incident_active=true,incident_id_stable=true,incident_id=3280696e6a9e821f040b..."
+      "action tool=agent__escalate status=Failed error_class=TimeoutOrHang output=Agent Failed: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.",
+      "routing tool=agent__escalate decision=allowed success=false checks=incident_active=false,attempt_repeat_count=1,attempt_key_hash=876d6f2360fa30f52e506261c30bbfb39cdb6f9817f85c1daee15954e4d33d4e,attempt_retry_budget_remaining=2,attempt_retry_blocked_without_change=false,incident_active=true,incident_id_stable=true,incident_id=3280696e6a9e821f040b..."
     ],
     "kernel_event_count": 8,
     "kernel_log_lines": [
       "event(other) payload=PiiDecisionReceipt(PiiDecisionReceiptEvent { session_id: Some([100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115]), target: \"cloud_inference::desktop_agent::model_hash:0000000000000000000000000000000000000000000000000000000000000000\", target_id: Some(CloudInference { provider: \"desktop_agent\", model: \"model_hash:0000000000000000000000000000000000000000000000000000000000000000\" }), risk_surface: \"egress\", decision_hash: [154, 194, 61, 131, 76, 126, 65, 134, 129, 117, 144, 174, 61, 114, 215, 247, 226, 92, 67, 39, 198, 150, 235, 136, 165, 148, 9, 141, 180, 181, 1, 44], decision: Allow, transform_plan_id: None, span_count: 0, ambiguous: false, stage2_kind: None, assist_invoked: true, assist_applied: false, assist_kind: \"cim_v0\", assist_version: \"cim-v0.1\", assist_identity_hash: [123, 47, 110, 106, 223, 243, 5, 198, 133, 149, 55, 57, 240, 70, 251, 178, 54, 113, 121, 218, 56, 110, 253, 254, 169, 198, 172, 172, 243, 188, 114, 93], assist_input_graph_hash: [139, 142, 193, 195, 231, 203, 16, 200, 100, 205, 196, 65, 67, 37, 186, 231, 153, 145, 247, 30, 84, 135, 190, 10, 190, 212, 46, 13, 113, 67, 101, 152], assist_output_graph_hash: [139, 142, 193, 195, 231, 203, 16, 200, 100, 205, 196, 65, 67, 37, 186, 231, 153, 145, 247, 30, 84, 135, 190, 10, 190, 212, 46, 13, 113, 67, 101, 152] })",
-      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"web.research\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1774964943725, evidence_commit_hash: \"sha256:19669244aec1d564162e76575ba120dd72d964131186febe0fbe5bb9c8e18587\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":3,\\\"finished_at_ms\\\":1774964943725,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1774964943722,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"Custom(\\\\\\\"system__fail\\\\\\\")\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
-      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"web.research\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1774964943728, evidence_commit_hash: \"sha256:ea7f4f44e71a0d810ec1d82fc0b0f1d07e4dce4dfb46a888c67c0be0bef76e13\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":2,\\\"finished_at_ms\\\":1774964943728,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"Custom(\\\\\\\"system__fail\\\\\\\")\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774964943726,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"web.research\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1774964943725, evidence_commit_hash: \"sha256:19669244aec1d564162e76575ba120dd72d964131186febe0fbe5bb9c8e18587\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":3,\\\"finished_at_ms\\\":1774964943725,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1774964943722,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"Custom(\\\\\\\"agent__escalate\\\\\\\")\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+      "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"web.research\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1774964943728, evidence_commit_hash: \"sha256:ea7f4f44e71a0d810ec1d82fc0b0f1d07e4dce4dfb46a888c67c0be0bef76e13\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":2,\\\"finished_at_ms\\\":1774964943728,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"Custom(\\\\\\\"agent__escalate\\\\\\\")\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774964943726,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
       "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, intent_id: \"web.research\", stage: \"execution\", key: \"service_policy_gate\", satisfied: true, timestamp_ms: 1774964943728, evidence_commit_hash: \"sha256:4f36634889bbc366310e6967660f0e06b6d476d05e470f84a52e206b36cb5bbb\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":0,\\\"finished_at_ms\\\":1774964943728,\\\"net_mode\\\":\\\"disabled\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1774964943728,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
-      "action tool=system__fail status=Failed error_class=none output=Agent Failure: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.",
-      "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: InferenceTimeout]\\n{\\\"arguments\\\":{\\\"reason\\\":\\\"ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.\\\"},\\\"name\\\":\\\"system__fail\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"reason\\\":\\\"ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.\\\"},\\\"name\\\":\\\"system__fail\\\"}\", success: false, error: Some(\"Agent Failure: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.\"), cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774964945 })",
-      "action tool=system__fail status=Failed error_class=TimeoutOrHang output=Agent Failed: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.",
-      "routing tool=system__fail decision=allowed success=false checks=incident_active=false,attempt_repeat_count=1,attempt_key_hash=876d6f2360fa30f52e506261c30bbfb39cdb6f9817f85c1daee15954e4d33d4e,attempt_retry_budget_remaining=2,attempt_retry_blocked_without_change=false,incident_active=true,incident_id_stable=true,incident_id=3280696e6a9e821f040b506e94e9c97916dc48eafcdaad7a4a595463db7b89ee,incident_stage_before=New,incident_stage_after=PausedForUser,incident_transitions_used=0,incident_budget_remaining=2,incident_intent=BrowserTask,browser_recovery_deterministic_only=true,queued_retry_after_remedy_success=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=true,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true,failure_class=TimeoutOrHang"
+      "action tool=agent__escalate status=Failed error_class=none output=Agent Failure: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.",
+      "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Strategy: InferenceTimeout]\\n{\\\"arguments\\\":{\\\"reason\\\":\\\"ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.\\\"},\\\"name\\\":\\\"agent__escalate\\\"}\", raw_output: \"{\\\"arguments\\\":{\\\"reason\\\":\\\"ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.\\\"},\\\"name\\\":\\\"agent__escalate\\\"}\", success: false, error: Some(\"Agent Failure: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.\"), cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1774964945 })",
+      "action tool=agent__escalate status=Failed error_class=TimeoutOrHang output=Agent Failed: ERROR_CLASS=TimeoutOrHang Cognition inference timed out after 15000ms.",
+      "routing tool=agent__escalate decision=allowed success=false checks=incident_active=false,attempt_repeat_count=1,attempt_key_hash=876d6f2360fa30f52e506261c30bbfb39cdb6f9817f85c1daee15954e4d33d4e,attempt_retry_budget_remaining=2,attempt_retry_blocked_without_change=false,incident_active=true,incident_id_stable=true,incident_id=3280696e6a9e821f040b506e94e9c97916dc48eafcdaad7a4a595463db7b89ee,incident_stage_before=New,incident_stage_after=PausedForUser,incident_transitions_used=0,incident_budget_remaining=2,incident_intent=BrowserTask,browser_recovery_deterministic_only=true,queued_retry_after_remedy_success=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,remediation_queued=false,stop_condition_hit=true,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true,failure_class=TimeoutOrHang"
     ]
   },
   "suiteSummary": null,

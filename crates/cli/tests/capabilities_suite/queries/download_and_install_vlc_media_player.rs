@@ -12,7 +12,7 @@ const EXPECTED_FIXTURE_MODE: &str = "apt_get_vlc_fixture_v1";
 const UNSEEDED_QUERY: &str = concat!(
     "Download and install VLC media player. ",
     "Use the local package-installation execution path in this fixture environment ",
-    "(install package `vlc` via sys__install_package and fixture-backed apt/sudo). ",
+    "(install package `vlc` via package__install and fixture-backed apt/sudo). ",
     "Do not use web__search, web__read, browser navigation, or other web retrieval tools. ",
     "After install, verify fixture installation artifacts and provide a concise completion summary."
 );
@@ -145,12 +145,12 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && install_action_hard_failure_count == 0
         && (install_action_success_count > 0 || cec_phase_receipts_present);
 
-    let action_install_path_seen = has_tool_with_token(&obs.action_tools, "sys__install_package");
-    let routing_install_path_seen = has_tool_with_token(&obs.routing_tools, "sys__install_package");
-    let sys_exec_path_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec")
-        || has_tool_with_token(&obs.action_tools, "sys__exec_session")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec_session");
+    let action_install_path_seen = has_tool_with_token(&obs.action_tools, "package__install");
+    let routing_install_path_seen = has_tool_with_token(&obs.routing_tools, "package__install");
+    let sys_exec_path_seen = has_tool_with_token(&obs.action_tools, "shell__run")
+        || has_tool_with_token(&obs.routing_tools, "shell__run")
+        || has_tool_with_token(&obs.action_tools, "shell__start")
+        || has_tool_with_token(&obs.routing_tools, "shell__start");
     let web_path_seen = has_tool_with_token(&obs.action_tools, "web__search")
         || has_tool_with_token(&obs.routing_tools, "web__search")
         || has_tool_with_token(&obs.action_tools, "web__read")
@@ -295,7 +295,7 @@ fn is_vlc_install_success(entry: &super::super::types::ActionEvidence) -> bool {
         .as_deref()
         .map(is_no_effect_after_action_class)
         .unwrap_or(false);
-    entry.tool_name.eq_ignore_ascii_case("sys__install_package")
+    entry.tool_name.eq_ignore_ascii_case("package__install")
         && entry.agent_status.eq_ignore_ascii_case("completed")
         && !duplicate_no_effect
         && !action_has_hard_error_class(entry)
@@ -307,7 +307,7 @@ fn is_vlc_install_hard_failure(entry: &super::super::types::ActionEvidence) -> b
         .as_deref()
         .map(is_no_effect_after_action_class)
         .unwrap_or(false);
-    entry.tool_name.eq_ignore_ascii_case("sys__install_package")
+    entry.tool_name.eq_ignore_ascii_case("package__install")
         && !duplicate_no_effect
         && (entry.agent_status.eq_ignore_ascii_case("failed") || action_has_hard_error_class(entry))
 }

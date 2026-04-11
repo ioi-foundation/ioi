@@ -213,7 +213,7 @@ fn classify_launch_lookup_failures_as_user_intervention_needed() {
 fn clarification_gate_detects_marker_only_install_failures() {
     let msg =
         "ERROR_CLASS=MissingDependency Failed to install 'calculator' via 'apt-get': Command failed: exit status: 100";
-    assert!(requires_wait_for_clarification("sys__install_package", msg));
+    assert!(requires_wait_for_clarification("package__install", msg));
 }
 
 #[test]
@@ -251,14 +251,14 @@ fn attempt_key_hash_is_stable() {
     let key_a = build_attempt_key(
         "deadbeef",
         ExecutionTier::DomHeadless,
-        "sys__exec",
+        "shell__run",
         Some("calculator"),
         Some("abcd"),
     );
     let key_b = build_attempt_key(
         "deadbeef",
         ExecutionTier::DomHeadless,
-        "sys__exec",
+        "shell__run",
         Some("calculator"),
         Some("abcd"),
     );
@@ -271,7 +271,7 @@ fn stable_attempt_key_dedupes_and_resets_on_condition_change() {
     let key = build_attempt_key(
         "feedface",
         ExecutionTier::DomHeadless,
-        "computer::left_click",
+        "screen::left_click",
         Some("btn_submit"),
         Some("ff00"),
     );
@@ -291,7 +291,7 @@ fn stable_attempt_key_dedupes_and_resets_on_condition_change() {
     let changed_tier_key = build_attempt_key(
         "feedface",
         ExecutionTier::VisualBackground,
-        "computer::left_click",
+        "screen::left_click",
         Some("btn_submit"),
         Some("ff00"),
     );
@@ -325,8 +325,7 @@ fn specialized_attempt_target_id_tracks_awaited_child_progress() {
     let await_tool = AgentTool::AgentAwait {
         child_session_id_hex: hex::encode(child_session_id),
     };
-    let await_tool_jcs =
-        serde_json::to_vec(&await_tool).expect("agent__await_result tool should encode");
+    let await_tool_jcs = serde_json::to_vec(&await_tool).expect("agent__await tool should encode");
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let mut child_state = test_agent_state();
@@ -340,9 +339,8 @@ fn specialized_attempt_target_id_tracks_awaited_child_progress() {
         )
         .expect("child state insert should succeed");
 
-    let first =
-        specialized_attempt_target_id(&state, None, "agent__await_result", Some(&await_tool_jcs))
-            .expect("await target should be fingerprinted");
+    let first = specialized_attempt_target_id(&state, None, "agent__await", Some(&await_tool_jcs))
+        .expect("await target should be fingerprinted");
     assert_eq!(
         first,
         format!(
@@ -360,9 +358,8 @@ fn specialized_attempt_target_id_tracks_awaited_child_progress() {
         )
         .expect("child state update should succeed");
 
-    let second =
-        specialized_attempt_target_id(&state, None, "agent__await_result", Some(&await_tool_jcs))
-            .expect("await target should update");
+    let second = specialized_attempt_target_id(&state, None, "agent__await", Some(&await_tool_jcs))
+        .expect("await target should update");
     assert_eq!(
         second,
         format!(
@@ -453,7 +450,7 @@ fn routing_escalates_focus_failures_to_visual_last() {
     state.consecutive_failures = 1;
     state
         .recent_actions
-        .push("gui__click::FocusMismatch::abcd1234".to_string());
+        .push("screen__click_at::FocusMismatch::abcd1234".to_string());
     let decision = choose_routing_tier(&state);
     assert_eq!(decision.tier, ExecutionTier::VisualForeground);
     assert_eq!(decision.reason_code, "visual_last_focus");
@@ -466,7 +463,7 @@ fn routing_keeps_permission_failures_tool_first() {
     state.consecutive_failures = 2;
     state
         .recent_actions
-        .push("sys__exec::PermissionOrApprovalRequired::abcd1234".to_string());
+        .push("shell__run::PermissionOrApprovalRequired::abcd1234".to_string());
     let decision = choose_routing_tier(&state);
     assert_eq!(decision.tier, ExecutionTier::DomHeadless);
     assert_eq!(
@@ -485,7 +482,7 @@ fn routing_stages_tool_unavailable_before_visual_last() {
     state.consecutive_failures = 1;
     state
         .recent_actions
-        .push("computer::ToolUnavailable::abcd1234".to_string());
+        .push("screen::ToolUnavailable::abcd1234".to_string());
     let first = choose_routing_tier(&state);
     assert_eq!(first.tier, ExecutionTier::VisualBackground);
     assert_eq!(first.reason_code, "ax_first_tool_gap");
@@ -527,7 +524,7 @@ fn routing_keeps_no_effect_failures_tool_first_for_command_scope() {
     });
     state
         .recent_actions
-        .push("filesystem__list_directory::NoEffectAfterAction::abcd1234".to_string());
+        .push("file__list::NoEffectAfterAction::abcd1234".to_string());
 
     let decision = choose_routing_tier(&state);
     assert_eq!(decision.tier, ExecutionTier::DomHeadless);
@@ -572,7 +569,7 @@ fn routing_keeps_no_effect_failures_tool_first_for_workspace_scope() {
     });
     state
         .recent_actions
-        .push("filesystem__list_directory::NoEffectAfterAction::abcd1234".to_string());
+        .push("file__list::NoEffectAfterAction::abcd1234".to_string());
 
     let decision = choose_routing_tier(&state);
     assert_eq!(decision.tier, ExecutionTier::DomHeadless);

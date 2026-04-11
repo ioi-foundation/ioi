@@ -1,4 +1,5 @@
 use super::support::queue_action_request_to_tool;
+use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::runtime::service::handler::{
@@ -36,7 +37,6 @@ use crate::agentic::runtime::service::step::planner::{
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::{AgentState, AgentStatus, StepAgentParams};
 use crate::agentic::runtime::utils::{goto_trace_log, persist_agent_state};
-use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
@@ -222,9 +222,7 @@ fn queue_workspace_read_receipt(step_index: u32, tool: &AgentTool) -> Option<Str
     if path.is_empty() {
         return None;
     }
-    Some(format!(
-        "step={step_index};tool=filesystem__read_file;path={path}"
-    ))
+    Some(format!("step={step_index};tool=file__read;path={path}"))
 }
 
 fn queue_workspace_edit_receipt(step_index: u32, tool: &AgentTool) -> Option<(String, String)> {
@@ -233,9 +231,9 @@ fn queue_workspace_edit_receipt(step_index: u32, tool: &AgentTool) -> Option<(St
             path, line_number, ..
         } => {
             let tool_name = if line_number.is_some() {
-                "filesystem__edit_line"
+                "file__replace_line"
             } else {
-                "filesystem__write_file"
+                "file__write"
             };
             let path = path.trim();
             if path.is_empty() {
@@ -252,8 +250,8 @@ fn queue_workspace_edit_receipt(step_index: u32, tool: &AgentTool) -> Option<(St
                 return None;
             }
             Some((
-                "filesystem__patch".to_string(),
-                format!("step={step_index};tool=filesystem__patch;path={path}"),
+                "file__edit".to_string(),
+                format!("step={step_index};tool=file__edit;path={path}"),
             ))
         }
         _ => None,
@@ -286,7 +284,7 @@ fn record_queue_workspace_success_receipts(
             true,
             &evidence,
             None,
-            Some("filesystem__read_file".to_string()),
+            Some("file__read".to_string()),
             None,
         );
     }
@@ -978,7 +976,7 @@ pub async fn process_queue_item(
             ));
         }
     }
-    let is_install_package_tool = tool_name == "sys__install_package"
+    let is_install_package_tool = tool_name == "package__install"
         || tool_name == "sys::install_package"
         || tool_name.ends_with("install_package");
     let clarification_required = !success

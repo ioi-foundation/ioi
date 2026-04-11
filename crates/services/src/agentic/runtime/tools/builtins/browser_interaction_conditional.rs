@@ -16,12 +16,12 @@
     };
 
     if should_expose_headless_browser_followups(tier, allow_browser_navigation, is_browser_active)
-        && is_tool_allowed_for_resolution(resolved_intent, "browser__synthetic_click")
+        && is_tool_allowed_for_resolution(resolved_intent, "browser__click_at")
     {
         let synthetic_click_params = json!({
             "type": "object",
             "properties": {
-                "id": { "type": "string", "description": "Optional grounded browser__snapshot ID for a coordinate target. This may be a semantic ID or a numeric `som_id` from the tagged screenshot. Prefer this instead of guessing raw coordinates when the target is already named in the observation." },
+                "id": { "type": "string", "description": "Optional grounded browser__inspect ID for a coordinate target. This may be a semantic ID or a numeric `som_id` from the tagged screenshot. Prefer this instead of guessing raw coordinates when the target is already named in the observation." },
                 "x": { "type": "number", "description": "Optional absolute viewport x coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions. Provide this together with y when no grounded target id is available." },
                 "y": { "type": "number", "description": "Optional absolute viewport y coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions. Provide this together with x when no grounded target id is available." },
                 "continue_with": {
@@ -32,16 +32,16 @@
                             "type": "string",
                             "enum": [
                                 "browser__click",
-                                "browser__click_element",
-                                "browser__key",
+                                "browser__click",
+                                "browser__press_key",
                                 "browser__hover",
-                                "browser__synthetic_click",
-                                "browser__move_mouse",
+                                "browser__click_at",
+                                "browser__move_pointer",
                                 "browser__scroll",
-                                "browser__select_text",
-                                "browser__paste_clipboard",
+                                "browser__select",
+                                "browser__paste",
                                 "browser__find_text",
-                                "browser__select_dropdown"
+                                "browser__select_option"
                             ]
                         },
                         "arguments": {
@@ -55,8 +55,8 @@
         });
 
         tools.push(LlmToolDefinition {
-            name: "browser__synthetic_click".to_string(),
-            description: "Activate a page coordinate directly without moving the user's mouse cursor. Prefer `id` when browser__snapshot already names the grounded target; otherwise provide raw `x` and `y` viewport CSS pixels. Coordinates are absolute viewport CSS pixels, not normalized 0-1 fractions. Preferred for grounded coordinate-style actions on canvases, SVG surfaces, and blank regions that do not expose a DOM-clickable control. When the next browser action is already grounded, timing matters, and the coordinate click has an observable browser reaction, pair it with `continue_with` for an immediate follow-up. If the coordinate click is exploratory or only changes visual geometry, re-evaluate before any visible-control follow-up. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
+            name: "browser__click_at".to_string(),
+            description: "Activate a page coordinate directly without moving the user's mouse cursor. Prefer `id` when browser__inspect already names the grounded target; otherwise provide raw `x` and `y` viewport CSS pixels. Coordinates are absolute viewport CSS pixels, not normalized 0-1 fractions. Preferred for grounded coordinate-style actions on canvases, SVG surfaces, and blank regions that do not expose a DOM-clickable control. When the next browser action is already grounded, timing matters, and the coordinate click has an observable browser reaction, pair it with `continue_with` for an immediate follow-up. If the coordinate click is exploratory or only changes visual geometry, re-evaluate before any visible-control follow-up. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
             parameters: synthetic_click_params.to_string(),
         });
     }
@@ -67,7 +67,7 @@
                 "type": "object",
                 "properties": {
                     "selector": { "type": "string", "description": "CSS selector for the hover target. Provide this or id." },
-                    "id": { "type": "string", "description": "Semantic ID from browser__snapshot. Provide this or selector." },
+                    "id": { "type": "string", "description": "Semantic ID from browser__inspect. Provide this or selector." },
                     "duration_ms": {
                         "type": "integer",
                         "description": "Optional bounded tracking window to keep reacquiring the target without another inference turn. Prefer this when the target moves or when hover must be maintained over time."
@@ -85,7 +85,7 @@
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__move_mouse") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__move_pointer") {
             let browser_move_mouse_params = json!({
                 "type": "object",
                 "properties": {
@@ -95,13 +95,13 @@
                 "required": ["x", "y"]
             });
             tools.push(LlmToolDefinition {
-                name: "browser__move_mouse".to_string(),
-                description: "Reposition the browser pointer to absolute viewport CSS pixels without clicking. Do not use normalized 0-1 fractions. This alone does NOT activate page content; use `browser__synthetic_click` for coordinate-only activation, or pair it with `browser__mouse_down` and `browser__mouse_up` for drag flows. Works in headless mode.".to_string(),
+                name: "browser__move_pointer".to_string(),
+                description: "Reposition the browser pointer to absolute viewport CSS pixels without clicking. Do not use normalized 0-1 fractions. This alone does NOT activate page content; use `browser__click_at` for coordinate-only activation, or pair it with `browser__pointer_down` and `browser__pointer_up` for drag flows. Works in headless mode.".to_string(),
                 parameters: browser_move_mouse_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__mouse_down") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__pointer_down") {
             let browser_mouse_down_params = json!({
                 "type": "object",
                 "properties": {
@@ -113,13 +113,13 @@
                 }
             });
             tools.push(LlmToolDefinition {
-                name: "browser__mouse_down".to_string(),
-                description: "Press a browser mouse button at the current pointer position. Compose with browser__hover or browser__move_mouse for drag flows.".to_string(),
+                name: "browser__pointer_down".to_string(),
+                description: "Press a browser mouse button at the current pointer position. Compose with browser__hover or browser__move_pointer for drag flows.".to_string(),
                 parameters: browser_mouse_down_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__mouse_up") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__pointer_up") {
             let browser_mouse_up_params = json!({
                 "type": "object",
                 "properties": {
@@ -131,8 +131,8 @@
                 }
             });
             tools.push(LlmToolDefinition {
-                name: "browser__mouse_up".to_string(),
-                description: "Release a browser mouse button at the current pointer position. Compose with browser__mouse_down for drag flows.".to_string(),
+                name: "browser__pointer_up".to_string(),
+                description: "Release a browser mouse button at the current pointer position. Compose with browser__pointer_down for drag flows.".to_string(),
                 parameters: browser_mouse_up_params.to_string(),
             });
         }
@@ -164,13 +164,13 @@
             tools.push(LlmToolDefinition {
                 name: "browser__type".to_string(),
                 description:
-                    "Type text into the browser via CDP. Works in headless mode. When using numeric `som_id` tags from `browser__snapshot`, focus the field first with `browser__click_element`, optionally via `continue_with`."
+                    "Type text into the browser via CDP. Works in headless mode. When using numeric `som_id` tags from `browser__inspect`, focus the field first with `browser__click`, optionally via `continue_with`."
                         .to_string(),
                 parameters: browser_type_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__select_text") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__select") {
             let browser_select_text_params = json!({
                 "type": "object",
                 "properties": {
@@ -180,14 +180,14 @@
                 }
             });
             tools.push(LlmToolDefinition {
-                name: "browser__select_text".to_string(),
+                name: "browser__select".to_string(),
                 description: "Select text directly inside a browser element by `selector`, or within the active field if no selector is provided. Works in headless mode."
                     .to_string(),
                 parameters: browser_select_text_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__key") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__press_key") {
             let browser_key_params = json!({
                 "type": "object",
                 "properties": {
@@ -209,7 +209,7 @@
                 "required": ["key"]
             });
             tools.push(LlmToolDefinition {
-                name: "browser__key".to_string(),
+                name: "browser__press_key".to_string(),
                 description: format!(
                     "Press a keyboard key or modifier-aware key chord in the browser via CDP. Pass `selector` when you need the key to land on a specific grounded browser control without a separate focus click. For chords, include both `key` and `modifiers`, for example {}. Works in headless mode.",
                     browser_top_edge_jump_json,
@@ -218,9 +218,9 @@
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__copy_selection") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__copy") {
             tools.push(LlmToolDefinition {
-                name: "browser__copy_selection".to_string(),
+                name: "browser__copy".to_string(),
                 description: "Copy the current browser text selection into the system clipboard."
                     .to_string(),
                 parameters: json!({
@@ -231,7 +231,7 @@
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__paste_clipboard") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__paste") {
             let browser_paste_clipboard_params = json!({
                 "type": "object",
                 "properties": {
@@ -239,7 +239,7 @@
                 }
             });
             tools.push(LlmToolDefinition {
-                name: "browser__paste_clipboard".to_string(),
+                name: "browser__paste".to_string(),
                 description: "Insert the current system clipboard contents into the browser. Pass `selector` to focus a target field first when you want to paste without a separate click."
                     .to_string(),
                 parameters: browser_paste_clipboard_params.to_string(),
@@ -310,19 +310,19 @@
                                 "type": "string",
                                 "enum": [
                                     "browser__click",
-                                    "browser__click_element",
+                                    "browser__click",
                                     "browser__type",
-                                    "browser__key",
+                                    "browser__press_key",
                                     "browser__hover",
-                                    "browser__synthetic_click",
-                                    "browser__move_mouse",
-                                    "browser__mouse_down",
-                                    "browser__mouse_up",
+                                    "browser__click_at",
+                                    "browser__move_pointer",
+                                    "browser__pointer_down",
+                                    "browser__pointer_up",
                                     "browser__scroll",
-                                    "browser__select_text",
-                                    "browser__paste_clipboard",
+                                    "browser__select",
+                                    "browser__paste",
                                     "browser__find_text",
-                                    "browser__select_dropdown"
+                                    "browser__select_option"
                                 ]
                             },
                             "arguments": {
@@ -342,7 +342,7 @@
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__upload_file") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__upload") {
             let browser_upload_file_params = json!({
                 "type": "object",
                 "properties": {
@@ -360,35 +360,35 @@
                 "required": ["paths"]
             });
             tools.push(LlmToolDefinition {
-                name: "browser__upload_file".to_string(),
+                name: "browser__upload".to_string(),
                 description: "Attach local files to a browser file input by selector or SoM ID."
                     .to_string(),
                 parameters: browser_upload_file_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__dropdown_options") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__list_options") {
             let browser_dropdown_options_params = json!({
                 "type": "object",
                 "properties": {
-                    "id": { "type": "string", "description": "Semantic browser ID from browser__snapshot or the recent browser observation. Prefer this in headless browser mode." },
+                    "id": { "type": "string", "description": "Semantic browser ID from browser__inspect or the recent browser observation. Prefer this in headless browser mode." },
                     "selector": { "type": "string", "description": "CSS selector for a native <select> element. Provide this, id, or som_id." },
                     "som_id": { "type": "integer", "description": "Visual SoM ID for a native <select> element. Use this only when a screenshot/SoM view is present. Provide this, id, or selector." }
                 }
             });
             tools.push(LlmToolDefinition {
-                name: "browser__dropdown_options".to_string(),
+                name: "browser__list_options".to_string(),
                 description: "List options for a native <select> dropdown. Provide exactly one locator: id, selector, or som_id; executor validates this contract."
                     .to_string(),
                 parameters: browser_dropdown_options_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__select_dropdown") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__select_option") {
             let browser_select_dropdown_params = json!({
                 "type": "object",
                 "properties": {
-                    "id": { "type": "string", "description": "Semantic browser ID from browser__snapshot or the recent browser observation. Prefer this in headless browser mode." },
+                    "id": { "type": "string", "description": "Semantic browser ID from browser__inspect or the recent browser observation. Prefer this in headless browser mode." },
                     "selector": { "type": "string", "description": "CSS selector for a native <select> element. Provide this, id, or som_id." },
                     "som_id": { "type": "integer", "description": "Visual SoM ID for a native <select> element. Use this only when a screenshot/SoM view is present. Provide this, id, or selector." },
                     "value": { "type": "string", "description": "Option value to select (exact match). Provide this or label." },
@@ -396,14 +396,14 @@
                 }
             });
             tools.push(LlmToolDefinition {
-                name: "browser__select_dropdown".to_string(),
+                name: "browser__select_option".to_string(),
                 description: "Select an option in a native <select> dropdown. Provide exactly one locator (id, selector, or som_id) and one selector target (value or label); executor validates this contract."
                     .to_string(),
                 parameters: browser_select_dropdown_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__go_back") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__back") {
             let browser_back_params = json!({
                 "type": "object",
                 "properties": {
@@ -411,63 +411,63 @@
                 }
             });
             tools.push(LlmToolDefinition {
-                name: "browser__go_back".to_string(),
+                name: "browser__back".to_string(),
                 description: "Navigate back in browser history.".to_string(),
                 parameters: browser_back_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__tab_list") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__list_tabs") {
             let browser_tab_list_params = json!({
                 "type": "object",
                 "properties": {},
                 "required": []
             });
             tools.push(LlmToolDefinition {
-                name: "browser__tab_list".to_string(),
+                name: "browser__list_tabs".to_string(),
                 description: "List open browser tabs with stable tab IDs.".to_string(),
                 parameters: browser_tab_list_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__tab_switch") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__switch_tab") {
             let browser_tab_switch_params = json!({
                 "type": "object",
                 "properties": {
-                    "tab_id": { "type": "string", "description": "Tab ID returned by browser__tab_list." }
+                    "tab_id": { "type": "string", "description": "Tab ID returned by browser__list_tabs." }
                 },
                 "required": ["tab_id"]
             });
             tools.push(LlmToolDefinition {
-                name: "browser__tab_switch".to_string(),
+                name: "browser__switch_tab".to_string(),
                 description: "Switch the active browser tab.".to_string(),
                 parameters: browser_tab_switch_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__tab_close") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__close_tab") {
             let browser_tab_close_params = json!({
                 "type": "object",
                 "properties": {
-                    "tab_id": { "type": "string", "description": "Tab ID returned by browser__tab_list." }
+                    "tab_id": { "type": "string", "description": "Tab ID returned by browser__list_tabs." }
                 },
                 "required": ["tab_id"]
             });
             tools.push(LlmToolDefinition {
-                name: "browser__tab_close".to_string(),
+                name: "browser__close_tab".to_string(),
                 description: "Close a browser tab by ID.".to_string(),
                 parameters: browser_tab_close_params.to_string(),
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__snapshot") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__inspect") {
             let snapshot_params = json!({
                 "type": "object",
                 "properties": {},
                 "required": []
             });
             tools.push(LlmToolDefinition {
-                name: "browser__snapshot".to_string(),
+                name: "browser__inspect".to_string(),
                 description:
                     "Snapshot the current browser page as semantic XML from the accessibility tree, with `som_id` numeric element tags that match an attached marked screenshot. The output may also include Browser-use state text, a Browser-use-style selector map, Browser-use tabs/page-info/pending-request metadata, and BrowserGym extra-properties, focused-bid, AXTree, and DOM sections after the root XML."
                         .to_string(),
@@ -475,17 +475,17 @@
             });
         }
 
-        if is_tool_allowed_for_resolution(resolved_intent, "browser__click_element") {
+        if is_tool_allowed_for_resolution(resolved_intent, "browser__click") {
             let click_id_params = json!({
                 "type": "object",
                 "properties": {
                     "id": {
                         "type": "string",
-                        "description": "Element ID from browser__snapshot output. This may be a semantic ID (for example 'btn_sign_in') or a numeric `som_id` such as '12' from the tagged screenshot. Provide this or `ids`."
+                        "description": "Element ID from browser__inspect output. This may be a semantic ID (for example 'btn_sign_in') or a numeric `som_id` such as '12' from the tagged screenshot. Provide this or `ids`."
                     },
                     "ids": {
                         "type": "array",
-                        "description": "Ordered element IDs from browser__snapshot output to click in sequence without interleaving other actions. Each item may be a semantic ID or a numeric `som_id`. Provide this or `id`.",
+                        "description": "Ordered element IDs from browser__inspect output to click in sequence without interleaving other actions. Each item may be a semantic ID or a numeric `som_id`. Provide this or `id`.",
                         "items": {
                             "type": "string"
                         },
@@ -503,18 +503,18 @@
                                 "type": "string",
                                 "enum": [
                                     "browser__click",
-                                    "browser__click_element",
-                                    "browser__key",
+                                    "browser__click",
+                                    "browser__press_key",
                                     "browser__hover",
-                                    "browser__synthetic_click",
-                                    "browser__move_mouse",
-                                    "browser__mouse_down",
-                                    "browser__mouse_up",
+                                    "browser__click_at",
+                                    "browser__move_pointer",
+                                    "browser__pointer_down",
+                                    "browser__pointer_up",
                                     "browser__scroll",
-                                    "browser__select_text",
-                                    "browser__paste_clipboard",
+                                    "browser__select",
+                                    "browser__paste",
                                     "browser__find_text",
-                                    "browser__select_dropdown"
+                                    "browser__select_option"
                                 ]
                             },
                             "arguments": {
@@ -527,8 +527,8 @@
                 }
             });
             tools.push(LlmToolDefinition {
-                name: "browser__click_element".to_string(),
-                description: "Click one page element by browser__snapshot ID, or click an ordered list of IDs in sequence. Numeric `som_id` values from the tagged screenshot are preferred for generic browser actions; semantic IDs remain supported for compatibility. With ordered `ids`, you may also provide `delay_ms_between_ids` for precise multi-click timing without another inference turn. Use `continue_with` when the click must hand off directly to another already grounded browser action, including focus-then-type on a visible field or a visible gate/commit click followed by another grounded action. Preferred over CSS selectors in headless mode.".to_string(),
+                name: "browser__click".to_string(),
+                description: "Click one page element by browser__inspect ID, or click an ordered list of IDs in sequence. Numeric `som_id` values from the tagged screenshot are preferred for generic browser actions; semantic IDs remain supported for compatibility. With ordered `ids`, you may also provide `delay_ms_between_ids` for precise multi-click timing without another inference turn. Use `continue_with` when the click must hand off directly to another already grounded browser action, including focus-then-type on a visible field or a visible gate/commit click followed by another grounded action. Preferred over CSS selectors in headless mode.".to_string(),
                 parameters: click_id_params.to_string(),
             });
         }

@@ -24,7 +24,7 @@
         "required": ["command"]
     });
     tools.push(LlmToolDefinition {
-        name: "sys__exec".to_string(),
+        name: "shell__run".to_string(),
         description: "Execute a terminal command or launch a local GUI application. Use 'detach: true' for persistent apps.".to_string(),
         parameters: sys_params.to_string(),
     });

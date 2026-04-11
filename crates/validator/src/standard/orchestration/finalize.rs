@@ -1,8 +1,7 @@
 // Path: crates/validator/src/standard/orchestration/finalize.rs
 
 use super::aft_collapse::{
-    derive_expected_aft_canonical_collapse_for_block,
-    require_persisted_aft_canonical_collapse_if_needed,
+    derive_expected_aft_canonical_collapse_for_block, observe_live_committed_chain_through_block,
 };
 use super::consensus::{
     recovered_consensus_header_stitch_segment_budget,

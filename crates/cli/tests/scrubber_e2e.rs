@@ -1,107 +1,87 @@
 // Path: crates/cli/tests/scrubber_e2e.rs
 #![cfg(all(feature = "consensus-aft", feature = "vm-wasm", feature = "state-iavl"))]
 
-use anyhow::Result;
-use ioi_cli::testing::{build_test_artifacts, submit_transaction, wait_for_height, TestCluster};
+use anyhow::{anyhow, Result};
+use async_trait::async_trait;
+use ioi_api::services::access::ServiceDirectory;
+use ioi_api::state::StateAccess;
+use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
+use ioi_state::primitives::hash::HashCommitmentScheme;
+use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ActiveKeyRecord, ChainTransaction, SignHeader,
-        SignatureProof, SignatureSuite, SystemPayload, SystemTransaction, ValidatorSetV1,
-        ValidatorSetsV1, ValidatorV1,
+        account_id_from_key_material, AccountId, ChainTransaction, SignHeader, SignatureProof,
+        SignatureSuite, SystemPayload, SystemTransaction,
     },
-    config::{InitialServiceConfig, ValidatorRole},
-    keys::active_service_key, // Added import
-    service_configs::{ActiveServiceMeta, Capabilities, MethodPermission, MigrationConfig}, // Added imports
+    codec,
+    error::{TransactionError, VmError},
+    keys::active_service_key,
+    service_configs::{ActiveServiceMeta, Capabilities, MethodPermission},
 };
-use std::collections::BTreeMap; // Added import
-use std::time::Duration;
+use ioi_validator::firewall::{enforce_firewall, inference::HeuristicBitNet};
+use libp2p::identity::Keypair;
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
-#[tokio::test(flavor = "multi_thread")]
-async fn test_pii_firewall_blocks_raw_egress_and_allows_clean_payload() -> Result<()> {
-    // 1. Setup
-    build_test_artifacts();
+#[derive(Default)]
+struct DummyOs;
 
-    let cluster = TestCluster::builder()
-        .with_validators(1)
-        .with_consensus_type("Aft")
-        .with_role(0, ValidatorRole::Consensus) // Scrubber runs on Consensus/Orchestrator
-        .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
-            chain_id: 1,
-            grace_period_blocks: 5,
-            accept_staged_during_grace: true,
-            allowed_target_suites: vec![SignatureSuite::ED25519],
-            allow_downgrade: false,
-        }))
-        // Use a genesis modifier to ensure the validator has the right permissions/role
-        .with_genesis_modifier(|builder, keys| {
-            let key = &keys[0];
-            let account_id = builder.add_identity(key);
+#[async_trait]
+impl OsDriver for DummyOs {
+    async fn get_active_window_title(&self) -> Result<Option<String>, VmError> {
+        Ok(None)
+    }
 
-            let vs = ValidatorSetsV1 {
-                current: ValidatorSetV1 {
-                    effective_from_height: 1,
-                    total_weight: 1,
-                    validators: vec![ValidatorV1 {
-                        account_id,
-                        weight: 1,
-                        consensus_key: ActiveKeyRecord {
-                            suite: SignatureSuite::ED25519,
-                            public_key_hash: account_id.0,
-                            since_height: 0,
-                        },
-                    }],
-                },
-                next: None,
-            };
-            builder.set_validators(&vs);
+    async fn get_active_window_info(&self) -> Result<Option<WindowInfo>, VmError> {
+        Ok(None)
+    }
 
-            // [FIX] Register dummy "agentic" service meta so PolicyEngine passes
-            let mut methods = BTreeMap::new();
-            methods.insert("execute_task@v1".to_string(), MethodPermission::User);
+    async fn focus_window(&self, _title_query: &str) -> Result<bool, VmError> {
+        Ok(true)
+    }
 
-            let meta = ActiveServiceMeta {
-                id: "agentic".to_string(),
-                abi_version: 1,
-                state_schema: "v1".to_string(),
-                caps: Capabilities::empty(),
-                artifact_hash: [0u8; 32],
-                activated_at: 0,
-                methods,
-                allowed_system_prefixes: vec![],
-                generation_id: 0,
-                parent_hash: None,
-                author: None,
-                context_filter: None,
-            };
+    async fn set_clipboard(&self, _content: &str) -> Result<(), VmError> {
+        Ok(())
+    }
 
-            let key = active_service_key("agentic");
-            builder.insert_typed(key, &meta);
-        })
-        .build()
-        .await?;
+    async fn get_clipboard(&self) -> Result<String, VmError> {
+        Ok(String::new())
+    }
+}
 
-    // ... rest of the test remains the same
-    let node = &cluster.validators[0];
-    let rpc_addr = &node.validator().rpc_addr;
-    let keypair = &node.validator().keypair;
+fn install_desktop_agent_meta(state: &mut IAVLTree<HashCommitmentScheme>) -> anyhow::Result<()> {
+    let mut methods = BTreeMap::new();
+    methods.insert("post_message@v1".to_string(), MethodPermission::User);
 
-    wait_for_height(rpc_addr, 1, Duration::from_secs(20)).await?;
-
-    // 2. Craft a Transaction with PII
-    // The MockBitNet is configured to flag "sk_live_" as PII.
-    let sensitive_payload = b"Execute trade using key sk_live_1234567890abcd";
-
-    // We send this to the 'agentic' service which triggers the scrubber in `enforce_firewall`.
-    let sys_payload = SystemPayload::CallService {
-        service_id: "agentic".to_string(),
-        method: "execute_task@v1".to_string(), // Dummy method
-        params: sensitive_payload.to_vec(),
+    let meta = ActiveServiceMeta {
+        id: "desktop_agent".to_string(),
+        abi_version: 1,
+        state_schema: "v1".to_string(),
+        caps: Capabilities::empty(),
+        artifact_hash: [0u8; 32],
+        activated_at: 0,
+        methods,
+        allowed_system_prefixes: vec!["upgrade::active::".to_string()],
+        generation_id: 0,
+        parent_hash: None,
+        author: None,
+        context_filter: None,
     };
 
-    let pk = keypair.public().encode_protobuf();
-    let account_id = AccountId(account_id_from_key_material(SignatureSuite::ED25519, &pk)?);
+    state.insert(
+        &active_service_key("desktop_agent"),
+        &codec::to_bytes_canonical(&meta).map_err(|e| anyhow!(e))?,
+    )?;
+    Ok(())
+}
 
-    let mut sys_tx = SystemTransaction {
+fn signed_service_call(
+    keypair: &Keypair,
+    account_id: AccountId,
+    params: Vec<u8>,
+) -> anyhow::Result<ChainTransaction> {
+    let public_key = keypair.public().encode_protobuf();
+    let mut tx = SystemTransaction {
         header: SignHeader {
             account_id,
             nonce: 0,
@@ -109,75 +89,99 @@ async fn test_pii_firewall_blocks_raw_egress_and_allows_clean_payload() -> Resul
             tx_version: 1,
             session_auth: None,
         },
-        payload: sys_payload,
+        payload: SystemPayload::CallService {
+            service_id: "desktop_agent".to_string(),
+            method: "post_message@v1".to_string(),
+            params,
+        },
         signature_proof: SignatureProof::default(),
     };
 
-    let sign_bytes = sys_tx.to_sign_bytes().unwrap();
-    sys_tx.signature_proof = SignatureProof {
+    let sign_bytes = tx.to_sign_bytes().map_err(|e| anyhow!(e))?;
+    tx.signature_proof = SignatureProof {
         suite: SignatureSuite::ED25519,
-        public_key: pk,
+        public_key,
         signature: keypair.sign(&sign_bytes)?,
     };
 
-    let tx = ChainTransaction::System(Box::new(sys_tx));
+    Ok(ChainTransaction::System(Box::new(tx)))
+}
 
-    // 3. Submit and Expect Rejection
-    // In Phase 2.2 implementation of `enforce_firewall`, if PII is detected, it returns an Error.
-    // So `submit_transaction` should fail.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_pii_firewall_blocks_raw_egress_and_allows_clean_payload() -> Result<()> {
+    let mut state = IAVLTree::new(HashCommitmentScheme::new());
+    install_desktop_agent_meta(&mut state)?;
 
-    let result = submit_transaction(rpc_addr, &tx).await;
+    let services_dir = ServiceDirectory::new(vec![]);
+    let safety_model = Arc::new(HeuristicBitNet);
+    let os_driver = Arc::new(DummyOs);
+    let no_events: Option<tokio::sync::broadcast::Sender<ioi_types::app::KernelEvent>> = None;
 
+    let keypair = Keypair::generate_ed25519();
+    let public_key = keypair.public().encode_protobuf();
+    let account_id = AccountId(account_id_from_key_material(
+        SignatureSuite::ED25519,
+        &public_key,
+    )?);
+
+    let sensitive_tx = signed_service_call(
+        &keypair,
+        account_id,
+        b"Execute trade using key sk_live_1234567890abcd".to_vec(),
+    )?;
+
+    let sensitive_err = enforce_firewall(
+        &mut state,
+        &services_dir,
+        &sensitive_tx,
+        1.into(),
+        1,
+        0,
+        false,
+        true,
+        safety_model.clone(),
+        os_driver.clone(),
+        &no_events,
+    )
+    .await
+    .expect_err("PII-bearing payload should be blocked before execution")
+    .to_string();
+
+    println!("Firewall correctly rejected tx: {}", sensitive_err);
     assert!(
-        result.is_err(),
-        "Transaction with PII should be rejected by firewall"
+        sensitive_err.contains("PII firewall denied raw egress")
+            || sensitive_err.contains("Blocked by Safety Firewall")
+            || sensitive_err.contains("PII detected"),
+        "unexpected rejection path: {}",
+        sensitive_err
     );
 
-    let err_msg = result.unwrap_err().to_string();
-    println!("Firewall correctly rejected tx: {}", err_msg);
-    assert!(
-        err_msg.contains("PII detected")
-            || err_msg.contains("Blocked by Safety Firewall")
-            || err_msg.contains("PII firewall denied raw egress")
-    );
+    let safe_tx = signed_service_call(
+        &keypair,
+        account_id,
+        b"Send a short hello message with no secrets".to_vec(),
+    )?;
 
-    // 4. Submit Clean Transaction
-    // "Safe" payload should pass
-    let safe_payload = b"Execute trade using public_key pk_test_123";
-    let sys_payload_safe = SystemPayload::CallService {
-        service_id: "agentic".to_string(),
-        method: "execute_task@v1".to_string(),
-        params: safe_payload.to_vec(),
-    };
+    let safe_result = enforce_firewall(
+        &mut state,
+        &services_dir,
+        &safe_tx,
+        1.into(),
+        1,
+        0,
+        false,
+        true,
+        safety_model,
+        os_driver,
+        &no_events,
+    )
+    .await;
 
-    let mut sys_tx_safe = SystemTransaction {
-        header: SignHeader {
-            account_id,
-            nonce: 0, // Reuse nonce 0 since previous tx failed
-            chain_id: 1.into(),
-            tx_version: 1,
-            session_auth: None,
-        },
-        payload: sys_payload_safe,
-        signature_proof: SignatureProof::default(),
-    };
-    let sign_bytes_safe = sys_tx_safe.to_sign_bytes().unwrap();
-    sys_tx_safe.signature_proof = SignatureProof {
-        suite: SignatureSuite::ED25519,
-        public_key: keypair.public().encode_protobuf(),
-        signature: keypair.sign(&sign_bytes_safe)?,
-    };
-    let tx_safe = ChainTransaction::System(Box::new(sys_tx_safe));
+    match safe_result {
+        Ok(()) => {}
+        Err(TransactionError::PendingApproval(_)) => {}
+        Err(other) => panic!("safe payload should not be blocked for PII: {}", other),
+    }
 
-    // This should succeed (or fail later in execution if method doesn't exist, but pass firewall)
-    // The mempool acceptance confirms firewall passage.
-    let submission_result =
-        ioi_cli::testing::rpc::submit_transaction_no_wait(rpc_addr, &tx_safe).await;
-    assert!(
-        submission_result.is_ok(),
-        "Safe transaction should be accepted by firewall"
-    );
-
-    cluster.shutdown().await?;
     Ok(())
 }

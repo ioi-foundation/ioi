@@ -476,13 +476,13 @@ const timingLabels: Record<string, string> = {
 };
 
 const ACTION_META: Record<string, { icon: string; cls: string; label: string }> = {
-  browser__click_element: { icon: "🖱", cls: "act-click", label: "click" },
-  browser__synthetic_click: { icon: "⊕", cls: "act-synth", label: "synth click" },
+  browser__click: { icon: "🖱", cls: "act-click", label: "click" },
+  browser__click_at: { icon: "⊕", cls: "act-synth", label: "synth click" },
   browser__hover: { icon: "👆", cls: "act-hover", label: "hover" },
   browser__wait: { icon: "⏳", cls: "act-wait", label: "wait" },
   browser__type: { icon: "⌨", cls: "act-type", label: "type" },
-  browser__snapshot: { icon: "📷", cls: "act-snap", label: "snapshot" },
-  browser__select_dropdown: { icon: "▾", cls: "act-select", label: "select" },
+  browser__inspect: { icon: "📷", cls: "act-snap", label: "snapshot" },
+  browser__select_option: { icon: "▾", cls: "act-select", label: "select" },
   browser__find_text: { icon: "🔍", cls: "act-find", label: "find" },
 };
 

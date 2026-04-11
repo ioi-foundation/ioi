@@ -641,7 +641,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 
     let tool_and_route_path_evidence_present = observation_has_tool_name(obs, "web__search")
         && observation_has_tool_name(obs, "web__read")
-        && !observation_has_tool_name(obs, "net__fetch");
+        && !observation_has_tool_name(obs, "http__fetch");
     let cec_required_phase_receipts_present = has_cec_stage(obs, "discovery", Some(true))
         && has_cec_stage(obs, "provider_selection", Some(true))
         && has_cec_stage(obs, "execution", Some(true))

@@ -474,16 +474,16 @@ pub async fn handle(
                 truncate_chars(&url_for_receipt_raw, WEB_RETRIEVE_RECEIPT_MAX_CHARS);
 
             let receipt_preview_raw = if url_for_receipt.trim().is_empty() {
-                "media__extract_multimodal_evidence".to_string()
+                "media__extract_evidence".to_string()
             } else {
-                format!("media__extract_multimodal_evidence {}", url_for_receipt)
+                format!("media__extract_evidence {}", url_for_receipt)
             };
             let (receipt_preview, _) =
                 truncate_chars(&receipt_preview_raw, WEB_RETRIEVE_PREVIEW_MAX_CHARS);
             let workload_id = workload::compute_workload_id(
                 session_id,
                 step_index,
-                "media__extract_multimodal_evidence",
+                "media__extract_evidence",
                 &receipt_preview,
             );
 
@@ -563,7 +563,7 @@ pub async fn handle(
                     step_index,
                     workload_id.clone(),
                     WorkloadReceipt::WebRetrieve(WorkloadWebRetrieveReceipt {
-                        tool_name: "media__extract_multimodal_evidence".to_string(),
+                        tool_name: "media__extract_evidence".to_string(),
                         backend: backend_for_receipt,
                         query: language
                             .as_deref()
@@ -602,7 +602,7 @@ async fn handle_net_fetch(
     let url = url.trim();
     if url.is_empty() {
         return ToolExecutionResult::failure(
-            "ERROR_CLASS=TargetNotFound net__fetch requires a non-empty url.".to_string(),
+            "ERROR_CLASS=TargetNotFound http__fetch requires a non-empty url.".to_string(),
         );
     }
 
@@ -621,16 +621,16 @@ async fn handle_net_fetch(
             let sanitized = strip_userinfo_from_urlish(strip_query_fragment(url));
             let requested_url_for_receipt =
                 workload::scrub_workload_text_field_for_receipt(exec, sanitized.as_str()).await;
-            let receipt_preview = format!("net__fetch {}", requested_url_for_receipt);
+            let receipt_preview = format!("http__fetch {}", requested_url_for_receipt);
             let workload_id = workload::compute_workload_id(
                 session_id,
                 step_index,
-                "net__fetch",
+                "http__fetch",
                 receipt_preview.as_str(),
             );
 
             let result = ToolExecutionResult::failure(format!(
-                "ERROR_CLASS=TargetNotFound net__fetch url parse failed: {}",
+                "ERROR_CLASS=TargetNotFound http__fetch url parse failed: {}",
                 e
             ));
             if let Some(tx) = exec.event_sender.as_ref() {
@@ -660,7 +660,7 @@ async fn handle_net_fetch(
                     step_index,
                     workload_id.clone(),
                     WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                        tool_name: "net__fetch".to_string(),
+                        tool_name: "http__fetch".to_string(),
                         method: "GET".to_string(),
                         requested_url: requested_url_for_receipt,
                         final_url: None,
@@ -684,15 +684,15 @@ async fn handle_net_fetch(
         let sanitized = strip_userinfo_from_urlish(strip_query_fragment(url));
         let requested_url_for_receipt =
             workload::scrub_workload_text_field_for_receipt(exec, sanitized.as_str()).await;
-        let receipt_preview = format!("net__fetch {}", requested_url_for_receipt);
+        let receipt_preview = format!("http__fetch {}", requested_url_for_receipt);
         let workload_id = workload::compute_workload_id(
             session_id,
             step_index,
-            "net__fetch",
+            "http__fetch",
             receipt_preview.as_str(),
         );
         let result = ToolExecutionResult::failure(format!(
-            "ERROR_CLASS=TargetNotFound net__fetch only supports http/https (got scheme='{}').",
+            "ERROR_CLASS=TargetNotFound http__fetch only supports http/https (got scheme='{}').",
             parsed.scheme()
         ));
         if let Some(tx) = exec.event_sender.as_ref() {
@@ -722,7 +722,7 @@ async fn handle_net_fetch(
                 step_index,
                 workload_id.clone(),
                 WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                    tool_name: "net__fetch".to_string(),
+                    tool_name: "http__fetch".to_string(),
                     method: "GET".to_string(),
                     requested_url: requested_url_for_receipt,
                     final_url: None,
@@ -746,11 +746,11 @@ async fn handle_net_fetch(
         redact_url_for_receipt(&parsed).as_str(),
     )
     .await;
-    let receipt_preview = format!("net__fetch {}", requested_url_for_receipt);
+    let receipt_preview = format!("http__fetch {}", requested_url_for_receipt);
     let workload_id = workload::compute_workload_id(
         session_id,
         step_index,
-        "net__fetch",
+        "http__fetch",
         receipt_preview.as_str(),
     );
     if let Some(tx) = exec.event_sender.as_ref() {
@@ -775,7 +775,7 @@ async fn handle_net_fetch(
         Ok(c) => c,
         Err(e) => {
             let result = ToolExecutionResult::failure(format!(
-                "ERROR_CLASS=UnexpectedState net__fetch client init failed: {}",
+                "ERROR_CLASS=UnexpectedState http__fetch client init failed: {}",
                 e
             ));
             if let Some(tx) = exec.event_sender.as_ref() {
@@ -795,7 +795,7 @@ async fn handle_net_fetch(
                     step_index,
                     workload_id.clone(),
                     WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                        tool_name: "net__fetch".to_string(),
+                        tool_name: "http__fetch".to_string(),
                         method: "GET".to_string(),
                         requested_url: requested_url_for_receipt,
                         final_url: None,
@@ -819,7 +819,7 @@ async fn handle_net_fetch(
         Ok(r) => r,
         Err(e) => {
             let result = ToolExecutionResult::failure(format!(
-                "ERROR_CLASS=UnexpectedState net__fetch request failed: {}",
+                "ERROR_CLASS=UnexpectedState http__fetch request failed: {}",
                 e
             ));
             if let Some(tx) = exec.event_sender.as_ref() {
@@ -839,7 +839,7 @@ async fn handle_net_fetch(
                     step_index,
                     workload_id.clone(),
                     WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                        tool_name: "net__fetch".to_string(),
+                        tool_name: "http__fetch".to_string(),
                         method: "GET".to_string(),
                         requested_url: requested_url_for_receipt,
                         final_url: None,
@@ -887,7 +887,7 @@ async fn handle_net_fetch(
             let result = match serde_json::to_string_pretty(&out) {
                 Ok(s) => ToolExecutionResult::success(s),
                 Err(e) => ToolExecutionResult::failure(format!(
-                    "ERROR_CLASS=SerializationFailed net__fetch output serialization failed: {}",
+                    "ERROR_CLASS=SerializationFailed http__fetch output serialization failed: {}",
                     e
                 )),
             };
@@ -912,7 +912,7 @@ async fn handle_net_fetch(
                     step_index,
                     workload_id.clone(),
                     WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                        tool_name: "net__fetch".to_string(),
+                        tool_name: "http__fetch".to_string(),
                         method: "GET".to_string(),
                         requested_url: requested_url_for_receipt,
                         final_url: Some(final_url_for_receipt),
@@ -939,7 +939,7 @@ async fn handle_net_fetch(
             Ok(chunk) => chunk,
             Err(e) => {
                 let result = ToolExecutionResult::failure(format!(
-                    "ERROR_CLASS=UnexpectedState net__fetch body read failed: {}",
+                    "ERROR_CLASS=UnexpectedState http__fetch body read failed: {}",
                     e
                 ));
                 if let Some(tx) = exec.event_sender.as_ref() {
@@ -959,7 +959,7 @@ async fn handle_net_fetch(
                         step_index,
                         workload_id.clone(),
                         WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                            tool_name: "net__fetch".to_string(),
+                            tool_name: "http__fetch".to_string(),
                             method: "GET".to_string(),
                             requested_url: requested_url_for_receipt,
                             final_url: Some(final_url_for_receipt),
@@ -1014,7 +1014,7 @@ async fn handle_net_fetch(
     let result = match serde_json::to_string_pretty(&out) {
         Ok(s) => ToolExecutionResult::success(s),
         Err(e) => ToolExecutionResult::failure(format!(
-            "ERROR_CLASS=SerializationFailed net__fetch output serialization failed: {}",
+            "ERROR_CLASS=SerializationFailed http__fetch output serialization failed: {}",
             e
         )),
     };
@@ -1039,7 +1039,7 @@ async fn handle_net_fetch(
             step_index,
             workload_id.clone(),
             WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                tool_name: "net__fetch".to_string(),
+                tool_name: "http__fetch".to_string(),
                 method: "GET".to_string(),
                 requested_url: requested_url_for_receipt,
                 final_url: Some(final_url_for_receipt),

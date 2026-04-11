@@ -2,10 +2,10 @@
 
 This suite organizes reliability-focused flows around:
 
-- `browser__snapshot -> browser__click_element`
-- `gui__snapshot -> gui__click_element`
-- `sys__exec_session` continuity/reset/timeout+failure-class receipts
-- `web__search -> web__read -> net__fetch` deterministic retrieval chain
+- `browser__inspect -> browser__click`
+- `screen__inspect -> screen__click`
+- `shell__start` continuity/reset/timeout+failure-class receipts
+- `web__search -> web__read -> http__fetch` deterministic retrieval chain
 - contract paths for browser/gui/computer/routing interaction tests
 
 ## Test Entry

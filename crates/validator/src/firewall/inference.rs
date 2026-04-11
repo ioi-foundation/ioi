@@ -9,12 +9,12 @@ use ioi_types::app::agentic::{
     EvidenceGraph, EvidenceSpan, PiiClass, PiiConfidenceBucket, PiiSeverity,
 };
 
-/// A mock implementation of BitNet for testing/dev environments.
-/// It uses simple heuristics (regex/keywords) to simulate the 1.58-bit model behavior.
-pub struct MockBitNet;
+/// A deterministic local safety model used when firewall checks must stay on-box.
+/// It relies on simple heuristics rather than a remote model backend.
+pub struct HeuristicBitNet;
 
 #[async_trait]
-impl LocalSafetyModel for MockBitNet {
+impl LocalSafetyModel for HeuristicBitNet {
     async fn classify_intent(&self, input: &str) -> Result<SafetyVerdict> {
         let lower = input.to_lowercase();
         if lower.contains("malicious") || lower.contains("bypass") {
@@ -29,17 +29,16 @@ impl LocalSafetyModel for MockBitNet {
     async fn detect_pii(&self, input: &str) -> Result<Vec<(usize, usize, String)>> {
         let mut findings = Vec::new();
 
-        // Mock detection of "sk_live_..." keys
+        // Detect likely API key prefixes.
         let key_pattern = "sk_live_";
         for (i, _) in input.match_indices(key_pattern) {
-            // Assume 32 char key len for mock
+            // Keep the heuristic deterministic and bounded.
             let end = (i + 32).min(input.len());
             findings.push((i, end, "API_KEY".to_string()));
         }
 
-        // Mock detection of email-like symbols
+        // Detect email-like spans around '@'.
         if let Some(idx) = input.find('@') {
-            // Crude mock: mask 5 chars around @
             let start = idx.saturating_sub(5);
             let end = (idx + 5).min(input.len());
             findings.push((start, end, "EMAIL".to_string()));
@@ -72,10 +71,10 @@ impl LocalSafetyModel for MockBitNet {
                         _ => PiiSeverity::Medium,
                     },
                     confidence_bucket: PiiConfidenceBucket::Low,
-                    pattern_id: format!("mock::{}", category.to_ascii_lowercase()),
+                    pattern_id: format!("heuristic::{}", category.to_ascii_lowercase()),
                     validator_passed: false,
                     context_keywords: Vec::new(),
-                    evidence_source: "mock_detect_pii".to_string(),
+                    evidence_source: "heuristic_detect_pii".to_string(),
                 }
             })
             .collect::<Vec<_>>();
@@ -95,7 +94,7 @@ impl LocalSafetyModel for MockBitNet {
             },
             ambiguous,
             stage2_status: if matches!(risk_surface, PiiRiskSurface::Egress) && ambiguous {
-                Some("legacy_mock_ambiguous".to_string())
+                Some("heuristic_review_required".to_string())
             } else {
                 None
             },

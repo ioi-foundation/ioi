@@ -21,6 +21,18 @@ fn tx_account_nonce(tx: &ChainTransaction) -> Option<(AccountId, u64)> {
     }
 }
 
+fn requires_ingestion_semantic_screening(tx: &ChainTransaction) -> bool {
+    let ChainTransaction::System(sys) = tx else {
+        return false;
+    };
+
+    matches!(
+        &sys.payload,
+        ioi_types::app::SystemPayload::CallService { service_id, .. }
+            if matches!(service_id.as_str(), "agentic" | "desktop_agent" | "compute_market")
+    )
+}
+
 fn relay_fanout() -> usize {
     std::env::var("IOI_AFT_TX_RELAY_FANOUT")
         .ok()
@@ -246,9 +258,10 @@ where
                 Vec::new()
             };
 
+            let requires_semantic_screening = requires_ingestion_semantic_screening(&tx);
             let should_fast_admit = {
                 let limit = fast_admit_mempool_limit();
-                limit > 0 && tx_pool_ref.len() < limit
+                limit > 0 && tx_pool_ref.len() < limit && !requires_semantic_screening
             };
 
             let committed_nonce_state = if let Some((account_id, _)) = tx_info.as_ref() {
@@ -520,5 +533,56 @@ where
             ),
             required_capabilities: vec!["wallet::sign".into()],
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::requires_ingestion_semantic_screening;
+    use ioi_types::app::{
+        AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof, SignatureSuite,
+        SystemPayload, SystemTransaction,
+    };
+
+    fn system_call(service_id: &str) -> ChainTransaction {
+        ChainTransaction::System(Box::new(SystemTransaction {
+            header: SignHeader {
+                account_id: AccountId([0u8; 32]),
+                nonce: 0,
+                chain_id: ChainId(1),
+                tx_version: 1,
+                session_auth: None,
+            },
+            payload: SystemPayload::CallService {
+                service_id: service_id.to_string(),
+                method: "start@v1".to_string(),
+                params: Vec::new(),
+            },
+            signature_proof: SignatureProof {
+                suite: SignatureSuite::ED25519,
+                public_key: Vec::new(),
+                signature: Vec::new(),
+            },
+        }))
+    }
+
+    #[test]
+    fn semantic_screening_routes_desktop_agent_service_calls_through_ingestion() {
+        assert!(requires_ingestion_semantic_screening(&system_call(
+            "desktop_agent"
+        )));
+        assert!(requires_ingestion_semantic_screening(&system_call(
+            "agentic"
+        )));
+        assert!(requires_ingestion_semantic_screening(&system_call(
+            "compute_market"
+        )));
+    }
+
+    #[test]
+    fn semantic_screening_keeps_unrelated_service_calls_fast_admissible() {
+        assert!(!requires_ingestion_semantic_screening(&system_call(
+            "wallet_network"
+        )));
     }
 }

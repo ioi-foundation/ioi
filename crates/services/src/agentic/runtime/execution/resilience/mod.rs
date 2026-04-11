@@ -1,4 +1,4 @@
-use super::computer::{click_element_by_id, exec_click, fetch_lensed_tree};
+use super::screen::{click_element_by_id, exec_click, fetch_lensed_tree};
 use super::{ToolExecutionResult, ToolExecutor};
 use crate::agentic::runtime::types::ExecutionTier;
 use image::load_from_memory;

@@ -29,7 +29,7 @@ pub(super) fn enforce_system_fail_terminal_status(
     status: &mut AgentStatus,
     error_msg: Option<&str>,
 ) -> bool {
-    if current_tool_name != "system__fail" {
+    if current_tool_name != "agent__escalate" {
         return false;
     }
 
@@ -44,19 +44,19 @@ pub(super) fn enforce_system_fail_terminal_status(
 // Helper to determine if an action relies on precise screen coordinates.
 pub(super) fn requires_visual_integrity(tool: &AgentTool) -> bool {
     match tool {
-        AgentTool::Computer(action) => matches!(
+        AgentTool::Screen(action) => matches!(
             action,
-            ioi_types::app::agentic::ComputerAction::LeftClickId { .. }
-                | ioi_types::app::agentic::ComputerAction::LeftClick {
+            ioi_types::app::agentic::ScreenAction::LeftClickId { .. }
+                | ioi_types::app::agentic::ScreenAction::LeftClick {
                     coordinate: Some(_),
                     ..
                 }
-                | ioi_types::app::agentic::ComputerAction::LeftClickDrag { .. }
-                | ioi_types::app::agentic::ComputerAction::DragDrop { .. }
-                | ioi_types::app::agentic::ComputerAction::DragDropId { .. }
-                | ioi_types::app::agentic::ComputerAction::DragDropElement { .. }
-                | ioi_types::app::agentic::ComputerAction::MouseMove { .. }
-                | ioi_types::app::agentic::ComputerAction::Scroll {
+                | ioi_types::app::agentic::ScreenAction::LeftClickDrag { .. }
+                | ioi_types::app::agentic::ScreenAction::DragDrop { .. }
+                | ioi_types::app::agentic::ScreenAction::DragDropId { .. }
+                | ioi_types::app::agentic::ScreenAction::DragDropElement { .. }
+                | ioi_types::app::agentic::ScreenAction::MouseMove { .. }
+                | ioi_types::app::agentic::ScreenAction::Scroll {
                     coordinate: Some(_),
                     ..
                 }
@@ -65,7 +65,6 @@ pub(super) fn requires_visual_integrity(tool: &AgentTool) -> bool {
         AgentTool::GuiScroll { .. } => true,
         AgentTool::BrowserSyntheticClick { .. } => true,
         AgentTool::BrowserClick { .. } => true,
-        AgentTool::BrowserClickElement { .. } => true,
         _ => false,
     }
 }

@@ -7,7 +7,7 @@ use ioi_drivers::os::UnavailableOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_services::agentic::runtime::execution::ToolExecutor;
 use ioi_services::agentic::runtime::types::ExecutionTier;
-use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use ioi_types::app::agentic::{AgentTool, ScreenAction};
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::error::VmError;
 use std::collections::BTreeMap;
@@ -90,7 +90,7 @@ async fn drag_drop_id_resolves_som_centers_and_executes_atomic_sequence() {
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::DragDropId {
+            AgentTool::Screen(ScreenAction::DragDropId {
                 from_id: 1,
                 to_id: 2,
             }),
@@ -136,7 +136,7 @@ async fn drag_drop_element_resolves_semantic_map_and_executes_atomic_sequence() 
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::DragDropElement {
+            AgentTool::Screen(ScreenAction::DragDropElement {
                 from_id: "file_icon".to_string(),
                 to_id: "trash_bin".to_string(),
             }),

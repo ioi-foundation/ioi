@@ -15,53 +15,48 @@ fn action_target_for_macro_step(target: &str, _params: &serde_json::Value) -> Ac
     match target {
         "web__search" | "web__read" => ActionTarget::WebRetrieve,
         "media__extract_transcript" => ActionTarget::MediaExtractTranscript,
-        "media__extract_multimodal_evidence" => ActionTarget::MediaExtractMultimodalEvidence,
-        "net__fetch" => ActionTarget::NetFetch,
-        "browser__snapshot" => ActionTarget::BrowserInspect,
-        "gui__snapshot" => ActionTarget::GuiInspect,
+        "media__extract_evidence" => ActionTarget::MediaExtractMultimodalEvidence,
+        "http__fetch" => ActionTarget::NetFetch,
+        "browser__inspect" => ActionTarget::BrowserInspect,
+        "screen__inspect" => ActionTarget::GuiInspect,
         "browser__navigate"
         | "browser__click"
-        | "browser__click_element"
         | "browser__hover"
-        | "browser__move_mouse"
-        | "browser__mouse_down"
-        | "browser__mouse_up"
-        | "browser__synthetic_click"
+        | "browser__move_pointer"
+        | "browser__pointer_down"
+        | "browser__pointer_up"
+        | "browser__click_at"
         | "browser__scroll"
         | "browser__type"
-        | "browser__select_text"
-        | "browser__key"
-        | "browser__copy_selection"
-        | "browser__paste_clipboard"
+        | "browser__select"
+        | "browser__press_key"
+        | "browser__copy"
+        | "browser__paste"
         | "browser__find_text"
         | "browser__screenshot"
         | "browser__wait"
-        | "browser__upload_file"
-        | "browser__dropdown_options"
-        | "browser__select_dropdown"
-        | "browser__go_back"
-        | "browser__tab_list"
-        | "browser__tab_switch"
-        | "browser__tab_close" => ActionTarget::BrowserInteract,
-        "gui__type" => ActionTarget::GuiType,
-        "gui__click" => ActionTarget::GuiClick,
+        | "browser__upload"
+        | "browser__list_options"
+        | "browser__select_option"
+        | "browser__back"
+        | "browser__list_tabs"
+        | "browser__switch_tab"
+        | "browser__close_tab" => ActionTarget::BrowserInteract,
+        "screen__type" => ActionTarget::GuiType,
+        "screen__click_at" => ActionTarget::GuiClick,
         // Element-targeted click variants should route as GUI clicks (policy/app isolation),
         // but require explicit tool-name preservation for queue replay.
-        "gui__click_element" | "ui__click_element" | "ui__click_component" => {
-            ActionTarget::GuiClick
-        }
+        "screen__click" => ActionTarget::GuiClick,
         "math__eval" => ActionTarget::Custom("math::eval".to_string()),
-        "sys__exec" | "sys__exec_session" | "sys__exec_session_reset" | "sys__change_directory" => {
-            ActionTarget::SysExec
-        }
-        "sys__install_package" => ActionTarget::SysInstallPackage,
+        "shell__run" | "shell__start" | "shell__reset" | "shell__cd" => ActionTarget::SysExec,
+        "package__install" => ActionTarget::SysInstallPackage,
         _ => ActionTarget::Custom(target.to_string()),
     }
 }
 
 // Keep this key in sync with queue execution (`crates/services/src/agentic/runtime/service/step/queue/support.rs`).
 const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
-const GUI_CLICK_ELEMENT_TOOL_NAME: &str = "gui__click_element";
+const GUI_CLICK_ELEMENT_TOOL_NAME: &str = "screen__click";
 
 fn macro_step_params_with_queue_metadata(
     target_str: &str,
@@ -69,10 +64,7 @@ fn macro_step_params_with_queue_metadata(
 ) -> serde_json::Value {
     let mut out = params.clone();
 
-    let tool_name_override = if matches!(
-        target_str,
-        "gui__click_element" | "ui__click_element" | "ui__click_component"
-    ) {
+    let tool_name_override = if matches!(target_str, "screen__click") {
         Some(GUI_CLICK_ELEMENT_TOOL_NAME.to_string())
     } else if target_str.starts_with("browser__")
         && matches!(
@@ -83,10 +75,10 @@ fn macro_step_params_with_queue_metadata(
         Some(target_str.to_string())
     } else if matches!(
         target_str,
-        "media__extract_transcript" | "media__extract_multimodal_evidence"
+        "media__extract_transcript" | "media__extract_evidence"
     ) {
         Some(target_str.to_string())
-    } else if matches!(target_str, "sys__exec_session" | "sys__exec_session_reset") {
+    } else if matches!(target_str, "shell__start" | "shell__reset") {
         Some(target_str.to_string())
     } else {
         None
@@ -464,7 +456,7 @@ impl OptimizerService {
                 if let Some(name) = tool_call["name"].as_str() {
                     let args = &tool_call["arguments"];
                     match name {
-                        "browser__navigate" | "net__fetch" => {
+                        "browser__navigate" | "http__fetch" => {
                             if let Some(url) = args["url"].as_str() {
                                 if let Ok(u) = Url::parse(url) {
                                     if let Some(host) = u.host_str() {
@@ -473,7 +465,7 @@ impl OptimizerService {
                                 }
                             }
                         }
-                        "filesystem__read_file" | "filesystem__write_file" => {
+                        "file__read" | "file__write" => {
                             if let Some(path) = args["path"].as_str() {
                                 allowed_files.insert(path.to_string());
                             }
@@ -704,7 +696,7 @@ mod tests {
     #[test]
     fn macro_step_net_fetch_maps_to_net_fetch_target() {
         let target = action_target_for_macro_step(
-            "net__fetch",
+            "http__fetch",
             &json!({"url": "https://example.com", "max_chars": 123}),
         );
         assert_eq!(target, ActionTarget::NetFetch);
@@ -713,13 +705,13 @@ mod tests {
     #[test]
     fn macro_step_sys_exec_session_maps_to_sys_exec_target_and_injects_queue_tool_name() {
         let params = json!({"command": "echo", "args": ["ok"]});
-        let target = action_target_for_macro_step("sys__exec_session", &params);
+        let target = action_target_for_macro_step("shell__start", &params);
         assert_eq!(target, ActionTarget::SysExec);
 
-        let args = macro_step_params_with_queue_metadata("sys__exec_session", &params);
+        let args = macro_step_params_with_queue_metadata("shell__start", &params);
         assert_eq!(
             args.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
-            Some("sys__exec_session")
+            Some("shell__start")
         );
         assert_eq!(args.get("command").and_then(|v| v.as_str()), Some("echo"));
     }
@@ -727,10 +719,10 @@ mod tests {
     #[test]
     fn macro_step_gui_click_element_injects_queue_tool_name() {
         let params = json!({"id": "btn_submit"});
-        let target = action_target_for_macro_step("gui__click_element", &params);
+        let target = action_target_for_macro_step("screen__click", &params);
         assert_eq!(target, ActionTarget::GuiClick);
 
-        let args = macro_step_params_with_queue_metadata("gui__click_element", &params);
+        let args = macro_step_params_with_queue_metadata("screen__click", &params);
         assert_eq!(
             args.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
             Some(GUI_CLICK_ELEMENT_TOOL_NAME)
@@ -741,13 +733,13 @@ mod tests {
     #[test]
     fn macro_step_browser_interact_tool_injects_queue_tool_name() {
         let params = json!({"selector": "select[name='country']"});
-        let target = action_target_for_macro_step("browser__dropdown_options", &params);
+        let target = action_target_for_macro_step("browser__list_options", &params);
         assert_eq!(target, ActionTarget::BrowserInteract);
 
-        let args = macro_step_params_with_queue_metadata("browser__dropdown_options", &params);
+        let args = macro_step_params_with_queue_metadata("browser__list_options", &params);
         assert_eq!(
             args.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
-            Some("browser__dropdown_options")
+            Some("browser__list_options")
         );
         assert_eq!(
             args.get("selector").and_then(|v| v.as_str()),
@@ -776,14 +768,13 @@ mod tests {
     fn macro_step_media_extract_multimodal_maps_to_media_scope_and_injects_queue_tool_name() {
         let params =
             json!({"url": "https://example.com/video", "language": "en", "frame_limit": 6});
-        let target = action_target_for_macro_step("media__extract_multimodal_evidence", &params);
+        let target = action_target_for_macro_step("media__extract_evidence", &params);
         assert_eq!(target, ActionTarget::MediaExtractMultimodalEvidence);
 
-        let args =
-            macro_step_params_with_queue_metadata("media__extract_multimodal_evidence", &params);
+        let args = macro_step_params_with_queue_metadata("media__extract_evidence", &params);
         assert_eq!(
             args.get(QUEUE_TOOL_NAME_KEY).and_then(|v| v.as_str()),
-            Some("media__extract_multimodal_evidence")
+            Some("media__extract_evidence")
         );
         assert_eq!(
             args.get("url").and_then(|v| v.as_str()),

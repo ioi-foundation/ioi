@@ -13,7 +13,9 @@ use ioi_services::agentic::runtime::service::step::queue::queue_action_request_t
 use ioi_services::agentic::runtime::tools::discover_tools;
 use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};
-use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::{
+    AgentTool, CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+};
 use ioi_types::app::{ActionRequest, ActionTarget, RoutingReceiptEvent};
 use ioi_types::error::StateError;
 use std::collections::{BTreeMap, BTreeSet};
@@ -121,16 +123,45 @@ fn test_agent_state() -> AgentState {
     }
 }
 
+fn resolved_browser_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "web.interact".to_string(),
+        scope: IntentScopeProfile::WebResearch,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("browser.interact"),
+            CapabilityId::from("browser.inspect"),
+            CapabilityId::from("conversation.reply"),
+        ],
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "intent-matrix-v2".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [1u8; 32],
+        receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    }
+}
+
 #[test]
-fn browser_input_tools_map_to_custom_targets() {
+fn browser_input_tools_map_to_browser_interact_scope() {
     let type_tool = AgentTool::BrowserType {
         text: "IOI Kernel".to_string(),
         selector: Some("input[name='q']".to_string()),
     };
-    assert_eq!(
-        type_tool.target(),
-        ActionTarget::Custom("browser__type".into())
-    );
+    assert_eq!(type_tool.target(), ActionTarget::BrowserInteract);
 
     let key_tool = AgentTool::BrowserKey {
         key: "Enter".to_string(),
@@ -138,10 +169,7 @@ fn browser_input_tools_map_to_custom_targets() {
         modifiers: None,
         continue_with: None,
     };
-    assert_eq!(
-        key_tool.target(),
-        ActionTarget::Custom("browser__key".into())
-    );
+    assert_eq!(key_tool.target(), ActionTarget::BrowserInteract);
 }
 
 #[test]
@@ -162,7 +190,7 @@ fn browser_type_normalizer_accepts_selector() {
 
 #[test]
 fn browser_key_normalizer_accepts_key() {
-    let tool = normalize_tool_call(r#"{"name":"browser__key","arguments":{"key":"Enter"}}"#)
+    let tool = normalize_tool_call(r#"{"name":"browser__press_key","arguments":{"key":"Enter"}}"#)
         .expect("normalization should succeed");
 
     match tool {
@@ -174,7 +202,7 @@ fn browser_key_normalizer_accepts_key() {
 #[test]
 fn browser_key_normalizer_accepts_selector() {
     let tool = normalize_tool_call(
-        r##"{"name":"browser__key","arguments":{"key":"Home","selector":"#text-area","modifiers":["Control"]}}"##,
+        r##"{"name":"browser__press_key","arguments":{"key":"Home","selector":"#text-area","modifiers":["Control"]}}"##,
     )
     .expect("normalization should succeed");
 
@@ -183,6 +211,7 @@ fn browser_key_normalizer_accepts_selector() {
             key,
             selector,
             modifiers,
+            continue_with: _,
         } => {
             assert_eq!(key, "Home");
             assert_eq!(selector.as_deref(), Some("#text-area"));
@@ -222,7 +251,7 @@ fn queue_custom_browser_type_target_maps_to_typed_tool() {
 #[test]
 fn queue_custom_browser_key_target_maps_to_typed_tool() {
     let request = ActionRequest {
-        target: ActionTarget::Custom("browser__key".to_string()),
+        target: ActionTarget::Custom("browser__press_key".to_string()),
         params: serde_jcs::to_vec(&serde_json::json!({
             "key": "Enter",
             "selector": "#text-area"
@@ -313,9 +342,10 @@ fn routing_receipt_contract_for_browser_type_stays_tool_first() {
 }
 
 #[tokio::test]
-async fn tool_discovery_exposes_browser_input_tools_in_headless_browser_context() {
+async fn tool_discovery_exposes_browser_input_tools_for_resolved_browser_intent() {
     let state = MockState::default();
     let runtime = Arc::new(MockInferenceRuntime::default());
+    let resolved = resolved_browser_intent();
 
     let names: BTreeSet<String> = discover_tools(
         &state,
@@ -325,7 +355,7 @@ async fn tool_discovery_exposes_browser_input_tools_in_headless_browser_context(
         runtime,
         ExecutionTier::DomHeadless,
         "Google Chrome",
-        None,
+        Some(&resolved),
     )
     .await
     .into_iter()
@@ -333,5 +363,5 @@ async fn tool_discovery_exposes_browser_input_tools_in_headless_browser_context(
     .collect();
 
     assert!(names.contains("browser__type"));
-    assert!(names.contains("browser__key"));
+    assert!(names.contains("browser__press_key"));
 }

@@ -25,20 +25,16 @@ use tonic::{Request, Response, Status};
 
 use crate::metrics::rpc_metrics as metrics;
 use ioi_api::chain::WorkloadClientApi;
-use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
-use ioi_services::agentic::runtime::runtime_secret;
 use ioi_services::agentic::intent::IntentResolver;
-use ioi_types::app::agentic::InferenceOptions;
+use ioi_services::agentic::runtime::runtime_secret;
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainTransaction, SignatureProof, SignatureSuite,
     StateRoot, TxHash,
 };
 use ioi_types::codec;
-use ioi_types::error::VmError;
 
 mod events_handlers;
 mod helpers;
-mod inference;
 mod session_handlers;
 mod state_handlers;
 mod tx_handlers;

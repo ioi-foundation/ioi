@@ -1,8 +1,8 @@
+use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::keys::pii;
 use crate::agentic::runtime::service::step::incident::mark_gate_approved;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::AgentState;
-use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_pii::{
     check_exception_usage_increment_ok, decode_exception_usage_state,
@@ -42,7 +42,7 @@ pub(super) async fn validate_and_apply(
     let mut explicit_pii_deny = false;
 
     // Validate approval token before executing anything.
-    // Runtime secret retries for sys__install_package are allowed without approval token.
+    // Runtime secret retries for package__install are allowed without approval token.
     if let Some(token) = agent_state.pending_approval.as_ref() {
         validate_resume_review_contract(
             expected_request_hash,

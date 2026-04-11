@@ -538,7 +538,7 @@ function inferredRouteFamily(
 
     if (
       toolName.includes("browser__") ||
-      toolName.includes("gui__") ||
+      toolName.includes("screen__") ||
       toolName.includes("ui__") ||
       toolName.includes("selector__") ||
       entry.event.event_type === "BROWSER_NAVIGATE" ||

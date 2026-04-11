@@ -187,9 +187,14 @@ impl GuardianRegistry {
                     && canonical_collapse_archived_recovered_history_anchor(&collapse)
                         .map_err(TransactionError::Invalid)?
                         .is_some();
+            let sealing_only_upgrade =
+                ioi_types::app::canonical_collapse_eq_on_header_surface(&existing, &collapse)
+                    && existing.sealing.is_none()
+                    && collapse.sealing.is_some();
             if existing != collapse
                 && !(new_has_abort && !existing_has_abort)
                 && !anchor_only_upgrade
+                && !sealing_only_upgrade
             {
                 return Err(TransactionError::Invalid(
                     "conflicting canonical collapse object already published for height".into(),

@@ -179,6 +179,8 @@ pub enum InitialServiceConfig {
     Oracle(OracleParams),
     /// Configuration for the guardian registry service.
     GuardianRegistry(GuardianRegistryParams),
+    /// Enables the leakage-controller service used by the workload control plane.
+    LeakageController,
 }
 
 /// Static committee member configuration for guardianized deployments.
@@ -365,7 +367,7 @@ pub struct ZkConfig {
 /// Configuration for an AI Inference Runtime.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct InferenceConfig {
-    /// The provider type: "mock", "local" (e.g. llama.cpp), or "openai" (external).
+    /// The provider type: "unavailable", "standard", "local" (e.g. llama.cpp), or "openai" (external).
     #[serde(default = "default_inference_provider")]
     pub provider: String,
 
@@ -395,7 +397,7 @@ impl Default for InferenceConfig {
 }
 
 fn default_inference_provider() -> String {
-    "mock".to_string()
+    "unavailable".to_string()
 }
 
 /// Configuration for a secure connector.
@@ -633,25 +635,31 @@ impl WorkloadConfig {
         }
 
         // Validate legacy inference block if present
-        if self.inference.provider != "mock" && self.inference.api_url.is_none() {
+        if !matches!(self.inference.provider.as_str(), "unavailable" | "standard")
+            && self.inference.api_url.is_none()
+        {
             return Err(
-                "Configuration Error: 'api_url' is required for non-mock inference providers."
+                "Configuration Error: 'inference.api_url' is required for configured HTTP inference providers."
                     .to_string(),
             );
         }
 
         // Validate new specialized blocks
         if let Some(fast) = &self.fast_inference {
-            if fast.provider != "mock" && fast.api_url.is_none() {
+            if !matches!(fast.provider.as_str(), "unavailable" | "standard")
+                && fast.api_url.is_none()
+            {
                 return Err(
-                    "Configuration Error: 'fast_inference.api_url' is required.".to_string()
+                    "Configuration Error: 'fast_inference.api_url' is required for configured HTTP inference providers.".to_string()
                 );
             }
         }
         if let Some(reasoning) = &self.reasoning_inference {
-            if reasoning.provider != "mock" && reasoning.api_url.is_none() {
+            if !matches!(reasoning.provider.as_str(), "unavailable" | "standard")
+                && reasoning.api_url.is_none()
+            {
                 return Err(
-                    "Configuration Error: 'reasoning_inference.api_url' is required.".to_string(),
+                    "Configuration Error: 'reasoning_inference.api_url' is required for configured HTTP inference providers.".to_string(),
                 );
             }
         }
@@ -970,6 +978,18 @@ pub fn default_service_policies() -> BTreeMap<String, ServicePolicy> {
         },
     );
 
+    // Leakage Controller
+    let mut leakage_methods = BTreeMap::new();
+    leakage_methods.insert("register_policy@v1".into(), MethodPermission::User);
+    leakage_methods.insert("check_and_debit@v1".into(), MethodPermission::Internal);
+    map.insert(
+        "leakage_controller".to_string(),
+        ServicePolicy {
+            methods: leakage_methods,
+            allowed_system_prefixes: vec!["leakage::".to_string()],
+        },
+    );
+
     // Desktop Agent
     let mut desktop_agent_methods = BTreeMap::new();
     for method in [
@@ -1178,6 +1198,7 @@ fn default_query_gas_limit() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::default_service_policies;
+    use crate::service_configs::MethodPermission;
 
     #[test]
     fn wallet_network_policy_exposes_policy_rule_upsert() {
@@ -1189,6 +1210,32 @@ mod tests {
         assert!(
             wallet.methods.contains_key("upsert_policy_rule@v1"),
             "wallet_network ActiveServiceMeta must advertise upsert_policy_rule@v1",
+        );
+    }
+
+    #[test]
+    fn leakage_controller_policy_exposes_registration_and_internal_debit() {
+        let policies = default_service_policies();
+        let leakage = policies
+            .get("leakage_controller")
+            .expect("leakage_controller service policy should exist");
+
+        assert_eq!(
+            leakage.methods.get("register_policy@v1"),
+            Some(&MethodPermission::User),
+            "leakage_controller must allow user policy registration",
+        );
+        assert_eq!(
+            leakage.methods.get("check_and_debit@v1"),
+            Some(&MethodPermission::Internal),
+            "leakage_controller must keep debit enforcement internal",
+        );
+        assert!(
+            leakage
+                .allowed_system_prefixes
+                .iter()
+                .any(|prefix| prefix == "leakage::"),
+            "leakage_controller must retain access to its private state prefix",
         );
     }
 }

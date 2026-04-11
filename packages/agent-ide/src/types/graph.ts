@@ -28,7 +28,7 @@ export interface NodeLogic {
 
   // --- Dynamic MCP Tools ---
   tool_name?: string;
-  arguments?: Record<string, any>;
+  arguments?: Record<string, unknown>;
 
   // --- Code / Function ---
   language?: string;
@@ -168,8 +168,8 @@ export interface GraphModelBinding {
 
 export interface ProjectFile {
   version: string;
-  nodes: any[]; // Simplified for storage
-  edges: any[];
+  nodes: Node[];
+  edges: Edge[];
   global_config: GraphGlobalConfig;
 }
 

@@ -124,24 +124,119 @@ mod linux_impl {
     use atspi::connection::AccessibilityConnection;
     use atspi::proxy::accessible::AccessibleProxy;
     use atspi::proxy::component::ComponentProxy;
-    use atspi::{CoordType, State}; // [NEW] Import State enum
+    use atspi::{Accessible, CoordType, State}; // [NEW] Import State enum
     use futures::future::BoxFuture;
     use futures::FutureExt;
     use std::collections::HashMap;
 
+    fn is_likely_atspi_bus_error(message: &str) -> bool {
+        let lower = message.to_ascii_lowercase();
+        lower.contains("org.a11y.atspi")
+            || lower.contains("accessibility bus")
+            || lower.contains("dbus")
+            || lower.contains("bus name")
+            || lower.contains("service unknown")
+            || lower.contains("name has no owner")
+    }
+
+    fn wrap_atspi_error(context: &str, error: impl std::fmt::Display) -> anyhow::Error {
+        let message = error.to_string();
+        if is_likely_atspi_bus_error(&message) {
+            anyhow!(
+                "AT-SPI {} failed: {}. Ensure the Linux accessibility bus is running and the target app exposes AT-SPI.",
+                context,
+                message
+            )
+        } else {
+            anyhow!("AT-SPI {} failed: {}", context, message)
+        }
+    }
+
     pub async fn fetch_tree() -> Result<AccessibilityNode> {
         // 1. Connect to the Accessibility Bus
-        let conn = AccessibilityConnection::open().await?;
+        let conn = AccessibilityConnection::open()
+            .await
+            .map_err(|error| wrap_atspi_error("connection open", error))?;
 
         // 2. Get the desktop root
-        let root = AccessibleProxy::builder(&conn.connection().clone())
-            .destination("org.a11y.atspi.Registry")?
-            .path("/org/a11y/atspi/accessible/root")?
-            .build()
-            .await?;
+        let desktop_root = build_accessible_proxy(
+            &conn,
+            "org.a11y.atspi.Registry",
+            "/org/a11y/atspi/accessible/root",
+        )
+        .await
+        .map_err(|error| wrap_atspi_error("desktop root lookup", error))?;
+
+        // Prefer the active/focused application subtree when AT-SPI exposes one.
+        // This keeps the tree smaller and more relevant than crawling the whole registry root.
+        let preferred_root = select_primary_application(&desktop_root, &conn).await;
+        let root = if let Some(preferred_root) = preferred_root.as_ref() {
+            build_accessible_proxy(
+                &conn,
+                preferred_root.name.as_str(),
+                preferred_root.path.as_str(),
+            )
+            .await
+            .map_err(|error| wrap_atspi_error("primary application lookup", error))?
+        } else {
+            desktop_root
+        };
 
         // 3. Recursive crawl
         crawl_atspi_node(&root, &conn, 0).await
+    }
+
+    async fn build_accessible_proxy<'a>(
+        conn: &'a AccessibilityConnection,
+        destination: &'a str,
+        path: &'a str,
+    ) -> Result<AccessibleProxy<'a>> {
+        AccessibleProxy::builder(&conn.connection().clone())
+            .destination(destination)?
+            .path(path)?
+            .build()
+            .await
+            .map_err(|error| anyhow!(error.to_string()))
+    }
+
+    async fn select_primary_application<'a>(
+        desktop_root: &'a AccessibleProxy<'a>,
+        conn: &'a AccessibilityConnection,
+    ) -> Option<Accessible> {
+        let child_refs = desktop_root.get_children().await.ok()?;
+        let mut fallback_ref: Option<Accessible> = None;
+
+        for child_ref in child_refs.into_iter().take(32) {
+            if child_ref.path.as_str().ends_with("/null") {
+                continue;
+            }
+
+            if fallback_ref.is_none() {
+                fallback_ref = Some(child_ref.clone());
+            }
+
+            let child_proxy = match build_accessible_proxy(
+                conn,
+                child_ref.name.as_str(),
+                child_ref.path.as_str(),
+            )
+            .await
+            {
+                Ok(proxy) => proxy,
+                Err(_) => continue,
+            };
+
+            if let Ok(state_set) = child_proxy.get_state().await {
+                if state_set.contains(State::Active)
+                    || state_set.contains(State::Focused)
+                    || state_set.contains(State::Showing)
+                {
+                    return Some(child_ref);
+                }
+            }
+        }
+
+        fallback_ref
     }
 
     fn normalize_role(raw_role: &str) -> String {
@@ -209,6 +304,25 @@ mod linux_impl {
             normalized = "placeholder".to_string();
         }
         normalized
+    }
+
+    fn stable_accessible_id(destination: &str, path: &str) -> String {
+        let destination = destination
+            .replace(':', "_")
+            .replace('.', "_")
+            .replace('-', "_");
+        let object_path = path.trim_matches('/').replace('/', "_").replace('-', "_");
+        let stable_destination = if destination.is_empty() {
+            "unk".to_string()
+        } else {
+            destination
+        };
+        let stable_object_path = if object_path.is_empty() {
+            "root".to_string()
+        } else {
+            object_path
+        };
+        format!("atspi_{}_{}", stable_destination, stable_object_path)
     }
 
     fn crawl_atspi_node<'a>(
@@ -289,10 +403,19 @@ mod linux_impl {
                 if state_set.contains(State::Focused) {
                     attributes.insert("focused".to_string(), "true".to_string());
                 }
+                if state_set.contains(State::Active) {
+                    attributes.insert("active".to_string(), "true".to_string());
+                }
                 if state_set.contains(State::Expanded) {
                     attributes.insert("expanded".to_string(), "true".to_string());
                 }
-                if state_set.contains(State::Visible) || state_set.contains(State::Focused) {
+                if state_set.contains(State::Showing) {
+                    attributes.insert("showing".to_string(), "true".to_string());
+                }
+                if state_set.contains(State::Visible)
+                    || state_set.contains(State::Showing)
+                    || state_set.contains(State::Focused)
+                {
                     state_indicates_visible = true;
                 }
             }
@@ -364,32 +487,12 @@ mod linux_impl {
                 }
             }
 
-            let destination = proxy
-                .destination()
-                .to_string()
-                .replace(':', "_")
-                .replace('.', "_")
-                .replace('-', "_");
-            let object_path = proxy
-                .path()
-                .to_string()
-                .trim_matches('/')
-                .replace('/', "_")
-                .replace('-', "_");
-            let stable_destination = if destination.is_empty() {
-                "unk".to_string()
-            } else {
-                destination
-            };
-            let stable_object_path = if object_path.is_empty() {
-                "root".to_string()
-            } else {
-                object_path
-            };
-
             Ok(AccessibilityNode {
                 // Generate a stable-ish ID based on path + index to allow referencing
-                id: format!("atspi_{}_{}", stable_destination, stable_object_path),
+                id: stable_accessible_id(
+                    &proxy.destination().to_string(),
+                    &proxy.path().to_string(),
+                ),
                 role,
                 name: if name.is_empty() { None } else { Some(name) },
                 value: None,
@@ -401,6 +504,49 @@ mod linux_impl {
             })
         }
         .boxed()
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn normalize_role_handles_mixed_case_and_aliases() {
+            assert_eq!(normalize_role("PushButton"), "button");
+            assert_eq!(normalize_role("MenuItem"), "menuitem");
+            assert_eq!(normalize_role("Description Value"), "description_value");
+        }
+
+        #[test]
+        fn normalize_attribute_key_compacts_placeholder_variants() {
+            assert_eq!(normalize_attribute_key("placeholder-text"), "placeholder");
+            assert_eq!(normalize_attribute_key("placeholderText"), "placeholder");
+            assert_eq!(
+                normalize_attribute_key("accessible-name"),
+                "accessible_name"
+            );
+        }
+
+        #[test]
+        fn stable_accessible_id_sanitizes_destination_and_path() {
+            let id = stable_accessible_id(
+                ":1.42",
+                "/org/a11y/atspi/accessible/application/gnome-calculator/frame",
+            );
+            assert_eq!(
+                id,
+                "atspi__1_42_org_a11y_atspi_accessible_application_gnome_calculator_frame"
+            );
+        }
+
+        #[test]
+        fn wrap_atspi_error_mentions_accessibility_bus_for_registry_failures() {
+            let err = wrap_atspi_error(
+                "connection open",
+                "org.a11y.atspi.Registry was not provided",
+            );
+            assert!(err.to_string().contains("Linux accessibility bus"));
+        }
     }
 }
 

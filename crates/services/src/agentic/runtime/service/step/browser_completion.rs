@@ -59,7 +59,7 @@ pub(crate) fn browser_snapshot_completion(
     tool_name: &str,
     snapshot_output: Option<&str>,
 ) -> Option<BrowserSnapshotCompletion> {
-    if tool_name != "browser__snapshot" || agent_state.pending_search_completion.is_some() {
+    if tool_name != "browser__inspect" || agent_state.pending_search_completion.is_some() {
         return None;
     }
 
@@ -220,7 +220,7 @@ mod tests {
         "#;
 
         let completion =
-            browser_snapshot_completion(&state, "browser__snapshot", Some(snapshot)).unwrap();
+            browser_snapshot_completion(&state, "browser__inspect", Some(snapshot)).unwrap();
         assert!(completion.summary.contains("operation=click"));
         assert!(completion
             .summary
@@ -239,7 +239,7 @@ mod tests {
         ));
         let snapshot = r#"<root><generic id="grp_done" name="done" /></root>"#;
 
-        assert!(browser_snapshot_completion(&state, "browser__snapshot", Some(snapshot)).is_none());
+        assert!(browser_snapshot_completion(&state, "browser__inspect", Some(snapshot)).is_none());
     }
 
     #[test]
@@ -250,7 +250,7 @@ mod tests {
         ));
         let snapshot = r#"<root><generic id="grp_done" name="done" /></root>"#;
 
-        assert!(browser_snapshot_completion(&state, "browser__snapshot", Some(snapshot)).is_none());
+        assert!(browser_snapshot_completion(&state, "browser__inspect", Some(snapshot)).is_none());
     }
 
     #[test]
@@ -263,6 +263,6 @@ mod tests {
         let state = agent_state_with_resolved_intent(resolved);
         let snapshot = r#"<root><generic id="grp_done" name="done" /></root>"#;
 
-        assert!(browser_snapshot_completion(&state, "browser__snapshot", Some(snapshot)).is_none());
+        assert!(browser_snapshot_completion(&state, "browser__inspect", Some(snapshot)).is_none());
     }
 }

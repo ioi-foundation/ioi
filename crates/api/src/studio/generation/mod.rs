@@ -1,0 +1,132 @@
+use super::judging::{
+    candidate_generation_config, candidate_seed_for, html_first_paint_section_blueprint,
+    judge_clears_primary_view, judge_studio_artifact_candidate_with_runtime_and_render_eval,
+    judge_total_score, materialization_max_tokens, output_origin_from_provenance,
+    refined_candidate_root, renderer_supports_semantic_refinement, runtime_model_label,
+    semantic_refinement_pass_limit, studio_artifact_refinement_candidate_view,
+    studio_artifact_refinement_context_view, summarized_guidance_terms,
+};
+use super::*;
+use crate::execution::{
+    annotate_execution_envelope, build_execution_envelope_from_swarm,
+    completion_invariant_for_direct_execution, derive_execution_mode_decision,
+    ExecutionCompletionInvariantStatus, ExecutionDomainKind, ExecutionEnvelope,
+    ExecutionLivePreview, ExecutionLivePreviewKind,
+};
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+use tokio::{
+    sync::mpsc,
+    task::{JoinHandle, JoinSet},
+    time::MissedTickBehavior,
+};
+
+mod adaptive_search;
+mod candidate_materialization;
+mod common;
+mod compact_html_materialization;
+mod compact_html_swarm;
+mod materialization_prompt;
+mod materialization_repair_prompt;
+mod non_swarm_bundle;
+mod non_swarm_entrypoints;
+mod non_swarm_finalize;
+mod planning_and_judging;
+mod refinement_prompt;
+mod runtime_materialization;
+mod runtime_plan;
+mod semantic_refinement;
+mod swarm;
+mod swarm_bundle;
+mod swarm_bundle_finalize;
+mod swarm_patch_parse;
+mod swarm_patch_worker;
+mod swarm_plan;
+mod swarm_progress;
+mod validation_preview;
+
+use adaptive_search::*;
+pub(crate) use adaptive_search::{
+    derive_studio_adaptive_search_budget, ranked_candidate_indices_by_score,
+    requested_follow_up_pass, shortlisted_candidate_indices_for_budget,
+    target_candidate_count_after_initial_search,
+};
+use candidate_materialization::*;
+use common::*;
+use compact_html_materialization::*;
+use compact_html_swarm::*;
+pub use materialization_prompt::build_studio_artifact_materialization_prompt;
+use materialization_prompt::*;
+pub use materialization_repair_prompt::build_studio_artifact_materialization_repair_prompt;
+pub use non_swarm_bundle::generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator;
+use non_swarm_entrypoints::*;
+pub use non_swarm_entrypoints::{
+    generate_studio_artifact_bundle_with_runtime,
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context,
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy,
+    generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_render_evaluator,
+    generate_studio_artifact_bundle_with_runtimes,
+    generate_studio_artifact_bundle_with_runtimes_and_planning_context,
+    generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
+};
+use non_swarm_finalize::*;
+pub(crate) use planning_and_judging::evaluate_candidate_render_with_fallback;
+#[allow(unused_imports)]
+pub(crate) use planning_and_judging::render_evaluation_required;
+use planning_and_judging::*;
+pub(crate) use refinement_prompt::build_studio_artifact_candidate_refinement_prompt_for_runtime;
+use refinement_prompt::*;
+pub use refinement_prompt::{
+    build_studio_artifact_candidate_refinement_prompt,
+    build_studio_artifact_candidate_refinement_repair_prompt,
+};
+use runtime_materialization::*;
+pub use runtime_materialization::{
+    materialize_studio_artifact_candidate_with_runtime, materialize_studio_artifact_with_runtime,
+};
+pub(crate) use runtime_materialization::{
+    materialize_studio_artifact_candidate_with_runtime_direct_author_detailed,
+    refine_studio_artifact_candidate_with_runtime,
+};
+pub use runtime_plan::{
+    acceptance_timeout_for_execution_strategy, render_eval_timeout_for_runtime,
+    resolve_studio_artifact_runtime_plan, StudioArtifactResolvedRuntimePlan,
+};
+use runtime_plan::{
+    compact_local_html_materialization_prompt, effective_direct_author_temperature,
+    format_timeout_duration, materialization_max_tokens_for_execution_strategy,
+    studio_runtime_provenance_matches, warm_local_html_generation_runtime_if_needed,
+};
+pub(crate) use runtime_plan::{
+    effective_candidate_generation_temperature, materialization_max_tokens_for_runtime,
+    materialization_repair_pass_limit, materialization_repair_runtime_for_request,
+};
+use semantic_refinement::*;
+use swarm::{
+    default_generated_artifact_file_for_renderer, default_studio_artifact_execution_strategy,
+    judge_classification_id, push_unique_focus_strings, section_region_id,
+    studio_artifact_uses_swarm_execution, studio_swarm_execution_summary, studio_swarm_now_iso,
+    studio_swarm_soft_validation_error, studio_swarm_strategy_for_request,
+    update_swarm_work_item_status,
+};
+use swarm_bundle::*;
+use swarm_bundle_finalize::*;
+use swarm_patch_parse::*;
+pub(crate) use swarm_patch_parse::{
+    StudioArtifactPatchEnvelope, StudioArtifactPatchOperation, StudioArtifactPatchOperationKind,
+};
+use swarm_patch_worker::*;
+pub(crate) use swarm_plan::build_studio_artifact_swarm_plan;
+pub(crate) use swarm_progress::apply_studio_swarm_patch_envelope;
+use swarm_progress::*;
+pub(crate) use validation_preview::validate_swarm_generated_artifact_payload;
+pub use validation_preview::StudioArtifactGenerationProgressObserver;
+use validation_preview::*;
+
+pub(crate) use materialization_prompt::{
+    build_studio_artifact_direct_author_prompt_for_runtime,
+    build_studio_artifact_materialization_prompt_for_runtime,
+};
+pub(crate) use materialization_repair_prompt::build_studio_artifact_materialization_repair_prompt_for_runtime;

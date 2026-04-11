@@ -10,16 +10,14 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
+use ioi_services::agentic::rules::DefaultPolicy;
 use ioi_services::agentic::runtime::keys::{AGENT_POLICY_PREFIX, INCIDENT_PREFIX};
-use ioi_services::agentic::runtime::service::step::helpers::{
-    default_safe_policy, is_mailbox_connector_goal,
-};
+use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::service::step::incident::IncidentState;
 use ioi_services::agentic::runtime::{
-    AgentMode, AgentState, AgentStatus, RuntimeAgentService, ResumeAgentParams, StartAgentParams,
+    AgentMode, AgentState, AgentStatus, ResumeAgentParams, RuntimeAgentService, StartAgentParams,
     StepAgentParams,
 };
-use ioi_services::agentic::rules::DefaultPolicy;
 use ioi_services::wallet_network::WalletNetworkService;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
@@ -104,7 +102,6 @@ const MAIL_E2E_KEY_IMAP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_IMAP_BEARER_TOK
 const MAIL_E2E_KEY_SMTP_USERNAME_SECRET_ID: &str = "MAIL_E2E_SMTP_USERNAME_SECRET_ID";
 const MAIL_E2E_KEY_SMTP_PASSWORD_SECRET_ID: &str = "MAIL_E2E_SMTP_PASSWORD_SECRET_ID";
 const MAIL_E2E_KEY_SMTP_BEARER_TOKEN_SECRET_ID: &str = "MAIL_E2E_SMTP_BEARER_TOKEN_SECRET_ID";
-const MAIL_E2E_KEY_PROVIDER_DRIVER: &str = "MAIL_E2E_PROVIDER_DRIVER";
 const VLC_INSTALL_CASE_ID: &str = "download_and_install_vlc_media_player";
 const VLC_INSTALL_UNSEEDED_CASE_ID: &str = "download_and_install_vlc_media_player_unseeded";
 const VLC_INSTALL_FIXTURE_MODE: &str = "apt_get_vlc_fixture_v1";
@@ -205,25 +202,18 @@ const HACKER_NEWS_MONITOR_FIXTURE_PROBE_SOURCE: &str =
     "harness.hacker_news_front_page_monitor_fixture";
 const HACKER_NEWS_MONITOR_FIXTURE_MANIFEST_NAME: &str =
     "hacker_news_front_page_monitor_fixture_manifest.txt";
-const MAIL_REPLY_SEND_CASE_ID: &str =
-    "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it";
-const MAIL_REPLY_MOCK_FIXTURE_MODE: &str = "mail_reply_mock_driver_fixture_v1";
-const MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE: &str = "harness.mail_reply_mock_driver_fixture";
-const GOOGLE_GMAIL_DRAFT_CASE_ID: &str =
-    "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_save_it_as_a_gmail_draft";
-const GOOGLE_GMAIL_SEND_CASE_ID: &str =
-    "send_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_via_gmail";
-const GOOGLE_CALENDAR_CREATE_CASE_ID: &str =
-    "create_a_google_calendar_event_for_tomorrows_standup_at_2_pm";
-const GOOGLE_CONNECTOR_FIXTURE_MODE: &str = "google_connector_mock_fixture_v1";
-const GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE: &str = "harness.google_connector_mock_fixture";
-const GOOGLE_CONNECTOR_FIXTURE_ENV_KEY: &str = "IOI_GOOGLE_MOCK_FIXTURE_PATH";
 const RESTAURANTS_NEAR_ME_CASE_ID: &str =
     "find_the_three_best_reviewed_italian_restaurants_near_me_and_compare_their_menus";
 const RESTAURANTS_NEAR_ME_FIXTURE_MODE: &str = "runtime_locality_observation_fixture_v2";
 const RESTAURANTS_NEAR_ME_FIXTURE_PROBE_SOURCE: &str = "harness.restaurants_near_me_fixture";
 const RESTAURANTS_NEAR_ME_FIXTURE_DIR_PREFIX: &str = "ioi_restaurants_near_me_";
 const RESTAURANTS_NEAR_ME_LOCALITY_ENV_KEY: &str = "IOI_SESSION_LOCALITY";
+const GOOGLE_AUTH_ENV_KEY: &str = "IOI_GOOGLE_AUTH_PATH";
+const GOOGLE_CLIENT_CONFIG_ENV_KEY: &str = "IOI_GOOGLE_CLIENT_CONFIG_PATH";
+const GOOGLE_OAUTH_CLIENT_ID_ENV_KEYS: [&str; 2] =
+    ["GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_WORKSPACE_OAUTH_CLIENT_ID"];
+const GOOGLE_AUTH_FILE_NAME: &str = "google_workspace_oauth.json";
+const GOOGLE_CLIENT_FILE_NAME: &str = "google_workspace_client.json";
 const LATEST_NIST_PQC_BRIEFING_CASE_ID: &str =
     "research_the_latest_nist_post_quantum_cryptography_standards_and_write_me_a_one_page_briefing";
 const LATEST_NIST_PQC_BRIEFING_UNSEEDED_CASE_ID: &str =
@@ -240,6 +230,93 @@ const CODING_PATH_NORMALIZER_FIXTURE_PROBE_SOURCE: &str = "harness.coding_path_n
 include!("harness/mail_runtime.rs");
 
 include!("harness/project_fixtures.rs");
+
+fn normalized_seeded_intent_id(case: &QueryCase) -> String {
+    case.seeded_intent_id.trim().to_ascii_lowercase()
+}
+
+fn case_requires_wallet_mail_runtime(case: &QueryCase) -> bool {
+    matches!(
+        normalized_seeded_intent_id(case).as_str(),
+        "mail.read.latest" | "mail.reply" | "mail.list.recent" | "mail.delete.spam"
+    )
+}
+
+fn case_requires_google_workspace_runtime(case: &QueryCase) -> bool {
+    matches!(
+        normalized_seeded_intent_id(case).as_str(),
+        "gmail.draft_email"
+            | "google.gmail.draft_email"
+            | "gmail.send_email"
+            | "google.gmail.send_email"
+            | "calendar.create_event"
+            | "google.calendar.create_event"
+    )
+}
+
+fn google_auth_storage_path_candidate() -> Option<PathBuf> {
+    if let Some(path) = nonempty_env_value(GOOGLE_AUTH_ENV_KEY) {
+        return Some(PathBuf::from(path));
+    }
+    if let Some(base) = nonempty_env_value("XDG_CONFIG_HOME") {
+        return Some(PathBuf::from(base).join("ioi").join(GOOGLE_AUTH_FILE_NAME));
+    }
+    if let Some(base) = nonempty_env_value("APPDATA") {
+        return Some(PathBuf::from(base).join("ioi").join(GOOGLE_AUTH_FILE_NAME));
+    }
+    nonempty_env_value("HOME")
+        .map(PathBuf::from)
+        .map(|base| base.join(".config").join("ioi").join(GOOGLE_AUTH_FILE_NAME))
+}
+
+fn google_client_storage_path_candidate(auth_path: Option<&Path>) -> Option<PathBuf> {
+    if let Some(path) = nonempty_env_value(GOOGLE_CLIENT_CONFIG_ENV_KEY) {
+        return Some(PathBuf::from(path));
+    }
+    auth_path
+        .and_then(Path::parent)
+        .map(PathBuf::from)
+        .map(|base| base.join(GOOGLE_CLIENT_FILE_NAME))
+}
+
+fn json_file_is_present_and_parseable(path: &Path) -> bool {
+    std::fs::read(path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+        .is_some()
+}
+
+fn google_workspace_runtime_configured() -> bool {
+    let auth_path = google_auth_storage_path_candidate();
+    let auth_ready = auth_path
+        .as_deref()
+        .map(json_file_is_present_and_parseable)
+        .unwrap_or(false);
+    if !auth_ready {
+        return false;
+    }
+    if GOOGLE_OAUTH_CLIENT_ID_ENV_KEYS
+        .iter()
+        .any(|key| nonempty_env_value(key).is_some())
+    {
+        return true;
+    }
+    google_client_storage_path_candidate(auth_path.as_deref())
+        .as_deref()
+        .map(json_file_is_present_and_parseable)
+        .unwrap_or(false)
+}
+
+pub(crate) fn case_missing_runtime_prerequisites(case: &QueryCase) -> Vec<&'static str> {
+    let mut missing = Vec::new();
+    if case_requires_wallet_mail_runtime(case) && !mail_runtime_env_bootstrap_configured() {
+        missing.push("MAIL_E2E_*");
+    }
+    if case_requires_google_workspace_runtime(case) && !google_workspace_runtime_configured() {
+        missing.push("Google Workspace auth");
+    }
+    missing
+}
 
 #[derive(Debug, Clone, Default)]
 struct ShutdownProviderInvocationReceipt {
@@ -715,7 +792,7 @@ fn derive_screenshot_observation(observation: &RunObservation) -> Option<Screens
         .action_evidence
         .iter()
         .filter(|entry| {
-            entry.tool_name.eq_ignore_ascii_case("computer")
+            entry.tool_name.eq_ignore_ascii_case("screen")
                 && entry.agent_status.eq_ignore_ascii_case("completed")
         })
         .count();
@@ -723,7 +800,7 @@ fn derive_screenshot_observation(observation: &RunObservation) -> Option<Screens
         .action_evidence
         .iter()
         .filter(|entry| {
-            entry.tool_name.eq_ignore_ascii_case("computer")
+            entry.tool_name.eq_ignore_ascii_case("screen")
                 && (entry.agent_status.eq_ignore_ascii_case("failed")
                     || entry
                         .error_class
@@ -735,14 +812,14 @@ fn derive_screenshot_observation(observation: &RunObservation) -> Option<Screens
     let gui_snapshot_action_count = observation
         .action_evidence
         .iter()
-        .filter(|entry| entry.tool_name.eq_ignore_ascii_case("gui__snapshot"))
+        .filter(|entry| entry.tool_name.eq_ignore_ascii_case("screen__inspect"))
         .count();
     let gui_snapshot_routing_count = observation
         .routing_tools
         .iter()
-        .filter(|tool| tool.eq_ignore_ascii_case("gui__snapshot"))
+        .filter(|tool| tool.eq_ignore_ascii_case("screen__inspect"))
         .count();
-    let capture_route_seen = observation_has_tool_name(observation, "computer");
+    let capture_route_seen = observation_has_tool_name(observation, "screen");
     let capture_route_terminalized =
         has_verification_pair(observation, "screenshot_capture_terminalized", "true");
     let incident_resolved = has_verification_pair(observation, "incident_resolved", "true");
@@ -1343,97 +1420,6 @@ fn parse_shutdown_provider_invocation_receipt(path: &Path) -> ShutdownProviderIn
         }
     }
     receipt
-}
-
-fn mail_reply_mock_fixture_preflight_checks(
-    fixture: &MailReplyMockDriverFixtureRuntime,
-    run_unique_num: &str,
-    run_timestamp_ms: u64,
-) -> EnvironmentEvidenceBatch {
-    let probe_source = format!("{}.preflight", MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE);
-    let fixture_root = fixture.fixture_root.to_string_lossy().to_string();
-    let run_unique_satisfied = fixture_root.contains(run_unique_num);
-    let manifest_seeded_satisfied = fixture.manifest_path.is_file();
-    let fixture_satisfied = fixture.fixture_root.is_dir() && run_unique_satisfied;
-    let mut batch = EnvironmentEvidenceBatch::default();
-    push_environment_observation(
-        &mut batch,
-        "mail_reply_fixture_mode",
-        MAIL_REPLY_MOCK_FIXTURE_MODE,
-    );
-    push_environment_observation(
-        &mut batch,
-        "mail_reply_fixture_root",
-        fixture.fixture_root.to_string_lossy().to_string(),
-    );
-    push_environment_observation(
-        &mut batch,
-        "mail_reply_fixture_manifest_path",
-        fixture.manifest_path.to_string_lossy().to_string(),
-    );
-    push_environment_observation(
-        &mut batch,
-        "mail_reply_fixture_run_unique_num",
-        run_unique_num.to_string(),
-    );
-    push_environment_observation(&mut batch, "mail_reply_fixture_probe", probe_source);
-    push_environment_metadata(
-        &mut batch,
-        "mail_reply_fixture_run_unique",
-        Some(MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(run_timestamp_ms),
-        Some(run_unique_satisfied),
-    );
-    push_environment_metadata(
-        &mut batch,
-        "mail_reply_fixture_manifest_seeded",
-        Some(MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(run_timestamp_ms),
-        Some(manifest_seeded_satisfied),
-    );
-    push_environment_metadata(
-        &mut batch,
-        "mail_reply_fixture",
-        Some(MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(run_timestamp_ms),
-        Some(fixture_satisfied),
-    );
-    batch
-}
-
-fn mail_reply_mock_fixture_cleanup_checks(
-    fixture: &MailReplyMockDriverFixtureRuntime,
-) -> EnvironmentEvidenceBatch {
-    let timestamp_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
-    let probe_source = format!("{}.cleanup_probe", MAIL_REPLY_MOCK_FIXTURE_PROBE_SOURCE);
-
-    let _ = std::fs::remove_file(&fixture.manifest_path);
-    let _ = std::fs::remove_dir_all(&fixture.fixture_root);
-    let fixture_root_exists_after_cleanup = fixture.fixture_root.exists();
-    let manifest_exists_after_cleanup = fixture.manifest_path.exists();
-    let cleanup_satisfied = !fixture_root_exists_after_cleanup && !manifest_exists_after_cleanup;
-    let mut batch = EnvironmentEvidenceBatch::default();
-    push_environment_observation(
-        &mut batch,
-        "mail_reply_fixture_cleanup_root_exists",
-        fixture_root_exists_after_cleanup.to_string(),
-    );
-    push_environment_observation(
-        &mut batch,
-        "mail_reply_fixture_cleanup_manifest_exists",
-        manifest_exists_after_cleanup.to_string(),
-    );
-    push_environment_metadata(
-        &mut batch,
-        "mail_reply_fixture_cleanup",
-        Some(probe_source),
-        Some(timestamp_ms),
-        Some(cleanup_satisfied),
-    );
-    batch
 }
 
 fn action_output_excerpt_limit(tool_name: &str) -> usize {

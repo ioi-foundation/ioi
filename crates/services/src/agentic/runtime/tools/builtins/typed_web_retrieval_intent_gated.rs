@@ -67,7 +67,7 @@
             "required": ["url"]
         });
         tools.push(LlmToolDefinition {
-            name: "media__extract_multimodal_evidence".to_string(),
+            name: "media__extract_evidence".to_string(),
             description:
                 "Extract transcript plus visual frame evidence from a remote audio/video URL using managed media tooling with provenance receipts."
                     .to_string(),

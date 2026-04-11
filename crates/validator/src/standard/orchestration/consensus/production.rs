@@ -430,7 +430,7 @@ where
 
     if let Ok(status) = view_resolver.workload_client().get_status().await {
         workload_status_height = Some(status.height);
-        if status.height > initial_local_tip_height {
+        if status.height > 0 {
             if let Ok(Some(workload_tip)) = view_resolver
                 .workload_client()
                 .get_block_by_height(status.height)
@@ -450,24 +450,33 @@ where
                         "Skipping workload-tip hydration because the persisted canonical collapse object is missing or mismatched."
                     );
                 } else {
-                    {
-                        let mut ctx = context_arc.lock().await;
-                        let ctx_tip_height = ctx
-                            .last_committed_block
-                            .as_ref()
-                            .map(|block| block.header.height)
-                            .unwrap_or(0);
-                        if workload_tip.header.height > ctx_tip_height {
+                    let workload_tip_hash = workload_tip.header.hash().ok();
+                    let current_tip_hash = last_committed_block_opt
+                        .as_ref()
+                        .and_then(|block| block.header.hash().ok());
+                    let should_refresh_tip = workload_tip.header.height > initial_local_tip_height
+                        || (workload_tip.header.height == initial_local_tip_height
+                            && workload_tip_hash != current_tip_hash);
+
+                    if should_refresh_tip {
+                        {
+                            let mut ctx = context_arc.lock().await;
+                            let ctx_tip_height = ctx
+                                .last_committed_block
+                                .as_ref()
+                                .map(|block| block.header.height)
+                                .unwrap_or(0);
                             tracing::info!(
                                 target: "consensus",
                                 reconciled_height = workload_tip.header.height,
                                 previous_height = ctx_tip_height,
+                                refreshed_same_height = workload_tip.header.height == ctx_tip_height,
                                 "Hydrating last_committed_block from workload status before consensus tick."
                             );
                             ctx.last_committed_block = Some(workload_tip.clone());
                         }
+                        last_committed_block_opt = Some(workload_tip);
                     }
-                    last_committed_block_opt = Some(workload_tip);
                 }
             }
         }
@@ -696,8 +705,27 @@ where
     }
 
     if let Some(last_committed_block) = last_committed_block_opt.as_ref() {
-        let mut engine = consensus_engine_ref.lock().await;
-        let _ = engine.observe_committed_block(&last_committed_block.header, None);
+        let accepted = observe_live_committed_chain_through_block(
+            &consensus_engine_ref,
+            cons_ty,
+            view_resolver.workload_client().as_ref(),
+            last_committed_block,
+        )
+        .await?;
+        if !accepted {
+            tracing::warn!(
+                target: "consensus",
+                height = last_committed_block.header.height,
+                view = last_committed_block.header.view,
+                sealed = last_committed_block.header.sealed_finality_proof.is_some(),
+                guardian_cert = last_committed_block.header.guardian_certificate.is_some(),
+                order_cert = last_committed_block.header.canonical_order_certificate.is_some(),
+                timestamp_ms = last_committed_block.header.timestamp_ms_or_legacy(),
+                state_root_len = last_committed_block.header.state_root.0.len(),
+                tx_root_len = last_committed_block.header.transactions_root.len(),
+                "Consensus engine ignored the local-tip committed-block hint during production reconciliation."
+            );
+        }
     }
 
     let local_tip_height = last_committed_block_opt
@@ -1210,16 +1238,6 @@ where
                             .map_err(|e| {
                                 anyhow!("failed to reconcile local tip to QC branch: {e}")
                             })?;
-                        let reconciled_collapse = require_persisted_aft_canonical_collapse_if_needed(
-                            cons_ty,
-                            view_resolver.workload_client().as_ref(),
-                            &reconciled_block,
-                        )
-                        .await
-                        .map_err(|e| anyhow!(
-                            "reconciled local tip does not have a matching persisted canonical collapse object: {e}"
-                        ))?;
-
                         {
                             let mut ctx = context_arc.lock().await;
                             ctx.last_committed_block = Some(reconciled_block.clone());
@@ -1243,11 +1261,16 @@ where
                         }
 
                         {
-                            let mut engine = consensus_engine_ref.lock().await;
-                            let accepted = engine.observe_committed_block(
-                                &reconciled_block.header,
-                                reconciled_collapse.as_ref(),
-                            );
+                            let accepted = observe_live_committed_chain_through_block(
+                                &consensus_engine_ref,
+                                cons_ty,
+                                view_resolver.workload_client().as_ref(),
+                                &reconciled_block,
+                            )
+                            .await
+                            .map_err(|e| anyhow!(
+                                "reconciled local tip does not have a matching live canonical collapse chain: {e}"
+                            ))?;
                             if !accepted {
                                 tracing::warn!(
                                     target: "consensus",

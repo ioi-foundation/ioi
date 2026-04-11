@@ -16,7 +16,7 @@
         });
         tools.push(LlmToolDefinition {
             name: "browser__navigate".to_string(),
-            description: "Navigates the agent's dedicated secure browser to a URL. To interact with your running applications, use os__focus_window and visual tools.".to_string(),
+            description: "Navigates the agent's dedicated secure browser to a URL. To interact with your running applications, use window__focus and visual tools.".to_string(),
             parameters: nav_params.to_string(),
         });
     }

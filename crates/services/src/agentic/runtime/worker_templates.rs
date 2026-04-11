@@ -16,14 +16,14 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             default_budget: 72,
             max_retries: 1,
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__list_directory".to_string(),
-                "filesystem__search".to_string(),
-                "filesystem__stat".to_string(),
+                "file__read".to_string(),
+                "file__list".to_string(),
+                "file__search".to_string(),
+                "file__info".to_string(),
                 "memory__search".to_string(),
-                "memory__inspect".to_string(),
+                "memory__read".to_string(),
                 "agent__complete".to_string(),
-                "agent__await_result".to_string(),
+                "agent__await".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
                 success_criteria:
@@ -51,14 +51,14 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(48),
                 max_retries: Some(1),
                 allowed_tools: vec![
-                    "filesystem__read_file".to_string(),
-                    "filesystem__list_directory".to_string(),
-                    "filesystem__search".to_string(),
-                    "filesystem__stat".to_string(),
+                    "file__read".to_string(),
+                    "file__list".to_string(),
+                    "file__search".to_string(),
+                    "file__info".to_string(),
                     "memory__search".to_string(),
-                    "memory__inspect".to_string(),
+                    "memory__read".to_string(),
                     "agent__complete".to_string(),
-                    "agent__await_result".to_string(),
+                    "agent__await".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
@@ -87,14 +87,14 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(44),
                 max_retries: Some(1),
                 allowed_tools: vec![
-                    "filesystem__read_file".to_string(),
-                    "filesystem__list_directory".to_string(),
-                    "filesystem__search".to_string(),
-                    "filesystem__stat".to_string(),
+                    "file__read".to_string(),
+                    "file__list".to_string(),
+                    "file__search".to_string(),
+                    "file__info".to_string(),
                     "memory__search".to_string(),
-                    "memory__inspect".to_string(),
+                    "memory__read".to_string(),
                     "agent__complete".to_string(),
-                    "agent__await_result".to_string(),
+                    "agent__await".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
@@ -124,10 +124,10 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 "web__search".to_string(),
                 "web__read".to_string(),
                 "memory__search".to_string(),
-                "memory__inspect".to_string(),
+                "memory__read".to_string(),
                 "model__responses".to_string(),
                 "agent__complete".to_string(),
-                "agent__await_result".to_string(),
+                "agent__await".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
                 success_criteria:
@@ -158,9 +158,9 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                     "web__search".to_string(),
                     "web__read".to_string(),
                     "memory__search".to_string(),
-                    "memory__inspect".to_string(),
+                    "memory__read".to_string(),
                     "agent__complete".to_string(),
-                    "agent__await_result".to_string(),
+                    "agent__await".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
@@ -187,7 +187,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             default_budget: 64,
             max_retries: 1,
             allowed_tools: vec![
-                "browser__snapshot".to_string(),
+                "browser__inspect".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -216,7 +216,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(36),
                 max_retries: Some(1),
                 allowed_tools: vec![
-                    "browser__snapshot".to_string(),
+                    "browser__inspect".to_string(),
                     "agent__complete".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
@@ -244,12 +244,12 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             default_budget: 80,
             max_retries: 1,
             allowed_tools: vec![
-                "memory__inspect".to_string(),
+                "memory__read".to_string(),
                 "memory__search".to_string(),
                 "model__rerank".to_string(),
                 "model__responses".to_string(),
                 "agent__complete".to_string(),
-                "agent__await_result".to_string(),
+                "agent__await".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
                 success_criteria:
@@ -277,11 +277,11 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(48),
                 max_retries: Some(0),
                 allowed_tools: vec![
-                    "memory__inspect".to_string(),
+                    "memory__read".to_string(),
                     "memory__search".to_string(),
                     "model__rerank".to_string(),
                     "agent__complete".to_string(),
-                    "agent__await_result".to_string(),
+                    "agent__await".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
@@ -314,9 +314,9 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(48),
                 max_retries: Some(0),
                 allowed_tools: vec![
-                    "memory__inspect".to_string(),
+                    "memory__read".to_string(),
                     "agent__complete".to_string(),
-                    "agent__await_result".to_string(),
+                    "agent__await".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
@@ -345,11 +345,11 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(52),
                 max_retries: Some(0),
                 allowed_tools: vec![
-                    "memory__inspect".to_string(),
+                    "memory__read".to_string(),
                     "memory__search".to_string(),
                     "model__rerank".to_string(),
                     "agent__complete".to_string(),
-                    "agent__await_result".to_string(),
+                    "agent__await".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
@@ -378,11 +378,11 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(48),
                 max_retries: Some(0),
                 allowed_tools: vec![
-                    "memory__inspect".to_string(),
+                    "memory__read".to_string(),
                     "memory__search".to_string(),
                     "model__rerank".to_string(),
                     "agent__complete".to_string(),
-                    "agent__await_result".to_string(),
+                    "agent__await".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
@@ -411,15 +411,15 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(56),
                 max_retries: Some(0),
                 allowed_tools: vec![
-                    "filesystem__read_file".to_string(),
-                    "filesystem__list_directory".to_string(),
-                    "filesystem__search".to_string(),
-                    "memory__inspect".to_string(),
+                    "file__read".to_string(),
+                    "file__list".to_string(),
+                    "file__search".to_string(),
+                    "memory__read".to_string(),
                     "memory__search".to_string(),
-                    "sys__change_directory".to_string(),
-                    "sys__exec_session".to_string(),
+                    "shell__cd".to_string(),
+                    "shell__start".to_string(),
                     "agent__complete".to_string(),
-                    "agent__await_result".to_string(),
+                    "agent__await".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
@@ -446,14 +446,14 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             default_budget: 160,
             max_retries: 1,
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__list_directory".to_string(),
-                "filesystem__search".to_string(),
-                "filesystem__patch".to_string(),
-                "filesystem__edit_line".to_string(),
-                "filesystem__write_file".to_string(),
-                "sys__change_directory".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__list".to_string(),
+                "file__search".to_string(),
+                "file__edit".to_string(),
+                "file__replace_line".to_string(),
+                "file__write".to_string(),
+                "shell__cd".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -482,14 +482,14 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(96),
                 max_retries: Some(1),
                 allowed_tools: vec![
-                    "filesystem__read_file".to_string(),
-                    "filesystem__list_directory".to_string(),
-                    "filesystem__search".to_string(),
-                    "filesystem__patch".to_string(),
-                    "filesystem__edit_line".to_string(),
-                    "filesystem__write_file".to_string(),
-                    "sys__change_directory".to_string(),
-                    "sys__exec_session".to_string(),
+                    "file__read".to_string(),
+                    "file__list".to_string(),
+                    "file__search".to_string(),
+                    "file__edit".to_string(),
+                    "file__replace_line".to_string(),
+                    "file__write".to_string(),
+                    "shell__cd".to_string(),
+                    "shell__start".to_string(),
                     "agent__complete".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
@@ -517,13 +517,13 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             default_budget: 56,
             max_retries: 0,
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__list_directory".to_string(),
-                "filesystem__search".to_string(),
-                "memory__inspect".to_string(),
+                "file__read".to_string(),
+                "file__list".to_string(),
+                "file__search".to_string(),
+                "memory__read".to_string(),
                 "memory__search".to_string(),
                 "agent__complete".to_string(),
-                "agent__await_result".to_string(),
+                "agent__await".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
                 success_criteria:
@@ -551,13 +551,13 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(40),
                 max_retries: Some(0),
                 allowed_tools: vec![
-                    "filesystem__read_file".to_string(),
-                    "filesystem__list_directory".to_string(),
-                    "filesystem__search".to_string(),
-                    "memory__inspect".to_string(),
+                    "file__read".to_string(),
+                    "file__list".to_string(),
+                    "file__search".to_string(),
+                    "memory__read".to_string(),
                     "memory__search".to_string(),
                     "agent__complete".to_string(),
-                    "agent__await_result".to_string(),
+                    "agent__await".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
@@ -585,14 +585,14 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             max_retries: 1,
             allowed_tools: vec![
                 "browser__navigate".to_string(),
-                "browser__snapshot".to_string(),
-                "browser__click_element".to_string(),
-                "browser__synthetic_click".to_string(),
-                "browser__key".to_string(),
+                "browser__inspect".to_string(),
+                "browser__click".to_string(),
+                "browser__click_at".to_string(),
+                "browser__press_key".to_string(),
                 "browser__type".to_string(),
                 "browser__wait".to_string(),
-                "gui__click_element".to_string(),
-                "gui__type".to_string(),
+                "screen__click".to_string(),
+                "screen__type".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -622,14 +622,14 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 max_retries: Some(1),
                 allowed_tools: vec![
                     "browser__navigate".to_string(),
-                    "browser__snapshot".to_string(),
-                    "browser__click_element".to_string(),
-                    "browser__synthetic_click".to_string(),
-                    "browser__key".to_string(),
+                    "browser__inspect".to_string(),
+                    "browser__click".to_string(),
+                    "browser__click_at".to_string(),
+                    "browser__press_key".to_string(),
                     "browser__type".to_string(),
                     "browser__wait".to_string(),
-                    "gui__click_element".to_string(),
-                    "gui__type".to_string(),
+                    "screen__click".to_string(),
+                    "screen__type".to_string(),
                     "agent__complete".to_string(),
                 ],
                 completion_contract: Some(WorkerCompletionContract {
@@ -657,13 +657,13 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             default_budget: 168,
             max_retries: 1,
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__list_directory".to_string(),
-                "filesystem__search".to_string(),
-                "filesystem__patch".to_string(),
-                "filesystem__write_file".to_string(),
-                "sys__change_directory".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__list".to_string(),
+                "file__search".to_string(),
+                "file__edit".to_string(),
+                "file__write".to_string(),
+                "shell__cd".to_string(),
+                "shell__start".to_string(),
                 "model__responses".to_string(),
                 "agent__complete".to_string(),
             ],
@@ -693,13 +693,13 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 default_budget: Some(108),
                 max_retries: Some(1),
                 allowed_tools: vec![
-                    "filesystem__read_file".to_string(),
-                    "filesystem__list_directory".to_string(),
-                    "filesystem__search".to_string(),
-                    "filesystem__patch".to_string(),
-                    "filesystem__write_file".to_string(),
-                    "sys__change_directory".to_string(),
-                    "sys__exec_session".to_string(),
+                    "file__read".to_string(),
+                    "file__list".to_string(),
+                    "file__search".to_string(),
+                    "file__edit".to_string(),
+                    "file__write".to_string(),
+                    "shell__cd".to_string(),
+                    "shell__start".to_string(),
                     "model__responses".to_string(),
                     "agent__complete".to_string(),
                 ],
@@ -876,7 +876,7 @@ mod tests {
         assert!(context_worker
             .allowed_tools
             .iter()
-            .any(|tool| tool == "filesystem__stat"));
+            .any(|tool| tool == "file__info"));
         assert!(context_worker
             .workflows
             .iter()
@@ -893,7 +893,7 @@ mod tests {
         assert!(repo_context
             .allowed_tools
             .iter()
-            .any(|tool| tool == "filesystem__stat"));
+            .any(|tool| tool == "file__info"));
         assert!(repo_context
             .allowed_tools
             .iter()
@@ -906,7 +906,7 @@ mod tests {
         assert!(artifact_context
             .allowed_tools
             .iter()
-            .any(|tool| tool == "filesystem__stat"));
+            .any(|tool| tool == "file__info"));
         assert!(artifact_context
             .allowed_tools
             .iter()
@@ -932,7 +932,7 @@ mod tests {
         assert!(perception_workflow
             .allowed_tools
             .iter()
-            .all(|tool| tool == "browser__snapshot" || tool == "agent__complete"));
+            .all(|tool| tool == "browser__inspect" || tool == "agent__complete"));
         let verifier = templates
             .iter()
             .find(|template| template.template_id == "verifier")
@@ -1012,7 +1012,7 @@ mod tests {
         assert!(targeted_test_audit
             .allowed_tools
             .iter()
-            .any(|tool| tool == "sys__exec_session"));
+            .any(|tool| tool == "shell__start"));
         let coder = templates
             .iter()
             .find(|template| template.template_id == "coder")
@@ -1027,15 +1027,15 @@ mod tests {
         assert!(coder_workflow
             .allowed_tools
             .iter()
-            .any(|tool| tool == "filesystem__patch"));
+            .any(|tool| tool == "file__edit"));
         assert!(coder_workflow
             .allowed_tools
             .iter()
-            .any(|tool| tool == "filesystem__edit_line"));
+            .any(|tool| tool == "file__replace_line"));
         assert!(coder_workflow
             .allowed_tools
             .iter()
-            .any(|tool| tool == "sys__exec_session"));
+            .any(|tool| tool == "shell__start"));
         assert!(coder_workflow
             .allowed_tools
             .iter()
@@ -1068,11 +1068,11 @@ mod tests {
         assert!(browser_workflow
             .allowed_tools
             .iter()
-            .any(|tool| tool == "browser__snapshot"));
+            .any(|tool| tool == "browser__inspect"));
         assert!(browser_workflow
             .allowed_tools
             .iter()
-            .any(|tool| tool == "browser__click_element"));
+            .any(|tool| tool == "browser__click"));
         let artifact_builder = templates
             .iter()
             .find(|template| template.template_id == "artifact_builder")
@@ -1089,6 +1089,6 @@ mod tests {
         assert!(artifact_workflow
             .allowed_tools
             .iter()
-            .any(|tool| tool == "filesystem__write_file"));
+            .any(|tool| tool == "file__write"));
     }
 }

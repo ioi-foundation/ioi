@@ -20,7 +20,7 @@
         "required": ["command"]
     });
     tools.push(LlmToolDefinition {
-        name: "sys__exec_session".to_string(),
+        name: "shell__start".to_string(),
         description: "Execute a command inside a persistent shell session scoped to this agent session. Use this when you need shell continuity across calls (exports, sourcing env, shell vars).".to_string(),
         parameters: sys_session_params.to_string(),
     });
@@ -31,8 +31,8 @@
         "required": []
     });
     tools.push(LlmToolDefinition {
-        name: "sys__exec_session_reset".to_string(),
-        description: "Reset the persistent shell session used by `sys__exec_session` (kills the session and starts fresh on next call).".to_string(),
+        name: "shell__reset".to_string(),
+        description: "Reset the persistent shell session used by `shell__start` (kills the session and starts fresh on next call).".to_string(),
         parameters: sys_session_reset_params.to_string(),
     });
 
@@ -47,8 +47,8 @@
         "required": ["path"]
     });
     tools.push(LlmToolDefinition {
-        name: "sys__change_directory".to_string(),
-        description: "Change the persistent working directory for subsequent `sys__exec` commands."
+        name: "shell__cd".to_string(),
+        description: "Change the persistent working directory for subsequent `shell__run` commands."
             .to_string(),
         parameters: sys_change_dir_params.to_string(),
     });

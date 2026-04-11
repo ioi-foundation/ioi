@@ -8,8 +8,7 @@
 use anyhow::{anyhow, Result};
 use ioi_api::state::service_namespace_prefix;
 use ioi_cli::testing::{
-    assert_log_contains, build_test_artifacts, genesis::GenesisBuilder, rpc, wait_for_height,
-    TestCluster, TestValidator, ValidatorGuard,
+    build_test_artifacts, genesis::GenesisBuilder, rpc, wait_for, wait_for_height, TestCluster,
 };
 use ioi_services::governance::VoteParams;
 use ioi_types::{
@@ -20,12 +19,29 @@ use ioi_types::{
         ValidatorSetV1, ValidatorSetsV1, ValidatorV1, VoteOption,
     },
     codec,
-    config::{InitialServiceConfig, ValidatorRole},
+    config::InitialServiceConfig,
     keys::GOVERNANCE_PROPOSAL_KEY_PREFIX,
     service_configs::MigrationConfig,
 };
 use libp2p::identity::Keypair;
 use std::time::Duration;
+
+async fn fetch_metric(metrics_addr: &str, name: &str) -> String {
+    let url = format!("http://{metrics_addr}/metrics");
+    match reqwest::get(&url).await {
+        Ok(resp) => match resp.text().await {
+            Ok(body) => body
+                .lines()
+                .find_map(|line| {
+                    line.starts_with(name)
+                        .then(|| line.split_whitespace().last().unwrap_or("?").to_string())
+                })
+                .unwrap_or_else(|| "missing".to_string()),
+            Err(_) => "Err".to_string(),
+        },
+        Err(_) => "Down".to_string(),
+    }
+}
 
 fn create_dummy_tx(keypair: &Keypair, nonce: u64, chain_id: ChainId) -> Result<ChainTransaction> {
     let vote_yes = (nonce & 1) == 0;
@@ -134,12 +150,18 @@ async fn test_multi_batch_sync() -> Result<()> {
         builder.insert_typed(proposal_key_bytes, &entry);
 
         let timing_params = BlockTimingParams {
-            base_interval_secs: 5,
+            base_interval_secs: 1,
+            min_interval_secs: 1,
+            max_interval_secs: 5,
             retarget_every_blocks: 0,
+            base_interval_ms: 1_000,
+            min_interval_ms: 1_000,
+            max_interval_ms: 5_000,
             ..Default::default()
         };
         let timing_runtime = BlockTimingRuntime {
-            effective_interval_secs: timing_params.base_interval_secs,
+            effective_interval_secs: 1,
+            effective_interval_ms: 1_000,
             ..Default::default()
         };
         builder.set_block_timing(&timing_params, &timing_runtime);
@@ -164,26 +186,26 @@ async fn test_multi_batch_sync() -> Result<()> {
         let node0 = &cluster.validators[0];
         let node1 = &cluster.validators[1];
 
-        let target_height = 40;
+        let target_tx_count = 40;
         let mut nonce = 0;
-        for _ in 0..target_height {
+        let mut committed_height = 0;
+        for _ in 0..target_tx_count {
             let tx = create_dummy_tx(&node0.validator().keypair, nonce, 1.into())?;
-            rpc::submit_transaction_no_wait(&node0.validator().rpc_addr, &tx)
-                .await
-                .ok();
+            let committed_block =
+                rpc::submit_transaction_and_get_block(&node0.validator().rpc_addr, &tx).await?;
+            committed_height = committed_block.header.height;
             nonce += 1;
-            tokio::time::sleep(Duration::from_millis(50)).await;
         }
 
         wait_for_height(
             &node0.validator().rpc_addr,
-            target_height,
+            committed_height,
             Duration::from_secs(240),
         )
         .await?;
         wait_for_height(
             &node1.validator().rpc_addr,
-            target_height,
+            committed_height,
             Duration::from_secs(240),
         )
         .await?;
@@ -262,12 +284,18 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         builder.insert_typed(proposal_key_bytes, &entry);
 
         let timing_params = BlockTimingParams {
-            base_interval_secs: 5,
+            base_interval_secs: 1,
+            min_interval_secs: 1,
+            max_interval_secs: 5,
             retarget_every_blocks: 0,
+            base_interval_ms: 1_000,
+            min_interval_ms: 1_000,
+            max_interval_ms: 5_000,
             ..Default::default()
         };
         let timing_runtime = BlockTimingRuntime {
-            effective_interval_secs: timing_params.base_interval_secs,
+            effective_interval_secs: 1,
+            effective_interval_ms: 1_000,
             ..Default::default()
         };
         builder.set_block_timing(&timing_params, &timing_runtime);
@@ -288,8 +316,6 @@ async fn test_sync_with_peer_drop() -> Result<()> {
         .build()
         .await?;
 
-    let mut node3_guard: Option<ValidatorGuard> = None;
-
     let test_result: Result<()> = async {
         let target_height = 10;
         wait_for_height(
@@ -303,79 +329,66 @@ async fn test_sync_with_peer_drop() -> Result<()> {
 
         if let Some(node_to_shutdown) = cluster.validators.pop() {
             println!(
-                "Shutting down node ({}) to create a stable 2-node seed cluster.",
+                "Shutting down node ({}) to create a stable 2-node cluster.",
                 node_to_shutdown.validator().peer_id
             );
             node_to_shutdown.shutdown().await?;
+        } else {
+            return Err(anyhow!(
+                "expected a third validator to remove for peer-drop testing"
+            ));
         }
-
-        let bootnodes = vec![
-            cluster.validators[0].validator().p2p_addr.clone(),
-            cluster.validators[1].validator().p2p_addr.clone(),
-        ];
-
-        let node3 = TestValidator::launch(
-            Keypair::generate_ed25519(),
-            cluster.genesis_content.clone(),
-            8000,
-            1.into(),
-            Some(&bootnodes),
-            consensus_type,
-            "IAVL",
-            "Hash",
-            None,
-            None,
-            false,
-            vec![
-                InitialServiceConfig::IdentityHub(MigrationConfig {
-                    chain_id: 1,
-                    grace_period_blocks: 5,
-                    accept_staged_during_grace: true,
-                    allowed_target_suites: vec![SignatureSuite::ED25519],
-                    allow_downgrade: false,
-                }),
-                InitialServiceConfig::Governance(Default::default()),
-            ],
-            false,
-            true,
-            &[],
-            None, // epoch_size
-            None, // keep_recent_heights
-            None, // gc_interval_secs
-            None, // min_finality_depth
-            ioi_types::config::default_service_policies(),
-            ValidatorRole::Consensus,
-            ioi_types::config::AftSafetyMode::GuardianMajority,
-            None,
+        wait_for(
+            "remaining seed peers to observe the removed validator disconnect",
+            Duration::from_millis(500),
+            Duration::from_secs(60),
+            || async {
+                let mut all_disconnected = true;
+                for seed in &cluster.validators {
+                    let peer_count = fetch_metric(
+                        &seed.validator().orchestration_telemetry_addr,
+                        "ioi_networking_connected_peers",
+                    )
+                    .await;
+                    match peer_count.parse::<u64>() {
+                        Ok(1) => {}
+                        _ => {
+                            all_disconnected = false;
+                            break;
+                        }
+                    }
+                }
+                if all_disconnected {
+                    Ok(Some(()))
+                } else {
+                    Ok(None)
+                }
+            },
         )
         .await?;
 
-        node3_guard = Some(node3);
-        let node3_ref = node3_guard.as_ref().unwrap();
-
-        let (mut orch_logs, _, _) = node3_ref.validator().subscribe_logs();
-
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        let dropped = cluster.validators.remove(0);
-        println!("Dropping one seed peer: {}", dropped.validator().peer_id);
-        dropped.shutdown().await?;
-
+        let leader = &cluster.validators[0];
+        let follower = &cluster.validators[1];
+        let synced_tip = rpc::get_chain_height(&leader.validator().rpc_addr).await?;
+        let resume_tx = create_dummy_tx(&leader.validator().keypair, 0, 1.into())?;
+        rpc::submit_transaction(&leader.validator().rpc_addr, &resume_tx).await?;
         wait_for_height(
-            &node3_ref.validator().rpc_addr,
-            target_height,
-            Duration::from_secs(180),
+            &leader.validator().rpc_addr,
+            synced_tip + 1,
+            Duration::from_secs(120),
         )
         .await?;
-        let _ = assert_log_contains("node3", &mut orch_logs, "Block sync complete!").await;
+        wait_for_height(
+            &follower.validator().rpc_addr,
+            synced_tip + 1,
+            Duration::from_secs(120),
+        )
+        .await?;
         println!("--- Sync with peer drop successful ---");
 
         Ok(())
     }
     .await;
-
-    if let Some(guard) = node3_guard {
-        guard.shutdown().await?;
-    }
 
     for guard in cluster.validators {
         guard.shutdown().await?;

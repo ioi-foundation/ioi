@@ -2,7 +2,9 @@
 
 // REMOVE: use super::assert::wait_for_height;
 use super::genesis::GenesisBuilder;
-use super::validator::{TestValidator, ValidatorGuard};
+use super::validator::{
+    reserve_validator_ports, TestValidator, ValidatorGuard, VALIDATOR_PORT_FANOUT,
+};
 use anyhow::{anyhow, Result};
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use dcrypt::sign::eddsa::Ed25519SecretKey;
@@ -36,17 +38,16 @@ use libp2p::{
 };
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
-use std::net::{Ipv4Addr, TcpListener};
+use std::net::TcpListener;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
 
 const VALIDATOR_PORT_STRIDE: u16 = 100;
-const VALIDATOR_PORT_FANOUT: u16 = 8;
-
 struct ValidatorPortAllocation {
     bases: Vec<u16>,
+    reservations: Vec<Vec<TcpListener>>,
     lock_path: PathBuf,
 }
 
@@ -90,8 +91,8 @@ fn allocate_validator_port_bases(num_validators: usize) -> Result<ValidatorPortA
             Err(_) => continue,
         };
 
-        let mut reservations = Vec::new();
         let mut bases = Vec::with_capacity(num_validators);
+        let mut validator_reservations = Vec::with_capacity(num_validators);
         let mut available = true;
 
         for validator_index in 0..num_validators {
@@ -106,18 +107,12 @@ fn allocate_validator_port_bases(num_validators: usize) -> Result<ValidatorPortA
                 break;
             }
 
-            for port in base_port..=block_end {
-                match TcpListener::bind((Ipv4Addr::LOCALHOST, port)) {
-                    Ok(listener) => reservations.push(listener),
-                    Err(_) => {
-                        available = false;
-                        break;
-                    }
+            match reserve_validator_ports(base_port) {
+                Ok(listeners) => validator_reservations.push(listeners),
+                Err(_) => {
+                    available = false;
+                    break;
                 }
-            }
-
-            if !available {
-                break;
             }
             bases.push(base_port);
         }
@@ -125,7 +120,11 @@ fn allocate_validator_port_bases(num_validators: usize) -> Result<ValidatorPortA
         if available {
             use std::io::Write as _;
             writeln!(lock_file, "pid={}", std::process::id())?;
-            return Ok(ValidatorPortAllocation { bases, lock_path });
+            return Ok(ValidatorPortAllocation {
+                bases,
+                reservations: validator_reservations,
+                lock_path,
+            });
         }
 
         drop(lock_file);
@@ -205,6 +204,7 @@ pub struct TestClusterBuilder {
     gc_interval_secs: Option<u64>,
     min_finality_depth: Option<u64>,
     service_policies_override: BTreeMap<String, ServicePolicy>,
+    workload_env: BTreeMap<String, String>,
     roles: BTreeMap<usize, ValidatorRole>,
     aft_safety_mode: AftSafetyMode,
     guardian_config_toml: Option<String>,
@@ -232,6 +232,7 @@ impl Default for TestClusterBuilder {
             gc_interval_secs: None,
             min_finality_depth: None,
             service_policies_override: BTreeMap::new(),
+            workload_env: BTreeMap::new(),
             roles: BTreeMap::new(),
             aft_safety_mode: AftSafetyMode::GuardianMajority,
             guardian_config_toml: None,
@@ -531,7 +532,7 @@ fn build_auto_guardian_harness(
                 observer_committee_size,
                 observer_correlation_budget: Default::default(),
                 observer_sealing_mode: AsymptoteObserverSealingMode::CanonicalChallengeV1,
-                observer_challenge_window_ms: 0,
+                observer_challenge_window_ms: 500,
                 max_reassignment_depth: 0,
                 max_checkpoint_staleness_ms: 120_000,
             };
@@ -699,6 +700,11 @@ impl TestClusterBuilder {
         self
     }
 
+    pub fn with_workload_env(mut self, key: &str, value: &str) -> Self {
+        self.workload_env.insert(key.to_string(), value.to_string());
+        self
+    }
+
     pub fn with_role(mut self, index: usize, role: ValidatorRole) -> Self {
         self.roles.insert(index, role);
         self
@@ -742,8 +748,13 @@ impl TestClusterBuilder {
 
         let ValidatorPortAllocation {
             bases: validator_base_ports,
+            reservations: validator_port_reservations,
             lock_path: validator_port_lock_path,
         } = allocate_validator_port_bases(validator_keys.len())?;
+        let mut validator_port_reservations = validator_port_reservations
+            .into_iter()
+            .map(Some)
+            .collect::<Vec<_>>();
 
         let shared_guardian_harness = if guardianized_mode && self.guardian_config_toml.is_none() {
             let harness = build_auto_guardian_harness(
@@ -905,7 +916,70 @@ impl TestClusterBuilder {
             None
         };
 
-        if validator_keys.len() > 1 && full_mesh_bootnodes {
+        if validator_keys.len() == 1 {
+            let key_clone = validator_keys[0].clone();
+            let captured_genesis = genesis_content.clone();
+            let captured_consensus = self.consensus_type.clone();
+            let captured_state_tree = self.state_tree.clone();
+            let captured_commitment = self.commitment_scheme.clone();
+            let captured_ibc_gateway = self.ibc_gateway_addr.clone();
+            let captured_agentic_path = self.agentic_model_path.clone();
+            let captured_use_docker = self.use_docker;
+            let captured_services = self.initial_services.clone();
+            let captured_malicious = self.use_malicious_workload;
+            let captured_extra_features = self.extra_features.clone();
+            let captured_epoch_size = self.epoch_size;
+            let captured_keep_recent = self.keep_recent_heights;
+            let captured_gc_interval = self.gc_interval_secs;
+            let captured_min_finality = self.min_finality_depth;
+            let captured_policies = service_policies.clone();
+            let captured_workload_env = self.workload_env.clone();
+            let captured_safety_mode = self.aft_safety_mode;
+            let captured_guardian_config = self.guardian_config_toml.clone();
+            let base_port = validator_base_ports[0];
+            let port_reservations = validator_port_reservations[0]
+                .take()
+                .expect("validator port reservations should exist");
+            let role = self
+                .roles
+                .get(&0)
+                .cloned()
+                .unwrap_or(ValidatorRole::Consensus);
+
+            let guard = TestValidator::launch(
+                key_clone,
+                captured_genesis,
+                base_port,
+                port_reservations,
+                self.chain_id,
+                None,
+                &captured_consensus,
+                &captured_state_tree,
+                &captured_commitment,
+                captured_ibc_gateway.as_deref(),
+                captured_agentic_path.as_deref(),
+                captured_use_docker,
+                captured_services,
+                captured_malicious,
+                benchmark_harness_mode,
+                &captured_extra_features,
+                captured_epoch_size,
+                captured_keep_recent,
+                captured_gc_interval,
+                captured_min_finality,
+                captured_policies,
+                captured_workload_env,
+                role,
+                captured_safety_mode,
+                captured_guardian_config,
+            )
+            .await
+            .map_err(|error| {
+                let _ = fs::remove_file(&validator_port_lock_path);
+                error
+            })?;
+            validators.push(guard);
+        } else if validator_keys.len() > 1 && full_mesh_bootnodes {
             let launch_with_bootnodes = |index: usize| {
                 full_mesh_bootnode_addrs
                     .as_ref()
@@ -938,10 +1012,14 @@ impl TestClusterBuilder {
                 let captured_gc_interval = self.gc_interval_secs;
                 let captured_min_finality = self.min_finality_depth;
                 let captured_policies = service_policies.clone();
+                let captured_workload_env = self.workload_env.clone();
                 let captured_safety_mode = self.aft_safety_mode;
                 let captured_guardian_config = self.guardian_config_toml.clone();
                 let captured_chain_id = self.chain_id;
                 let base_port = validator_base_ports[i];
+                let port_reservations = validator_port_reservations[i]
+                    .take()
+                    .expect("validator port reservations should exist");
                 let node_bootnodes = launch_with_bootnodes(i);
                 let role = self
                     .roles
@@ -954,6 +1032,7 @@ impl TestClusterBuilder {
                         key_clone,
                         captured_genesis,
                         base_port,
+                        port_reservations,
                         captured_chain_id,
                         Some(&node_bootnodes),
                         &captured_consensus,
@@ -971,6 +1050,7 @@ impl TestClusterBuilder {
                         captured_gc_interval,
                         captured_min_finality,
                         captured_policies,
+                        captured_workload_env,
                         role,
                         captured_safety_mode,
                         captured_guardian_config,
@@ -1016,9 +1096,13 @@ impl TestClusterBuilder {
                 let captured_gc_interval = self.gc_interval_secs;
                 let captured_min_finality = self.min_finality_depth;
                 let captured_policies = service_policies.clone();
+                let captured_workload_env = self.workload_env.clone();
                 let captured_safety_mode = self.aft_safety_mode;
                 let captured_guardian_config = self.guardian_config_toml.clone();
                 let key_clone = key.clone();
+                let port_reservations = validator_port_reservations[i]
+                    .take()
+                    .expect("validator port reservations should exist");
 
                 let role = self
                     .roles
@@ -1031,6 +1115,7 @@ impl TestClusterBuilder {
                         key_clone,
                         captured_genesis,
                         base_port,
+                        port_reservations,
                         captured_chain_id,
                         if i == 0 {
                             None
@@ -1052,6 +1137,7 @@ impl TestClusterBuilder {
                         captured_gc_interval,
                         captured_min_finality,
                         captured_policies,
+                        captured_workload_env,
                         role,
                         captured_safety_mode,
                         captured_guardian_config,

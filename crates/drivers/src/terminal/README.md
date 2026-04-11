@@ -14,10 +14,10 @@ It wraps Rust's native process execution with safety mechanisms to ensure that a
 
 This driver supports both atomic command execution and persistent shell sessions.
 
-*   `sys__exec`: one-off process execution (piped stdio)
-*   `sys__exec_session`: a persistent shell session keyed by agent session (on unix this is PTY-backed so TTY-gated CLIs work)
+*   `shell__run`: one-off process execution (piped stdio)
+*   `shell__start`: a persistent shell session keyed by agent session (on unix this is PTY-backed so TTY-gated CLIs work)
 
-It is primarily used by the `RuntimeAgentService` to fulfill the `sys__exec` tool capability.
+It is primarily used by the `RuntimeAgentService` to fulfill the `shell__run` tool capability.
 
 ## Usage
 

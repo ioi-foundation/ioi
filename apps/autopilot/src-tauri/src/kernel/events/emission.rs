@@ -575,7 +575,7 @@ mod tests {
         let snapshot = emit_browser_snapshot(
             "thread-1",
             2,
-            "browser__snapshot",
+            "browser__inspect",
             "Top links https://example.com/a https://example.com/b",
             EventStatus::Success,
             vec![web_ref],

@@ -23,7 +23,7 @@ use ioi_api::vm::inference::{
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_types::app::agentic::{
-    AgentTool, ComputerAction, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    AgentTool, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState, ScreenAction,
     WebRetrievalContract,
 };
 use ioi_types::app::{
@@ -83,16 +83,16 @@ fn test_agent_state() -> AgentState {
 
 #[test]
 fn right_click_variants_require_focus_recovery() {
-    assert!(is_focus_sensitive_tool(&AgentTool::Computer(
-        ComputerAction::RightClick {
+    assert!(is_focus_sensitive_tool(&AgentTool::Screen(
+        ScreenAction::RightClick {
             coordinate: Some([10, 20]),
         },
     )));
-    assert!(is_focus_sensitive_tool(&AgentTool::Computer(
-        ComputerAction::RightClickId { id: 12 },
+    assert!(is_focus_sensitive_tool(&AgentTool::Screen(
+        ScreenAction::RightClickId { id: 12 },
     )));
-    assert!(is_focus_sensitive_tool(&AgentTool::Computer(
-        ComputerAction::RightClickElement {
+    assert!(is_focus_sensitive_tool(&AgentTool::Screen(
+        ScreenAction::RightClickElement {
             id: "file_row".to_string(),
         },
     )));
@@ -102,8 +102,13 @@ fn right_click_variants_require_focus_recovery() {
 fn browser_click_tools_do_not_require_native_focus_recovery() {
     assert!(!is_focus_sensitive_tool(&AgentTool::BrowserClick {
         selector: "#submit".to_string(),
+        id: None,
+        ids: Vec::new(),
+        delay_ms_between_ids: None,
+        continue_with: None,
     }));
-    assert!(!is_focus_sensitive_tool(&AgentTool::BrowserClickElement {
+    assert!(!is_focus_sensitive_tool(&AgentTool::BrowserClick {
+        selector: String::new(),
         id: Some("btn_submit".to_string()),
         ids: Vec::new(),
         delay_ms_between_ids: None,
@@ -1043,7 +1048,7 @@ fn patch_build_verify_rewrites_initial_mismatched_exec_to_targeted_check() {
         template_id: Some("coding_worker".to_string()),
         workflow_id: Some("patch_build_verify".to_string()),
         role: Some("Coding Worker".to_string()),
-        allowed_tools: vec!["sys__exec_session".to_string()],
+        allowed_tools: vec!["shell__start".to_string()],
         completion_contract: Default::default(),
     };
     let mut tool = AgentTool::SysExecSession {
@@ -1101,7 +1106,7 @@ fn patch_build_verify_does_not_rewrite_after_targeted_command_history_exists() {
         template_id: Some("coding_worker".to_string()),
         workflow_id: Some("patch_build_verify".to_string()),
         role: Some("Coding Worker".to_string()),
-        allowed_tools: vec!["sys__exec_session".to_string()],
+        allowed_tools: vec!["shell__start".to_string()],
         completion_contract: Default::default(),
     };
     let mut tool = AgentTool::SysExecSession {
@@ -1220,7 +1225,7 @@ fn firewall_attestation_signature_is_deterministic_for_same_signer_and_payload()
 #[test]
 fn runtime_target_maps_dynamic_tools_to_adapter() {
     let tool = AgentTool::Dynamic(serde_json::json!({
-        "name": "filesystem__read_file",
+        "name": "file__read",
         "arguments": { "path": "README.md" }
     }));
     assert_eq!(
@@ -1254,7 +1259,7 @@ fn runtime_target_maps_media_tools_to_media() {
     );
 
     let dynamic_tool = AgentTool::Dynamic(serde_json::json!({
-        "name": "media__extract_multimodal_evidence",
+        "name": "media__extract_evidence",
         "arguments": { "url": "https://example.com/video" }
     }));
     assert_eq!(

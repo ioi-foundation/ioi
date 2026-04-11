@@ -9,7 +9,7 @@ pub(crate) fn attempt_patch_build_verify_runtime_patch_miss_repair(
     raw_tool_output: &str,
     verification_checks: &mut Vec<String>,
 ) -> Option<AgentTool> {
-    if current_tool_name != "filesystem__patch" {
+    if current_tool_name != "file__edit" {
         return None;
     }
     let error = error_msg?.trim();
@@ -27,7 +27,7 @@ pub(crate) fn attempt_patch_build_verify_runtime_patch_miss_repair(
     if !assignment
         .allowed_tools
         .iter()
-        .any(|tool| tool == "filesystem__write_file")
+        .any(|tool| tool == "file__write")
     {
         return None;
     }

@@ -1,6 +1,6 @@
 use super::*;
-use crate::agentic::runtime::connectors::{connector_tool_route_bindings, google_workspace};
 use crate::agentic::policy::policy_target_aliases;
+use crate::agentic::runtime::connectors::{connector_tool_route_bindings, google_workspace};
 
 pub(super) fn capability(id: &str) -> CapabilityId {
     CapabilityId::from(id)
@@ -64,8 +64,8 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("agent.lifecycle")],
         },
         ToolCapabilityBinding {
-            tool_name: "agent__await_result".to_string(),
-            action_target: ActionTarget::Custom("agent__await_result".to_string()),
+            tool_name: "agent__await".to_string(),
+            action_target: ActionTarget::Custom("agent__await".to_string()),
             capabilities: vec![
                 capability("agent.lifecycle"),
                 capability("delegation.manage"),
@@ -77,8 +77,8 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("conversation.reply")],
         },
         ToolCapabilityBinding {
-            tool_name: "automation__create_monitor".to_string(),
-            action_target: ActionTarget::Custom("automation__create_monitor".to_string()),
+            tool_name: "monitor__create".to_string(),
+            action_target: ActionTarget::Custom("monitor__create".to_string()),
             capabilities: vec![capability("automation.monitor.install")],
         },
         ToolCapabilityBinding {
@@ -87,8 +87,8 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("conversation.reply")],
         },
         ToolCapabilityBinding {
-            tool_name: "system__fail".to_string(),
-            action_target: ActionTarget::Custom("system__fail".to_string()),
+            tool_name: "agent__escalate".to_string(),
+            action_target: ActionTarget::Custom("agent__escalate".to_string()),
             capabilities: vec![capability("system.failure")],
         },
         ToolCapabilityBinding {
@@ -97,7 +97,7 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("memory.access")],
         },
         ToolCapabilityBinding {
-            tool_name: "memory__inspect".to_string(),
+            tool_name: "memory__read".to_string(),
             action_target: ActionTarget::Custom("memory::inspect".to_string()),
             capabilities: vec![capability("memory.access")],
         },
@@ -185,77 +185,77 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("delegation.manage")],
         },
         ToolCapabilityBinding {
-            tool_name: "computer".to_string(),
+            tool_name: "screen".to_string(),
             action_target: ActionTarget::GuiClick,
             capabilities: vec![capability("ui.interact")],
         },
         ToolCapabilityBinding {
-            tool_name: "gui__click".to_string(),
+            tool_name: "screen__click_at".to_string(),
             action_target: ActionTarget::GuiClick,
             capabilities: vec![capability("ui.interact")],
         },
         ToolCapabilityBinding {
-            tool_name: "gui__type".to_string(),
+            tool_name: "screen__type".to_string(),
             action_target: ActionTarget::GuiType,
             capabilities: vec![capability("ui.interact")],
         },
         ToolCapabilityBinding {
-            tool_name: "gui__scroll".to_string(),
+            tool_name: "screen__scroll".to_string(),
             action_target: ActionTarget::GuiScroll,
             capabilities: vec![capability("ui.interact")],
         },
         ToolCapabilityBinding {
-            tool_name: "gui__snapshot".to_string(),
+            tool_name: "screen__inspect".to_string(),
             action_target: ActionTarget::GuiInspect,
             capabilities: vec![capability("ui.inspect")],
         },
         ToolCapabilityBinding {
-            tool_name: "gui__click_element".to_string(),
+            tool_name: "screen__click".to_string(),
             action_target: ActionTarget::GuiClick,
             capabilities: vec![capability("ui.interact")],
         },
         ToolCapabilityBinding {
-            tool_name: "ui__find".to_string(),
+            tool_name: "screen__find".to_string(),
             action_target: ActionTarget::Custom("ui::find".to_string()),
             capabilities: vec![capability("ui.inspect")],
         },
         ToolCapabilityBinding {
-            tool_name: "os__focus_window".to_string(),
+            tool_name: "window__focus".to_string(),
             action_target: ActionTarget::WindowFocus,
             capabilities: vec![capability("ui.interact")],
         },
         ToolCapabilityBinding {
-            tool_name: "os__copy".to_string(),
+            tool_name: "clipboard__copy".to_string(),
             action_target: ActionTarget::ClipboardWrite,
             capabilities: vec![capability("clipboard.write")],
         },
         ToolCapabilityBinding {
-            tool_name: "os__paste".to_string(),
+            tool_name: "clipboard__paste".to_string(),
             action_target: ActionTarget::ClipboardRead,
             capabilities: vec![capability("clipboard.read")],
         },
         ToolCapabilityBinding {
-            tool_name: "os__launch_app".to_string(),
+            tool_name: "app__launch".to_string(),
             action_target: ActionTarget::Custom("os::launch_app".to_string()),
             capabilities: vec![capability("app.launch")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__read_file".to_string(),
+            tool_name: "file__read".to_string(),
             action_target: ActionTarget::FsRead,
             capabilities: vec![capability("filesystem.read")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__list_directory".to_string(),
+            tool_name: "file__list".to_string(),
             action_target: ActionTarget::FsRead,
             capabilities: vec![capability("filesystem.read")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__search".to_string(),
+            tool_name: "file__search".to_string(),
             action_target: ActionTarget::FsRead,
             capabilities: vec![capability("filesystem.read")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__stat".to_string(),
+            tool_name: "file__info".to_string(),
             action_target: ActionTarget::FsRead,
             capabilities: vec![
                 capability("filesystem.read"),
@@ -263,43 +263,43 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             ],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__write_file".to_string(),
+            tool_name: "file__write".to_string(),
             action_target: ActionTarget::FsWrite,
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__edit_line".to_string(),
+            tool_name: "file__replace_line".to_string(),
             action_target: ActionTarget::FsWrite,
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__patch".to_string(),
+            tool_name: "file__edit".to_string(),
             action_target: ActionTarget::FsWrite,
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__delete_path".to_string(),
+            tool_name: "file__delete".to_string(),
             action_target: ActionTarget::FsWrite,
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__create_directory".to_string(),
-            action_target: ActionTarget::Custom("filesystem__create_directory".to_string()),
+            tool_name: "file__create_dir".to_string(),
+            action_target: ActionTarget::Custom("file__create_dir".to_string()),
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__create_zip".to_string(),
-            action_target: ActionTarget::Custom("filesystem__create_zip".to_string()),
+            tool_name: "file__zip".to_string(),
+            action_target: ActionTarget::Custom("file__zip".to_string()),
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__move_path".to_string(),
-            action_target: ActionTarget::Custom("filesystem__move_path".to_string()),
+            tool_name: "file__move".to_string(),
+            action_target: ActionTarget::Custom("file__move".to_string()),
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
-            tool_name: "filesystem__copy_path".to_string(),
-            action_target: ActionTarget::Custom("filesystem__copy_path".to_string()),
+            tool_name: "file__copy".to_string(),
+            action_target: ActionTarget::Custom("file__copy".to_string()),
             capabilities: vec![capability("filesystem.write")],
         },
         ToolCapabilityBinding {
@@ -384,27 +384,27 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             ],
         },
         ToolCapabilityBinding {
-            tool_name: "sys__exec".to_string(),
+            tool_name: "shell__run".to_string(),
             action_target: ActionTarget::SysExec,
             capabilities: vec![capability("command.exec"), capability("command.probe")],
         },
         ToolCapabilityBinding {
-            tool_name: "sys__exec_session".to_string(),
+            tool_name: "shell__start".to_string(),
             action_target: ActionTarget::SysExec,
             capabilities: vec![capability("command.exec"), capability("command.probe")],
         },
         ToolCapabilityBinding {
-            tool_name: "sys__exec_session_reset".to_string(),
+            tool_name: "shell__reset".to_string(),
             action_target: ActionTarget::SysExec,
             capabilities: vec![capability("command.exec")],
         },
         ToolCapabilityBinding {
-            tool_name: "sys__change_directory".to_string(),
+            tool_name: "shell__cd".to_string(),
             action_target: ActionTarget::SysExec,
             capabilities: vec![capability("command.exec")],
         },
         ToolCapabilityBinding {
-            tool_name: "sys__install_package".to_string(),
+            tool_name: "package__install".to_string(),
             action_target: ActionTarget::SysInstallPackage,
             capabilities: vec![capability("system.install_package")],
         },
@@ -428,7 +428,7 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             ],
         },
         ToolCapabilityBinding {
-            tool_name: "media__extract_multimodal_evidence".to_string(),
+            tool_name: "media__extract_evidence".to_string(),
             action_target: ActionTarget::MediaExtractMultimodalEvidence,
             capabilities: vec![
                 capability("web.retrieve"),
@@ -467,7 +467,7 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("media.generate.video")],
         },
         ToolCapabilityBinding {
-            tool_name: "net__fetch".to_string(),
+            tool_name: "http__fetch".to_string(),
             action_target: ActionTarget::NetFetch,
             capabilities: vec![capability("net.fetch")],
         },
@@ -477,7 +477,7 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__snapshot".to_string(),
+            tool_name: "browser__inspect".to_string(),
             action_target: ActionTarget::BrowserInspect,
             capabilities: browser_inspect_capabilities(),
         },
@@ -492,27 +492,27 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__move_mouse".to_string(),
+            tool_name: "browser__move_pointer".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__mouse_down".to_string(),
+            tool_name: "browser__pointer_down".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__mouse_up".to_string(),
+            tool_name: "browser__pointer_up".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__click_element".to_string(),
+            tool_name: "browser__click".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__synthetic_click".to_string(),
+            tool_name: "browser__click_at".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
@@ -527,22 +527,22 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__select_text".to_string(),
+            tool_name: "browser__select".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__key".to_string(),
+            tool_name: "browser__press_key".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__copy_selection".to_string(),
+            tool_name: "browser__copy".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__paste_clipboard".to_string(),
+            tool_name: "browser__paste".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
@@ -557,7 +557,7 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__canvas_summary".to_string(),
+            tool_name: "browser__inspect_canvas".to_string(),
             action_target: ActionTarget::BrowserInspect,
             capabilities: browser_inspect_capabilities(),
         },
@@ -571,7 +571,7 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             },
         },
         ToolCapabilityBinding {
-            tool_name: "browser__upload_file".to_string(),
+            tool_name: "browser__upload".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: {
                 let mut caps = browser_interact_capabilities();
@@ -580,32 +580,32 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             },
         },
         ToolCapabilityBinding {
-            tool_name: "browser__dropdown_options".to_string(),
+            tool_name: "browser__list_options".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__select_dropdown".to_string(),
+            tool_name: "browser__select_option".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__go_back".to_string(),
+            tool_name: "browser__back".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__tab_list".to_string(),
+            tool_name: "browser__list_tabs".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__tab_switch".to_string(),
+            tool_name: "browser__switch_tab".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
         ToolCapabilityBinding {
-            tool_name: "browser__tab_close".to_string(),
+            tool_name: "browser__close_tab".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
@@ -682,14 +682,14 @@ pub(super) fn tool_capabilities(tool_name: &str) -> Vec<CapabilityId> {
 
     if matches!(
         normalized.as_str(),
-        "agent__complete" | "agent__pause" | "agent__await_result" | "agent__await"
+        "agent__complete" | "agent__pause" | "agent__await"
     ) {
         return vec![capability("agent.lifecycle")];
     }
     if normalized == "chat__reply" {
         return vec![capability("conversation.reply")];
     }
-    if normalized == "system__fail" {
+    if normalized == "agent__escalate" {
         return vec![capability("system.failure")];
     }
     if normalized.starts_with("memory__") {
@@ -707,11 +707,7 @@ pub(super) fn tool_capabilities(tool_name: &str) -> Vec<CapabilityId> {
 fn is_unconditional_resolution_tool(tool_name: &str) -> bool {
     matches!(
         tool_name,
-        "system__fail"
-            | "agent__complete"
-            | "agent__pause"
-            | "agent__await_result"
-            | "agent__await"
+        "agent__escalate" | "agent__complete" | "agent__pause" | "agent__await"
     )
 }
 
@@ -1077,15 +1073,15 @@ mod tests {
 
         assert!(is_tool_allowed_for_resolution(
             Some(&resolved),
-            "filesystem__write_file",
+            "file__write",
         ));
         assert!(is_tool_allowed_for_resolution(
             Some(&resolved),
-            "filesystem__edit_line",
+            "file__replace_line",
         ));
         assert!(is_tool_allowed_for_resolution(
             Some(&resolved),
-            "filesystem__patch",
+            "file__edit",
         ));
     }
 

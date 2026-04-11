@@ -2,7 +2,7 @@
   "name": "copy_clipboard",
   "description": "Copies selection",
   "steps": [{
-    "tool": "computer",
+    "tool": "screen",
     "params": {
       "action": "hotkey",
       "keys": ["Control", "c"]

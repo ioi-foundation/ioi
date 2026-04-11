@@ -26,8 +26,8 @@ pub fn case() -> QueryCase {
         query: concat!(
             "Find all PDF files modified in the last week within ",
             "\"{PDF_LAST_WEEK_FIXTURE_DIR}\". ",
-            "Use local deterministic filesystem tools (`filesystem__list_directory`, ",
-            "`filesystem__stat`) to discover candidate PDFs and verify their modification ",
+            "Use local deterministic filesystem tools (`file__list`, ",
+            "`file__info`) to discover candidate PDFs and verify their modification ",
             "timestamps. Do not use web, browser, net, or shell execution tools. ",
             "Do not modify files. Return a concise completion summary that lists each ",
             "matching absolute path on its own line."
@@ -151,21 +151,21 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || obs.cec_receipts.is_empty()
         || (cec_execution_seen && cec_verification_seen);
 
-    let action_path_seen = has_tool_with_token(&obs.action_tools, "filesystem__list_directory")
-        && has_tool_with_token(&obs.action_tools, "filesystem__stat");
-    let routing_path_seen = has_tool_with_token(&obs.routing_tools, "filesystem__list_directory")
-        && has_tool_with_token(&obs.routing_tools, "filesystem__stat");
+    let action_path_seen = has_tool_with_token(&obs.action_tools, "file__list")
+        && has_tool_with_token(&obs.action_tools, "file__info");
+    let routing_path_seen = has_tool_with_token(&obs.routing_tools, "file__list")
+        && has_tool_with_token(&obs.routing_tools, "file__info");
     let remote_path_seen = has_tool_with_token(&obs.action_tools, "web__")
         || has_tool_with_token(&obs.routing_tools, "web__")
         || has_tool_with_token(&obs.workload_tools, "web__")
         || has_tool_with_token(&obs.action_tools, "browser__")
         || has_tool_with_token(&obs.routing_tools, "browser__")
         || has_tool_with_token(&obs.workload_tools, "browser__")
-        || has_tool_with_token(&obs.action_tools, "net__fetch")
-        || has_tool_with_token(&obs.routing_tools, "net__fetch")
-        || has_tool_with_token(&obs.workload_tools, "net__fetch");
-    let shell_exec_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec");
+        || has_tool_with_token(&obs.action_tools, "http__fetch")
+        || has_tool_with_token(&obs.routing_tools, "http__fetch")
+        || has_tool_with_token(&obs.workload_tools, "http__fetch");
+    let shell_exec_seen = has_tool_with_token(&obs.action_tools, "shell__run")
+        || has_tool_with_token(&obs.routing_tools, "shell__run");
     let mutating_filesystem_action_seen = has_mutating_filesystem_action(obs);
     let tool_and_route_path_evidence_present = action_path_seen
         && routing_path_seen
@@ -392,28 +392,26 @@ fn parse_csv_paths(value: &str) -> Vec<String> {
 }
 
 fn is_list_action_success(entry: &super::super::types::ActionEvidence) -> bool {
-    entry
-        .tool_name
-        .eq_ignore_ascii_case("filesystem__list_directory")
+    entry.tool_name.eq_ignore_ascii_case("file__list")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
         && !action_has_hard_error_class(entry)
 }
 
 fn is_stat_action_success(entry: &super::super::types::ActionEvidence) -> bool {
-    entry.tool_name.eq_ignore_ascii_case("filesystem__stat")
+    entry.tool_name.eq_ignore_ascii_case("file__info")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
         && !action_has_hard_error_class(entry)
 }
 
 fn has_mutating_filesystem_action(obs: &RunObservation) -> bool {
     [
-        "filesystem__write_file",
-        "filesystem__patch",
-        "filesystem__delete_path",
-        "filesystem__create_directory",
-        "filesystem__create_zip",
-        "filesystem__move_path",
-        "filesystem__copy_path",
+        "file__write",
+        "file__edit",
+        "file__delete",
+        "file__create_dir",
+        "file__zip",
+        "file__move",
+        "file__copy",
     ]
     .iter()
     .any(|token| {

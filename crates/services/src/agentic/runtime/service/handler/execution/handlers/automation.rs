@@ -17,7 +17,7 @@ pub(crate) fn handle_automation_create_monitor_tool(
             false,
             None,
             Some(format!(
-                "ERROR_CLASS=ToolUnavailable Missing automation runtime root. Set {} before calling automation__create_monitor.",
+                "ERROR_CLASS=ToolUnavailable Missing automation runtime root. Set {} before calling monitor__create.",
                 AUTOMATION_ROOT_ENV_VAR
             )),
         );

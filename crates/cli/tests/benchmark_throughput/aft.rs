@@ -11,7 +11,10 @@ use super::support::{
 };
 use anyhow::{anyhow, Result};
 use futures_util::stream::{self, StreamExt, TryStreamExt};
-use ioi_cli::testing::{build_test_artifacts, rpc, TestCluster};
+use ioi_cli::testing::{
+    build::{test_node_binary_dir, test_node_target_dir},
+    build_test_artifacts, rpc, TestCluster,
+};
 use ioi_ipc::public::{
     public_api_client::PublicApiClient, GetTransactionStatusRequest, SubmitTransactionRequest,
     TxStatus,
@@ -121,11 +124,8 @@ fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
         return Ok(());
     }
 
-    let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|path| path.parent())
-        .expect("workspace root");
-    let node_binary_dir = workspace_root.join("target").join(&build_profile);
+    let node_target_dir = test_node_target_dir(&build_profile, &features);
+    let node_binary_dir = test_node_binary_dir(&build_profile, &features);
     let benchmark_exe_mtime = std::env::current_exe()
         .ok()
         .and_then(|path| std::fs::metadata(path).ok())
@@ -170,6 +170,7 @@ fn ensure_benchmark_node_built(state_tree: &str) -> Result<()> {
         "--features",
         &features,
     ]);
+    cmd.env("CARGO_TARGET_DIR", &node_target_dir);
     if build_profile.eq_ignore_ascii_case("release") {
         cmd.arg("--release");
     }

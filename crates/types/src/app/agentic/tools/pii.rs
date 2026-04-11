@@ -6,7 +6,7 @@ use super::AgentTool;
 /// Mutable text slot identifiers for deterministic PII egress enforcement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PiiEgressField {
-    /// Clipboard payload for `os__copy`.
+    /// Clipboard payload for `clipboard__copy`.
     OsCopyContent,
     /// Destination URL for `browser__navigate`.
     BrowserNavigateUrl,
@@ -16,9 +16,9 @@ pub enum PiiEgressField {
     WebReadUrl,
     /// Destination URL for `media__extract_transcript`.
     MediaExtractTranscriptUrl,
-    /// Destination URL for `media__extract_multimodal_evidence`.
+    /// Destination URL for `media__extract_evidence`.
     MediaExtractMultimodalEvidenceUrl,
-    /// Destination URL for `net__fetch`.
+    /// Destination URL for `http__fetch`.
     NetFetchUrl,
     /// Free-form text payload for `browser__type`.
     BrowserTypeText,

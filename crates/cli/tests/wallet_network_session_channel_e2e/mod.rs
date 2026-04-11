@@ -1,6 +1,6 @@
 #![cfg(all(feature = "consensus-aft", feature = "vm-wasm", feature = "state-iavl"))]
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_api::state::service_namespace_prefix;
@@ -118,6 +118,245 @@ fn sign_wallet_approval_decision(
     Ok(approval)
 }
 
+#[derive(Clone)]
+struct WalletMailRuntimeConfig {
+    auth_mode: MailConnectorAuthMode,
+    account_email: String,
+    imap_host: String,
+    imap_port: u16,
+    imap_tls_mode: MailConnectorTlsMode,
+    smtp_host: String,
+    smtp_port: u16,
+    smtp_tls_mode: MailConnectorTlsMode,
+    imap_username: String,
+    imap_secret: String,
+    smtp_username: String,
+    smtp_secret: String,
+}
+
+fn load_workspace_mail_env_if_present() {
+    fn find_workspace_file(file_name: &str) -> Option<std::path::PathBuf> {
+        let mut cursor = std::env::current_dir().ok();
+        while let Some(path) = cursor.clone() {
+            let candidate = path.join(file_name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+            cursor = path.parent().map(|parent| parent.to_path_buf());
+        }
+        None
+    }
+
+    let Some(path) = find_workspace_file(".env") else {
+        return;
+    };
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        return;
+    };
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let Some((key, value)) = trimmed.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if key.is_empty() || std::env::var(key).is_ok() {
+            continue;
+        }
+        let value = value.trim().trim_matches('"').trim_matches('\'');
+        if !value.is_empty() {
+            std::env::set_var(key, value);
+        }
+    }
+}
+
+fn nonempty_env_value(key: &str) -> Option<String> {
+    std::env::var(key)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn required_env_value(key: &str) -> Result<String> {
+    nonempty_env_value(key).ok_or_else(|| anyhow!("missing required environment variable '{key}'"))
+}
+
+fn parse_u16_env(key: &str) -> Result<u16> {
+    let raw = required_env_value(key)?;
+    let value = raw
+        .parse::<u16>()
+        .map_err(|e| anyhow!("invalid {key} '{raw}': {e}"))?;
+    if value == 0 {
+        return Err(anyhow!("invalid {key}: value must be > 0"));
+    }
+    Ok(value)
+}
+
+fn parse_mail_auth_mode_env() -> Result<MailConnectorAuthMode> {
+    let raw = nonempty_env_value("MAIL_E2E_AUTH_MODE");
+    if let Some(value) = raw.as_deref() {
+        return match value.to_ascii_lowercase().as_str() {
+            "password" | "pass" => Ok(MailConnectorAuthMode::Password),
+            "oauth2" | "oauth" | "xoauth2" => Ok(MailConnectorAuthMode::Oauth2),
+            _ => Err(anyhow!(
+                "invalid MAIL_E2E_AUTH_MODE '{}': expected password or oauth2",
+                value
+            )),
+        };
+    }
+
+    let has_password = nonempty_env_value("MAIL_E2E_IMAP_PASSWORD").is_some()
+        || nonempty_env_value("MAIL_E2E_SMTP_PASSWORD").is_some();
+    let has_bearer = nonempty_env_value("MAIL_E2E_IMAP_BEARER_TOKEN").is_some()
+        || nonempty_env_value("MAIL_E2E_SMTP_BEARER_TOKEN").is_some();
+    if has_bearer && !has_password {
+        Ok(MailConnectorAuthMode::Oauth2)
+    } else {
+        Ok(MailConnectorAuthMode::Password)
+    }
+}
+
+fn parse_tls_mode_env(key: &str, default: MailConnectorTlsMode) -> Result<MailConnectorTlsMode> {
+    let Some(raw) = nonempty_env_value(key) else {
+        return Ok(default);
+    };
+    match raw.to_ascii_lowercase().as_str() {
+        "plaintext" | "plain" => Ok(MailConnectorTlsMode::Plaintext),
+        "starttls" | "start_tls" | "start-tls" => Ok(MailConnectorTlsMode::StartTls),
+        "tls" | "ssl" => Ok(MailConnectorTlsMode::Tls),
+        _ => Err(anyhow!(
+            "invalid {key} '{}': expected plaintext, starttls, or tls",
+            raw
+        )),
+    }
+}
+
+fn wallet_mail_runtime_env_configured() -> bool {
+    [
+        "MAIL_E2E_ACCOUNT_EMAIL",
+        "MAIL_E2E_IMAP_HOST",
+        "MAIL_E2E_SMTP_HOST",
+        "MAIL_E2E_IMAP_USERNAME",
+        "MAIL_E2E_SMTP_USERNAME",
+        "MAIL_E2E_IMAP_PASSWORD",
+        "MAIL_E2E_SMTP_PASSWORD",
+        "MAIL_E2E_IMAP_BEARER_TOKEN",
+        "MAIL_E2E_SMTP_BEARER_TOKEN",
+    ]
+    .into_iter()
+    .any(|key| nonempty_env_value(key).is_some())
+}
+
+fn maybe_wallet_mail_runtime_config() -> Result<Option<WalletMailRuntimeConfig>> {
+    load_workspace_mail_env_if_present();
+    if !wallet_mail_runtime_env_configured() {
+        return Ok(None);
+    }
+
+    let auth_mode = parse_mail_auth_mode_env()?;
+    let (imap_secret, smtp_secret) = match auth_mode {
+        MailConnectorAuthMode::Password => (
+            required_env_value("MAIL_E2E_IMAP_PASSWORD")?,
+            required_env_value("MAIL_E2E_SMTP_PASSWORD")?,
+        ),
+        MailConnectorAuthMode::Oauth2 => (
+            required_env_value("MAIL_E2E_IMAP_BEARER_TOKEN")?,
+            required_env_value("MAIL_E2E_SMTP_BEARER_TOKEN")?,
+        ),
+    };
+
+    Ok(Some(WalletMailRuntimeConfig {
+        auth_mode,
+        account_email: required_env_value("MAIL_E2E_ACCOUNT_EMAIL")?.to_ascii_lowercase(),
+        imap_host: required_env_value("MAIL_E2E_IMAP_HOST")?.to_ascii_lowercase(),
+        imap_port: parse_u16_env("MAIL_E2E_IMAP_PORT")?,
+        imap_tls_mode: parse_tls_mode_env("MAIL_E2E_IMAP_TLS_MODE", MailConnectorTlsMode::Tls)?,
+        smtp_host: required_env_value("MAIL_E2E_SMTP_HOST")?.to_ascii_lowercase(),
+        smtp_port: parse_u16_env("MAIL_E2E_SMTP_PORT")?,
+        smtp_tls_mode: parse_tls_mode_env(
+            "MAIL_E2E_SMTP_TLS_MODE",
+            MailConnectorTlsMode::StartTls,
+        )?,
+        imap_username: required_env_value("MAIL_E2E_IMAP_USERNAME")?,
+        imap_secret,
+        smtp_username: required_env_value("MAIL_E2E_SMTP_USERNAME")?,
+        smtp_secret,
+    }))
+}
+
+fn wallet_mail_secret_kind(auth_mode: MailConnectorAuthMode) -> SecretKind {
+    match auth_mode {
+        MailConnectorAuthMode::Password => SecretKind::Password,
+        MailConnectorAuthMode::Oauth2 => SecretKind::AccessToken,
+    }
+}
+
+async fn store_wallet_secret_record(
+    rpc_addr: &str,
+    keypair: &Keypair,
+    chain_id: ChainId,
+    nonce: &mut u64,
+    secret_id: &str,
+    alias: &str,
+    kind: SecretKind,
+    value: &str,
+) -> Result<()> {
+    submit_wallet_call(
+        rpc_addr,
+        keypair,
+        chain_id,
+        *nonce,
+        "store_secret_record@v1",
+        VaultSecretRecord {
+            secret_id: secret_id.to_string(),
+            alias: alias.to_string(),
+            kind,
+            ciphertext: value.as_bytes().to_vec(),
+            metadata: BTreeMap::new(),
+            created_at_ms: 4_100_000_000_000,
+            rotated_at_ms: None,
+        },
+    )
+    .await?;
+    *nonce += 1;
+    Ok(())
+}
+
+fn build_wallet_mail_connector_config(
+    runtime: &WalletMailRuntimeConfig,
+    imap_username_alias: &str,
+    imap_secret_alias: &str,
+    smtp_username_alias: &str,
+    smtp_secret_alias: &str,
+) -> MailConnectorConfig {
+    MailConnectorConfig {
+        provider: MailConnectorProvider::ImapSmtp,
+        auth_mode: runtime.auth_mode,
+        account_email: runtime.account_email.clone(),
+        sender_display_name: None,
+        imap: MailConnectorEndpoint {
+            host: runtime.imap_host.clone(),
+            port: runtime.imap_port,
+            tls_mode: runtime.imap_tls_mode,
+        },
+        smtp: MailConnectorEndpoint {
+            host: runtime.smtp_host.clone(),
+            port: runtime.smtp_port,
+            tls_mode: runtime.smtp_tls_mode,
+        },
+        secret_aliases: MailConnectorSecretAliases {
+            imap_username_alias: imap_username_alias.to_string(),
+            imap_password_alias: imap_secret_alias.to_string(),
+            smtp_username_alias: smtp_username_alias.to_string(),
+            smtp_password_alias: smtp_secret_alias.to_string(),
+        },
+        metadata: BTreeMap::new(),
+    }
+}
+
 fn wallet_network_user_policy() -> ServicePolicy {
     let mut methods = BTreeMap::new();
     for method in [
@@ -212,7 +451,9 @@ async fn submit_wallet_call<P: Encode>(
     params: P,
 ) -> Result<()> {
     let tx = create_call_service_tx(keypair, "wallet_network", method, params, nonce, chain_id)?;
-    submit_transaction(rpc_addr, &tx).await
+    submit_transaction(rpc_addr, &tx)
+        .await
+        .with_context(|| format!("wallet_network {method} nonce {nonce}"))
 }
 
 fn service_key(local_key: &[u8]) -> Vec<u8> {

@@ -10,9 +10,9 @@ pub(super) fn top_edge_jump_name() -> &'static str {
 
 pub(super) fn top_edge_jump_call() -> &'static str {
     if cfg!(target_os = "macos") {
-        r#"browser__key {"key":"ArrowUp","modifiers":["Meta"]}"#
+        r#"browser__press_key {"key":"ArrowUp","modifiers":["Meta"]}"#
     } else {
-        r#"browser__key {"key":"Home","modifiers":["Control"]}"#
+        r#"browser__press_key {"key":"Home","modifiers":["Control"]}"#
     }
 }
 
@@ -26,9 +26,9 @@ pub(super) fn bottom_edge_jump_name() -> &'static str {
 
 pub(super) fn bottom_edge_jump_call() -> &'static str {
     if cfg!(target_os = "macos") {
-        r#"browser__key {"key":"ArrowDown","modifiers":["Meta"]}"#
+        r#"browser__press_key {"key":"ArrowDown","modifiers":["Meta"]}"#
     } else {
-        r#"browser__key {"key":"End","modifiers":["Control"]}"#
+        r#"browser__press_key {"key":"End","modifiers":["Control"]}"#
     }
 }
 
@@ -58,7 +58,7 @@ fn browser_key_tool_call_with_selector(
     }
 
     format!(
-        "browser__key {}",
+        "browser__press_key {}",
         serde_json::Value::Object(payload).to_string()
     )
 }
@@ -69,7 +69,7 @@ fn click_element_follow_up_call(follow_up_id: Option<&str>) -> Option<serde_json
         .filter(|value| !value.is_empty())
         .map(|follow_up_id| {
             serde_json::json!({
-                "name": "browser__click_element",
+                "name": "browser__click",
                 "arguments": {
                     "id": follow_up_id,
                 }
@@ -120,7 +120,7 @@ pub(super) fn page_up_then_top_edge_jump_call_for_selector_with_follow_up(
 ) -> String {
     let nested_top_edge = if cfg!(target_os = "macos") {
         serde_json::json!({
-            "name": "browser__key",
+            "name": "browser__press_key",
             "arguments": {
                 "key": "ArrowUp",
                 "modifiers": ["Meta"],
@@ -130,7 +130,7 @@ pub(super) fn page_up_then_top_edge_jump_call_for_selector_with_follow_up(
         })
     } else {
         serde_json::json!({
-            "name": "browser__key",
+            "name": "browser__press_key",
             "arguments": {
                 "key": "Home",
                 "modifiers": ["Control"],
@@ -566,7 +566,7 @@ fn history_requests_bottom_scroll_edge(history: &[ChatMessage]) -> bool {
 pub(super) fn extract_scroll_target_focus_hint(snapshot: &str) -> Option<String> {
     let summary = unique_visible_scroll_target_summary(snapshot)?;
     Some(format!(
-        "Visible scroll target `{summary}` is already on the page. If the goal requires interacting with that control, use control-local actions there. For scroll-specific keys like `Home` or `End`, prefer `browser__key` with that control's grounded `selector` instead of sending page-level edge keys."
+        "Visible scroll target `{summary}` is already on the page. If the goal requires interacting with that control, use control-local actions there. For scroll-specific keys like `Home` or `End`, prefer `browser__press_key` with that control's grounded `selector` instead of sending page-level edge keys."
     ))
 }
 
@@ -1762,7 +1762,7 @@ pub(super) fn snapshot_select_submit_progress_pending_signal_for_requested_targe
                 .collect::<Vec<_>>()
                 .join(", ");
             return Some(format!(
-                "Requested selectable {plural} still missing from current browser state: {remaining}. Use `browser__click_element` with `ids` [{batch_ids}] now to click the remaining visible targets in order. Do not re-click already selected controls or `Submit` yet."
+                "Requested selectable {plural} still missing from current browser state: {remaining}. Use `browser__click` with `ids` [{batch_ids}] now to click the remaining visible targets in order. Do not re-click already selected controls or `Submit` yet."
             ));
         }
         return Some(format!(
@@ -1772,7 +1772,7 @@ pub(super) fn snapshot_select_submit_progress_pending_signal_for_requested_targe
 
     let submit_id = snapshot_visible_submit_control_id_local(snapshot)?;
     Some(format!(
-        "All requested selectable targets already appear checked or selected. Use `browser__click_element` on `{submit_id}` now. Do not spend another step re-clicking the same selections."
+        "All requested selectable targets already appear checked or selected. Use `browser__click` on `{submit_id}` now. Do not spend another step re-clicking the same selections."
     ))
 }
 
@@ -1859,7 +1859,7 @@ pub(super) fn browser_snapshot_pending_signal_with_history(
             }
 
             return Some(format!(
-                "Visible scroll target `{summary}` is already on the page. Use `browser__key` with that control's grounded `selector` for `Home` or `End`; otherwise continue with the next required visible control."
+                "Visible scroll target `{summary}` is already on the page. Use `browser__press_key` with that control's grounded `selector` for `Home` or `End`; otherwise continue with the next required visible control."
             ));
         }
     }
@@ -2543,12 +2543,12 @@ pub(super) fn tree_change_link_reverification_pending_signal(
         snapshot_semantic_id_is_reusable_navigation_control(snapshot, &clicked_id)
     }) {
         return Some(format!(
-            "A recent click on navigation control `{clicked_id}` already changed the page state (`tree_changed=true`). The previous browser observation is stale for non-navigation targets, but `{clicked_id}` remains reusable. If the goal still requires more movement in that same direction, you may click `{clicked_id}` again now; otherwise use `browser__snapshot` before choosing newly visible content from the updated page."
+            "A recent click on navigation control `{clicked_id}` already changed the page state (`tree_changed=true`). The previous browser observation is stale for non-navigation targets, but `{clicked_id}` remains reusable. If the goal still requires more movement in that same direction, you may click `{clicked_id}` again now; otherwise use `browser__inspect` before choosing newly visible content from the updated page."
         ));
     }
 
     Some(format!(
-        "A recent click on `{clicked_id}` already changed the page state (`tree_changed=true`). Do not click `{clicked_id}` again or act on stale controls from the previous browser observation. Use `browser__snapshot` once now to ground the updated page before taking the next action."
+        "A recent click on `{clicked_id}` already changed the page state (`tree_changed=true`). Do not click `{clicked_id}` again or act on stale controls from the previous browser observation. Use `browser__inspect` once now to ground the updated page before taking the next action."
     ))
 }
 
@@ -4104,7 +4104,7 @@ pub(super) fn autocomplete_follow_up_pending_signal(
     {
         if let Some(suggestion) = visible_suggestion.as_ref() {
             return Some(format!(
-                "A recent `{submit_id}` click left autocomplete unresolved on `{}`{value_clause}. That submit does not finish the task. The visible suggestion `{}` already matches the field. Use `browser__click_element` on `{}` now to commit it in one step before submitting again.",
+                "A recent `{submit_id}` click left autocomplete unresolved on `{}`{value_clause}. That submit does not finish the task. The visible suggestion `{}` already matches the field. Use `browser__click` on `{}` now to commit it in one step before submitting again.",
                 control.semantic_id,
                 suggestion.name,
                 suggestion.semantic_id,
@@ -4113,20 +4113,20 @@ pub(super) fn autocomplete_follow_up_pending_signal(
 
         if highlighted_candidate {
             return Some(format!(
-                "A recent `{submit_id}` click left autocomplete unresolved on `{}`{value_clause}. That submit does not finish the task. Use `browser__key` `Enter` now to commit the highlighted suggestion, then verify the widget is gone before submitting again.",
+                "A recent `{submit_id}` click left autocomplete unresolved on `{}`{value_clause}. That submit does not finish the task. Use `browser__press_key` `Enter` now to commit the highlighted suggestion, then verify the widget is gone before submitting again.",
                 control.semantic_id
             ));
         }
 
         if recent_enter_failed || guided_arrowdown_then_enter {
             return Some(format!(
-                "A recent `{submit_id}` click left autocomplete unresolved on `{}`{value_clause}. That submit does not finish the task. Use `browser__key` `ArrowDown` now to highlight the suggestion, then `browser__key` `Enter` to commit it before submitting again.",
+                "A recent `{submit_id}` click left autocomplete unresolved on `{}`{value_clause}. That submit does not finish the task. Use `browser__press_key` `ArrowDown` now to highlight the suggestion, then `browser__press_key` `Enter` to commit it before submitting again.",
                 control.semantic_id
             ));
         }
 
         return Some(format!(
-            "A recent `{submit_id}` click left autocomplete unresolved on `{}`. That submit does not finish the task. Use `browser__key` with `ArrowDown` or `ArrowUp` to ground the intended suggestion, then `browser__key` `Enter` to commit it before submitting again.",
+            "A recent `{submit_id}` click left autocomplete unresolved on `{}`. That submit does not finish the task. Use `browser__press_key` with `ArrowDown` or `ArrowUp` to ground the intended suggestion, then `browser__press_key` `Enter` to commit it before submitting again.",
             control.semantic_id
         ));
     }
@@ -4134,7 +4134,7 @@ pub(super) fn autocomplete_follow_up_pending_signal(
     if let Some(suggestion) = visible_suggestion.as_ref() {
         if recent_enter_failed {
             return Some(format!(
-                "A recent `Enter` key left autocomplete unresolved on `{}`{value_clause}. That key did not commit the suggestion. The visible suggestion `{}` already matches the field. Use `browser__click_element` on `{}` now to commit it in one step.",
+                "A recent `Enter` key left autocomplete unresolved on `{}`{value_clause}. That key did not commit the suggestion. The visible suggestion `{}` already matches the field. Use `browser__click` on `{}` now to commit it in one step.",
                 control.semantic_id,
                 suggestion.name,
                 suggestion.semantic_id,
@@ -4142,7 +4142,7 @@ pub(super) fn autocomplete_follow_up_pending_signal(
         }
 
         return Some(format!(
-            "Autocomplete is still open on `{}`{value_clause}. The visible suggestion `{}` already matches it. Use `browser__click_element` on `{}` now to commit it in one step. Do not spend the next step on `ArrowDown`, `Enter`, or another `browser__snapshot`.",
+            "Autocomplete is still open on `{}`{value_clause}. The visible suggestion `{}` already matches it. Use `browser__click` on `{}` now to commit it in one step. Do not spend the next step on `ArrowDown`, `Enter`, or another `browser__inspect`.",
             control.semantic_id,
             suggestion.name,
             suggestion.semantic_id,
@@ -4151,27 +4151,27 @@ pub(super) fn autocomplete_follow_up_pending_signal(
 
     if recent_enter_failed {
         return Some(format!(
-            "A recent `Enter` key left autocomplete unresolved on `{}`{value_clause}. That key did not commit the suggestion. Do not submit or finish yet. Use `browser__key` `ArrowDown` now to highlight it, then `browser__key` `Enter` to commit it before submitting.",
+            "A recent `Enter` key left autocomplete unresolved on `{}`{value_clause}. That key did not commit the suggestion. Do not submit or finish yet. Use `browser__press_key` `ArrowDown` now to highlight it, then `browser__press_key` `Enter` to commit it before submitting.",
             control.semantic_id
         ));
     }
 
     if highlighted_candidate {
         return Some(format!(
-            "Autocomplete is still open on `{}`{value_clause}. Do not submit or finish yet. Use `browser__key` `Enter` now to commit the highlighted suggestion, then verify the widget is gone before submitting.",
+            "Autocomplete is still open on `{}`{value_clause}. Do not submit or finish yet. Use `browser__press_key` `Enter` now to commit the highlighted suggestion, then verify the widget is gone before submitting.",
             control.semantic_id
         ));
     }
 
     if guided_arrowdown_then_enter {
         return Some(format!(
-            "Autocomplete is still open on `{}`{value_clause}. The suggestion is not committed yet. Do not submit or finish. Use `browser__key` `ArrowDown` now to highlight it, then `browser__key` `Enter` to commit it before submitting.",
+            "Autocomplete is still open on `{}`{value_clause}. The suggestion is not committed yet. Do not submit or finish. Use `browser__press_key` `ArrowDown` now to highlight it, then `browser__press_key` `Enter` to commit it before submitting.",
             control.semantic_id
         ));
     }
 
     Some(format!(
-        "Autocomplete is still open on `{}`. Do not submit or finish yet. Use `browser__key` with `ArrowDown` or `ArrowUp` to ground the intended suggestion, then `browser__key` `Enter` to commit it.",
+        "Autocomplete is still open on `{}`. Do not submit or finish yet. Use `browser__press_key` with `ArrowDown` or `ArrowUp` to ground the intended suggestion, then `browser__press_key` `Enter` to commit it.",
         control.semantic_id
     ))
 }
@@ -4210,7 +4210,7 @@ mod tests {
         let message = ChatMessage {
             role: "tool".to_string(),
             content: concat!(
-                "Tool Output (browser__snapshot): ",
+                "Tool Output (browser__inspect): ",
                 "<root id=\"root\" rect=\"0,0,10,10\"></root>\n\n",
                 "BROWSER_USE_SELECTOR_MAP:\n[1] <button />"
             )

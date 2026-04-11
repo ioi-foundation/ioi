@@ -41,8 +41,8 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
             }),
         ),
         function_tool(
-            "browser__click_element",
-            "Click a grounded page element by its semantic XML id from browser__snapshot. Do not prepend '#'.",
+            "browser__click",
+            "Click a grounded page element by its semantic XML id from browser__inspect. Do not prepend '#'.",
             json!({
                 "type": "object",
                 "properties": {
@@ -61,7 +61,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
             }),
         ),
         function_tool(
-            "browser__synthetic_click",
+            "browser__click_at",
             "Click a grounded coordinate target or raw viewport coordinates.",
             json!({
                 "type": "object",
@@ -94,7 +94,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
             }),
         ),
         function_tool(
-            "browser__move_mouse",
+            "browser__move_pointer",
             "Move the browser pointer to viewport coordinates.",
             json!({
                 "type": "object",
@@ -106,7 +106,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
             }),
         ),
         function_tool(
-            "browser__mouse_down",
+            "browser__pointer_down",
             "Press a mouse button at the current pointer position.",
             json!({
                 "type": "object",
@@ -116,7 +116,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
             }),
         ),
         function_tool(
-            "browser__mouse_up",
+            "browser__pointer_up",
             "Release a mouse button at the current pointer position.",
             json!({
                 "type": "object",
@@ -149,7 +149,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
             }),
         ),
         function_tool(
-            "browser__key",
+            "browser__press_key",
             "Press a browser key, optionally against a selector and with modifiers.",
             json!({
                 "type": "object",
@@ -204,7 +204,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
             }),
         ),
         function_tool(
-            "browser__snapshot",
+            "browser__inspect",
             "Capture a semantic browser snapshot.",
             json!({
                 "type": "object",
@@ -215,7 +215,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
 
     if supports_selection_clipboard(profile) {
         tools.push(function_tool(
-            "browser__select_text",
+            "browser__select",
             "Select text inside a browser element or active field.",
             json!({
                 "type": "object",
@@ -227,7 +227,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
             }),
         ));
         tools.push(function_tool(
-            "browser__copy_selection",
+            "browser__copy",
             "Copy the current browser selection into the clipboard.",
             json!({
                 "type": "object",
@@ -235,7 +235,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
             }),
         ));
         tools.push(function_tool(
-            "browser__paste_clipboard",
+            "browser__paste",
             "Paste the clipboard into a browser field.",
             json!({
                 "type": "object",
@@ -248,7 +248,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
 
     if supports_select(profile) {
         tools.push(function_tool(
-            "browser__dropdown_options",
+            "browser__list_options",
             "List native dropdown options for a selector or semantic id.",
             json!({
                 "type": "object",
@@ -260,7 +260,7 @@ pub(super) fn browser_tools(profile: AllowedToolProfile) -> Vec<Value> {
             }),
         ));
         tools.push(function_tool(
-            "browser__select_dropdown",
+            "browser__select_option",
             "Select a native dropdown option by value or visible label.",
             json!({
                 "type": "object",

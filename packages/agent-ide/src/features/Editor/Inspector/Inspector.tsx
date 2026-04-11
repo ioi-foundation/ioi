@@ -1,28 +1,34 @@
 import { useState, useEffect } from "react";
-import { Node, GraphGlobalConfig } from "../../../types/graph";
+import {
+  FirewallPolicy,
+  GraphGlobalConfig,
+  Node,
+  NodeLogic,
+} from "../../../types/graph";
 import { AgentRuntime } from "../../../runtime/agent-runtime";
 import { LogicView } from "./views/LogicView";
 import { PolicyView } from "./views/PolicyView";
 import { SimulationView } from "./views/SimulationView";
 import { GraphConfigView } from "./views/GraphConfigView";
-import { DnaView } from "./views/DnaView"; // [NEW]
-import { EdgeView } from "./views/EdgeView"; // [NEW]
+import { DnaView } from "./views/DnaView";
 import "./Inspector.css";
 
 interface InspectorProps {
   selectedNode: Node | null;
-  selectedEdge: any | null; 
   globalConfig?: GraphGlobalConfig;
-  upstreamContext?: any;
+  upstreamContext?: unknown;
   runtime: AgentRuntime;
   onOpenSystemSettings?: () => void;
-  onUpdateNode: (id: string, config: any) => void;
+  onUpdateNode: (
+    id: string,
+    section: "logic" | "law",
+    updates: Partial<NodeLogic> | Partial<FirewallPolicy>,
+  ) => void;
   onUpdateGlobal?: (config: Partial<GraphGlobalConfig>) => void;
 }
 
 export function Inspector({
   selectedNode,
-  selectedEdge,
   globalConfig,
   upstreamContext,
   runtime,
@@ -32,13 +38,11 @@ export function Inspector({
 }: InspectorProps) {
   const [activeTab, setActiveTab] = useState<'logic' | 'law' | 'run' | 'dna'>('logic');
 
-  // Reset tab when selection changes
   useEffect(() => {
       if (selectedNode) setActiveTab('logic');
   }, [selectedNode?.id]);
 
-  // Case 1: No Selection -> Global Config
-  if (!selectedNode && !selectedEdge) {
+  if (!selectedNode) {
     return (
         <aside className="inspector-panel">
             <GraphConfigView 
@@ -51,24 +55,14 @@ export function Inspector({
     );
   }
 
-  // Case 2: Edge Selection
-  if (selectedEdge && !selectedNode) {
-      return (
-        <aside className="inspector-panel">
-            <EdgeView edge={selectedEdge} />
-        </aside>
-      );
-  }
-
-  // Case 3: Node Selection
-  const config = selectedNode!.config || { logic: {}, law: {} };
+  const config = selectedNode.config ?? { logic: {}, law: {} };
 
   return (
     <aside className="inspector-panel">
       <div className="inspector-header">
         <div className="node-identity">
-            <span className="node-type">{selectedNode!.type}</span>
-            <span className="node-id">{selectedNode!.id}</span>
+            <span className="node-type">{selectedNode.type}</span>
+            <span className="node-id">{selectedNode.id}</span>
         </div>
         <div className="inspector-tabs">
             <button className={activeTab === 'logic' ? 'active' : ''} onClick={() => setActiveTab('logic')}>Logic</button>
@@ -81,31 +75,28 @@ export function Inspector({
       <div className="inspector-content">
         {activeTab === 'logic' && (
             <LogicView 
-                type={selectedNode!.type}
+                type={selectedNode.type}
                 availableModelRefs={Object.keys(globalConfig?.modelBindings ?? {})}
                 config={config.logic} 
-                // @ts-ignore
-                onChange={(updates) => onUpdateNode(selectedNode!.id, { ...config, logic: { ...config.logic, ...updates } })}
+                onChange={(updates) => onUpdateNode(selectedNode.id, "logic", updates)}
             />
         )}
         {activeTab === 'law' && (
             <PolicyView 
                 config={config.law} 
-                // @ts-ignore
-                onChange={(updates) => onUpdateNode(selectedNode!.id, { ...config, law: { ...config.law, ...updates } })}
+                onChange={(updates) => onUpdateNode(selectedNode.id, "law", updates)}
             />
         )}
         {activeTab === 'run' && (
             <SimulationView 
-                node={selectedNode!}
+                node={selectedNode}
                 globalConfig={globalConfig}
                 upstreamContext={upstreamContext}
                 runtime={runtime}
-                onRunComplete={(res) => console.log("Run complete", res)}
             />
         )}
         {activeTab === 'dna' && (
-            <DnaView node={selectedNode!} />
+            <DnaView node={selectedNode} />
         )}
       </div>
     </aside>

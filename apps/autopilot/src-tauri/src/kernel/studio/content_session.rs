@@ -1414,16 +1414,17 @@ pub(super) fn apply_materialized_artifact_to_contract(
         materialized_artifact.swarm_verification_receipts.clone();
     materialization.verification_steps =
         verification_steps_for_materialized_artifact(request, materialized_artifact);
-    materialization.execution_envelope = materialized_artifact
-        .execution_envelope
-        .clone()
-        .or_else(|| {
-            artifact_execution_envelope_for_contract(
-                execution_mode_decision,
-                execution_strategy,
-                materialization,
-            )
-        });
+    materialization.execution_envelope =
+        materialized_artifact
+            .execution_envelope
+            .clone()
+            .or_else(|| {
+                artifact_execution_envelope_for_contract(
+                    execution_mode_decision,
+                    execution_strategy,
+                    materialization,
+                )
+            });
     materialization.render_evaluation = materialized_artifact.render_evaluation.clone();
     materialization.judge = materialized_artifact.judge.clone();
     materialization.output_origin = Some(materialized_artifact.output_origin);

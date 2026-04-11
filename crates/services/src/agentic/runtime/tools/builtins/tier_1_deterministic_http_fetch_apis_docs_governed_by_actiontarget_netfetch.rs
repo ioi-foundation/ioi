@@ -1,6 +1,6 @@
 {
     // Tier-1 deterministic HTTP fetch (APIs/docs) governed by ActionTarget::NetFetch.
-    if is_tool_allowed_for_resolution(resolved_intent, "net__fetch") {
+    if is_tool_allowed_for_resolution(resolved_intent, "http__fetch") {
         let params = json!({
             "type": "object",
             "properties": {
@@ -10,7 +10,7 @@
             "required": ["url"]
         });
         tools.push(LlmToolDefinition {
-            name: "net__fetch".to_string(),
+            name: "http__fetch".to_string(),
             description: "Fetch a URL over HTTP(S) and return raw response text + status for API calls (no browser UI automation).".to_string(),
             parameters: params.to_string(),
         });

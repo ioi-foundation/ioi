@@ -29,7 +29,7 @@ pub(crate) struct ShellSession {
     exec_lock: Mutex<()>,
     next_marker: AtomicU64,
 
-    // Unix: PTY-backed session so TTY-gated CLIs work in `sys__exec_session`.
+    // Unix: PTY-backed session so TTY-gated CLIs work in `shell__start`.
     #[cfg(unix)]
     child: std::sync::Mutex<Box<dyn portable_pty::Child + Send>>,
     #[cfg(unix)]

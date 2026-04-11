@@ -48,9 +48,23 @@ fn contains_google_calendar_create_context(lower: &str) -> bool {
     lower.contains("google calendar event")
 }
 
-fn google_fixture_test_lock() -> &'static Mutex<()> {
+fn connector_runtime_test_lock() -> &'static Mutex<()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
     LOCK.get_or_init(|| Mutex::new(()))
+}
+
+fn skip_if_runtime_prereqs_missing(case: &capabilities_suite::types::QueryCase) -> Option<()> {
+    capabilities_suite::harness::load_env_from_workspace_dotenv_if_present();
+    let missing = capabilities_suite::harness::case_missing_runtime_prerequisites(case);
+    if missing.is_empty() {
+        return Some(());
+    }
+    eprintln!(
+        "skipping capabilities case '{}' because runtime prerequisites are missing: {}",
+        case.id,
+        missing.join(", ")
+    );
+    None
 }
 
 #[async_trait]
@@ -358,6 +372,9 @@ async fn capabilities_query_suite_e2e() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn capabilities_mail_read_case_passes_with_wallet_bootstrap_and_mock_runtime() -> Result<()> {
     let case = capabilities_case("read_me_the_last_email_i_received");
+    if skip_if_runtime_prereqs_missing(&case).is_none() {
+        return Ok(());
+    }
     let observation = capabilities_suite::harness::run_case(
         &case,
         1,
@@ -379,12 +396,15 @@ async fn capabilities_mail_read_case_passes_with_wallet_bootstrap_and_mock_runti
 #[tokio::test(flavor = "multi_thread")]
 async fn capabilities_mail_reply_case_passes_with_wallet_bootstrap_and_mock_runtime() -> Result<()>
 {
-    let _guard = google_fixture_test_lock()
+    let _guard = connector_runtime_test_lock()
         .lock()
         .unwrap_or_else(|error| error.into_inner());
     let case = capabilities_case(
         "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_send_it",
     );
+    if skip_if_runtime_prereqs_missing(&case).is_none() {
+        return Ok(());
+    }
     let observation = capabilities_suite::harness::run_case(
         &case,
         2,
@@ -405,12 +425,15 @@ async fn capabilities_mail_reply_case_passes_with_wallet_bootstrap_and_mock_runt
 
 #[tokio::test(flavor = "multi_thread")]
 async fn capabilities_google_gmail_draft_case_passes_with_mock_runtime() -> Result<()> {
-    let _guard = google_fixture_test_lock()
+    let _guard = connector_runtime_test_lock()
         .lock()
         .unwrap_or_else(|error| error.into_inner());
     let case = capabilities_case(
         "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_save_it_as_a_gmail_draft",
     );
+    if skip_if_runtime_prereqs_missing(&case).is_none() {
+        return Ok(());
+    }
     let observation = capabilities_suite::harness::run_case(
         &case,
         3,
@@ -434,12 +457,15 @@ async fn capabilities_google_gmail_draft_case_passes_with_mock_runtime() -> Resu
 
 #[tokio::test(flavor = "multi_thread")]
 async fn capabilities_google_gmail_send_case_passes_with_mock_runtime() -> Result<()> {
-    let _guard = google_fixture_test_lock()
+    let _guard = connector_runtime_test_lock()
         .lock()
         .unwrap_or_else(|error| error.into_inner());
     let case = capabilities_case(
         "send_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_via_gmail",
     );
+    if skip_if_runtime_prereqs_missing(&case).is_none() {
+        return Ok(());
+    }
     let observation = capabilities_suite::harness::run_case(
         &case,
         4,
@@ -463,10 +489,13 @@ async fn capabilities_google_gmail_send_case_passes_with_mock_runtime() -> Resul
 
 #[tokio::test(flavor = "multi_thread")]
 async fn capabilities_google_calendar_create_case_passes_with_mock_runtime() -> Result<()> {
-    let _guard = google_fixture_test_lock()
+    let _guard = connector_runtime_test_lock()
         .lock()
         .unwrap_or_else(|error| error.into_inner());
     let case = capabilities_case("create_a_google_calendar_event_for_tomorrows_standup_at_2_pm");
+    if skip_if_runtime_prereqs_missing(&case).is_none() {
+        return Ok(());
+    }
     let observation = capabilities_suite::harness::run_case(
         &case,
         5,

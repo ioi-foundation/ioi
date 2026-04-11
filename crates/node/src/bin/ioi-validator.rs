@@ -43,7 +43,7 @@ use ioi_state::primitives::hash::HashCommitmentScheme;
 #[cfg(feature = "state-iavl")]
 use ioi_state::tree::iavl::IAVLTree;
 
-use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel};
+use ioi_api::vm::inference::{InferenceRuntime, LocalSafetyModel, UnavailableInferenceRuntime};
 use ioi_drivers::os::NativeOsDriver;
 use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
@@ -203,8 +203,9 @@ async fn main() -> Result<()> {
 
     // 4. Drivers (Minimal)
     let os_driver = Arc::new(NativeOsDriver::new());
-    // Mock inference for safety checks (Validator doesn't need heavy models)
-    let inference_runtime = Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime);
+    let inference_runtime: Arc<dyn InferenceRuntime> = Arc::new(UnavailableInferenceRuntime::new(
+        "Validator-side inference runtime is unavailable. Configure a real backend on workloads for agent execution paths.",
+    ));
     let safety_model = Arc::new(RuntimeAsPiiModel::new(inference_runtime.clone()));
 
     // 5. Setup Workload

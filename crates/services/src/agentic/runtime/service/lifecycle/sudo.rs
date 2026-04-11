@@ -113,7 +113,7 @@ pub(super) fn maybe_restore_pending_install_from_incident(
         .eq_ignore_ascii_case("wait_for_sudo_password");
     let is_install_root = incident
         .root_tool_name
-        .eq_ignore_ascii_case("sys__install_package")
+        .eq_ignore_ascii_case("package__install")
         || incident
             .root_tool_name
             .eq_ignore_ascii_case("sys::install_package")
@@ -295,7 +295,7 @@ mod tests {
             incident_id: "incident-test".to_string(),
             root_retry_hash: "retry-hash".to_string(),
             root_tool_jcs: install_jcs.clone(),
-            root_tool_name: "sys__install_package".to_string(),
+            root_tool_name: "package__install".to_string(),
             intent_class: IntentClass::InstallDependency.as_str().to_string(),
             root_failure_class: FailureClass::PermissionOrApprovalRequired
                 .as_str()
@@ -335,7 +335,7 @@ mod tests {
             .expect("restored pending tool call");
         let restored_json: serde_json::Value =
             serde_json::from_str(&restored_call).expect("restored tool call json");
-        assert_eq!(restored_json["name"], "sys__install_package");
+        assert_eq!(restored_json["name"], "package__install");
         assert_eq!(restored_json["arguments"]["package"], "sl");
         assert_eq!(restored_json["arguments"]["manager"], "apt-get");
         assert_eq!(agent_state.pending_visual_hash, Some([4u8; 32]));

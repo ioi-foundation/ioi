@@ -321,11 +321,10 @@ fn classify_domain(tool: &AgentTool) -> Option<RrsaDomain> {
         | AgentTool::GuiScroll { .. }
         | AgentTool::GuiSnapshot {}
         | AgentTool::GuiClickElement { .. }
-        | AgentTool::Computer(_)
+        | AgentTool::Screen(_)
         | AgentTool::BrowserNavigate { .. }
         | AgentTool::BrowserSnapshot {}
         | AgentTool::BrowserClick { .. }
-        | AgentTool::BrowserClickElement { .. }
         | AgentTool::BrowserHover { .. }
         | AgentTool::BrowserMoveMouse { .. }
         | AgentTool::BrowserMouseDown { .. }

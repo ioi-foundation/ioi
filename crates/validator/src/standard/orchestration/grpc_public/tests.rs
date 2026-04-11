@@ -12,7 +12,7 @@ fn routing_receipt_chain_event_payload_is_complete() {
         step_index: 42,
         intent_hash: "abcd1234".to_string(),
         policy_decision: "allowed".to_string(),
-        tool_name: "sys__exec".to_string(),
+        tool_name: "shell__run".to_string(),
         tool_version: "1.0.0".to_string(),
         pre_state: ioi_types::app::RoutingStateSummary {
             agent_status: "Running".to_string(),
@@ -21,7 +21,7 @@ fn routing_receipt_chain_event_payload_is_complete() {
             consecutive_failures: 0,
             target_hint: Some("terminal".to_string()),
         },
-        action_json: "{\"name\":\"sys__exec\"}".to_string(),
+        action_json: "{\"name\":\"shell__run\"}".to_string(),
         post_state: ioi_types::app::RoutingPostStateSummary {
             agent_status: "Running".to_string(),
             tier: "ToolFirst".to_string(),

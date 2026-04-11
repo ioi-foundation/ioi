@@ -165,6 +165,33 @@ pub fn canonical_collapse_eq_ignoring_archived_recovered_history_anchor(
         && left.resulting_state_root_hash == right.resulting_state_root_hash
 }
 
+/// Compares canonical collapse objects on the subset of fields that are explicitly carried by a
+/// block header.
+///
+/// This intentionally ignores the archived recovered-history anchor, current-step continuity
+/// proof/accumulator material, same-slot sealing enrichment, and the materialized ordering-bundle
+/// hashes that are reconstructible only from the full publication bundle rather than the
+/// proof-carrying committed-block surface. That includes the canonical bulletin-close hash, because
+/// the fully materialized close may be anchored with deterministic retrievability hashes that are
+/// not present in the block surface available when successors extend the slot.
+pub fn canonical_collapse_eq_on_header_surface(
+    left: &CanonicalCollapseObject,
+    right: &CanonicalCollapseObject,
+) -> bool {
+    left.height == right.height
+        && left.previous_canonical_collapse_commitment_hash
+            == right.previous_canonical_collapse_commitment_hash
+        && left.ordering.height == right.ordering.height
+        && left.ordering.kind == right.ordering.kind
+        && left.ordering.bulletin_commitment_hash == right.ordering.bulletin_commitment_hash
+        && left.ordering.bulletin_availability_certificate_hash
+            == right.ordering.bulletin_availability_certificate_hash
+        && left.ordering.canonical_order_certificate_hash
+            == right.ordering.canonical_order_certificate_hash
+        && left.transactions_root_hash == right.transactions_root_hash
+        && left.resulting_state_root_hash == right.resulting_state_root_hash
+}
+
 /// Builds the compact durable prefix entry exposed to replay / checkpoint consumers.
 pub fn canonical_replay_prefix_entry(
     collapse: &CanonicalCollapseObject,
@@ -550,4 +577,3 @@ pub fn stitch_recovered_restart_block_header_segments(
 ) -> Result<Vec<RecoveredRestartBlockHeaderEntry>, String> {
     stitch_recovered_restart_block_header_windows(segments)
 }
-

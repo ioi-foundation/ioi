@@ -37,8 +37,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .unwrap_or(0);
     let includes_15_min_signal = timer_delay_seconds == 900;
 
-    let system_command_seen =
-        observation_has_any_tool_name(obs, &["sys__exec", "sys__exec_session"]);
+    let system_command_seen = observation_has_any_tool_name(obs, &["shell__run", "shell__start"]);
 
     let sleep_or_timer_evidence =
         timer_backend_observed || notification_path_observed || timer_delay_seconds > 0;

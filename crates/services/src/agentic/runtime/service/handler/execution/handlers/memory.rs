@@ -140,7 +140,7 @@ pub(crate) async fn handle_memory_inspect_tool(
             false,
             None,
             Some(
-                "ERROR_CLASS=ToolUnavailable memory__inspect requires a configured memory runtime."
+                "ERROR_CLASS=ToolUnavailable memory__read requires a configured memory runtime."
                     .to_string(),
             ),
         );
@@ -151,7 +151,7 @@ pub(crate) async fn handle_memory_inspect_tool(
             false,
             None,
             Some(
-                "ERROR_CLASS=TargetNotFound memory__inspect only supports archival IDs returned by memory__search."
+                "ERROR_CLASS=TargetNotFound memory__read only supports archival IDs returned by memory__search."
                     .to_string(),
             ),
         );
@@ -189,7 +189,7 @@ pub(crate) async fn handle_memory_inspect_tool(
             false,
             None,
             Some(format!(
-                "ERROR_CLASS=UnexpectedState memory__inspect failed: {}",
+                "ERROR_CLASS=UnexpectedState memory__read failed: {}",
                 error
             )),
         ),
@@ -207,7 +207,7 @@ pub(crate) async fn handle_memory_replace_core_tool(
             false,
             None,
             Some(
-                "ERROR_CLASS=ToolUnavailable memory__replace_core requires a configured memory runtime."
+                "ERROR_CLASS=ToolUnavailable memory__replace requires a configured memory runtime."
                     .to_string(),
             ),
         );
@@ -224,7 +224,7 @@ pub(crate) async fn handle_memory_replace_core_tool(
             false,
             None,
             Some(format!(
-                "ERROR_CLASS=PolicyDenied memory__replace_core failed: {}",
+                "ERROR_CLASS=PolicyDenied memory__replace failed: {}",
                 error
             )),
         ),
@@ -242,7 +242,7 @@ pub(crate) async fn handle_memory_append_core_tool(
             false,
             None,
             Some(
-                "ERROR_CLASS=ToolUnavailable memory__append_core requires a configured memory runtime."
+                "ERROR_CLASS=ToolUnavailable memory__append requires a configured memory runtime."
                     .to_string(),
             ),
         );
@@ -261,7 +261,7 @@ pub(crate) async fn handle_memory_append_core_tool(
             false,
             None,
             Some(format!(
-                "ERROR_CLASS=PolicyDenied memory__append_core failed: {}",
+                "ERROR_CLASS=PolicyDenied memory__append failed: {}",
                 error
             )),
         ),
@@ -278,7 +278,7 @@ pub(crate) async fn handle_memory_clear_core_tool(
             false,
             None,
             Some(
-                "ERROR_CLASS=ToolUnavailable memory__clear_core requires a configured memory runtime."
+                "ERROR_CLASS=ToolUnavailable memory__clear requires a configured memory runtime."
                     .to_string(),
             ),
         );
@@ -294,7 +294,7 @@ pub(crate) async fn handle_memory_clear_core_tool(
             false,
             None,
             Some(format!(
-                "ERROR_CLASS=PolicyDenied memory__clear_core failed: {}",
+                "ERROR_CLASS=PolicyDenied memory__clear failed: {}",
                 error
             )),
         ),

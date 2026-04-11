@@ -33,10 +33,7 @@ async fn configure_google_status() -> Result<ConnectorConfigureResult, String> {
     let mut data = auth.data;
 
     if auth.status == "connected" {
-        let bootstrap = match super::super::mock_fixtures::google_bootstrap_mock_fixture()? {
-            Some(bootstrap) => Some(bootstrap),
-            None => google_api::bootstrap_workspace_profile().await.ok(),
-        };
+        let bootstrap = google_api::bootstrap_workspace_profile().await.ok();
         if let Some(bootstrap) = bootstrap {
             if let Value::Object(ref mut map) = data {
                 map.insert("bootstrap".to_string(), bootstrap);

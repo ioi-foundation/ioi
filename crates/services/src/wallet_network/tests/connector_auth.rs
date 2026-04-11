@@ -83,11 +83,11 @@ fn connector_auth_round_trip_exports_and_imports_wallet_state() {
         auto_approve: true,
         max_value_usd_micros: None,
         max_ttl_secs: Some(600),
-        domain_allowlist: vec!["mock.local".to_string()],
+        domain_allowlist: vec!["example.com".to_string()],
     };
 
     let export_receipt = with_ctx_return(|ctx| {
-        provision_mock_mail_connector(&service, &mut state, ctx);
+        provision_test_mail_connector(&service, &mut state, ctx);
 
         let params = codec::to_bytes_canonical(&ConnectorAuthUpsertParams {
             record: auth_record.clone(),
@@ -249,7 +249,7 @@ fn mail_connector_binding_narrows_lease_to_requested_capability() {
     let mut state = MockState::default();
 
     with_ctx(|ctx| {
-        provision_mock_mail_connector(&service, &mut state, ctx);
+        provision_test_mail_connector(&service, &mut state, ctx);
         let params = MailConnectorEnsureBindingParams {
             request_id: [0x75u8; 32],
             mailbox: "primary".to_string(),

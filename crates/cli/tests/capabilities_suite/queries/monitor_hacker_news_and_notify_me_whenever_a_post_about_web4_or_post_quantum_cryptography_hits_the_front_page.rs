@@ -21,9 +21,9 @@ pub fn case() -> QueryCase {
             "Monitor Hacker News and notify me whenever a post about \"Web4\" or ",
             "\"post-quantum cryptography\" hits the front page. ",
             "For deterministic repeatable testing, install this as a durable local automation workflow. ",
-            "Use exactly one `automation__create_monitor` tool call with the requested keywords, ",
+            "Use exactly one `monitor__create` tool call with the requested keywords, ",
             "set `interval_seconds` to 300, and preserve the user request in `source_prompt`. ",
-            "Do not use `sys__exec`/`sys__exec_session`, web, browser, net, install, or filesystem mutation tools. ",
+            "Do not use `shell__run`/`shell__start`, web, browser, net, install, or filesystem mutation tools. ",
             "Return a concise completion summary with the installed workflow id and poll interval."
         ),
         success_definition: "Install a durable Hacker News monitor workflow through the automation pipeline, write the workflow artifact/state/install receipt under the isolated automation root, and complete only after CEC receipts and fixture receipts confirm the install semantics.",
@@ -237,10 +237,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let automation_plans = obs
         .planned_tool_calls
         .iter()
-        .filter(|call| {
-            call.tool_name
-                .eq_ignore_ascii_case("automation__create_monitor")
-        })
+        .filter(|call| call.tool_name.eq_ignore_ascii_case("monitor__create"))
         .collect::<Vec<_>>();
     let automation_plan_count = automation_plans.len();
     let planned_keywords = automation_plans
@@ -275,10 +272,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .action_evidence
         .iter()
         .filter(|entry| {
-            entry
-                .tool_name
-                .eq_ignore_ascii_case("automation__create_monitor")
-                && entry.error_class.is_none()
+            entry.tool_name.eq_ignore_ascii_case("monitor__create") && entry.error_class.is_none()
         })
         .count();
     let hard_action_failure_count = obs
@@ -287,28 +281,28 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .filter(|entry| action_has_hard_error_class(entry))
         .count();
 
-    let automation_tool_seen = observation_has_tool_name(obs, "automation__create_monitor");
-    let shell_exec_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec")
-        || has_tool_with_token(&obs.workload_tools, "sys__exec");
-    let exec_session_seen = has_tool_with_token(&obs.action_tools, "sys__exec_session")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec_session")
-        || has_tool_with_token(&obs.workload_tools, "sys__exec_session");
+    let automation_tool_seen = observation_has_tool_name(obs, "monitor__create");
+    let shell_exec_seen = has_tool_with_token(&obs.action_tools, "shell__run")
+        || has_tool_with_token(&obs.routing_tools, "shell__run")
+        || has_tool_with_token(&obs.workload_tools, "shell__run");
+    let exec_session_seen = has_tool_with_token(&obs.action_tools, "shell__start")
+        || has_tool_with_token(&obs.routing_tools, "shell__start")
+        || has_tool_with_token(&obs.workload_tools, "shell__start");
     let remote_path_seen = has_tool_with_token(&obs.action_tools, "web__")
         || has_tool_with_token(&obs.routing_tools, "web__")
         || has_tool_with_token(&obs.workload_tools, "web__")
         || has_tool_with_token(&obs.action_tools, "browser__")
         || has_tool_with_token(&obs.routing_tools, "browser__")
         || has_tool_with_token(&obs.workload_tools, "browser__")
-        || has_tool_with_token(&obs.action_tools, "net__fetch")
-        || has_tool_with_token(&obs.routing_tools, "net__fetch")
-        || has_tool_with_token(&obs.workload_tools, "net__fetch");
-    let install_tool_seen = has_tool_with_token(&obs.action_tools, "sys__install_package")
-        || has_tool_with_token(&obs.routing_tools, "sys__install_package")
-        || has_tool_with_token(&obs.workload_tools, "sys__install_package");
-    let filesystem_tool_seen = has_tool_with_token(&obs.action_tools, "filesystem__")
-        || has_tool_with_token(&obs.routing_tools, "filesystem__")
-        || has_tool_with_token(&obs.workload_tools, "filesystem__");
+        || has_tool_with_token(&obs.action_tools, "http__fetch")
+        || has_tool_with_token(&obs.routing_tools, "http__fetch")
+        || has_tool_with_token(&obs.workload_tools, "http__fetch");
+    let install_tool_seen = has_tool_with_token(&obs.action_tools, "package__install")
+        || has_tool_with_token(&obs.routing_tools, "package__install")
+        || has_tool_with_token(&obs.workload_tools, "package__install");
+    let filesystem_tool_seen = has_tool_with_token(&obs.action_tools, "file__")
+        || has_tool_with_token(&obs.routing_tools, "file__")
+        || has_tool_with_token(&obs.workload_tools, "file__");
 
     let cec_discovery_seen = has_cec_stage(obs, "discovery", Some(true));
     let cec_provider_selection_seen = has_cec_stage(obs, "provider_selection", Some(true));

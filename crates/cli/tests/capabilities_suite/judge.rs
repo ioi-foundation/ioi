@@ -74,7 +74,7 @@ fn screenshot_signals_payload(
         });
     let capture_route_seen = screenshot
         .map(|screenshot| screenshot.capture_route_seen)
-        .unwrap_or_else(|| observation_has_tool_name(observation, "computer"));
+        .unwrap_or_else(|| observation_has_tool_name(observation, "screen"));
     let capture_route_terminalized = screenshot
         .map(|screenshot| screenshot.capture_route_terminalized)
         .unwrap_or(false);
@@ -96,7 +96,7 @@ fn screenshot_signals_payload(
         "gui_snapshot_count": screenshot
             .map(|screenshot| screenshot.gui_snapshot_action_count)
             .unwrap_or(0),
-        "computer_action_seen": observation_has_tool_name(observation, "computer"),
+        "computer_action_seen": observation_has_tool_name(observation, "screen"),
         "capture_route_seen": capture_route_seen,
         "approval_gate_seen": approval_gate_seen,
         "approval_transition_seen": approval_transition_seen,
@@ -414,6 +414,7 @@ Payload:\n{}",
         temperature: 0.4,
         json_mode: true,
         max_tokens: 500,
+        stop_sequences: vec![],
         required_finality_tier: FinalityTier::BaseFinal,
         sealed_finality_proof: None,
         canonical_collapse_object: None,
@@ -543,7 +544,7 @@ Payload:\n{}",
         let screenshot = observation.screenshot.as_ref();
         let capture_route_seen = screenshot
             .map(|screenshot| screenshot.capture_route_seen)
-            .unwrap_or_else(|| observation_has_tool_name(observation, "computer"));
+            .unwrap_or_else(|| observation_has_tool_name(observation, "screen"));
         let capture_route_terminalized = screenshot
             .map(|screenshot| screenshot.capture_route_terminalized)
             .unwrap_or(false);
@@ -864,8 +865,8 @@ mod tests {
             chat_reply_count: 1,
             action_tools: vec!["chat__reply".to_string()],
             planned_tool_calls: Vec::new(),
-            routing_tools: vec!["computer".to_string()],
-            workload_tools: vec!["computer".to_string()],
+            routing_tools: vec!["screen".to_string()],
+            workload_tools: vec!["screen".to_string()],
             routing_policy_decisions: vec!["approved".to_string()],
             routing_failure_classes: Vec::new(),
             routing_stop_condition_hits: 0,

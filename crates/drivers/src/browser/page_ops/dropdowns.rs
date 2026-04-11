@@ -13,7 +13,7 @@ impl BrowserDriver {
         let selector = selector.trim();
         if selector.is_empty() {
             return Err(BrowserError::Internal(
-                "browser__dropdown_options selector cannot be empty".to_string(),
+                "browser__list_options selector cannot be empty".to_string(),
             ));
         }
 
@@ -50,7 +50,7 @@ impl BrowserDriver {
         let result: DropdownOptionsResult = self.evaluate_js(&script).await?;
         if !result.found {
             return Err(BrowserError::Internal(format!(
-                "browser__dropdown_options failed: {}",
+                "browser__list_options failed: {}",
                 result.reason.unwrap_or_else(|| "unknown error".to_string())
             )));
         }
@@ -112,7 +112,7 @@ impl BrowserDriver {
         let result: DropdownOptionsResult = self.evaluate_js(&script).await?;
         if !result.found {
             return Err(BrowserError::Internal(format!(
-                "browser__dropdown_options failed: {}",
+                "browser__list_options failed: {}",
                 result.reason.unwrap_or_else(|| "unknown error".to_string())
             )));
         }
@@ -143,7 +143,7 @@ impl BrowserDriver {
         let selector = selector.trim();
         if selector.is_empty() {
             return Err(BrowserError::Internal(
-                "browser__select_dropdown selector cannot be empty".to_string(),
+                "browser__select_option selector cannot be empty".to_string(),
             ));
         }
 
@@ -158,7 +158,7 @@ impl BrowserDriver {
 
         if normalized_value.is_some() == normalized_label.is_some() {
             return Err(BrowserError::Internal(
-                "browser__select_dropdown requires exactly one of value or label".to_string(),
+                "browser__select_option requires exactly one of value or label".to_string(),
             ));
         }
 
@@ -237,7 +237,7 @@ impl BrowserDriver {
         let result: DropdownSelectResult = self.evaluate_js(&script).await?;
         if !result.selected {
             return Err(BrowserError::Internal(format!(
-                "browser__select_dropdown failed: {}",
+                "browser__select_option failed: {}",
                 result.reason.unwrap_or_else(|| "unknown error".to_string())
             )));
         }
@@ -283,7 +283,7 @@ impl BrowserDriver {
 
         if normalized_value.is_some() == normalized_label.is_some() {
             return Err(BrowserError::Internal(
-                "browser__select_dropdown requires exactly one of value or label".to_string(),
+                "browser__select_option requires exactly one of value or label".to_string(),
             ));
         }
 
@@ -366,7 +366,7 @@ impl BrowserDriver {
         let result: DropdownSelectResult = self.evaluate_js(&script).await?;
         if !result.selected {
             return Err(BrowserError::Internal(format!(
-                "browser__select_dropdown failed: {}",
+                "browser__select_option failed: {}",
                 result.reason.unwrap_or_else(|| "unknown error".to_string())
             )));
         }

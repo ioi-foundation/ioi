@@ -1,16 +1,14 @@
-// packages/agent-ide/src/AgentEditor.tsx
 import { useCallback, useEffect, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { AgentRuntime } from "./runtime/agent-runtime";
 import { useGraphState } from "./hooks/useGraphState";
 import { useGraphExecution } from "./hooks/useGraphExecution";
-import { GraphGlobalConfig, ProjectFile } from "./types/graph";
+import { GraphGlobalConfig, Node, ProjectFile } from "./types/graph";
 
-// Sub-components
 import { Canvas } from "./features/Editor/Canvas/Canvas";
 import { Inspector } from "./features/Editor/Inspector/Inspector";
-import { Explorer } from "./features/Editor/Explorer/Explorer"; 
-import { Console } from "./features/Editor/BottomPanel/Console"; 
+import { Explorer } from "./features/Editor/Explorer/Explorer";
+import { Console } from "./features/Editor/BottomPanel/Console";
 import { IDEHeader } from "./features/Editor/Header/IDEHeader";
 
 import "./AgentEditor.css";
@@ -18,7 +16,7 @@ import "./styles/theme.css";
 
 export interface AgentEditorProps {
   runtime: AgentRuntime;
-  initialFile?: any;
+  initialFile?: ProjectFile | null;
   onInitialFileLoaded?: () => void;
   onOpenSystemSettings?: () => void;
 }
@@ -83,32 +81,22 @@ function AgentEditorContent({
   onInitialFileLoaded,
   onOpenSystemSettings,
 }: AgentEditorProps) {
-  const { 
-    nodes, edges, setNodes, setEdges, 
-    onNodesChange, onEdgesChange, onConnect, 
+  const {
+    nodes, edges, setNodes, setEdges,
+    onNodesChange, onEdgesChange, onConnect,
     handleCanvasDrop, selectedNodeId, handleNodeSelect, handleNodeUpdate,
     fitView, zoomIn, zoomOut, replaceGraph
   } = useGraphState();
 
   const execution = useGraphExecution(runtime, nodes, edges, setNodes, setEdges);
-  const selectedNode = nodes.find(n => n.id === selectedNodeId)?.data;
-  
-  // Get artifacts for selected node
+  const selectedNode =
+    (nodes.find((node) => node.id === selectedNodeId)?.data as Node | undefined) ?? null;
   const selectedArtifact = selectedNodeId ? execution.artifacts[selectedNodeId] : null;
+  const upstreamContext = selectedNodeId
+    ? execution.getUpstreamContext(selectedNodeId)
+    : null;
 
-  // [NEW] Get upstream context for simulation
-  // This depends on the execution hook exposing a helper or we calculate it here.
-  // For now, we pass the execution logic's context hydration if available, 
-  // or just null to let the view fallback.
-  // Assuming useGraphExecution (or a future useDataFlow) provides getUpstreamContext:
-  const upstreamContext = selectedNodeId && execution.getUpstreamContext 
-      ? execution.getUpstreamContext(selectedNodeId) 
-      : null;
-
-  // Global Config State
   const [globalConfig, setGlobalConfig] = useState<GraphGlobalConfig>(DEFAULT_GLOBAL_CONFIG);
-
-  // Layout State
   const [showConsole, setShowConsole] = useState(false);
 
   const loadProjectIntoEditor = useCallback((project: ProjectFile) => {
@@ -121,7 +109,7 @@ function AgentEditorContent({
 
   useEffect(() => {
     if (!initialFile) return;
-    loadProjectIntoEditor(initialFile as ProjectFile);
+    loadProjectIntoEditor(initialFile);
     onInitialFileLoaded?.();
   }, [initialFile, loadProjectIntoEditor, onInitialFileLoaded]);
 
@@ -133,14 +121,12 @@ function AgentEditorContent({
         onFit={() => fitView({ padding: 0.2 })}
         onZoomIn={() => zoomIn({ duration: 200 })}
         onZoomOut={() => zoomOut({ duration: 200 })}
-        onSave={() => console.log("Save triggered")} 
-        onOpen={() => console.log("Open triggered")}
       />
 
       <div className="agent-ide-workspace">
         <div className="agent-ide-sidebar">
-          <Explorer 
-              runtime={runtime} 
+          <Explorer
+              runtime={runtime}
               onLoadProject={loadProjectIntoEditor}
               onDragStart={(e, type, name, schema) => {
                   e.dataTransfer.setData("nodeType", type);
@@ -195,14 +181,11 @@ function AgentEditorContent({
         </div>
 
         <div className="agent-ide-inspector">
-          <Inspector 
-              // @ts-ignore
-              selectedNode={selectedNode} 
-              selectedEdge={null} 
+          <Inspector
+              selectedNode={selectedNode}
               globalConfig={globalConfig}
               runtime={runtime}
-              // @ts-ignore
-              onUpdateNode={(id, cfg) => handleNodeUpdate(id, 'logic', cfg.logic)}
+              onUpdateNode={handleNodeUpdate}
               onUpdateGlobal={(updates) =>
                 setGlobalConfig((prev) =>
                   normalizeGlobalConfig({
@@ -223,7 +206,6 @@ function AgentEditorContent({
                 )
               }
               onOpenSystemSettings={onOpenSystemSettings}
-              // [NEW] Pass context to inspector
               upstreamContext={upstreamContext}
           />
         </div>

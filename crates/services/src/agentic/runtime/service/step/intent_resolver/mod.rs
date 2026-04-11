@@ -1,6 +1,6 @@
+use crate::agentic::rules::{ActionRules, Verdict};
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{AgentState, ExecutionTier};
-use crate::agentic::rules::{ActionRules, Verdict};
 use async_trait::async_trait;
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;

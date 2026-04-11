@@ -12,18 +12,19 @@ fn queue_maps_browser_click_element_from_browser_interact_target() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::BrowserClickElement {
+        AgentTool::BrowserClick {
             id,
             ids,
             delay_ms_between_ids,
             continue_with,
+            ..
         } => {
             assert_eq!(id.as_deref(), Some("btn_submit"));
             assert!(ids.is_empty());
             assert!(delay_ms_between_ids.is_none());
             assert!(continue_with.is_none());
         }
-        other => panic!("expected BrowserClickElement, got {:?}", other),
+        other => panic!("expected BrowserClick, got {:?}", other),
     }
 }
 
@@ -39,18 +40,19 @@ fn queue_maps_browser_click_element_batch_ids_from_browser_interact_target() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::BrowserClickElement {
+        AgentTool::BrowserClick {
             id,
             ids,
             delay_ms_between_ids,
             continue_with,
+            ..
         } => {
             assert!(id.is_none());
             assert_eq!(ids, vec!["checkbox_a", "checkbox_b", "btn_submit"]);
             assert!(delay_ms_between_ids.is_none());
             assert!(continue_with.is_none());
         }
-        other => panic!("expected BrowserClickElement, got {:?}", other),
+        other => panic!("expected BrowserClick, got {:?}", other),
     }
 }
 
@@ -112,7 +114,7 @@ fn queue_maps_browser_wait_with_follow_up_from_browser_interact_target() {
         serde_json::json!({
             "ms": 2000,
             "continue_with": {
-                "name": "browser__click_element",
+                "name": "browser__click",
                 "arguments": {
                     "id": "btn_two"
                 }
@@ -127,7 +129,7 @@ fn queue_maps_browser_wait_with_follow_up_from_browser_interact_target() {
         } => {
             assert_eq!(ms, Some(2000));
             let continue_with = continue_with.expect("follow-up should be present");
-            assert_eq!(continue_with.name, "browser__click_element");
+            assert_eq!(continue_with.name, "browser__click");
             assert_eq!(continue_with.arguments["id"], "btn_two");
         }
         other => panic!("expected BrowserWait, got {:?}", other),
@@ -297,7 +299,7 @@ fn queue_uses_explicit_browser_tool_name_override_for_dropdown_options() {
         26,
         serde_json::json!({
             "selector": "select[name='country']",
-            "__ioi_tool_name": "browser__dropdown_options"
+            "__ioi_tool_name": "browser__list_options"
         }),
     );
 
@@ -352,7 +354,7 @@ fn queue_uses_explicit_webretrieve_tool_name_override_for_media_extract_multimod
             "url": "https://example.com/video",
             "language": "en",
             "frame_limit": 6,
-            "__ioi_tool_name": "media__extract_multimodal_evidence"
+            "__ioi_tool_name": "media__extract_evidence"
         }),
     );
 
@@ -499,7 +501,7 @@ fn queue_infers_list_directory_for_existing_directory_path() {
 fn queue_uses_explicit_fsread_tool_name_override() {
     let request = build_fs_read_request(serde_json::json!({
         "path": "/tmp/not-a-real-directory",
-        "__ioi_tool_name": "filesystem__list_directory"
+        "__ioi_tool_name": "file__list"
     }));
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
@@ -518,7 +520,7 @@ fn queue_uses_explicit_fsread_tool_name_override_for_custom_alias_target() {
         8,
         serde_json::json!({
             "path": "/tmp/not-a-real-directory",
-            "__ioi_tool_name": "filesystem__list_directory"
+            "__ioi_tool_name": "file__list"
         }),
     );
 
@@ -535,7 +537,7 @@ fn queue_uses_explicit_fsread_tool_name_override_for_custom_alias_target() {
 fn queue_rejects_incompatible_explicit_tool_name_for_target() {
     let request = build_fs_read_request(serde_json::json!({
         "path": "/tmp/demo.txt",
-        "__ioi_tool_name": "filesystem__write_file"
+        "__ioi_tool_name": "file__write"
     }));
 
     let err = queue_action_request_to_tool(&request)
@@ -553,7 +555,7 @@ fn queue_rejects_ambiguous_fswrite_transfer_without_explicit_tool_name() {
     let err = queue_action_request_to_tool(&request)
         .expect_err("queue mapping should fail for ambiguous transfer without explicit tool name");
     assert!(err.to_string().contains("__ioi_tool_name"));
-    assert!(err.to_string().contains("filesystem__copy_path"));
+    assert!(err.to_string().contains("file__copy"));
 }
 
 #[test]
@@ -570,7 +572,7 @@ fn queue_rejects_ambiguous_fswrite_transfer_without_explicit_tool_name_for_custo
     let err = queue_action_request_to_tool(&request)
         .expect_err("queue mapping should fail for ambiguous transfer without explicit tool name");
     assert!(err.to_string().contains("__ioi_tool_name"));
-    assert!(err.to_string().contains("filesystem__move_path"));
+    assert!(err.to_string().contains("file__move"));
 }
 
 #[test]
@@ -680,7 +682,7 @@ fn queue_uses_explicit_fswrite_tool_name_override_for_copy_path() {
         "source_path": "/tmp/source.txt",
         "destination_path": "/tmp/destination.txt",
         "overwrite": true,
-        "__ioi_tool_name": "filesystem__copy_path"
+        "__ioi_tool_name": "file__copy"
     }));
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
@@ -704,7 +706,7 @@ fn queue_uses_explicit_fswrite_tool_name_override_for_move_path() {
         "source_path": "/tmp/source.txt",
         "destination_path": "/tmp/destination.txt",
         "overwrite": false,
-        "__ioi_tool_name": "filesystem__move_path"
+        "__ioi_tool_name": "file__move"
     }));
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
@@ -730,7 +732,7 @@ fn queue_uses_explicit_fswrite_tool_name_override_for_custom_alias_target() {
         serde_json::json!({
             "source_path": "/tmp/source.txt",
             "destination_path": "/tmp/destination.txt",
-            "__ioi_tool_name": "filesystem__move_path"
+            "__ioi_tool_name": "file__move"
         }),
     );
 
@@ -787,7 +789,7 @@ fn queue_maps_custom_os_launch_app_target() {
 fn queue_does_not_allow_metadata_override_for_sys_exec_target() {
     let request = build_sys_exec_request(serde_json::json!({
         "app_name": "calculator",
-        "__ioi_tool_name": "os__launch_app"
+        "__ioi_tool_name": "app__launch"
     }));
 
     let err = queue_action_request_to_tool(&request).expect_err("expected schema error");
@@ -799,7 +801,7 @@ fn queue_does_not_allow_metadata_to_override_non_fs_target_inference() {
     let request = build_sys_exec_request(serde_json::json!({
         "command": "echo",
         "args": ["ok"],
-        "__ioi_tool_name": "os__launch_app"
+        "__ioi_tool_name": "app__launch"
     }));
 
     let err = queue_action_request_to_tool(&request).expect_err("expected schema error");
@@ -811,7 +813,7 @@ fn queue_uses_explicit_sys_exec_tool_name_override_for_exec_session() {
     let request = build_sys_exec_request(serde_json::json!({
         "command": "echo",
         "args": ["ok"],
-        "__ioi_tool_name": "sys__exec_session"
+        "__ioi_tool_name": "shell__start"
     }));
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
@@ -888,10 +890,10 @@ fn queue_preserves_computer_left_click_payload_for_guiclick_target() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::Computer(ComputerAction::LeftClick { coordinate }) => {
+        AgentTool::Screen(ScreenAction::LeftClick { coordinate }) => {
             assert_eq!(coordinate, Some([120, 240]));
         }
-        other => panic!("expected Computer LeftClick, got {:?}", other),
+        other => panic!("expected Screen LeftClick, got {:?}", other),
     }
 }
 
@@ -902,7 +904,7 @@ fn queue_uses_explicit_guiclick_tool_name_override_for_click_element() {
         32,
         serde_json::json!({
             "id": "btn_submit",
-            "__ioi_tool_name": "gui__click_element"
+            "__ioi_tool_name": "screen__click"
         }),
     );
 
@@ -927,10 +929,10 @@ fn queue_maps_guimousemove_target_to_computer_tool() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::Computer(ComputerAction::MouseMove { coordinate }) => {
+        AgentTool::Screen(ScreenAction::MouseMove { coordinate }) => {
             assert_eq!(coordinate, [55, 89]);
         }
-        other => panic!("expected Computer MouseMove, got {:?}", other),
+        other => panic!("expected Screen MouseMove, got {:?}", other),
     }
 }
 
@@ -940,15 +942,15 @@ fn queue_maps_guiscreenshot_target_to_computer_tool() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::Computer(ComputerAction::Screenshot) => {}
-        other => panic!("expected Computer Screenshot, got {:?}", other),
+        AgentTool::Screen(ScreenAction::Screenshot) => {}
+        other => panic!("expected Screen Screenshot, got {:?}", other),
     }
 }
 
 #[test]
 fn queue_maps_custom_computer_cursor_alias_to_computer_tool() {
     let request = build_custom_request(
-        "computer::cursor",
+        "screen::cursor",
         37,
         serde_json::json!({
             "action": "cursor_position"
@@ -957,7 +959,7 @@ fn queue_maps_custom_computer_cursor_alias_to_computer_tool() {
 
     let tool = queue_action_request_to_tool(&request).expect("queue mapping should succeed");
     match tool {
-        AgentTool::Computer(ComputerAction::CursorPosition) => {}
-        other => panic!("expected Computer CursorPosition, got {:?}", other),
+        AgentTool::Screen(ScreenAction::CursorPosition) => {}
+        other => panic!("expected Screen CursorPosition, got {:?}", other),
     }
 }

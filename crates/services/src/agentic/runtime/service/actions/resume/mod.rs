@@ -11,6 +11,7 @@ mod visual;
 
 use super::checks::requires_visual_integrity;
 use super::evaluation::evaluate_and_crystallize;
+use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::runtime::keys::{get_state_key, pii, AGENT_POLICY_PREFIX};
 use crate::agentic::runtime::service::step::action::command_contract::{
@@ -54,14 +55,13 @@ use crate::agentic::runtime::service::step::incident::{
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::{AgentState, AgentStatus, CommandExecution};
 use crate::agentic::runtime::utils::goto_trace_log;
-use crate::agentic::rules::ActionRules;
 
 use crate::agentic::runtime::middleware;
 
 use hex;
 use ioi_api::state::StateAccess;
 use ioi_pii::resolve_expected_request_hash;
-use ioi_types::app::agentic::{AgentTool, ComputerAction, IntentScopeProfile, PiiReviewRequest};
+use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, PiiReviewRequest, ScreenAction};
 use ioi_types::app::{KernelEvent, RoutingReceiptEvent};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
@@ -170,12 +170,12 @@ fn timer_completion_summary(
     let target_utc = target_utc_from_run_and_sleep(entry.timestamp_ms, sleep_seconds)?;
     let mechanism = if let Some(pid) = extract_background_pid(&entry.stdout) {
         format!(
-            "Detached sys__exec command '{}' launched as background process (PID: {}).",
+            "Detached shell__run command '{}' launched as background process (PID: {}).",
             executed_command, pid
         )
     } else {
         format!(
-            "Detached sys__exec command '{}' launched as background process.",
+            "Detached shell__run command '{}' launched as background process.",
             executed_command
         )
     };

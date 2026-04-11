@@ -1,6 +1,8 @@
 // Path: crates/cli/src/testing/assert.rs
 
-use super::rpc::{get_chain_height, get_quarantined_set, query_state_key};
+use super::rpc::{
+    get_block_by_height_resilient, get_chain_height, get_quarantined_set, query_state_key,
+};
 use crate::testing::rpc::get_contract_code;
 use anyhow::{anyhow, Result};
 use ioi_api::state::service_namespace_prefix;
@@ -206,6 +208,13 @@ pub async fn wait_for_height(rpc_addr: &str, target_height: u64, timeout: Durati
         || async move {
             let current_height = get_chain_height(rpc_addr).await?;
             if current_height >= target_height {
+                Ok(Some(()))
+            // In AFT flows the durable status surface can lag while the public block API is
+            // already serving the target committed block. Treat either surface as sufficient.
+            } else if get_block_by_height_resilient(rpc_addr, target_height)
+                .await?
+                .is_some()
+            {
                 Ok(Some(()))
             } else {
                 Ok(None)

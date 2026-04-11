@@ -82,13 +82,13 @@ fn action_routing_receipt_uses_visual_last_tier_for_pre_state_and_intent_hash() 
     let (routing_decision, pre_state) = resolve_action_routing_context(&mut state);
 
     let tool = AgentTool::Dynamic(json!({
-        "name": "gui__click_element",
+        "name": "screen__click",
         "arguments": {
             "id": "btn_submit"
         }
     }));
     let (tool_name, args) = canonical_tool_identity(&tool);
-    assert_eq!(tool_name, "gui__click_element");
+    assert_eq!(tool_name, "screen__click");
 
     let intent_hash = canonical_intent_hash(
         &tool_name,
@@ -99,7 +99,7 @@ fn action_routing_receipt_uses_visual_last_tier_for_pre_state_and_intent_hash() 
     );
 
     let expected_payload = json!({
-        "tool_name": "gui__click_element",
+        "tool_name": "screen__click",
         "args": { "id": "btn_submit" },
         "tier": "VisualLast",
         "step_index": 12,

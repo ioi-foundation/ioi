@@ -1,15 +1,28 @@
-// packages/agent-ide/src/features/Editor/Inspector/views/SimulationView.tsx
 import { useState, useEffect } from "react";
 import { GraphGlobalConfig, Node } from "../../../../types/graph";
 import { AgentRuntime } from "../../../../runtime/agent-runtime";
+
+interface SimulationResult {
+  status?: string;
+  output?: string;
+  data?: {
+    image_base64?: string;
+    audio_base64?: string;
+    video_base64?: string;
+    mime_type?: string;
+  };
+  metrics?: {
+    latency_ms?: number;
+    tokens?: number;
+  };
+}
 
 interface SimulationViewProps {
   node: Node;
   globalConfig?: GraphGlobalConfig;
   runtime: AgentRuntime;
-  onRunComplete: (result: any) => void;
-  // [NEW] Allows pre-filling context from upstream nodes
-  upstreamContext?: any;
+  onRunComplete?: (result: SimulationResult) => void;
+  upstreamContext?: unknown;
 }
 
 export function SimulationView({
@@ -21,9 +34,8 @@ export function SimulationView({
 }: SimulationViewProps) {
   const [inputJson, setInputJson] = useState('{\n  "input": "test"\n}');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<SimulationResult | null>(null);
 
-  // Auto-hydrate input when context changes
   useEffect(() => {
     if (upstreamContext) {
         try {
@@ -47,7 +59,7 @@ export function SimulationView({
         globalConfig
       );
       setResult(res);
-      onRunComplete(res);
+      onRunComplete?.(res);
     } catch (e) {
       setResult({ status: 'error', output: String(e) });
     } finally {
@@ -72,7 +84,7 @@ export function SimulationView({
           value={inputJson}
           onChange={e => setInputJson(e.target.value)}
         />
-        {upstreamContext && (
+        {upstreamContext != null && (
             <div style={{fontSize: 10, color: 'var(--status-success)', marginTop: 4}}>
                 ✓ Hydrated from upstream context
             </div>

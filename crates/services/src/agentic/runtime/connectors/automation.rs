@@ -10,7 +10,7 @@ const AUTOMATION_PROVIDER_FAMILY: &str = "automation.local_kernel";
 const AUTOMATION_ROUTE_LABEL: &str = "autopilot_workflow_kernel";
 
 const AUTOMATION_TOOL_ROUTE_BINDINGS: &[ConnectorToolRouteBinding] = &[ConnectorToolRouteBinding {
-    tool_name: "automation__create_monitor",
+    tool_name: "monitor__create",
     provider_family: AUTOMATION_PROVIDER_FAMILY,
     route_label: AUTOMATION_ROUTE_LABEL,
 }];

@@ -312,6 +312,12 @@ pub fn canonical_collapse_extension_predecessor_commitment_hash(
 
 /// Returns the canonical payload hash of a protocol-wide canonical collapse object, excluding the
 /// recursive accumulator field.
+///
+/// The rolling continuity chain must stay aligned with the proof-carrying block surface even when
+/// same-slot publication later enriches the object with ordering-bundle or sealing material that
+/// is not guaranteed to be available at the instant successors extend the committed slot. We
+/// therefore hash only the stable collapse surface that successors can safely bind through the
+/// header/evidence path, rather than late materialization fields.
 pub fn canonical_collapse_payload_hash(
     collapse: &CanonicalCollapseObject,
 ) -> Result<[u8; 32], String> {
@@ -319,8 +325,11 @@ pub fn canonical_collapse_payload_hash(
         b"aft::canonical-collapse::payload::v1",
         collapse.height,
         collapse.previous_canonical_collapse_commitment_hash,
-        &collapse.ordering,
-        &collapse.sealing,
+        collapse.ordering.height,
+        collapse.ordering.kind,
+        collapse.ordering.bulletin_commitment_hash,
+        collapse.ordering.bulletin_availability_certificate_hash,
+        collapse.ordering.canonical_order_certificate_hash,
         collapse.transactions_root_hash,
         collapse.resulting_state_root_hash,
     ))
@@ -482,8 +491,10 @@ pub fn verify_canonical_collapse_extension_certificate(
     verify_canonical_collapse_recursive_proof(&previous.continuity_recursive_proof)?;
     if canonical_collapse_commitment(previous) != predecessor {
         return Err(format!(
-            "canonical collapse extension certificate predecessor commitment does not match locally expected predecessor for height {}",
-            header_height
+            "canonical collapse extension certificate predecessor commitment does not match locally expected predecessor for height {} (expected {:?}, carried {:?})",
+            header_height,
+            canonical_collapse_commitment(previous),
+            predecessor,
         ));
     }
     let expected_proof_hash =

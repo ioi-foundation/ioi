@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "updated_at_ms": 1775426950122,
+  "updated_at_ms": 1775847701551,
   "runs": [
     {
       "run_id": "artifacts",
@@ -17,31 +17,31 @@
           "suite": "MiniWoB++",
           "case_id": "miniwob_click_button_smoke",
           "env_id": "click-button",
-          "case_dir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke",
-          "summary_json_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.json",
-          "summary_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.md",
-          "diagnostic_json_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json",
-          "diagnostic_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.md",
-          "inference_calls_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_calls.json",
-          "inference_trace_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_trace.json",
-          "bridge_state_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
-          "trace_bundle_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/trace_bundle.json",
-          "trace_analysis_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/trace_analysis.json"
+          "case_dir": "docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke",
+          "summary_json_path": "docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.json",
+          "summary_markdown_path": "docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/benchmark_summary.md",
+          "diagnostic_json_path": "docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.json",
+          "diagnostic_markdown_path": "docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/diagnostic_summary.md",
+          "inference_calls_path": "docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_calls.json",
+          "inference_trace_path": "docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/inference_trace.json",
+          "bridge_state_path": "docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/bridge_state.json",
+          "trace_bundle_path": "docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/trace_bundle.json",
+          "trace_analysis_path": "docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/ollama-openai/computer-use-click-button-smoke/artifacts/agent/miniwob_click_button_smoke/trace_analysis.json"
         },
         {
           "suite": "MiniWoB++",
           "case_id": "miniwob_click_button_baseline",
           "env_id": "click-button",
-          "case_dir": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline",
-          "summary_json_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/benchmark_summary.json",
-          "summary_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/benchmark_summary.md",
-          "diagnostic_json_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/diagnostic_summary.json",
-          "diagnostic_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/diagnostic_summary.md",
-          "inference_calls_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/inference_calls.json",
-          "inference_trace_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/inference_trace.json",
-          "bridge_state_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/bridge_state.json",
-          "trace_bundle_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/trace_bundle.json",
-          "trace_analysis_path": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/trace_analysis.json"
+          "case_dir": "docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline",
+          "summary_json_path": "docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/benchmark_summary.json",
+          "summary_markdown_path": "docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/benchmark_summary.md",
+          "diagnostic_json_path": "docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/diagnostic_summary.json",
+          "diagnostic_markdown_path": "docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/diagnostic_summary.md",
+          "inference_calls_path": "docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/inference_calls.json",
+          "inference_trace_path": "docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/inference_trace.json",
+          "bridge_state_path": "docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/bridge_state.json",
+          "trace_bundle_path": "docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/trace_bundle.json",
+          "trace_analysis_path": "docs/evidence/agent-model-matrix/runs/2026-04-05T22-04-48-477Z/planner-grade-local-oss/computer-use-click-button-baseline/artifacts/agent/miniwob_click_button_baseline/trace_analysis.json"
         }
       ]
     },
@@ -60,16 +60,16 @@
           "suite": "MiniWoB++",
           "case_id": "miniwob_click_button_smoke",
           "env_id": "click-button",
-          "case_dir": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke",
-          "summary_json_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/benchmark_summary.json",
-          "summary_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/benchmark_summary.md",
-          "diagnostic_json_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/diagnostic_summary.json",
-          "diagnostic_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/diagnostic_summary.md",
-          "inference_calls_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/inference_calls.json",
-          "inference_trace_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/inference_trace.json",
-          "bridge_state_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/bridge_state.json",
-          "trace_bundle_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/trace_bundle.json",
-          "trace_analysis_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/trace_analysis.json"
+          "case_dir": "target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke",
+          "summary_json_path": "target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/benchmark_summary.json",
+          "summary_markdown_path": "target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/benchmark_summary.md",
+          "diagnostic_json_path": "target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/diagnostic_summary.json",
+          "diagnostic_markdown_path": "target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/diagnostic_summary.md",
+          "inference_calls_path": "target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/inference_calls.json",
+          "inference_trace_path": "target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/inference_trace.json",
+          "bridge_state_path": "target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/bridge_state.json",
+          "trace_bundle_path": "target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/trace_bundle.json",
+          "trace_analysis_path": "target/computer_use_suite/teardown-detached-1774464501/agent/miniwob_click_button_smoke/trace_analysis.json"
         }
       ]
     },
@@ -88,16 +88,16 @@
           "suite": "MiniWoB++",
           "case_id": "miniwob_click_button_smoke",
           "env_id": "click-button",
-          "case_dir": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke",
-          "summary_json_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/benchmark_summary.json",
-          "summary_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/benchmark_summary.md",
-          "diagnostic_json_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/diagnostic_summary.json",
-          "diagnostic_markdown_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/diagnostic_summary.md",
-          "inference_calls_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/inference_calls.json",
-          "inference_trace_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/inference_trace.json",
-          "bridge_state_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/bridge_state.json",
-          "trace_bundle_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/trace_bundle.json",
-          "trace_analysis_path": "/home/heathledger/Documents/ioi/repos/ioi/target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/trace_analysis.json"
+          "case_dir": "target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke",
+          "summary_json_path": "target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/benchmark_summary.json",
+          "summary_markdown_path": "target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/benchmark_summary.md",
+          "diagnostic_json_path": "target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/diagnostic_summary.json",
+          "diagnostic_markdown_path": "target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/diagnostic_summary.md",
+          "inference_calls_path": "target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/inference_calls.json",
+          "inference_trace_path": "target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/inference_trace.json",
+          "bridge_state_path": "target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/bridge_state.json",
+          "trace_bundle_path": "target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/trace_bundle.json",
+          "trace_analysis_path": "target/computer_use_suite/teardown-clean-1774464335/agent/miniwob_click_button_smoke/trace_analysis.json"
         }
       ]
     },

@@ -30,7 +30,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let has_time_signal = !observed_timestamp.trim().is_empty()
         && has_cec_receipt(obs, "verification", "clock_timestamp_observed", Some(true));
     let time_tool_signal =
-        observation_has_any_tool_name(obs, &["time", "sys__exec", "sys__exec_session"]);
+        observation_has_any_tool_name(obs, &["time", "shell__run", "shell__start"]);
 
     let checks = vec![
         LocalCheck::new(

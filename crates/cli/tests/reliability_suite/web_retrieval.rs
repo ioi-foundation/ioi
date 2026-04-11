@@ -294,13 +294,13 @@ async fn web_retrieval_and_net_fetch_emit_deterministic_receipts_and_anti_loop()
     if !net_fetch_result.success {
         browser.stop().await;
         fixture.stop().await;
-        return Err(anyhow!("net__fetch failed: {:?}", net_fetch_result.error));
+        return Err(anyhow!("http__fetch failed: {:?}", net_fetch_result.error));
     }
     let net_fetch_payload: Value = serde_json::from_str(
         net_fetch_result
             .history_entry
             .as_deref()
-            .ok_or_else(|| anyhow!("net__fetch returned no history payload"))?,
+            .ok_or_else(|| anyhow!("http__fetch returned no history payload"))?,
     )?;
     let payload_text = net_fetch_payload
         .get("body_text")
@@ -308,7 +308,7 @@ async fn web_retrieval_and_net_fetch_emit_deterministic_receipts_and_anti_loop()
         .unwrap_or_default();
     assert!(
         payload_text.contains("deterministic_payload"),
-        "expected deterministic payload marker from net__fetch fixture"
+        "expected deterministic payload marker from http__fetch fixture"
     );
 
     let invalid_fetch_result = exec

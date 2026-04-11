@@ -50,26 +50,3 @@ fn desktop_project_create_fixture_post_run_checks(
     );
     batch
 }
-
-fn mail_reply_mock_fixture_post_run_checks(
-    fixture: &MailReplyMockDriverFixtureRuntime,
-) -> EnvironmentEvidenceBatch {
-    let root_exists_satisfied = fixture.fixture_root.is_dir();
-    let manifest_exists_satisfied = fixture.manifest_path.is_file();
-    let mut batch = EnvironmentEvidenceBatch::default();
-    push_environment_metadata(
-        &mut batch,
-        "mail_reply_fixture_root_exists",
-        None,
-        None,
-        Some(root_exists_satisfied),
-    );
-    push_environment_metadata(
-        &mut batch,
-        "mail_reply_fixture_manifest_exists",
-        None,
-        None,
-        Some(manifest_exists_satisfied),
-    );
-    batch
-}

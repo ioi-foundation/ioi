@@ -28,10 +28,10 @@ pub(crate) const PLANNER_FALLBACK_REASON_EXECUTOR_MISMATCH: &str = "executor_dis
 fn should_embed_queue_tool_name_metadata(target: &ActionTarget, tool_name: &str) -> bool {
     matches!(target, ActionTarget::FsRead | ActionTarget::FsWrite)
         || (matches!(target, ActionTarget::GuiClick | ActionTarget::UiClick)
-            && tool_name == "gui__click_element")
+            && tool_name == "screen__click")
         || matches!(target, ActionTarget::BrowserInteract)
         || (matches!(target, ActionTarget::SysExec)
-            && matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset"))
+            && matches!(tool_name, "shell__start" | "shell__reset"))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -768,7 +768,7 @@ mod tests {
             steps: vec![PlanStep {
                 step_id: "step-1".to_string(),
                 kind: PlannerStepKind::ToolCallIntent,
-                tool_name: Some("sys__exec".to_string()),
+                tool_name: Some("shell__run".to_string()),
                 arguments_json: Some("{\"b\":2,\"a\":1}".to_string()),
                 constraints: PlanStepConstraint {
                     max_retries: 1,
@@ -896,7 +896,7 @@ mod tests {
                 ..
             } => {
                 assert_eq!(step_index, 0);
-                assert_eq!(expected_tool_name, "sys__exec");
+                assert_eq!(expected_tool_name, "shell__run");
             }
             other => panic!("expected mismatch, got {:?}", other),
         }
@@ -907,7 +907,7 @@ mod tests {
         let mut state = base_planner_state();
         state.steps[0].status = PlannerStepStatus::Dispatched;
         let tool_args = serde_json::json!({"b": 2, "a": 1});
-        let matched = match_dispatched_step_for_execution(&state, "sys__exec", &tool_args)
+        let matched = match_dispatched_step_for_execution(&state, "shell__run", &tool_args)
             .expect("match should evaluate")
             .expect("a dispatched step must be considered");
         match matched {
@@ -976,7 +976,7 @@ mod tests {
     fn planner_dispatch_embeds_browser_tool_name_metadata_for_browser_interact() {
         let resolved = resolved_web_intent();
         let mut planner = base_planner_state();
-        planner.steps[0].tool_name = Some("browser__dropdown_options".to_string());
+        planner.steps[0].tool_name = Some("browser__list_options".to_string());
         planner.steps[0].arguments_json =
             Some(r#"{"selector":"select[name='country']"}"#.to_string());
 
@@ -994,7 +994,7 @@ mod tests {
                 .expect("queued params should decode");
         assert_eq!(
             params.get("__ioi_tool_name").and_then(|v| v.as_str()),
-            Some("browser__dropdown_options")
+            Some("browser__list_options")
         );
     }
 }

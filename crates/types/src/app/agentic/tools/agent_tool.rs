@@ -3,7 +3,7 @@ use crate::app::ActionTarget;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::{CommerceItem, ComputerAction};
+use super::{CommerceItem, ScreenAction};
 
 fn default_true() -> bool {
     true
@@ -12,7 +12,7 @@ fn default_true() -> bool {
 /// A typed nested tool invocation payload used by higher-level primitives.
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 pub struct AgentToolCall {
-    /// The nested tool name, for example `browser__click_element`.
+    /// The nested tool name, for example `browser__click`.
     pub name: String,
     /// The nested tool arguments payload.
     pub arguments: serde_json::Value,
@@ -22,12 +22,12 @@ pub struct AgentToolCall {
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 #[serde(tag = "name", content = "arguments", rename_all = "snake_case")]
 pub enum AgentTool {
-    /// Meta-tool for computer control (Claude 3.5 Sonnet style)
-    #[serde(rename = "computer")]
-    Computer(ComputerAction),
+    /// Meta-tool for screen control (Claude 3.5 Sonnet style)
+    #[serde(rename = "screen")]
+    Screen(ScreenAction),
 
     /// Writes content to a file.
-    #[serde(rename = "filesystem__write_file")]
+    #[serde(rename = "file__write")]
     FsWrite {
         /// Path to the file.
         path: String,
@@ -40,7 +40,7 @@ pub enum AgentTool {
     },
 
     /// Patches a file by replacing a unique string block.
-    #[serde(rename = "filesystem__patch")]
+    #[serde(rename = "file__edit")]
     FsPatch {
         /// Path to the file.
         path: String,
@@ -51,21 +51,21 @@ pub enum AgentTool {
     },
 
     /// Reads content from a file.
-    #[serde(rename = "filesystem__read_file")]
+    #[serde(rename = "file__read")]
     FsRead {
         /// Path to the file.
         path: String,
     },
 
     /// Lists directory contents.
-    #[serde(rename = "filesystem__list_directory")]
+    #[serde(rename = "file__list")]
     FsList {
         /// Path to the directory.
         path: String,
     },
 
     /// Recursively searches files for lines matching a regex pattern.
-    #[serde(rename = "filesystem__search")]
+    #[serde(rename = "file__search")]
     FsSearch {
         /// Root path to search from.
         path: String,
@@ -77,14 +77,14 @@ pub enum AgentTool {
     },
 
     /// Returns metadata for a filesystem path.
-    #[serde(rename = "filesystem__stat")]
+    #[serde(rename = "file__info")]
     FsStat {
         /// Path to inspect.
         path: String,
     },
 
     /// Moves or renames a file/directory deterministically.
-    #[serde(rename = "filesystem__move_path")]
+    #[serde(rename = "file__move")]
     FsMove {
         /// Source path to move from.
         source_path: String,
@@ -96,7 +96,7 @@ pub enum AgentTool {
     },
 
     /// Copies a file/directory deterministically.
-    #[serde(rename = "filesystem__copy_path")]
+    #[serde(rename = "file__copy")]
     FsCopy {
         /// Source path to copy from.
         source_path: String,
@@ -108,7 +108,7 @@ pub enum AgentTool {
     },
 
     /// Deletes a file, symlink, or directory deterministically.
-    #[serde(rename = "filesystem__delete_path")]
+    #[serde(rename = "file__delete")]
     FsDelete {
         /// Path to delete.
         path: String,
@@ -121,7 +121,7 @@ pub enum AgentTool {
     },
 
     /// Creates a directory deterministically.
-    #[serde(rename = "filesystem__create_directory")]
+    #[serde(rename = "file__create_dir")]
     FsCreateDirectory {
         /// Directory path to create.
         path: String,
@@ -131,7 +131,7 @@ pub enum AgentTool {
     },
 
     /// Creates a ZIP archive from a source directory deterministically.
-    #[serde(rename = "filesystem__create_zip")]
+    #[serde(rename = "file__zip")]
     FsCreateZip {
         /// Source directory to archive.
         source_path: String,
@@ -143,7 +143,7 @@ pub enum AgentTool {
     },
 
     /// Executes a system command.
-    #[serde(rename = "sys__exec")]
+    #[serde(rename = "shell__run")]
     SysExec {
         /// Command to execute.
         command: String,
@@ -163,7 +163,7 @@ pub enum AgentTool {
     /// This is the OpenInterpreter-style "shell continuity" primitive: state (environment, shell
     /// variables, etc.) is preserved across calls within the same agent session, while the tool
     /// interface remains atomic (one invocation -> one command -> one exit code).
-    #[serde(rename = "sys__exec_session")]
+    #[serde(rename = "shell__start")]
     SysExecSession {
         /// Command to execute.
         command: String,
@@ -175,12 +175,12 @@ pub enum AgentTool {
         stdin: Option<String>,
     },
 
-    /// Resets the persistent shell session used by `sys__exec_session`.
-    #[serde(rename = "sys__exec_session_reset")]
+    /// Resets the persistent shell session used by `shell__start`.
+    #[serde(rename = "shell__reset")]
     SysExecSessionReset {},
 
     /// Installs a package using a deterministic package manager mapping.
-    #[serde(rename = "sys__install_package")]
+    #[serde(rename = "package__install")]
     SysInstallPackage {
         /// Package name or identifier.
         package: String,
@@ -190,7 +190,7 @@ pub enum AgentTool {
     },
 
     /// Changes the persistent working directory for subsequent system commands.
-    #[serde(rename = "sys__change_directory")]
+    #[serde(rename = "shell__cd")]
     SysChangeDir {
         /// Target directory path (absolute or relative).
         path: String,
@@ -206,24 +206,20 @@ pub enum AgentTool {
     /// Snapshot/inspect the current browser page.
     ///
     /// Returns a semantic representation (a11y tree / DOM-derived view) suitable for
-    /// robust follow-up actions like `browser__click_element`.
-    #[serde(rename = "browser__snapshot")]
+    /// robust follow-up actions like `browser__click`.
+    #[serde(rename = "browser__inspect")]
     BrowserSnapshot {},
 
     /// Clicks an element in the browser.
     #[serde(rename = "browser__click")]
     BrowserClick {
-        /// CSS selector of element to click.
+        /// Optional CSS selector of the element to click.
+        #[serde(default, skip_serializing_if = "String::is_empty")]
         selector: String,
-    },
-
-    /// Clicks an element in the browser by semantic ID from `browser__snapshot`.
-    #[serde(rename = "browser__click_element")]
-    BrowserClickElement {
         /// Stable semantic ID of a single element (e.g. "btn_submit").
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
-        /// Ordered semantic IDs from `browser__snapshot` to click in sequence.
+        /// Ordered semantic IDs from `browser__inspect` to click in sequence.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         ids: Vec<String>,
         /// Optional fixed delay inserted between consecutive `ids` clicks.
@@ -246,7 +242,7 @@ pub enum AgentTool {
         /// Optional CSS selector for the hover target. Provide this or `id`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         selector: Option<String>,
-        /// Optional semantic ID from `browser__snapshot`. Provide this or `selector`.
+        /// Optional semantic ID from `browser__inspect`. Provide this or `selector`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
         /// Optional duration to keep reacquiring the target without another inference turn.
@@ -262,7 +258,7 @@ pub enum AgentTool {
     },
 
     /// Move the browser pointer to raw viewport coordinates.
-    #[serde(rename = "browser__move_mouse")]
+    #[serde(rename = "browser__move_pointer")]
     BrowserMoveMouse {
         /// Absolute X coordinate in viewport CSS pixels.
         x: f64,
@@ -271,7 +267,7 @@ pub enum AgentTool {
     },
 
     /// Press a mouse button at the current browser pointer position.
-    #[serde(rename = "browser__mouse_down")]
+    #[serde(rename = "browser__pointer_down")]
     BrowserMouseDown {
         /// Mouse button name (for example: "left", "right", "middle"). Defaults to left.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -279,7 +275,7 @@ pub enum AgentTool {
     },
 
     /// Release a mouse button at the current browser pointer position.
-    #[serde(rename = "browser__mouse_up")]
+    #[serde(rename = "browser__pointer_up")]
     BrowserMouseUp {
         /// Mouse button name (for example: "left", "right", "middle"). Defaults to left.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -287,9 +283,9 @@ pub enum AgentTool {
     },
 
     /// Synthetic click for background execution.
-    #[serde(rename = "browser__synthetic_click")]
+    #[serde(rename = "browser__click_at")]
     BrowserSyntheticClick {
-        /// Optional semantic ID from `browser__snapshot` for a grounded coordinate target.
+        /// Optional semantic ID from `browser__inspect` for a grounded coordinate target.
         ///
         /// Prefer this when the target is already grounded in the browser observation but still
         /// requires a coordinate-style click (for example SVG, canvas, or blank-region surfaces).
@@ -337,7 +333,7 @@ pub enum AgentTool {
     },
 
     /// Select text within a browser element or the current active element.
-    #[serde(rename = "browser__select_text")]
+    #[serde(rename = "browser__select")]
     BrowserSelectText {
         /// Optional CSS selector for the selection target. Defaults to the active element.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -351,7 +347,7 @@ pub enum AgentTool {
     },
 
     /// Press a keyboard key in the browser via CDP key events (headless-compatible).
-    #[serde(rename = "browser__key")]
+    #[serde(rename = "browser__press_key")]
     BrowserKey {
         /// Key name (for example: "Enter", "Tab", "ArrowDown").
         key: String,
@@ -370,11 +366,11 @@ pub enum AgentTool {
     },
 
     /// Copy the current browser text selection into the system clipboard.
-    #[serde(rename = "browser__copy_selection")]
+    #[serde(rename = "browser__copy")]
     BrowserCopySelection {},
 
     /// Paste the current system clipboard contents into the browser.
-    #[serde(rename = "browser__paste_clipboard")]
+    #[serde(rename = "browser__paste")]
     BrowserPasteClipboard {
         /// Optional CSS selector to focus before inserting clipboard text.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -395,7 +391,7 @@ pub enum AgentTool {
     },
 
     /// Summarize the visible content of a browser canvas element.
-    #[serde(rename = "browser__canvas_summary")]
+    #[serde(rename = "browser__inspect_canvas")]
     BrowserCanvasSummary {
         /// CSS selector for the canvas element or a container that resolves to a canvas.
         selector: String,
@@ -442,7 +438,7 @@ pub enum AgentTool {
     },
 
     /// Attach one or more local files to a browser file input.
-    #[serde(rename = "browser__upload_file")]
+    #[serde(rename = "browser__upload")]
     BrowserUploadFile {
         /// Paths to files on the local filesystem.
         paths: Vec<String>,
@@ -455,9 +451,9 @@ pub enum AgentTool {
     },
 
     /// List options for a native `<select>` dropdown.
-    #[serde(rename = "browser__dropdown_options")]
+    #[serde(rename = "browser__list_options")]
     BrowserDropdownOptions {
-        /// Optional semantic browser ID from `browser__snapshot` / browser observations.
+        /// Optional semantic browser ID from `browser__inspect` / browser observations.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
         /// Optional CSS selector for the dropdown element.
@@ -469,9 +465,9 @@ pub enum AgentTool {
     },
 
     /// Select a value or label for a native `<select>` dropdown.
-    #[serde(rename = "browser__select_dropdown")]
+    #[serde(rename = "browser__select_option")]
     BrowserSelectDropdown {
-        /// Optional semantic browser ID from `browser__snapshot` / browser observations.
+        /// Optional semantic browser ID from `browser__inspect` / browser observations.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
         /// Optional CSS selector for the dropdown element.
@@ -489,7 +485,7 @@ pub enum AgentTool {
     },
 
     /// Navigate backward in browser history.
-    #[serde(rename = "browser__go_back")]
+    #[serde(rename = "browser__back")]
     BrowserGoBack {
         /// Number of history entries to go back. Defaults to 1.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -497,18 +493,18 @@ pub enum AgentTool {
     },
 
     /// List open browser tabs for the interactive browser context.
-    #[serde(rename = "browser__tab_list")]
+    #[serde(rename = "browser__list_tabs")]
     BrowserTabList {},
 
     /// Switch focus to an existing browser tab by tab id.
-    #[serde(rename = "browser__tab_switch")]
+    #[serde(rename = "browser__switch_tab")]
     BrowserTabSwitch {
         /// Stable tab identifier for the current browser session.
         tab_id: String,
     },
 
     /// Close an existing browser tab by tab id.
-    #[serde(rename = "browser__tab_close")]
+    #[serde(rename = "browser__close_tab")]
     BrowserTabClose {
         /// Stable tab identifier for the current browser session.
         tab_id: String,
@@ -566,7 +562,7 @@ pub enum AgentTool {
     },
 
     /// Extract multimodal evidence from a remote media URL using transcript + visual providers.
-    #[serde(rename = "media__extract_multimodal_evidence")]
+    #[serde(rename = "media__extract_evidence")]
     MediaExtractMultimodalEvidence {
         /// URL to inspect.
         url: String,
@@ -585,7 +581,7 @@ pub enum AgentTool {
     ///
     /// This is the governed egress primitive used when a URL is already known and the agent
     /// needs the raw response rather than search/read evidence extraction.
-    #[serde(rename = "net__fetch")]
+    #[serde(rename = "http__fetch")]
     NetFetch {
         /// URL to fetch.
         url: String,
@@ -595,7 +591,7 @@ pub enum AgentTool {
     },
 
     /// Legacy GUI click tool.
-    #[serde(rename = "gui__click")]
+    #[serde(rename = "screen__click_at")]
     GuiClick {
         /// X coordinate.
         x: u32,
@@ -606,14 +602,14 @@ pub enum AgentTool {
     },
 
     /// Legacy GUI typing tool.
-    #[serde(rename = "gui__type")]
+    #[serde(rename = "screen__type")]
     GuiType {
         /// Text to type.
         text: String,
     },
 
     /// Scroll the active window/element.
-    #[serde(rename = "gui__scroll")]
+    #[serde(rename = "screen__scroll")]
     GuiScroll {
         /// Vertical scroll amount. Positive = down.
         #[serde(default)]
@@ -625,44 +621,44 @@ pub enum AgentTool {
 
     /// Snapshot/inspect the current UI accessibility tree.
     ///
-    /// Returns semantic XML with stable IDs suitable for follow-up actions like `gui__click_element`.
-    #[serde(rename = "gui__snapshot")]
+    /// Returns semantic XML with stable IDs suitable for follow-up actions like `screen__click`.
+    #[serde(rename = "screen__inspect")]
     GuiSnapshot {},
 
     /// Click a UI element by its stable ID. Global capability (works in background).
-    #[serde(rename = "gui__click_element")]
+    #[serde(rename = "screen__click")]
     GuiClickElement {
         /// The stable ID of the element (e.g. "btn_submit").
         id: String,
     },
 
     /// [NEW] Find a UI element by visual or semantic description.
-    #[serde(rename = "ui__find")]
+    #[serde(rename = "screen__find")]
     UiFind {
         /// Description to find (text, icon, color, shape, logo).
         query: String,
     },
 
     /// [NEW] Focus a specific window.
-    #[serde(rename = "os__focus_window")]
+    #[serde(rename = "window__focus")]
     OsFocusWindow {
         /// Title of the window to focus.
         title: String,
     },
 
     /// [NEW] Copy text to clipboard.
-    #[serde(rename = "os__copy")]
+    #[serde(rename = "clipboard__copy")]
     OsCopy {
         /// Content to copy.
         content: String,
     },
 
     /// [NEW] Paste text from clipboard.
-    #[serde(rename = "os__paste")]
+    #[serde(rename = "clipboard__paste")]
     OsPaste {},
 
     /// [NEW] Launch an application.
-    #[serde(rename = "os__launch_app")]
+    #[serde(rename = "app__launch")]
     OsLaunchApp {
         /// Name of the application to launch.
         app_name: String,
@@ -683,7 +679,7 @@ pub enum AgentTool {
     },
 
     /// Install a durable local monitor workflow that polls a source and notifies on matches.
-    #[serde(rename = "automation__create_monitor")]
+    #[serde(rename = "monitor__create")]
     AutomationCreateMonitor {
         /// Optional human-facing title for the installed workflow.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -739,14 +735,14 @@ pub enum AgentTool {
     },
 
     /// Memory Tool: Inspect a specific memory record by frame/record ID.
-    #[serde(rename = "memory__inspect")]
+    #[serde(rename = "memory__read")]
     MemoryInspect {
         /// Frame ID to inspect (from memory__search).
         frame_id: u64,
     },
 
     /// Memory Tool: Replace a typed core-memory register.
-    #[serde(rename = "memory__replace_core")]
+    #[serde(rename = "memory__replace")]
     MemoryReplaceCore {
         /// Core-memory section name.
         section: String,
@@ -755,7 +751,7 @@ pub enum AgentTool {
     },
 
     /// Memory Tool: Append content to an appendable core-memory register.
-    #[serde(rename = "memory__append_core")]
+    #[serde(rename = "memory__append")]
     MemoryAppendCore {
         /// Core-memory section name.
         section: String,
@@ -764,14 +760,14 @@ pub enum AgentTool {
     },
 
     /// Memory Tool: Clear a typed core-memory register.
-    #[serde(rename = "memory__clear_core")]
+    #[serde(rename = "memory__clear")]
     MemoryClearCore {
         /// Core-memory section name.
         section: String,
     },
 
     /// Meta Tool: Awaits result from a sub-agent.
-    #[serde(rename = "agent__await_result")]
+    #[serde(rename = "agent__await")]
     AgentAwait {
         /// Session ID of the child agent.
         child_session_id_hex: String,
@@ -807,7 +803,7 @@ pub enum AgentTool {
     },
 
     /// Meta Tool: Explicit Failure (Trigger Escalation)
-    #[serde(rename = "system__fail")]
+    #[serde(rename = "agent__escalate")]
     SystemFail {
         /// Reason for failure.
         reason: String,
@@ -845,78 +841,77 @@ impl AgentTool {
     pub fn is_reserved_tool_name(name: &str) -> bool {
         matches!(
             name,
-            "computer"
-                | "filesystem__write_file"
-                | "filesystem__patch"
-                | "filesystem__read_file"
-                | "filesystem__list_directory"
-                | "filesystem__search"
-                | "filesystem__stat"
-                | "filesystem__move_path"
-                | "filesystem__copy_path"
-                | "filesystem__delete_path"
-                | "filesystem__create_directory"
-                | "filesystem__create_zip"
-                | "sys__exec"
-                | "sys__exec_session"
-                | "sys__exec_session_reset"
-                | "sys__install_package"
-                | "sys__change_directory"
+            "screen"
+                | "file__write"
+                | "file__edit"
+                | "file__read"
+                | "file__list"
+                | "file__search"
+                | "file__info"
+                | "file__move"
+                | "file__copy"
+                | "file__delete"
+                | "file__create_dir"
+                | "file__zip"
+                | "shell__run"
+                | "shell__start"
+                | "shell__reset"
+                | "package__install"
+                | "shell__cd"
                 | "browser__navigate"
-                | "browser__snapshot"
+                | "browser__inspect"
                 | "browser__click"
-                | "browser__click_element"
                 | "browser__hover"
-                | "browser__move_mouse"
-                | "browser__mouse_down"
-                | "browser__mouse_up"
-                | "browser__synthetic_click"
+                | "browser__move_pointer"
+                | "browser__pointer_down"
+                | "browser__pointer_up"
+                | "browser__click_at"
                 | "browser__scroll"
                 | "browser__type"
-                | "browser__select_text"
-                | "browser__key"
-                | "browser__copy_selection"
-                | "browser__paste_clipboard"
+                | "browser__select"
+                | "browser__press_key"
+                | "browser__copy"
+                | "browser__paste"
                 | "browser__find_text"
-                | "browser__canvas_summary"
+                | "browser__inspect_canvas"
                 | "browser__screenshot"
                 | "browser__wait"
-                | "browser__upload_file"
-                | "browser__dropdown_options"
-                | "browser__select_dropdown"
-                | "browser__go_back"
-                | "browser__tab_list"
-                | "browser__tab_switch"
-                | "browser__tab_close"
+                | "browser__upload"
+                | "browser__list_options"
+                | "browser__select_option"
+                | "browser__back"
+                | "browser__list_tabs"
+                | "browser__switch_tab"
+                | "browser__close_tab"
                 | "web__search"
                 | "web__read"
                 | "media__extract_transcript"
-                | "media__extract_multimodal_evidence"
-                | "net__fetch"
+                | "media__extract_evidence"
+                | "http__fetch"
                 | "memory__search"
-                | "memory__inspect"
-                | "memory__replace_core"
-                | "memory__append_core"
-                | "memory__clear_core"
-                | "gui__click"
-                | "gui__type"
-                | "gui__scroll"
-                | "gui__snapshot"
-                | "gui__click_element"
-                | "ui__find"
-                | "os__focus_window"
-                | "os__copy"
-                | "os__paste"
-                | "os__launch_app"
+                | "memory__read"
+                | "memory__replace"
+                | "memory__append"
+                | "memory__clear"
+                | "screen__click_at"
+                | "screen__type"
+                | "screen__scroll"
+                | "screen__inspect"
+                | "screen__click"
+                | "screen__find"
+                | "window__focus"
+                | "clipboard__copy"
+                | "clipboard__paste"
+                | "app__launch"
                 | "math__eval"
                 | "chat__reply"
-                | "automation__create_monitor"
+                | "monitor__create"
                 | "agent__delegate"
-                | "agent__await_result"
+                | "agent__await"
                 | "agent__pause"
                 | "agent__complete"
                 | "commerce__checkout"
-                | "system__fail"
+                | "agent__escalate"
         )
     }
 

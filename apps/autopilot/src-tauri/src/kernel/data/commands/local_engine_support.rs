@@ -853,7 +853,7 @@ fn tool_names_for_engine_family(family_id: &str, tools: &[LlmToolDefinition]) ->
         ],
         "speech" => vec!["media__synthesize_speech".to_string()],
         "vision" => vec![
-            "media__extract_multimodal_evidence".to_string(),
+            "media__extract_evidence".to_string(),
             "media__vision_read".to_string(),
         ],
         "image" => vec![
@@ -879,13 +879,13 @@ fn tool_names_for_engine_family(family_id: &str, tools: &[LlmToolDefinition]) ->
         "gallery" => vec!["gallery__sync".to_string()],
         "knowledge" => vec![
             "memory__search".to_string(),
-            "memory__inspect".to_string(),
+            "memory__read".to_string(),
             "model__embeddings".to_string(),
             "model__rerank".to_string(),
         ],
         "workers" => vec![
             "agent__delegate".to_string(),
-            "agent__await_result".to_string(),
+            "agent__await".to_string(),
             "agent__pause".to_string(),
             "agent__complete".to_string(),
         ],
@@ -904,7 +904,7 @@ fn tool_names_for_engine_family(family_id: &str, tools: &[LlmToolDefinition]) ->
                 }
                 "speech" => tool.name == "media__synthesize_speech",
                 "vision" => {
-                    tool.name == "media__extract_multimodal_evidence"
+                    tool.name == "media__extract_evidence"
                         || tool.name == "media__vision_read"
                 }
                 "image" => tool.name == "media__generate_image" || tool.name == "media__edit_image",

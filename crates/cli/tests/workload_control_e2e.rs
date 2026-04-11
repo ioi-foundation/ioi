@@ -113,6 +113,7 @@ async fn test_workload_control_plane_flow() -> Result<()> {
             allowed_target_suites: vec![SignatureSuite::ED25519],
             allow_downgrade: false,
         }))
+        .with_initial_service(InitialServiceConfig::LeakageController)
         .with_genesis_modifier(|builder, keys| {
             let key = &keys[0];
             let account_id = builder.add_identity(key);
@@ -147,29 +148,9 @@ async fn test_workload_control_plane_flow() -> Result<()> {
             let timing_runtime = BlockTimingRuntime {
                 ema_gas_used: 0,
                 effective_interval_secs: timing_params.base_interval_secs,
+                effective_interval_ms: timing_params.base_interval_ms_or_legacy(),
             };
             builder.set_block_timing(&timing_params, &timing_runtime);
-
-            use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
-            use std::collections::BTreeMap;
-
-            let mut methods = BTreeMap::new();
-            methods.insert("register_policy@v1".into(), MethodPermission::User);
-            methods.insert("check_and_debit@v1".into(), MethodPermission::Internal);
-
-            let meta = ActiveServiceMeta {
-                id: "leakage_controller".into(),
-                abi_version: 1,
-                state_schema: "v1".into(),
-                caps: Capabilities::empty(),
-                artifact_hash: [0; 32],
-                activated_at: 0,
-                methods,
-                allowed_system_prefixes: vec!["leakage::".into()],
-            };
-
-            let key = ioi_types::keys::active_service_key("leakage_controller");
-            builder.insert_typed(key, &meta);
         })
         .build()
         .await?;
@@ -225,8 +206,7 @@ async fn test_workload_control_plane_flow() -> Result<()> {
         println!("Model loaded successfully.");
 
         // 4. Prepare Encrypted Data via SlicePackager
-        let shmem_id = "ioi_shmem_5000";
-        let data_plane = DataPlane::connect(shmem_id)?;
+        let data_plane = DataPlane::connect(&node.validator().shmem_id)?;
 
         let input_context = AgentContext {
             session_id: 101,

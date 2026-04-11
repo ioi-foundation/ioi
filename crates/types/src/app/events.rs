@@ -382,7 +382,7 @@ pub enum WorkloadReceipt {
     Exec(WorkloadExecReceipt),
     /// A filesystem mutation/write receipt.
     FsWrite(WorkloadFsWriteReceipt),
-    /// A network fetch receipt ("net__fetch").
+    /// A network fetch receipt ("http__fetch").
     NetFetch(WorkloadNetFetchReceipt),
     /// A governed web retrieval receipt ("web__search" / "web__read").
     WebRetrieve(WorkloadWebRetrieveReceipt),
@@ -405,7 +405,7 @@ pub enum WorkloadReceipt {
 /// Audit receipt for an `Exec` workload.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct WorkloadExecReceipt {
-    /// Tool that initiated the workload (e.g. "sys__exec").
+    /// Tool that initiated the workload (e.g. "shell__run").
     pub tool_name: String,
     /// Executed command.
     pub command: String,
@@ -451,10 +451,10 @@ pub struct WorkloadFsWriteReceipt {
     pub error_class: Option<String>,
 }
 
-/// Audit receipt for a `net__fetch` workload.
+/// Audit receipt for a `http__fetch` workload.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct WorkloadNetFetchReceipt {
-    /// Tool that initiated the workload (always "net__fetch" for this receipt).
+    /// Tool that initiated the workload (always "http__fetch" for this receipt).
     pub tool_name: String,
     /// HTTP method (currently "GET").
     pub method: String,
@@ -562,7 +562,7 @@ pub struct WorkloadMemoryRetrieveReceipt {
 /// Audit receipt for child-worker completion and deterministic parent merge.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct WorkloadWorkerReceipt {
-    /// Tool that initiated the worker flow ("agent__delegate" or "agent__await_result").
+    /// Tool that initiated the worker flow ("agent__delegate" or "agent__await").
     pub tool_name: String,
     /// Phase label ("completed" or "merged").
     pub phase: String,
@@ -751,7 +751,7 @@ pub struct ComputerUseRecoverySummary {
 /// Audit receipt for parent-playbook lifecycle, step advancement, and terminal outcome.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct WorkloadParentPlaybookReceipt {
-    /// Tool that initiated the playbook lifecycle edge ("agent__delegate" or "agent__await_result").
+    /// Tool that initiated the playbook lifecycle edge ("agent__delegate" or "agent__await").
     pub tool_name: String,
     /// Phase label ("started", "step_spawned", "step_completed", "blocked", "completed").
     pub phase: String,
@@ -886,7 +886,7 @@ pub enum KernelEvent {
         session_id: [u8; 32],
         /// The sequence number of the step.
         step_index: u32,
-        /// The name of the tool executed (e.g. "sys__exec").
+        /// The name of the tool executed (e.g. "shell__run").
         tool_name: String,
         /// The output/result of the execution (e.g. stdout).
         output: String,

@@ -875,6 +875,13 @@ impl<T: Clone + Send + 'static + parity_scale_codec::Encode> ConsensusEngine<T>
         self.record_committed_block(header, collapse)
     }
 
+    fn canonical_collapse_for_committed_height(
+        &self,
+        height: u64,
+    ) -> Option<CanonicalCollapseObject> {
+        self.committed_collapses.get(&height).cloned()
+    }
+
     fn observe_aft_recovered_consensus_header(
         &mut self,
         header: &AftRecoveredConsensusHeaderEntry,

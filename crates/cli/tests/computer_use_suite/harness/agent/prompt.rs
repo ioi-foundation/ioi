@@ -63,7 +63,7 @@ fn summarize_history_step(step: &ToolStepRecord) -> String {
         line.push_str(&format!(" error={}", compact_text(error, 160)));
     }
     if let Some(history_entry) = &step.history_entry {
-        let output_limit = if step.tool_name == "browser__snapshot" {
+        let output_limit = if step.tool_name == "browser__inspect" {
             640
         } else {
             160
@@ -85,12 +85,12 @@ pub(super) fn build_system_prompt() -> String {
         "Do not restart, relaunch, or navigate away from the assigned task page.",
         "Prefer browser__type with selector for text entry.",
         "If the goal specifies a target date and a date input is visible, prefer typing the exact date into the visible date field before exploring calendar navigation.",
-        "Prefer browser__select_dropdown with selector and exact label/value for native select controls.",
+        "Prefer browser__select_option with selector and exact label/value for native select controls.",
         "Prefer browser__click for literal CSS selectors already shown as selector=... in the observation.",
-        "When browser__snapshot returns XML node ids like btn_*, tab_*, or grp_*, use browser__click_element with id. Those ids are not CSS selectors, so do not prepend '#'.",
+        "When browser__inspect returns XML node ids like btn_*, tab_*, or grp_*, use browser__click with id. Those ids are not CSS selectors, so do not prepend '#'.",
         "For checkbox tasks, click only the checkbox selectors explicitly listed in the observation, and do not extrapolate unseen numeric ids such as #ch12 if the observation only shows up to #ch11.",
         "If the exact target control is not currently listed, refresh observation instead of guessing.",
-        "Use browser__wait or browser__snapshot to verify unclear state changes instead of blindly repeating the same failing action.",
+        "Use browser__wait or browser__inspect to verify unclear state changes instead of blindly repeating the same failing action.",
         "Do not use web retrieval or filesystem/system tools.",
     ]
     .join("\n")

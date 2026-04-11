@@ -14,7 +14,7 @@ use ioi_services::agentic::runtime::service::step::anti_loop::{
 };
 use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};
-use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use ioi_types::app::agentic::{AgentTool, ScreenAction};
 use ioi_types::app::{ActionRequest, ContextSlice, RoutingReceiptEvent};
 use ioi_types::error::VmError;
 use std::collections::BTreeMap;
@@ -199,7 +199,7 @@ async fn computer_type_reports_tool_unavailable_when_direct_and_fallback_fail() 
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::Type {
+            AgentTool::Screen(ScreenAction::Type {
                 text: "fallback".to_string(),
             }),
             [0u8; 32],
@@ -230,7 +230,7 @@ fn routing_receipt_contract_for_gui_type_fallback_includes_pre_state_and_binding
     };
 
     let (tool_name, args) = canonical_tool_identity(&tool);
-    assert_eq!(tool_name, "gui__type");
+    assert_eq!(tool_name, "screen__type");
     assert_eq!(args.get("text").and_then(|v| v.as_str()), Some("fallback"));
 
     let intent_hash = canonical_intent_hash(

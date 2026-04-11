@@ -12,11 +12,11 @@ use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
+use ioi_services::agentic::rules::{ActionRules, Rule, Verdict};
 use ioi_services::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus, RuntimeAgentService};
 use ioi_services::agentic::runtime::{ResumeAgentParams, StartAgentParams, StepAgentParams};
-use ioi_services::agentic::rules::{ActionRules, Rule, Verdict};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::action::{ApprovalScope, ApprovalToken};
@@ -399,7 +399,7 @@ fn sys_exec_command_previews(events: &[KernelEvent], session_id: [u8; 32]) -> Ve
                 {
                     if matches!(
                         exec_receipt.tool_name.as_str(),
-                        "sys__exec" | "sys__exec_session"
+                        "shell__run" | "shell__start"
                     ) {
                         return Some(exec_receipt.command_preview.clone());
                     }
@@ -454,7 +454,7 @@ fn successful_sys_exec_fingerprints(events: &[KernelEvent], session_id: [u8; 32]
                 {
                     if matches!(
                         exec_receipt.tool_name.as_str(),
-                        "sys__exec" | "sys__exec_session"
+                        "shell__run" | "shell__start"
                     ) && exec_receipt.success
                     {
                         return Some(format!(
@@ -572,7 +572,7 @@ fn build_deterministic_checks(
                 {
                     matches!(
                         exec_receipt.tool_name.as_str(),
-                        "sys__exec" | "sys__exec_session"
+                        "shell__run" | "shell__start"
                     )
                 } else {
                     false
@@ -722,7 +722,7 @@ fn build_deterministic_checks(
     }
     let work_evidence_present = sys_exec_workload_count > 0;
     if !work_evidence_present {
-        failures.push("missing sys__exec workload evidence".to_string());
+        failures.push("missing shell__run workload evidence".to_string());
     }
     if !multiple_exec_steps_present {
         failures.push("missing discovery/execution lifecycle progression evidence".to_string());
@@ -770,14 +770,14 @@ fn build_deterministic_checks(
         failures.push("missing CEC postcondition::notification_path_armed=true".to_string());
     }
     if !timer_delay_command_evidence_present {
-        failures.push("missing timer delay command evidence in sys__exec previews".to_string());
+        failures.push("missing timer delay command evidence in shell__run previews".to_string());
     }
     if !notification_command_evidence_present {
-        failures.push("missing notification command evidence in sys__exec previews".to_string());
+        failures.push("missing notification command evidence in shell__run previews".to_string());
     }
     if !deferred_notification_command_evidence_present {
         failures.push(
-            "missing deferred notification command evidence in sys__exec previews".to_string(),
+            "missing deferred notification command evidence in shell__run previews".to_string(),
         );
     }
     if !no_duplicate_successful_exec_fingerprint {

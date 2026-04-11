@@ -9,6 +9,7 @@ use super::recovery::{
     validate_recovery_tool,
 };
 use super::store::{clear_incident_state, load_incident_state, persist_incident_state};
+use crate::agentic::rules::{ActionRules, ApprovalMode};
 use crate::agentic::runtime::middleware;
 use crate::agentic::runtime::service::step::anti_loop::FailureClass;
 use crate::agentic::runtime::service::step::cognition::{
@@ -24,7 +25,6 @@ use crate::agentic::runtime::service::step::ontology::{
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::tools::discover_tools;
 use crate::agentic::runtime::types::{AgentState, AgentStatus};
-use crate::agentic::rules::{ActionRules, ApprovalMode};
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::ChatMessage;
 use ioi_types::app::agentic::{InferenceOptions, LlmToolDefinition};
@@ -50,7 +50,7 @@ fn planner_pending_browser_state_from_history(
 ) -> Option<String> {
     if !incident_state
         .root_tool_name
-        .eq_ignore_ascii_case("browser__snapshot")
+        .eq_ignore_ascii_case("browser__inspect")
         || !matches!(
             FailureClass::from_str(&incident_state.root_failure_class),
             Some(FailureClass::NoEffectAfterAction)
@@ -1058,7 +1058,7 @@ mod tests {
             active: true,
             root_retry_hash: "retry-hash".to_string(),
             root_tool_name: root_tool_name.to_string(),
-            root_tool_jcs: br#"{"name":"browser__snapshot","arguments":{}}"#.to_vec(),
+            root_tool_jcs: br#"{"name":"browser__inspect","arguments":{}}"#.to_vec(),
             root_failure_class: root_failure_class.to_string(),
             root_error: Some("ERROR_CLASS=NoEffectAfterAction duplicate replay guard".to_string()),
             intent_class: "UIInteraction".to_string(),
@@ -1095,7 +1095,7 @@ mod tests {
             chat_message(
                 "tool",
                 concat!(
-                    "Tool Output (browser__snapshot): ",
+                    "Tool Output (browser__inspect): ",
                     "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
                     "<generic id=\"grp_find_deena_in_the_contact_book\" name=\"Find Deena in the contact book and click on their address.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
                     "<heading id=\"heading_lauraine\" name=\"Lauraine\" tag_name=\"h2\" rect=\"2,64,156,17\" />",
@@ -1108,7 +1108,7 @@ mod tests {
         ];
 
         let pending = planner_pending_browser_state_from_history(
-            &test_incident_state("browser__snapshot", "NoEffectAfterAction"),
+            &test_incident_state("browser__inspect", "NoEffectAfterAction"),
             &history,
         )
         .expect("pending browser state should be present");
@@ -1130,12 +1130,12 @@ mod tests {
         let history = vec![
             chat_message(
                 "system",
-                "RECENT PENDING BROWSER STATE:\n`Deena` is not on the current record `Lauraine`. The only valid next `browser__click_element` id here is `lnk_443422`.\n",
+                "RECENT PENDING BROWSER STATE:\n`Deena` is not on the current record `Lauraine`. The only valid next `browser__click` id here is `lnk_443422`.\n",
                 1,
             ),
             chat_message(
                 "tool",
-                "Tool Output (browser__snapshot): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
+                "Tool Output (browser__inspect): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
                 2,
             ),
             chat_message(
@@ -1146,7 +1146,7 @@ mod tests {
         ];
 
         let pending = planner_pending_browser_state_from_history(
-            &test_incident_state("browser__snapshot", "NoEffectAfterAction"),
+            &test_incident_state("browser__inspect", "NoEffectAfterAction"),
             &history,
         )
         .expect("explicit pending browser state should backstop planner context");
@@ -1164,7 +1164,7 @@ mod tests {
         let history = vec![chat_message(
             "tool",
             concat!(
-                "Tool Output (browser__snapshot): <root />\n\n",
+                "Tool Output (browser__inspect): <root />\n\n",
                 "BROWSER_USE_STATE_TXT:\n[12]<button name=Submit />\n\n",
                 "BROWSERGYM_AXTREE_TXT:\n[a1] button \"Submit\""
             ),
@@ -1172,7 +1172,7 @@ mod tests {
         )];
 
         assert!(planner_pending_browser_state_from_history(
-            &test_incident_state("browser__snapshot", "NoEffectAfterAction"),
+            &test_incident_state("browser__inspect", "NoEffectAfterAction"),
             &history,
         )
         .is_none());
@@ -1180,7 +1180,7 @@ mod tests {
 
     #[test]
     fn consume_enqueued_root_retry_clears_flag_when_root_retry_executes() {
-        let mut incident = test_incident_state("browser__click_element", "NoEffectAfterAction");
+        let mut incident = test_incident_state("browser__click", "NoEffectAfterAction");
         incident.retry_enqueued = true;
 
         let consumed = consume_enqueued_root_retry(&mut incident, "retry-hash");
@@ -1194,7 +1194,7 @@ mod tests {
 
     #[test]
     fn consume_enqueued_root_retry_ignores_non_root_retry_execution() {
-        let mut incident = test_incident_state("browser__click_element", "NoEffectAfterAction");
+        let mut incident = test_incident_state("browser__click", "NoEffectAfterAction");
         incident.retry_enqueued = true;
 
         let consumed = consume_enqueued_root_retry(&mut incident, "other-retry");

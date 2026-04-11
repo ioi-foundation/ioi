@@ -23,7 +23,7 @@
         "required": ["frame_id"]
     });
     tools.push(LlmToolDefinition {
-        name: "memory__inspect".to_string(),
+        name: "memory__read".to_string(),
         description: "Retrieve the full content of a specific archival memory record returned by memory__search so you can verify details before acting.".to_string(),
         parameters: mem_inspect_params.to_string(),
     });
@@ -43,7 +43,7 @@
         "required": ["section", "content"]
     });
     tools.push(LlmToolDefinition {
-        name: "memory__replace_core".to_string(),
+        name: "memory__replace".to_string(),
         description: "Replace a typed core-memory register. Use for small durable facts or workflow state, not long transcripts or secrets.".to_string(),
         parameters: mem_replace_core_params.to_string(),
     });
@@ -63,7 +63,7 @@
         "required": ["section", "content"]
     });
     tools.push(LlmToolDefinition {
-        name: "memory__append_core".to_string(),
+        name: "memory__append".to_string(),
         description: "Append a new durable note to an appendable core-memory section without rewriting the whole section.".to_string(),
         parameters: mem_append_core_params.to_string(),
     });
@@ -79,7 +79,7 @@
         "required": ["section"]
     });
     tools.push(LlmToolDefinition {
-        name: "memory__clear_core".to_string(),
+        name: "memory__clear".to_string(),
         description: "Clear a typed core-memory section when it is no longer valid.".to_string(),
         parameters: mem_clear_core_params.to_string(),
     });

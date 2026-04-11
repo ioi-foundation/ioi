@@ -51,7 +51,7 @@ pub(crate) fn handle_system_fail_tool(
         let _ = tx.send(ioi_types::app::KernelEvent::AgentActionResult {
             session_id,
             step_index,
-            tool_name: "system__fail".to_string(),
+            tool_name: "agent__escalate".to_string(),
             output: error_msg.clone(),
             error_class,
             // [FIX] Authoritative Status

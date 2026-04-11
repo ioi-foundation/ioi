@@ -72,6 +72,7 @@ const PROMPT_SECTION_KERNEL_POLICY_MAX_CHARS: usize = 1_200;
 const PROMPT_SECTION_STATE_MAX_CHARS: usize = 1_600;
 const PROMPT_SECTION_CORE_MEMORY_MAX_CHARS: usize = 1_400;
 const PROMPT_SECTION_STRATEGY_MAX_CHARS: usize = 900;
+const PROMPT_SECTION_TOOL_ROUTING_MAX_CHARS: usize = 1_800;
 const PROMPT_SECTION_VERIFY_MAX_CHARS: usize = 500;
 const PROMPT_SECTION_SCOPE_CONTRACT_MAX_CHARS: usize = 2_800;
 const PROMPT_SECTION_AVAILABLE_TOOLS_MAX_CHARS: usize = 4_000;
@@ -298,6 +299,7 @@ fn build_standard_prompt_assembly(
     urgent_feedback: &str,
     failure_block: &str,
     strategy_instruction: &str,
+    tool_routing_contract: &str,
     som_instruction: &str,
     verify_instruction: &str,
     command_scope_instruction: &str,
@@ -346,6 +348,8 @@ Only take actions that directly advance the USER GOAL.\n\n{}",
             .with_budget(PROMPT_SECTION_STATE_MAX_CHARS),
         PromptSection::new("strategy_instruction", strategy_instruction)
             .with_budget(PROMPT_SECTION_STRATEGY_MAX_CHARS),
+        PromptSection::new("tool_routing_contract", tool_routing_contract)
+            .with_budget(PROMPT_SECTION_TOOL_ROUTING_MAX_CHARS),
         PromptSection::new("som_instruction", som_instruction)
             .with_budget(PROMPT_SECTION_STRATEGY_MAX_CHARS),
         PromptSection::new("verify_instruction", verify_instruction)
@@ -650,17 +654,17 @@ fn resolve_browser_observation_context(
 
 fn top_edge_jump_tool_call() -> &'static str {
     if cfg!(target_os = "macos") {
-        r#"browser__key {"key":"ArrowUp","modifiers":["Meta"]}"#
+        r#"browser__press_key {"key":"ArrowUp","modifiers":["Meta"]}"#
     } else {
-        r#"browser__key {"key":"Home","modifiers":["Control"]}"#
+        r#"browser__press_key {"key":"Home","modifiers":["Control"]}"#
     }
 }
 
 fn top_edge_jump_tool_call_with_grounded_selector() -> &'static str {
     if cfg!(target_os = "macos") {
-        r#"browser__key {"key":"ArrowUp","modifiers":["Meta"],"selector":"<grounded selector>"}"#
+        r#"browser__press_key {"key":"ArrowUp","modifiers":["Meta"],"selector":"<grounded selector>"}"#
     } else {
-        r#"browser__key {"key":"Home","modifiers":["Control"],"selector":"<grounded selector>"}"#
+        r#"browser__press_key {"key":"Home","modifiers":["Control"],"selector":"<grounded selector>"}"#
     }
 }
 
@@ -674,9 +678,9 @@ fn bottom_edge_jump_name() -> &'static str {
 
 fn bottom_edge_jump_tool_call() -> &'static str {
     if cfg!(target_os = "macos") {
-        r#"browser__key {"key":"ArrowDown","modifiers":["Meta"]}"#
+        r#"browser__press_key {"key":"ArrowDown","modifiers":["Meta"]}"#
     } else {
-        r#"browser__key {"key":"End","modifiers":["Control"]}"#
+        r#"browser__press_key {"key":"End","modifiers":["Control"]}"#
     }
 }
 
@@ -728,18 +732,18 @@ fn is_browser_step_tool(name: &str) -> bool {
     name.starts_with("browser__")
         || matches!(
             name,
-            "agent__await_result"
+            "agent__await"
                 | "agent__complete"
                 | "agent__pause"
-                | "os__focus_window"
-                | "system__fail"
+                | "window__focus"
+                | "agent__escalate"
         )
 }
 
 fn is_pure_conversation_reply_tool(name: &str) -> bool {
     matches!(
         name,
-        "chat__reply" | "agent__complete" | "agent__pause" | "system__fail" | "math__eval"
+        "chat__reply" | "agent__complete" | "agent__pause" | "agent__escalate" | "math__eval"
     )
 }
 
@@ -786,14 +790,14 @@ fn filter_cognition_tools(
                     || matches!(
                         tool.name.as_str(),
                         "browser__hover"
-                            | "browser__snapshot"
-                            | "browser__click_element"
-                            | "browser__move_mouse"
+                            | "browser__inspect"
+                            | "browser__click"
+                            | "browser__move_pointer"
                             | "browser__wait"
                             | "agent__complete"
-                            | "system__fail"
+                            | "agent__escalate"
                     ))
-                && (!hide_synthetic_click || tool.name != "browser__synthetic_click")
+                && (!hide_synthetic_click || tool.name != "browser__click_at")
         })
         .map(|tool| compact_cognition_tool(tool, prefer_browser_semantics))
         .collect()
@@ -1086,10 +1090,10 @@ fn patch_build_verify_context_hints(goal: &str) -> Option<String> {
     }
 
     let mut hints = vec![
-        "Honor the structured parent context before exploring. If `likely_files` are present, read those files directly before any `filesystem__search`. Use `filesystem__search` only when the direct reads leave the patch target ambiguous.".to_string(),
-        "Once a likely patch file has been read successfully, do not reread the identical file unless it changed or the focused verifier already ran and the latest failure was a malformed edit/tool call; otherwise move to `filesystem__patch`, `filesystem__write_file`, or the focused verification command instead.".to_string(),
-        "When `filesystem__patch` is needed, copy the `search` block exactly from the latest `filesystem__read_file` output, including newlines and indentation. If the change is only one line or the escaping becomes awkward, prefer `filesystem__edit_line` or `filesystem__write_file` instead of retrying a brittle patch payload.".to_string(),
-        "If `filesystem__search` fails or returns nothing useful, stop searching and pivot to direct file reads, patching, or the focused verification command instead of retrying another broad regex probe.".to_string(),
+        "Honor the structured parent context before exploring. If `likely_files` are present, read those files directly before any `file__search`. Use `file__search` only when the direct reads leave the patch target ambiguous.".to_string(),
+        "Once a likely patch file has been read successfully, do not reread the identical file unless it changed or the focused verifier already ran and the latest failure was a malformed edit/tool call; otherwise move to `file__edit`, `file__write`, or the focused verification command instead.".to_string(),
+        "When `file__edit` is needed, copy the `search` block exactly from the latest `file__read` output, including newlines and indentation. If the change is only one line or the escaping becomes awkward, prefer `file__replace_line` or `file__write` instead of retrying a brittle patch payload.".to_string(),
+        "If `file__search` fails or returns nothing useful, stop searching and pivot to direct file reads, patching, or the focused verification command instead of retrying another broad regex probe.".to_string(),
         "Respect any explicit file-boundary constraints in the delegated goal, including `patch only ...` and `keep ... unchanged` instructions.".to_string(),
     ];
     if let Some(value) = likely_files {
@@ -1164,7 +1168,7 @@ fn render_active_worker_instruction(
         .filter(|value| !value.is_empty())
     {
         Some("repo_context_brief") => {
-            "Inspect only the most relevant repo surfaces. Once the repo root is confirmed, do not repeat the same root `filesystem__stat` or `filesystem__list_directory` call. Use search/read tools to identify likely files, capture targeted checks, and finish with `agent__complete` using markdown bullets `likely_files`, `selected_skills`, `targeted_checks`, and `open_questions`.".to_string()
+            "Inspect only the most relevant repo surfaces. Once the repo root is confirmed, do not repeat the same root `file__info` or `file__list` call. Use search/read tools to identify likely files, capture targeted checks, and finish with `agent__complete` using markdown bullets `likely_files`, `selected_skills`, `targeted_checks`, and `open_questions`.".to_string()
         }
         Some("artifact_context_brief") => {
             "Shape the artifact brief rather than generating files. Finish with `agent__complete` using markdown bullets `artifact_goal`, `likely_output_files`, `selected_skills`, `verification_plan`, and `notes`.".to_string()
@@ -1173,7 +1177,7 @@ fn render_active_worker_instruction(
             "Gather current evidence with `web__search` and `web__read`, prefer at least two independent sources when available, and finish with `agent__complete` using markdown bullets `findings`, `sources`, `freshness_notes`, and `open_questions`.".to_string()
         }
         Some("patch_build_verify") => {
-            let mut rule = "Treat the inherited working directory as the repo root for this delegated patch unless a `sys__change_directory` step is still required to reach a quoted repo path. If the current working directory already matches that delegated repo path, do not call `sys__change_directory`; move directly to likely patch files or the focused verification command. Do not spend more than one probe confirming the repo root. After the workspace root is known, move directly to likely patch files or the focused verification command, land the narrowest patch that satisfies the delegated scope, keep file changes bounded, and finish with `agent__complete` using markdown bullets `touched_files`, `command_results`, and `residual_risk`. If a duplicate/no-effect guard fires on a likely patch-file read, your next action must be `filesystem__patch`, `filesystem__write_file`, `sys__exec_session`, or `agent__complete`; do not issue the same read again unless the focused verifier already ran and the most recent failure was `ERROR_CLASS=UnexpectedState Failed to parse tool call`, in which case one refresh `filesystem__read_file` on the likely patch file is allowed before you patch. Once the focused verification command has run and failed, do not rerun it until a workspace edit has landed; move directly to `filesystem__patch`, `filesystem__edit_line`, or `filesystem__write_file`. If the previous step failed with `ERROR_CLASS=UnexpectedState Failed to parse tool call`, do not explain the plan or restate the file contents; immediately emit one corrected JSON tool call using an allowed patch, write, exec, or complete tool. When you use `filesystem__patch`, copy the `search` block exactly from the most recent `filesystem__read_file` output, including newlines and indentation. If the change is one line or the patch block becomes awkward to encode, prefer `filesystem__edit_line` or `filesystem__write_file` instead of retrying malformed patch JSON.".to_string();
+            let mut rule = "Treat the inherited working directory as the repo root for this delegated patch unless a `shell__cd` step is still required to reach a quoted repo path. If the current working directory already matches that delegated repo path, do not call `shell__cd`; move directly to likely patch files or the focused verification command. Do not spend more than one probe confirming the repo root. After the workspace root is known, move directly to likely patch files or the focused verification command, land the narrowest patch that satisfies the delegated scope, keep file changes bounded, and finish with `agent__complete` using markdown bullets `touched_files`, `command_results`, and `residual_risk`. If a duplicate/no-effect guard fires on a likely patch-file read, your next action must be `file__edit`, `file__write`, `shell__start`, or `agent__complete`; do not issue the same read again unless the focused verifier already ran and the most recent failure was `ERROR_CLASS=UnexpectedState Failed to parse tool call`, in which case one refresh `file__read` on the likely patch file is allowed before you patch. Once the focused verification command has run and failed, do not rerun it until a workspace edit has landed; move directly to `file__edit`, `file__replace_line`, or `file__write`. If the previous step failed with `ERROR_CLASS=UnexpectedState Failed to parse tool call`, do not explain the plan or restate the file contents; immediately emit one corrected JSON tool call using an allowed patch, write, exec, or complete tool. When you use `file__edit`, copy the `search` block exactly from the most recent `file__read` output, including newlines and indentation. If the change is one line or the patch block becomes awkward to encode, prefer `file__replace_line` or `file__write` instead of retrying malformed patch JSON.".to_string();
             if let Some(context_hints) = patch_build_verify_context_hints(&assignment.goal) {
                 rule.push(' ');
                 rule.push_str(&context_hints);
@@ -1187,7 +1191,7 @@ fn render_active_worker_instruction(
             "Do not rerun the executor or verifier lane. Synthesize the retained evidence into one final handoff and finish with `agent__complete` using markdown bullets `status`, `touched_files`, `verification_ready`, and `residual_risk`.".to_string()
         }
         Some("citation_audit") => {
-            "Audit the inherited cited brief for freshness, grounding, and source independence. Use the parent-playbook context first; if it already contains the brief, citations, and evidence blocks, do not call `memory__search`. Only use `memory__inspect` for a named evidence gap that the inherited handoff cannot resolve. Finish with `agent__complete` using markdown bullets `verdict`, `freshness_status`, `quote_grounding_status`, `notes`, and `supporting_evidence`.".to_string()
+            "Audit the inherited cited brief for freshness, grounding, and source independence. Use the parent-playbook context first; if it already contains the brief, citations, and evidence blocks, do not call `memory__search`. Only use `memory__read` for a named evidence gap that the inherited handoff cannot resolve. Finish with `agent__complete` using markdown bullets `verdict`, `freshness_status`, `quote_grounding_status`, `notes`, and `supporting_evidence`.".to_string()
         }
         Some("artifact_generate_repair") => {
             "Produce or refine the file-backed artifact, retain verification signals, and finish with `agent__complete` using markdown bullets `produced_files`, `verification_signals`, `presentation_status`, `repair_status`, and `notes`.".to_string()
@@ -1256,9 +1260,9 @@ fn render_workspace_scope_instruction(
                 "WORKSPACE OPS CONTRACT:\n\
                  - This session is already inside the selected coding hierarchy; do not restart the parent playbook from this worker.\n\
                  - Use the inherited repo context and working directory to advance the delegated slice directly.\n\
-                 - Do not spend worker steps on repeated repo-root `filesystem__stat` / `filesystem__list_directory` probes once the workspace root is known.\n\
+                 - Do not spend worker steps on repeated repo-root `file__info` / `file__list` probes once the workspace root is known.\n\
                  - For coding workers, inspect likely patch files or run the focused verification command; for verifier and synthesis workers, use retained evidence instead of re-running the whole executor lane.\n\
-                 - Tool availability snapshot: filesystem__search={} filesystem__stat={} filesystem__list_directory={} sys__exec_or_session={}",
+                 - Tool availability snapshot: file__search={} file__info={} file__list={} shell__run_or_session={}",
                 has_filesystem_search,
                 has_filesystem_stat,
                 has_filesystem_list,
@@ -1270,10 +1274,10 @@ fn render_workspace_scope_instruction(
                 "WORKSPACE OPS CONTRACT:\n\
                  - This request is repo-grounded change work, not a metadata-only search.\n\
                  - Start the selected parent playbook with `agent__delegate` on the root session before using direct workspace tools.\n\
-                 - Do not spend the root step on repeated `filesystem__stat` / `filesystem__list_directory` probes once the repo root is known.\n\
+                 - Do not spend the root step on repeated `file__info` / `file__list` probes once the repo root is known.\n\
                  - The context worker owns bounded repo inspection, the coder owns the patch, the verifier owns targeted checks, and the synthesizer owns the final report.\n\
                  - If a focused verification command is specified, keep it first in the verifier path and widen only when the focused command proves insufficient.\n\
-                 - Tool availability snapshot: filesystem__search={} filesystem__stat={} filesystem__list_directory={} sys__exec_or_session={}",
+                 - Tool availability snapshot: file__search={} file__info={} file__list={} shell__run_or_session={}",
                 has_filesystem_search,
                 has_filesystem_stat,
                 has_filesystem_list,
@@ -1284,11 +1288,11 @@ fn render_workspace_scope_instruction(
             "WORKSPACE OPS CONTRACT:\n\
              - Prefer filesystem-native tools first for local file discovery and metadata checks.\n\
              - For time-window constraints (for example \"modified in the last week\"), content regex alone is insufficient.\n\
-             - Build candidates with `filesystem__search` / `filesystem__list_directory`, then use `filesystem__stat` to read modification timestamps and filter to the requested window.\n\
+             - Build candidates with `file__search` / `file__list`, then use `file__info` to read modification timestamps and filter to the requested window.\n\
              - Report explicit outcome: either matching file paths with timestamps, or a clear zero-results result.\n\
-             - Do NOT call `system__fail` claiming `sys__exec` is required when filesystem metadata tooling is available.\n\
+             - Do NOT call `agent__escalate` claiming `shell__run` is required when filesystem metadata tooling is available.\n\
              - If metadata tooling is unavailable, provide best-effort results plus a stated limitation via `chat__reply`, then `agent__complete`.\n\
-             - Tool availability snapshot: filesystem__search={} filesystem__stat={} filesystem__list_directory={} sys__exec_or_session={}",
+             - Tool availability snapshot: file__search={} file__info={} file__list={} shell__run_or_session={}",
             has_filesystem_search,
             has_filesystem_stat,
             has_filesystem_list,
@@ -1330,9 +1334,9 @@ fn build_strategy_instruction(
 ) -> String {
     if prefer_browser_semantics {
         if has_meaningful_visual_context {
-            return "MODE: BROWSER ACTION. Use browser semantic tools as the primary state and action path. Prefer `browser__snapshot` for accessibility-tree XML plus a tagged screenshot. Read the appended Browser-use state, selector-map, eval, markdown, pagination, tabs, page-info, pending-requests, HTML, and BrowserGym extra-properties, focused-bid, AXTree, and DOM sections when present, and prefer `browser__click_element` with `id` or ordered `ids` from that observation. Numeric `som_id` values from the tagged screenshot are the preferred generic browser IDs. Treat any other screenshot as secondary layout context.".to_string();
+            return "MODE: BROWSER ACTION. Use browser semantic tools as the primary state and action path. Prefer `browser__inspect` for accessibility-tree XML plus a tagged screenshot. Read the appended Browser-use state, selector-map, eval, markdown, pagination, tabs, page-info, pending-requests, HTML, and BrowserGym extra-properties, focused-bid, AXTree, and DOM sections when present, and prefer `browser__click` with `id` or ordered `ids` from that observation. Numeric `som_id` values from the tagged screenshot are the preferred generic browser IDs. Treat any other screenshot as secondary layout context.".to_string();
         }
-        return "MODE: BROWSER ACTION. No trustworthy visual screenshot is attached for this step. Use browser semantic tools as the primary state and action path. Prefer `browser__snapshot` for accessibility-tree XML plus tagged element IDs; when the snapshot appends Browser-use state, selector-map, eval, markdown, pagination, tabs, page-info, pending-requests, HTML, or BrowserGym extra-properties, focused-bid, AXTree, or DOM text sections, use those as additional grounding. Use `browser__click_element` with `id` or ordered `ids` from that observation.".to_string();
+        return "MODE: BROWSER ACTION. No trustworthy visual screenshot is attached for this step. Use browser semantic tools as the primary state and action path. Prefer `browser__inspect` for accessibility-tree XML plus tagged element IDs; when the snapshot appends Browser-use state, selector-map, eval, markdown, pagination, tabs, page-info, pending-requests, HTML, or BrowserGym extra-properties, focused-bid, AXTree, or DOM text sections, use those as additional grounding. Use `browser__click` with `id` or ordered `ids` from that observation.".to_string();
     }
 
     match tier {
@@ -1340,26 +1344,79 @@ fn build_strategy_instruction(
             if matches!(resolved_scope, IntentScopeProfile::Conversation) {
                 "MODE: HEADLESS CONVERSATION. Treat the latest user message and chat history as the primary source of truth. For summarization/drafting tasks with inline text, respond directly via `chat__reply`; do NOT require browser extraction unless the user explicitly requests web retrieval.".to_string()
             } else {
-                "MODE: HEADLESS. Use `browser__snapshot` for accessibility-tree XML plus tagged element IDs, `browser__click_element` with `id` or ordered `ids` for standard DOM controls, and `browser__synthetic_click` with grounded `id` for coordinate-style targets such as SVG, canvas, or blank regions.".to_string()
+                "MODE: HEADLESS. Use `browser__inspect` for accessibility-tree XML plus tagged element IDs, `browser__click` with `id` or ordered `ids` for standard DOM controls, and `browser__click_at` with grounded `id` for coordinate-style targets such as SVG, canvas, or blank regions.".to_string()
             }
         }
         ExecutionTier::VisualBackground => {
-            "MODE: BACKGROUND VISUAL. You see the app state. Prefer 'gui__click_element(id=\"btn_name\")' for robustness. Use coordinates only as fallback.".to_string()
+            "MODE: BACKGROUND VISUAL. You see the app state. Prefer 'screen__click(id=\"btn_name\")' for robustness. Use coordinates only as fallback.".to_string()
         }
         ExecutionTier::VisualForeground => {
             if has_computer_tool {
                 "MODE: FOREGROUND VISUAL. You control the mouse. \n\
-                 - PREFERRED: `computer.left_click_element(id=\"btn_name\")` (Drift-proof).\n\
-                 - FALLBACK: `computer.left_click_id(id=12)` (Only if no semantic ID exists).\n\
-                 - LAST RESORT: `computer.left_click(coordinate=[x,y])`."
+                 - PREFERRED: `screen.left_click_element(id=\"btn_name\")` (Drift-proof).\n\
+                 - FALLBACK: `screen.left_click_id(id=12)` (Only if no semantic ID exists).\n\
+                 - LAST RESORT: `screen.left_click(coordinate=[x,y])`."
                     .to_string()
             } else {
                 "MODE: FOREGROUND VISUAL (Tier-restricted controls). \n\
-                 - `computer` is not available in this step.\n\
-                 - PREFERRED: `gui__click_element(id=\"btn_name\")`.\n\
-                 - If ID lookup fails, use `system__fail` with the missing capability needed."
+                 - `screen` is not available in this step.\n\
+                 - PREFERRED: `screen__click(id=\"btn_name\")`.\n\
+                 - If ID lookup fails, use `agent__escalate` with the missing capability needed."
                     .to_string()
             }
+        }
+    }
+}
+
+fn build_tool_routing_contract(
+    prefer_browser_semantics: bool,
+    resolved_scope: IntentScopeProfile,
+) -> String {
+    if prefer_browser_semantics {
+        return "TOOL ROUTING CONTRACT:\n\
+1. Prefer the most specific grounded browser tool over desktop-wide or shell tools.\n\
+2. Ground the page with `browser__inspect` unless RECENT BROWSER OBSERVATION already names the exact target and next action.\n\
+3. Prefer `browser__click` with grounded `id` or ordered `ids` for standard controls, `browser__select_option` for native dropdown/list choices, `browser__type` with `selector` for grounded editable fields, and `browser__click_at` only for grounded coordinate-style targets.\n\
+4. For retrieval tasks that do not require page interaction, prefer `web__search` / `web__read` over interactive browser navigation.\n\
+5. Never route browser-content interaction through `screen__click_at` or `shell__run` while an equivalent browser or web tool is available.\n\
+6. If a specialized browser or retrieval tool is available, use it directly instead of escalating."
+            .to_string();
+    }
+
+    match resolved_scope {
+        IntentScopeProfile::WorkspaceOps => {
+            "TOOL ROUTING CONTRACT:\n\
+1. Prefer the most specific typed workspace tool over generic shell commands.\n\
+2. If the exact file path is known, use `file__read`, `file__write`, `file__edit`, or `file__info` directly; use `file__search` only when the path is still unknown.\n\
+3. Use `file__info` for timestamps and metadata, not `shell__run` plus ad hoc parsing.\n\
+4. Use deterministic filesystem mutation tools before shell patching when they can express the change cleanly.\n\
+5. Escalate only when no equivalent filesystem or workspace tool can perform the required action."
+                .to_string()
+        }
+        IntentScopeProfile::CommandExecution => {
+            "TOOL ROUTING CONTRACT:\n\
+1. Prefer the most specific typed capability over raw shell when a dedicated tool exists.\n\
+2. Use `app__launch` for GUI app launch, `package__install` for explicit install requests, `model_registry__*` / `backend__*` for model lifecycle, and `monitor__create` for durable watch or notify workflows.\n\
+3. Use `shell__run` for bounded single-step command execution and `shell__start` for multi-step command workflows that need continuity.\n\
+4. If the task is really retrieval, filesystem work, or media extraction, route to the corresponding typed tools instead of shell scraping.\n\
+5. Escalate only when no equivalent typed capability or shell path can achieve the action safely."
+                .to_string()
+        }
+        IntentScopeProfile::Conversation => {
+            "TOOL ROUTING CONTRACT:\n\
+1. Prefer `chat__reply` for pure conversation, drafting, or summarization requests.\n\
+2. Use retrieval, memory, or action tools only when the user asks for facts, sources, or real-world side effects.\n\
+3. Do not route simple conversational turns through browser, shell, or desktop tools without a concrete need."
+                .to_string()
+        }
+        _ => {
+            "TOOL ROUTING CONTRACT:\n\
+1. Prefer the most specific typed tool over generic shell, GUI-coordinate, or fallback tools.\n\
+2. Use read/inspect tools to ground the target first when a semantic or exact path-based tool exists.\n\
+3. For desktop apps, prefer `app__launch`; for non-browser UI, prefer `screen__inspect` then `screen__click` / `screen__type`; use coordinates only as a last resort.\n\
+4. For retrieval, prefer `web__search` / `web__read`; use `http__fetch` only for exact raw endpoints and `media__extract_evidence` for direct media analysis.\n\
+5. Do not use `chat__reply` or `agent__escalate` while an equivalent typed action tool is available."
+                .to_string()
         }
     }
 }
@@ -1392,8 +1449,8 @@ fn build_browser_operating_rules(
             "OPERATING RULES:",
             "1. Use the grounded browser state and output EXACTLY ONE valid JSON tool call.",
             "2. Prefer one grounded `browser__hover` with `duration_ms` `30000` for a moving target. Do not use a short probe hover that will expire before the task can finish.",
-            "3. Use `browser__move_mouse` only if `browser__hover` cannot track the target from the current browser observation. Do not spend the next step on `browser__snapshot` unless the target is missing or no longer grounded.",
-            "4. Use `system__fail` only if the available browser tools cannot reach the target.",
+            "3. Use `browser__move_pointer` only if `browser__hover` cannot track the target from the current browser observation. Do not spend the next step on `browser__inspect` unless the target is missing or no longer grounded.",
+            "4. Use `agent__escalate` only if the available browser tools cannot reach the target.",
         ]
         .join("\n");
     }
@@ -1404,12 +1461,12 @@ fn build_browser_operating_rules(
     );
     let mut rules = vec![
         "1. Use the least-privileged browser tool that works and output EXACTLY ONE valid JSON tool call.".to_string(),
-        "2. Treat RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, and RECENT SUCCESS SIGNAL as the grounded state. If they already name a visible control and the next action, do that instead of another `browser__snapshot`, `browser__scroll`, or `browser__find_text`. When RECENT PENDING BROWSER STATE gives an exact tool call, emit that exact tool call unless the current browser observation proves it impossible. Preserve numeric arguments exactly as written; do not round, simplify, swap in a nearby id, or substitute alternate coordinates.".to_string(),
-        "3. Only use `browser__click_element` ids that appear verbatim in RECENT BROWSER OBSERVATION or RECENT PENDING BROWSER STATE; never synthesize ids. Prefer numeric `som_id` values from tagged browser observations when available; otherwise use the grounded semantic id exactly as shown.".to_string(),
-        "4. Prefer `browser__click_element` over GUI or desktop-wide input for standard page controls. When RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, or RECENT SUCCESS SIGNAL already grounds a coordinate-style target or explicitly names `browser__synthetic_click`, follow that tool instead of converting it to `browser__click_element`. `browser__find_text` is navigation evidence, not proof that a target row, item, or record is visible. If requested text appears in both instructions and the working area, the instruction copy is descriptive only.".to_string(),
-        "5. When a precise delay, wait condition, or coordinate action must be followed by an already grounded browser action, prefer `browser__wait` or `browser__synthetic_click` with `continue_with` so the executor can act immediately without another inference turn. When RECENT BROWSER OBSERVATION already names a grounded coordinate target, prefer `browser__synthetic_click` with `id` instead of guessing raw coordinates. Use `continue_with` only when the follow-up tool name and every required argument are already fully grounded in RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, or RECENT SUCCESS SIGNAL. If the follow-up action is only implied by the page instruction, take the first action alone and re-evaluate. When RECENT PENDING BROWSER STATE already gives an exact coordinate click and the current browser state shows a single grounded follow-up control, prefer one `browser__synthetic_click` with `continue_with` so the executor can act immediately after the coordinate click's observable browser reaction. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
-        "5b. For `browser__synthetic_click`, prefer `id` when the target is already grounded in RECENT BROWSER OBSERVATION. When using raw coordinates for `browser__synthetic_click` or `browser__move_mouse`, they are absolute viewport CSS pixels, not normalized 0-1 fractions. For example, `x=85.0` means 85 pixels from the left edge.".to_string(),
-        "5c. When a grounded editable field is already visible and the next action is to enter text, prefer one `browser__type` with `selector` over a separate focus click plus typing. If the field must be focused first because the click itself is the next grounded browser action, you may use `browser__click_element` with `continue_with` `browser__type` only when the field target and exact text are already fully grounded.".to_string(),
+        "2. Treat RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, and RECENT SUCCESS SIGNAL as the grounded state. If they already name a visible control and the next action, do that instead of another `browser__inspect`, `browser__scroll`, or `browser__find_text`. When RECENT PENDING BROWSER STATE gives an exact tool call, emit that exact tool call unless the current browser observation proves it impossible. Preserve numeric arguments exactly as written; do not round, simplify, swap in a nearby id, or substitute alternate coordinates.".to_string(),
+        "3. Only use `browser__click` ids that appear verbatim in RECENT BROWSER OBSERVATION or RECENT PENDING BROWSER STATE; never synthesize ids. Prefer numeric `som_id` values from tagged browser observations when available; otherwise use the grounded semantic id exactly as shown.".to_string(),
+        "4. Prefer `browser__click` over GUI or desktop-wide input for standard page controls. When RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, or RECENT SUCCESS SIGNAL already grounds a coordinate-style target or explicitly names `browser__click_at`, follow that tool instead of converting it to `browser__click`. `browser__find_text` is navigation evidence, not proof that a target row, item, or record is visible. If requested text appears in both instructions and the working area, the instruction copy is descriptive only.".to_string(),
+        "5. When a precise delay, wait condition, or coordinate action must be followed by an already grounded browser action, prefer `browser__wait` or `browser__click_at` with `continue_with` so the executor can act immediately without another inference turn. When RECENT BROWSER OBSERVATION already names a grounded coordinate target, prefer `browser__click_at` with `id` instead of guessing raw coordinates. Use `continue_with` only when the follow-up tool name and every required argument are already fully grounded in RECENT BROWSER OBSERVATION, RECENT PENDING BROWSER STATE, or RECENT SUCCESS SIGNAL. If the follow-up action is only implied by the page instruction, take the first action alone and re-evaluate. When RECENT PENDING BROWSER STATE already gives an exact coordinate click and the current browser state shows a single grounded follow-up control, prefer one `browser__click_at` with `continue_with` so the executor can act immediately after the coordinate click's observable browser reaction. Do not use `continue_with` for drag setup or pointer button state changes.".to_string(),
+        "5b. For `browser__click_at`, prefer `id` when the target is already grounded in RECENT BROWSER OBSERVATION. When using raw coordinates for `browser__click_at` or `browser__move_pointer`, they are absolute viewport CSS pixels, not normalized 0-1 fractions. For example, `x=85.0` means 85 pixels from the left edge.".to_string(),
+        "5c. When a grounded editable field is already visible and the next action is to enter text, prefer one `browser__type` with `selector` over a separate focus click plus typing. If the field must be focused first because the click itself is the next grounded browser action, you may use `browser__click` with `continue_with` `browser__type` only when the field target and exact text are already fully grounded.".to_string(),
     ];
 
     if browser_rule_relevant(
@@ -1420,7 +1477,7 @@ fn build_browser_operating_rules(
     ) || pending_browser_state_context.contains("`ids` [")
     {
         rules.push(
-            "5a. When the page instruction already requires an ordered sequence of grounded clicks, prefer one `browser__click_element` call with ordered `ids` and `delay_ms_between_ids` over separate inference turns. If a visible gate or commit click must happen first, only attach `continue_with` when RECENT PENDING BROWSER STATE or RECENT SUCCESS SIGNAL already provides the complete follow-up `browser__click_element` arguments; otherwise click the gate first and re-evaluate."
+            "5a. When the page instruction already requires an ordered sequence of grounded clicks, prefer one `browser__click` call with ordered `ids` and `delay_ms_between_ids` over separate inference turns. If a visible gate or commit click must happen first, only attach `continue_with` when RECENT PENDING BROWSER STATE or RECENT SUCCESS SIGNAL already provides the complete follow-up `browser__click` arguments; otherwise click the gate first and re-evaluate."
                 .to_string(),
         );
     }
@@ -1453,7 +1510,7 @@ fn build_browser_operating_rules(
 
     if browser_rule_relevant(&browser_context, &["autocomplete", "listbox", "combobox"]) {
         rules.push(
-            "6. Resolve pending autocomplete, listbox, or combobox state before submit or completion. If a navigation key highlighted a candidate, commit it with `browser__key` `Enter`."
+            "6. Resolve pending autocomplete, listbox, or combobox state before submit or completion. If a navigation key highlighted a candidate, commit it with `browser__press_key` `Enter`."
                 .to_string(),
         );
     }
@@ -1465,7 +1522,7 @@ fn build_browser_operating_rules(
         ],
     ) {
         rules.push(
-            "6b. When the goal is to choose an option from a native dropdown or list and the control is already grounded as a `combobox`, `listbox`, or `option`, prefer `browser__select_dropdown` with the exact requested `label` or `value` instead of clicking the control just to focus it. Use `browser__dropdown_options` only when the requested option text is not already grounded."
+            "6b. When the goal is to choose an option from a native dropdown or list and the control is already grounded as a `combobox`, `listbox`, or `option`, prefer `browser__select_option` with the exact requested `label` or `value` instead of clicking the control just to focus it. Use `browser__list_options` only when the requested option text is not already grounded."
                 .to_string(),
         );
     }
@@ -1498,12 +1555,12 @@ fn build_browser_operating_rules(
         ],
     ) {
         rules.push(format!(
-            "8. For scroll goals, ground the real scrollable control first. Do not start with page-level `Home` or `End` on `body` when RECENT BROWSER OBSERVATION already exposes the intended control. When that control already has a grounded selector, prefer `browser__key` with `selector` over a separate focus click. Prefer control-local `Home`, `End`, `PageUp`, or `PageDown`. Finish only when grounded state shows `can_scroll_up=false`, `scroll_top=0`, or `can_scroll_down=false`. If `Home` or `End` still leaves room to move, do not repeat it blindly: escalate with the same control-local `browser__key` plus modifiers (for example {} (`{}`) when the control is already grounded) or the matching bottom-edge chord.",
+            "8. For scroll goals, ground the real scrollable control first. Do not start with page-level `Home` or `End` on `body` when RECENT BROWSER OBSERVATION already exposes the intended control. When that control already has a grounded selector, prefer `browser__press_key` with `selector` over a separate focus click. Prefer control-local `Home`, `End`, `PageUp`, or `PageDown`. Finish only when grounded state shows `can_scroll_up=false`, `scroll_top=0`, or `can_scroll_down=false`. If `Home` or `End` still leaves room to move, do not repeat it blindly: escalate with the same control-local `browser__press_key` plus modifiers (for example {} (`{}`) when the control is already grounded) or the matching bottom-edge chord.",
             top_edge_jump_tool_call_with_grounded_selector(),
             top_edge_jump_name(),
         ));
         rules.push(format!(
-            "9. When using `browser__key` for a control-local action, include `selector` when the intended control is already grounded. When escalating a grounded control with a modifier chord like `{}`, reuse that same `selector` and include both `key` and `modifiers` in the JSON tool call.",
+            "9. When using `browser__press_key` for a control-local action, include `selector` when the intended control is already grounded. When escalating a grounded control with a modifier chord like `{}`, reuse that same `selector` and include both `key` and `modifiers` in the JSON tool call.",
             top_edge_jump_name(),
         ));
         rules.push(
@@ -1547,7 +1604,7 @@ fn build_browser_operating_rules(
     }
 
     rules.push(
-        "13. Use `os__focus_window` only to recover browser focus and `system__fail` only when the available browser tools cannot reach the target.".to_string(),
+        "13. Use `window__focus` only to recover browser focus and `agent__escalate` only when the available browser tools cannot reach the target.".to_string(),
     );
 
     format!("OPERATING RULES:\n{}", rules.join("\n"))
@@ -1574,45 +1631,45 @@ fn build_operating_rules(
 3. Use the least-privileged tool that works.\n\
 4. Output EXACTLY ONE valid JSON tool call.\n\
 4a. DESKTOP RELIABILITY PROTOCOL:\n\
-    - If you are about to click/type/scroll in a browser, do `browser__snapshot` first unless you already have a very recent snapshot in HISTORY.\n\
-    - If RECENT BROWSER OBSERVATION already includes the target semantic id or label, use `browser__click_element` on that id instead of taking another snapshot.\n\
-    - If you are about to click/type in a non-browser app, do `gui__snapshot` first when an element id is needed; then use `gui__click_element` / `gui__type`.\n\
+    - If you are about to click/type/scroll in a browser, do `browser__inspect` first unless you already have a very recent snapshot in HISTORY.\n\
+    - If RECENT BROWSER OBSERVATION already includes the target semantic id or label, use `browser__click` on that id instead of taking another snapshot.\n\
+    - If you are about to click/type in a non-browser app, do `screen__inspect` first when an element id is needed; then use `screen__click` / `screen__type`.\n\
     - After any action, verify via the least-cost check (browser snapshot for browser; gui snapshot or active window title for GUI) before claiming success.\n\
 5. When goal achieved, call 'agent__complete'.\n\
 6. If the current mode fails, output a reason why so the system can escalate to the next tier.\n\
-7. CRITICAL: When using 'computer.type', you MUST first CLICK the input field to ensure focus.\n\
-8. BROWSER RULE: Never launch browsers via `sys__exec`. Treat that as a policy violation. Use `browser__navigate` only for interactive browsing actions that require browser UI state.\n\
+7. CRITICAL: When using 'screen.type', you MUST first CLICK the input field to ensure focus.\n\
+8. BROWSER RULE: Never launch browsers via `shell__run`. Treat that as a policy violation. Use `browser__navigate` only for interactive browsing actions that require browser UI state.\n\
 8a. WEB RETRIEVAL RULE: For retrieval (look up, latest, sources, citations), use `web__search` and `web__read` first. Do NOT open search engine SERP pages via `browser__navigate` when `web__search` is available. Use `browser__*` only when the page requires interaction (auth/forms/CAPTCHA). If a human-verification challenge appears, stop and ask the user to complete it manually, then retry.\n\
-8aa. DIRECT FETCH RULE: Use `net__fetch` only when the user explicitly provides an exact URL/endpoint and asks for raw response text/headers or API diagnostics. For exact webpage/article URLs that the user wants summarized or read, prefer direct `web__read` before `web__search`. For exact audio/video URLs that the user wants summarized or generally analyzed, prefer `media__extract_multimodal_evidence` before `web__read`. Use `media__extract_transcript` when the user explicitly wants a transcript/transcription. Do not silently replace media-content requests with page-description summaries when direct media evidence extraction is available.\n\
+8aa. DIRECT FETCH RULE: Use `http__fetch` only when the user explicitly provides an exact URL/endpoint and asks for raw response text/headers or API diagnostics. For exact webpage/article URLs that the user wants summarized or read, prefer direct `web__read` before `web__search`. For exact audio/video URLs that the user wants summarized or generally analyzed, prefer `media__extract_evidence` before `web__read`. Use `media__extract_transcript` when the user explicitly wants a transcript/transcription. Do not silently replace media-content requests with page-description summaries when direct media evidence extraction is available.\n\
 8ab. FETCH HYGIENE RULE: Never invent API keys, placeholder credentials (for example `YOUR_API_KEY`), or auto-IP endpoints. If credentials or endpoint details are missing, switch to source-grounded web retrieval and cite the sources.\n\
-8ac. MEMORY RETRIEVAL RULE: For questions about prior durable workflow, remembered constraints, or stored project context, use `memory__search` and `memory__inspect` before answering. If you need to order candidate snippets by relevance, use `model__rerank`. Use `model__embeddings` only for semantic comparison inputs, not as a final answer.\n\
-8b. BROWSER CLICK RULE: In a browser window, never use `gui__click` on web content. Prefer `browser__click_element` with IDs from `browser__snapshot`; use `browser__click` with concrete CSS selectors only as fallback. Use GUI clicks only for OS chrome (address bar/system dialogs) when browser tools cannot target it.\n\
-8c. PACKAGE INSTALL RULE: Only use `sys__install_package` when the user explicitly asked to install something.\n\
+8ac. MEMORY RETRIEVAL RULE: For questions about prior durable workflow, remembered constraints, or stored project context, use `memory__search` and `memory__read` before answering. If you need to order candidate snippets by relevance, use `model__rerank`. Use `model__embeddings` only for semantic comparison inputs, not as a final answer.\n\
+8b. BROWSER CLICK RULE: In a browser window, never use `screen__click_at` on web content. Prefer `browser__click` with IDs from `browser__inspect`; use `browser__click` with concrete CSS selectors only as fallback. Use GUI clicks only for OS chrome (address bar/system dialogs) when browser tools cannot target it.\n\
+8c. PACKAGE INSTALL RULE: Only use `package__install` when the user explicitly asked to install something.\n\
 8d. BROWSER RESILIENCE RULE: If `browser__navigate` fails with CDP/connection errors, retry `browser__navigate` once. If it still fails, switch to visual tools.\n\
-8e. SHELL CONTINUITY RULE: For command workflows with more than one command step (build/test/install sequences, iterative probing), prefer `sys__exec_session` for continuity. Use `sys__exec_session_reset` only when output indicates the session is wedged.\n\
-9. APP LAUNCH RULE: To open applications, use `os__launch_app` as the primary launch mechanism whenever it is available in TOOLS.\n\
-   - If `os__launch_app` is unavailable, choose the best equivalent launch-capable tool available in the current scope and continue execution.\n\
-   - Treat `system__fail` as a last resort only when no available tool can perform app launch in the current scope.\n\
+8e. SHELL CONTINUITY RULE: For command workflows with more than one command step (build/test/install sequences, iterative probing), prefer `shell__start` for continuity. Use `shell__reset` only when output indicates the session is wedged.\n\
+9. APP LAUNCH RULE: To open applications, use `app__launch` as the primary launch mechanism whenever it is available in TOOLS.\n\
+   - If `app__launch` is unavailable, choose the best equivalent launch-capable tool available in the current scope and continue execution.\n\
+   - Treat `agent__escalate` as a last resort only when no available tool can perform app launch in the current scope.\n\
    - APP LAUNCH VERIFICATION: After launching, verify the app is actually open/focused before calling `agent__complete`.\n\
      If launch cannot be verified, mark the launch as failed and continue recovery.\n\
    - NEVER try to click random ID #1 (the background) hoping it opens a menu.\n\
 10. DELEGATION RULE: Do NOT use 'agent__delegate' for simple, atomic actions like opening an app, clicking a button, or typing text. Use the direct tool. When a bounded worker is justified, prefer `researcher` for evidence gathering, `verifier` for postcondition checks, and `coder` for narrow implementation slices.\n\
-11. CAPABILITY CHECK: If a preferred tool is unavailable, first use an equivalent available tool (e.g. use `gui__click_element` when `computer` is unavailable). Only call `system__fail` when no equivalent tool can achieve the action.\n\
+11. CAPABILITY CHECK: If a preferred tool is unavailable, first use an equivalent available tool (e.g. use `screen__click` when `screen` is unavailable). Only call `agent__escalate` when no equivalent tool can achieve the action.\n\
 12. CHAT RULE: Do NOT use 'chat__reply' to announce planned actions (e.g. \"I will now open...\"). Use chat only for final user-facing answers or explicit clarification requests.\n\
-13. RECOVERY RULE: If you previously failed with `DELEGATION_REJECTED` or `MISSING_CAPABILITY`, do not retry the same strategy. Use `system__fail` to request a tier upgrade.\n\
+13. RECOVERY RULE: If you previously failed with `DELEGATION_REJECTED` or `MISSING_CAPABILITY`, do not retry the same strategy. Use `agent__escalate` to request a tier upgrade.\n\
 14. CONTEXT SWITCHING RULE: Check the 'Active Window' in the state above.\n\
-    - If Active Window is 'Calculator' (or any non-browser app), DO NOT use 'browser__*' tools. Use `gui__click_element` first, then `computer.left_click` if needed.\n\
+    - If Active Window is 'Calculator' (or any non-browser app), DO NOT use 'browser__*' tools. Use `screen__click` first, then `screen.left_click` if needed.\n\
     - If Active Window is 'Chrome' or 'Firefox', prefer 'browser__*' tools for web interaction.\n\
  15. SILENT EXECUTION: For action intents (web/ui/workspace/command), execute the action immediately. For conversation intents (summarize/draft/reply), use `chat__reply` with the requested output.\n\
  16. SEARCH COMPLETION RULE: For search intents, do `web__search` first. If needed, follow with `web__read` on 1-3 top sources. For the final answer, use `chat__reply` with concise synthesis, citations, and absolute dates.\n\
  17. COMMAND PROBE RULE: If resolved intent_id is `command.probe`, treat this as an environment check (not an install task).\n\
-     - Use `sys__exec` with a POSIX-sh-safe probe that exits 0 whether the command exists or not.\n\
+     - Use `shell__run` with a POSIX-sh-safe probe that exits 0 whether the command exists or not.\n\
      - Do NOT execute the target program directly to check existence.\n\
      - Treat `NOT_FOUND_IN_PATH` as a valid final answer (not an error or failure mode).\n\
      - After the probe, summarize `FOUND:`/`NOT_FOUND_IN_PATH` and finish with `agent__complete` (do not attempt remediation).\n\
      - Do NOT install packages unless the user explicitly asked to install.\n\
      - Example (replace <BIN>): `if command -v <BIN> >/dev/null 2>&1; then echo \"FOUND: $(command -v <BIN>)\"; <BIN> --version 2>/dev/null || true; else echo \"NOT_FOUND_IN_PATH\"; fi`.\n\
- 18. MATH RULE: For pure arithmetic expressions or numeric calculations (for example `247 * 38`), use `math__eval` when available. Do NOT use `sys__exec`/`sys__exec_session` for arithmetic-only tasks."
+ 18. MATH RULE: For pure arithmetic expressions or numeric calculations (for example `247 * 38`), use `math__eval` when available. Do NOT use `shell__run`/`shell__start` for arithmetic-only tasks."
             .to_string()
     }
 }
@@ -1643,6 +1700,7 @@ fn build_compact_browser_action_prompt_assembly(
     urgent_feedback: &str,
     failure_block: &str,
     strategy_instruction: &str,
+    tool_routing_contract: &str,
     verify_instruction: &str,
     cognition_tool_desc: &str,
     browser_observation_context: &str,
@@ -1679,6 +1737,8 @@ fn build_compact_browser_action_prompt_assembly(
             .with_budget(PROMPT_SECTION_STATE_MAX_CHARS),
         PromptSection::new("strategy_instruction", strategy_instruction)
             .with_budget(PROMPT_SECTION_STRATEGY_MAX_CHARS),
+        PromptSection::new("tool_routing_contract", tool_routing_contract)
+            .with_budget(PROMPT_SECTION_TOOL_ROUTING_MAX_CHARS),
         PromptSection::new("verify_instruction", verify_instruction)
             .with_budget(PROMPT_SECTION_VERIFY_MAX_CHARS),
         PromptSection::new(
@@ -1707,6 +1767,7 @@ fn build_compact_browser_action_system_instructions(
     urgent_feedback: &str,
     failure_block: &str,
     strategy_instruction: &str,
+    tool_routing_contract: &str,
     verify_instruction: &str,
     cognition_tool_desc: &str,
     browser_observation_context: &str,
@@ -1723,6 +1784,7 @@ fn build_compact_browser_action_system_instructions(
         urgent_feedback,
         failure_block,
         strategy_instruction,
+        tool_routing_contract,
         verify_instruction,
         cognition_tool_desc,
         browser_observation_context,
@@ -1793,7 +1855,7 @@ pub async fn think(
             missing_capability
         );
         let synthetic_call = json!({
-            "name": "system__fail",
+            "name": "agent__escalate",
             "arguments": {
                 "reason": reason,
                 "missing_capability": missing_capability
@@ -1809,7 +1871,7 @@ pub async fn think(
     let has_computer_tool = perception
         .available_tools
         .iter()
-        .any(|t| t.name == "computer");
+        .any(|t| t.name == "screen");
     let prefer_browser_semantics = reply_safe_browser_semantics_enabled(
         is_browser,
         &perception.available_tools,
@@ -1881,7 +1943,7 @@ pub async fn think(
         let recovery_hint = if failure_reason.contains("TargetNotFound")
             || failure_reason.contains("VisionTargetNotFound")
         {
-            "Recovery hint: run `ui__find` or `browser__snapshot` first to reacquire the target before clicking."
+            "Recovery hint: run `screen__find` or `browser__inspect` first to reacquire the target before clicking."
         } else if failure_reason.contains("TimeoutOrHang")
             || failure_reason.contains("NoEffectAfterAction")
             || failure_reason.contains("NonDeterministicUI")
@@ -1893,14 +1955,14 @@ pub async fn think(
             if matches!(resolved_scope, IntentScopeProfile::CommandExecution) {
                 "Recovery hint: for command failures, use command history to revise commands and probe the environment before escalating."
             } else {
-                "Recovery hint: choose an equivalent available tool; if none exists, call `system__fail` with missing capability."
+                "Recovery hint: choose an equivalent available tool; if none exists, call `agent__escalate` with missing capability."
             }
         } else if failure_reason.contains("PermissionOrApprovalRequired")
             || failure_reason.contains("UserInterventionNeeded")
         {
             "Recovery hint: do not loop retries; pause and request user intervention or approval."
         } else {
-            "Recovery hint: do not repeat the exact same action; choose a different approach or escalate with `system__fail`."
+            "Recovery hint: do not repeat the exact same action; choose a different approach or escalate with `agent__escalate`."
         };
 
         format!(
@@ -2056,6 +2118,8 @@ pub async fn think(
         &pending_browser_state_context,
         &success_signal_context,
     );
+    let tool_routing_contract =
+        build_tool_routing_contract(prefer_browser_semantics, resolved_scope);
     let workspace_context = workspace_reference_context(prefer_browser_semantics, &perception);
     let kernel_guidance = "IMPORTANT: Use only the available tools and grounded evidence from this step.\n\
 If an action requires approval, escalation, or missing capability handling, choose the corresponding tool path and let the runtime mediate it.\n\
@@ -2090,7 +2154,7 @@ Do not claim success for actions you did not verify.";
              - Discovery must probe host capabilities in typed categories (apps/integrations, shell tools, permissions/approvals, and signal/notification channels when relevant).\n\
              - Route selection must be explicit and evidence-backed: `native_integration` | `enablement_request` | `script_backend`.\n\
              - Screenshot/visual artifacts are non-blocking for command workflows.\n\
-             - Perform environment discovery with `sys__exec`/`sys__exec_session` when command availability is uncertain.\n\
+             - Perform environment discovery with `shell__run`/`shell__start` when command availability is uncertain.\n\
              - Execute only after route selection and keep execution steps minimal.\n\
              - Runtime host facts (authoritative for command synthesis):\n\
                - runtime_home_dir={}\n\
@@ -2107,8 +2171,8 @@ Do not claim success for actions you did not verify.";
              - Final user response must be structured from evidence and include `Mechanism: ...`; include timestamps/handles/status controls whenever available.\n\
              - For time-sensitive tasks, include an absolute UTC timestamp in the final reply as `Target UTC: YYYY-MM-DDTHH:MM:SSZ`.\n\
              - For timer/alarm/countdown goals, the notification path must be deferred to fire at due time (for example `sleep ... && notify-send ...` or scheduler equivalent); immediate standalone `notify-send` does not satisfy the contract.\n\
-             - If tool output reports `ERROR_CLASS=ExecutionContractViolation ... missing_keys=...`, do not retry or rewrite the command loop; surface a terminal contract failure via `system__fail`.\n\
-             - Use `system__fail` only when command tooling is unavailable.",
+             - If tool output reports `ERROR_CLASS=ExecutionContractViolation ... missing_keys=...`, do not retry or rewrite the command loop; surface a terminal contract failure via `agent__escalate`.\n\
+             - Use `agent__escalate` only when command tooling is unavailable.",
             runtime_home_dir,
             runtime_desktop_dir,
             host_receipt.probe_source,
@@ -2126,19 +2190,19 @@ Do not claim success for actions you did not verify.";
         let has_filesystem_search = perception
             .available_tools
             .iter()
-            .any(|tool| tool.name == "filesystem__search");
+            .any(|tool| tool.name == "file__search");
         let has_filesystem_stat = perception
             .available_tools
             .iter()
-            .any(|tool| tool.name == "filesystem__stat");
+            .any(|tool| tool.name == "file__info");
         let has_filesystem_list = perception
             .available_tools
             .iter()
-            .any(|tool| tool.name == "filesystem__list_directory");
+            .any(|tool| tool.name == "file__list");
         let has_command_tool = perception
             .available_tools
             .iter()
-            .any(|tool| matches!(tool.name.as_str(), "sys__exec" | "sys__exec_session"));
+            .any(|tool| matches!(tool.name.as_str(), "shell__run" | "shell__start"));
         render_workspace_scope_instruction(
             selected_playbook_id,
             has_filesystem_search,
@@ -2158,8 +2222,8 @@ Do not claim success for actions you did not verify.";
     {
         "AUTOMATION MONITOR CONTRACT:\n\
          - This goal is a durable local automation install, not a shell session.\n\
-         - Use `automation__create_monitor` to install the workflow.\n\
-         - Do NOT use `sys__exec`, `sys__exec_session`, cron, systemd timers, launchd, or ad hoc sleep loops for this intent.\n\
+         - Use `monitor__create` to install the workflow.\n\
+         - Do NOT use `shell__run`, `shell__start`, cron, systemd timers, launchd, or ad hoc sleep loops for this intent.\n\
          - Encode the workflow semantics directly in the tool arguments: keywords, optional title/description, poll interval, and source_prompt.\n\
          - After successful install, finalize with the installed workflow summary."
             .to_string()
@@ -2185,6 +2249,7 @@ Do not claim success for actions you did not verify.";
             &urgent_feedback,
             &failure_block,
             &strategy_instruction,
+            &tool_routing_contract,
             &verify_instruction,
             &cognition_tool_desc,
             &browser_observation_context,
@@ -2202,6 +2267,7 @@ Do not claim success for actions you did not verify.";
             &urgent_feedback,
             &failure_block,
             &strategy_instruction,
+            &tool_routing_contract,
             som_instruction,
             &verify_instruction,
             &command_scope_instruction,
@@ -2262,7 +2328,7 @@ Do not claim success for actions you did not verify.";
             .map(|resolved| resolved.intent_id == "automation.monitor")
             .unwrap_or(false)
         {
-            "Install the durable monitor workflow now using `automation__create_monitor`. Do not use shell commands."
+            "Install the durable monitor workflow now using `monitor__create`. Do not use shell commands."
         } else if matches!(resolved_scope, IntentScopeProfile::CommandExecution) {
             "Execute the next step using command tools. Rely on terminal output and command history; visual artifacts are non-blocking."
         } else if compact_browser_action_prompt {
@@ -2358,7 +2424,7 @@ Do not claim success for actions you did not verify.";
             );
             return Ok(CognitionResult {
                 raw_output: json!({
-                    "name": "system__fail",
+                    "name": "agent__escalate",
                     "arguments": {
                         "reason": format!(
                             "ERROR_CLASS=TimeoutOrHang Cognition inference timed out after {}ms.",
@@ -2391,7 +2457,7 @@ Do not claim success for actions you did not verify.";
                 log::error!("CRITICAL: Agent Inference Failed: {}", e);
                 return Ok(CognitionResult {
                     raw_output: json!({
-                        "name": "system__fail",
+                        "name": "agent__escalate",
                         "arguments": {
                             "reason": inference_error_system_fail_reason(&err_msg),
                         }
@@ -2411,7 +2477,7 @@ Do not claim success for actions you did not verify.";
         );
         return Ok(CognitionResult {
             raw_output: json!({
-                "name": "system__fail",
+                "name": "agent__escalate",
                 "arguments": {
                     "reason": "ERROR_CLASS=UserInterventionNeeded Cognition inference returned empty output. Verify provider health and credentials, then resume."
                 }
@@ -2436,13 +2502,14 @@ mod tests {
         build_compact_browser_action_prompt_assembly,
         build_compact_browser_action_system_instructions, build_operating_rules,
         build_recent_command_history_context, build_standard_prompt_assembly,
-        build_strategy_instruction, compact_browser_action_prompt_eligible,
-        compact_browser_action_prompt_tools, encode_browser_prompt_screenshot,
-        filter_cognition_tools, format_prompt_assembly_report, has_meaningful_visual_context,
-        inference_error_system_fail_reason, mailbox_connector_instruction,
-        preflight_missing_capability, render_active_worker_instruction,
-        render_selected_parent_playbook_instruction, render_workspace_scope_instruction,
-        reply_safe_browser_semantics_enabled, top_edge_jump_name, top_edge_jump_tool_call,
+        build_strategy_instruction, build_tool_routing_contract,
+        compact_browser_action_prompt_eligible, compact_browser_action_prompt_tools,
+        encode_browser_prompt_screenshot, filter_cognition_tools, format_prompt_assembly_report,
+        has_meaningful_visual_context, inference_error_system_fail_reason,
+        mailbox_connector_instruction, preflight_missing_capability,
+        render_active_worker_instruction, render_selected_parent_playbook_instruction,
+        render_workspace_scope_instruction, reply_safe_browser_semantics_enabled,
+        top_edge_jump_name, top_edge_jump_tool_call,
         top_edge_jump_tool_call_with_grounded_selector, workspace_reference_context, PromptSection,
     };
     use crate::agentic::runtime::service::step::perception::PerceptionContext;
@@ -2578,10 +2645,11 @@ mod tests {
             "",
             "",
             "Strategy goes here.",
+            "TOOL ROUTING CONTRACT:\n- prefer specific tools",
             "",
             "",
             "COMMAND EXECUTION CONTRACT:\n- Use terminal evidence.",
-            "browser__snapshot",
+            "browser__inspect",
             "CURRENT BROWSER OBSERVATION:\n<button id=\"checkout\" />",
             "",
             "",
@@ -2617,6 +2685,9 @@ mod tests {
         assert!(assembly
             .system_instructions
             .contains("WORKSPACE OPS CONTRACT"));
+        assert!(assembly
+            .system_instructions
+            .contains("TOOL ROUTING CONTRACT"));
         assert!(!assembly.system_instructions.contains("automation.monitor"));
 
         let included_sections: Vec<_> = assembly
@@ -2630,6 +2701,7 @@ mod tests {
         assert!(included_sections.contains(&"selected_parent_playbook_instruction"));
         assert!(included_sections.contains(&"active_worker_instruction"));
         assert!(included_sections.contains(&"workspace_scope_contract"));
+        assert!(included_sections.contains(&"tool_routing_contract"));
         assert!(!included_sections.contains(&"automation_monitor_contract"));
     }
 
@@ -2715,9 +2787,9 @@ mod tests {
                 workflow_id: Some("repo_context_brief".to_string()),
                 role: Some("Context Worker".to_string()),
                 allowed_tools: vec![
-                    "filesystem__read_file".to_string(),
-                    "filesystem__search".to_string(),
-                    "filesystem__stat".to_string(),
+                    "file__read".to_string(),
+                    "file__search".to_string(),
+                    "file__info".to_string(),
                     "agent__complete".to_string(),
                 ],
                 completion_contract: WorkerCompletionContract {
@@ -2736,7 +2808,7 @@ mod tests {
         assert!(rendered.contains("repo_context_brief"));
         assert!(rendered.contains("Current working directory: `/tmp/repo`"));
         assert!(rendered.contains("Delegated goal: `Inspect repo context`"));
-        assert!(rendered.contains("do not repeat the same root `filesystem__stat`"));
+        assert!(rendered.contains("do not repeat the same root `file__info`"));
         assert!(rendered.contains("`likely_files`"));
     }
 
@@ -2757,9 +2829,9 @@ mod tests {
                 workflow_id: Some("patch_build_verify".to_string()),
                 role: Some("Coding Worker".to_string()),
                 allowed_tools: vec![
-                    "filesystem__read_file".to_string(),
-                    "filesystem__patch".to_string(),
-                    "sys__exec_session".to_string(),
+                    "file__read".to_string(),
+                    "file__edit".to_string(),
+                    "shell__start".to_string(),
                     "agent__complete".to_string(),
                 ],
                 completion_contract: WorkerCompletionContract {
@@ -2778,7 +2850,7 @@ mod tests {
         assert!(rendered.contains("Delegated goal: `Patch the workspace`"));
         assert!(rendered.contains("Do not spend more than one probe confirming the repo root"));
         assert!(rendered.contains("focused verification command"));
-        assert!(rendered.contains("your next action must be `filesystem__patch`"));
+        assert!(rendered.contains("your next action must be `file__edit`"));
     }
 
     #[test]
@@ -2798,10 +2870,10 @@ mod tests {
                 workflow_id: Some("patch_build_verify".to_string()),
                 role: Some("Coding Worker".to_string()),
                 allowed_tools: vec![
-                    "filesystem__read_file".to_string(),
-                    "filesystem__search".to_string(),
-                    "filesystem__patch".to_string(),
-                    "sys__exec_session".to_string(),
+                    "file__read".to_string(),
+                    "file__search".to_string(),
+                    "file__edit".to_string(),
+                    "shell__start".to_string(),
                     "agent__complete".to_string(),
                 ],
                 completion_contract: WorkerCompletionContract {
@@ -2820,8 +2892,8 @@ mod tests {
         assert!(rendered.contains("Focused verification command from parent context"));
         assert!(rendered.contains("python3 -m unittest tests.test_path_utils -v"));
         assert!(rendered.contains("do not reread the identical file"));
-        assert!(rendered.contains("filesystem__edit_line"));
-        assert!(rendered.contains("If `filesystem__search` fails or returns nothing useful"));
+        assert!(rendered.contains("file__replace_line"));
+        assert!(rendered.contains("If `file__search` fails or returns nothing useful"));
     }
 
     #[test]
@@ -2854,9 +2926,9 @@ mod tests {
                 workflow_id: Some("patch_build_verify".to_string()),
                 role: Some("Coding Worker".to_string()),
                 allowed_tools: vec![
-                    "filesystem__read_file".to_string(),
-                    "filesystem__patch".to_string(),
-                    "sys__exec_session".to_string(),
+                    "file__read".to_string(),
+                    "file__edit".to_string(),
+                    "shell__start".to_string(),
                     "agent__complete".to_string(),
                 ],
                 completion_contract: WorkerCompletionContract {
@@ -2870,9 +2942,7 @@ mod tests {
 
         assert!(root_contract.contains("Start the selected parent playbook with `agent__delegate`"));
         assert!(worker_contract.contains("do not restart the parent playbook from this worker"));
-        assert!(worker_contract.contains(
-            "repeated repo-root `filesystem__stat` / `filesystem__list_directory` probes"
-        ));
+        assert!(worker_contract.contains("repeated repo-root `file__info` / `file__list` probes"));
     }
 
     #[test]
@@ -2886,8 +2956,9 @@ mod tests {
             "URGENT UPDATE: keep the cursor on the shape.",
             "",
             "Choose a grounded next tool call.",
+            "TOOL ROUTING CONTRACT:\n- prefer grounded browser tools",
             "",
-            "browser__move_mouse",
+            "browser__move_pointer",
             "CURRENT BROWSER OBSERVATION:\n<canvas id=\"surface\" />",
             "",
             "",
@@ -2898,6 +2969,9 @@ mod tests {
             .system_instructions
             .contains("Follow policy. Output exactly one grounded browser tool call"));
         assert!(assembly
+            .system_instructions
+            .contains("TOOL ROUTING CONTRACT"));
+        assert!(assembly
             .report
             .sections
             .iter()
@@ -2907,11 +2981,35 @@ mod tests {
             .sections
             .iter()
             .any(|section| section.name == "available_tools" && section.included));
+        assert!(assembly
+            .report
+            .sections
+            .iter()
+            .any(|section| section.name == "tool_routing_contract" && section.included));
+    }
+
+    #[test]
+    fn tool_routing_contract_prefers_specific_workspace_tools_over_shell() {
+        let contract = build_tool_routing_contract(false, IntentScopeProfile::WorkspaceOps);
+        assert!(contract.contains("Prefer the most specific typed workspace tool"));
+        assert!(contract.contains("`file__search` only when the path is still unknown"));
+        assert!(contract.contains("`file__info` for timestamps and metadata"));
+        assert!(contract.contains("generic shell commands"));
+    }
+
+    #[test]
+    fn tool_routing_contract_prefers_browser_semantic_tools_for_browser_steps() {
+        let contract = build_tool_routing_contract(true, IntentScopeProfile::UiInteraction);
+        assert!(contract.contains("grounded browser tool"));
+        assert!(contract.contains("`browser__inspect`"));
+        assert!(contract.contains("`browser__select_option`"));
+        assert!(contract.contains("`screen__click_at`"));
+        assert!(contract.contains("`web__search` / `web__read`"));
     }
 
     #[test]
     fn command_execution_does_not_require_clipboard() {
-        let tools = vec![tool("sys__exec")];
+        let tools = vec![tool("shell__run")];
         assert!(preflight_missing_capability(
             None,
             IntentScopeProfile::CommandExecution,
@@ -3078,12 +3176,12 @@ mod tests {
     fn browser_prompt_uses_trimmed_browser_tool_surface() {
         let filtered = filter_cognition_tools(
             &[
-                tool("browser__snapshot"),
-                tool("browser__click_element"),
-                tool("computer"),
-                tool("gui__click_element"),
+                tool("browser__inspect"),
+                tool("browser__click"),
+                tool("screen"),
+                tool("screen__click"),
                 tool("agent__complete"),
-                tool("system__fail"),
+                tool("agent__escalate"),
             ],
             None,
             true,
@@ -3098,10 +3196,10 @@ mod tests {
         assert_eq!(
             names,
             vec![
-                "browser__snapshot",
-                "browser__click_element",
+                "browser__inspect",
+                "browser__click",
                 "agent__complete",
-                "system__fail",
+                "agent__escalate",
             ]
         );
     }
@@ -3165,9 +3263,9 @@ mod tests {
     fn browser_prompt_hides_synthetic_click_when_shape_targets_are_semantically_grounded() {
         let filtered = filter_cognition_tools(
             &[
-                tool("browser__snapshot"),
-                tool("browser__click_element"),
-                tool("browser__synthetic_click"),
+                tool("browser__inspect"),
+                tool("browser__click"),
+                tool("browser__click_at"),
                 tool("agent__complete"),
             ],
             None,
@@ -3182,11 +3280,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             names,
-            vec![
-                "browser__snapshot",
-                "browser__click_element",
-                "agent__complete"
-            ]
+            vec!["browser__inspect", "browser__click", "agent__complete"]
         );
     }
 
@@ -3194,9 +3288,9 @@ mod tests {
     fn browser_prompt_keeps_synthetic_click_when_only_canvas_wrapper_is_grounded() {
         let filtered = filter_cognition_tools(
             &[
-                tool("browser__snapshot"),
-                tool("browser__click_element"),
-                tool("browser__synthetic_click"),
+                tool("browser__inspect"),
+                tool("browser__click"),
+                tool("browser__click_at"),
                 tool("agent__complete"),
             ],
             None,
@@ -3212,9 +3306,9 @@ mod tests {
         assert_eq!(
             names,
             vec![
-                "browser__snapshot",
-                "browser__click_element",
-                "browser__synthetic_click",
+                "browser__inspect",
+                "browser__click",
+                "browser__click_at",
                 "agent__complete"
             ]
         );
@@ -3224,9 +3318,9 @@ mod tests {
     fn browser_prompt_keeps_synthetic_click_for_grounded_geometry_targets() {
         let filtered = filter_cognition_tools(
             &[
-                tool("browser__snapshot"),
-                tool("browser__click_element"),
-                tool("browser__synthetic_click"),
+                tool("browser__inspect"),
+                tool("browser__click"),
+                tool("browser__click_at"),
                 tool("agent__complete"),
             ],
             None,
@@ -3247,9 +3341,9 @@ mod tests {
         assert_eq!(
             names,
             vec![
-                "browser__snapshot",
-                "browser__click_element",
-                "browser__synthetic_click",
+                "browser__inspect",
+                "browser__click",
+                "browser__click_at",
                 "agent__complete"
             ]
         );
@@ -3279,9 +3373,9 @@ mod tests {
     fn browser_prompt_hides_synthetic_click_while_start_gate_is_pending() {
         let filtered = filter_cognition_tools(
             &[
-                tool("browser__snapshot"),
-                tool("browser__click_element"),
-                tool("browser__synthetic_click"),
+                tool("browser__inspect"),
+                tool("browser__click"),
+                tool("browser__click_at"),
                 tool("agent__complete"),
             ],
             None,
@@ -3299,11 +3393,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             names,
-            vec![
-                "browser__snapshot",
-                "browser__click_element",
-                "agent__complete"
-            ]
+            vec!["browser__inspect", "browser__click", "agent__complete"]
         );
     }
 
@@ -3313,14 +3403,14 @@ mod tests {
             &[
                 tool("browser__navigate"),
                 tool("browser__hover"),
-                tool("browser__move_mouse"),
+                tool("browser__move_pointer"),
                 tool("browser__wait"),
-                tool("browser__snapshot"),
-                tool("browser__click_element"),
+                tool("browser__inspect"),
                 tool("browser__click"),
-                tool("browser__key"),
+                tool("browser__click"),
+                tool("browser__press_key"),
                 tool("agent__complete"),
-                tool("system__fail"),
+                tool("agent__escalate"),
             ],
             None,
             true,
@@ -3336,12 +3426,12 @@ mod tests {
             names,
             vec![
                 "browser__hover",
-                "browser__move_mouse",
+                "browser__move_pointer",
                 "browser__wait",
-                "browser__snapshot",
-                "browser__click_element",
+                "browser__inspect",
+                "browser__click",
                 "agent__complete",
-                "system__fail",
+                "agent__escalate",
             ]
         );
     }
@@ -3365,8 +3455,8 @@ mod tests {
                 tool("chat__reply"),
                 tool("agent__complete"),
                 tool("agent__pause"),
-                tool("system__fail"),
-                tool("sys__exec"),
+                tool("agent__escalate"),
+                tool("shell__run"),
                 tool("memory__search"),
             ],
             Some(&ResolvedIntentState {
@@ -3409,7 +3499,7 @@ mod tests {
                 "chat__reply",
                 "agent__complete",
                 "agent__pause",
-                "system__fail"
+                "agent__escalate"
             ]
         );
     }
@@ -3444,12 +3534,12 @@ mod tests {
 
         assert!(!reply_safe_browser_semantics_enabled(
             true,
-            &[tool("browser__snapshot"), tool("chat__reply")],
+            &[tool("browser__inspect"), tool("chat__reply")],
             Some(&resolved),
         ));
         assert!(reply_safe_browser_semantics_enabled(
             true,
-            &[tool("browser__snapshot"), tool("chat__reply")],
+            &[tool("browser__inspect"), tool("chat__reply")],
             None,
         ));
     }
@@ -3493,8 +3583,9 @@ mod tests {
             "",
             "",
             "MODE: BROWSER ACTION.",
+            "TOOL ROUTING CONTRACT:\n- prefer grounded browser tools",
             "",
-            "- browser__hover\n- browser__snapshot\n- system__fail",
+            "- browser__hover\n- browser__inspect\n- agent__escalate",
             "RECENT BROWSER OBSERVATION:\ngrp_circ tag=generic name=large circle shape_kind=circle center=95,135",
             "",
             "",
@@ -3503,6 +3594,7 @@ mod tests {
         assert!(prompt.contains("RECENT BROWSER OBSERVATION:"));
         assert!(prompt.contains("[AVAILABLE TOOLS]"));
         assert!(prompt.contains("browser__hover"));
+        assert!(prompt.contains("TOOL ROUTING CONTRACT"));
         assert!(!prompt.contains("LAYER 3"));
         assert!(!prompt.contains("WORKSPACE CONTEXT"));
         assert!(!prompt.contains("RECENT SESSION EVENTS"));
@@ -3516,7 +3608,7 @@ mod tests {
             r#"{
                 "type":"object",
                 "properties":{
-                    "id":{"type":"string","description":"Semantic ID from browser__snapshot."},
+                    "id":{"type":"string","description":"Semantic ID from browser__inspect."},
                     "duration_ms":{"type":"integer","description":"Tracking window."}
                 }
             }"#,
@@ -3532,7 +3624,7 @@ mod tests {
             serde_json::from_str(&compacted[0].parameters).expect("compact schema");
         assert_eq!(
             schema["properties"]["id"]["description"],
-            "Semantic ID from browser__snapshot."
+            "Semantic ID from browser__inspect."
         );
         assert!(schema["properties"]["duration_ms"]
             .get("description")
@@ -3588,12 +3680,12 @@ mod tests {
         assert!(rules.contains("duration_ms"), "{rules}");
         assert!(rules.contains("30000"), "{rules}");
         assert!(rules.contains("short probe hover"), "{rules}");
-        assert!(rules.contains("browser__move_mouse"), "{rules}");
-        assert!(rules.contains("browser__snapshot"), "{rules}");
+        assert!(rules.contains("browser__move_pointer"), "{rules}");
+        assert!(rules.contains("browser__inspect"), "{rules}");
         assert!(rules.contains("target is missing"), "{rules}");
         assert!(!rules.contains("submit already turned over the page"));
         assert!(!rules.contains("Do not interact with the newly visible page"));
-        assert!(!rules.contains("Only use `browser__click_element` ids"));
+        assert!(!rules.contains("Only use `browser__click` ids"));
         assert!(!rules.contains("modifier chord"));
         assert!(!rules.contains("PageUp"));
         assert!(!rules.contains(top_edge_jump_name()));
@@ -3642,7 +3734,7 @@ mod tests {
             true,
             "Click start and then submit the visible form.",
             "RECENT BROWSER OBSERVATION:\nbtn_start tag=button name=START\nbtn_submit tag=button name=Submit",
-            "RECENT PENDING BROWSER STATE:\nA visible start gate `btn_start` is still covering the task surface. Use `browser__click_element` on `btn_start` now to begin the page, then continue with the working controls.\n",
+            "RECENT PENDING BROWSER STATE:\nA visible start gate `btn_start` is still covering the task surface. Use `browser__click` on `btn_start` now to begin the page, then continue with the working controls.\n",
             "",
         );
         assert!(
@@ -3671,7 +3763,7 @@ mod tests {
             true,
             "Complete the visible browser task.",
             "RECENT BROWSER OBSERVATION:\nbtn_submit tag=button name=Submit selector=[id=\"subbtn\"]",
-            "RECENT PENDING BROWSER STATE:\nGeometry click drift detected. Use `{\"name\":\"browser__synthetic_click\",\"arguments\":{\"x\":78.6,\"y\":89}}` now. If the corrected click lands and grounded follow-up control `btn_submit` is still the next required control, you may emit `{\"name\":\"browser__synthetic_click\",\"arguments\":{\"x\":78.6,\"y\":89,\"continue_with\":{\"name\":\"browser__click_element\",\"arguments\":{\"id\":\"btn_submit\"}}}}` to avoid another inference turn.\n",
+            "RECENT PENDING BROWSER STATE:\nGeometry click drift detected. Use `{\"name\":\"browser__click_at\",\"arguments\":{\"x\":78.6,\"y\":89}}` now. If the corrected click lands and grounded follow-up control `btn_submit` is still the next required control, you may emit `{\"name\":\"browser__click_at\",\"arguments\":{\"x\":78.6,\"y\":89,\"continue_with\":{\"name\":\"browser__click\",\"arguments\":{\"id\":\"btn_submit\"}}}}` to avoid another inference turn.\n",
             "",
         );
         assert!(
@@ -3698,9 +3790,7 @@ mod tests {
             "{rules}"
         );
         assert!(
-            rules.contains(
-                "you may use `browser__click_element` with `continue_with` `browser__type`"
-            ),
+            rules.contains("you may use `browser__click` with `continue_with` `browser__type`"),
             "{rules}"
         );
     }
@@ -3711,15 +3801,15 @@ mod tests {
             true,
             "Create a line on the visible SVG and then submit.",
             "RECENT BROWSER OBSERVATION:\ngrp_blue_circle tag=generic shape_kind=circle center=63,96\nbtn_submit tag=button name=Submit",
-            "RECENT PENDING BROWSER STATE:\nGrounded geometry target `grp_blue_circle` is already visible. Use `browser__synthetic_click` with `id` on `grp_blue_circle` now.\n",
+            "RECENT PENDING BROWSER STATE:\nGrounded geometry target `grp_blue_circle` is already visible. Use `browser__click_at` with `id` on `grp_blue_circle` now.\n",
             "RECENT SUCCESS SIGNAL:\nRecent synthetic click changed grounded geometry at `grp_vertex`.",
         );
         assert!(rules.contains("coordinate-style target"), "{rules}");
         assert!(
-            rules.contains("follow that tool instead of converting it to `browser__click_element`"),
+            rules.contains("follow that tool instead of converting it to `browser__click`"),
             "{rules}"
         );
-        assert!(rules.contains("`browser__synthetic_click`"), "{rules}");
+        assert!(rules.contains("`browser__click_at`"), "{rules}");
     }
 
     #[test]
@@ -3730,7 +3820,7 @@ mod tests {
 
     #[test]
     fn command_execution_does_not_require_clipboard_when_exec_session_available() {
-        let tools = vec![tool("sys__exec_session")];
+        let tools = vec![tool("shell__start")];
         assert!(preflight_missing_capability(
             None,
             IntentScopeProfile::CommandExecution,
@@ -3742,7 +3832,7 @@ mod tests {
 
     #[test]
     fn command_execution_accepts_install_package_tooling() {
-        let tools = vec![tool("sys__install_package")];
+        let tools = vec![tool("package__install")];
         assert!(preflight_missing_capability(
             None,
             IntentScopeProfile::CommandExecution,
@@ -3758,7 +3848,7 @@ mod tests {
         let missing =
             preflight_missing_capability(None, IntentScopeProfile::CommandExecution, false, &tools)
                 .expect("missing capability");
-        assert_eq!(missing.0, "sys__exec");
+        assert_eq!(missing.0, "shell__run");
     }
 
     #[test]
@@ -3771,7 +3861,7 @@ mod tests {
             &tools,
         )
         .expect("missing capability");
-        assert_eq!(missing.0, "automation__create_monitor");
+        assert_eq!(missing.0, "monitor__create");
     }
 
     #[test]
@@ -3876,7 +3966,7 @@ mod tests {
     fn browser_observation_context_prefers_current_snapshot_over_stale_history() {
         let history = vec![chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_one" name="ONE" dom_id="subbtn" selector="[id=&quot;subbtn&quot;]" rect="105,79,40,40" /><button id="btn_two" name="TWO" dom_id="subbtn2" selector="[id=&quot;subbtn2&quot;]" rect="56,117,40,40" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_one" name="ONE" dom_id="subbtn" selector="[id=&quot;subbtn&quot;]" rect="105,79,40,40" /><button id="btn_two" name="TWO" dom_id="subbtn2" selector="[id=&quot;subbtn2&quot;]" rect="56,117,40,40" /></root>"#,
             1,
         )];
         let current_snapshot = concat!(

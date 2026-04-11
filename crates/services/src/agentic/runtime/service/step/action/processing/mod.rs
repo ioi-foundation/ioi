@@ -27,6 +27,7 @@ use super::support::{
     mark_execution_receipt, mark_execution_receipt_with_value, mark_system_fail_status,
     persist_step_contract_evidence, postcondition_marker, receipt_marker,
 };
+use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::execution::system::is_sudo_password_required_install_error;
 use crate::agentic::runtime::keys::{get_state_key, AGENT_POLICY_PREFIX};
 use crate::agentic::runtime::middleware;
@@ -56,11 +57,11 @@ use crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for
 use crate::agentic::runtime::service::step::queue::web_pipeline::{
     append_final_web_completion_receipts_with_rendered_summary,
     append_pending_web_success_fallback, append_pending_web_success_from_bundle,
-    final_web_completion_facts_with_rendered_summary,
-    is_human_challenge_error, mark_pending_web_attempted, mark_pending_web_blocked,
-    parse_web_evidence_bundle, remaining_pending_web_candidates,
-    render_mailbox_access_limited_reply, synthesize_web_pipeline_reply,
-    synthesize_web_pipeline_reply_hybrid, web_pipeline_completion_reason, web_pipeline_now_ms,
+    final_web_completion_facts_with_rendered_summary, is_human_challenge_error,
+    mark_pending_web_attempted, mark_pending_web_blocked, parse_web_evidence_bundle,
+    remaining_pending_web_candidates, render_mailbox_access_limited_reply,
+    synthesize_web_pipeline_reply, synthesize_web_pipeline_reply_hybrid,
+    web_pipeline_completion_reason, web_pipeline_now_ms,
 };
 use crate::agentic::runtime::service::step::signals::is_mail_connector_tool_name;
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
@@ -68,7 +69,6 @@ use crate::agentic::runtime::types::{
     AgentState, AgentStatus, ToolCallStatus, MAX_COMMAND_HISTORY,
 };
 use crate::agentic::runtime::utils::{goto_trace_log, persist_agent_state};
-use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{AgentTool, IntentScopeProfile};
@@ -658,7 +658,7 @@ mod tests {
 
         assert!(!should_fail_fast_web_timeout(
             Some(&web),
-            "filesystem__list_directory",
+            "file__list",
             FailureClass::TimeoutOrHang,
             false
         ));
@@ -702,7 +702,7 @@ mod tests {
         let summary = duplicate_command_completion_summary(&tool, Some(&history))
             .expect("expected deterministic duplicate completion");
         assert!(summary.contains("Timer scheduled."));
-        assert!(summary.contains("Mechanism: Detached sys__exec command 'sleep 900'"));
+        assert!(summary.contains("Mechanism: Detached shell__run command 'sleep 900'"));
         assert!(summary.contains("Run timestamp (UTC):"));
         assert!(summary.contains("Target UTC:"));
     }
@@ -730,7 +730,7 @@ mod tests {
         let summary = duplicate_command_completion_summary(&tool, Some(&history))
             .expect("expected deterministic duplicate completion for script timer");
         assert!(summary.contains("Timer scheduled."));
-        assert!(summary.contains("Mechanism: Detached sys__exec command 'bash -lc"));
+        assert!(summary.contains("Mechanism: Detached shell__run command 'bash -lc"));
         assert!(summary.contains("Run timestamp (UTC):"));
         assert!(summary.contains("Target UTC:"));
     }

@@ -685,12 +685,8 @@ impl OpenAiStreamAccumulator {
 
         if !self.content.trim().is_empty() {
             return Ok(Some(
-                restore_consumed_stop_sequence(
-                    &self.content,
-                    finish_reason,
-                    &self.stop_sequences,
-                )
-                .into_bytes(),
+                restore_consumed_stop_sequence(&self.content, finish_reason, &self.stop_sequences)
+                    .into_bytes(),
             ));
         }
 
@@ -1550,9 +1546,9 @@ mod tests {
         default_inference_http_timeout_seconds,
         inference_http_timeout_seconds_for_api_url_with_lookup, local_ollama_native_chat_url,
         local_openai_reasoning_effort_for_request_with_lookup, resolve_embedding_model_with,
-        resolve_embedding_target_url, restore_consumed_stop_sequence,
-        should_use_openai_streaming, HttpInferenceRuntime, Message, OpenAiStrategy,
-        OpenAiStreamAccumulator, ProviderKind, ProviderStrategy,
+        resolve_embedding_target_url, restore_consumed_stop_sequence, should_use_openai_streaming,
+        HttpInferenceRuntime, Message, OpenAiStrategy, OpenAiStreamAccumulator, ProviderKind,
+        ProviderStrategy,
     };
     use crate::vm::inference::InferenceRuntime;
     use ioi_types::app::agentic::{InferenceOptions, LlmToolDefinition};
@@ -1638,7 +1634,10 @@ mod tests {
             Some("stop"),
             &["</html>".to_string()],
         );
-        assert_eq!(restored, "<!doctype html><html><body><main>Quantum</main></body></html>");
+        assert_eq!(
+            restored,
+            "<!doctype html><html><body><main>Quantum</main></body></html>"
+        );
     }
 
     #[test]

@@ -9,7 +9,7 @@ pub(super) async fn push_mcp_tools(
 ) {
     // MCP Tool Discovery (External Tool Servers)
     // Prefer cached definitions from the MCP manager so the model sees accurate schemas.
-    // Note: we DO NOT override built-in tool names (filesystem__/browser__/sys__/etc) since
+    // Note: we DO NOT override built-in tool names (file__/browser__/shell__/etc) since
     // those are strictly typed in `AgentTool` and are executed by deterministic adapters.
     let mcp_tools = mcp.get_all_tools().await;
     for tool in mcp_tools {
