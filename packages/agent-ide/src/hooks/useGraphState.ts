@@ -32,7 +32,6 @@ function toFlowEdges(edges: Edge[]): FlowEdge[] {
 }
 
 export function useGraphState(initialNodes: Node[] = [], initialEdges: Edge[] = []) {
-  // Convert domain types to ReactFlow types
   const flowNodes = toFlowNodes(initialNodes);
   const flowEdges = toFlowEdges(initialEdges);
 
@@ -59,19 +58,24 @@ export function useGraphState(initialNodes: Node[] = [], initialEdges: Edge[] = 
   const handleNodeUpdate = useCallback((nodeId: string, section: 'logic' | 'law', updates: Partial<NodeLogic> | Partial<FirewallPolicy>) => {
     setNodes((nds) => nds.map((node) => {
       if (node.id === nodeId) {
-        // Explicitly cast to Node type to access config structure
         const currentData = node.data as unknown as Node;
         const currentConfig = currentData.config || { logic: {}, law: {} };
-        
-        // Use type assertion to access dynamic property safely
-        const sectionData = (currentConfig as any)[section] || {};
-        const newSectionData = { ...sectionData, ...updates };
-        
+        const nextConfig =
+          section === "logic"
+            ? {
+                ...currentConfig,
+                logic: { ...currentConfig.logic, ...(updates as Partial<NodeLogic>) },
+              }
+            : {
+                ...currentConfig,
+                law: { ...currentConfig.law, ...(updates as Partial<FirewallPolicy>) },
+              };
+
         return {
           ...node,
           data: {
             ...node.data,
-            config: { ...currentConfig, [section]: newSectionData }
+            config: nextConfig,
           },
         };
       }
@@ -103,8 +107,8 @@ export function useGraphState(initialNodes: Node[] = [], initialEdges: Edge[] = 
   }, [screenToFlowPosition, setNodes]);
 
   const replaceGraph = useCallback((project: ProjectFile) => {
-    setNodes(toFlowNodes((project.nodes ?? []) as Node[]));
-    setEdges(toFlowEdges((project.edges ?? []) as Edge[]));
+    setNodes(toFlowNodes(project.nodes ?? []));
+    setEdges(toFlowEdges(project.edges ?? []));
     setSelectedNodeId(null);
   }, [setEdges, setNodes]);
 

@@ -509,9 +509,7 @@ pub fn validate_generated_artifact_payload(
 
 fn html_document_completeness_failure<'a>(html: &'a str, lower: &'a str) -> Option<&'static str> {
     if !lower.contains("</body>") || !lower.contains("</html>") {
-        return Some(
-            "HTML iframe artifacts must contain a fully closed </body></html> document.",
-        );
+        return Some("HTML iframe artifacts must contain a fully closed </body></html> document.");
     }
     if lower.contains("<main") && !lower.contains("</main>") {
         return Some("HTML iframe artifacts must contain a closed <main> region.");
@@ -539,7 +537,8 @@ pub(crate) fn parse_and_validate_generated_artifact_payload(
     raw: &str,
     request: &StudioOutcomeArtifactRequest,
 ) -> Result<StudioGeneratedArtifactPayload, String> {
-    let synthesized_from_raw = synthesize_generated_artifact_payload_from_raw_document(raw, request);
+    let synthesized_from_raw =
+        synthesize_generated_artifact_payload_from_raw_document(raw, request);
     let parsed_payload = parse_studio_generated_artifact_payload(raw).ok();
     let mut generated = parsed_payload
         .clone()
@@ -700,7 +699,9 @@ fn extract_authored_svg_document(raw: &str) -> Option<String> {
     }
 
     let svg_lower = svg_slice.to_ascii_lowercase();
-    let svg_end = svg_lower.rfind("</svg>").map(|index| index + "</svg>".len());
+    let svg_end = svg_lower
+        .rfind("</svg>")
+        .map(|index| index + "</svg>".len());
     let extracted = match svg_end {
         Some(end) => svg_slice.get(..end).unwrap_or(svg_slice).trim(),
         None => svg_slice,
@@ -719,9 +720,7 @@ fn extract_authored_document_body(raw: &str, renderer: StudioRendererKind) -> Op
         StudioRendererKind::Markdown => {
             extract_authored_text_document(raw, &["markdown", "md", ""])
         }
-        StudioRendererKind::Mermaid => {
-            extract_authored_text_document(raw, &["mermaid", "mmd", ""])
-        }
+        StudioRendererKind::Mermaid => extract_authored_text_document(raw, &["mermaid", "mmd", ""]),
         StudioRendererKind::PdfEmbed => extract_authored_text_document(raw, &["text", ""]),
         _ => None,
     }
@@ -1215,9 +1214,7 @@ fn renderer_primary_view_contract_failure(
     match request.renderer {
         StudioRendererKind::HtmlIframe => {
             let lower = primary_file.body.to_ascii_lowercase();
-            if let Some(failure) =
-                html_document_completeness_failure(&primary_file.body, &lower)
-            {
+            if let Some(failure) = html_document_completeness_failure(&primary_file.body, &lower) {
                 return Some(failure);
             }
             if studio_modal_first_html_enabled() {

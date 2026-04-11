@@ -1,6 +1,6 @@
 // Path: crates/validator/src/standard/orchestration/gossip.rs
 
-use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
+use super::aft_collapse::observe_live_committed_chain_through_block;
 use super::context::MainLoopContext;
 use super::finalize::schedule_committed_block_vote_replays;
 use super::sync as sync_handlers;
@@ -521,27 +521,25 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
             }
 
             {
-                let mut engine = engine_ref.lock().await;
-                let committed_collapse = match require_persisted_aft_canonical_collapse_if_needed(
+                let accepted = match observe_live_committed_chain_through_block(
+                    &engine_ref,
                     context.config.consensus_type,
                     context.view_resolver.workload_client().as_ref(),
                     &processed_block,
                 )
                 .await
                 {
-                    Ok(collapse) => collapse,
+                    Ok(accepted) => accepted,
                     Err(error) => {
                         tracing::warn!(
                             target: "gossip",
                             height = processed_block.header.height,
                             error = %error,
-                            "Skipping committed-block ingestion because the canonical collapse object is missing or mismatched."
+                            "Skipping committed-block ingestion because the live canonical collapse chain could not be reconciled."
                         );
-                        None
+                        false
                     }
                 };
-                let accepted = engine
-                    .observe_committed_block(&processed_block.header, committed_collapse.as_ref());
                 if !accepted {
                     tracing::warn!(
                         target: "gossip",
@@ -549,7 +547,7 @@ pub async fn handle_gossip_block<CS, ST, CE, V>(
                         "Consensus engine ignored the processed committed-block hint because it was not collapse-backed."
                     );
                 } else {
-                    engine.reset(processed_block.header.height);
+                    engine_ref.lock().await.reset(processed_block.header.height);
                 }
             }
 
@@ -760,12 +758,31 @@ where
         .await
         .map_err(|e: ChainError| anyhow::anyhow!(e.to_string()))?;
 
-    if context
+    let accepted = observe_live_committed_chain_through_block(
+        &engine_ref,
+        context.config.consensus_type,
+        workload_client.as_ref(),
+        block,
+    )
+    .await?;
+    let mut engine = engine_ref.lock().await;
+    if accepted {
+        engine.reset(block.header.height);
+    } else {
+        tracing::warn!(
+            target: "gossip",
+            height = block.header.height,
+            "Consensus engine ignored the sealed block enrichment because it was not collapse-backed."
+        );
+    }
+    drop(engine);
+
+    let enriched_tip_is_current = context
         .last_committed_block
         .as_ref()
         .map(|candidate| candidate.header.height)
-        == Some(block.header.height)
-    {
+        == Some(block.header.height);
+    if enriched_tip_is_current && accepted {
         context.last_committed_block = Some(block.clone());
     }
 

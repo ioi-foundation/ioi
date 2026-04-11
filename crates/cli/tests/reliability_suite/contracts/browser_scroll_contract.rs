@@ -13,7 +13,9 @@ use ioi_services::agentic::runtime::service::step::queue::queue_action_request_t
 use ioi_services::agentic::runtime::tools::discover_tools;
 use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};
-use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::{
+    AgentTool, CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+};
 use ioi_types::app::{ActionRequest, ActionTarget, RoutingReceiptEvent};
 use ioi_types::error::StateError;
 use std::collections::{BTreeMap, BTreeSet};
@@ -121,16 +123,45 @@ fn test_agent_state() -> AgentState {
     }
 }
 
+fn resolved_browser_intent() -> ResolvedIntentState {
+    ResolvedIntentState {
+        intent_id: "web.interact".to_string(),
+        scope: IntentScopeProfile::WebResearch,
+        band: IntentConfidenceBand::High,
+        score: 0.95,
+        top_k: vec![],
+        required_capabilities: vec![
+            CapabilityId::from("browser.interact"),
+            CapabilityId::from("browser.inspect"),
+            CapabilityId::from("conversation.reply"),
+        ],
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: "tool_first".to_string(),
+        matrix_version: "intent-matrix-v2".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "v1".to_string(),
+        matrix_source_hash: [1u8; 32],
+        receipt_hash: [2u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
+        constrained: false,
+    }
+}
+
 #[test]
 fn browser_scroll_tool_maps_to_browser_scroll_scope() {
     let tool = AgentTool::BrowserScroll {
         delta_x: 0,
         delta_y: 500,
     };
-    assert_eq!(
-        tool.target(),
-        ActionTarget::Custom("browser::scroll".into())
-    );
+    assert_eq!(tool.target(), ActionTarget::BrowserInteract);
 }
 
 #[test]
@@ -236,9 +267,10 @@ fn routing_receipt_contract_for_browser_scroll_stays_tool_first() {
 }
 
 #[tokio::test]
-async fn tool_discovery_exposes_browser_scroll_in_headless_browser_context() {
+async fn tool_discovery_exposes_browser_scroll_for_resolved_browser_intent() {
     let state = MockState::default();
     let runtime = Arc::new(MockInferenceRuntime::default());
+    let resolved = resolved_browser_intent();
 
     let names: BTreeSet<String> = discover_tools(
         &state,
@@ -248,7 +280,7 @@ async fn tool_discovery_exposes_browser_scroll_in_headless_browser_context() {
         runtime,
         ExecutionTier::DomHeadless,
         "Google Chrome",
-        None,
+        Some(&resolved),
     )
     .await
     .into_iter()

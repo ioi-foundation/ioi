@@ -1132,7 +1132,7 @@ fn delegated_child_preset_resolved_intent(
                 side_effect_mode: InstructionSideEffectMode::ReadOnly,
                 slot_bindings,
                 negative_constraints: vec![
-                    "Do not issue `memory__search` or raw web retrieval from the verifier lane; audit the inherited cited brief from receipt-bound context first and use `memory__inspect` only for a named evidence gap.".to_string(),
+                    "Do not issue `memory__search` or raw web retrieval from the verifier lane; audit the inherited cited brief from receipt-bound context first and use `memory__read` only for a named evidence gap.".to_string(),
                 ],
                 success_criteria: vec![
                     "Return a deterministic citation-verifier scorecard with verdict, freshness_status, quote_grounding_status, notes, and supporting evidence.".to_string(),
@@ -1641,7 +1641,7 @@ mod tests {
                 "web__search".to_string(),
                 "web__read".to_string(),
                 "agent__complete".to_string(),
-                "agent__await_result".to_string(),
+                "agent__await".to_string(),
             ],
             completion_contract: Default::default(),
         }
@@ -1662,9 +1662,9 @@ mod tests {
             workflow_id: Some("citation_audit".to_string()),
             role: Some("Verification Worker".to_string()),
             allowed_tools: vec![
-                "memory__inspect".to_string(),
+                "memory__read".to_string(),
                 "agent__complete".to_string(),
-                "agent__await_result".to_string(),
+                "agent__await".to_string(),
             ],
             completion_contract: Default::default(),
         }
@@ -1687,14 +1687,14 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__list_directory".to_string(),
-                "filesystem__search".to_string(),
-                "filesystem__patch".to_string(),
-                "filesystem__edit_line".to_string(),
-                "filesystem__write_file".to_string(),
-                "sys__change_directory".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__list".to_string(),
+                "file__search".to_string(),
+                "file__edit".to_string(),
+                "file__replace_line".to_string(),
+                "file__write".to_string(),
+                "shell__cd".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: Default::default(),
@@ -1716,15 +1716,15 @@ mod tests {
             workflow_id: Some("targeted_test_audit".to_string()),
             role: Some("Verification Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__list_directory".to_string(),
-                "filesystem__search".to_string(),
-                "memory__inspect".to_string(),
+                "file__read".to_string(),
+                "file__list".to_string(),
+                "file__search".to_string(),
+                "memory__read".to_string(),
                 "memory__search".to_string(),
-                "sys__change_directory".to_string(),
-                "sys__exec_session".to_string(),
+                "shell__cd".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
-                "agent__await_result".to_string(),
+                "agent__await".to_string(),
             ],
             completion_contract: Default::default(),
         }
@@ -1747,13 +1747,13 @@ mod tests {
             workflow_id: Some("patch_synthesis_handoff".to_string()),
             role: Some("Patch Synthesizer".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__list_directory".to_string(),
-                "filesystem__search".to_string(),
-                "memory__inspect".to_string(),
+                "file__read".to_string(),
+                "file__list".to_string(),
+                "file__search".to_string(),
+                "memory__read".to_string(),
                 "memory__search".to_string(),
                 "agent__complete".to_string(),
-                "agent__await_result".to_string(),
+                "agent__await".to_string(),
             ],
             completion_contract: Default::default(),
         }
@@ -1777,9 +1777,9 @@ mod tests {
             role: Some("Browser Operator".to_string()),
             allowed_tools: vec![
                 "browser__navigate".to_string(),
-                "browser__snapshot".to_string(),
-                "browser__click_element".to_string(),
-                "browser__synthetic_click".to_string(),
+                "browser__inspect".to_string(),
+                "browser__click".to_string(),
+                "browser__click_at".to_string(),
                 "browser__type".to_string(),
                 "browser__wait".to_string(),
                 "agent__complete".to_string(),
@@ -1805,13 +1805,13 @@ mod tests {
             workflow_id: Some("artifact_generate_repair".to_string()),
             role: Some("Artifact Builder".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__list_directory".to_string(),
-                "filesystem__search".to_string(),
-                "filesystem__patch".to_string(),
-                "filesystem__write_file".to_string(),
-                "sys__change_directory".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__list".to_string(),
+                "file__search".to_string(),
+                "file__edit".to_string(),
+                "file__write".to_string(),
+                "shell__cd".to_string(),
+                "shell__start".to_string(),
                 "model__responses".to_string(),
                 "agent__complete".to_string(),
             ],
@@ -2063,19 +2063,19 @@ mod tests {
         assert!(
             crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
                 Some(&resolved),
-                "sys__exec_session",
+                "shell__start",
             )
         );
         assert!(
             crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
                 Some(&resolved),
-                "filesystem__read_file",
+                "file__read",
             )
         );
         assert!(
             !crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
                 Some(&resolved),
-                "filesystem__write_file",
+                "file__write",
             )
         );
     }
@@ -2133,19 +2133,19 @@ mod tests {
         assert!(
             crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
                 Some(&resolved),
-                "filesystem__read_file",
+                "file__read",
             )
         );
         assert!(
             crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
                 Some(&resolved),
-                "memory__inspect",
+                "memory__read",
             )
         );
         assert!(
             !crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
                 Some(&resolved),
-                "sys__exec_session",
+                "shell__start",
             )
         );
     }
@@ -2272,19 +2272,19 @@ mod tests {
         assert!(
             crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
                 Some(&resolved),
-                "sys__exec_session",
+                "shell__start",
             )
         );
         assert!(
             crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
                 Some(&resolved),
-                "filesystem__patch",
+                "file__edit",
             )
         );
         assert!(
             crate::agentic::runtime::service::step::intent_resolver::is_tool_allowed_for_resolution(
                 Some(&resolved),
-                "filesystem__write_file",
+                "file__write",
             )
         );
     }

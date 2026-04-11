@@ -1,7 +1,6 @@
 import "./IDEHeader.css";
 
 interface IDEHeaderProps {
-  projectPath?: string;
   projectName?: string;
   onSave?: () => void;
   onOpen?: () => void;
@@ -31,12 +30,16 @@ export function IDEHeader({
         </div>
 
         <div className="toolbar-section toolbar-section--actions">
-          <button className="toolbar-btn toolbar-btn--secondary" onClick={onOpen} type="button">
-            Open
-          </button>
-          <button className="toolbar-btn toolbar-btn--secondary" onClick={onSave} type="button">
-            Save
-          </button>
+          {onOpen ? (
+            <button className="toolbar-btn toolbar-btn--secondary" onClick={onOpen} type="button">
+              Open
+            </button>
+          ) : null}
+          {onSave ? (
+            <button className="toolbar-btn toolbar-btn--secondary" onClick={onSave} type="button">
+              Save
+            </button>
+          ) : null}
           <button className="toolbar-btn toolbar-btn--secondary" onClick={onZoomIn} type="button">
             Zoom In
           </button>

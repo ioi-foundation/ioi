@@ -333,10 +333,14 @@ mod tests {
         };
 
         assert!(local_business_menu_surface_url(&source.url));
-        assert!(local_business_target_name_from_source(&source, Some("Anderson, SC"))
-            .is_some_and(|value| value.eq_ignore_ascii_case("Coach House Restaurant")));
-        assert!(local_business_detail_display_name(&source, Some("Anderson, SC"))
-            .is_some_and(|value| value.eq_ignore_ascii_case("Coach House Restaurant")));
+        assert!(
+            local_business_target_name_from_source(&source, Some("Anderson, SC"))
+                .is_some_and(|value| value.eq_ignore_ascii_case("Coach House Restaurant"))
+        );
+        assert!(
+            local_business_detail_display_name(&source, Some("Anderson, SC"))
+                .is_some_and(|value| value.eq_ignore_ascii_case("Coach House Restaurant"))
+        );
         assert!(local_business_final_detail_source_allowed(
             &source,
             Some("Anderson, SC")

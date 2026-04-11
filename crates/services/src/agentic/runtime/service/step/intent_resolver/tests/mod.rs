@@ -3,9 +3,9 @@ use super::{
     resolve_step_intent_with_state, should_abstain_for_ambiguity, should_pause_for_clarification,
     tool_capabilities, tool_capability_bindings, IntentCandidateScore,
 };
+use crate::agentic::rules::{ActionRules, Rule, RuleConditions, Verdict};
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
-use crate::agentic::rules::{ActionRules, Rule, RuleConditions, Verdict};
 use async_trait::async_trait;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};

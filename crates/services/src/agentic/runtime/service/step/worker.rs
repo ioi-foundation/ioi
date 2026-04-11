@@ -1,3 +1,4 @@
+use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::keys::get_state_key;
 use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
 use crate::agentic::runtime::service::step::action::execution_receipt_value;
@@ -9,7 +10,6 @@ use crate::agentic::runtime::worker_context::{
     collect_goal_literals, extract_worker_context_field, looks_like_command_literal,
     normalize_whitespace, split_parent_playbook_context,
 };
-use crate::agentic::rules::ActionRules;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::{AgentTool, LlmToolDefinition};
 use ioi_types::codec;
@@ -28,7 +28,7 @@ pub(crate) fn worker_assignment_allows_tool_name(
     assignment: Option<&WorkerAssignment>,
     tool_name: &str,
 ) -> bool {
-    if tool_name == "system__fail" {
+    if tool_name == "agent__escalate" {
         return true;
     }
     assignment
@@ -67,7 +67,7 @@ fn worker_assignment_tool_name_suppressed_by_recovery(
         return true;
     }
     if worker_assignment_should_suppress_root_probes(Some(assignment), last_failure_class)
-        && matches!(tool_name, "filesystem__list_directory" | "filesystem__stat")
+        && matches!(tool_name, "file__list" | "file__info")
     {
         return true;
     }
@@ -75,7 +75,7 @@ fn worker_assignment_tool_name_suppressed_by_recovery(
         Some(assignment),
         last_failure_class,
     ) || worker_assignment_has_likely_file_context(Some(assignment)))
-        && tool_name == "filesystem__search"
+        && tool_name == "file__search"
     {
         return true;
     }
@@ -91,7 +91,7 @@ fn worker_assignment_tool_name_suppressed_by_recovery(
         agent_state,
         Some(assignment),
         last_failure_class,
-    ) && tool_name == "filesystem__read_file"
+    ) && tool_name == "file__read"
 }
 
 fn worker_assignment_allows_tool_name_for_recovery(
@@ -341,7 +341,7 @@ fn worker_assignment_should_suppress_targeted_exec_until_workspace_edit(
     last_failure_class: Option<FailureClass>,
     tool_name: &str,
 ) -> bool {
-    if !matches!(tool_name, "sys__exec" | "sys__exec_session") {
+    if !matches!(tool_name, "shell__run" | "shell__start") {
         return false;
     }
     if !matches!(
@@ -369,7 +369,7 @@ fn worker_assignment_should_suppress_redundant_change_directory(
     assignment: Option<&WorkerAssignment>,
     tool_name: &str,
 ) -> bool {
-    if tool_name != "sys__change_directory" {
+    if tool_name != "shell__cd" {
         return false;
     }
     let Some(assignment) = assignment else {
@@ -569,6 +569,7 @@ mod tests {
         worker_assignment_disallowed_tool_error, worker_assignment_recovery_disallowed_tool_error,
         worker_recovery_failure_class,
     };
+    use crate::agentic::rules::ActionRules;
     use crate::agentic::runtime::keys::get_state_key;
     use crate::agentic::runtime::service::lifecycle::{
         persist_worker_assignment, resolve_worker_assignment,
@@ -580,7 +581,6 @@ mod tests {
         AgentMode, AgentState, AgentStatus, ExecutionTier, WorkerAssignment,
         WorkerCompletionContract, WorkerMergeMode,
     };
-    use crate::agentic::rules::ActionRules;
     use async_trait::async_trait;
     use image::{ImageBuffer, ImageFormat, Rgba};
     use ioi_api::services::access::ServiceDirectory;
@@ -721,10 +721,10 @@ mod tests {
 
     #[test]
     fn worker_assignment_tool_filter_keeps_only_allowed_prompt_tools() {
-        let assignment = test_worker_assignment(vec!["filesystem__stat", "agent__complete"]);
+        let assignment = test_worker_assignment(vec!["file__info", "agent__complete"]);
         let tools = vec![
             LlmToolDefinition {
-                name: "filesystem__stat".to_string(),
+                name: "file__info".to_string(),
                 description: "Stat a path.".to_string(),
                 parameters: "{}".to_string(),
             },
@@ -746,10 +746,10 @@ mod tests {
             .map(|tool| tool.name.as_str())
             .collect::<Vec<_>>();
 
-        assert_eq!(filtered_names, vec!["filesystem__stat", "agent__complete"]);
+        assert_eq!(filtered_names, vec!["file__info", "agent__complete"]);
         assert!(worker_assignment_allows_tool_name(
             Some(&assignment),
-            "filesystem__stat"
+            "file__info"
         ));
         assert!(!worker_assignment_allows_tool_name(
             Some(&assignment),
@@ -763,15 +763,15 @@ mod tests {
 
     #[test]
     fn worker_assignment_preserves_system_fail_escape_hatch() {
-        let assignment = test_worker_assignment(vec!["filesystem__stat", "agent__complete"]);
+        let assignment = test_worker_assignment(vec!["file__info", "agent__complete"]);
         let tools = vec![
             LlmToolDefinition {
-                name: "filesystem__stat".to_string(),
+                name: "file__info".to_string(),
                 description: "Stat a path.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "system__fail".to_string(),
+                name: "agent__escalate".to_string(),
                 description: "Fail explicitly.".to_string(),
                 parameters: "{}".to_string(),
             },
@@ -783,24 +783,24 @@ mod tests {
             .map(|tool| tool.name.as_str())
             .collect::<Vec<_>>();
 
-        assert_eq!(filtered_names, vec!["filesystem__stat", "system__fail"]);
+        assert_eq!(filtered_names, vec!["file__info", "agent__escalate"]);
         assert!(worker_assignment_allows_tool_name(
             Some(&assignment),
-            "system__fail"
+            "agent__escalate"
         ));
     }
 
     #[test]
     fn patch_build_verify_tool_filter_suppresses_discovery_after_no_effect_failure() {
         let mut assignment = test_worker_assignment(vec![
-            "filesystem__read_file",
-            "filesystem__write_file",
-            "filesystem__edit_line",
-            "filesystem__search",
-            "filesystem__list_directory",
-            "filesystem__stat",
-            "filesystem__patch",
-            "sys__exec_session",
+            "file__read",
+            "file__write",
+            "file__replace_line",
+            "file__search",
+            "file__list",
+            "file__info",
+            "file__edit",
+            "shell__start",
             "agent__complete",
         ]);
         assignment.template_id = Some("coder".to_string());
@@ -809,42 +809,42 @@ mod tests {
 
         let tools = vec![
             LlmToolDefinition {
-                name: "filesystem__read_file".to_string(),
+                name: "file__read".to_string(),
                 description: "Read a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__write_file".to_string(),
+                name: "file__write".to_string(),
                 description: "Write a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__edit_line".to_string(),
+                name: "file__replace_line".to_string(),
                 description: "Edit one line.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__search".to_string(),
+                name: "file__search".to_string(),
                 description: "Search files.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__list_directory".to_string(),
+                name: "file__list".to_string(),
                 description: "List a directory.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__stat".to_string(),
+                name: "file__info".to_string(),
                 description: "Stat a path.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__patch".to_string(),
+                name: "file__edit".to_string(),
                 description: "Patch a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "sys__exec_session".to_string(),
+                name: "shell__start".to_string(),
                 description: "Run a command.".to_string(),
                 parameters: "{}".to_string(),
             },
@@ -869,10 +869,10 @@ mod tests {
         assert_eq!(
             filtered_names,
             vec![
-                "filesystem__write_file",
-                "filesystem__edit_line",
-                "filesystem__patch",
-                "sys__exec_session",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "shell__start",
                 "agent__complete"
             ]
         );
@@ -881,14 +881,14 @@ mod tests {
     #[test]
     fn patch_build_verify_tool_filter_prefers_direct_reads_when_parent_context_has_likely_files() {
         let mut assignment = test_worker_assignment(vec![
-            "filesystem__read_file",
-            "filesystem__write_file",
-            "filesystem__edit_line",
-            "filesystem__search",
-            "filesystem__list_directory",
-            "filesystem__stat",
-            "filesystem__patch",
-            "sys__exec_session",
+            "file__read",
+            "file__write",
+            "file__replace_line",
+            "file__search",
+            "file__list",
+            "file__info",
+            "file__edit",
+            "shell__start",
             "agent__complete",
         ]);
         assignment.template_id = Some("coder".to_string());
@@ -898,42 +898,42 @@ mod tests {
 
         let tools = vec![
             LlmToolDefinition {
-                name: "filesystem__read_file".to_string(),
+                name: "file__read".to_string(),
                 description: "Read a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__write_file".to_string(),
+                name: "file__write".to_string(),
                 description: "Write a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__edit_line".to_string(),
+                name: "file__replace_line".to_string(),
                 description: "Edit one line.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__search".to_string(),
+                name: "file__search".to_string(),
                 description: "Search files.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__list_directory".to_string(),
+                name: "file__list".to_string(),
                 description: "List a directory.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__stat".to_string(),
+                name: "file__info".to_string(),
                 description: "Stat a path.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__patch".to_string(),
+                name: "file__edit".to_string(),
                 description: "Patch a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "sys__exec_session".to_string(),
+                name: "shell__start".to_string(),
                 description: "Run a command.".to_string(),
                 parameters: "{}".to_string(),
             },
@@ -958,11 +958,11 @@ mod tests {
         assert_eq!(
             filtered_names,
             vec![
-                "filesystem__read_file",
-                "filesystem__write_file",
-                "filesystem__edit_line",
-                "filesystem__patch",
-                "sys__exec_session",
+                "file__read",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "shell__start",
                 "agent__complete"
             ]
         );
@@ -975,10 +975,10 @@ mod tests {
         let fixture_path = fixture.path().to_string_lossy().to_string();
 
         let mut assignment = test_worker_assignment(vec![
-            "filesystem__read_file",
-            "filesystem__patch",
-            "sys__change_directory",
-            "sys__exec_session",
+            "file__read",
+            "file__edit",
+            "shell__cd",
+            "shell__start",
             "agent__complete",
         ]);
         assignment.template_id = Some("coder".to_string());
@@ -991,22 +991,22 @@ mod tests {
 
         let tools = vec![
             LlmToolDefinition {
-                name: "filesystem__read_file".to_string(),
+                name: "file__read".to_string(),
                 description: "Read a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__patch".to_string(),
+                name: "file__edit".to_string(),
                 description: "Patch a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "sys__change_directory".to_string(),
+                name: "shell__cd".to_string(),
                 description: "Change directories.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "sys__exec_session".to_string(),
+                name: "shell__start".to_string(),
                 description: "Run a command.".to_string(),
                 parameters: "{}".to_string(),
             },
@@ -1030,9 +1030,9 @@ mod tests {
         assert_eq!(
             filtered_names,
             vec![
-                "filesystem__read_file",
-                "filesystem__patch",
-                "sys__exec_session",
+                "file__read",
+                "file__edit",
+                "shell__start",
                 "agent__complete"
             ]
         );
@@ -1040,21 +1040,21 @@ mod tests {
             &worker_state,
             Some(&assignment),
             None,
-            "sys__change_directory"
+            "shell__cd"
         ));
     }
 
     #[test]
     fn patch_build_verify_recovery_blocks_repeated_file_reads_at_execution_boundary() {
         let mut assignment = test_worker_assignment(vec![
-            "filesystem__read_file",
-            "filesystem__write_file",
-            "filesystem__edit_line",
-            "filesystem__search",
-            "filesystem__list_directory",
-            "filesystem__stat",
-            "filesystem__patch",
-            "sys__exec_session",
+            "file__read",
+            "file__write",
+            "file__replace_line",
+            "file__search",
+            "file__list",
+            "file__info",
+            "file__edit",
+            "shell__start",
             "agent__complete",
         ]);
         assignment.template_id = Some("coder".to_string());
@@ -1065,31 +1065,31 @@ mod tests {
             &build_worker_state([0x33; 32]),
             Some(&assignment),
             Some(FailureClass::NoEffectAfterAction),
-            "filesystem__read_file"
+            "file__read"
         ));
         let failure = worker_assignment_recovery_disallowed_tool_error(
             &build_worker_state([0x34; 32]),
             &assignment,
             Some(FailureClass::NoEffectAfterAction),
-            "filesystem__read_file",
+            "file__read",
         );
         assert!(failure.contains("NoEffectAfterAction"));
-        assert!(failure.contains("filesystem__patch"));
-        assert!(failure.contains("filesystem__edit_line"));
-        assert!(!failure.contains("filesystem__read_file,"));
+        assert!(failure.contains("file__edit"));
+        assert!(failure.contains("file__replace_line"));
+        assert!(!failure.contains("file__read,"));
     }
 
     #[test]
     fn patch_build_verify_recovery_preserves_duplicate_read_boundary_after_invalid_tool_call() {
         let mut assignment = test_worker_assignment(vec![
-            "filesystem__read_file",
-            "filesystem__write_file",
-            "filesystem__edit_line",
-            "filesystem__search",
-            "filesystem__list_directory",
-            "filesystem__stat",
-            "filesystem__patch",
-            "sys__exec_session",
+            "file__read",
+            "file__write",
+            "file__replace_line",
+            "file__search",
+            "file__list",
+            "file__info",
+            "file__edit",
+            "shell__start",
             "agent__complete",
         ]);
         assignment.template_id = Some("coder".to_string());
@@ -1108,42 +1108,42 @@ mod tests {
 
         let tools = vec![
             LlmToolDefinition {
-                name: "filesystem__read_file".to_string(),
+                name: "file__read".to_string(),
                 description: "Read a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__write_file".to_string(),
+                name: "file__write".to_string(),
                 description: "Write a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__edit_line".to_string(),
+                name: "file__replace_line".to_string(),
                 description: "Edit one line.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__search".to_string(),
+                name: "file__search".to_string(),
                 description: "Search files.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__list_directory".to_string(),
+                name: "file__list".to_string(),
                 description: "List a directory.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__stat".to_string(),
+                name: "file__info".to_string(),
                 description: "Stat a path.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__patch".to_string(),
+                name: "file__edit".to_string(),
                 description: "Patch a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "sys__exec_session".to_string(),
+                name: "shell__start".to_string(),
                 description: "Run a command.".to_string(),
                 parameters: "{}".to_string(),
             },
@@ -1168,10 +1168,10 @@ mod tests {
         assert_eq!(
             filtered_names,
             vec![
-                "filesystem__write_file",
-                "filesystem__edit_line",
-                "filesystem__patch",
-                "sys__exec_session",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "shell__start",
                 "agent__complete"
             ]
         );
@@ -1180,14 +1180,14 @@ mod tests {
     #[test]
     fn patch_build_verify_recovery_resets_duplicate_read_boundary_after_command_history() {
         let mut assignment = test_worker_assignment(vec![
-            "filesystem__read_file",
-            "filesystem__write_file",
-            "filesystem__edit_line",
-            "filesystem__search",
-            "filesystem__list_directory",
-            "filesystem__stat",
-            "filesystem__patch",
-            "sys__exec_session",
+            "file__read",
+            "file__write",
+            "file__replace_line",
+            "file__search",
+            "file__list",
+            "file__info",
+            "file__edit",
+            "shell__start",
             "agent__complete",
         ]);
         assignment.template_id = Some("coder".to_string());
@@ -1218,14 +1218,14 @@ mod tests {
     #[test]
     fn patch_build_verify_recovery_blocks_targeted_exec_rerun_until_workspace_edit_receipt() {
         let mut assignment = test_worker_assignment(vec![
-            "filesystem__read_file",
-            "filesystem__write_file",
-            "filesystem__edit_line",
-            "filesystem__search",
-            "filesystem__list_directory",
-            "filesystem__stat",
-            "filesystem__patch",
-            "sys__exec_session",
+            "file__read",
+            "file__write",
+            "file__replace_line",
+            "file__search",
+            "file__list",
+            "file__info",
+            "file__edit",
+            "shell__start",
             "agent__complete",
         ]);
         assignment.template_id = Some("coder".to_string());
@@ -1235,42 +1235,42 @@ mod tests {
 
         let tools = vec![
             LlmToolDefinition {
-                name: "filesystem__read_file".to_string(),
+                name: "file__read".to_string(),
                 description: "Read a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__write_file".to_string(),
+                name: "file__write".to_string(),
                 description: "Write a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__edit_line".to_string(),
+                name: "file__replace_line".to_string(),
                 description: "Edit one line.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__search".to_string(),
+                name: "file__search".to_string(),
                 description: "Search files.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__list_directory".to_string(),
+                name: "file__list".to_string(),
                 description: "List a directory.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__stat".to_string(),
+                name: "file__info".to_string(),
                 description: "Stat a path.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__patch".to_string(),
+                name: "file__edit".to_string(),
                 description: "Patch a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "sys__exec_session".to_string(),
+                name: "shell__start".to_string(),
                 description: "Run a command.".to_string(),
                 parameters: "{}".to_string(),
             },
@@ -1307,10 +1307,10 @@ mod tests {
         assert_eq!(
             filtered_names,
             vec![
-                "filesystem__read_file",
-                "filesystem__write_file",
-                "filesystem__edit_line",
-                "filesystem__patch",
+                "file__read",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
                 "agent__complete"
             ]
         );
@@ -1319,14 +1319,14 @@ mod tests {
     #[test]
     fn patch_build_verify_recovery_restores_targeted_exec_after_workspace_edit_receipt() {
         let mut assignment = test_worker_assignment(vec![
-            "filesystem__read_file",
-            "filesystem__write_file",
-            "filesystem__edit_line",
-            "filesystem__search",
-            "filesystem__list_directory",
-            "filesystem__stat",
-            "filesystem__patch",
-            "sys__exec_session",
+            "file__read",
+            "file__write",
+            "file__replace_line",
+            "file__search",
+            "file__list",
+            "file__info",
+            "file__edit",
+            "shell__start",
             "agent__complete",
         ]);
         assignment.template_id = Some("coder".to_string());
@@ -1336,42 +1336,42 @@ mod tests {
 
         let tools = vec![
             LlmToolDefinition {
-                name: "filesystem__read_file".to_string(),
+                name: "file__read".to_string(),
                 description: "Read a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__write_file".to_string(),
+                name: "file__write".to_string(),
                 description: "Write a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__edit_line".to_string(),
+                name: "file__replace_line".to_string(),
                 description: "Edit one line.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__search".to_string(),
+                name: "file__search".to_string(),
                 description: "Search files.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__list_directory".to_string(),
+                name: "file__list".to_string(),
                 description: "List a directory.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__stat".to_string(),
+                name: "file__info".to_string(),
                 description: "Stat a path.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "filesystem__patch".to_string(),
+                name: "file__edit".to_string(),
                 description: "Patch a file.".to_string(),
                 parameters: "{}".to_string(),
             },
             LlmToolDefinition {
-                name: "sys__exec_session".to_string(),
+                name: "shell__start".to_string(),
                 description: "Run a command.".to_string(),
                 parameters: "{}".to_string(),
             },
@@ -1396,7 +1396,7 @@ mod tests {
         mark_execution_receipt_with_value(
             &mut worker_state.tool_execution_log,
             "workspace_edit_applied",
-            "step=6;tool=filesystem__patch;path=path_utils.py".to_string(),
+            "step=6;tool=file__edit;path=path_utils.py".to_string(),
         );
 
         let filtered = filter_tools_for_worker_recovery(
@@ -1413,11 +1413,11 @@ mod tests {
         assert_eq!(
             filtered_names,
             vec![
-                "filesystem__read_file",
-                "filesystem__write_file",
-                "filesystem__edit_line",
-                "filesystem__patch",
-                "sys__exec_session",
+                "file__read",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "shell__start",
                 "agent__complete"
             ]
         );

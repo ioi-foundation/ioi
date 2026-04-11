@@ -181,6 +181,15 @@ where
         )
     }
 
+    fn canonical_collapse_for_committed_height(
+        &self,
+        height: u64,
+    ) -> Option<ioi_types::app::CanonicalCollapseObject> {
+        <GuardianMajorityEngine as ConsensusEngine<T>>::canonical_collapse_for_committed_height(
+            &self.core, height,
+        )
+    }
+
     fn observe_aft_recovered_consensus_header(
         &mut self,
         header: &AftRecoveredConsensusHeaderEntry,

@@ -26,11 +26,11 @@ pub fn case() -> QueryCase {
         query: concat!(
             "Rename files in \"~/Downloads/ioi_lowercase_{RUN_UNIQUE_NUM}\" to lowercase. ",
             "The fixture directory and initial files are already provisioned. ",
-            "Use deterministic local filesystem tools only: `filesystem__list_directory` and ",
-            "`filesystem__move_path`. Perform exactly these basename renames while preserving the ",
+            "Use deterministic local filesystem tools only: `file__list` and ",
+            "`file__move`. Perform exactly these basename renames while preserving the ",
             "directory path: \"Alpha.TXT\" -> \"alpha.txt\", \"Budget 2026.PDF\" -> ",
             "\"budget 2026.pdf\", and \"MiXeD_Case.JPG\" -> \"mixed_case.jpg\". ",
-            "Do not use `sys__exec`/`sys__exec_session`, web, browser, or net tools. ",
+            "Do not use `shell__run`/`shell__start`, web, browser, or net tools. ",
             "Do not create/copy/delete files outside this fixture directory. ",
             "After renaming, verify the final directory entries and return a concise completion ",
             "summary that lists the absolute paths of all renamed files."
@@ -133,21 +133,21 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         || obs.cec_receipts.is_empty()
         || (cec_execution_seen && cec_verification_seen);
 
-    let action_path_seen = has_tool_with_token(&obs.action_tools, "filesystem__list_directory")
-        && has_tool_with_token(&obs.action_tools, "filesystem__move_path");
-    let routing_path_seen = has_tool_with_token(&obs.routing_tools, "filesystem__list_directory")
-        && has_tool_with_token(&obs.routing_tools, "filesystem__move_path");
+    let action_path_seen = has_tool_with_token(&obs.action_tools, "file__list")
+        && has_tool_with_token(&obs.action_tools, "file__move");
+    let routing_path_seen = has_tool_with_token(&obs.routing_tools, "file__list")
+        && has_tool_with_token(&obs.routing_tools, "file__move");
     let remote_path_seen = has_tool_with_token(&obs.action_tools, "web__")
         || has_tool_with_token(&obs.routing_tools, "web__")
         || has_tool_with_token(&obs.workload_tools, "web__")
         || has_tool_with_token(&obs.action_tools, "browser__")
         || has_tool_with_token(&obs.routing_tools, "browser__")
         || has_tool_with_token(&obs.workload_tools, "browser__")
-        || has_tool_with_token(&obs.action_tools, "net__fetch")
-        || has_tool_with_token(&obs.routing_tools, "net__fetch")
-        || has_tool_with_token(&obs.workload_tools, "net__fetch");
-    let shell_exec_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec");
+        || has_tool_with_token(&obs.action_tools, "http__fetch")
+        || has_tool_with_token(&obs.routing_tools, "http__fetch")
+        || has_tool_with_token(&obs.workload_tools, "http__fetch");
+    let shell_exec_seen = has_tool_with_token(&obs.action_tools, "shell__run")
+        || has_tool_with_token(&obs.routing_tools, "shell__run");
     let disallowed_mutation_seen = has_disallowed_mutating_action(obs);
     let tool_and_route_path_evidence_present = action_path_seen
         && routing_path_seen
@@ -358,28 +358,24 @@ fn build_environment_receipts(
 }
 
 fn is_list_action_success(entry: &super::super::types::ActionEvidence) -> bool {
-    entry
-        .tool_name
-        .eq_ignore_ascii_case("filesystem__list_directory")
+    entry.tool_name.eq_ignore_ascii_case("file__list")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
         && !action_has_hard_error_class(entry)
 }
 
 fn is_move_action_success(entry: &super::super::types::ActionEvidence) -> bool {
-    entry
-        .tool_name
-        .eq_ignore_ascii_case("filesystem__move_path")
+    entry.tool_name.eq_ignore_ascii_case("file__move")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
         && !action_has_hard_error_class(entry)
 }
 
 fn has_disallowed_mutating_action(obs: &RunObservation) -> bool {
     [
-        "filesystem__write_file",
-        "filesystem__patch",
-        "filesystem__delete_path",
-        "filesystem__create_zip",
-        "filesystem__copy_path",
+        "file__write",
+        "file__edit",
+        "file__delete",
+        "file__zip",
+        "file__copy",
     ]
     .iter()
     .any(|token| {

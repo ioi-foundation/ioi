@@ -3,7 +3,7 @@
 use crate::agentic::runtime::service::step::signals::{analyze_goal_signals, is_system_surface};
 use crate::agentic::runtime::types::AgentState;
 use ioi_api::vm::drivers::os::OsDriver;
-use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use ioi_types::app::agentic::{AgentTool, ScreenAction};
 
 /// Truncate strings safely for logging/history.
 pub fn safe_truncate(s: &str, max_chars: usize) -> String {
@@ -48,26 +48,26 @@ pub fn is_question(text: &str) -> bool {
 /// Helper to determine if an action relies on precise screen coordinates.
 pub fn requires_visual_integrity(tool: &AgentTool) -> bool {
     match tool {
-        AgentTool::Computer(action) => matches!(
+        AgentTool::Screen(action) => matches!(
             action,
-            ComputerAction::LeftClickId { .. }
-                | ComputerAction::LeftClickElement { .. }
-                | ComputerAction::RightClickId { .. }
-                | ComputerAction::RightClickElement { .. }
-                | ComputerAction::LeftClick {
+            ScreenAction::LeftClickId { .. }
+                | ScreenAction::LeftClickElement { .. }
+                | ScreenAction::RightClickId { .. }
+                | ScreenAction::RightClickElement { .. }
+                | ScreenAction::LeftClick {
                     coordinate: Some(_),
                     ..
                 }
-                | ComputerAction::RightClick {
+                | ScreenAction::RightClick {
                     coordinate: Some(_),
                     ..
                 }
-                | ComputerAction::LeftClickDrag { .. }
-                | ComputerAction::DragDrop { .. }
-                | ComputerAction::DragDropId { .. }
-                | ComputerAction::DragDropElement { .. }
-                | ComputerAction::MouseMove { .. }
-                | ComputerAction::Scroll {
+                | ScreenAction::LeftClickDrag { .. }
+                | ScreenAction::DragDrop { .. }
+                | ScreenAction::DragDropId { .. }
+                | ScreenAction::DragDropElement { .. }
+                | ScreenAction::MouseMove { .. }
+                | ScreenAction::Scroll {
                     coordinate: Some(_),
                     ..
                 }
@@ -77,7 +77,6 @@ pub fn requires_visual_integrity(tool: &AgentTool) -> bool {
         AgentTool::GuiClickElement { .. } => true,
         AgentTool::BrowserSyntheticClick { .. } => true,
         AgentTool::BrowserClick { .. } => true,
-        AgentTool::BrowserClickElement { .. } => true,
         _ => false,
     }
 }
@@ -85,20 +84,20 @@ pub fn requires_visual_integrity(tool: &AgentTool) -> bool {
 #[cfg(test)]
 mod tests {
     use super::requires_visual_integrity;
-    use ioi_types::app::agentic::{AgentTool, ComputerAction};
+    use ioi_types::app::agentic::{AgentTool, ScreenAction};
 
     #[test]
     fn right_click_variants_are_visual_integrity_sensitive() {
-        assert!(requires_visual_integrity(&AgentTool::Computer(
-            ComputerAction::RightClick {
+        assert!(requires_visual_integrity(&AgentTool::Screen(
+            ScreenAction::RightClick {
                 coordinate: Some([640, 320]),
             },
         )));
-        assert!(requires_visual_integrity(&AgentTool::Computer(
-            ComputerAction::RightClickId { id: 7 },
+        assert!(requires_visual_integrity(&AgentTool::Screen(
+            ScreenAction::RightClickId { id: 7 },
         )));
-        assert!(requires_visual_integrity(&AgentTool::Computer(
-            ComputerAction::RightClickElement {
+        assert!(requires_visual_integrity(&AgentTool::Screen(
+            ScreenAction::RightClickElement {
                 id: "context_menu_anchor".to_string(),
             },
         )));
@@ -106,8 +105,8 @@ mod tests {
 
     #[test]
     fn cursor_relative_right_click_does_not_require_visual_guard() {
-        assert!(!requires_visual_integrity(&AgentTool::Computer(
-            ComputerAction::RightClick { coordinate: None },
+        assert!(!requires_visual_integrity(&AgentTool::Screen(
+            ScreenAction::RightClick { coordinate: None },
         )));
     }
 }
@@ -150,8 +149,8 @@ pub async fn enforce_focus_precondition(
         Err(format!(
             "FOCUS_REQUIRED: Foreground is '{}' (App: '{}') but goal requires interacting with '{}'. \
              To interact with '{}', you must either:\n\
-             1. Call `os__focus_window(title='{}')` if it is running.\n\
-             2. Call `os__launch_app(app_name='{}')` if it is not running.\n\
+             1. Call `window__focus(title='{}')` if it is running.\n\
+             2. Call `app__launch(app_name='{}')` if it is not running.\n\
              3. If clicking the Dock/Taskbar, ensure that is the active window first.",
             fg_info.title, fg_info.app_name, hint, hint, hint, hint
         ))

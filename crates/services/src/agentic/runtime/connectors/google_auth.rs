@@ -142,34 +142,6 @@ pub struct GoogleOauthClientStatus {
 }
 
 pub async fn status() -> Result<GoogleAuthStatus, String> {
-    if let Some(mock) = load_mock_google_auth_fixture()? {
-        return Ok(GoogleAuthStatus {
-            status: "connected".to_string(),
-            summary: format!(
-                "Google auth is connected for {} using the mock fixture.",
-                mock.account_email
-            ),
-            data: json!({
-                "auth_method": "mock_fixture",
-                "storage": "mock_fixture",
-                "account": mock.account_email,
-                "scopes": mock.granted_scopes,
-                "oauthClient": {
-                    "configured": false,
-                    "source": "mock_fixture",
-                    "clientIdPreview": Value::Null,
-                    "hasClientSecret": false,
-                    "storagePath": Value::Null
-                },
-                "tokenStorage": {
-                    "source": "mock_fixture",
-                    "storagePath": mock_fixture_path().map(|path| path.display().to_string()),
-                    "present": true
-                }
-            }),
-        });
-    }
-
     let oauth_client = oauth_client_status();
     let token_storage = token_storage_status()?;
 
@@ -480,21 +452,6 @@ pub fn replace_local_oauth_client_snapshot(
 }
 
 pub async fn access_context(required_scopes: &[&str]) -> Result<GoogleAccessContext, String> {
-    if let Some(mock) = load_mock_google_auth_fixture()? {
-        let missing_scopes = missing_required_scopes(&mock.granted_scopes, required_scopes);
-        if !missing_scopes.is_empty() {
-            return Err(format!(
-                "Google mock fixture is missing required scopes: {}.",
-                missing_scopes.join(", ")
-            ));
-        }
-        return Ok(GoogleAccessContext {
-            access_token: "mock-google-access-token".to_string(),
-            account_email: Some(mock.account_email),
-            granted_scopes: mock.granted_scopes,
-        });
-    }
-
     let mut record = load_google_auth_record()?.ok_or_else(|| {
         "Google auth is not connected. Use Connect to start native OAuth.".to_string()
     })?;
@@ -1344,33 +1301,6 @@ fn env_string(keys: &[&str]) -> Option<String> {
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
     })
-}
-
-fn mock_fixture_path() -> Option<PathBuf> {
-    super::mock_fixtures::load_connector_mock_fixture_contract()
-        .ok()
-        .flatten()
-        .and_then(|fixture| fixture.google)
-        .and_then(|google| google.auth)
-        .and_then(|_| {
-            std::env::var(super::mock_fixtures::CONNECTOR_MOCK_FIXTURE_PATH_ENV)
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-                .map(PathBuf::from)
-        })
-        .or_else(|| {
-            std::env::var(super::mock_fixtures::LEGACY_GOOGLE_MOCK_FIXTURE_PATH_ENV)
-                .ok()
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty())
-                .map(PathBuf::from)
-        })
-}
-
-fn load_mock_google_auth_fixture(
-) -> Result<Option<super::mock_fixtures::GoogleAuthMockFixture>, String> {
-    super::mock_fixtures::google_auth_mock_fixture()
 }
 
 fn load_local_google_env_defaults() {

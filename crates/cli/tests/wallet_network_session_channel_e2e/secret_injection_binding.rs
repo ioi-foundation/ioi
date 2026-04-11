@@ -54,7 +54,7 @@ async fn wallet_network_secret_injection_requires_attested_request_binding() -> 
             issued_at_ms: 4_100_000_000_100,
             expires_at_ms: 4_100_000_060_000,
         };
-        submit_wallet_call(
+        let _ = submit_wallet_call(
             rpc_addr,
             keypair,
             chain_id,
@@ -62,8 +62,7 @@ async fn wallet_network_secret_injection_requires_attested_request_binding() -> 
             "grant_secret_injection@v1",
             premature_grant,
         )
-        .await?;
-        nonce += 1;
+        .await;
 
         let premature_lookup = service_key(&injection_grant_storage_key(&request_id));
         let premature_grant_state = query_state_key(rpc_addr, &premature_lookup).await?;

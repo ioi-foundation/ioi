@@ -36,7 +36,7 @@ pub(super) fn push_builtin_tools(
     include!("builtins/native_model_memory_capabilities.rs");
     include!("builtins/native_media_capabilities.rs");
     include!("builtins/native_model_registry_control.rs");
-    include!("builtins/only_expose_computer_tools_in_visualforeground_tier_3.rs");
+    include!("builtins/only_expose_screen_tools_in_visualforeground_tier_3.rs");
     include!("builtins/deterministic_system_tools_are_available_across_all_tiers.rs");
     include!("builtins/deterministic_system_tools_are_available_across_all_tiers_13.rs");
     include!("builtins/openinterpreter_style_shell_continuity_persistent_session.rs");
@@ -102,8 +102,8 @@ mod tests {
 
         let select_text = tools
             .iter()
-            .find(|tool| tool.name == "browser__select_text")
-            .expect("browser__select_text should be available");
+            .find(|tool| tool.name == "browser__select")
+            .expect("browser__select should be available");
         assert!(
             select_text.description.contains("by `selector`"),
             "{}",
@@ -112,8 +112,8 @@ mod tests {
 
         let paste_clipboard = tools
             .iter()
-            .find(|tool| tool.name == "browser__paste_clipboard")
-            .expect("browser__paste_clipboard should be available");
+            .find(|tool| tool.name == "browser__paste")
+            .expect("browser__paste should be available");
         assert!(
             paste_clipboard.description.contains("Pass `selector`"),
             "{}",
@@ -137,8 +137,8 @@ mod tests {
 
         let synthetic_click = tools
             .iter()
-            .find(|tool| tool.name == "browser__synthetic_click")
-            .expect("browser__synthetic_click should be available");
+            .find(|tool| tool.name == "browser__click_at")
+            .expect("browser__click_at should be available");
         assert!(
             synthetic_click
                 .description
@@ -149,7 +149,7 @@ mod tests {
         assert!(
             synthetic_click
                 .parameters
-                .contains(r#""id":{"description":"Optional semantic ID from browser__snapshot"#),
+                .contains(r#""id":{"description":"Optional semantic ID from browser__inspect"#),
             "{}",
             synthetic_click.parameters
         );
@@ -175,8 +175,8 @@ mod tests {
 
         let move_mouse = tools
             .iter()
-            .find(|tool| tool.name == "browser__move_mouse")
-            .expect("browser__move_mouse should be available");
+            .find(|tool| tool.name == "browser__move_pointer")
+            .expect("browser__move_pointer should be available");
         assert!(
             move_mouse
                 .description

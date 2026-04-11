@@ -15,6 +15,7 @@ use ioi_execution::ExecutionMachine;
 use ioi_memory::MemoryRuntime;
 use ioi_networking::libp2p::Libp2pSync;
 use ioi_networking::metrics as network_metrics;
+use ioi_services::agentic::leakage::LeakageController;
 use ioi_services::governance::GovernanceModule;
 use ioi_services::guardian_registry::GuardianRegistry;
 // --- IBC Service Imports ---
@@ -83,7 +84,9 @@ use tokio::sync::Mutex;
 
 // [FIX] Correctly import LocalSafetyModel, InferenceRuntime and OsDriver
 use ioi_api::vm::drivers::os::OsDriver;
-use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel};
+use ioi_api::vm::inference::{
+    HttpInferenceRuntime, InferenceRuntime, LocalSafetyModel, UnavailableInferenceRuntime,
+};
 use ioi_drivers::os::NativeOsDriver;
 use ioi_services::agentic::pii_adapter::RuntimeAsPiiModel;
 
@@ -380,21 +383,36 @@ where
 
     // [FIX] Initialize Safety Model and Inference Runtime properly
     let inference_runtime: Arc<dyn InferenceRuntime> =
-        if let Some(key) = &workload_config.inference.api_key {
-            let model_name = workload_config
-                .inference
-                .model_name
-                .clone()
-                .unwrap_or("gpt-4o".to_string());
-            let api_url = workload_config
-                .inference
-                .api_url
-                .clone()
-                .unwrap_or("https://api.openai.com/v1/chat/completions".to_string());
-
-            Arc::new(HttpInferenceRuntime::new(api_url, key.clone(), model_name))
-        } else {
-            Arc::new(ioi_api::vm::inference::mock::MockInferenceRuntime)
+        match workload_config.inference.provider.as_str() {
+            "openai" | "local" => {
+                let model_name = workload_config
+                    .inference
+                    .model_name
+                    .clone()
+                    .unwrap_or_else(|| {
+                        if workload_config.inference.provider == "openai" {
+                            "gpt-4o".to_string()
+                        } else {
+                            "llama3".to_string()
+                        }
+                    });
+                let api_url = workload_config
+                    .inference
+                    .api_url
+                    .clone()
+                    .unwrap_or_else(|| {
+                        if workload_config.inference.provider == "openai" {
+                            "https://api.openai.com/v1/chat/completions".to_string()
+                        } else {
+                            "http://localhost:11434/v1/chat/completions".to_string()
+                        }
+                    });
+                let api_key = workload_config.inference.api_key.clone().unwrap_or_default();
+                Arc::new(HttpInferenceRuntime::new(api_url, api_key, model_name))
+            }
+            _ => Arc::new(UnavailableInferenceRuntime::new(
+                "Orchestration inference runtime is unavailable. Configure a real HTTP inference backend for planner-facing draft flows.",
+            )),
         };
 
     let safety_model: Arc<dyn LocalSafetyModel> =
@@ -470,6 +488,11 @@ where
                     let registry = GuardianRegistry::new(Default::default());
                     initial_services
                         .push(Arc::new(registry) as Arc<dyn ioi_api::services::UpgradableService>);
+                }
+                InitialServiceConfig::LeakageController => {
+                    tracing::info!(target: "orchestration", event = "service_init", name = "LeakageController", impl="native", capabilities="budget_control");
+                    initial_services.push(Arc::new(LeakageController)
+                        as Arc<dyn ioi_api::services::UpgradableService>);
                 }
                 #[cfg(feature = "ibc-deps")]
                 InitialServiceConfig::Ibc(ibc_config) => {

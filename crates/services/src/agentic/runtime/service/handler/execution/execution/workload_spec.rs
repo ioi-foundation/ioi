@@ -35,7 +35,7 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         | AgentTool::SysInstallPackage { .. }
         | AgentTool::SysChangeDir { .. }
         | AgentTool::OsLaunchApp { .. } => RuntimeTarget::System,
-        AgentTool::Computer(_)
+        AgentTool::Screen(_)
         | AgentTool::GuiClick { .. }
         | AgentTool::GuiType { .. }
         | AgentTool::GuiScroll { .. }
@@ -48,7 +48,6 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         AgentTool::BrowserNavigate { .. }
         | AgentTool::BrowserSnapshot { .. }
         | AgentTool::BrowserClick { .. }
-        | AgentTool::BrowserClickElement { .. }
         | AgentTool::BrowserHover { .. }
         | AgentTool::BrowserMoveMouse { .. }
         | AgentTool::BrowserMouseDown { .. }
@@ -282,7 +281,7 @@ pub fn select_runtime(
         return service.reasoning_inference.clone();
     }
     match state.last_action_type.as_deref() {
-        Some("gui__click") | Some("gui__type") => {
+        Some("screen__click_at") | Some("screen__type") => {
             // Prefer fast inference if available for simple UI follow-ups
             service.fast_inference.clone()
         }

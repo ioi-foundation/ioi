@@ -30,10 +30,10 @@ Rules:\n\
         prompt.push_str(
             "Patch/build/verify worker rules:\n\
 6. Do not reread files or search again after a no-effect recovery boundary unless the focused verification command already ran and the latest failure was a malformed edit/tool-call recovery.\n\
-7. Prefer `filesystem__patch`, `filesystem__edit_line`, or `filesystem__write_file` when the malformed response already contains the intended code change.\n\
-8. Use `sys__exec_session` only after the edit is ready for the focused verification command.\n\
+7. Prefer `file__edit`, `file__replace_line`, or `file__write` when the malformed response already contains the intended code change.\n\
+8. Use `shell__start` only after the edit is ready for the focused verification command.\n\
 9. If the focused verification command already ran and failed, produce an edit tool call next instead of rerunning tests.\n\
-10. If you use `filesystem__write_file` for a code edit, omit `line_number` and provide the full updated file contents grounded in the current file snapshot.\n",
+10. If you use `file__write` for a code edit, omit `line_number` and provide the full updated file contents grounded in the current file snapshot.\n",
         );
     }
     prompt.push_str(&format!(
@@ -98,7 +98,7 @@ pub(crate) fn build_invalid_tool_repair_retry_prompt(
 1. Emit an EDIT tool call only. Do not reread, search, stat, list directories, or rerun commands.\n\
 2. Ground the edit in the current file snapshot instead of transcribing the malformed response verbatim.\n\
 3. Preserve explicit goal constraints, including preserving a leading `./` or `/` when requested.\n\
-4. If you use `filesystem__write_file`, provide the full updated file contents.\n",
+4. If you use `file__write`, provide the full updated file contents.\n",
     );
     prompt
 }
@@ -131,10 +131,10 @@ Rules:\n\
     {
         prompt.push_str(
             "Patch/build/verify worker rules:\n\
-6. After a failing focused verifier result, produce `filesystem__patch`, `filesystem__edit_line`, or `filesystem__write_file` next.\n\
-7. Do not emit `sys__exec_session` again until a workspace edit has landed.\n\
+6. After a failing focused verifier result, produce `file__edit`, `file__replace_line`, or `file__write` next.\n\
+7. Do not emit `shell__start` again until a workspace edit has landed.\n\
 8. Ground any edit tool call in the current likely patch file snapshot.\n\
-9. If you use `filesystem__write_file` for a code edit, omit `line_number` and provide the full updated file contents.\n",
+9. If you use `file__write` for a code edit, omit `line_number` and provide the full updated file contents.\n",
         );
     }
     prompt.push_str(&format!(
@@ -418,7 +418,7 @@ pub(crate) fn raw_tool_output_requests_refresh_read(
         || normalized.contains("inspect the");
     mentions_read
         && (normalized.contains(&file_name)
-            || normalized.contains("filesystem__read_file")
+            || normalized.contains("file__read")
             || normalized.contains("current file"))
 }
 
@@ -481,7 +481,11 @@ pub(crate) fn synthesize_patch_build_verify_completion_result(
                 .map(str::to_string)
         })
         .into_iter()
-        .chain(patch_build_verify_likely_files(assignment).into_iter().take(1))
+        .chain(
+            patch_build_verify_likely_files(assignment)
+                .into_iter()
+                .take(1),
+        )
         .fold(Vec::<String>::new(), |mut acc, item| {
             if !acc.iter().any(|existing| existing == &item) {
                 acc.push(item);

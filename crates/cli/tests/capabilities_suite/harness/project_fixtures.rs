@@ -141,21 +141,6 @@ struct HackerNewsMonitorFixtureRuntime {
     manifest_path: PathBuf,
 }
 
-struct MailReplyMockDriverFixtureRuntime {
-    _temp_dir: tempfile::TempDir,
-    fixture_root: PathBuf,
-    manifest_path: PathBuf,
-}
-
-struct GoogleConnectorFixtureRuntime {
-    _temp_dir: tempfile::TempDir,
-    _env_mock_path: ScopedEnvVar,
-    fixture_root: PathBuf,
-    state_path: PathBuf,
-    manifest_path: PathBuf,
-    account_email: String,
-}
-
 struct RestaurantsNearMeFixtureRuntime {
     _temp_dir: tempfile::TempDir,
     fixture_root: PathBuf,
@@ -288,8 +273,8 @@ struct HackerNewsMonitorRegistryRecord {
     failure_count: u64,
 }
 
-fn should_bootstrap_mailbox_runtime(goal: &str) -> bool {
-    is_mailbox_connector_goal(goal)
+fn should_bootstrap_mailbox_runtime(case: &QueryCase) -> bool {
+    case_requires_wallet_mail_runtime(case)
 }
 
 fn should_bootstrap_vlc_install_fixture(case_id: &str) -> bool {
@@ -343,17 +328,6 @@ fn should_bootstrap_shutdown_schedule_fixture(case_id: &str) -> bool {
 
 fn should_bootstrap_hacker_news_monitor_fixture(case_id: &str) -> bool {
     case_id.eq_ignore_ascii_case(HACKER_NEWS_MONITOR_CASE_ID)
-}
-
-fn should_bootstrap_mail_reply_mock_fixture(case_id: &str) -> bool {
-    case_id.eq_ignore_ascii_case(MAIL_REPLY_SEND_CASE_ID)
-}
-
-fn should_bootstrap_google_connector_fixture(case_id: &str) -> bool {
-    case_id.eq_ignore_ascii_case(MAIL_REPLY_SEND_CASE_ID)
-        || case_id.eq_ignore_ascii_case(GOOGLE_GMAIL_DRAFT_CASE_ID)
-        || case_id.eq_ignore_ascii_case(GOOGLE_GMAIL_SEND_CASE_ID)
-        || case_id.eq_ignore_ascii_case(GOOGLE_CALENDAR_CREATE_CASE_ID)
 }
 
 fn should_bootstrap_restaurants_near_me_fixture(case_id: &str) -> bool {
@@ -5088,232 +5062,6 @@ fn hacker_news_monitor_fixture_cleanup_checks(
     batch
 }
 
-fn bootstrap_mail_reply_mock_fixture_runtime(
-    run_unique_num: &str,
-) -> Result<MailReplyMockDriverFixtureRuntime> {
-    let temp_dir = tempdir()?;
-    let fixture_root = temp_dir
-        .path()
-        .join(format!("ioi_mail_reply_fixture_{}", run_unique_num));
-    std::fs::create_dir_all(&fixture_root)?;
-    let manifest_path = fixture_root.join("fixture_manifest.txt");
-    std::fs::write(
-        &manifest_path,
-        format!(
-            "mode={}\nrun_unique_num={}\nprovider_driver=mock\n",
-            MAIL_REPLY_MOCK_FIXTURE_MODE, run_unique_num
-        ),
-    )?;
-
-    Ok(MailReplyMockDriverFixtureRuntime {
-        _temp_dir: temp_dir,
-        fixture_root,
-        manifest_path,
-    })
-}
-
-fn bootstrap_google_connector_fixture_runtime(
-    run_unique_num: &str,
-) -> Result<GoogleConnectorFixtureRuntime> {
-    let temp_dir = tempdir()?;
-    let fixture_root = temp_dir
-        .path()
-        .join(format!("ioi_google_connector_fixture_{}", run_unique_num));
-    std::fs::create_dir_all(&fixture_root)?;
-    let state_path = fixture_root.join("mock_state.json");
-    let manifest_path = fixture_root.join("fixture_manifest.txt");
-    let account_email = "fixtures.google@ioi.invalid".to_string();
-    let state = serde_json::json!({
-        "accountEmail": account_email,
-        "grantedScopes": [
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "https://www.googleapis.com/auth/gmail.modify",
-            "https://www.googleapis.com/auth/calendar.readonly",
-            "https://www.googleapis.com/auth/calendar"
-        ],
-        "messages": [],
-        "events": [],
-        "nextMessageSeq": 1,
-        "nextThreadSeq": 1,
-        "nextEventSeq": 1
-    });
-    std::fs::write(&state_path, serde_json::to_vec_pretty(&state)?)?;
-    std::fs::write(
-        &manifest_path,
-        format!(
-            "mode={}\nrun_unique_num={}\naccount_email={}\nstate_path={}\n",
-            GOOGLE_CONNECTOR_FIXTURE_MODE,
-            run_unique_num,
-            account_email,
-            state_path.to_string_lossy()
-        ),
-    )?;
-
-    Ok(GoogleConnectorFixtureRuntime {
-        _temp_dir: temp_dir,
-        _env_mock_path: ScopedEnvVar::set(
-            GOOGLE_CONNECTOR_FIXTURE_ENV_KEY,
-            state_path.to_string_lossy().to_string(),
-        ),
-        fixture_root,
-        state_path,
-        manifest_path,
-        account_email,
-    })
-}
-
-fn google_connector_fixture_preflight_checks(
-    fixture: &GoogleConnectorFixtureRuntime,
-    run_unique_num: &str,
-    run_timestamp_ms: u64,
-) -> EnvironmentEvidenceBatch {
-    let probe_source = format!("{}.preflight", GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE);
-    let fixture_root = fixture.fixture_root.to_string_lossy().to_string();
-    let run_unique_satisfied = fixture_root.contains(run_unique_num);
-    let state_ready = fixture.state_path.is_file();
-    let manifest_ready = fixture.manifest_path.is_file();
-    let fixture_satisfied = run_unique_satisfied && state_ready && manifest_ready;
-
-    let mut batch = EnvironmentEvidenceBatch::default();
-    push_environment_receipt(
-        &mut batch,
-        "google_connector_fixture_mode",
-        GOOGLE_CONNECTOR_FIXTURE_MODE,
-        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(run_timestamp_ms),
-        Some(true),
-    );
-    push_environment_receipt(
-        &mut batch,
-        "google_connector_fixture_root",
-        fixture.fixture_root.to_string_lossy().to_string(),
-        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(run_timestamp_ms),
-        Some(run_unique_satisfied),
-    );
-    push_environment_receipt(
-        &mut batch,
-        "google_connector_fixture_state_path",
-        fixture.state_path.to_string_lossy().to_string(),
-        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(run_timestamp_ms),
-        Some(state_ready),
-    );
-    push_environment_receipt(
-        &mut batch,
-        "google_connector_fixture_account",
-        fixture.account_email.clone(),
-        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(run_timestamp_ms),
-        Some(true),
-    );
-    push_environment_receipt(
-        &mut batch,
-        "google_connector_fixture_env_key",
-        GOOGLE_CONNECTOR_FIXTURE_ENV_KEY,
-        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(run_timestamp_ms),
-        Some(true),
-    );
-    push_environment_receipt(
-        &mut batch,
-        "google_connector_fixture_probe",
-        probe_source,
-        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(run_timestamp_ms),
-        Some(true),
-    );
-    push_environment_metadata(
-        &mut batch,
-        "google_connector_fixture",
-        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(run_timestamp_ms),
-        Some(fixture_satisfied),
-    );
-    batch
-}
-
-fn google_connector_fixture_post_run_checks(
-    fixture: &GoogleConnectorFixtureRuntime,
-) -> EnvironmentEvidenceBatch {
-    let timestamp_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
-    let state = std::fs::read_to_string(&fixture.state_path)
-        .ok()
-        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-        .unwrap_or_else(|| serde_json::json!({}));
-    let message_count = state
-        .get("messages")
-        .and_then(serde_json::Value::as_array)
-        .map(|entries| entries.len())
-        .unwrap_or(0);
-    let event_count = state
-        .get("events")
-        .and_then(serde_json::Value::as_array)
-        .map(|entries| entries.len())
-        .unwrap_or(0);
-
-    let mut batch = EnvironmentEvidenceBatch::default();
-    push_environment_receipt(
-        &mut batch,
-        "google_connector_fixture_message_count",
-        message_count.to_string(),
-        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(timestamp_ms),
-        Some(true),
-    );
-    push_environment_receipt(
-        &mut batch,
-        "google_connector_fixture_event_count",
-        event_count.to_string(),
-        Some(GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE.to_string()),
-        Some(timestamp_ms),
-        Some(true),
-    );
-    batch
-}
-
-fn google_connector_fixture_cleanup_checks(
-    fixture: &GoogleConnectorFixtureRuntime,
-) -> EnvironmentEvidenceBatch {
-    let timestamp_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
-    let probe_source = format!("{}.cleanup_probe", GOOGLE_CONNECTOR_FIXTURE_PROBE_SOURCE);
-    let state_exists_before_cleanup = fixture.state_path.exists();
-    let manifest_exists_before_cleanup = fixture.manifest_path.exists();
-    let _ = std::fs::remove_dir_all(&fixture.fixture_root);
-    let cleanup_satisfied = !fixture.fixture_root.exists();
-    let mut batch = EnvironmentEvidenceBatch::default();
-    push_environment_receipt(
-        &mut batch,
-        "google_connector_fixture_cleanup_state_exists",
-        state_exists_before_cleanup.to_string(),
-        Some(probe_source.clone()),
-        Some(timestamp_ms),
-        Some(state_exists_before_cleanup),
-    );
-    push_environment_receipt(
-        &mut batch,
-        "google_connector_fixture_cleanup_manifest_exists",
-        manifest_exists_before_cleanup.to_string(),
-        Some(probe_source.clone()),
-        Some(timestamp_ms),
-        Some(manifest_exists_before_cleanup),
-    );
-    push_environment_metadata(
-        &mut batch,
-        "google_connector_fixture_cleanup",
-        Some(probe_source),
-        Some(timestamp_ms),
-        Some(cleanup_satisfied),
-    );
-    batch
-}
-
 fn bootstrap_restaurants_near_me_fixture_runtime(
     run_unique_num: &str,
 ) -> Result<RestaurantsNearMeFixtureRuntime> {
@@ -5826,7 +5574,6 @@ async fn bootstrap_mailbox_runtime_state(
     wallet_service: &WalletNetworkService,
     run_index: usize,
     run_timestamp_ms: u64,
-    provider_driver_override: Option<&str>,
     requested_capability: Option<&str>,
 ) -> Result<EnvironmentEvidenceBatch> {
     fn read_wallet_receipt<T: parity_scale_codec::Decode>(
@@ -5881,14 +5628,7 @@ async fn bootstrap_mailbox_runtime_state(
         })
     }
 
-    fn build_mail_connector_config(
-        config: &MailRuntimeBootstrapConfig,
-        provider_driver: Option<&str>,
-    ) -> MailConnectorConfig {
-        let mut metadata = BTreeMap::new();
-        if let Some(driver) = provider_driver {
-            metadata.insert("driver".to_string(), driver.to_string());
-        }
+    fn build_mail_connector_config(config: &MailRuntimeBootstrapConfig) -> MailConnectorConfig {
         MailConnectorConfig {
             provider: MailConnectorProvider::ImapSmtp,
             auth_mode: config.auth_mode,
@@ -5910,13 +5650,12 @@ async fn bootstrap_mailbox_runtime_state(
                 smtp_username_alias: config.smtp_username_alias.clone(),
                 smtp_password_alias: config.smtp_secret_alias.clone(),
             },
-            metadata,
+            metadata: BTreeMap::new(),
         }
     }
 
     fn build_connector_auth_record(
         config: &MailRuntimeBootstrapConfig,
-        provider_driver: Option<&str>,
         requested_capability: Option<&str>,
         timestamp_ms: u64,
     ) -> ioi_types::app::ConnectorAuthRecord {
@@ -5931,11 +5670,6 @@ async fn bootstrap_mailbox_runtime_state(
             config.smtp_username_alias.clone(),
         );
         credential_aliases.insert("smtp_secret".to_string(), config.smtp_secret_alias.clone());
-
-        let mut metadata = BTreeMap::new();
-        if let Some(driver) = provider_driver {
-            metadata.insert("driver".to_string(), driver.to_string());
-        }
 
         ioi_types::app::ConnectorAuthRecord {
             connector_id: format!("mail.{}", config.mailbox),
@@ -5957,7 +5691,7 @@ async fn bootstrap_mailbox_runtime_state(
                 .into_iter()
                 .collect(),
             credential_aliases,
-            metadata,
+            metadata: BTreeMap::new(),
             created_at_ms: timestamp_ms,
             updated_at_ms: timestamp_ms,
             expires_at_ms: None,
@@ -5965,8 +5699,7 @@ async fn bootstrap_mailbox_runtime_state(
         }
     }
 
-    let (config, bootstrap_source) =
-        resolve_mail_runtime_bootstrap_config(run_index, provider_driver_override)?;
+    let (config, bootstrap_source) = resolve_mail_runtime_bootstrap_config()?;
     upsert_wallet_network_service_meta(state)?;
 
     let root = build_wallet_harness_identity(run_index, 0xC1, 0xC2)?;
@@ -6036,31 +5769,9 @@ async fn bootstrap_mailbox_runtime_state(
         .await?;
     }
 
-    let provider_driver = provider_driver_override
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(|value| value.to_ascii_lowercase())
-        .or_else(|| config.provider_driver.clone());
-    let provider_driver_source = if provider_driver_override
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .is_some()
-    {
-        "fixture_override"
-    } else if bootstrap_source == "workspace_env" && config.provider_driver.is_some() {
-        "env"
-    } else if bootstrap_source == "wallet_synthetic_mock" {
-        "wallet_synthetic"
-    } else {
-        "default"
-    };
-    let provider_driver_label = provider_driver
-        .clone()
-        .unwrap_or_else(|| "live".to_string());
-
     let upsert = MailConnectorUpsertParams {
         mailbox: config.mailbox.clone(),
-        config: build_mail_connector_config(&config, provider_driver.as_deref()),
+        config: build_mail_connector_config(&config),
     };
     invoke_wallet_method(
         wallet_service,
@@ -6073,7 +5784,6 @@ async fn bootstrap_mailbox_runtime_state(
 
     let connector_auth = build_connector_auth_record(
         &config,
-        provider_driver.as_deref(),
         requested_capability,
         run_timestamp_ms,
     );
@@ -6225,22 +5935,6 @@ async fn bootstrap_mailbox_runtime_state(
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .unwrap_or("*"),
-        Some(probe_source.clone()),
-        Some(run_timestamp_ms),
-        Some(true),
-    );
-    push_environment_receipt(
-        &mut batch,
-        "mail_provider_driver",
-        provider_driver_label,
-        Some(probe_source.clone()),
-        Some(run_timestamp_ms),
-        Some(true),
-    );
-    push_environment_receipt(
-        &mut batch,
-        "mail_provider_driver_source",
-        provider_driver_source,
         Some(probe_source.clone()),
         Some(run_timestamp_ms),
         Some(true),

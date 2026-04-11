@@ -1,4 +1,5 @@
 use super::*;
+use crate::agentic::pii_substrate;
 use crate::agentic::runtime::agent_playbooks::builtin_agent_playbook;
 use crate::agentic::runtime::connectors::{
     connector_id_for_tool_name, connector_protected_slot_bindings,
@@ -14,7 +15,6 @@ use crate::agentic::runtime::service::step::action::support::{
     mark_execution_receipt_with_value, receipt_marker,
 };
 use crate::agentic::runtime::types::{ParentPlaybookRun, WorkerAssignment};
-use crate::agentic::pii_substrate;
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::{
     ArgumentOrigin, InstructionBindingKind, InstructionSlotBinding, PiiClass, ProtectedSlotKind,
@@ -450,7 +450,7 @@ fn should_synthesize_parent_playbook_await(
     if active_child_session_id.is_none() {
         return false;
     }
-    !matches!(tool_name, Some("agent__await_result"))
+    !matches!(tool_name, Some("agent__await"))
 }
 
 fn synthesize_parent_playbook_await(
@@ -963,13 +963,13 @@ pub(super) async fn apply_instruction_contract_grounding(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::rules::ActionRules;
     use crate::agentic::runtime::service::lifecycle::persist_worker_assignment;
     use crate::agentic::runtime::service::RuntimeAgentService;
     use crate::agentic::runtime::types::{
         AgentMode, AgentState, AgentStatus, ExecutionTier, ParentPlaybookStatus, WorkerAssignment,
         WorkerCompletionContract, WorkerMergeMode,
     };
-    use crate::agentic::rules::ActionRules;
     use async_trait::async_trait;
     use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
     use ioi_api::vm::inference::mock::MockInferenceRuntime;
@@ -1079,11 +1079,11 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__write_file".to_string(),
-                "filesystem__edit_line".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__write".to_string(),
+                "file__replace_line".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1544,7 +1544,7 @@ mod tests {
             child_session_id_hex,
         } = grounded
         else {
-            panic!("expected grounded tool to become agent__await_result");
+            panic!("expected grounded tool to become agent__await");
         };
         assert_eq!(child_session_id_hex, hex::encode([0x44; 32]));
         assert!(verification_checks

@@ -1,15 +1,18 @@
 use anyhow::{anyhow, Result};
 use ioi_api::app::{Block, ChainStatus, ChainTransaction};
 use ioi_api::chain::WorkloadClientApi;
-use ioi_api::consensus::CanonicalCollapseContinuityVerifier;
+use ioi_api::consensus::{CanonicalCollapseContinuityVerifier, ConsensusEngine};
 use ioi_types::app::{
-    aft_canonical_collapse_object_key, canonical_collapse_continuity_public_inputs,
+    aft_canonical_collapse_object_key, canonical_collapse_commitment,
+    canonical_collapse_continuity_public_inputs, canonical_collapse_eq_on_header_surface,
     derive_canonical_collapse_object, derive_canonical_collapse_object_with_previous,
     verify_canonical_collapse_continuity, CanonicalCollapseContinuityProofSystem,
     CanonicalCollapseObject,
 };
 use ioi_types::codec;
 use ioi_types::config::ConsensusType;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use zk_driver_succinct::SuccinctDriver;
 
 fn header_carries_aft_external_finality(block: &Block<ChainTransaction>) -> bool {
@@ -108,6 +111,168 @@ pub(crate) async fn derive_expected_aft_canonical_collapse_for_block(
     Ok(Some(collapse))
 }
 
+pub(crate) async fn resolve_live_aft_canonical_collapse_for_block(
+    consensus_type: ConsensusType,
+    workload_client: &dyn WorkloadClientApi,
+    previous_live_collapse: Option<&CanonicalCollapseObject>,
+    block: &Block<ChainTransaction>,
+) -> Result<Option<CanonicalCollapseObject>> {
+    if !matches!(consensus_type, ConsensusType::Aft) {
+        return Ok(None);
+    }
+    if !header_carries_aft_external_finality(block) || !header_carries_materialized_execution(block)
+    {
+        return Ok(None);
+    }
+
+    let previous = if block.header.height <= 1 {
+        None
+    } else {
+        let persisted_previous =
+            load_persisted_aft_canonical_collapse_object(workload_client, block.header.height - 1)
+                .await?;
+        let previous = match (previous_live_collapse.cloned(), persisted_previous) {
+            (_, Some(persisted_previous)) => {
+                verify_persisted_aft_canonical_collapse_chain(workload_client, &persisted_previous)
+                    .await?;
+                Some(persisted_previous)
+            }
+            (Some(previous_live), None) => {
+                verify_canonical_collapse_backend(&previous_live)?;
+                Some(previous_live)
+            }
+            (None, None) => {
+                return Err(anyhow!(
+                    "missing previous canonical collapse object for height {}",
+                    block.header.height
+                ));
+            }
+        };
+        previous
+    };
+
+    let derived = derive_canonical_collapse_object_with_previous(
+        &block.header,
+        &block.transactions,
+        previous.as_ref(),
+    )
+    .map_err(|error| {
+        anyhow!(
+            "failed to derive canonical collapse object for height {}: {error}",
+            block.header.height
+        )
+    })?;
+    verify_canonical_collapse_continuity(&derived, previous.as_ref()).map_err(|error| {
+        anyhow!(
+            "derived canonical collapse continuity verification failed for height {}: {}",
+            block.header.height,
+            error
+        )
+    })?;
+    verify_canonical_collapse_backend(&derived)?;
+
+    if let Some(persisted) =
+        load_persisted_aft_canonical_collapse_object(workload_client, block.header.height).await?
+    {
+        verify_persisted_aft_canonical_collapse_chain(workload_client, &persisted).await?;
+        if !canonical_collapse_eq_on_header_surface(&persisted, &derived) {
+            return Err(anyhow!(
+                "persisted canonical collapse object does not match committed block surface at height {}",
+                block.header.height
+            ));
+        }
+        Ok(Some(persisted))
+    } else {
+        Ok(Some(derived))
+    }
+}
+
+pub(crate) async fn observe_live_committed_chain_through_block<CE>(
+    consensus_engine_ref: &Arc<Mutex<CE>>,
+    consensus_type: ConsensusType,
+    workload_client: &dyn WorkloadClientApi,
+    tip_block: &Block<ChainTransaction>,
+) -> Result<bool>
+where
+    CE: ConsensusEngine<ChainTransaction> + Send + Sync + 'static,
+{
+    let target_height = tip_block.header.height;
+    if target_height == 0 {
+        return Ok(false);
+    }
+
+    let mut start_height = target_height;
+    if matches!(consensus_type, ConsensusType::Aft) && target_height > 1 {
+        for height in 1..target_height {
+            let known = consensus_engine_ref
+                .lock()
+                .await
+                .canonical_collapse_for_committed_height(height);
+            let Some(known) = known else {
+                start_height = height;
+                break;
+            };
+
+            let Some(persisted) =
+                load_persisted_aft_canonical_collapse_object(workload_client, height).await?
+            else {
+                continue;
+            };
+            verify_persisted_aft_canonical_collapse_chain(workload_client, &persisted).await?;
+
+            if canonical_collapse_commitment(&known) != canonical_collapse_commitment(&persisted) {
+                start_height = height;
+                break;
+            }
+        }
+    }
+
+    let mut previous_live_collapse = if start_height <= 1 {
+        None
+    } else {
+        consensus_engine_ref
+            .lock()
+            .await
+            .canonical_collapse_for_committed_height(start_height - 1)
+    };
+
+    for height in start_height..=target_height {
+        let block = match workload_client
+            .get_block_by_height(height)
+            .await
+            .map_err(|error| {
+                anyhow!(
+                    "failed to load committed block {height} for live consensus hydration: {error}"
+                )
+            })? {
+            Some(block) => block,
+            None if height == target_height => tip_block.clone(),
+            None => {
+                return Err(anyhow!(
+                    "missing committed ancestor block {height} for live consensus hydration"
+                ));
+            }
+        };
+        let committed_collapse = resolve_live_aft_canonical_collapse_for_block(
+            consensus_type,
+            workload_client,
+            previous_live_collapse.as_ref(),
+            &block,
+        )
+        .await?;
+        let accepted = consensus_engine_ref
+            .lock()
+            .await
+            .observe_committed_block(&block.header, committed_collapse.as_ref());
+        if !accepted {
+            return Ok(false);
+        }
+        previous_live_collapse = committed_collapse;
+    }
+
+    Ok(true)
+}
+
 pub(crate) async fn require_persisted_aft_canonical_collapse_for_block(
     workload_client: &dyn WorkloadClientApi,
     block: &Block<ChainTransaction>,
@@ -130,7 +295,7 @@ pub(crate) async fn require_persisted_aft_canonical_collapse_for_block(
         ));
     };
     verify_persisted_aft_canonical_collapse_chain(workload_client, &persisted).await?;
-    if persisted != expected {
+    if !canonical_collapse_eq_on_header_surface(&persisted, &expected) {
         return Err(anyhow!(
             "persisted canonical collapse object does not match committed block surface at height {}",
             block.header.height
@@ -251,7 +416,8 @@ mod tests {
         canonical_collapse_commitment, canonical_collapse_commitment_hash_from_object,
         canonical_collapse_continuity_public_inputs, canonical_collapse_extension_certificate,
         canonical_collapse_recursive_proof_hash, canonical_collapse_succinct_mock_proof_bytes,
-        AccountId, CanonicalCollapseContinuityProofSystem, CanonicalCollapseExtensionCertificate,
+        set_canonical_collapse_archived_recovered_history_anchor, AccountId,
+        CanonicalCollapseContinuityProofSystem, CanonicalCollapseExtensionCertificate,
         QuorumCertificate, SignatureSuite, StateAnchor, StateRoot,
     };
     use ioi_types::error::ChainError;
@@ -543,6 +709,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn require_persisted_aft_canonical_collapse_accepts_archived_anchor_upgrade() {
+        let mut block = sample_block();
+        let previous = CanonicalCollapseObject {
+            height: block.header.height - 1,
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            continuity_accumulator_hash: [0u8; 32],
+            continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
+            ordering: Default::default(),
+            sealing: None,
+            transactions_root_hash: [0x21u8; 32],
+            resulting_state_root_hash: [0x22u8; 32],
+        };
+        let mut previous = previous;
+        ioi_types::app::bind_canonical_collapse_continuity(&mut previous, None)
+            .expect("bind previous continuity");
+        block.header.previous_canonical_collapse_commitment_hash =
+            canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
+        block.header.canonical_collapse_extension_certificate = Some(
+            canonical_collapse_extension_certificate(block.header.height, &previous)
+                .expect("extension certificate"),
+        );
+        let derived = derive_canonical_collapse_object_with_previous(
+            &block.header,
+            &block.transactions,
+            Some(&previous),
+        )
+        .expect("collapse");
+        let mut persisted = derived.clone();
+        set_canonical_collapse_archived_recovered_history_anchor(
+            &mut persisted,
+            [0x31u8; 32],
+            [0x32u8; 32],
+            [0x33u8; 32],
+        )
+        .expect("anchor upgrade");
+        let previous_key = aft_canonical_collapse_object_key(previous.height);
+        let key = aft_canonical_collapse_object_key(block.header.height);
+        let client = TestWorkloadClient::default();
+        client.raw_state.lock().await.insert(
+            previous_key,
+            codec::to_bytes_canonical(&previous).expect("encode previous"),
+        );
+        client.raw_state.lock().await.insert(
+            key,
+            codec::to_bytes_canonical(&persisted).expect("encode collapse"),
+        );
+
+        let loaded = require_persisted_aft_canonical_collapse_for_block(&client, &block)
+            .await
+            .expect("persisted collapse");
+        assert_eq!(loaded, persisted);
+    }
+
+    #[tokio::test]
     async fn require_persisted_aft_canonical_collapse_rejects_corrupted_succinct_previous_chain() {
         let _guard = continuity_env_lock().lock().expect("continuity env lock");
         let previous_env = std::env::var("IOI_AFT_CONTINUITY_PROOF_SYSTEM").ok();
@@ -699,6 +922,67 @@ mod tests {
                 .contains("canonical collapse continuity requires a previous collapse object"),
             "unexpected error: {error}"
         );
+    }
+
+    #[tokio::test]
+    async fn resolve_live_aft_canonical_collapse_accepts_archived_anchor_upgrade() {
+        let mut block = sample_block();
+        let previous = CanonicalCollapseObject {
+            height: block.header.height - 1,
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            continuity_accumulator_hash: [0u8; 32],
+            continuity_recursive_proof: Default::default(),
+            archived_recovered_history_checkpoint_hash: [0u8; 32],
+            archived_recovered_history_profile_activation_hash: [0u8; 32],
+            archived_recovered_history_retention_receipt_hash: [0u8; 32],
+            ordering: Default::default(),
+            sealing: None,
+            transactions_root_hash: [0x41u8; 32],
+            resulting_state_root_hash: [0x42u8; 32],
+        };
+        let mut previous = previous;
+        ioi_types::app::bind_canonical_collapse_continuity(&mut previous, None)
+            .expect("bind previous continuity");
+        block.header.previous_canonical_collapse_commitment_hash =
+            canonical_collapse_commitment_hash_from_object(&previous).expect("previous hash");
+        block.header.canonical_collapse_extension_certificate = Some(
+            canonical_collapse_extension_certificate(block.header.height, &previous)
+                .expect("extension certificate"),
+        );
+        let mut persisted = derive_canonical_collapse_object_with_previous(
+            &block.header,
+            &block.transactions,
+            Some(&previous),
+        )
+        .expect("collapse");
+        set_canonical_collapse_archived_recovered_history_anchor(
+            &mut persisted,
+            [0x51u8; 32],
+            [0x52u8; 32],
+            [0x53u8; 32],
+        )
+        .expect("anchor upgrade");
+        let previous_key = aft_canonical_collapse_object_key(previous.height);
+        let key = aft_canonical_collapse_object_key(block.header.height);
+        let client = TestWorkloadClient::default();
+        client.raw_state.lock().await.insert(
+            previous_key,
+            codec::to_bytes_canonical(&previous).expect("encode previous"),
+        );
+        client.raw_state.lock().await.insert(
+            key,
+            codec::to_bytes_canonical(&persisted).expect("encode collapse"),
+        );
+
+        let resolved = resolve_live_aft_canonical_collapse_for_block(
+            ConsensusType::Aft,
+            &client,
+            Some(&previous),
+            &block,
+        )
+        .await
+        .expect("live collapse");
+        assert_eq!(resolved, Some(persisted));
     }
 
     #[tokio::test]

@@ -227,7 +227,7 @@
       "synthesisCompleteness": 0.375,
       "freshnessPassed": false,
       "quoteGroundingPassed": false,
-      "summary": "Missing filesystem__read_file capability to access the required file 'path_utils.py' in the repo context.",
+      "summary": "Missing file__read capability to access the required file 'path_utils.py' in the repo context.",
       "evidencePath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/planner-grade-local-oss-qwen3-8b/coding-path-normalizer-fixture/retained-result.json",
       "evidenceRoot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/planner-grade-local-oss-qwen3-8b/coding-path-normalizer-fixture",
       "stdoutPath": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-04-03T11-28-58-318Z/planner-grade-local-oss-qwen3-8b/coding-path-normalizer-fixture/command.stdout.log",

@@ -139,6 +139,22 @@ pub async fn run_capabilities_suite() -> Result<()> {
     if let Some(profile) = selected_profile {
         cases.retain(|case| case.execution_profile == profile);
     }
+    let mut skipped_due_to_runtime_prereqs = Vec::new();
+    cases.retain(|case| {
+        let missing = harness::case_missing_runtime_prerequisites(case);
+        if missing.is_empty() {
+            return true;
+        }
+        skipped_due_to_runtime_prereqs.push((case.id.to_string(), missing));
+        false
+    });
+    for (case_id, missing) in &skipped_due_to_runtime_prereqs {
+        println!(
+            "CAPABILITIES_CASE_SKIPPED_{}={}",
+            case_id,
+            missing.join(",")
+        );
+    }
     if cases.is_empty() {
         return Err(anyhow!(
             "no capabilities cases selected for CAPABILITIES_PROFILE={}",

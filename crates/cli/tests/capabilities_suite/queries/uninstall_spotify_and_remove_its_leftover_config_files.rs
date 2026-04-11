@@ -27,7 +27,7 @@ pub fn case() -> QueryCase {
         query: concat!(
             "Uninstall Spotify and remove its leftover config files. ",
             "Use the isolated fixture root at \"{SPOTIFY_UNINSTALL_FIXTURE_ROOT}\" and the fixture HOME. ",
-            "Use exactly one `sys__exec` invocation that runs a single `sh -lc` command to perform discovery and uninstall in one shot: ",
+            "Use exactly one `shell__run` invocation that runs a single `sh -lc` command to perform discovery and uninstall in one shot: ",
             "detect first available provider from [apt-get, snap, flatpak, brew, pacman], execute provider uninstall for Spotify, remove ~/.config/spotify ~/.cache/spotify ~/.local/share/spotify, and print `provider=<id>` in stdout. ",
             "Do not use web, browser, or net tools. ",
             "Do not mutate paths outside the fixture HOME. ",
@@ -132,20 +132,20 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         .filter(|entry| is_exec_action_success(entry))
         .count();
 
-    let action_exec_path_seen = has_tool_with_token(&obs.action_tools, "sys__exec");
-    let routing_exec_path_seen = has_tool_with_token(&obs.routing_tools, "sys__exec");
+    let action_exec_path_seen = has_tool_with_token(&obs.action_tools, "shell__run");
+    let routing_exec_path_seen = has_tool_with_token(&obs.routing_tools, "shell__run");
     let remote_path_seen = has_tool_with_token(&obs.action_tools, "web__")
         || has_tool_with_token(&obs.routing_tools, "web__")
         || has_tool_with_token(&obs.workload_tools, "web__")
         || has_tool_with_token(&obs.action_tools, "browser__")
         || has_tool_with_token(&obs.routing_tools, "browser__")
         || has_tool_with_token(&obs.workload_tools, "browser__")
-        || has_tool_with_token(&obs.action_tools, "net__fetch")
-        || has_tool_with_token(&obs.routing_tools, "net__fetch")
-        || has_tool_with_token(&obs.workload_tools, "net__fetch");
-    let install_tool_seen = has_tool_with_token(&obs.action_tools, "sys__install_package")
-        || has_tool_with_token(&obs.routing_tools, "sys__install_package")
-        || has_tool_with_token(&obs.workload_tools, "sys__install_package");
+        || has_tool_with_token(&obs.action_tools, "http__fetch")
+        || has_tool_with_token(&obs.routing_tools, "http__fetch")
+        || has_tool_with_token(&obs.workload_tools, "http__fetch");
+    let install_tool_seen = has_tool_with_token(&obs.action_tools, "package__install")
+        || has_tool_with_token(&obs.routing_tools, "package__install")
+        || has_tool_with_token(&obs.workload_tools, "package__install");
     let tool_and_route_path_evidence_present =
         action_exec_path_seen && routing_exec_path_seen && !remote_path_seen && !install_tool_seen;
 
@@ -337,7 +337,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 }
 
 fn is_exec_action_success(entry: &super::super::types::ActionEvidence) -> bool {
-    entry.tool_name.eq_ignore_ascii_case("sys__exec")
+    entry.tool_name.eq_ignore_ascii_case("shell__run")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
         && !action_has_hard_error_class(entry)
 }

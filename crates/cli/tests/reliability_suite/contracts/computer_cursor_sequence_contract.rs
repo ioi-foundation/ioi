@@ -5,7 +5,7 @@ use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::os::UnavailableOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_services::agentic::runtime::execution::computer::{
+use ioi_services::agentic::runtime::execution::screen::{
     build_cursor_click_sequence, build_cursor_drag_sequence,
 };
 use ioi_services::agentic::runtime::execution::ToolExecutor;
@@ -18,7 +18,7 @@ use ioi_services::agentic::runtime::service::step::anti_loop::{
 };
 use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};
-use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use ioi_types::app::agentic::{AgentTool, ScreenAction};
 use ioi_types::app::{ActionRequest, ContextSlice, RoutingReceiptEvent};
 use ioi_types::error::VmError;
 use serde_json::Value;
@@ -155,7 +155,7 @@ async fn left_click_without_coordinates_uses_cursor_click_sequence() {
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::LeftClick { coordinate: None }),
+            AgentTool::Screen(ScreenAction::LeftClick { coordinate: None }),
             [0u8; 32],
             1,
             [0u8; 32],
@@ -182,7 +182,7 @@ async fn left_click_drag_executes_cursor_drag_sequence() {
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::LeftClickDrag { coordinate: target }),
+            AgentTool::Screen(ScreenAction::LeftClickDrag { coordinate: target }),
             [0u8; 32],
             2,
             [0u8; 32],
@@ -208,7 +208,7 @@ async fn right_click_without_coordinates_uses_cursor_click_sequence() {
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::RightClick { coordinate: None }),
+            AgentTool::Screen(ScreenAction::RightClick { coordinate: None }),
             [0u8; 32],
             4,
             [0u8; 32],
@@ -234,7 +234,7 @@ async fn double_click_without_coordinates_uses_cursor_double_click_sequence() {
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::DoubleClick { coordinate: None }),
+            AgentTool::Screen(ScreenAction::DoubleClick { coordinate: None }),
             [0u8; 32],
             5,
             [0u8; 32],
@@ -275,7 +275,7 @@ async fn right_click_coordinate_uses_som_fallback_outside_visual_last() {
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::RightClick {
+            AgentTool::Screen(ScreenAction::RightClick {
                 coordinate: Some([119, 209]),
             }),
             [0u8; 32],
@@ -307,7 +307,7 @@ async fn double_click_coordinate_uses_som_fallback_outside_visual_last() {
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::DoubleClick {
+            AgentTool::Screen(ScreenAction::DoubleClick {
                 coordinate: Some([119, 209]),
             }),
             [0u8; 32],
@@ -341,21 +341,21 @@ async fn double_click_coordinate_uses_som_fallback_outside_visual_last() {
 
 #[test]
 fn right_click_actions_opt_into_visual_integrity_guard() {
-    assert!(requires_visual_integrity(&AgentTool::Computer(
-        ComputerAction::RightClick {
+    assert!(requires_visual_integrity(&AgentTool::Screen(
+        ScreenAction::RightClick {
             coordinate: Some([119, 209]),
         },
     )));
-    assert!(requires_visual_integrity(&AgentTool::Computer(
-        ComputerAction::RightClickId { id: 42 },
+    assert!(requires_visual_integrity(&AgentTool::Screen(
+        ScreenAction::RightClickId { id: 42 },
     )));
-    assert!(requires_visual_integrity(&AgentTool::Computer(
-        ComputerAction::RightClickElement {
+    assert!(requires_visual_integrity(&AgentTool::Screen(
+        ScreenAction::RightClickElement {
             id: "submit_button".to_string(),
         },
     )));
-    assert!(!requires_visual_integrity(&AgentTool::Computer(
-        ComputerAction::RightClick { coordinate: None },
+    assert!(!requires_visual_integrity(&AgentTool::Screen(
+        ScreenAction::RightClick { coordinate: None },
     )));
 }
 
@@ -369,7 +369,7 @@ async fn right_click_element_uses_semantic_map_and_emits_right_click() {
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::RightClickElement {
+            AgentTool::Screen(ScreenAction::RightClickElement {
                 id: "submit_button".to_string(),
             }),
             [0u8; 32],
@@ -401,7 +401,7 @@ async fn cursor_position_returns_structured_screen_logical_payload() {
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::CursorPosition),
+            AgentTool::Screen(ScreenAction::CursorPosition),
             [0u8; 32],
             3,
             [0u8; 32],
@@ -430,12 +430,12 @@ async fn cursor_position_returns_structured_screen_logical_payload() {
 #[test]
 fn routing_receipt_contract_for_right_click_element_includes_pre_state() {
     let state = test_agent_state();
-    let tool = AgentTool::Computer(ComputerAction::RightClickElement {
+    let tool = AgentTool::Screen(ScreenAction::RightClickElement {
         id: "submit_button".to_string(),
     });
 
     let (tool_name, args) = canonical_tool_identity(&tool);
-    assert_eq!(tool_name, "computer");
+    assert_eq!(tool_name, "screen");
     assert_eq!(
         args.get("action").and_then(|v| v.as_str()),
         Some("right_click_element")
@@ -503,12 +503,12 @@ fn routing_receipt_contract_for_coordinate_right_click_som_fallback_includes_pre
     state.step_count = 8;
     state.current_tier = ExecutionTier::VisualBackground;
 
-    let tool = AgentTool::Computer(ComputerAction::RightClick {
+    let tool = AgentTool::Screen(ScreenAction::RightClick {
         coordinate: Some([119, 209]),
     });
 
     let (tool_name, args) = canonical_tool_identity(&tool);
-    assert_eq!(tool_name, "computer");
+    assert_eq!(tool_name, "screen");
     assert_eq!(
         args.get("action").and_then(|v| v.as_str()),
         Some("right_click")
@@ -586,12 +586,12 @@ fn routing_receipt_contract_for_coordinate_double_click_includes_pre_state() {
     state.step_count = 9;
     state.current_tier = ExecutionTier::VisualBackground;
 
-    let tool = AgentTool::Computer(ComputerAction::DoubleClick {
+    let tool = AgentTool::Screen(ScreenAction::DoubleClick {
         coordinate: Some([119, 209]),
     });
 
     let (tool_name, args) = canonical_tool_identity(&tool);
-    assert_eq!(tool_name, "computer");
+    assert_eq!(tool_name, "screen");
     assert_eq!(
         args.get("action").and_then(|v| v.as_str()),
         Some("double_click")

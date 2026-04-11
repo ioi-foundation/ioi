@@ -9,7 +9,7 @@
             "required": ["title"]
         });
         tools.push(LlmToolDefinition {
-            name: "os__focus_window".to_string(),
+            name: "window__focus".to_string(),
             description: "Bring a specific application window to the foreground. REQUIRED before clicking buttons in that app.".to_string(),
             parameters: focus_params.to_string(),
         });

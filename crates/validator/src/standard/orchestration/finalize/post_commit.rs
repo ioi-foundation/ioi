@@ -443,13 +443,6 @@ where
             "update_block_header() is slow"
         );
     }
-    let committed_collapse = require_persisted_aft_canonical_collapse_if_needed(
-        consensus_type,
-        workload_client.as_ref(),
-        &final_block,
-    )
-    .await?;
-
     {
         let (chain_ref, tip_sender, genesis_root) = {
             let mut ctx = context_arc.lock().await;
@@ -513,9 +506,14 @@ where
     }
 
     {
+        let accepted = observe_live_committed_chain_through_block(
+            &consensus_engine_ref,
+            consensus_type,
+            workload_client.as_ref(),
+            &final_block,
+        )
+        .await?;
         let mut engine = consensus_engine_ref.lock().await;
-        let accepted =
-            engine.observe_committed_block(&final_block.header, committed_collapse.as_ref());
         if !accepted {
             tracing::warn!(
                 target: "consensus",
@@ -1252,6 +1250,48 @@ where
         .map_err(|error| anyhow!(error))?;
     }
     publish_canonical_collapse_object(&publisher, &canonical_collapse_object).await?;
+    let refreshed_consensus = {
+        let mut ctx = context_arc.lock().await;
+        let should_refresh_last_committed = ctx
+            .last_committed_block
+            .as_ref()
+            .map(|current| {
+                current.header.height == sealed_block.header.height
+                    && current.header.view == sealed_block.header.view
+                    && current.header.parent_hash == sealed_block.header.parent_hash
+                    && current.header.producer_account_id == sealed_block.header.producer_account_id
+            })
+            .unwrap_or(false);
+        if should_refresh_last_committed {
+            ctx.last_committed_block = Some(sealed_block.clone());
+            Some((
+                ctx.consensus_engine_ref.clone(),
+                ctx.consensus_kick_tx.clone(),
+            ))
+        } else {
+            None
+        }
+    };
+    if let Some((consensus_engine_ref, kick_tx)) = refreshed_consensus {
+        let accepted = observe_live_committed_chain_through_block(
+            &consensus_engine_ref,
+            context_arc.lock().await.config.consensus_type,
+            publisher.workload_client.as_ref(),
+            &sealed_block,
+        )
+        .await?;
+        let mut engine = consensus_engine_ref.lock().await;
+        if accepted {
+            engine.reset(sealed_block.header.height);
+        } else {
+            tracing::warn!(
+                target: "consensus",
+                height = sealed_block.header.height,
+                "Consensus engine ignored the sealed asymptote committed-block hint after publication."
+            );
+        }
+        let _ = kick_tx.send(());
+    }
     let data = codec::to_bytes_canonical(&sealed_block).map_err(|e| anyhow!(e))?;
     let _ = swarm_commander.send(SwarmCommand::PublishBlock(data)).await;
     let rebroadcast_block = sealed_block.clone();

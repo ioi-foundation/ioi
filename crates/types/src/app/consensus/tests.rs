@@ -19,6 +19,7 @@
         canonical_bulletin_commitment_hash,
         canonical_bulletin_retrievability_challenge_hash,
         canonical_collapse_commitment_hash_from_object, canonical_collapse_extension_certificate,
+        canonical_collapse_eq_on_header_surface, canonical_collapse_payload_hash,
         canonical_collapse_historical_continuation_anchor, canonical_collapse_object_hash,
         canonical_collapse_recursive_proof_hash, canonical_missing_recovery_share_hash,
         canonical_order_certificate_hash, canonical_order_publication_bundle_hash,
@@ -869,6 +870,128 @@
         assert_eq!(execution_object.bulletin_close, rebuilt_close);
         assert_eq!(execution_object.canonical_order_certificate, certificate);
         assert_eq!(execution_object.bulletin_entries, entries);
+    }
+
+    #[test]
+    fn canonical_collapse_header_surface_equality_ignores_materialized_ordering_bundle_fields() {
+        let mut header = BlockHeader {
+            height: 1,
+            view: 0,
+            parent_hash: [1u8; 32],
+            parent_state_root: StateRoot(vec![2u8; 32]),
+            state_root: StateRoot(vec![3u8; 32]),
+            transactions_root: vec![4u8; 32],
+            timestamp: 1_750_000_123,
+            timestamp_ms: 1_750_000_123_000,
+            gas_used: 7,
+            validator_set: vec![vec![5u8; 32]],
+            producer_account_id: AccountId([6u8; 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [7u8; 32],
+            producer_pubkey: vec![8u8; 32],
+            oracle_counter: 0,
+            oracle_trace_hash: [9u8; 32],
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+            parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            signature: vec![10u8; 64],
+        };
+        header.canonical_order_certificate = Some(
+            build_reference_canonical_order_certificate(&header, &[])
+                .expect("reference canonical-order certificate"),
+        );
+
+        let full = derive_canonical_collapse_object(&header, &[]).expect("full collapse");
+        let mut header_surface = full.clone();
+        header_surface.ordering.bulletin_retrievability_profile_hash = [0u8; 32];
+        header_surface.ordering.bulletin_shard_manifest_hash = [0u8; 32];
+        header_surface.ordering.bulletin_custody_receipt_hash = [0u8; 32];
+        header_surface.sealing = Some(super::CanonicalSealingCollapse {
+            height: header_surface.height,
+            ..Default::default()
+        });
+        bind_canonical_collapse_continuity(&mut header_surface, None)
+            .expect("rebind header-surface continuity");
+
+        assert!(
+            canonical_collapse_eq_on_header_surface(&full, &header_surface),
+            "header-surface comparison should tolerate late materialization fields"
+        );
+
+        let mut mismatched = header_surface.clone();
+        mismatched.ordering.canonical_order_certificate_hash[0] ^= 0xFF;
+        bind_canonical_collapse_continuity(&mut mismatched, None)
+            .expect("rebind mismatched continuity");
+
+        assert!(
+            !canonical_collapse_eq_on_header_surface(&full, &mismatched),
+            "header-surface comparison should still reject fields the header really binds"
+        );
+    }
+
+    #[test]
+    fn canonical_collapse_commitment_stays_stable_across_materialized_ordering_bundle_fields() {
+        let mut header = BlockHeader {
+            height: 3,
+            view: 1,
+            parent_hash: [0x11u8; 32],
+            parent_state_root: StateRoot(vec![0x12u8; 32]),
+            state_root: StateRoot(vec![0x13u8; 32]),
+            transactions_root: vec![0x14u8; 32],
+            timestamp: 1_750_000_456,
+            timestamp_ms: 1_750_000_456_000,
+            gas_used: 9,
+            validator_set: vec![vec![0x15u8; 32]],
+            producer_account_id: AccountId([0x16u8; 32]),
+            producer_key_suite: SignatureSuite::ED25519,
+            producer_pubkey_hash: [0x17u8; 32],
+            producer_pubkey: vec![0x18u8; 32],
+            oracle_counter: 1,
+            oracle_trace_hash: [0x19u8; 32],
+            guardian_certificate: None,
+            sealed_finality_proof: None,
+            canonical_order_certificate: None,
+            timeout_certificate: None,
+            parent_qc: QuorumCertificate::default(),
+            previous_canonical_collapse_commitment_hash: [0u8; 32],
+            canonical_collapse_extension_certificate: None,
+            publication_frontier: None,
+            signature: vec![0x1Au8; 64],
+        };
+        header.canonical_order_certificate = Some(
+            build_reference_canonical_order_certificate(&header, &[])
+                .expect("reference canonical-order certificate"),
+        );
+
+        let full = derive_canonical_collapse_object(&header, &[]).expect("full collapse");
+        let mut header_surface = full.clone();
+        header_surface.ordering.bulletin_retrievability_profile_hash = [0u8; 32];
+        header_surface.ordering.bulletin_shard_manifest_hash = [0u8; 32];
+        header_surface.ordering.bulletin_custody_receipt_hash = [0u8; 32];
+        header_surface.ordering.bulletin_close_hash[0] ^= 0xFF;
+        header_surface.sealing = Some(super::CanonicalSealingCollapse {
+            height: header_surface.height,
+            ..Default::default()
+        });
+        bind_canonical_collapse_continuity(&mut header_surface, None)
+            .expect("rebind header-surface continuity");
+
+        assert_eq!(
+            canonical_collapse_payload_hash(&full).expect("full payload hash"),
+            canonical_collapse_payload_hash(&header_surface).expect("header payload hash"),
+            "continuity payload should ignore late materialization fields",
+        );
+        assert_eq!(
+            canonical_collapse_commitment_hash_from_object(&full).expect("full commitment hash"),
+            canonical_collapse_commitment_hash_from_object(&header_surface)
+                .expect("header commitment hash"),
+            "successor predecessor commitments should stay stable across same-slot enrichment",
+        );
     }
 
     #[test]

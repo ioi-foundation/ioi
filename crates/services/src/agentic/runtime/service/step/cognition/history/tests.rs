@@ -30,7 +30,7 @@ fn browser_observation_context_uses_latest_browser_snapshot_even_after_system_ch
             chat_message("user", "Click Mark complete", 1),
             chat_message(
                 "tool",
-                "Tool Output (browser__snapshot): <root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\"><button id=\"btn_mark_complete\" name=\"Mark complete\" rect=\"8,114,103,21\" /></root>",
+                "Tool Output (browser__inspect): <root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\"><button id=\"btn_mark_complete\" name=\"Mark complete\" rect=\"8,114,103,21\" /></root>",
                 2,
             ),
             chat_message(
@@ -56,12 +56,12 @@ fn browser_observation_context_prefers_semantic_snapshot_over_later_snapshot_err
     let history = vec![
             chat_message(
                 "tool",
-                "Tool Output (browser__snapshot): <root><button id=\"btn_mark_complete\" name=\"Mark complete\" rect=\"8,114,103,21\" /></root>",
+                "Tool Output (browser__inspect): <root><button id=\"btn_mark_complete\" name=\"Mark complete\" rect=\"8,114,103,21\" /></root>",
                 1,
             ),
             chat_message(
                 "tool",
-                "Tool Output (browser__snapshot): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
+                "Tool Output (browser__inspect): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
                 2,
             ),
         ];
@@ -74,11 +74,7 @@ fn browser_observation_context_prefers_semantic_snapshot_over_later_snapshot_err
 #[test]
 fn browser_observation_context_ignores_non_browser_tool_messages() {
     let history = vec![
-        chat_message(
-            "tool",
-            "Tool Output (gui__click_element): clicked btn_ok",
-            1,
-        ),
+        chat_message("tool", "Tool Output (screen__click): clicked btn_ok", 1),
         chat_message("system", "System: noop", 2),
     ];
 
@@ -89,7 +85,7 @@ fn browser_observation_context_ignores_non_browser_tool_messages() {
 #[test]
 fn browser_observation_context_truncates_large_snapshot_payloads() {
     let long_snapshot = format!(
-            "Tool Output (browser__snapshot): {}",
+            "Tool Output (browser__inspect): {}",
             format!(
                 "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">{}</root>",
                 "<button id=\"btn_mark_complete\" name=\"Mark complete\" rect=\"8,114,103,21\">alpha beta gamma</button> ".repeat(200)
@@ -136,7 +132,7 @@ fn browser_observation_context_promotes_goal_target_into_compact_priority_target
         ),
         chat_message(
             "tool",
-            &format!("Tool Output (browser__snapshot): {snapshot}"),
+            &format!("Tool Output (browser__inspect): {snapshot}"),
             2,
         ),
     ];
@@ -212,7 +208,7 @@ fn browser_observation_context_keeps_submit_visible_with_geometry_targets() {
         chat_message(
             "tool",
             concat!(
-                "Tool Output (browser__snapshot): ",
+                "Tool Output (browser__inspect): ",
                 "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
                 "<generic id=\"grp_blue_circle\" name=\"small blue circle at 63,97 radius 4\" dom_id=\"blue-circle\" selector=\"[id=&quot;blue-circle&quot;]\" ",
                 "tag_name=\"circle\" shape_kind=\"circle\" geometry_role=\"endpoint\" center_x=\"63\" center_y=\"96\" rect=\"60,93,7,7\" />",
@@ -302,7 +298,7 @@ fn recent_session_events_context_suppresses_stale_snapshot_no_effect_after_later
     let history = vec![
             chat_message(
                 "tool",
-                "Tool Output (browser__snapshot): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
+                "Tool Output (browser__inspect): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
                 1,
             ),
             chat_message(
@@ -337,7 +333,7 @@ fn recent_session_events_context_keeps_snapshot_no_effect_without_later_refresh(
     let history = vec![
             chat_message(
                 "tool",
-                "Tool Output (browser__snapshot): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
+                "Tool Output (browser__inspect): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
                 1,
             ),
             chat_message(
@@ -359,12 +355,12 @@ fn recent_session_events_context_suppresses_browser_context_echoes_when_latest_s
     let history = vec![
         chat_message(
             "tool",
-            &format!("Tool Output (browser__snapshot): {snapshot}"),
+            &format!("Tool Output (browser__inspect): {snapshot}"),
             1,
         ),
         chat_message(
             "system",
-            "RECENT PENDING BROWSER STATE:\nUse `browser__snapshot` once now.\n",
+            "RECENT PENDING BROWSER STATE:\nUse `browser__inspect` once now.\n",
             2,
         ),
         chat_message(
@@ -376,7 +372,7 @@ fn recent_session_events_context_suppresses_browser_context_echoes_when_latest_s
 
     let context = build_recent_session_events_context(&history, true);
     assert!(
-        !context.contains("Tool Output (browser__snapshot)"),
+        !context.contains("Tool Output (browser__inspect)"),
         "{context}"
     );
     assert!(
@@ -509,12 +505,12 @@ fn latest_recent_pending_browser_state_context_keeps_recent_explicit_context_wit
     let history = vec![
             chat_message(
                 "system",
-                "RECENT PENDING BROWSER STATE:\nUse `browser__click_element` on `lnk_443422` now.\n",
+                "RECENT PENDING BROWSER STATE:\nUse `browser__click` on `lnk_443422` now.\n",
                 1,
             ),
             chat_message(
                 "tool",
-                "Tool Output (browser__snapshot): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
+                "Tool Output (browser__inspect): ERROR_CLASS=NoEffectAfterAction duplicate replay guard",
                 2,
             ),
             chat_message(
@@ -538,7 +534,7 @@ fn latest_recent_pending_browser_state_context_drops_stale_explicit_context_afte
     let history = vec![
         chat_message(
             "system",
-            "RECENT PENDING BROWSER STATE:\nUse `browser__click_element` on `lnk_443422` now.\n",
+            "RECENT PENDING BROWSER STATE:\nUse `browser__click` on `lnk_443422` now.\n",
             1,
         ),
         chat_message(
@@ -1086,7 +1082,7 @@ fn success_signal_context_keeps_submit_follow_up_when_target_still_visible() {
 fn success_signal_context_uses_duplicate_success_noop_guidance() {
     let history = vec![chat_message(
             "tool",
-            "Skipped immediate replay of 'browser__click_element' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state once or finish with the gathered evidence.",
+            "Skipped immediate replay of 'browser__click' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state once or finish with the gathered evidence.",
             1,
         )];
 
@@ -1113,7 +1109,7 @@ fn success_signal_context_highlights_successful_dropdown_selection() {
 fn success_signal_context_highlights_prefixed_dropdown_selection_output() {
     let history = vec![chat_message(
         "tool",
-        r#"Tool Output (browser__select_dropdown): {"id":"inp_country","selected":{"label":"Australia","value":"Australia"}}"#,
+        r#"Tool Output (browser__select_option): {"id":"inp_country","selected":{"label":"Australia","value":"Australia"}}"#,
         1,
     )];
 
@@ -1129,7 +1125,7 @@ fn success_signal_context_points_to_remaining_controls_after_dropdown_selection(
     let history = vec![
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><link id="lnk_queue" name="Queue" dom_id="queue-link" selector="[id=&quot;queue-link&quot;]" rect="0,0,1,1" /><combobox id="inp_assign_team" name="Assign team" dom_id="assignee" selector="[id=&quot;assignee&quot;]" rect="0,0,1,1" /><combobox id="inp_awaiting_dispatch" name="Awaiting Dispatch" dom_id="status" selector="[id=&quot;status&quot;]" rect="0,0,1,1" /><textbox id="inp_dispatch_note" name="Dispatch note" dom_id="note" selector="[id=&quot;note&quot;]" rect="0,0,1,1" /><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><link id="lnk_queue" name="Queue" dom_id="queue-link" selector="[id=&quot;queue-link&quot;]" rect="0,0,1,1" /><combobox id="inp_assign_team" name="Assign team" dom_id="assignee" selector="[id=&quot;assignee&quot;]" rect="0,0,1,1" /><combobox id="inp_awaiting_dispatch" name="Awaiting Dispatch" dom_id="status" selector="[id=&quot;status&quot;]" rect="0,0,1,1" /><textbox id="inp_dispatch_note" name="Dispatch note" dom_id="note" selector="[id=&quot;note&quot;]" rect="0,0,1,1" /><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
             1,
         ),
         chat_message(
@@ -1153,7 +1149,7 @@ fn success_signal_context_uses_compacted_snapshot_targets_for_dropdown_follow_up
     let history = vec![
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"> <generic id="grp_ticket_t_215" name="Ticket T-215" rect="0,0,1,1" /> IMPORTANT TARGETS: lnk_queue tag=link name=Queue dom_id=queue-link selector=[id="queue-link"] | inp_assign_team tag=combobox name=Assign team dom_id=assignee selector=[id="assignee"] | inp_awaiting_dispatch tag=combobox name=Awaiting Dispatch dom_id=status selector=[id="status"] | inp_dispatch_note tag=textbox name=Dispatch note dom_id=note selector=[id="note"] | btn_review_update tag=button name=Review update dom_id=review-update selector=[id="review-update"]</root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"> <generic id="grp_ticket_t_215" name="Ticket T-215" rect="0,0,1,1" /> IMPORTANT TARGETS: lnk_queue tag=link name=Queue dom_id=queue-link selector=[id="queue-link"] | inp_assign_team tag=combobox name=Assign team dom_id=assignee selector=[id="assignee"] | inp_awaiting_dispatch tag=combobox name=Awaiting Dispatch dom_id=status selector=[id="status"] | inp_dispatch_note tag=textbox name=Dispatch note dom_id=note selector=[id="note"] | btn_review_update tag=button name=Review update dom_id=review-update selector=[id="review-update"]</root>"#,
             1,
         ),
         chat_message(
@@ -1271,12 +1267,12 @@ fn success_signal_context_prefers_prefixed_dropdown_selection_over_older_click_s
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><link id="lnk_queue" name="Queue" dom_id="queue-link" selector="[id=&quot;queue-link&quot;]" rect="0,0,1,1" /><combobox id="inp_assign_team" name="Assign team" dom_id="assignee" selector="[id=&quot;assignee&quot;]" rect="0,0,1,1" /><combobox id="inp_awaiting_dispatch" name="Awaiting Dispatch" dom_id="status" selector="[id=&quot;status&quot;]" rect="0,0,1,1" /><textbox id="inp_dispatch_note" name="Dispatch note" dom_id="note" selector="[id=&quot;note&quot;]" rect="0,0,1,1" /><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><link id="lnk_queue" name="Queue" dom_id="queue-link" selector="[id=&quot;queue-link&quot;]" rect="0,0,1,1" /><combobox id="inp_assign_team" name="Assign team" dom_id="assignee" selector="[id=&quot;assignee&quot;]" rect="0,0,1,1" /><combobox id="inp_awaiting_dispatch" name="Awaiting Dispatch" dom_id="status" selector="[id=&quot;status&quot;]" rect="0,0,1,1" /><textbox id="inp_dispatch_note" name="Dispatch note" dom_id="note" selector="[id=&quot;note&quot;]" rect="0,0,1,1" /><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
             2,
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__select_dropdown): {"id":"inp_assign_team","selected":{"label":"Network Ops","value":"Network Ops"}}"#,
+            r#"Tool Output (browser__select_option): {"id":"inp_assign_team","selected":{"label":"Network Ops","value":"Network Ops"}}"#,
             3,
         ),
     ];
@@ -1301,7 +1297,7 @@ fn success_signal_context_suppresses_stale_dropdown_when_latest_snapshot_moved_o
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_ticket_t_215" name="Ticket T-215" rect="0,0,1,1" /><combobox id="inp_assign_team" name="Assign team" dom_id="assignee" selector="[id=&quot;assignee&quot;]" rect="0,0,1,1" /><textbox id="inp_dispatch_note" name="Dispatch note" dom_id="note" selector="[id=&quot;note&quot;]" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_ticket_t_215" name="Ticket T-215" rect="0,0,1,1" /><combobox id="inp_assign_team" name="Assign team" dom_id="assignee" selector="[id=&quot;assignee&quot;]" rect="0,0,1,1" /><textbox id="inp_dispatch_note" name="Dispatch note" dom_id="note" selector="[id=&quot;note&quot;]" rect="0,0,1,1" /></root>"#,
             2,
         ),
     ];
@@ -1315,7 +1311,7 @@ fn browser_observation_context_suppresses_stale_snapshot_after_unobserved_naviga
     let history = vec![
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><link id="lnk_queue" name="Queue" dom_id="queue-link" selector="[id=&quot;queue-link&quot;]" rect="0,0,1,1" /><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><link id="lnk_queue" name="Queue" dom_id="queue-link" selector="[id=&quot;queue-link&quot;]" rect="0,0,1,1" /><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
             1,
         ),
         chat_message(
@@ -1334,7 +1330,7 @@ fn browser_observation_context_uses_newer_snapshot_after_navigation() {
     let history = vec![
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
             1,
         ),
         chat_message(
@@ -1344,7 +1340,7 @@ fn browser_observation_context_uses_newer_snapshot_after_navigation() {
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_confirm_update" name="Confirm update" dom_id="confirm-update" selector="[id=&quot;confirm-update&quot;]" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_confirm_update" name="Confirm update" dom_id="confirm-update" selector="[id=&quot;confirm-update&quot;]" rect="0,0,1,1" /></root>"#,
             3,
         ),
     ];
@@ -1359,7 +1355,7 @@ fn pending_browser_state_context_requires_snapshot_after_unobserved_navigation()
     let history = vec![
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
             1,
         ),
         chat_message(
@@ -1374,7 +1370,7 @@ fn pending_browser_state_context_requires_snapshot_after_unobserved_navigation()
         context.contains("RECENT PENDING BROWSER STATE:"),
         "{context}"
     );
-    assert!(context.contains("browser__snapshot"), "{context}");
+    assert!(context.contains("browser__inspect"), "{context}");
     assert!(context.contains("btn_review_update"), "{context}");
     assert!(context.contains("/review"), "{context}");
 }
@@ -1384,7 +1380,7 @@ fn pending_browser_state_context_skips_navigation_snapshot_when_current_snapshot
     let history = vec![
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
             1,
         ),
         chat_message(
@@ -1423,7 +1419,7 @@ fn snapshot_pending_context_highlights_filter_mismatch_after_recent_dropdown_cha
     assert!(context.contains("`inp_queue_status_filter`"), "{context}");
     assert!(context.contains("`Queue status filter`"), "{context}");
     assert!(context.contains("`Awaiting Dispatch`"), "{context}");
-    assert!(context.contains("browser__select_dropdown"), "{context}");
+    assert!(context.contains("browser__select_option"), "{context}");
 }
 
 #[test]
@@ -1446,7 +1442,7 @@ fn pending_browser_state_context_with_snapshot_highlights_filter_mismatch() {
         "{context}"
     );
     assert!(context.contains("may hide the updated item"), "{context}");
-    assert!(context.contains("browser__select_dropdown"), "{context}");
+    assert!(context.contains("browser__select_option"), "{context}");
 }
 
 #[test]
@@ -1514,7 +1510,7 @@ fn pending_browser_state_context_guides_stale_queue_reverification_before_histor
         "{context}"
     );
     assert!(
-        context.contains("call `browser__snapshot` again"),
+        context.contains("call `browser__inspect` again"),
         "{context}"
     );
 }
@@ -1634,7 +1630,7 @@ fn pending_browser_state_context_guides_distractor_history_after_reverified_queu
     assert!(context.contains("`T-310`"), "{context}");
     assert!(context.contains("Do not reopen `T-318`"), "{context}");
     assert!(context.contains("`lnk_history_807ebf`"), "{context}");
-    assert!(context.contains("another `browser__snapshot`"), "{context}");
+    assert!(context.contains("another `browser__inspect`"), "{context}");
 }
 
 #[test]
@@ -1707,7 +1703,7 @@ fn pending_browser_state_context_falls_back_to_recent_queue_snapshot_for_distrac
             ),
             chat_message(
                 "tool",
-                r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><textbox id="inp_queue_search" name="Queue search" value="invoice" dom_id="queue-search" selector="[id=&quot;queue-search&quot;]" rect="0,0,1,1" /><combobox id="inp_queue_sort" name="Queue sort" value="Recently Updated" dom_id="queue-sort" selector="[id=&quot;queue-sort&quot;]" rect="0,0,1,1" /><button id="btn_apply_filters" name="Apply filters" dom_id="apply-filters" selector="[id=&quot;apply-filters&quot;]" rect="0,0,1,1" /><link id="lnk_t_318" name="T-318" context="Invoice adjustment awaiting callback / Pending Review / Billing Review" dom_id="ticket-link-t-318" selector="[id=&quot;ticket-link-t-318&quot;]" omitted="true" rect="0,0,1,1" /><link id="lnk_history_318" name="History" context="T-318 Invoice adjustment awaiting callback Pending Review Billing Review Billing Review History" dom_id="ticket-history-link-t-318" selector="[id=&quot;ticket-history-link-t-318&quot;]" omitted="true" rect="0,0,1,1" /><link id="lnk_t_310" name="T-310" context="Recurring invoice delta / Pending Review / Unassigned" dom_id="ticket-link-t-310" selector="[id=&quot;ticket-link-t-310&quot;]" omitted="true" rect="0,0,1,1" /><link id="lnk_history_807ebf" name="History" context="T-310 Recurring invoice delta Pending Review Unassigned Billing Review History" dom_id="ticket-history-link-t-310" selector="[id=&quot;ticket-history-link-t-310&quot;]" omitted="true" rect="0,0,1,1" /></root>"#,
+                r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><textbox id="inp_queue_search" name="Queue search" value="invoice" dom_id="queue-search" selector="[id=&quot;queue-search&quot;]" rect="0,0,1,1" /><combobox id="inp_queue_sort" name="Queue sort" value="Recently Updated" dom_id="queue-sort" selector="[id=&quot;queue-sort&quot;]" rect="0,0,1,1" /><button id="btn_apply_filters" name="Apply filters" dom_id="apply-filters" selector="[id=&quot;apply-filters&quot;]" rect="0,0,1,1" /><link id="lnk_t_318" name="T-318" context="Invoice adjustment awaiting callback / Pending Review / Billing Review" dom_id="ticket-link-t-318" selector="[id=&quot;ticket-link-t-318&quot;]" omitted="true" rect="0,0,1,1" /><link id="lnk_history_318" name="History" context="T-318 Invoice adjustment awaiting callback Pending Review Billing Review Billing Review History" dom_id="ticket-history-link-t-318" selector="[id=&quot;ticket-history-link-t-318&quot;]" omitted="true" rect="0,0,1,1" /><link id="lnk_t_310" name="T-310" context="Recurring invoice delta / Pending Review / Unassigned" dom_id="ticket-link-t-310" selector="[id=&quot;ticket-link-t-310&quot;]" omitted="true" rect="0,0,1,1" /><link id="lnk_history_807ebf" name="History" context="T-310 Recurring invoice delta Pending Review Unassigned Billing Review History" dom_id="ticket-history-link-t-310" selector="[id=&quot;ticket-history-link-t-310&quot;]" omitted="true" rect="0,0,1,1" /></root>"#,
                 6,
             ),
         ];
@@ -1766,7 +1762,7 @@ fn pending_browser_state_context_guides_alternate_tab_exploration_when_target_mi
     );
     assert!(context.contains("`tab_section_2`"), "{context}");
     assert!(context.contains("`tab_section_3`"), "{context}");
-    assert!(context.contains("another `browser__snapshot`"), "{context}");
+    assert!(context.contains("another `browser__inspect`"), "{context}");
 }
 
 #[test]
@@ -1829,13 +1825,13 @@ fn pending_browser_state_context_guides_exact_visible_target_click() {
         "{context}"
     );
     assert!(context.contains("`grp_elit`"), "{context}");
-    assert!(context.contains("browser__click_element"), "{context}");
+    assert!(context.contains("browser__click"), "{context}");
     assert!(
         context.contains("Do not click a surrounding container"),
         "{context}"
     );
     assert!(context.contains("`browser__find_text`"), "{context}");
-    assert!(context.contains("another `browser__snapshot`"), "{context}");
+    assert!(context.contains("another `browser__inspect`"), "{context}");
 }
 
 #[test]
@@ -2022,7 +2018,7 @@ fn pending_browser_state_context_prioritizes_visible_start_gate_over_instruction
     let context = build_browser_snapshot_pending_state_context_with_history(snapshot, &history);
     assert!(context.contains("visible start gate"), "{context}");
     assert!(context.contains("`statictext_start`"), "{context}");
-    assert!(context.contains("browser__click_element"), "{context}");
+    assert!(context.contains("browser__click"), "{context}");
     assert!(
         !context.contains("`statictext_click_on_the_numbers_in_ascend`"),
         "{context}"
@@ -2090,7 +2086,7 @@ fn pending_browser_state_context_guides_mouse_down_after_drag_hover() {
         context.contains("RECENT PENDING BROWSER STATE:"),
         "{context}"
     );
-    assert!(context.contains("`browser__mouse_down`"), "{context}");
+    assert!(context.contains("`browser__pointer_down`"), "{context}");
     assert!(context.contains("`grp_s`"), "{context}");
     assert!(
         context.contains("Do not repeat `browser__hover`"),
@@ -2135,7 +2131,7 @@ fn pending_browser_state_context_guides_mouse_up_after_drag_destination_hover() 
         context.contains("RECENT PENDING BROWSER STATE:"),
         "{context}"
     );
-    assert!(context.contains("`browser__mouse_up`"), "{context}");
+    assert!(context.contains("`browser__pointer_up`"), "{context}");
     assert!(context.contains("`grp_l`"), "{context}");
     assert!(
         context.contains("Do not repeat `browser__hover`"),
@@ -2342,7 +2338,7 @@ fn pending_browser_state_context_guides_ranked_result_link_after_failed_page_cli
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__click_element): ERROR_CLASS=NoEffectAfterAction Failed to click element 'lnk_page_2'. verify={"postcondition":{"met":false,"tree_changed":true,"url_changed":false}}"#,
+            r#"Tool Output (browser__click): ERROR_CLASS=NoEffectAfterAction Failed to click element 'lnk_page_2'. verify={"postcondition":{"met":false,"tree_changed":true,"url_changed":false}}"#,
             2,
         ),
     ];
@@ -2382,7 +2378,7 @@ fn pending_browser_state_context_guides_ranked_result_link_after_failed_page_cli
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__click_element): ERROR_CLASS=NoEffectAfterAction Failed to click element 'lnk_2'. verify={"attempts":[{"postcondition":{"met":false,"tree_changed":true,"url_changed":false}}],"id":"lnk_2"}"#,
+            r#"Tool Output (browser__click): ERROR_CLASS=NoEffectAfterAction Failed to click element 'lnk_2'. verify={"attempts":[{"postcondition":{"met":false,"tree_changed":true,"url_changed":false}}],"id":"lnk_2"}"#,
             2,
         ),
     ];
@@ -2426,7 +2422,7 @@ fn pending_browser_state_context_retries_visible_non_submit_click_after_dispatch
         ),
         chat_message(
             "tool",
-            r##"Tool Output (browser__click_element): ERROR_CLASS=NoEffectAfterAction Failed to click element 'btn_buy'. verify={"dispatch_failures":[{"error":"dispatch timed out after 2500 ms. Retry the action.","method":"selector_grounded","selector":"#buy"}],"id":"btn_buy"}"##,
+            r##"Tool Output (browser__click): ERROR_CLASS=NoEffectAfterAction Failed to click element 'btn_buy'. verify={"dispatch_failures":[{"error":"dispatch timed out after 2500 ms. Retry the action.","method":"selector_grounded","selector":"#buy"}],"id":"btn_buy"}"##,
             2,
         ),
     ];
@@ -2446,11 +2442,11 @@ fn pending_browser_state_context_retries_visible_non_submit_click_after_dispatch
     );
     assert!(context.contains("`btn_buy`"), "{context}");
     assert!(
-        context.contains("retry `browser__click_element` on `btn_buy` now"),
+        context.contains("retry `browser__click` on `btn_buy` now"),
         "{context}"
     );
     assert!(
-        context.contains("Do not spend the next step on `browser__snapshot`"),
+        context.contains("Do not spend the next step on `browser__inspect`"),
         "{context}"
     );
 }
@@ -2548,7 +2544,7 @@ fn pending_browser_state_context_requests_snapshot_after_successful_tree_change_
         ),
         chat_message(
             "tool",
-            &format!("Tool Output (browser__snapshot): {snapshot}"),
+            &format!("Tool Output (browser__inspect): {snapshot}"),
             2,
         ),
         chat_message(
@@ -2565,7 +2561,7 @@ fn pending_browser_state_context_requests_snapshot_after_successful_tree_change_
         "{context}"
     );
     assert!(context.contains("`lnk_443422`"), "{context}");
-    assert!(context.contains("`browser__snapshot`"), "{context}");
+    assert!(context.contains("`browser__inspect`"), "{context}");
     assert!(context.contains("stale controls"), "{context}");
     assert!(
         !context.contains("Do not click this record's links"),
@@ -2588,7 +2584,7 @@ fn pending_browser_state_context_allows_reusable_navigation_control_repeat_after
         chat_message("user", "Select 06/20/2016 as the date and hit submit.", 1),
         chat_message(
             "tool",
-            &format!("Tool Output (browser__snapshot): {snapshot}"),
+            &format!("Tool Output (browser__inspect): {snapshot}"),
             2,
         ),
         chat_message(
@@ -2611,7 +2607,7 @@ fn pending_browser_state_context_allows_reusable_navigation_control_repeat_after
         "{context}"
     );
     assert!(
-        !context.contains("Use `browser__snapshot` once now"),
+        !context.contains("Use `browser__inspect` once now"),
         "{context}"
     );
 }
@@ -2638,7 +2634,7 @@ fn pending_browser_state_context_suppresses_tree_change_reverification_after_lat
         ),
         chat_message(
             "tool",
-            &format!("Tool Output (browser__snapshot): {old_snapshot}"),
+            &format!("Tool Output (browser__inspect): {old_snapshot}"),
             2,
         ),
         chat_message(
@@ -2648,7 +2644,7 @@ fn pending_browser_state_context_suppresses_tree_change_reverification_after_lat
         ),
         chat_message(
             "tool",
-            &format!("Tool Output (browser__snapshot): {new_snapshot}"),
+            &format!("Tool Output (browser__inspect): {new_snapshot}"),
             4,
         ),
     ];
@@ -2673,7 +2669,7 @@ fn pending_browser_state_context_resets_ranked_result_page_after_resubmit_return
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__click_element): ERROR_CLASS=NoEffectAfterAction Failed to click element 'lnk_2'. verify={"attempts":[{"postcondition":{"met":false,"tree_changed":true,"url_changed":false}}],"id":"lnk_2"}"#,
+            r#"Tool Output (browser__click): ERROR_CLASS=NoEffectAfterAction Failed to click element 'lnk_2'. verify={"attempts":[{"postcondition":{"met":false,"tree_changed":true,"url_changed":false}}],"id":"lnk_2"}"#,
             3,
         ),
         chat_message(
@@ -2766,7 +2762,7 @@ fn success_signal_context_suppresses_generic_click_after_unobserved_navigation()
     let history = vec![
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><button id="btn_review_update" name="Review update" dom_id="review-update" selector="[id=&quot;review-update&quot;]" rect="0,0,1,1" /></root>"#,
             1,
         ),
         chat_message(
@@ -2794,7 +2790,7 @@ fn success_signal_context_points_to_visible_controls_after_navigation_click() {
     assert!(context.contains("`lnk_t_204`"), "{context}");
     assert!(context.contains("`lnk_t_215`"), "{context}");
     assert!(
-        context.contains("Do not spend the next step on another `browser__snapshot`"),
+        context.contains("Do not spend the next step on another `browser__inspect`"),
         "{context}"
     );
     assert!(
@@ -2828,7 +2824,7 @@ fn success_signal_context_prefers_actionable_calendar_controls_over_generic_head
     assert!(context.contains("`lnk_prev`"), "{context}");
     assert!(context.contains("`lnk_1`"), "{context}");
     assert!(
-        context.contains("Do not spend the next step on another `browser__snapshot`"),
+        context.contains("Do not spend the next step on another `browser__inspect`"),
         "{context}"
     );
     assert!(
@@ -2848,7 +2844,7 @@ fn pending_browser_state_context_guides_alternate_history_after_returning_to_lis
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_215" name="Audit history for ticket T-215" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_215" name="Audit history for ticket T-215" rect="0,0,1,1" /></root>"#,
             2,
         ),
         chat_message(
@@ -2888,7 +2884,7 @@ fn pending_browser_state_context_ignores_queue_snapshots_when_guiding_alternate_
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><link id="lnk_history_t_202" name="History" dom_id="ticket-history-link-t-202" /><link id="lnk_history_t_204" name="History" dom_id="ticket-history-link-t-204" context="T-204 Metro fiber outage / Awaiting Dispatch / Unassigned" /><link id="lnk_history_t_215" name="History" dom_id="ticket-history-link-t-215" context="T-215 Fiber maintenance escalation / Awaiting Dispatch / Network Ops" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><link id="lnk_history_t_202" name="History" dom_id="ticket-history-link-t-202" /><link id="lnk_history_t_204" name="History" dom_id="ticket-history-link-t-204" context="T-204 Metro fiber outage / Awaiting Dispatch / Unassigned" /><link id="lnk_history_t_215" name="History" dom_id="ticket-history-link-t-215" context="T-215 Fiber maintenance escalation / Awaiting Dispatch / Network Ops" /></root>"#,
             2,
         ),
         chat_message(
@@ -2898,7 +2894,7 @@ fn pending_browser_state_context_ignores_queue_snapshots_when_guiding_alternate_
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_215" name="Audit history for ticket T-215" tag_name="h1" rect="0,0,1,1" /><generic id="grp_verify_saved_dispatch" name="Verify that the saved dispatch event matches the requested change before you return to the queue." dom_id="history-status" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_215" name="Audit history for ticket T-215" tag_name="h1" rect="0,0,1,1" /><generic id="grp_verify_saved_dispatch" name="Verify that the saved dispatch event matches the requested change before you return to the queue." dom_id="history-status" rect="0,0,1,1" /></root>"#,
             4,
         ),
         chat_message(
@@ -2948,7 +2944,7 @@ fn pending_browser_state_context_guides_alternate_history_after_confirmation_aud
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_318" name="Audit history for ticket T-318" tag_name="h1" rect="0,0,1,1" /><generic id="grp_typed_audit_verification_complete" name="Typed audit verification complete." dom_id="history-status" rect="0,0,1,1" /><generic id="grp_saved_dispatch_row" name="dispatch.agent Saved dispatch update Billing Review Pending Review Validate recurring invoice delta" tag_name="tr" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_318" name="Audit history for ticket T-318" tag_name="h1" rect="0,0,1,1" /><generic id="grp_typed_audit_verification_complete" name="Typed audit verification complete." dom_id="history-status" rect="0,0,1,1" /><generic id="grp_saved_dispatch_row" name="dispatch.agent Saved dispatch update Billing Review Pending Review Validate recurring invoice delta" tag_name="tr" rect="0,0,1,1" /></root>"#,
             4,
         ),
         chat_message(
@@ -3007,7 +3003,7 @@ fn pending_browser_state_context_excludes_completed_item_after_slugged_history_r
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_318" name="Audit history for ticket T-318" tag_name="h1" rect="0,0,1,1" /><generic id="grp_typed_audit_verification_complete" name="Typed audit verification complete." dom_id="history-status" rect="0,0,1,1" /><generic id="grp_saved_dispatch_row" name="dispatch.agent Saved dispatch update Billing Review Pending Review Validate recurring invoice delta" tag_name="tr" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_318" name="Audit history for ticket T-318" tag_name="h1" rect="0,0,1,1" /><generic id="grp_typed_audit_verification_complete" name="Typed audit verification complete." dom_id="history-status" rect="0,0,1,1" /><generic id="grp_saved_dispatch_row" name="dispatch.agent Saved dispatch update Billing Review Pending Review Validate recurring invoice delta" tag_name="tr" rect="0,0,1,1" /></root>"#,
             3,
         ),
         chat_message(
@@ -3052,7 +3048,7 @@ fn pending_browser_state_context_skips_generic_confirmation_history_link_after_r
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_318" name="Audit history for ticket T-318" tag_name="h1" rect="0,0,1,1" /><generic id="grp_typed_audit_verification_complete" name="Typed audit verification complete." dom_id="history-status" rect="0,0,1,1" /><generic id="grp_saved_dispatch_row" name="dispatch.agent Saved dispatch update Billing Review Pending Review Validate recurring invoice delta" tag_name="tr" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_318" name="Audit history for ticket T-318" tag_name="h1" rect="0,0,1,1" /><generic id="grp_typed_audit_verification_complete" name="Typed audit verification complete." dom_id="history-status" rect="0,0,1,1" /><generic id="grp_saved_dispatch_row" name="dispatch.agent Saved dispatch update Billing Review Pending Review Validate recurring invoice delta" tag_name="tr" rect="0,0,1,1" /></root>"#,
             3,
         ),
         chat_message(
@@ -3087,7 +3083,7 @@ fn success_signal_context_suppresses_generic_click_when_alternate_history_verifi
         ),
         chat_message(
             "tool",
-            r#"Tool Output (browser__snapshot): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_215" name="Audit history for ticket T-215" rect="0,0,1,1" /></root>"#,
+            r#"Tool Output (browser__inspect): <root id="root_dom_fallback_tree" name="DOM fallback tree" rect="0,0,800,600"><heading id="heading_audit_history_t_215" name="Audit history for ticket T-215" rect="0,0,1,1" /></root>"#,
             2,
         ),
         chat_message(
@@ -3119,7 +3115,7 @@ fn pending_browser_state_context_highlights_autocomplete_follow_up() {
     assert!(context.contains("RECENT PENDING BROWSER STATE:"));
     assert!(context.contains("autocomplete state"));
     assert!(context.contains("Do not submit or finish"));
-    assert!(context.contains("browser__key"));
+    assert!(context.contains("browser__press_key"));
 }
 
 #[test]
@@ -3134,7 +3130,7 @@ fn pending_browser_state_context_highlights_key_follow_up() {
     assert!(context.contains("RECENT PENDING BROWSER STATE:"));
     assert!(context.contains("key did not resolve the widget"));
     assert!(context.contains("ArrowDown"));
-    assert!(context.contains("browser__snapshot"));
+    assert!(context.contains("browser__inspect"));
 }
 
 #[test]
@@ -3148,7 +3144,7 @@ fn pending_browser_state_context_highlights_navigation_key_commit() {
     let context = build_recent_pending_browser_state_context(&history);
     assert!(context.contains("active autocomplete candidate"));
     assert!(context.contains("press `Enter` to commit"));
-    assert!(context.contains("browser__snapshot"));
+    assert!(context.contains("browser__inspect"));
 }
 
 #[test]
@@ -3308,7 +3304,7 @@ fn pending_browser_state_context_prefers_click_for_visible_single_autocomplete_s
         build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
     assert!(context.contains("RECENT PENDING BROWSER STATE:"));
     assert!(context.contains("`grp_williston_nd_isn`"));
-    assert!(context.contains("browser__click_element"));
+    assert!(context.contains("browser__click"));
     assert!(context.contains("commit it in one step"));
     assert!(!context.contains("`ArrowDown` now"));
 }
@@ -3347,7 +3343,7 @@ fn pending_browser_state_context_prefers_click_for_omitted_autocomplete_suggesti
         build_recent_pending_browser_state_context_with_snapshot(&history, Some(snapshot));
     assert!(context.contains("RECENT PENDING BROWSER STATE:"));
     assert!(context.contains("`grp_williston_nd_isn`"));
-    assert!(context.contains("browser__click_element"));
+    assert!(context.contains("browser__click"));
     assert!(context.contains("commit it in one step"));
     assert!(!context.contains("`ArrowDown` now"));
 }
@@ -3376,7 +3372,7 @@ fn pending_browser_state_context_prefers_popup_leaf_over_named_autocomplete_cont
     );
     assert!(context.contains("`grp_augusta_ga_ags_leaf`"), "{context}");
     assert!(!context.contains("`grp_augusta_ga_ags` now"), "{context}");
-    assert!(context.contains("browser__click_element"), "{context}");
+    assert!(context.contains("browser__click"), "{context}");
     assert!(context.contains("commit it in one step"), "{context}");
 }
 
@@ -3591,7 +3587,7 @@ fn pending_browser_state_context_prioritizes_shortest_visible_result_action_over
     assert!(context.contains("`btn_book_flight_for_944`"), "{context}");
     assert!(context.contains("shortest"), "{context}");
     assert!(
-        !context.contains("Use `browser__click_element` on `grp_augusta_ga`"),
+        !context.contains("Use `browser__click` on `grp_augusta_ga`"),
         "{context}"
     );
 }
@@ -3625,7 +3621,7 @@ fn pending_browser_state_context_prioritizes_shortest_omitted_result_action_over
     assert!(context.contains("`btn_book_flight_for_944`"), "{context}");
     assert!(context.contains("shortest"), "{context}");
     assert!(
-        !context.contains("Use `browser__click_element` on `grp_augusta_ga`"),
+        !context.contains("Use `browser__click` on `grp_augusta_ga`"),
         "{context}"
     );
 }
@@ -3661,7 +3657,7 @@ fn pending_browser_state_context_recovers_shortest_result_action_from_row_text()
     assert!(context.contains("`btn_book_flight_for_944`"), "{context}");
     assert!(context.contains("shortest"), "{context}");
     assert!(
-        !context.contains("Use `browser__click_element` on `grp_augusta_ga`"),
+        !context.contains("Use `browser__click` on `grp_augusta_ga`"),
         "{context}"
     );
 }
@@ -3695,7 +3691,7 @@ fn pending_browser_state_context_recovers_shortest_result_action_from_neighbor_t
     assert!(context.contains("`btn_book_flight_for_944`"), "{context}");
     assert!(context.contains("shortest"), "{context}");
     assert!(
-        !context.contains("Use `browser__click_element` on `grp_augusta_ga`"),
+        !context.contains("Use `browser__click` on `grp_augusta_ga`"),
         "{context}"
     );
 }
@@ -3784,7 +3780,7 @@ fn success_signal_context_prioritizes_submit_after_duplicate_typed_action() {
         "{context}"
     );
     assert!(
-        context.contains("Do not spend the next step on another `browser__snapshot`"),
+        context.contains("Do not spend the next step on another `browser__inspect`"),
         "{context}"
     );
 }
@@ -3827,8 +3823,8 @@ fn pending_browser_state_context_highlights_no_effect_scroll() {
     let context = build_recent_pending_browser_state_context(&history);
     assert!(context.contains("RECENT PENDING BROWSER STATE:"));
     assert!(context.contains("no grounded effect"));
-    assert!(context.contains("browser__snapshot"));
-    assert!(context.contains("browser__key"));
+    assert!(context.contains("browser__inspect"));
+    assert!(context.contains("browser__press_key"));
 }
 
 #[test]
@@ -3836,7 +3832,7 @@ fn pending_browser_state_context_highlights_incomplete_auth_form() {
     let history = vec![
             chat_message(
                 "tool",
-                "Tool Output (browser__snapshot): <root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\"><textbox id=\"inp_username\" name=\"Username\" dom_id=\"username\" selector=\"[id=&quot;username&quot;]\" rect=\"0,0,1,1\" /><textbox id=\"inp_password\" name=\"Password\" dom_id=\"password\" selector=\"[id=&quot;password&quot;]\" rect=\"0,0,1,1\" /><button id=\"btn_sign_in\" name=\"Sign in\" dom_id=\"sign-in\" selector=\"[id=&quot;sign-in&quot;]\" rect=\"0,0,1,1\" /></root>",
+                "Tool Output (browser__inspect): <root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\"><textbox id=\"inp_username\" name=\"Username\" dom_id=\"username\" selector=\"[id=&quot;username&quot;]\" rect=\"0,0,1,1\" /><textbox id=\"inp_password\" name=\"Password\" dom_id=\"password\" selector=\"[id=&quot;password&quot;]\" rect=\"0,0,1,1\" /><button id=\"btn_sign_in\" name=\"Sign in\" dom_id=\"sign-in\" selector=\"[id=&quot;sign-in&quot;]\" rect=\"0,0,1,1\" /></root>",
                 1,
             ),
             chat_message(
@@ -3857,7 +3853,7 @@ fn pending_browser_state_context_highlights_ready_auth_submit() {
     let history = vec![
             chat_message(
                 "tool",
-                "Tool Output (browser__snapshot): <root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\"><textbox id=\"inp_username\" name=\"dispatch.agent\" value=\"dispatch.agent\" dom_id=\"username\" selector=\"[id=&quot;username&quot;]\" rect=\"0,0,1,1\" /><textbox id=\"inp_password\" name=\"dispatch-215\" value=\"dispatch-215\" dom_id=\"password\" selector=\"[id=&quot;password&quot;]\" rect=\"0,0,1,1\" /><button id=\"btn_sign_in\" name=\"Sign in\" dom_id=\"sign-in\" selector=\"[id=&quot;sign-in&quot;]\" rect=\"0,0,1,1\" /></root>",
+                "Tool Output (browser__inspect): <root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\"><textbox id=\"inp_username\" name=\"dispatch.agent\" value=\"dispatch.agent\" dom_id=\"username\" selector=\"[id=&quot;username&quot;]\" rect=\"0,0,1,1\" /><textbox id=\"inp_password\" name=\"dispatch-215\" value=\"dispatch-215\" dom_id=\"password\" selector=\"[id=&quot;password&quot;]\" rect=\"0,0,1,1\" /><button id=\"btn_sign_in\" name=\"Sign in\" dom_id=\"sign-in\" selector=\"[id=&quot;sign-in&quot;]\" rect=\"0,0,1,1\" /></root>",
                 1,
             ),
             chat_message(
@@ -3876,7 +3872,7 @@ fn pending_browser_state_context_highlights_ready_auth_submit() {
     assert!(context.contains("RECENT PENDING BROWSER STATE:"));
     assert!(context.contains("both credential fields were filled"));
     assert!(context.contains("Use the login action now"));
-    assert!(context.contains("browser__click_element"));
+    assert!(context.contains("browser__click"));
 }
 
 #[test]
@@ -3926,7 +3922,7 @@ fn snapshot_pending_context_highlights_ready_auth_submit_without_history_snapsho
     assert!(context.contains("RECENT PENDING BROWSER STATE:"));
     assert!(context.contains("both credential fields were filled"));
     assert!(context.contains("Use the login action now"));
-    assert!(context.contains("browser__click_element"));
+    assert!(context.contains("browser__click"));
 }
 
 #[test]
@@ -3934,7 +3930,7 @@ fn success_signal_context_suppresses_stale_click_guidance_while_auth_pending() {
     let history = vec![
             chat_message(
                 "tool",
-                "Tool Output (browser__snapshot): <root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\"><textbox id=\"inp_username\" name=\"dispatch.agent\" value=\"dispatch.agent\" dom_id=\"username\" selector=\"[id=&quot;username&quot;]\" rect=\"0,0,1,1\" /><textbox id=\"inp_password\" name=\"dispatch-215\" value=\"dispatch-215\" dom_id=\"password\" selector=\"[id=&quot;password&quot;]\" rect=\"0,0,1,1\" /><button id=\"btn_sign_in\" name=\"Sign in\" dom_id=\"sign-in\" selector=\"[id=&quot;sign-in&quot;]\" rect=\"0,0,1,1\" /></root>",
+                "Tool Output (browser__inspect): <root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\"><textbox id=\"inp_username\" name=\"dispatch.agent\" value=\"dispatch.agent\" dom_id=\"username\" selector=\"[id=&quot;username&quot;]\" rect=\"0,0,1,1\" /><textbox id=\"inp_password\" name=\"dispatch-215\" value=\"dispatch-215\" dom_id=\"password\" selector=\"[id=&quot;password&quot;]\" rect=\"0,0,1,1\" /><button id=\"btn_sign_in\" name=\"Sign in\" dom_id=\"sign-in\" selector=\"[id=&quot;sign-in&quot;]\" rect=\"0,0,1,1\" /></root>",
                 1,
             ),
             chat_message(
@@ -3969,7 +3965,7 @@ fn pending_browser_state_context_highlights_page_level_key_target() {
     let context = build_recent_pending_browser_state_context(&history);
     assert!(context.contains("page itself"));
     assert!(context.contains("focus that control first"));
-    assert!(context.contains("browser__click_element"));
+    assert!(context.contains("browser__click"));
     assert!(context.contains("otherwise continue with the next required visible control"));
 }
 
@@ -3986,7 +3982,7 @@ fn pending_browser_state_context_highlights_focused_scroll_control_after_click()
     assert!(context.contains("already focused a scrollable control"));
     assert!(context.contains("Do not keep clicking"));
     assert!(context.contains("text selection"));
-    assert!(context.contains("browser__select_text"));
+    assert!(context.contains("browser__select"));
 }
 
 #[test]
@@ -4080,7 +4076,7 @@ fn snapshot_pending_signal_chains_top_edge_jump_to_unique_follow_up_when_near_to
     );
     assert!(context.contains("scroll_top=24"), "{context}");
     assert!(context.contains("btn_submit"), "{context}");
-    assert!(context.contains("browser__key {"), "{context}");
+    assert!(context.contains("browser__press_key {"), "{context}");
     assert!(context.contains("\"key\":\"Home\""), "{context}");
     assert!(
         context.contains("\"selector\":\"[id=\\\"text-area\\\"]\""),
@@ -4110,9 +4106,12 @@ fn snapshot_pending_signal_chains_page_up_then_top_edge_jump_when_one_page_windo
         "{context}"
     );
     assert!(context.contains("scroll_top=166"), "{context}");
-    assert!(context.contains("browser__key {"), "{context}");
+    assert!(context.contains("browser__press_key {"), "{context}");
     assert!(context.contains("\"key\":\"PageUp\""), "{context}");
-    assert!(context.contains("\"name\":\"browser__key\""), "{context}");
+    assert!(
+        context.contains("\"name\":\"browser__press_key\""),
+        "{context}"
+    );
     assert!(context.contains("\"key\":\"Home\""), "{context}");
     assert!(context.contains("\"modifiers\":[\"Control\"]"), "{context}");
     assert!(context.contains("\"id\":\"btn_submit\""), "{context}");
@@ -4135,9 +4134,12 @@ fn observation_context_highlights_page_up_then_top_edge_jump_chain_near_finish_w
     let context = build_browser_observation_context_from_snapshot_with_history(snapshot, &history);
     assert!(context.contains("ASSISTIVE BROWSER HINTS:"), "{context}");
     assert!(context.contains("scroll_top=166"), "{context}");
-    assert!(context.contains("browser__key {"), "{context}");
+    assert!(context.contains("browser__press_key {"), "{context}");
     assert!(context.contains("\"key\":\"PageUp\""), "{context}");
-    assert!(context.contains("\"name\":\"browser__key\""), "{context}");
+    assert!(
+        context.contains("\"name\":\"browser__press_key\""),
+        "{context}"
+    );
     assert!(context.contains("\"id\":\"btn_submit\""), "{context}");
 }
 
@@ -4161,7 +4163,10 @@ fn snapshot_pending_signal_chains_page_up_then_top_edge_jump_when_scroll_target_
         "{context}"
     );
     assert!(context.contains("\"key\":\"PageUp\""), "{context}");
-    assert!(context.contains("\"name\":\"browser__key\""), "{context}");
+    assert!(
+        context.contains("\"name\":\"browser__press_key\""),
+        "{context}"
+    );
     assert!(context.contains("\"key\":\"Home\""), "{context}");
     assert!(context.contains("\"id\":\"btn_submit\""), "{context}");
 }
@@ -4246,10 +4251,7 @@ fn snapshot_pending_signal_chains_top_edge_submit_when_canvas_wrapper_is_present
         context.contains("RECENT PENDING BROWSER STATE:"),
         "{context}"
     );
-    assert!(
-        context.contains("\"name\":\"browser__click_element\""),
-        "{context}"
-    );
+    assert!(context.contains("\"name\":\"browser__click\""), "{context}");
     assert!(context.contains("\"id\":\"btn_submit\""), "{context}");
     assert!(!context.contains("grp_click_canvas"), "{context}");
 }
@@ -4314,9 +4316,8 @@ fn snapshot_pending_signal_highlights_remaining_requested_selectables() {
     assert!(context.contains("Requested selectable targets still missing"));
     assert!(context.contains("`checkbox_pj6kgy` (`Pj6KGY`)"));
     assert!(context.contains("`checkbox_niqkfgd` (`NIQkfGd`)"));
-    assert!(context.contains(
-        "Use `browser__click_element` with `ids` [`checkbox_pj6kgy`, `checkbox_niqkfgd`] now"
-    ));
+    assert!(context
+        .contains("Use `browser__click` with `ids` [`checkbox_pj6kgy`, `checkbox_niqkfgd`] now"));
 }
 
 #[test]
@@ -4427,7 +4428,7 @@ fn pending_browser_state_context_prefers_select_submit_progress_over_single_goal
     );
     assert!(
         context.contains(
-            "Use `browser__click_element` with `ids` [`checkbox_nyt2`, `checkbox_pj6kgy`, `checkbox_gtqzx`] now"
+            "Use `browser__click` with `ids` [`checkbox_nyt2`, `checkbox_pj6kgy`, `checkbox_gtqzx`] now"
         ),
         "{context}"
     );
@@ -4459,7 +4460,7 @@ fn pending_browser_state_context_recovers_select_submit_progress_from_history_wh
     );
     assert!(
         context.contains(
-            "Use `browser__click_element` with `ids` [`checkbox_nyt2`, `checkbox_pj6kgy`, `checkbox_gtqzx`] now"
+            "Use `browser__click` with `ids` [`checkbox_nyt2`, `checkbox_pj6kgy`, `checkbox_gtqzx`] now"
         ),
         "{context}"
     );
@@ -4481,7 +4482,7 @@ fn snapshot_pending_signal_highlights_visible_scroll_target_before_body_key() {
     assert!(context.contains(
         "Visible scroll target `inp_lorem tag=textbox dom_id=text-area` is already on the page."
     ));
-    assert!(context.contains("browser__key"));
+    assert!(context.contains("browser__press_key"));
     assert!(context.contains("grounded `selector`"));
     assert!(context.contains("otherwise continue with the next required visible control"));
 }

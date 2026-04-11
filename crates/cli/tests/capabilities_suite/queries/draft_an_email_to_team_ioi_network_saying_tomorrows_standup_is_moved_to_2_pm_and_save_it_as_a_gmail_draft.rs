@@ -2,20 +2,18 @@ use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
     has_cec_receipt, has_cec_stage, has_contract_failure_evidence, has_tool_with_token,
-    has_verification_pair, truncate_chars, verification_u64, verification_values, ExecutionProfile,
-    LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    has_verification_pair, truncate_chars, verification_values, ExecutionProfile, LocalCheck,
+    LocalJudgeResult, QueryCase, RunObservation,
 };
 
 const CASE_ID: &str =
     "draft_an_email_to_team_ioi_network_saying_tomorrows_standup_is_moved_to_2_pm_and_save_it_as_a_gmail_draft";
-const EXPECTED_FIXTURE_MODE: &str = "google_connector_mock_fixture_v1";
-const EXPECTED_ACCOUNT: &str = "fixtures.google@ioi.invalid";
 
 pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "Draft an email to team@ioi.network saying tomorrow's standup is moved to 2 PM and save it as a Gmail draft.",
-        success_definition: "Create the requested Gmail draft through the hermetic Google connector fixture with structured Gmail draft evidence, fixture receipts, and no contract-failure markers.",
+        success_definition: "Create the requested Gmail draft through the Google connector with structured Gmail draft evidence, CEC receipts, grounded recipient evidence, and no contract-failure markers.",
         seeded_intent_id: "gmail.draft_email",
         intent_scope: IntentScopeProfile::Conversation,
         seed_resolved_intent: true,
@@ -84,38 +82,20 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     });
     let tool_route_seen =
         has_tool_with_token(&obs.routing_tools, "connector__google__gmail_draft_email");
-    let system_fail_seen = has_tool_with_token(&obs.action_tools, "system__fail")
-        || has_tool_with_token(&obs.routing_tools, "system__fail");
+    let system_fail_seen = has_tool_with_token(&obs.action_tools, "agent__escalate")
+        || has_tool_with_token(&obs.routing_tools, "agent__escalate");
     let web_or_browser_path_seen = has_tool_with_token(&obs.routing_tools, "web__")
         || has_tool_with_token(&obs.routing_tools, "browser__")
         || has_tool_with_token(&obs.action_tools, "web__")
         || has_tool_with_token(&obs.action_tools, "browser__")
         || has_tool_with_token(&obs.workload_tools, "web__")
         || has_tool_with_token(&obs.workload_tools, "browser__");
-    let non_mail_mutating_path_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec")
-        || has_tool_with_token(&obs.action_tools, "filesystem__")
-        || has_tool_with_token(&obs.routing_tools, "filesystem__")
-        || has_tool_with_token(&obs.action_tools, "net__fetch")
-        || has_tool_with_token(&obs.routing_tools, "net__fetch");
-    let fixture_mode_present = has_verification_pair(
-        obs,
-        "env_receipt::google_connector_fixture_mode",
-        EXPECTED_FIXTURE_MODE,
-    );
-    let fixture_account_present = has_verification_pair(
-        obs,
-        "env_receipt::google_connector_fixture_account",
-        EXPECTED_ACCOUNT,
-    );
-    let message_count =
-        verification_u64(obs, "env_receipt::google_connector_fixture_message_count")
-            .unwrap_or_default();
-    let fixture_cleanup_satisfied = has_verification_pair(
-        obs,
-        "env_receipt::google_connector_fixture_cleanup_satisfied",
-        "true",
-    );
+    let non_mail_mutating_path_seen = has_tool_with_token(&obs.action_tools, "shell__run")
+        || has_tool_with_token(&obs.routing_tools, "shell__run")
+        || has_tool_with_token(&obs.action_tools, "file__")
+        || has_tool_with_token(&obs.routing_tools, "file__")
+        || has_tool_with_token(&obs.action_tools, "http__fetch")
+        || has_tool_with_token(&obs.routing_tools, "http__fetch");
     let grounding_receipt_present = has_verification_pair(obs, "receipt::grounding", "true");
     let recipient_grounding_present = verification_values(obs, "grounding_slot")
         .iter()
@@ -143,8 +123,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         message_id_present && draft_label_present,
         tool_planned_seen,
         tool_route_seen,
-        fixture_mode_present && fixture_account_present,
-        fixture_cleanup_satisfied,
         grounding_receipt_present && recipient_grounding_present,
     ]
     .into_iter()
@@ -198,17 +176,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             ),
         ),
         LocalCheck::new(
-            "fixture_receipts_present",
-            fixture_mode_present
-                && fixture_account_present
-                && message_count > 0
-                && fixture_cleanup_satisfied,
-            format!(
-                "fixture_mode_present={} fixture_account_present={} message_count={} fixture_cleanup_satisfied={}",
-                fixture_mode_present, fixture_account_present, message_count, fixture_cleanup_satisfied
-            ),
-        ),
-        LocalCheck::new(
             "cec_phase_receipts_present",
             discovery_receipt_present
                 && provider_selection_receipt_present
@@ -250,7 +217,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         ),
         LocalCheck::new(
             "independent_runtime_evidence_channels_present",
-            independent_channel_count >= 6,
+            independent_channel_count >= 5,
             format!("independent_channel_count={}", independent_channel_count),
         ),
     ];

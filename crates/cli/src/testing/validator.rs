@@ -3,6 +3,7 @@
 use super::{
     assert::{assert_log_contains, LOG_CHANNEL_CAPACITY},
     backend::{DockerBackend, DockerBackendConfig, ProcessBackend, TestBackend},
+    build::{test_node_binary_dir, test_node_target_dir},
 };
 use crate::testing::signing_oracle::SigningOracleGuard;
 use anyhow::{anyhow, Result};
@@ -21,6 +22,7 @@ use libp2p::{identity, Multiaddr, PeerId};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex as StdMutex, OnceLock};
@@ -36,6 +38,106 @@ use tokio::time::Duration;
 // use ioi_types::codec;
 
 const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(120);
+const RESERVED_PORT_BLOCK_START: u16 = 20_000;
+const RESERVED_PORT_BLOCK_END_EXCLUSIVE: u16 = 55_000;
+const RESERVED_PORT_BLOCK_STEP: usize = 1_000;
+pub(crate) const VALIDATOR_PORT_FANOUT: u16 = 8;
+
+pub struct ReservedValidatorPorts {
+    pub base_port: u16,
+    reservations: Vec<std::net::TcpListener>,
+    lock_path: PathBuf,
+}
+
+impl ReservedValidatorPorts {
+    pub fn take_reservations(&mut self) -> Vec<std::net::TcpListener> {
+        std::mem::take(&mut self.reservations)
+    }
+}
+
+impl Drop for ReservedValidatorPorts {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.lock_path);
+    }
+}
+
+fn process_is_alive(pid: u32) -> bool {
+    Path::new("/proc").join(pid.to_string()).exists()
+}
+
+fn reclaim_stale_port_block_lock(lock_path: &Path) {
+    let Ok(contents) = std::fs::read_to_string(lock_path) else {
+        return;
+    };
+    let Some(pid) = contents
+        .trim()
+        .strip_prefix("pid=")
+        .and_then(|value| value.parse::<u32>().ok())
+    else {
+        let _ = std::fs::remove_file(lock_path);
+        return;
+    };
+
+    if !process_is_alive(pid) {
+        let _ = std::fs::remove_file(lock_path);
+    }
+}
+
+pub fn reserve_validator_ports(base_port: u16) -> Result<Vec<std::net::TcpListener>> {
+    let block_end = base_port
+        .checked_add(VALIDATOR_PORT_FANOUT)
+        .ok_or_else(|| anyhow!("validator port allocation overflow"))?;
+    if block_end >= u16::MAX {
+        return Err(anyhow!("validator port allocation overflow"));
+    }
+
+    let mut reservations = Vec::with_capacity((VALIDATOR_PORT_FANOUT as usize) + 1);
+    for port in base_port..=block_end {
+        reservations.push(std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, port))?);
+    }
+    Ok(reservations)
+}
+
+pub fn reserve_free_validator_ports() -> Result<ReservedValidatorPorts> {
+    let lock_dir = std::env::temp_dir().join("ioi-test-port-blocks");
+    std::fs::create_dir_all(&lock_dir)?;
+
+    for base_port in (RESERVED_PORT_BLOCK_START..RESERVED_PORT_BLOCK_END_EXCLUSIVE)
+        .step_by(RESERVED_PORT_BLOCK_STEP)
+    {
+        let lock_path = lock_dir.join(format!("{base_port}.lock"));
+        if lock_path.exists() {
+            reclaim_stale_port_block_lock(&lock_path);
+        }
+
+        let mut lock_file = match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&lock_path)
+        {
+            Ok(file) => file,
+            Err(_) => continue,
+        };
+
+        let reservations = match reserve_validator_ports(base_port) {
+            Ok(reservations) => reservations,
+            Err(_) => {
+                drop(lock_file);
+                let _ = std::fs::remove_file(&lock_path);
+                continue;
+            }
+        };
+
+        writeln!(lock_file, "pid={}", std::process::id())?;
+        return Ok(ReservedValidatorPorts {
+            base_port,
+            reservations,
+            lock_path,
+        });
+    }
+
+    Err(anyhow!("failed to reserve a free validator port block"))
+}
 
 fn benchmark_trace_component_log_path(base_port: u16, component: &str) -> Option<PathBuf> {
     let dir = std::env::var_os("IOI_AFT_BENCH_TRACE_DIR")?;
@@ -150,6 +252,7 @@ pub struct TestValidator {
     pub peer_id: PeerId,
     pub rpc_addr: String,
     pub workload_ipc_addr: String,
+    pub shmem_id: String,
     pub orchestration_telemetry_addr: String,
     pub workload_telemetry_addr: String,
     pub p2p_addr: Multiaddr, // This is now the full address including /p2p/PEER_ID
@@ -262,6 +365,7 @@ impl TestValidator {
         keypair: identity::Keypair,
         genesis_content: String,
         base_port: u16,
+        port_reservations: Vec<std::net::TcpListener>,
         chain_id: ioi_types::app::ChainId,
         bootnode_addrs: Option<&[Multiaddr]>,
         consensus_type: &str,
@@ -279,11 +383,16 @@ impl TestValidator {
         gc_interval_secs: Option<u64>,
         min_finality_depth: Option<u64>,
         service_policies: BTreeMap<String, ServicePolicy>,
+        workload_env: BTreeMap<String, String>,
         role: ValidatorRole,
         aft_safety_mode: AftSafetyMode,
         guardian_config_toml: Option<String>,
     ) -> Result<ValidatorGuard> {
         let guardianized_mode = !matches!(aft_safety_mode, AftSafetyMode::ClassicBft);
+        debug_assert!(
+            !port_reservations.is_empty(),
+            "validator launch should receive reserved startup ports"
+        );
         let features = BinaryFeatureConfig {
             consensus_type,
             state_tree_type,
@@ -295,13 +404,8 @@ impl TestValidator {
         let build_profile =
             std::env::var("IOI_TEST_BUILD_PROFILE").unwrap_or_else(|_| "debug".to_string());
         let build_release = build_profile.eq_ignore_ascii_case("release");
-        let node_binary_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("target")
-            .join(&build_profile);
+        let node_target_dir = test_node_target_dir(&build_profile, &features);
+        let node_binary_dir = test_node_binary_dir(&build_profile, &features);
         let binaries_present = ["orchestration", "workload", "guardian"]
             .iter()
             .all(|bin| node_binary_dir.join(bin).exists());
@@ -311,7 +415,9 @@ impl TestValidator {
             let mut built = built_node_profiles()
                 .lock()
                 .expect("build profile cache poisoned");
-            built.insert(build_cache_key) && !binaries_present
+            // Cache once per unique profile+feature combination in this process, and rebuild if the
+            // feature-isolated binary directory has not been materialized yet.
+            built.insert(build_cache_key) || !binaries_present
         };
         if needs_build {
             println!(
@@ -331,6 +437,7 @@ impl TestValidator {
                 "--features",
                 &features,
             ]);
+            cmd.env("CARGO_TARGET_DIR", &node_target_dir);
             if build_release {
                 cmd.arg("--release");
             }
@@ -589,6 +696,7 @@ impl TestValidator {
         let shmem_id = format!("ioi_shmem_{}", base_port);
 
         let mut backend: Box<dyn TestBackend> = if use_docker {
+            drop(port_reservations);
             let docker_config = DockerBackendConfig {
                 rpc_addr: rpc_addr.clone(),
                 p2p_addr: full_p2p_addr.clone(), // Use full addr but docker ignores PeerID on listen
@@ -612,13 +720,7 @@ impl TestValidator {
             workload_telemetry_addr = format!("127.0.0.1:{}", workload_telemetry_port);
             orchestration_telemetry_addr = format!("127.0.0.1:{}", orchestration_telemetry_port);
 
-            let node_binary_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .parent()
-                .unwrap()
-                .parent()
-                .unwrap()
-                .join("target")
-                .join(&build_profile);
+            let node_binary_path = test_node_binary_dir(&build_profile, &features);
 
             let mut pb = ProcessBackend::new(
                 rpc_addr.clone(),
@@ -627,11 +729,15 @@ impl TestValidator {
                 workload_config_path.clone(),
                 initial_workload_ipc_addr,
                 certs_dir_path.clone(),
+                shmem_id.clone(),
             );
             workload_ipc_addr = pb.workload_ipc_addr.clone();
 
             pb.orchestration_telemetry_addr = Some(orchestration_telemetry_addr.clone());
             pb.workload_telemetry_addr = Some(workload_telemetry_addr.clone());
+
+            // Release the startup reservations immediately before child processes bind.
+            drop(port_reservations);
 
             if guardianized_mode || agentic_model_path.is_some() {
                 let telemetry_addr_guard = format!("127.0.0.1:{}", guardian_telemetry_port);
@@ -681,6 +787,9 @@ impl TestValidator {
             }
             if agentic_model_path.is_some() {
                 workload_cmd.env("GUARDIAN_ADDR", &guardian_addr);
+            }
+            for (key, value) in &workload_env {
+                workload_cmd.env(key, value);
             }
             pb.workload_process = Some(workload_cmd.spawn()?);
 
@@ -879,6 +988,7 @@ impl TestValidator {
             peer_id,
             rpc_addr,
             workload_ipc_addr,
+            shmem_id,
             orchestration_telemetry_addr,
             workload_telemetry_addr,
             p2p_addr: full_p2p_addr, // Store the FULL address here

@@ -3,13 +3,18 @@
 
 // --- Common Imports ---
 use anyhow::{anyhow, Result};
-use ioi_cli::testing::build_test_artifacts;
+#[cfg(feature = "validator-bins")]
+use ioi_cli::testing::build::{test_node_binary_dir, test_node_target_dir};
 
 // --- Imports for Local Binary Integrity Test ---
 #[cfg(feature = "validator-bins")]
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 #[cfg(feature = "validator-bins")]
-use std::io::Write; // REMOVED: Read
+use ioi_validator::common::GuardianContainer;
+#[cfg(feature = "validator-bins")]
+use libp2p::identity::Keypair as Libp2pKeypair;
+#[cfg(feature = "validator-bins")]
+use std::io::Write;
 #[cfg(feature = "validator-bins")]
 use std::path::PathBuf;
 #[cfg(feature = "validator-bins")]
@@ -96,17 +101,10 @@ fn create_attestation_tx(
 // -----------------------------------------------------------------------------
 
 #[cfg(feature = "validator-bins")]
-fn get_binary_path(name: &str) -> PathBuf {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let root = manifest_dir.parent().unwrap().parent().unwrap();
-    let path = root.join("target/release").join(name);
-    if !path.exists() {
-        panic!(
-            "Binary {} not found at {:?}. Run 'cargo build --release' first.",
-            name, path
-        );
-    }
-    path
+fn guardian_binary_path() -> PathBuf {
+    let build_profile = "debug";
+    let features = "validator-bins";
+    test_node_binary_dir(build_profile, features).join("guardian")
 }
 
 // -----------------------------------------------------------------------------
@@ -116,37 +114,48 @@ fn get_binary_path(name: &str) -> PathBuf {
 #[tokio::test]
 #[cfg(feature = "validator-bins")]
 async fn test_guardian_binary_integrity_enforcement() -> Result<()> {
+    const GUARDIAN_BUILD_PROFILE: &str = "debug";
+    const GUARDIAN_BUILD_FEATURES: &str = "validator-bins";
+
     // 0. Rebuild Validator Binaries to ensure they have the latest code changes
-    println!("--- Rebuilding Guardian Binary ---");
-    let status = std::process::Command::new("cargo")
-        .args([
-            "build",
-            "--release",
-            "-p",
-            "ioi-node",
-            "--bin",
-            "guardian",
-            "--features",
-            "validator-bins",
-        ])
-        .status()
-        .expect("Failed to execute cargo build for guardian");
-    assert!(status.success(), "Failed to rebuild guardian binary");
+    let guardian_target_dir = test_node_target_dir(GUARDIAN_BUILD_PROFILE, GUARDIAN_BUILD_FEATURES);
+    let guard_src = guardian_binary_path();
+    if !guard_src.exists() {
+        println!("--- Building Guardian Binary ---");
+        let status = std::process::Command::new("cargo")
+            .args([
+                "build",
+                "-p",
+                "ioi-node",
+                "--bin",
+                "guardian",
+                "--no-default-features",
+                "--features",
+                GUARDIAN_BUILD_FEATURES,
+            ])
+            .env("CARGO_TARGET_DIR", &guardian_target_dir)
+            .status()
+            .expect("Failed to execute cargo build for guardian");
+        assert!(status.success(), "Failed to build guardian binary");
+    }
 
     // 1. Setup artifacts
-    build_test_artifacts(); // Ensures binaries exist
     let temp_dir = tempdir()?;
     let bin_dir = temp_dir.path().to_path_buf();
+    let certs_dir = bin_dir.join("certs");
+    std::fs::create_dir_all(&certs_dir)?;
 
-    // 2. Copy binaries to temp dir to simulate a deployment
-    let orch_src = get_binary_path("orchestration");
-    let work_src = get_binary_path("workload");
+    let guardian_keypair = Libp2pKeypair::generate_ed25519();
+    let guardian_key_bytes = guardian_keypair.to_protobuf_encoding()?;
+    let guardian_key_path = bin_dir.join("identity.key");
+    std::env::set_var("IOI_GUARDIAN_KEY_PASS", "test-password");
+    GuardianContainer::save_encrypted_file(&guardian_key_path, &guardian_key_bytes)?;
 
+    // 2. Materialize sibling binaries that the guardian will verify by hash.
     let orch_dst = bin_dir.join("orchestration");
     let work_dst = bin_dir.join("workload");
-
-    std::fs::copy(&orch_src, &orch_dst)?;
-    std::fs::copy(&work_src, &work_dst)?;
+    std::fs::write(&orch_dst, b"orchestration fixture binary bytes")?;
+    std::fs::write(&work_dst, b"workload fixture binary bytes")?;
 
     // 3. Compute Hashes
     let orch_bytes = std::fs::read(&orch_dst)?;
@@ -155,7 +164,6 @@ async fn test_guardian_binary_integrity_enforcement() -> Result<()> {
     let work_hash = hex::encode(Sha256::digest(&work_bytes)?);
 
     // 4. Test Case: Valid Configuration
-    let guard_src = get_binary_path("guardian");
     let guard_dst = bin_dir.join("guardian");
     std::fs::copy(&guard_src, &guard_dst)?;
 
@@ -179,17 +187,23 @@ async fn test_guardian_binary_integrity_enforcement() -> Result<()> {
     let mut valid_proc = std::process::Command::new(&guard_dst)
         .arg("--config-dir")
         .arg(&bin_dir)
-        .arg("--agentic-model-path")
-        .arg("dummy_model.bin") // Dummy path
-        .env("CERTS_DIR", bin_dir.to_string_lossy().as_ref())
+        .env("CERTS_DIR", certs_dir.to_string_lossy().as_ref())
         .env("TELEMETRY_ADDR", "127.0.0.1:0") // Random port
         .env("GUARDIAN_LISTEN_ADDR", "127.0.0.1:0")
+        .env("IOI_GUARDIAN_KEY_PASS", "test-password")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
         .spawn()?;
 
     // Give it a moment. If it crashes immediately, it failed.
     std::thread::sleep(std::time::Duration::from_millis(1000));
     if let Ok(Some(status)) = valid_proc.try_wait() {
-        panic!("Valid guardian process exited unexpectedly with {}", status);
+        let output = valid_proc.wait_with_output()?;
+        panic!(
+            "Valid guardian process exited unexpectedly with {}. stderr: {}",
+            status,
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
     valid_proc.kill()?;
     let _ = valid_proc.wait(); // Ensure resources are released
@@ -213,11 +227,10 @@ async fn test_guardian_binary_integrity_enforcement() -> Result<()> {
     let mut tampered_proc = std::process::Command::new(&guard_dst)
         .arg("--config-dir")
         .arg(&bin_dir)
-        .arg("--agentic-model-path")
-        .arg("dummy_model.bin")
-        .env("CERTS_DIR", bin_dir.to_string_lossy().as_ref())
+        .env("CERTS_DIR", certs_dir.to_string_lossy().as_ref())
         .env("TELEMETRY_ADDR", "127.0.0.1:0")
         .env("GUARDIAN_LISTEN_ADDR", "127.0.0.1:0")
+        .env("IOI_GUARDIAN_KEY_PASS", "test-password")
         .env("RUST_LOG", "info") // Make sure we get info logs
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

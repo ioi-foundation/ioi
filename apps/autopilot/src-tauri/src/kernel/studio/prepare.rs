@@ -370,8 +370,9 @@ fn maybe_prepare_task_for_studio_with_request(
     let mut taste_memory: Option<StudioArtifactTasteMemory> = None;
     let mut retrieved_exemplars = Vec::<StudioArtifactExemplar>::new();
     let mut selected_targets = Vec::<StudioArtifactSelectionTarget>::new();
-    let mut final_materialized_artifact: Option<super::content_session::MaterializedContentArtifact> =
-        None;
+    let mut final_materialized_artifact: Option<
+        super::content_session::MaterializedContentArtifact,
+    > = None;
     let app_runtime_provenance =
         app_inference_runtime(app).map(|runtime| runtime.studio_runtime_provenance());
     let app_acceptance_runtime_provenance =

@@ -94,7 +94,7 @@ async fn sys_exec_session_continuity_reset_failure_receipts_and_anti_loop() -> R
     if !reset_before.success {
         browser.stop().await;
         return Err(anyhow!(
-            "sys__exec_session_reset (pre) failed: {:?}",
+            "shell__reset (pre) failed: {:?}",
             reset_before.error
         ));
     }
@@ -115,10 +115,7 @@ async fn sys_exec_session_continuity_reset_failure_receipts_and_anti_loop() -> R
     .await;
     if !export_result.success {
         browser.stop().await;
-        return Err(anyhow!(
-            "sys__exec_session export failed: {:?}",
-            export_result
-        ));
+        return Err(anyhow!("shell__start export failed: {:?}", export_result));
     }
 
     let read_var_before_reset = execute_with_event_drain(
@@ -138,7 +135,7 @@ async fn sys_exec_session_continuity_reset_failure_receipts_and_anti_loop() -> R
     if !read_var_before_reset.success {
         browser.stop().await;
         return Err(anyhow!(
-            "sys__exec_session read before reset failed: {:?}",
+            "shell__start read before reset failed: {:?}",
             read_var_before_reset
         ));
     }
@@ -163,7 +160,7 @@ async fn sys_exec_session_continuity_reset_failure_receipts_and_anti_loop() -> R
     if !reset_after.success {
         browser.stop().await;
         return Err(anyhow!(
-            "sys__exec_session_reset (post) failed: {:?}",
+            "shell__reset (post) failed: {:?}",
             reset_after.error
         ));
     }
@@ -185,7 +182,7 @@ async fn sys_exec_session_continuity_reset_failure_receipts_and_anti_loop() -> R
     if !read_var_after_reset.success {
         browser.stop().await;
         return Err(anyhow!(
-            "sys__exec_session read after reset failed: {:?}",
+            "shell__start read after reset failed: {:?}",
             read_var_after_reset
         ));
     }

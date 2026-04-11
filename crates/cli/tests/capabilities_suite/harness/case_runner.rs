@@ -699,32 +699,6 @@ pub async fn run_case(
         &mut runtime_setup_verification_checks,
         &mut runtime_setup_environment_receipts,
     )?;
-    let mail_reply_mock_fixture = bootstrap_optional_fixture(
-        should_bootstrap_mail_reply_mock_fixture(case.id),
-        || bootstrap_mail_reply_mock_fixture_runtime(&run_unique_num),
-        |fixture| {
-            environment_evidence_batch_from_checks(mail_reply_mock_fixture_preflight_checks(
-                fixture,
-                &run_unique_num,
-                run_timestamp_ms,
-            ))
-        },
-        &mut runtime_setup_verification_checks,
-        &mut runtime_setup_environment_receipts,
-    )?;
-    let google_connector_fixture = bootstrap_optional_fixture(
-        should_bootstrap_google_connector_fixture(case.id),
-        || bootstrap_google_connector_fixture_runtime(&run_unique_num),
-        |fixture| {
-            environment_evidence_batch_from_checks(google_connector_fixture_preflight_checks(
-                fixture,
-                &run_unique_num,
-                run_timestamp_ms,
-            ))
-        },
-        &mut runtime_setup_verification_checks,
-        &mut runtime_setup_environment_receipts,
-    )?;
     let restaurants_near_me_fixture = bootstrap_optional_fixture(
         should_bootstrap_restaurants_near_me_fixture(case.id),
         || bootstrap_restaurants_near_me_fixture_runtime(&run_unique_num),
@@ -766,8 +740,7 @@ pub async fn run_case(
             &fixture.repo_root.to_string_lossy(),
         );
     }
-    let mail_provider_driver_override = mail_reply_mock_fixture.as_ref().map(|_| "mock");
-    if should_bootstrap_mailbox_runtime(&run_query) {
+    if should_bootstrap_mailbox_runtime(case) {
         extend_environment_evidence_batch(
             &mut runtime_setup_verification_checks,
             &mut runtime_setup_environment_receipts,
@@ -777,7 +750,6 @@ pub async fn run_case(
                 wallet_service.as_ref(),
                 run_index,
                 run_timestamp_ms,
-                mail_provider_driver_override,
                 Some(case.seeded_intent_id),
             )
             .await?,
@@ -1010,7 +982,7 @@ pub async fn run_case(
                 ..
             } => {
                 action_tools.insert(tool_name.clone());
-                if tool_name.starts_with("sys__exec") {
+                if tool_name.starts_with("shell__run") {
                     if let Some(entry) = extract_command_history_evidence(output) {
                         push_command_history_evidence(
                             &mut command_history_evidence,
@@ -1480,30 +1452,6 @@ pub async fn run_case(
             environment_evidence_batch_from_checks(hacker_news_monitor_fixture_cleanup_checks(
                 fixture,
             ))
-        }),
-    );
-    insert_fixture_evidence(
-        &mut verification_checks,
-        &mut environment_receipts,
-        mail_reply_mock_fixture.as_ref(),
-        |fixture| {
-            environment_evidence_batch_from_checks(mail_reply_mock_fixture_post_run_checks(fixture))
-        },
-        Some(|fixture| {
-            environment_evidence_batch_from_checks(mail_reply_mock_fixture_cleanup_checks(fixture))
-        }),
-    );
-    insert_fixture_evidence(
-        &mut verification_checks,
-        &mut environment_receipts,
-        google_connector_fixture.as_ref(),
-        |fixture| {
-            environment_evidence_batch_from_checks(google_connector_fixture_post_run_checks(
-                fixture,
-            ))
-        },
-        Some(|fixture| {
-            environment_evidence_batch_from_checks(google_connector_fixture_cleanup_checks(fixture))
         }),
     );
     insert_fixture_evidence(

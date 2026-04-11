@@ -697,13 +697,13 @@ async fn sys_exec_session_reset_emits_workload_receipt_and_activity() {
                 receipt_workload_id = Some(receipt_event.workload_id.clone());
                 match receipt_event.receipt {
                     WorkloadReceipt::Exec(exec_receipt) => {
-                        assert_eq!(exec_receipt.tool_name, "sys__exec_session_reset");
-                        assert_eq!(exec_receipt.command, "sys__exec_session_reset");
+                        assert_eq!(exec_receipt.tool_name, "shell__reset");
+                        assert_eq!(exec_receipt.command, "shell__reset");
                         assert!(exec_receipt.args.is_empty());
                         assert!(!exec_receipt.detach);
                         assert_eq!(exec_receipt.timeout_ms, 0);
                         assert!(exec_receipt.success);
-                        assert_eq!(exec_receipt.command_preview, "sys__exec_session_reset");
+                        assert_eq!(exec_receipt.command_preview, "shell__reset");
                         saw_exec_receipt = true;
                     }
                     other => panic!("expected Exec receipt, got {:?}", other),

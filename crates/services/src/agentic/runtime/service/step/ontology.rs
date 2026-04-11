@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn classify_open_app_by_goal_and_hint() {
         assert_eq!(
-            classify_intent("open calculator", "os__launch_app", Some("calculator")),
+            classify_intent("open calculator", "app__launch", Some("calculator")),
             IntentClass::OpenApp
         );
     }
@@ -345,7 +345,7 @@ mod tests {
     #[test]
     fn classify_file_task() {
         assert_eq!(
-            classify_intent("read file", "filesystem__read_file", None),
+            classify_intent("read file", "file__read", None),
             IntentClass::FileTask
         );
     }

@@ -198,13 +198,13 @@ fn grounded_probe_query_available(
         && pending.candidate_source_hints.is_empty()
         && !pending.successful_reads.is_empty()
     {
-            constraint_grounded_search_query_with_contract_and_hints_and_locality_hint(
-                &query_contract,
-                pending.retrieval_contract.as_ref(),
-                pending.min_sources,
-                &pending.candidate_source_hints,
-                locality_scope,
-            )
+        constraint_grounded_search_query_with_contract_and_hints_and_locality_hint(
+            &query_contract,
+            pending.retrieval_contract.as_ref(),
+            pending.min_sources,
+            &pending.candidate_source_hints,
+            locality_scope,
+        )
     } else {
         String::new()
     };

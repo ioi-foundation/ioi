@@ -123,7 +123,8 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
             request_hash: request_hash_1,
             consumed_at_ms: 4_100_000_002_000,
         };
-        // NOTE: this tx may still be committed even if service execution fails, so assert via state.
+        // Rejected wallet calls do not advance on-chain nonce, so keep the same nonce for the
+        // next successful transaction and assert the invariant via state.
         let _ = submit_wallet_call(
             rpc_addr,
             keypair,
@@ -133,7 +134,6 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
             consume_again,
         )
         .await;
-        nonce += 1;
 
         let consumed_after_reuse: ApprovalConsumptionState =
             load_wallet_value(rpc_addr, &approval_consumption_storage_key(&request_hash_1)).await?;

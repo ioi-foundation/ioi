@@ -106,7 +106,6 @@ async fn exercise_grant_delegation_scenarios(
         },
     )
     .await;
-    nonce += 1;
 
     let depth_reject_grant = SessionGrant {
         session_id: depth_reject_session_id,
@@ -136,7 +135,6 @@ async fn exercise_grant_delegation_scenarios(
         },
     )
     .await;
-    nonce += 1;
 
     let root_delegation: SessionDelegationState =
         load_wallet_value(rpc_addr, &session_delegation_storage_key(&root_session_id)).await?;
@@ -170,6 +168,7 @@ async fn exercise_ordered_channel_scenarios(
     lc_signer: &HybridSigner,
     rc_signer: &HybridSigner,
     signer_account_id: [u8; 32],
+    mail_runtime: &WalletMailRuntimeConfig,
 ) -> Result<u64> {
     let channel_id = [0x11u8; 32];
     let lease_id = [0x41u8; 32];
@@ -312,39 +311,51 @@ async fn exercise_ordered_channel_scenarios(
     assert_eq!(channel_key_state.transcript_version, 1);
     assert_ne!(channel_key_state.kem_transcript_hash, [0u8; 32]);
 
-    for (secret_id, alias, value) in [
-        (
-            "mail-imap-username",
-            "mail.imap.username",
-            "agent@example.com",
-        ),
-        ("mail-imap-password", "mail.imap.password", "imap-password"),
-        (
-            "mail-smtp-username",
-            "mail.smtp.username",
-            "agent@example.com",
-        ),
-        ("mail-smtp-password", "mail.smtp.password", "smtp-password"),
-    ] {
-        submit_wallet_call(
-            rpc_addr,
-            keypair,
-            chain_id,
-            nonce,
-            "store_secret_record@v1",
-            VaultSecretRecord {
-                secret_id: secret_id.to_string(),
-                alias: alias.to_string(),
-                kind: SecretKind::AccessToken,
-                ciphertext: value.as_bytes().to_vec(),
-                metadata: BTreeMap::new(),
-                created_at_ms: 4_100_000_000_000,
-                rotated_at_ms: None,
-            },
-        )
-        .await?;
-        nonce += 1;
-    }
+    let secret_kind = wallet_mail_secret_kind(mail_runtime.auth_mode);
+    store_wallet_secret_record(
+        rpc_addr,
+        keypair,
+        chain_id,
+        &mut nonce,
+        "mail-imap-username",
+        "mail.imap.username",
+        SecretKind::Custom("username".to_string()),
+        &mail_runtime.imap_username,
+    )
+    .await?;
+    store_wallet_secret_record(
+        rpc_addr,
+        keypair,
+        chain_id,
+        &mut nonce,
+        "mail-imap-password",
+        "mail.imap.password",
+        secret_kind.clone(),
+        &mail_runtime.imap_secret,
+    )
+    .await?;
+    store_wallet_secret_record(
+        rpc_addr,
+        keypair,
+        chain_id,
+        &mut nonce,
+        "mail-smtp-username",
+        "mail.smtp.username",
+        SecretKind::Custom("username".to_string()),
+        &mail_runtime.smtp_username,
+    )
+    .await?;
+    store_wallet_secret_record(
+        rpc_addr,
+        keypair,
+        chain_id,
+        &mut nonce,
+        "mail-smtp-password",
+        "mail.smtp.password",
+        secret_kind,
+        &mail_runtime.smtp_secret,
+    )
+    .await?;
 
     submit_wallet_call(
         rpc_addr,
@@ -354,29 +365,13 @@ async fn exercise_ordered_channel_scenarios(
         "mail_connector_upsert@v1",
         MailConnectorUpsertParams {
             mailbox: "primary".to_string(),
-            config: MailConnectorConfig {
-                provider: MailConnectorProvider::ImapSmtp,
-                auth_mode: MailConnectorAuthMode::Password,
-                account_email: "agent@example.com".to_string(),
-                sender_display_name: None,
-                imap: MailConnectorEndpoint {
-                    host: "mock.local".to_string(),
-                    port: 993,
-                    tls_mode: MailConnectorTlsMode::Tls,
-                },
-                smtp: MailConnectorEndpoint {
-                    host: "mock.local".to_string(),
-                    port: 465,
-                    tls_mode: MailConnectorTlsMode::Tls,
-                },
-                secret_aliases: MailConnectorSecretAliases {
-                    imap_username_alias: "mail.imap.username".to_string(),
-                    imap_password_alias: "mail.imap.password".to_string(),
-                    smtp_username_alias: "mail.smtp.username".to_string(),
-                    smtp_password_alias: "mail.smtp.password".to_string(),
-                },
-                metadata: BTreeMap::from([("driver".to_string(), "mock".to_string())]),
-            },
+            config: build_wallet_mail_connector_config(
+                mail_runtime,
+                "mail.imap.username",
+                "mail.imap.password",
+                "mail.smtp.username",
+                "mail.smtp.password",
+            ),
         },
     )
     .await?;
@@ -480,7 +475,6 @@ async fn exercise_ordered_channel_scenarios(
         },
     )
     .await;
-    nonce += 1;
 
     let second_mail_receipt_lookup = service_key(&mail_read_receipt_storage_key(
         &second_mail_read_operation_id,
@@ -509,7 +503,6 @@ async fn exercise_ordered_channel_scenarios(
         lease_counter_replay,
     )
     .await;
-    nonce += 1;
 
     let mut lease_counter_gap = lease.clone();
     lease_counter_gap.lease_id = [0x4au8; 32];
@@ -529,7 +522,6 @@ async fn exercise_ordered_channel_scenarios(
         lease_counter_gap,
     )
     .await;
-    nonce += 1;
 
     let mut lease_nonce_replay = lease.clone();
     lease_nonce_replay.lease_id = [0x49u8; 32];
@@ -549,7 +541,6 @@ async fn exercise_ordered_channel_scenarios(
         lease_nonce_replay,
     )
     .await;
-    nonce += 1;
 
     let lease_counter_replay_lookup = service_key(&lease_storage_key(&channel_id, &[0x47u8; 32]));
     let lease_counter_gap_lookup = service_key(&lease_storage_key(&channel_id, &[0x4au8; 32]));
@@ -664,7 +655,6 @@ async fn exercise_ordered_channel_scenarios(
         },
     )
     .await;
-    nonce += 1;
 
     let ordered_gap_operation_id = [0x62u8; 32];
     let _ = submit_wallet_call(
@@ -684,7 +674,6 @@ async fn exercise_ordered_channel_scenarios(
         },
     )
     .await;
-    nonce += 1;
 
     let ordered_duplicate_lookup = service_key(&mail_read_receipt_storage_key(
         &ordered_duplicate_operation_id,
@@ -757,7 +746,6 @@ async fn exercise_ordered_channel_scenarios(
         out_of_order_commit,
     )
     .await;
-    nonce += 1;
 
     let out_of_order_lookup = service_key(&receipt_commit_storage_key(
         &channel_id,
@@ -1024,7 +1012,6 @@ async fn exercise_unordered_channel_scenarios(
         unordered_lease_counter_replay,
     )
     .await;
-    nonce += 1;
 
     let unordered_lease_outside_window = sign_lease(SessionLease {
         lease_id: [0x70u8; 32],
@@ -1053,7 +1040,6 @@ async fn exercise_unordered_channel_scenarios(
         unordered_lease_outside_window,
     )
     .await;
-    nonce += 1;
 
     let unordered_high: SessionLease = load_wallet_value(
         rpc_addr,
@@ -1165,7 +1151,6 @@ async fn exercise_unordered_channel_scenarios(
         },
     )
     .await;
-    nonce += 1;
 
     submit_wallet_call(
         rpc_addr,
@@ -1221,6 +1206,12 @@ async fn exercise_unordered_channel_scenarios(
 async fn wallet_network_session_channel_lifecycle_via_real_callservice_txs() -> Result<()> {
     let _guard = E2E_TEST_LOCK.lock().expect("lock");
     build_test_artifacts();
+    let Some(mail_runtime) = maybe_wallet_mail_runtime_config()? else {
+        eprintln!(
+            "skipping wallet_network_session_channel_lifecycle_via_real_callservice_txs: MAIL_E2E_* not configured"
+        );
+        return Ok(());
+    };
 
     let cluster = TestCluster::builder()
         .with_validators(1)
@@ -1270,6 +1261,7 @@ async fn wallet_network_session_channel_lifecycle_via_real_callservice_txs() -> 
             &lc_signer,
             &rc_signer,
             signer_account_id,
+            &mail_runtime,
         )
         .await?;
 

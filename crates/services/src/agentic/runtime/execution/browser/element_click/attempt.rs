@@ -2457,7 +2457,7 @@ pub(super) async fn handle_browser_click_element(
             }),
             None => prompt_observation_failure.unwrap_or_else(|| {
                 ToolExecutionResult::failure(format!(
-                    "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__snapshot` again and retry with a fresh ID.",
+                    "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__inspect` again and retry with a fresh ID.",
                     id
                 ))
             }),

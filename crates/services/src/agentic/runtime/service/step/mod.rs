@@ -18,6 +18,7 @@ pub mod worker;
 
 use super::{RuntimeAgentService, ServiceCallContext};
 // [FIX] Import actions module from parent service directory
+use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::agent_playbooks::builtin_agent_playbook;
 use crate::agentic::runtime::keys::{
     get_mutation_receipt_ptr_key, get_parent_playbook_run_key, get_state_key, AGENT_POLICY_PREFIX,
@@ -31,7 +32,6 @@ use crate::agentic::runtime::service::step::anti_loop::{
 use crate::agentic::runtime::service::step::helpers::default_safe_policy;
 use crate::agentic::runtime::types::{AgentState, AgentStatus, ParentPlaybookRun, StepAgentParams};
 use crate::agentic::runtime::utils::persist_agent_state;
-use crate::agentic::rules::ActionRules;
 use hex;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
@@ -283,7 +283,7 @@ fn queue_parent_playbook_await_request(
     }))
     .map_err(|e| TransactionError::Serialization(e.to_string()))?;
     let request = ActionRequest {
-        target: ActionTarget::Custom("agent__await_result".to_string()),
+        target: ActionTarget::Custom("agent__await".to_string()),
         params,
         context: ActionContext {
             agent_id: "desktop_agent".to_string(),
@@ -425,10 +425,8 @@ async fn maybe_run_optimizer_recovery(
                 .append_chat_to_scs(session_id, &sys_msg, block_height)
                 .await?;
 
-            let trace_hash_bytes =
-                sha256(&codec::to_bytes_canonical(&last_trace)?).map_err(|e| {
-                    TransactionError::Invalid(format!("Trace hash failed: {}", e))
-                })?;
+            let trace_hash_bytes = sha256(&codec::to_bytes_canonical(&last_trace)?)
+                .map_err(|e| TransactionError::Invalid(format!("Trace hash failed: {}", e)))?;
             let mut trace_hash = [0u8; 32];
             trace_hash.copy_from_slice(trace_hash_bytes.as_ref());
 
@@ -962,8 +960,13 @@ async fn run_step_cognitive_loop(
         Some(target_tier),
     ))
     .await?;
-    let cognition_result =
-        Box::pin(cognition::think(service, agent_state, &perception, p.session_id)).await?;
+    let cognition_result = Box::pin(cognition::think(
+        service,
+        agent_state,
+        &perception,
+        p.session_id,
+    ))
+    .await?;
 
     Box::pin(action::process_tool_output(
         service,
@@ -1096,8 +1099,8 @@ mod tests {
         queue_parent_playbook_await_request, queue_root_playbook_delegate_request,
         should_clear_stale_canonical_pending,
     };
-    use crate::agentic::runtime::service::RuntimeAgentService;
     use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_state_key};
+    use crate::agentic::runtime::service::RuntimeAgentService;
     use crate::agentic::runtime::types::{
         AgentMode, AgentState, AgentStatus, ExecutionTier, ParentPlaybookRun, ParentPlaybookStatus,
     };
@@ -1341,7 +1344,7 @@ mod tests {
         state.status = AgentStatus::Paused(
             "Retry blocked: unchanged AttemptKey for UnexpectedState".to_string(),
         );
-        state.recent_actions = vec!["filesystem__read_file".to_string()];
+        state.recent_actions = vec!["file__read".to_string()];
 
         ensure_agent_running_or_resume_retry_pause(&mut state).expect("retry pause should resume");
 
@@ -1515,7 +1518,7 @@ mod tests {
         assert_eq!(agent_state.execution_queue.len(), 1);
         assert_eq!(
             agent_state.execution_queue[0].target,
-            ActionTarget::Custom("agent__await_result".to_string())
+            ActionTarget::Custom("agent__await".to_string())
         );
         let args: serde_json::Value =
             serde_json::from_slice(&agent_state.execution_queue[0].params)

@@ -14,7 +14,7 @@ fn is_web_retrieval_timeout_tool(tool_name: &str) -> bool {
         "web__search"
             | "web__read"
             | "media__extract_transcript"
-            | "media__extract_multimodal_evidence"
+            | "media__extract_evidence"
             | "browser__navigate"
     )
 }
@@ -71,7 +71,7 @@ pub(super) fn is_empty_memory_search_output(output: &str) -> bool {
 
 pub(super) fn is_transient_browser_snapshot_unexpected_state(output: &str) -> bool {
     let lower = output.to_ascii_lowercase();
-    lower.contains("browser__snapshot")
+    lower.contains("browser__inspect")
         && lower.contains("transient unexpected state")
         && lower.contains("continuing web research")
 }

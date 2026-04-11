@@ -1,11 +1,11 @@
 // Path: crates/services/src/agentic/runtime/execution/mod.rs
 
 pub mod browser;
-pub mod computer;
 pub mod filesystem;
 pub mod math;
 pub mod mcp;
 pub mod resilience;
+pub mod screen;
 pub mod system;
 pub mod web;
 
@@ -15,8 +15,8 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::broadcast::Sender;
 
-use crate::agentic::runtime::types::ExecutionTier;
 use crate::agentic::pii_scrubber::PiiScrubber;
+use crate::agentic::runtime::types::ExecutionTier;
 use ioi_api::vm::drivers::gui::GuiDriver;
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::InferenceRuntime;
@@ -317,8 +317,8 @@ impl ToolExecutor {
         active_lens: Option<&str>,
     ) -> ToolExecutionResult {
         match tool {
-            // Computer / GUI Domain
-            AgentTool::Computer(_)
+            // Screen / GUI Domain
+            AgentTool::Screen(_)
             | AgentTool::GuiClick { .. }
             | AgentTool::GuiType { .. }
             | AgentTool::GuiScroll { .. }
@@ -328,14 +328,13 @@ impl ToolExecutor {
             | AgentTool::OsCopy { .. }
             | AgentTool::OsPaste { .. }
             | AgentTool::UiFind { .. } => {
-                computer::handle(self, tool, som_map, semantic_map, active_lens).await
+                screen::handle(self, tool, som_map, semantic_map, active_lens).await
             }
 
             // Browser Domain
             AgentTool::BrowserNavigate { .. }
             | AgentTool::BrowserSnapshot { .. }
             | AgentTool::BrowserClick { .. }
-            | AgentTool::BrowserClickElement { .. }
             | AgentTool::BrowserHover { .. }
             | AgentTool::BrowserMoveMouse { .. }
             | AgentTool::BrowserMouseDown { .. }

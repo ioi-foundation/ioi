@@ -65,7 +65,7 @@ impl ToolNormalizer {
                 }
             }
 
-            // Canonicalize deterministic tool aliases (for example sys_exec -> sys__exec)
+            // Canonicalize deterministic tool aliases (for example sys_exec -> shell__run)
             // before schema deserialization so built-ins stay on typed execution paths.
             if let Some(name_val) = map.get("name") {
                 if let Some(name_str) = name_val.as_str() {
@@ -93,11 +93,11 @@ impl ToolNormalizer {
         }
 
         if needs_wrap_sys {
-            // It's likely a sys__exec call provided flat
-            // Wrap it: { "name": "sys__exec", "arguments": { "command": ..., ... } }
+            // It's likely a shell__run call provided flat
+            // Wrap it: { "name": "shell__run", "arguments": { "command": ..., ... } }
             let args = raw_val;
             let mut new_map = serde_json::Map::new();
-            new_map.insert("name".to_string(), json!("sys__exec"));
+            new_map.insert("name".to_string(), json!("shell__run"));
             new_map.insert("arguments".to_string(), args);
             raw_val = Value::Object(new_map);
         } else if needs_wrap_chat {
@@ -184,7 +184,7 @@ impl ToolNormalizer {
                 }
 
                 if let Some(name) = map_mut.get("name").and_then(|n| n.as_str()) {
-                    if name == "sys__install_package" {
+                    if name == "package__install" {
                         install_package_args = Some(
                             map_mut
                                 .get("arguments")
@@ -192,7 +192,7 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
-                    if name == "filesystem__edit_line" {
+                    if name == "file__replace_line" {
                         edit_line_args = Some(
                             map_mut
                                 .get("arguments")
@@ -200,7 +200,7 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
-                    if name == "ui__click_component" {
+                    if name == "screen__click" {
                         ui_click_component_present = true;
                         ui_click_component_args = Some(
                             map_mut
@@ -218,7 +218,7 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
-                    if name == "ui__click_element" {
+                    if name == "screen__click" {
                         ui_click_element_present = true;
                         ui_click_element_args = Some(
                             map_mut
@@ -245,7 +245,7 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
-                    if name == "net__fetch" {
+                    if name == "http__fetch" {
                         net_fetch_present = true;
                         net_fetch_args = Some(
                             map_mut
@@ -254,7 +254,7 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
-                    if name == "browser__click_element" {
+                    if name == "browser__click" {
                         browser_click_element_present = true;
                         browser_click_element_args = Some(
                             map_mut
@@ -263,7 +263,7 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
-                    if name == "browser__key" {
+                    if name == "browser__press_key" {
                         browser_key_present = true;
                         browser_key_args = Some(
                             map_mut
@@ -281,7 +281,7 @@ impl ToolNormalizer {
                                 .unwrap_or_else(|| json!({})),
                         );
                     }
-                    if name == "browser__synthetic_click" {
+                    if name == "browser__click_at" {
                         browser_synthetic_click_present = true;
                         browser_synthetic_click_args = Some(
                             map_mut
@@ -294,7 +294,7 @@ impl ToolNormalizer {
 
                 // [NEW] Handle synthetic click aliases if LLM gets lazy
                 if let Some(name) = map_mut.get("name").and_then(|n| n.as_str()) {
-                    if name == "browser__move_mouse" {
+                    if name == "browser__move_pointer" {
                         if let Some(args) = map_mut.get_mut("arguments") {
                             if let Some(x) = args.get("x").and_then(|v| v.as_f64()) {
                                 args["x"] = json!(x);
@@ -320,7 +320,7 @@ impl ToolNormalizer {
             if let Some(install_args) = install_package_args {
                 let normalized = normalize_install_package_arguments(&install_args)?;
                 raw_val = json!({
-                    "name": "sys__install_package",
+                    "name": "package__install",
                     "arguments": normalized,
                 });
             } else if let Some(edit_args) = edit_line_args {
@@ -329,7 +329,7 @@ impl ToolNormalizer {
                 let args = ui_click_component_args.unwrap_or_else(|| json!({}));
                 let normalized = normalize_ui_click_component_arguments(&args)?;
                 raw_val = json!({
-                    "name": "gui__click_element",
+                    "name": "screen__click",
                     "arguments": normalized,
                 });
             } else if ui_click_present {
@@ -339,42 +339,42 @@ impl ToolNormalizer {
                 let args = ui_click_element_args.unwrap_or_else(|| json!({}));
                 let normalized = normalize_ui_click_component_arguments(&args)?;
                 raw_val = json!({
-                    "name": "gui__click_element",
+                    "name": "screen__click",
                     "arguments": normalized,
                 });
             } else if ui_type_present {
                 let args = ui_type_args.unwrap_or_else(|| json!({}));
                 let normalized = normalize_ui_type_arguments(&args)?;
                 raw_val = json!({
-                    "name": "gui__type",
+                    "name": "screen__type",
                     "arguments": normalized,
                 });
             } else if ui_scroll_present {
                 let args = ui_scroll_args.unwrap_or_else(|| json!({}));
                 let normalized = normalize_ui_scroll_arguments(&args)?;
                 raw_val = json!({
-                    "name": "gui__scroll",
+                    "name": "screen__scroll",
                     "arguments": normalized,
                 });
             } else if net_fetch_present {
                 let args = net_fetch_args.unwrap_or_else(|| json!({}));
                 let normalized = normalize_net_fetch_arguments(&args)?;
                 raw_val = json!({
-                    "name": "net__fetch",
+                    "name": "http__fetch",
                     "arguments": normalized,
                 });
             } else if browser_click_element_present {
                 let args = browser_click_element_args.unwrap_or_else(|| json!({}));
                 let normalized = normalize_browser_click_element_arguments(&args)?;
                 raw_val = json!({
-                    "name": "browser__click_element",
+                    "name": "browser__click",
                     "arguments": normalized,
                 });
             } else if browser_key_present {
                 let args = browser_key_args.unwrap_or_else(|| json!({}));
                 let normalized = normalize_browser_key_arguments(&args)?;
                 raw_val = json!({
-                    "name": "browser__key",
+                    "name": "browser__press_key",
                     "arguments": normalized,
                 });
             } else if browser_wait_present {
@@ -388,7 +388,7 @@ impl ToolNormalizer {
                 let args = browser_synthetic_click_args.unwrap_or_else(|| json!({}));
                 let normalized = normalize_browser_synthetic_click_arguments(&args)?;
                 raw_val = json!({
-                    "name": "browser__synthetic_click",
+                    "name": "browser__click_at",
                     "arguments": normalized,
                 });
             }

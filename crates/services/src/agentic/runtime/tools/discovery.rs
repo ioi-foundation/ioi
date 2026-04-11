@@ -286,8 +286,8 @@ mod tests {
         assert!(!tools.iter().any(|t| t.name == "browser__navigate"));
         assert!(!tools.iter().any(|t| t.name == "web__search"));
         assert!(!tools.iter().any(|t| t.name == "web__read"));
-        assert!(!tools.iter().any(|t| t.name == "os__copy"));
-        assert!(!tools.iter().any(|t| t.name == "os__paste"));
+        assert!(!tools.iter().any(|t| t.name == "clipboard__copy"));
+        assert!(!tools.iter().any(|t| t.name == "clipboard__paste"));
         assert!(!tools.iter().any(|t| t.name == "model__embeddings"));
         assert!(!tools.iter().any(|t| t.name == "model__rerank"));
     }
@@ -308,8 +308,8 @@ mod tests {
             Some(&intent),
         )
         .await;
-        assert!(tools.iter().any(|t| t.name == "os__copy"));
-        assert!(tools.iter().any(|t| t.name == "os__paste"));
+        assert!(tools.iter().any(|t| t.name == "clipboard__copy"));
+        assert!(tools.iter().any(|t| t.name == "clipboard__paste"));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -332,9 +332,7 @@ mod tests {
         assert!(tools.iter().any(|t| t.name == "web__search"));
         assert!(tools.iter().any(|t| t.name == "web__read"));
         assert!(tools.iter().any(|t| t.name == "media__extract_transcript"));
-        assert!(tools
-            .iter()
-            .any(|t| t.name == "media__extract_multimodal_evidence"));
+        assert!(tools.iter().any(|t| t.name == "media__extract_evidence"));
         assert!(tools.iter().any(|t| t.name == "chat__reply"));
     }
 
@@ -355,11 +353,9 @@ mod tests {
         )
         .await;
 
-        assert!(tools
-            .iter()
-            .any(|tool| tool.name == "automation__create_monitor"));
-        assert!(!tools.iter().any(|tool| tool.name == "sys__exec"));
-        assert!(!tools.iter().any(|tool| tool.name == "sys__exec_session"));
+        assert!(tools.iter().any(|tool| tool.name == "monitor__create"));
+        assert!(!tools.iter().any(|tool| tool.name == "shell__run"));
+        assert!(!tools.iter().any(|tool| tool.name == "shell__start"));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -380,7 +376,7 @@ mod tests {
         .await;
 
         assert!(tools.iter().any(|tool| tool.name == "memory__search"));
-        assert!(tools.iter().any(|tool| tool.name == "memory__inspect"));
+        assert!(tools.iter().any(|tool| tool.name == "memory__read"));
         assert!(tools.iter().any(|tool| tool.name == "model__embeddings"));
         assert!(tools.iter().any(|tool| tool.name == "model__rerank"));
         assert!(!tools.iter().any(|tool| tool.name == "browser__navigate"));
@@ -412,8 +408,8 @@ mod tests {
             .any(|tool| tool.name == "model_registry__install"));
         assert!(tools.iter().any(|tool| tool.name == "backend__install"));
         assert!(tools.iter().any(|tool| tool.name == "gallery__sync"));
-        assert!(!tools.iter().any(|tool| tool.name == "sys__exec"));
-        assert!(!tools.iter().any(|tool| tool.name == "sys__install_package"));
+        assert!(!tools.iter().any(|tool| tool.name == "shell__run"));
+        assert!(!tools.iter().any(|tool| tool.name == "package__install"));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -460,7 +456,7 @@ mod tests {
         assert!(tools
             .iter()
             .any(|tool| tool.name == "media__transcribe_audio"));
-        assert!(!tools.iter().any(|tool| tool.name == "sys__exec"));
+        assert!(!tools.iter().any(|tool| tool.name == "shell__run"));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -480,8 +476,8 @@ mod tests {
         )
         .await;
 
-        assert!(tools.iter().any(|t| t.name == "browser__snapshot"));
-        assert!(tools.iter().any(|t| t.name == "browser__click_element"));
+        assert!(tools.iter().any(|t| t.name == "browser__inspect"));
+        assert!(tools.iter().any(|t| t.name == "browser__click"));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -501,8 +497,8 @@ mod tests {
         )
         .await;
 
-        assert!(!tools.iter().any(|t| t.name == "browser__snapshot"));
-        assert!(!tools.iter().any(|t| t.name == "browser__click_element"));
+        assert!(!tools.iter().any(|t| t.name == "browser__inspect"));
+        assert!(!tools.iter().any(|t| t.name == "browser__click"));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -522,8 +518,8 @@ mod tests {
         )
         .await;
 
-        assert!(tools.iter().any(|t| t.name == "browser__snapshot"));
-        assert!(tools.iter().any(|t| t.name == "browser__click_element"));
+        assert!(tools.iter().any(|t| t.name == "browser__inspect"));
+        assert!(tools.iter().any(|t| t.name == "browser__click"));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -543,11 +539,11 @@ mod tests {
         )
         .await;
 
-        assert!(tools.iter().any(|t| t.name == "browser__snapshot"));
-        assert!(tools.iter().any(|t| t.name == "browser__click_element"));
+        assert!(tools.iter().any(|t| t.name == "browser__inspect"));
+        assert!(tools.iter().any(|t| t.name == "browser__click"));
         assert!(tools.iter().any(|t| t.name == "agent__complete"));
         assert!(tools.iter().any(|t| t.name == "agent__pause"));
-        assert!(tools.iter().any(|t| t.name == "agent__await_result"));
+        assert!(tools.iter().any(|t| t.name == "agent__await"));
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -569,8 +565,8 @@ mod tests {
 
         for tool_name in [
             "browser__wait",
-            "browser__dropdown_options",
-            "browser__select_dropdown",
+            "browser__list_options",
+            "browser__select_option",
         ] {
             let tool = tools
                 .iter()

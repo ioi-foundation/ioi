@@ -101,13 +101,13 @@ fn resolve_synthetic_click_target_by_id(
 ) -> Result<(f64, f64, BrowserSemanticTarget), ToolExecutionResult> {
     let Some(target) = find_semantic_target_by_id(tree, semantic_id) else {
         return Err(ToolExecutionResult::failure(format!(
-            "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__snapshot` again and retry with a fresh ID.",
+            "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__inspect` again and retry with a fresh ID.",
             semantic_id
         )));
     };
     let Some((x, y)) = target.center_point else {
         return Err(ToolExecutionResult::failure(format!(
-            "ERROR_CLASS=TargetNotFound Element '{}' is present but does not expose clickable geometry for `browser__synthetic_click`.",
+            "ERROR_CLASS=TargetNotFound Element '{}' is present but does not expose clickable geometry for `browser__click_at`.",
             semantic_id
         )));
     };
@@ -137,21 +137,20 @@ fn normalize_browser_follow_up(
         .map_err(|e| format!("{parent_tool_name} follow-up encoding failed: {}", e))?;
     let tool = middleware::normalize_tool_call(&wrapper_json)
         .map_err(|e| format!("{parent_tool_name} follow-up normalization failed: {}", e))?;
-    if parent_tool_name == "browser__synthetic_click"
+    if parent_tool_name == "browser__click_at"
         && matches!(
             tool,
             AgentTool::BrowserMouseDown { .. } | AgentTool::BrowserMouseUp { .. }
         )
     {
         return Err(
-            "browser__synthetic_click follow-up does not support pointer button state changes; use grounded drag tools as separate steps."
+            "browser__click_at follow-up does not support pointer button state changes; use grounded drag tools as separate steps."
                 .to_string(),
         );
     }
     if matches!(
         tool,
         AgentTool::BrowserClick { .. }
-            | AgentTool::BrowserClickElement { .. }
             | AgentTool::BrowserWait { .. }
             | AgentTool::BrowserType { .. }
             | AgentTool::BrowserKey { .. }
@@ -184,12 +183,12 @@ fn history_entry_json_value(entry: Option<&str>) -> serde_json::Value {
 
 fn browser_follow_up_activates_visible_control(tool: &AgentTool) -> Result<bool, String> {
     match tool {
-        AgentTool::BrowserClick { .. } | AgentTool::BrowserClickElement { .. } => Ok(true),
+        AgentTool::BrowserClick { .. } => Ok(true),
         AgentTool::BrowserKey { continue_with, .. } => {
             let Some(continue_with) = continue_with.as_ref() else {
                 return Ok(false);
             };
-            let nested = normalize_browser_follow_up(continue_with, "browser__key")?;
+            let nested = normalize_browser_follow_up(continue_with, "browser__press_key")?;
             browser_follow_up_activates_visible_control(&nested)
         }
         AgentTool::BrowserWait { continue_with, .. } => {
@@ -203,7 +202,7 @@ fn browser_follow_up_activates_visible_control(tool: &AgentTool) -> Result<bool,
             let Some(continue_with) = continue_with.as_ref() else {
                 return Ok(false);
             };
-            let nested = normalize_browser_follow_up(continue_with, "browser__synthetic_click")?;
+            let nested = normalize_browser_follow_up(continue_with, "browser__click_at")?;
             browser_follow_up_activates_visible_control(&nested)
         }
         _ => Ok(false),
@@ -263,7 +262,7 @@ fn browser_semantic_target_is_actionable(target: &BrowserSemanticTarget) -> bool
 }
 
 #[derive(Debug)]
-struct DispatchedBrowserClickElement {
+struct DispatchedBrowserClick {
     id: String,
     method: String,
     center_point: Option<(f64, f64)>,
@@ -272,7 +271,7 @@ struct DispatchedBrowserClickElement {
 async fn dispatch_browser_click_element_without_verification(
     exec: &ToolExecutor,
     id: &str,
-) -> Result<DispatchedBrowserClickElement, ToolExecutionResult> {
+) -> Result<DispatchedBrowserClick, ToolExecutionResult> {
     if let Some(blocked) = ensure_browser_focus_guard(exec) {
         return Err(blocked);
     }
@@ -305,7 +304,7 @@ async fn dispatch_browser_click_element_without_verification(
         id,
     ) else {
         return Err(ToolExecutionResult::failure(format!(
-            "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__snapshot` again and retry with a fresh ID.",
+            "ERROR_CLASS=TargetNotFound Element '{}' not found in current browser view. Run `browser__inspect` again and retry with a fresh ID.",
             id
         )));
     };
@@ -323,7 +322,7 @@ async fn dispatch_browser_click_with_target(
     exec: &ToolExecutor,
     id: &str,
     semantic_target: &BrowserSemanticTarget,
-) -> Result<DispatchedBrowserClickElement, ToolExecutionResult> {
+) -> Result<DispatchedBrowserClick, ToolExecutionResult> {
     let mut click_errors = Vec::new();
     if let Some(backend_id) = semantic_target.backend_dom_node_id.as_deref() {
         match run_browser_dispatch_with_timeout(
@@ -333,7 +332,7 @@ async fn dispatch_browser_click_with_target(
         .await
         {
             Ok(()) => {
-                return Ok(DispatchedBrowserClickElement {
+                return Ok(DispatchedBrowserClick {
                     id: id.to_string(),
                     method: "backend_dom_node_id".to_string(),
                     center_point: None,
@@ -350,7 +349,7 @@ async fn dispatch_browser_click_with_target(
         .await
         {
             Ok(()) => {
-                return Ok(DispatchedBrowserClickElement {
+                return Ok(DispatchedBrowserClick {
                     id: id.to_string(),
                     method: "cdp_node_id".to_string(),
                     center_point: None,
@@ -362,7 +361,7 @@ async fn dispatch_browser_click_with_target(
     if let Some((x, y)) = semantic_target.center_point {
         match run_browser_dispatch_with_timeout(exec.browser.synthetic_click(x, y)).await {
             Ok(()) => {
-                return Ok(DispatchedBrowserClickElement {
+                return Ok(DispatchedBrowserClick {
                     id: id.to_string(),
                     method: "geometry_center".to_string(),
                     center_point: Some((x, y)),
@@ -401,10 +400,10 @@ async fn execute_browser_synthetic_click_follow_up(
     continue_with: &AgentToolCall,
     postcondition_met: bool,
 ) -> Result<ToolExecutionResult, String> {
-    let tool = normalize_browser_follow_up(continue_with, "browser__synthetic_click")?;
+    let tool = normalize_browser_follow_up(continue_with, "browser__click_at")?;
     if !postcondition_met && browser_follow_up_activates_visible_control(&tool)? {
         return Err(
-            "ERROR_CLASS=PostActionObservationRequired browser__synthetic_click continue_with cannot activate a visible control until the coordinate click is re-observed. Re-evaluate the page or surface before submit/commit clicks."
+            "ERROR_CLASS=PostActionObservationRequired browser__click_at continue_with cannot activate a visible control until the coordinate click is re-observed. Re-evaluate the page or surface before submit/commit clicks."
                 .to_string(),
         );
     }
@@ -422,12 +421,16 @@ async fn execute_normalized_browser_follow_up(
     tool: AgentTool,
 ) -> ToolExecutionResult {
     match tool {
-        AgentTool::BrowserClickElement {
+        AgentTool::BrowserClick {
+            selector,
             id,
             ids,
             delay_ms_between_ids,
             continue_with,
         } => {
+            if !selector.is_empty() {
+                return handle_browser_click(exec, &selector).await;
+            }
             Box::pin(execute_browser_click_element_tool(
                 exec,
                 semantic_map,
@@ -457,8 +460,7 @@ async fn finalize_browser_click_result(
 
     let click_entry = history_entry_json_value(click_result.history_entry.as_deref());
     let click_visual_observation = click_result.visual_observation;
-    let follow_up_tool = match normalize_browser_follow_up(&continue_with, "browser__click_element")
-    {
+    let follow_up_tool = match normalize_browser_follow_up(&continue_with, "browser__click") {
         Ok(tool) => tool,
         Err(reason) => {
             return ToolExecutionResult::failure(format!(
@@ -480,7 +482,7 @@ async fn finalize_browser_click_result(
                 "arguments": continue_with.arguments,
                 "success": false,
                 "skipped": true,
-                "error": "ERROR_CLASS=PostActionObservationRequired browser__click_element continue_with cannot activate a visible control until the geometry-backed click is re-observed. Re-evaluate the page or surface before submit/commit clicks.",
+                "error": "ERROR_CLASS=PostActionObservationRequired browser__click continue_with cannot activate a visible control until the geometry-backed click is re-observed. Re-evaluate the page or surface before submit/commit clicks.",
             }
         });
         if let Some(visual_observation) = click_visual_observation {
@@ -551,7 +553,7 @@ async fn finalize_browser_key_result(
 
     let key_entry = history_entry_json_value(key_result.history_entry.as_deref());
     let key_visual_observation = key_result.visual_observation;
-    let follow_up_tool = match normalize_browser_follow_up(&continue_with, "browser__key") {
+    let follow_up_tool = match normalize_browser_follow_up(&continue_with, "browser__press_key") {
         Ok(tool) => tool,
         Err(reason) => {
             return ToolExecutionResult::failure(format!(
@@ -615,7 +617,7 @@ async fn execute_browser_click_element_tool(
         vec![single_id]
     } else {
         return ToolExecutionResult::failure(
-            "ERROR_CLASS=InvalidInput browser__click_element requires `id` or a non-empty `ids` list.",
+            "ERROR_CLASS=InvalidInput browser__click requires `id` or a non-empty `ids` list.",
         );
     };
     let click_result =
@@ -652,13 +654,13 @@ async fn handle_browser_click_elements(
 ) -> ToolExecutionResult {
     if ids.is_empty() {
         return ToolExecutionResult::failure(
-            "ERROR_CLASS=InvalidInput browser__click_element requires `id` or a non-empty `ids` list.",
+            "ERROR_CLASS=InvalidInput browser__click requires `id` or a non-empty `ids` list.",
         );
     }
 
     if !ids.is_empty() && delay_ms_between_ids.is_some() && ids.len() < 2 {
         return ToolExecutionResult::failure(
-            "ERROR_CLASS=InvalidInput browser__click_element delay_ms_between_ids requires at least two ordered `ids`.",
+            "ERROR_CLASS=InvalidInput browser__click delay_ms_between_ids requires at least two ordered `ids`.",
         );
     }
 
@@ -669,7 +671,7 @@ async fn handle_browser_click_elements(
     if let Some(delay_ms_between_ids) = delay_ms_between_ids {
         if delay_ms_between_ids == 0 || delay_ms_between_ids > 30_000 {
             return ToolExecutionResult::failure(
-                "ERROR_CLASS=InvalidInput browser__click_element delay_ms_between_ids must be between 1 and 30000.",
+                "ERROR_CLASS=InvalidInput browser__click delay_ms_between_ids must be between 1 and 30000.",
             );
         }
     }
@@ -792,7 +794,7 @@ fn resolve_upload_scope_root(cwd: Option<&str>) -> Result<PathBuf, String> {
 
 fn resolve_scoped_upload_paths(paths: &[String], cwd: Option<&str>) -> Result<Vec<String>, String> {
     if paths.is_empty() {
-        return Err("browser__upload_file requires at least one path".to_string());
+        return Err("browser__upload requires at least one path".to_string());
     }
 
     let scope_root = resolve_upload_scope_root(cwd)?;
@@ -801,7 +803,7 @@ fn resolve_scoped_upload_paths(paths: &[String], cwd: Option<&str>) -> Result<Ve
     for raw in paths {
         let trimmed = raw.trim();
         if trimmed.is_empty() {
-            return Err("browser__upload_file paths cannot be empty".to_string());
+            return Err("browser__upload paths cannot be empty".to_string());
         }
 
         let requested = expand_tilde_path(trimmed)?;
@@ -1238,13 +1240,16 @@ pub async fn handle(
             }
             Err(e) => ToolExecutionResult::failure(format!("Extraction failed: {}", e)),
         },
-        AgentTool::BrowserClick { selector } => handle_browser_click(exec, &selector).await,
-        AgentTool::BrowserClickElement {
+        AgentTool::BrowserClick {
+            selector,
             id,
             ids,
             delay_ms_between_ids,
             continue_with,
         } => {
+            if !selector.is_empty() {
+                handle_browser_click(exec, &selector).await
+            } else {
             execute_browser_click_element_tool(
                 exec,
                 semantic_map,
@@ -1254,6 +1259,7 @@ pub async fn handle(
                 continue_with,
             )
             .await
+            }
         }
         AgentTool::BrowserHover {
             selector,
@@ -1525,7 +1531,7 @@ pub async fn handle(
                 if let Some(requested_id) = id.as_deref() {
                     let Some(tree) = pre_tree.as_ref() else {
                         return ToolExecutionResult::failure(
-                            "Failed to fetch browser accessibility tree before `browser__synthetic_click`."
+                            "Failed to fetch browser accessibility tree before `browser__click_at`."
                                 .to_string(),
                         );
                     };
@@ -1544,7 +1550,7 @@ pub async fn handle(
                 } else {
                     let Some((x, y)) = explicit_coordinates else {
                         return ToolExecutionResult::failure(
-                            "Schema Validation Error: browser__synthetic_click requires either a grounded `id` or both `x` and `y`."
+                            "Schema Validation Error: browser__click_at requires either a grounded `id` or both `x` and `y`."
                                 .to_string(),
                         );
                     };
@@ -2428,7 +2434,7 @@ mod tests {
     fn normalize_browser_follow_up_accepts_click_element() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
-                name: "browser__click_element".to_string(),
+                name: "browser__click".to_string(),
                 arguments: json!({ "id": "btn_two" }),
             },
             "browser__wait",
@@ -2436,18 +2442,19 @@ mod tests {
         .expect("follow-up should normalize");
 
         match tool {
-            ioi_types::app::agentic::AgentTool::BrowserClickElement {
+            ioi_types::app::agentic::AgentTool::BrowserClick {
                 id,
                 ids,
                 delay_ms_between_ids,
                 continue_with,
+                ..
             } => {
                 assert_eq!(id.as_deref(), Some("btn_two"));
                 assert!(ids.is_empty());
                 assert!(delay_ms_between_ids.is_none());
                 assert!(continue_with.is_none());
             }
-            other => panic!("expected BrowserClickElement, got {:?}", other),
+            other => panic!("expected BrowserClick, got {:?}", other),
         }
     }
 
@@ -2455,29 +2462,30 @@ mod tests {
     fn normalize_browser_follow_up_accepts_timed_click_element_sequence() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
-                name: "browser__click_element".to_string(),
+                name: "browser__click".to_string(),
                 arguments: json!({
                     "ids": ["btn_one", "btn_two"],
                     "delay_ms_between_ids": 2_000
                 }),
             },
-            "browser__click_element",
+            "browser__click",
         )
         .expect("follow-up should normalize");
 
         match tool {
-            ioi_types::app::agentic::AgentTool::BrowserClickElement {
+            ioi_types::app::agentic::AgentTool::BrowserClick {
                 id,
                 ids,
                 delay_ms_between_ids,
                 continue_with,
+                ..
             } => {
                 assert!(id.is_none());
                 assert_eq!(ids, vec!["btn_one".to_string(), "btn_two".to_string()]);
                 assert_eq!(delay_ms_between_ids, Some(2_000));
                 assert!(continue_with.is_none());
             }
-            other => panic!("expected BrowserClickElement, got {:?}", other),
+            other => panic!("expected BrowserClick, got {:?}", other),
         }
     }
 
@@ -2489,12 +2497,12 @@ mod tests {
                 arguments: json!({
                     "ms": 2_000,
                     "continue_with": {
-                        "name": "browser__click_element",
+                        "name": "browser__click",
                         "ids": ["btn_two"]
                     }
                 }),
             },
-            "browser__click_element",
+            "browser__click",
         )
         .expect("follow-up should normalize");
 
@@ -2515,7 +2523,7 @@ mod tests {
                 assert!(scope.is_none());
                 assert!(timeout_ms.is_none());
                 let continue_with = continue_with.expect("nested click follow-up");
-                assert_eq!(continue_with.name, "browser__click_element");
+                assert_eq!(continue_with.name, "browser__click");
                 assert_eq!(continue_with.arguments["ids"], json!(["btn_two"]));
             }
             other => panic!("expected BrowserWait, got {:?}", other),
@@ -2526,13 +2534,13 @@ mod tests {
     fn normalize_browser_follow_up_accepts_browser_key_with_nested_click_element() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
-                name: "browser__key".to_string(),
+                name: "browser__press_key".to_string(),
                 arguments: json!({
                     "key": "Home",
                     "selector": "[id=\"text-area\"]",
                     "modifiers": ["Control"],
                     "continue_with": {
-                        "name": "browser__click_element",
+                        "name": "browser__click",
                         "arguments": {
                             "id": "btn_submit"
                         }
@@ -2554,7 +2562,7 @@ mod tests {
                 assert_eq!(selector.as_deref(), Some("[id=\"text-area\"]"));
                 assert_eq!(modifiers.as_deref(), Some(&["Control".to_string()][..]));
                 let continue_with = continue_with.expect("nested click follow-up");
-                assert_eq!(continue_with.name, "browser__click_element");
+                assert_eq!(continue_with.name, "browser__click");
                 assert_eq!(continue_with.arguments["id"], json!("btn_submit"));
             }
             other => panic!("expected BrowserKey, got {:?}", other),
@@ -2568,7 +2576,7 @@ mod tests {
                 name: "agent__complete".to_string(),
                 arguments: json!({ "result": "done" }),
             },
-            "browser__synthetic_click",
+            "browser__click_at",
         )
         .expect_err("non-browser follow-up must fail");
 
@@ -2579,10 +2587,10 @@ mod tests {
     fn normalize_browser_follow_up_rejects_pointer_state_for_synthetic_click() {
         let err = normalize_browser_follow_up(
             &AgentToolCall {
-                name: "browser__mouse_down".to_string(),
+                name: "browser__pointer_down".to_string(),
                 arguments: json!({}),
             },
-            "browser__synthetic_click",
+            "browser__click_at",
         )
         .expect_err("pointer-state follow-up must fail");
 
@@ -2596,7 +2604,7 @@ mod tests {
                 name: "browser__type".to_string(),
                 arguments: json!({ "text": "annis" }),
             },
-            "browser__click_element",
+            "browser__click",
         )
         .expect("follow-up should normalize");
 
@@ -2613,7 +2621,7 @@ mod tests {
     fn normalize_browser_follow_up_accepts_nested_synthetic_click() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
-                name: "browser__synthetic_click".to_string(),
+                name: "browser__click_at".to_string(),
                 arguments: json!({ "x": "85.012", "y": "105.824" }),
             },
             "browser__wait",
@@ -2640,7 +2648,7 @@ mod tests {
     fn normalize_browser_follow_up_preserves_grounded_synthetic_click_coordinates() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
-                name: "browser__synthetic_click".to_string(),
+                name: "browser__click_at".to_string(),
                 arguments: json!({
                     "id": "grp_click_canvas",
                     "x": "51",
@@ -2671,10 +2679,10 @@ mod tests {
     fn browser_follow_up_activates_visible_control_for_direct_click_element() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
-                name: "browser__click_element".to_string(),
+                name: "browser__click".to_string(),
                 arguments: json!({ "id": "btn_submit" }),
             },
-            "browser__synthetic_click",
+            "browser__click_at",
         )
         .expect("follow-up should normalize");
 
@@ -2689,14 +2697,14 @@ mod tests {
                 arguments: json!({
                     "ms": 100,
                     "continue_with": {
-                        "name": "browser__click_element",
+                        "name": "browser__click",
                         "arguments": {
                             "id": "btn_submit"
                         }
                     }
                 }),
             },
-            "browser__synthetic_click",
+            "browser__click_at",
         )
         .expect("follow-up should normalize");
 
@@ -2707,20 +2715,20 @@ mod tests {
     fn browser_follow_up_activates_visible_control_for_key_wrapped_click_chain() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
-                name: "browser__key".to_string(),
+                name: "browser__press_key".to_string(),
                 arguments: json!({
                     "key": "Home",
                     "selector": "[id=\"text-area\"]",
                     "modifiers": ["Control"],
                     "continue_with": {
-                        "name": "browser__click_element",
+                        "name": "browser__click",
                         "arguments": {
                             "id": "btn_submit"
                         }
                     }
                 }),
             },
-            "browser__synthetic_click",
+            "browser__click_at",
         )
         .expect("follow-up should normalize");
 
@@ -2731,10 +2739,10 @@ mod tests {
     fn browser_follow_up_activates_visible_control_ignores_geometry_only_chain() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
-                name: "browser__synthetic_click".to_string(),
+                name: "browser__click_at".to_string(),
                 arguments: json!({ "id": "grp_blue_circle" }),
             },
-            "browser__synthetic_click",
+            "browser__click_at",
         )
         .expect("follow-up should normalize");
 
@@ -2760,7 +2768,7 @@ mod tests {
                 name: "browser__click".to_string(),
                 arguments: json!({ "selector": "#submit" }),
             },
-            "browser__click_element",
+            "browser__click",
         )
         .expect("follow-up should normalize");
         let entry = r#"Clicked element 'grp_geometry_target_at_77107' via geometry fallback. verify={"method":"geometry_center","postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#;
@@ -2775,10 +2783,10 @@ mod tests {
     fn click_follow_up_allows_visible_control_after_dom_backed_click() {
         let tool = normalize_browser_follow_up(
             &AgentToolCall {
-                name: "browser__click_element".to_string(),
+                name: "browser__click".to_string(),
                 arguments: json!({ "id": "btn_submit" }),
             },
-            "browser__click_element",
+            "browser__click",
         )
         .expect("follow-up should normalize");
         let entry = r#"Clicked element 'btn_next'. verify={"method":"backend_dom_node_id","postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"#;

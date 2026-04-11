@@ -111,8 +111,8 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             || entry.stdout.contains(EXPECTED_TARGETED_TEST_TOKEN)
             || entry.stderr.contains(EXPECTED_TARGETED_TEST_TOKEN)
     });
-    let executor_tools_present = has_tool_with_token(&obs.workload_tools, "sys__exec_session")
-        || has_tool_with_token(&obs.action_tools, "sys__exec_session")
+    let executor_tools_present = has_tool_with_token(&obs.workload_tools, "shell__start")
+        || has_tool_with_token(&obs.action_tools, "shell__start")
         || !obs.command_history_evidence.is_empty();
     let cec_phase_receipts_present = has_cec_stage(obs, "execution", Some(true))
         && has_cec_stage(obs, "verification", Some(true))

@@ -93,7 +93,7 @@ mod workload_event_mapping_tests {
             workload_id: "wid".to_string(),
             timestamp_ms: 124,
             receipt: WorkloadReceipt::Exec(WorkloadExecReceipt {
-                tool_name: "sys__exec".to_string(),
+                tool_name: "shell__run".to_string(),
                 command: "echo".to_string(),
                 args: vec!["hi".to_string()],
                 cwd: "/tmp".to_string(),
@@ -110,7 +110,7 @@ mod workload_event_mapping_tests {
         match mapped {
             ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
                 Some(ioi_ipc::public::workload_receipt::Receipt::Exec(exec)) => {
-                    assert_eq!(exec.tool_name, "sys__exec");
+                    assert_eq!(exec.tool_name, "shell__run");
                     assert_eq!(exec.command, "echo");
                     assert_eq!(exec.args, vec!["hi".to_string()]);
                     assert_eq!(exec.cwd, "/tmp");
@@ -133,7 +133,7 @@ mod workload_event_mapping_tests {
             workload_id: "wid-fs".to_string(),
             timestamp_ms: 124,
             receipt: WorkloadReceipt::FsWrite(WorkloadFsWriteReceipt {
-                tool_name: "filesystem__write_file".to_string(),
+                tool_name: "file__write".to_string(),
                 operation: "write_file".to_string(),
                 target_path: "/tmp/file.txt".to_string(),
                 destination_path: None,
@@ -147,7 +147,7 @@ mod workload_event_mapping_tests {
         match mapped {
             ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
                 Some(ioi_ipc::public::workload_receipt::Receipt::FsWrite(fs)) => {
-                    assert_eq!(fs.tool_name, "filesystem__write_file");
+                    assert_eq!(fs.tool_name, "file__write");
                     assert_eq!(fs.operation, "write_file");
                     assert_eq!(fs.target_path, "/tmp/file.txt");
                     assert!(!fs.has_destination_path);
@@ -169,7 +169,7 @@ mod workload_event_mapping_tests {
             workload_id: "wid-net".to_string(),
             timestamp_ms: 125,
             receipt: WorkloadReceipt::NetFetch(WorkloadNetFetchReceipt {
-                tool_name: "net__fetch".to_string(),
+                tool_name: "http__fetch".to_string(),
                 method: "GET".to_string(),
                 requested_url: "https://example.com/".to_string(),
                 final_url: None,
@@ -189,7 +189,7 @@ mod workload_event_mapping_tests {
         match mapped {
             ChainEventEnum::WorkloadReceipt(payload) => match payload.receipt {
                 Some(ioi_ipc::public::workload_receipt::Receipt::NetFetch(net)) => {
-                    assert_eq!(net.tool_name, "net__fetch");
+                    assert_eq!(net.tool_name, "http__fetch");
                     assert_eq!(net.method, "GET");
                     assert_eq!(net.requested_url, "https://example.com/");
                     assert!(!net.has_final_url);

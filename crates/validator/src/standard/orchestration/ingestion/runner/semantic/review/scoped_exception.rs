@@ -11,8 +11,8 @@ use ioi_pii::{
     inspect_and_route_with_for_target, mint_default_scoped_exception,
     verify_scoped_exception_for_decision, RiskSurface, ScopedExceptionVerifyError,
 };
-use ioi_services::agentic::runtime::AgentState;
 use ioi_services::agentic::rules::ActionRules;
+use ioi_services::agentic::runtime::AgentState;
 use ioi_types::app::agentic::AgentTool;
 use lru::LruCache;
 use std::sync::Arc;

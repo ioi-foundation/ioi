@@ -19,10 +19,8 @@ fn completed_worker_supports_verifier_bootstrap_automerge(
         return Ok(false);
     }
 
-    Ok(
-        latest_workspace_edit_step(&child_state).is_some()
-            && latest_successful_goal_command_after_edit(&child_state, &assignment).is_some(),
-    )
+    Ok(latest_workspace_edit_step(&child_state).is_some()
+        && latest_successful_goal_command_after_edit(&child_state, &assignment).is_some())
 }
 
 fn spawned_playbook_child_allows_immediate_automerge(
@@ -247,8 +245,9 @@ pub(crate) async fn advance_parent_playbook_after_worker_merge(
                 hex::encode(spawned.child_session_id)
             )];
 
-            if spawned_playbook_child_allows_immediate_automerge(service, state, &next_step, result)?
-            {
+            if spawned_playbook_child_allows_immediate_automerge(
+                service, state, &next_step, result,
+            )? {
                 let spawned_child_session_id_hex = hex::encode(spawned.child_session_id);
                 let spawned_child_state = load_child_state(
                     state,
@@ -260,18 +259,17 @@ pub(crate) async fn advance_parent_playbook_after_worker_merge(
                     spawned_child_state.status,
                     AgentStatus::Completed(_) | AgentStatus::Failed(_) | AgentStatus::Terminated
                 ) {
-                    let merged_output = Box::pin(
-                        super::await_loop::merge_terminal_child_worker_result(
-                        service,
-                        state,
-                        parent_state,
-                        parent_step_index,
-                        block_height,
-                        &spawned_child_session_id_hex,
-                        &spawned_child_state,
-                    ),
-                    )
-                    .await?;
+                    let merged_output =
+                        Box::pin(super::await_loop::merge_terminal_child_worker_result(
+                            service,
+                            state,
+                            parent_state,
+                            parent_step_index,
+                            block_height,
+                            &spawned_child_session_id_hex,
+                            &spawned_child_state,
+                        ))
+                        .await?;
                     updates.push(merged_output);
                 }
             }

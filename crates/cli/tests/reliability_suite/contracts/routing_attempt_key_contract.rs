@@ -69,7 +69,7 @@ fn stable_attempt_key_enforces_changed_condition_and_preserves_receipt_state() {
     let stable_key = build_attempt_key(
         "feedface",
         ExecutionTier::DomHeadless,
-        "sys__exec",
+        "shell__run",
         Some("btn_equals"),
         Some("ff00ff00"),
     );
@@ -90,7 +90,7 @@ fn stable_attempt_key_enforces_changed_condition_and_preserves_receipt_state() {
     let changed_condition_key = build_attempt_key(
         "feedface",
         ExecutionTier::VisualBackground,
-        "sys__exec",
+        "shell__run",
         Some("btn_equals"),
         Some("ff00ff00"),
     );
@@ -117,10 +117,10 @@ fn stable_attempt_key_enforces_changed_condition_and_preserves_receipt_state() {
         step_index: pre_state.step_index,
         intent_hash: "feedface".to_string(),
         policy_decision: "allowed".to_string(),
-        tool_name: "sys__exec".to_string(),
+        tool_name: "shell__run".to_string(),
         tool_version: "test".to_string(),
         pre_state: pre_state.clone(),
-        action_json: "{\"name\":\"sys__exec\"}".to_string(),
+        action_json: "{\"name\":\"shell__run\"}".to_string(),
         post_state,
         artifacts: vec!["trace://agent_step/7".to_string()],
         failure_class: Some(to_routing_failure_class(FailureClass::TargetNotFound)),
@@ -160,7 +160,7 @@ fn stable_attempt_key_for_resume_or_queue_blocks_unchanged_retry_and_resets_on_w
     let stable_resume_like_key = build_attempt_key(
         "resume_intent_hash",
         ExecutionTier::VisualForeground,
-        "gui__click_element",
+        "screen__click",
         Some("calculator"),
         Some("window_a"),
     );
@@ -188,7 +188,7 @@ fn stable_attempt_key_for_resume_or_queue_blocks_unchanged_retry_and_resets_on_w
     let changed_window_key = build_attempt_key(
         "resume_intent_hash",
         ExecutionTier::VisualForeground,
-        "gui__click_element",
+        "screen__click",
         Some("calculator"),
         Some("window_b"),
     );
@@ -203,7 +203,7 @@ fn stable_attempt_key_for_resume_or_queue_blocks_unchanged_retry_and_resets_on_w
 #[test]
 fn canonical_intent_hash_uses_jcs_payload_contract() {
     let tool = AgentTool::Dynamic(json!({
-        "name": "gui__click_element",
+        "name": "screen__click",
         "arguments": {
             "id": "btn_submit",
             "retry": 1
@@ -211,7 +211,7 @@ fn canonical_intent_hash_uses_jcs_payload_contract() {
     }));
 
     let (tool_name, args) = canonical_tool_identity(&tool);
-    assert_eq!(tool_name, "gui__click_element");
+    assert_eq!(tool_name, "screen__click");
 
     let hash = canonical_intent_hash(
         &tool_name,
@@ -222,7 +222,7 @@ fn canonical_intent_hash_uses_jcs_payload_contract() {
     );
 
     let expected_payload = json!({
-        "tool_name": "gui__click_element",
+        "tool_name": "screen__click",
         "args": {
             "id": "btn_submit",
             "retry": 1
@@ -262,14 +262,14 @@ fn retry_intent_hash_is_stable_across_steps_for_attempt_dedupe() {
     });
 
     let step_12_intent = canonical_intent_hash(
-        "gui__click_element",
+        "screen__click",
         &args,
         ExecutionTier::VisualForeground,
         12,
         "test-v1",
     );
     let step_13_intent = canonical_intent_hash(
-        "gui__click_element",
+        "screen__click",
         &args,
         ExecutionTier::VisualForeground,
         13,
@@ -278,7 +278,7 @@ fn retry_intent_hash_is_stable_across_steps_for_attempt_dedupe() {
     assert_ne!(step_12_intent, step_13_intent);
 
     let retry_hash = canonical_retry_intent_hash(
-        "gui__click_element",
+        "screen__click",
         &args,
         ExecutionTier::VisualForeground,
         "test-v1",
@@ -289,7 +289,7 @@ fn retry_intent_hash_is_stable_across_steps_for_attempt_dedupe() {
     let legacy_key_step_12 = build_attempt_key(
         &step_12_intent,
         ExecutionTier::VisualForeground,
-        "gui__click_element",
+        "screen__click",
         Some("btn_submit"),
         Some("window_a"),
     );
@@ -301,7 +301,7 @@ fn retry_intent_hash_is_stable_across_steps_for_attempt_dedupe() {
     let legacy_key_step_13 = build_attempt_key(
         &step_13_intent,
         ExecutionTier::VisualForeground,
-        "gui__click_element",
+        "screen__click",
         Some("btn_submit"),
         Some("window_a"),
     );
@@ -317,7 +317,7 @@ fn retry_intent_hash_is_stable_across_steps_for_attempt_dedupe() {
     let stable_key_step_12 = build_attempt_key(
         &retry_hash,
         ExecutionTier::VisualForeground,
-        "gui__click_element",
+        "screen__click",
         Some("btn_submit"),
         Some("window_a"),
     );
@@ -329,7 +329,7 @@ fn retry_intent_hash_is_stable_across_steps_for_attempt_dedupe() {
     let stable_key_step_13 = build_attempt_key(
         &retry_hash,
         ExecutionTier::VisualForeground,
-        "gui__click_element",
+        "screen__click",
         Some("btn_submit"),
         Some("window_a"),
     );

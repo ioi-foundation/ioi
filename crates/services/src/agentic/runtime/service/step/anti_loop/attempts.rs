@@ -45,7 +45,7 @@ pub fn specialized_attempt_target_id(
     tool_name: &str,
     tool_jcs: Option<&[u8]>,
 ) -> Option<String> {
-    if tool_name != "agent__await_result" {
+    if tool_name != "agent__await" {
         return None;
     }
 

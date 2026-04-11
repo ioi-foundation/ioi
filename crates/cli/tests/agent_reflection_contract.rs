@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
-use ioi_api::vm::inference::InferenceRuntime;
+use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
@@ -83,6 +83,9 @@ impl InferenceRuntime for MockReflectionRuntime {
     async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
         Ok(())
     }
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        MockInferenceRuntime.embed_text(text).await
+    }
 }
 
 fn reflection_test_agent_state(session_id: [u8; 32]) -> AgentState {
@@ -154,6 +157,7 @@ async fn cognition_injects_failure_analysis_block_on_error() {
         memory_pointers: String::new(),
         available_tools: vec![],
         tool_desc: String::new(),
+        worker_assignment: None,
         visual_verification_note: None,
         last_failure_reason: Some(
             "TargetNotFound (fingerprint: attempt::TargetNotFound::deadbeef)".to_string(),

@@ -782,7 +782,7 @@ mod tests {
         let session_id = [56u8; 32];
         let msg = ChatMessage {
             role: "assistant".to_string(),
-            content: r#"{"name":"browser__synthetic_click","arguments":{"x":63.0,"y":104.0}}"#
+            content: r#"{"name":"browser__click_at","arguments":{"x":63.0,"y":104.0}}"#
                 .to_string(),
             timestamp: 1_700_000_000_791u64,
             trace_hash: None,
@@ -802,7 +802,7 @@ mod tests {
         let session_id = [44u8; 32];
         let msg = ChatMessage {
             role: "tool".to_string(),
-            content: "Tool Output (os__launch_app): Launched background process 'gnome-calculator' (PID: 555837)"
+            content: "Tool Output (app__launch): Launched background process 'gnome-calculator' (PID: 555837)"
                 .to_string(),
             timestamp: 1_700_000_000_456u64,
             trace_hash: None,
@@ -822,7 +822,7 @@ mod tests {
         let session_id = [55u8; 32];
         let msg = ChatMessage {
             role: "tool".to_string(),
-            content: "Tool Output (os__launch_app): Launched background process 'calculator'"
+            content: "Tool Output (app__launch): Launched background process 'calculator'"
                 .to_string(),
             timestamp: 1_700_000_000_789u64,
             trace_hash: None,

@@ -1,20 +1,6 @@
 use super::*;
 
 pub async fn bootstrap_workspace_profile() -> Result<Value, String> {
-    if let Some(path) = mock_fixture_path() {
-        let state = load_mock_fixture_state(&path)?;
-        return Ok(json!({
-            "accountEmail": state.account_email,
-            "grantedScopes": state.granted_scopes,
-            "fieldProfiles": {},
-            "serviceStates": {
-                "gmail": { "status": "connected" },
-                "calendar": { "status": "connected" }
-            },
-            "warnings": [],
-            "generatedAtUtc": OffsetDateTime::now_utc().format(&Rfc3339).unwrap_or_default(),
-        }));
-    }
     let auth = google_auth::access_context(&[]).await?;
     let client = Client::builder()
         .timeout(Duration::from_secs(20))

@@ -511,7 +511,7 @@ function planSummaryCapturesTypedHierarchyTest(): void {
     title: "Verification worker merged",
     digest: {
       kind: "worker",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "merged",
       role: "Verification Worker",
       template_id: "verifier",
@@ -533,7 +533,7 @@ function planSummaryCapturesTypedHierarchyTest(): void {
     event_type: "RECEIPT",
     title: "Routing receipt",
     digest: {
-      tool_name: "filesystem__write_file",
+      tool_name: "file__write",
       policy_decision: "require_approval",
       status: "gate",
     },
@@ -551,7 +551,7 @@ function planSummaryCapturesTypedHierarchyTest(): void {
     title: "Parent playbook completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "completed",
       playbook_id: "evidence_audited_patch",
       playbook_label: "Evidence-Audited Patch",
@@ -712,7 +712,7 @@ function planSummaryCarriesComputerUsePerceptionVerificationAndRecovery(): void 
     title: "Browser perception completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "step_completed",
       playbook_id: "browser_postcondition_gate",
       playbook_label: "Browser Postcondition Gate",
@@ -756,7 +756,7 @@ function planSummaryCarriesComputerUsePerceptionVerificationAndRecovery(): void 
     title: "Browser verification completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "step_completed",
       playbook_id: "browser_postcondition_gate",
       playbook_label: "Browser Postcondition Gate",
@@ -951,7 +951,7 @@ function planSummaryUsesBuiltinWorkflowContractWhenPlaybookFieldsAreMissing(): v
     title: "Verifier completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "step_completed",
       status: "running",
       success: true,
@@ -1007,7 +1007,7 @@ function planSummaryCarriesPrepContextFromCompletionOnlyReceipt(): void {
     title: "Artifact route completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "completed",
       playbook_id: "artifact_generation_gate",
       selected_skills: ["artifact__frontend_judge_spine"],
@@ -1088,7 +1088,7 @@ function planSummaryMergesPrepContextAcrossSplitReceipts(): void {
     title: "Research route paused",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "blocked",
       playbook_id: "citation_grounded_brief",
       route_family: "research",
@@ -1159,7 +1159,7 @@ function planSummaryCarriesResearchVerificationScorecard(): void {
     title: "Research verifier completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "step_completed",
       playbook_id: "citation_grounded_brief",
       playbook_label: "Citation-Grounded Brief",
@@ -1229,7 +1229,7 @@ function planSummaryCarriesCodingVerificationAndPatchSynthesis(): void {
     title: "Coding verifier completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "step_completed",
       playbook_id: "evidence_audited_patch",
       playbook_label: "Evidence-Audited Patch",
@@ -1274,7 +1274,7 @@ function planSummaryCarriesCodingVerificationAndPatchSynthesis(): void {
     title: "Patch synthesis completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "completed",
       playbook_id: "evidence_audited_patch",
       playbook_label: "Evidence-Audited Patch",
@@ -1376,7 +1376,7 @@ function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
     title: "Artifact build completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "step_completed",
       playbook_id: "artifact_generation_gate",
       playbook_label: "Artifact Generation Gate",
@@ -1429,7 +1429,7 @@ function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
     title: "Artifact judge completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "completed",
       playbook_id: "artifact_generation_gate",
       playbook_label: "Artifact Generation Gate",
@@ -1636,7 +1636,7 @@ function executionMomentsCaptureBranchApprovalAndVerification(): void {
     event_type: "RECEIPT",
     title: "Routing receipt",
     digest: {
-      tool_name: "filesystem__write_file",
+      tool_name: "file__write",
       policy_decision: "require_approval",
       status: "gate",
     },
@@ -1654,7 +1654,7 @@ function executionMomentsCaptureBranchApprovalAndVerification(): void {
     title: "Coding verifier completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "step_completed",
       playbook_id: "evidence_audited_patch",
       playbook_label: "Evidence-Audited Patch",
@@ -1727,7 +1727,7 @@ function executionMomentsShowArtifactVerifierWarning(): void {
     title: "Artifact judge completed",
     digest: {
       kind: "parent_playbook",
-      tool_name: "agent__await_result",
+      tool_name: "agent__await",
       phase: "completed",
       playbook_id: "artifact_generation_gate",
       playbook_label: "Artifact Generation Gate",

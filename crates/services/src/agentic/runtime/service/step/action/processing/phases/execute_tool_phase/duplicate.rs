@@ -304,7 +304,7 @@ pub(super) fn handle_duplicate_command_execution(
         ) && !worker_duplicate_requires_recovery_error;
         let mut summary = if active_web_pipeline_chat_reply {
             "Deferred final reply while web research continues gathering evidence.".to_string()
-        } else if tool_name.eq_ignore_ascii_case("browser__snapshot") {
+        } else if tool_name.eq_ignore_ascii_case("browser__inspect") {
             browser_snapshot_immediate_replay_summary()
         } else if prior_successful_duplicate {
             format!(
@@ -323,7 +323,7 @@ pub(super) fn handle_duplicate_command_execution(
             && queue_browser_snapshot_verification(agent_state, session_id);
         if queued_browser_snapshot_verification {
             summary
-                .push_str(" A browser__snapshot verification step has been queued automatically.");
+                .push_str(" A browser__inspect verification step has been queued automatically.");
         }
         if worker_duplicate_requires_recovery_error {
             verification_checks
@@ -547,27 +547,27 @@ fn worker_duplicate_noop_summary(
                 .map(|command| command_history_contains_goal_command(agent_state, command))
                 .unwrap_or(false);
             let mut summary = format!(
-                "Skipped immediate replay of 'filesystem__read_file' because the likely patch file '{}' was already read successfully. Do not reread it.",
+                "Skipped immediate replay of 'file__read' because the likely patch file '{}' was already read successfully. Do not reread it.",
                 target
             );
             if let Some(command) = post_edit_focused_command.as_deref() {
                 summary.push_str(&format!(
-                    " The edit already landed after a failing focused verification run. Your next action must be `sys__exec_session` with the focused verification command `{}` before any reread or additional patching.",
+                    " The edit already landed after a failing focused verification run. Your next action must be `shell__start` with the focused verification command `{}` before any reread or additional patching.",
                     command
                 ));
             } else if let Some(command) =
                 focused_command.as_deref().filter(|_| !focused_command_ran)
             {
                 summary.push_str(&format!(
-                    " Your next action must be `sys__exec_session` with the focused verification command `{}` so the worker captures failing evidence before patching.",
+                    " Your next action must be `shell__start` with the focused verification command `{}` so the worker captures failing evidence before patching.",
                     command
                 ));
                 summary.push_str(
-                    " After the command result lands, move to `filesystem__patch`, `filesystem__edit_line`, or `filesystem__write_file`.",
+                    " After the command result lands, move to `file__edit`, `file__replace_line`, or `file__write`.",
                 );
             } else {
                 summary.push_str(
-                    " Your next action must be `filesystem__patch`, `filesystem__edit_line`, or `filesystem__write_file`.",
+                    " Your next action must be `file__edit`, `file__replace_line`, or `file__write`.",
                 );
                 if let Some(command) = focused_command {
                     summary.push_str(&format!(
@@ -576,7 +576,7 @@ fn worker_duplicate_noop_summary(
                     ));
                 } else {
                     summary.push_str(
-                        " When the edit is ready, run the focused verification command with `sys__exec_session`.",
+                        " When the edit is ready, run the focused verification command with `shell__start`.",
                     );
                 }
             }
@@ -591,29 +591,24 @@ fn worker_duplicate_noop_summary(
             let mut summary = format!(
                 "Skipped immediate replay of '{}' because the repo-root probe '{}' already succeeded. Do not inspect the repo root again.",
                 match tool {
-                    AgentTool::FsList { .. } => "filesystem__list_directory",
-                    _ => "filesystem__stat",
+                    AgentTool::FsList { .. } => "file__list",
+                    _ => "file__info",
                 },
                 target
             );
             if let Some(file) = next_file {
-                summary.push_str(&format!(
-                    " Read `{}` next with `filesystem__read_file`.",
-                    file
-                ));
+                summary.push_str(&format!(" Read `{}` next with `file__read`.", file));
             } else {
-                summary.push_str(
-                    " Read the most likely patch file next with `filesystem__read_file`.",
-                );
+                summary.push_str(" Read the most likely patch file next with `file__read`.");
             }
             if let Some(command) = first_goal_command_literal(&assignment.goal) {
                 summary.push_str(&format!(
-                    " When the edit is ready, run the focused verification command with `sys__exec_session`: `{}`.",
+                    " When the edit is ready, run the focused verification command with `shell__start`: `{}`.",
                     command
                 ));
             } else {
                 summary.push_str(
-                    " When the edit is ready, run the focused verification command with `sys__exec_session`.",
+                    " When the edit is ready, run the focused verification command with `shell__start`.",
                 );
             }
             summary
@@ -947,7 +942,7 @@ fn is_active_web_pipeline_chat_reply_duplicate(tool_name: &str, agent_state: &Ag
 }
 
 fn browser_snapshot_immediate_replay_summary() -> String {
-    "Immediate replay of `browser__snapshot` is not a valid next step. Do not call `browser__snapshot` again yet. Use a different browser action or act on the visible control already named in `RECENT PENDING BROWSER STATE`; if the page still needs time to change, use `browser__wait` before snapshot.".to_string()
+    "Immediate replay of `browser__inspect` is not a valid next step. Do not call `browser__inspect` again yet. Use a different browser action or act on the visible control already named in `RECENT PENDING BROWSER STATE`; if the page still needs time to change, use `browser__wait` before snapshot.".to_string()
 }
 
 fn is_duplicate_non_command_noop_allowed(
@@ -959,7 +954,7 @@ fn is_duplicate_non_command_noop_allowed(
         return true;
     }
 
-    if tool_name.eq_ignore_ascii_case("browser__snapshot") {
+    if tool_name.eq_ignore_ascii_case("browser__inspect") {
         return false;
     }
 
@@ -1021,10 +1016,7 @@ fn queue_browser_snapshot_verification(agent_state: &mut AgentState, session_id:
 fn is_read_only_filesystem_tool(tool_name: &str) -> bool {
     matches!(
         tool_name,
-        "filesystem__list_directory"
-            | "filesystem__read_file"
-            | "filesystem__stat"
-            | "filesystem__search"
+        "file__list" | "file__read" | "file__info" | "file__search"
     )
 }
 
@@ -1109,23 +1101,19 @@ mod tests {
 
     #[test]
     fn read_only_filesystem_tools_are_noop_safe() {
-        assert!(is_read_only_filesystem_tool("filesystem__list_directory"));
-        assert!(is_read_only_filesystem_tool("filesystem__read_file"));
-        assert!(is_read_only_filesystem_tool("filesystem__stat"));
-        assert!(is_read_only_filesystem_tool("filesystem__search"));
-        assert!(!is_read_only_filesystem_tool("filesystem__move_path"));
+        assert!(is_read_only_filesystem_tool("file__list"));
+        assert!(is_read_only_filesystem_tool("file__read"));
+        assert!(is_read_only_filesystem_tool("file__info"));
+        assert!(is_read_only_filesystem_tool("file__search"));
+        assert!(!is_read_only_filesystem_tool("file__move"));
     }
 
     #[test]
     fn noop_allowlist_includes_read_only_filesystem_tools() {
-        assert!(is_non_command_duplicate_noop_tool(
-            "filesystem__list_directory"
-        ));
+        assert!(is_non_command_duplicate_noop_tool("file__list"));
         assert!(is_non_command_duplicate_noop_tool("mail__read_latest"));
         assert!(is_non_command_duplicate_noop_tool("mail__reply"));
-        assert!(!is_non_command_duplicate_noop_tool(
-            "filesystem__create_directory"
-        ));
+        assert!(!is_non_command_duplicate_noop_tool("file__create_dir"));
     }
 
     #[test]
@@ -1154,7 +1142,7 @@ mod tests {
             &agent_state
         ));
         assert!(!is_active_web_pipeline_chat_reply_duplicate(
-            "filesystem__read_file",
+            "file__read",
             &agent_state
         ));
     }
@@ -1219,7 +1207,7 @@ mod tests {
     #[test]
     fn browser_snapshot_duplicate_is_not_noop_safe_after_prior_success() {
         assert!(!is_duplicate_non_command_noop_allowed(
-            "browser__snapshot",
+            "browser__inspect",
             true,
             false
         ));
@@ -1297,9 +1285,9 @@ mod tests {
             workflow_id: Some("repo_context_brief".to_string()),
             role: Some("Context Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__stat".to_string(),
-                "filesystem__search".to_string(),
-                "filesystem__read_file".to_string(),
+                "file__info".to_string(),
+                "file__search".to_string(),
+                "file__read".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1366,9 +1354,9 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1393,11 +1381,11 @@ mod tests {
 
         assert!(summary.contains("path_utils.py"));
         assert!(summary.contains("before patching"));
-        assert!(summary.contains("sys__exec_session"));
+        assert!(summary.contains("shell__start"));
         assert!(summary.contains("python3 -m unittest tests.test_path_utils -v"));
-        assert!(summary.contains("filesystem__patch"));
-        assert!(summary.contains("filesystem__patch"));
-        assert!(summary.contains("filesystem__edit_line"));
+        assert!(summary.contains("file__edit"));
+        assert!(summary.contains("file__edit"));
+        assert!(summary.contains("file__replace_line"));
     }
 
     #[test]
@@ -1428,9 +1416,9 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1496,9 +1484,9 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1555,9 +1543,9 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1622,9 +1610,9 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1642,18 +1630,12 @@ mod tests {
         mark_execution_receipt_with_value(
             &mut agent_state.tool_execution_log,
             "workspace_edit_applied",
-            format!(
-                "step=7;tool=filesystem__write_file;path={}",
-                source_path.display()
-            ),
+            format!("step=7;tool=file__write;path={}", source_path.display()),
         );
         mark_execution_receipt_with_value(
             &mut agent_state.tool_execution_log,
             "workspace_read_observed",
-            format!(
-                "step=3;tool=filesystem__read_file;path={}",
-                source_path.display()
-            ),
+            format!("step=3;tool=file__read;path={}", source_path.display()),
         );
 
         assert!(worker_duplicate_refresh_read_allowed(
@@ -1694,9 +1676,9 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1715,17 +1697,14 @@ mod tests {
             &mut agent_state.tool_execution_log,
             "workspace_patch_miss_observed",
             format!(
-                "step=7;tool=filesystem__patch;path={};reason=search_block_not_found",
+                "step=7;tool=file__edit;path={};reason=search_block_not_found",
                 source_path.display()
             ),
         );
         mark_execution_receipt_with_value(
             &mut agent_state.tool_execution_log,
             "workspace_read_observed",
-            format!(
-                "step=3;tool=filesystem__read_file;path={}",
-                source_path.display()
-            ),
+            format!("step=3;tool=file__read;path={}", source_path.display()),
         );
 
         assert!(worker_duplicate_refresh_read_allowed(
@@ -1766,9 +1745,9 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1786,18 +1765,12 @@ mod tests {
         mark_execution_receipt_with_value(
             &mut agent_state.tool_execution_log,
             "workspace_edit_applied",
-            format!(
-                "step=7;tool=filesystem__write_file;path={}",
-                source_path.display()
-            ),
+            format!("step=7;tool=file__write;path={}", source_path.display()),
         );
         mark_execution_receipt_with_value(
             &mut agent_state.tool_execution_log,
             "workspace_read_observed",
-            format!(
-                "step=8;tool=filesystem__read_file;path={}",
-                source_path.display()
-            ),
+            format!("step=8;tool=file__read;path={}", source_path.display()),
         );
 
         assert!(!worker_duplicate_refresh_read_allowed(
@@ -1838,9 +1811,9 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1866,18 +1839,12 @@ mod tests {
         mark_execution_receipt_with_value(
             &mut agent_state.tool_execution_log,
             "workspace_edit_applied",
-            format!(
-                "step=7;tool=filesystem__write_file;path={}",
-                source_path.display()
-            ),
+            format!("step=7;tool=file__write;path={}", source_path.display()),
         );
         mark_execution_receipt_with_value(
             &mut agent_state.tool_execution_log,
             "workspace_read_observed",
-            format!(
-                "step=3;tool=filesystem__read_file;path={}",
-                source_path.display()
-            ),
+            format!("step=3;tool=file__read;path={}", source_path.display()),
         );
 
         assert!(!worker_duplicate_refresh_read_allowed(
@@ -1901,7 +1868,7 @@ mod tests {
         assert!(
             summary.contains("The edit already landed after a failing focused verification run.")
         );
-        assert!(summary.contains("sys__exec_session"));
+        assert!(summary.contains("shell__start"));
         assert!(summary.contains("python3 -m unittest tests.test_path_utils -v"));
     }
 
@@ -1933,9 +1900,9 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -1954,17 +1921,14 @@ mod tests {
             &mut agent_state.tool_execution_log,
             "workspace_patch_miss_observed",
             format!(
-                "step=7;tool=filesystem__patch;path={};reason=search_block_not_found",
+                "step=7;tool=file__edit;path={};reason=search_block_not_found",
                 source_path.display()
             ),
         );
         mark_execution_receipt_with_value(
             &mut agent_state.tool_execution_log,
             "workspace_read_observed",
-            format!(
-                "step=8;tool=filesystem__read_file;path={}",
-                source_path.display()
-            ),
+            format!("step=8;tool=file__read;path={}", source_path.display()),
         );
 
         assert!(!worker_duplicate_refresh_read_allowed(
@@ -2007,10 +1971,10 @@ mod tests {
             workflow_id: Some("patch_build_verify".to_string()),
             role: Some("Coding Worker".to_string()),
             allowed_tools: vec![
-                "filesystem__read_file".to_string(),
-                "filesystem__list_directory".to_string(),
-                "filesystem__patch".to_string(),
-                "sys__exec_session".to_string(),
+                "file__read".to_string(),
+                "file__list".to_string(),
+                "file__edit".to_string(),
+                "shell__start".to_string(),
                 "agent__complete".to_string(),
             ],
             completion_contract: WorkerCompletionContract {
@@ -2035,8 +1999,8 @@ mod tests {
 
         assert!(summary.contains("repo-root probe"));
         assert!(summary.contains("path_utils.py"));
-        assert!(summary.contains("filesystem__read_file"));
-        assert!(summary.contains("sys__exec_session"));
+        assert!(summary.contains("file__read"));
+        assert!(summary.contains("shell__start"));
         assert!(summary.contains("python3 -m unittest tests.test_path_utils -v"));
     }
 }

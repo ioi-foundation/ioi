@@ -362,7 +362,7 @@ pub async fn handle_resume(
             .unwrap_or(false);
         if sudo_retry_resume {
             // Runtime-secret resume should retry canonical pending install directly.
-            // Drop stale remediation queue entries that can redirect into system__fail.
+            // Drop stale remediation queue entries that can redirect into agent__escalate.
             agent_state.execution_queue.clear();
             if !resuming_pending_install {
                 log::warn!(

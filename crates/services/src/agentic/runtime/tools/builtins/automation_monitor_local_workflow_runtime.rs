@@ -1,6 +1,6 @@
 {
     if resolved_intent.is_some()
-        && is_tool_allowed_for_resolution(resolved_intent, "automation__create_monitor")
+        && is_tool_allowed_for_resolution(resolved_intent, "monitor__create")
     {
         let params = json!({
             "type": "object",
@@ -31,7 +31,7 @@
             "required": ["keywords"]
         });
         tools.push(LlmToolDefinition {
-            name: "automation__create_monitor".to_string(),
+            name: "monitor__create".to_string(),
             description:
                 "Install a durable local monitor workflow in the automation kernel. Use this for 'monitor/watch/notify me whenever' requests instead of shell timers, cron, or systemd."
                     .to_string(),

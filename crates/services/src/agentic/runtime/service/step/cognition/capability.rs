@@ -32,18 +32,16 @@ pub(super) fn preflight_missing_capability(
     let has_browser_tooling = has_tool("web__search")
         || has_tool("web__read")
         || has_tool("browser__navigate")
-        || has_tool("browser__snapshot")
-        || has_tool("browser__click")
-        || has_tool("browser__click_element");
+        || has_tool("browser__inspect")
+        || has_tool("browser__click");
 
-    let can_click =
-        has_tool("computer") || has_tool("gui__click_element") || has_tool("gui__click");
-    let can_type = has_tool("computer") || has_tool("gui__type");
+    let can_click = has_tool("screen") || has_tool("screen__click") || has_tool("screen__click_at");
+    let can_type = has_tool("screen") || has_tool("screen__type");
 
-    let has_command_tool = has_tool("sys__exec") || has_tool("sys__exec_session");
-    let has_install_package_tool = has_tool("sys__install_package");
-    let has_automation_tool = has_tool("automation__create_monitor");
-    let has_filesystem_tooling = tools.iter().any(|t| t.name.starts_with("filesystem__"));
+    let has_command_tool = has_tool("shell__run") || has_tool("shell__start");
+    let has_install_package_tool = has_tool("package__install");
+    let has_automation_tool = has_tool("monitor__create");
+    let has_file_tooling = tools.iter().any(|t| t.name.starts_with("file__"));
     let has_google_workspace_tooling = tools.iter().any(|t| {
         crate::agentic::runtime::connectors::google_workspace::is_google_connector_tool_name(
             &t.name,
@@ -59,7 +57,7 @@ pub(super) fn preflight_missing_capability(
 
     if requires_ui_interaction && !can_click {
         return Some((
-            "gui__click_element".to_string(),
+            "screen__click".to_string(),
             "Resolver selected ui_interaction scope but no click-capable tool is available."
                 .to_string(),
         ));
@@ -67,7 +65,7 @@ pub(super) fn preflight_missing_capability(
 
     if requires_ui_interaction && !can_type {
         return Some((
-            "gui__type".to_string(),
+            "screen__type".to_string(),
             "Resolver selected ui_interaction scope but no typing-capable tool is available."
                 .to_string(),
         ));
@@ -75,9 +73,8 @@ pub(super) fn preflight_missing_capability(
 
     if requires_automation_monitor_install && !has_automation_tool {
         return Some((
-            "automation__create_monitor".to_string(),
-            "Resolver selected automation.monitor but automation__create_monitor is unavailable."
-                .to_string(),
+            "monitor__create".to_string(),
+            "Resolver selected automation.monitor but monitor__create is unavailable.".to_string(),
         ));
     }
 
@@ -87,15 +84,15 @@ pub(super) fn preflight_missing_capability(
         && !has_install_package_tool
     {
         return Some((
-            "sys__exec".to_string(),
-            "Resolver selected command_execution scope but neither sys__exec nor sys__exec_session is available."
+            "shell__run".to_string(),
+            "Resolver selected command_execution scope but neither shell__run nor shell__start is available."
                 .to_string(),
         ));
     }
 
-    if requires_workspace_ops && !has_filesystem_tooling && !has_google_workspace_tooling {
+    if requires_workspace_ops && !has_file_tooling && !has_google_workspace_tooling {
         return Some((
-            "filesystem__read_file".to_string(),
+            "file__read".to_string(),
             "Resolver selected workspace_ops scope but neither filesystem nor Google connector tooling is available."
                 .to_string(),
         ));

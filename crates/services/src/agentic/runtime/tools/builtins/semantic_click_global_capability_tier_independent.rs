@@ -11,7 +11,7 @@
         "required": ["id"]
     });
     tools.push(LlmToolDefinition {
-        name: "gui__click_element".to_string(),
+        name: "screen__click".to_string(),
         description:
             "Click a UI element by its ID. Preferred over coordinate clicking. Works in background."
                 .to_string(),

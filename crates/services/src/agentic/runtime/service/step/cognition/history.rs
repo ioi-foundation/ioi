@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::collections::{HashSet, VecDeque};
 
 const BROWSER_OBSERVATION_CONTEXT_MAX_CHARS: usize = 1_800;
-const BROWSER_SNAPSHOT_TOOL_PREFIX: &str = "Tool Output (browser__snapshot):";
+const BROWSER_SNAPSHOT_TOOL_PREFIX: &str = "Tool Output (browser__inspect):";
 const PENDING_BROWSER_STATE_MAX_CHARS: usize = 560;
 const SUCCESS_SIGNAL_MAX_CHARS: usize = 280;
 

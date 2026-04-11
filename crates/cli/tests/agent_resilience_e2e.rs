@@ -13,16 +13,19 @@ use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
+use ioi_services::agentic::rules::DefaultPolicy;
 use ioi_services::agentic::runtime::keys::AGENT_POLICY_PREFIX;
 use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
-use ioi_services::agentic::runtime::types::PostMessageParams;
+use ioi_services::agentic::runtime::types::{ExecutionTier, PostMessageParams};
 use ioi_services::agentic::runtime::{
     AgentMode, AgentState, AgentStatus, RuntimeAgentService, StartAgentParams, StepAgentParams,
 };
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
+use ioi_types::app::agentic::{
+    CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+};
 use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent};
 use ioi_types::{codec, error::VmError};
 use serde_json::json;
@@ -121,13 +124,26 @@ impl InferenceRuntime for ResilientBrain {
     async fn execute_inference(
         &self,
         _hash: [u8; 32],
-        _input: &[u8],
+        input: &[u8],
         _opts: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
-        let tool_call = json!({
-            "name": "gui__click",
-            "arguments": { "x": 100, "y": 100, "button": "left" }
-        });
+        let prompt = String::from_utf8_lossy(input);
+        let tool_call = if prompt.contains("ontology incident resolver")
+            || prompt.contains("Choose the next recovery action now.")
+        {
+            json!({
+                "name": "screen__inspect",
+                "arguments": {}
+            })
+        } else {
+            json!({
+                "name": "screen",
+                "arguments": {
+                    "action": "left_click",
+                    "coordinate": [100, 100]
+                }
+            })
+        };
         Ok(tool_call.to_string().into_bytes())
     }
 
@@ -203,6 +219,20 @@ fn seed_resolved_intent(
         .expect("session state should exist");
     let mut agent_state: AgentState =
         codec::from_bytes_canonical(&bytes).expect("agent state should decode");
+    let required_capabilities = match scope {
+        IntentScopeProfile::WebResearch => vec![
+            CapabilityId::from("web.retrieve"),
+            CapabilityId::from("browser.interact"),
+            CapabilityId::from("browser.inspect"),
+            CapabilityId::from("conversation.reply"),
+        ],
+        IntentScopeProfile::UiInteraction => vec![
+            CapabilityId::from("ui.interact"),
+            CapabilityId::from("ui.inspect"),
+            CapabilityId::from("conversation.reply"),
+        ],
+        _ => vec![CapabilityId::from("conversation.reply")],
+    };
     agent_state.resolved_intent = Some(ResolvedIntentState {
         intent_id: match scope {
             IntentScopeProfile::WebResearch => "web.research".to_string(),
@@ -213,14 +243,34 @@ fn seed_resolved_intent(
         band: IntentConfidenceBand::High,
         score: 0.99,
         top_k: vec![],
-        preferred_tier: "tool_first".to_string(),
+        required_capabilities,
+        required_receipts: vec![],
+        required_postconditions: vec![],
+        risk_class: "low".to_string(),
+        preferred_tier: match scope {
+            IntentScopeProfile::UiInteraction => "visual_last".to_string(),
+            _ => "tool_first".to_string(),
+        },
         matrix_version: "test".to_string(),
+        embedding_model_id: "test".to_string(),
+        embedding_model_version: "test".to_string(),
+        similarity_function_id: "cosine".to_string(),
+        intent_set_hash: [0u8; 32],
+        tool_registry_hash: [0u8; 32],
+        capability_ontology_hash: [0u8; 32],
+        query_normalization_version: "test".to_string(),
         matrix_source_hash: [0u8; 32],
         receipt_hash: [0u8; 32],
+        provider_selection: None,
+        instruction_contract: None,
         constrained: false,
     });
     agent_state.awaiting_intent_clarification = false;
     agent_state.status = AgentStatus::Running;
+    agent_state.current_tier = match scope {
+        IntentScopeProfile::UiInteraction => ExecutionTier::VisualForeground,
+        _ => ExecutionTier::DomHeadless,
+    };
     state
         .insert(
             &key,
@@ -229,9 +279,16 @@ fn seed_resolved_intent(
         .expect("state insert should not fail");
 }
 
-fn enable_intent_shadow_mode(state: &mut IAVLTree<HashCommitmentScheme>, session_id: [u8; 32]) {
+fn apply_test_policy(
+    state: &mut IAVLTree<HashCommitmentScheme>,
+    session_id: [u8; 32],
+    allow_all: bool,
+) {
     let mut rules = default_safe_policy();
     rules.ontology_policy.intent_routing.shadow_mode = true;
+    if allow_all {
+        rules.defaults = DefaultPolicy::AllowAll;
+    }
     let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
     state
         .insert(
@@ -284,7 +341,7 @@ async fn test_agent_self_healing() -> Result<()> {
             &mut ctx,
         )
         .await?;
-    enable_intent_shadow_mode(&mut state, session_id);
+    apply_test_policy(&mut state, session_id, true);
     seed_resolved_intent(&mut state, session_id, IntentScopeProfile::UiInteraction);
 
     let step_params = StepAgentParams { session_id };
@@ -355,7 +412,7 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
             &mut ctx,
         )
         .await?;
-    enable_intent_shadow_mode(&mut state, session_id);
+    apply_test_policy(&mut state, session_id, false);
     seed_resolved_intent(&mut state, session_id, IntentScopeProfile::WebResearch);
 
     let started = Instant::now();
@@ -417,7 +474,7 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
     while let Ok(event) = event_rx.try_recv() {
         match event {
             KernelEvent::RoutingReceipt(receipt) => {
-                if receipt.tool_name == "filesystem__list_directory" {
+                if receipt.tool_name == "file__list" {
                     saw_filesystem_list_directory = true;
                 }
                 if receipt.tool_name.contains("Custom(\"unknown\")")
@@ -427,7 +484,7 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
                 }
             }
             KernelEvent::AgentActionResult { tool_name, .. } => {
-                if tool_name == "filesystem__list_directory" {
+                if tool_name == "file__list" {
                     saw_filesystem_list_directory = true;
                 }
                 if tool_name == "system::max_steps_reached" {

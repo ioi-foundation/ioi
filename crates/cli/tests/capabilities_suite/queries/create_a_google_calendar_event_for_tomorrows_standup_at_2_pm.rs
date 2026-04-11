@@ -1,19 +1,17 @@
 use ioi_types::app::agentic::IntentScopeProfile;
 
 use super::super::types::{
-    has_contract_failure_evidence, has_tool_with_token, has_verification_pair, truncate_chars,
-    verification_u64, ExecutionProfile, LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
+    has_contract_failure_evidence, has_tool_with_token, truncate_chars, ExecutionProfile,
+    LocalCheck, LocalJudgeResult, QueryCase, RunObservation,
 };
 
 const CASE_ID: &str = "create_a_google_calendar_event_for_tomorrows_standup_at_2_pm";
-const EXPECTED_FIXTURE_MODE: &str = "google_connector_mock_fixture_v1";
-const EXPECTED_ACCOUNT: &str = "fixtures.google@ioi.invalid";
 
 pub fn case() -> QueryCase {
     QueryCase {
         id: CASE_ID,
         query: "Create a Google Calendar event for tomorrow's standup at 2 PM.",
-        success_definition: "Create the requested Google Calendar event through the hermetic Google connector fixture with structured calendar event evidence, fixture receipts, and no contract-failure markers.",
+        success_definition: "Create the requested Google Calendar event through the Google connector with structured calendar event evidence, tool-path receipts, and no contract-failure markers.",
         seeded_intent_id: "calendar.create_event",
         intent_scope: IntentScopeProfile::WorkspaceOps,
         seed_resolved_intent: true,
@@ -82,23 +80,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         &obs.routing_tools,
         "connector__google__calendar_create_event",
     );
-    let fixture_mode_present = has_verification_pair(
-        obs,
-        "env_receipt::google_connector_fixture_mode",
-        EXPECTED_FIXTURE_MODE,
-    );
-    let fixture_account_present = has_verification_pair(
-        obs,
-        "env_receipt::google_connector_fixture_account",
-        EXPECTED_ACCOUNT,
-    );
-    let event_count = verification_u64(obs, "env_receipt::google_connector_fixture_event_count")
-        .unwrap_or_default();
-    let fixture_cleanup_satisfied = has_verification_pair(
-        obs,
-        "env_receipt::google_connector_fixture_cleanup_satisfied",
-        "true",
-    );
     let completion_evidence_present = obs.completed && !obs.failed;
     let no_contract_failure_markers = !has_contract_failure_evidence(obs);
 
@@ -136,17 +117,6 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
             format!(
                 "tool_planned_seen={} tool_route_seen={} planned_tool_calls={:?} routing_tools={:?}",
                 tool_planned_seen, tool_route_seen, obs.planned_tool_calls, obs.routing_tools
-            ),
-        ),
-        LocalCheck::new(
-            "fixture_receipts_present",
-            fixture_mode_present
-                && fixture_account_present
-                && event_count > 0
-                && fixture_cleanup_satisfied,
-            format!(
-                "fixture_mode_present={} fixture_account_present={} event_count={} fixture_cleanup_satisfied={}",
-                fixture_mode_present, fixture_account_present, event_count, fixture_cleanup_satisfied
             ),
         ),
         LocalCheck::new(

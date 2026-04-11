@@ -582,6 +582,16 @@ impl RedbEpochStore {
         Ok(())
     }
 
+    pub fn override_head(&self, height: Height) -> Result<(), StorageError> {
+        let epoch = self.tip_epoch_of(height);
+        let write = self.write_txn()?;
+        Self::write_head(&write, height, epoch)?;
+        write
+            .commit()
+            .map_err(|e| StorageError::Backend(e.to_string()))?;
+        Ok(())
+    }
+
     pub fn safe_drop_epoch(&self, epoch: Epoch, pins: &[Height]) -> Result<bool, StorageError> {
         let start_height = epoch * self.epoch_size;
         let end_height = (epoch + 1) * self.epoch_size;

@@ -1,9 +1,9 @@
 use super::core::ApprovalDirective;
 use super::flow::{should_enter_incident_recovery, should_skip_incident_recovery_for_intent};
 use super::recovery::{effective_forbidden_tools, policy_max_transitions};
+use crate::agentic::rules::{ActionRules, ApprovalMode, OntologyPolicy, ToolPreferences};
 use crate::agentic::runtime::service::step::anti_loop::FailureClass;
 use crate::agentic::runtime::service::step::ontology::IntentClass;
-use crate::agentic::rules::{ActionRules, ApprovalMode, OntologyPolicy, ToolPreferences};
 
 #[test]
 fn incident_gate_blocks_non_recoverable_classes() {
@@ -51,7 +51,7 @@ fn forbidden_tools_include_policy_entries() {
     let rules = ActionRules {
         ontology_policy: OntologyPolicy {
             tool_preferences: ToolPreferences {
-                forbidden_remediation_tools: vec!["sys__exec".to_string()],
+                forbidden_remediation_tools: vec!["shell__run".to_string()],
                 ..Default::default()
             },
             ..Default::default()
@@ -60,7 +60,7 @@ fn forbidden_tools_include_policy_entries() {
     };
     let set = effective_forbidden_tools(&rules);
     assert!(set.contains("agent__complete"));
-    assert!(set.contains("sys__exec"));
+    assert!(set.contains("shell__run"));
 }
 
 #[test]
@@ -78,27 +78,27 @@ fn approval_directive_type_is_exhaustive() {
 fn file_task_no_effect_failures_skip_incident_recovery() {
     assert!(should_skip_incident_recovery_for_intent(
         IntentClass::FileTask,
-        "filesystem__list_directory",
+        "file__list",
         FailureClass::NoEffectAfterAction
     ));
     assert!(should_skip_incident_recovery_for_intent(
         IntentClass::FileTask,
-        "filesystem__search",
+        "file__search",
         FailureClass::UnexpectedState
     ));
     assert!(should_skip_incident_recovery_for_intent(
         IntentClass::FileTask,
-        "filesystem__create_directory",
+        "file__create_dir",
         FailureClass::NoEffectAfterAction
     ));
     assert!(!should_skip_incident_recovery_for_intent(
         IntentClass::FileTask,
-        "filesystem__create_directory",
+        "file__create_dir",
         FailureClass::TargetNotFound
     ));
     assert!(!should_skip_incident_recovery_for_intent(
         IntentClass::UIInteraction,
-        "gui__click",
+        "screen__click_at",
         FailureClass::NoEffectAfterAction
     ));
 }

@@ -26,12 +26,12 @@ pub fn case() -> QueryCase {
 
 fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     let launch_action_completed = obs.action_evidence.iter().any(|entry| {
-        entry.tool_name.eq_ignore_ascii_case("os__launch_app")
+        entry.tool_name.eq_ignore_ascii_case("app__launch")
             && entry.agent_status.eq_ignore_ascii_case("completed")
             && entry.error_class.is_none()
     });
     let launch_plan_observed = obs.planned_tool_calls.iter().any(|entry| {
-        entry.tool_name.eq_ignore_ascii_case("os__launch_app")
+        entry.tool_name.eq_ignore_ascii_case("app__launch")
             && entry
                 .arguments
                 .get("app_name")
@@ -41,7 +41,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
     });
 
     let launch_tool_seen =
-        observation_has_any_tool_name(obs, &["os__launch_app", "sys__exec", "sys__exec_session"]);
+        observation_has_any_tool_name(obs, &["app__launch", "shell__run", "shell__start"]);
 
     let completion_gate_satisfied =
         has_cec_receipt(obs, "completion_gate", "contract_gate", Some(true));
@@ -70,7 +70,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                 "planned_tool_calls={:?} action_evidence_samples={:?}",
                 obs.planned_tool_calls
                     .iter()
-                    .filter(|entry| entry.tool_name.eq_ignore_ascii_case("os__launch_app"))
+                    .filter(|entry| entry.tool_name.eq_ignore_ascii_case("app__launch"))
                     .collect::<Vec<_>>(),
                 obs.action_evidence.iter().take(2).collect::<Vec<_>>()
             ),
@@ -93,7 +93,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
                         "{:?}",
                         obs.planned_tool_calls
                             .iter()
-                            .filter(|entry| entry.tool_name.eq_ignore_ascii_case("os__launch_app"))
+                            .filter(|entry| entry.tool_name.eq_ignore_ascii_case("app__launch"))
                             .collect::<Vec<_>>()
                     ),
                     120

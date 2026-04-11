@@ -29,7 +29,7 @@ function isSuccessfulScreenshotAction(event: AgentEvent): boolean {
   if (event.event_type !== "COMMAND_RUN" || event.status !== "SUCCESS") {
     return false;
   }
-  if (eventToolName(event).toLowerCase() !== "computer") {
+  if (eventToolName(event).toLowerCase() !== "screen") {
     return false;
   }
   return eventOutputText(event).toLowerCase().startsWith(SCREENSHOT_OUTPUT_PREFIX);

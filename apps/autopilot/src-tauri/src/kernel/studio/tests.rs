@@ -268,26 +268,24 @@ impl InferenceRuntime for StreamingDirectAuthorTestRuntime {
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context);
         if prompt.contains("typed artifact judge") {
-            return Ok(
-                serde_json::json!({
-                    "classification": "pass",
-                    "requestFaithfulness": 5,
-                    "conceptCoverage": 4,
-                    "interactionRelevance": 4,
-                    "layoutCoherence": 4,
-                    "visualHierarchy": 4,
-                    "completeness": 4,
-                    "genericShellDetected": false,
-                    "trivialShellDetected": false,
-                    "deservesPrimaryArtifactView": true,
-                    "patchedExistingArtifact": null,
-                    "continuityRevisionUx": null,
-                    "strongestContradiction": null,
-                    "rationale": "streamed direct-author draft was accepted"
-                })
-                .to_string()
-                .into_bytes(),
-            );
+            return Ok(serde_json::json!({
+                "classification": "pass",
+                "requestFaithfulness": 5,
+                "conceptCoverage": 4,
+                "interactionRelevance": 4,
+                "layoutCoherence": 4,
+                "visualHierarchy": 4,
+                "completeness": 4,
+                "genericShellDetected": false,
+                "trivialShellDetected": false,
+                "deservesPrimaryArtifactView": true,
+                "patchedExistingArtifact": null,
+                "continuityRevisionUx": null,
+                "strongestContradiction": null,
+                "rationale": "streamed direct-author draft was accepted"
+            })
+            .to_string()
+            .into_bytes());
         }
         Err(VmError::HostError("unexpected Studio prompt".to_string()))
     }
@@ -824,7 +822,10 @@ fn apply_materialized_artifact_to_contract_marks_nonworkspace_steps_success_when
     assert_eq!(contract.verification_steps[0].status, "success");
     assert_eq!(contract.verification_steps[1].status, "success");
     assert_eq!(contract.file_writes.len(), 1);
-    assert_eq!(contract.winning_candidate_id.as_deref(), Some("candidate-1"));
+    assert_eq!(
+        contract.winning_candidate_id.as_deref(),
+        Some("candidate-1")
+    );
     assert!(contract.failure.is_none());
 }
 

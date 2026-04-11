@@ -14,7 +14,7 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::BrowserType { .. }
         | AgentTool::CommerceCheckout { .. } => true,
 
-        AgentTool::Computer(_)
+        AgentTool::Screen(_)
         | AgentTool::FsWrite { .. }
         | AgentTool::FsPatch { .. }
         | AgentTool::FsRead { .. }
@@ -33,7 +33,6 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::SysChangeDir { .. }
         | AgentTool::BrowserSnapshot {}
         | AgentTool::BrowserClick { .. }
-        | AgentTool::BrowserClickElement { .. }
         | AgentTool::BrowserHover { .. }
         | AgentTool::BrowserMoveMouse { .. }
         | AgentTool::BrowserMouseDown { .. }
@@ -190,7 +189,7 @@ fn filesystem_move_target_maps_to_custom_scope() {
     };
     assert_eq!(
         tool.target(),
-        crate::app::ActionTarget::Custom("filesystem__move_path".into())
+        crate::app::ActionTarget::Custom("file__move".into())
     );
 }
 
@@ -203,7 +202,7 @@ fn filesystem_copy_target_maps_to_custom_scope() {
     };
     assert_eq!(
         tool.target(),
-        crate::app::ActionTarget::Custom("filesystem__copy_path".into())
+        crate::app::ActionTarget::Custom("file__copy".into())
     );
 }
 
@@ -246,7 +245,7 @@ fn filesystem_create_directory_target_maps_to_custom_scope() {
     };
     assert_eq!(
         tool.target(),
-        crate::app::ActionTarget::Custom("filesystem__create_directory".into())
+        crate::app::ActionTarget::Custom("file__create_dir".into())
     );
 }
 
@@ -259,13 +258,14 @@ fn filesystem_create_zip_target_maps_to_custom_scope() {
     };
     assert_eq!(
         tool.target(),
-        crate::app::ActionTarget::Custom("filesystem__create_zip".into())
+        crate::app::ActionTarget::Custom("file__zip".into())
     );
 }
 
 #[test]
 fn browser_click_element_target_maps_to_browser_click_element_scope() {
-    let tool = AgentTool::BrowserClickElement {
+    let tool = AgentTool::BrowserClick {
+        selector: String::new(),
         id: Some("btn_submit".to_string()),
         ids: Vec::new(),
         delay_ms_between_ids: None,
@@ -276,7 +276,8 @@ fn browser_click_element_target_maps_to_browser_click_element_scope() {
 
 #[test]
 fn browser_click_element_serializes_timed_sequence() {
-    let tool = AgentTool::BrowserClickElement {
+    let tool = AgentTool::BrowserClick {
+        selector: String::new(),
         id: None,
         ids: vec!["btn_one".to_string(), "btn_two".to_string()],
         delay_ms_between_ids: Some(2_000),
@@ -284,19 +285,20 @@ fn browser_click_element_serializes_timed_sequence() {
     };
 
     let payload = serde_json::to_value(&tool).expect("serialize tool");
-    assert_eq!(payload["name"], "browser__click_element");
+    assert_eq!(payload["name"], "browser__click");
     assert_eq!(payload["arguments"]["ids"], json!(["btn_one", "btn_two"]));
     assert_eq!(payload["arguments"]["delay_ms_between_ids"], 2_000);
 }
 
 #[test]
 fn browser_click_element_serializes_follow_up_browser_action() {
-    let tool = AgentTool::BrowserClickElement {
+    let tool = AgentTool::BrowserClick {
+        selector: String::new(),
         id: Some("grp_start".to_string()),
         ids: Vec::new(),
         delay_ms_between_ids: None,
         continue_with: Some(AgentToolCall {
-            name: "browser__click_element".to_string(),
+            name: "browser__click".to_string(),
             arguments: json!({
                 "ids": ["btn_one", "btn_two"],
                 "delay_ms_between_ids": 2_000
@@ -305,11 +307,11 @@ fn browser_click_element_serializes_follow_up_browser_action() {
     };
 
     let payload = serde_json::to_value(&tool).expect("serialize tool");
-    assert_eq!(payload["name"], "browser__click_element");
+    assert_eq!(payload["name"], "browser__click");
     assert_eq!(payload["arguments"]["id"], "grp_start");
     assert_eq!(
         payload["arguments"]["continue_with"]["name"],
-        "browser__click_element"
+        "browser__click"
     );
     assert_eq!(
         payload["arguments"]["continue_with"]["arguments"]["ids"],
@@ -404,7 +406,7 @@ fn browser_key_serializes_follow_up_browser_action() {
         selector: Some("[id=\"text-area\"]".to_string()),
         modifiers: Some(vec!["Control".to_string()]),
         continue_with: Some(AgentToolCall {
-            name: "browser__click_element".to_string(),
+            name: "browser__click".to_string(),
             arguments: json!({
                 "id": "btn_submit"
             }),
@@ -412,13 +414,13 @@ fn browser_key_serializes_follow_up_browser_action() {
     };
 
     let payload = serde_json::to_value(&tool).expect("serialize tool");
-    assert_eq!(payload["name"], "browser__key");
+    assert_eq!(payload["name"], "browser__press_key");
     assert_eq!(payload["arguments"]["key"], "Home");
     assert_eq!(payload["arguments"]["selector"], "[id=\"text-area\"]");
     assert_eq!(payload["arguments"]["modifiers"], json!(["Control"]));
     assert_eq!(
         payload["arguments"]["continue_with"]["name"],
-        "browser__click_element"
+        "browser__click"
     );
     assert_eq!(
         payload["arguments"]["continue_with"]["arguments"]["id"],
@@ -500,7 +502,7 @@ fn browser_wait_serializes_follow_up_browser_action() {
         scope: None,
         timeout_ms: None,
         continue_with: Some(AgentToolCall {
-            name: "browser__click_element".to_string(),
+            name: "browser__click".to_string(),
             arguments: json!({ "id": "btn_two" }),
         }),
     };
@@ -509,7 +511,7 @@ fn browser_wait_serializes_follow_up_browser_action() {
     assert_eq!(payload["name"], "browser__wait");
     assert_eq!(
         payload["arguments"]["continue_with"]["name"],
-        "browser__click_element"
+        "browser__click"
     );
     assert_eq!(
         payload["arguments"]["continue_with"]["arguments"]["id"],
@@ -524,16 +526,16 @@ fn browser_synthetic_click_serializes_follow_up_browser_action() {
         x: Some(85.012),
         y: Some(105.824),
         continue_with: Some(AgentToolCall {
-            name: "browser__click_element".to_string(),
+            name: "browser__click".to_string(),
             arguments: json!({ "id": "btn_submit" }),
         }),
     };
 
     let payload = serde_json::to_value(&tool).expect("serialize tool");
-    assert_eq!(payload["name"], "browser__synthetic_click");
+    assert_eq!(payload["name"], "browser__click_at");
     assert_eq!(
         payload["arguments"]["continue_with"]["name"],
-        "browser__click_element"
+        "browser__click"
     );
     assert_eq!(
         payload["arguments"]["continue_with"]["arguments"]["id"],
@@ -551,7 +553,7 @@ fn browser_synthetic_click_serializes_grounded_target_id() {
     };
 
     let payload = serde_json::to_value(&tool).expect("serialize tool");
-    assert_eq!(payload["name"], "browser__synthetic_click");
+    assert_eq!(payload["name"], "browser__click_at");
     assert_eq!(payload["arguments"]["id"], "grp_blue_circle");
     assert!(payload["arguments"].get("x").is_none(), "{payload}");
     assert!(payload["arguments"].get("y").is_none(), "{payload}");
@@ -909,7 +911,5 @@ fn media_extract_tools_are_reserved_native_names() {
     assert!(AgentTool::is_reserved_tool_name(
         "media__extract_transcript"
     ));
-    assert!(AgentTool::is_reserved_tool_name(
-        "media__extract_multimodal_evidence"
-    ));
+    assert!(AgentTool::is_reserved_tool_name("media__extract_evidence"));
 }

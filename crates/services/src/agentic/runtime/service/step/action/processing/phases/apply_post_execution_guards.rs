@@ -54,7 +54,7 @@ fn maybe_normalize_unchanged_browser_snapshot(
     verification_checks: &mut Vec<String>,
 ) {
     if !*success
-        || current_tool_name != "browser__snapshot"
+        || current_tool_name != "browser__inspect"
         || agent_state.pending_search_completion.is_some()
     {
         return;
@@ -105,7 +105,7 @@ fn maybe_normalize_unchanged_browser_snapshot(
         return;
     }
 
-    let summary = "Repeated `browser__snapshot` returned the same browser state as the previous step. Do not call `browser__snapshot` again yet. Use a different browser action or act on the visible control already named in `RECENT PENDING BROWSER STATE`.".to_string();
+    let summary = "Repeated `browser__inspect` returned the same browser state as the previous step. Do not call `browser__inspect` again yet. Use a different browser action or act on the visible control already named in `RECENT PENDING BROWSER STATE`.".to_string();
     *success = false;
     *failure_class = Some(FailureClass::NoEffectAfterAction);
     *error_msg = Some(format!("ERROR_CLASS=NoEffectAfterAction {}", summary));
@@ -156,7 +156,7 @@ pub(crate) async fn apply_post_execution_guards(
         invalid_tool_call_fail_fast_mailbox,
         mut terminal_chat_reply_output,
     } = state_in;
-    let is_install_package_tool = current_tool_name == "sys__install_package"
+    let is_install_package_tool = current_tool_name == "package__install"
         || current_tool_name == "sys::install_package"
         || current_tool_name.ends_with("install_package");
     let clarification_required = !success
@@ -704,7 +704,7 @@ mod tests {
         let mut verification_checks = Vec::new();
         maybe_normalize_unchanged_browser_snapshot(
             &mut state,
-            "browser__snapshot",
+            "browser__inspect",
             &mut success,
             &mut error_msg,
             &mut history_entry,
@@ -735,7 +735,7 @@ mod tests {
         let mut verification_checks = Vec::new();
         maybe_normalize_unchanged_browser_snapshot(
             &mut state,
-            "browser__snapshot",
+            "browser__inspect",
             &mut success,
             &mut error_msg,
             &mut history_entry,
@@ -771,7 +771,7 @@ mod tests {
         let mut verification_checks = Vec::new();
         maybe_normalize_unchanged_browser_snapshot(
             &mut state,
-            "browser__snapshot",
+            "browser__inspect",
             &mut success,
             &mut error_msg,
             &mut history_entry,
@@ -789,7 +789,7 @@ mod tests {
         let mut verification_checks = Vec::new();
         maybe_normalize_unchanged_browser_snapshot(
             &mut state,
-            "browser__snapshot",
+            "browser__inspect",
             &mut success,
             &mut error_msg,
             &mut history_entry,

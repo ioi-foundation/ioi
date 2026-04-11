@@ -3,7 +3,7 @@
   "trace_id": "artifacts:miniwob_click_button_baseline",
   "run_id": "artifacts",
   "case_id": "miniwob_click_button_baseline",
-  "generated_at_ms": 1775426950119,
+  "generated_at_ms": 1775875092208,
   "metrics": [
     {
       "metricId": "overall_case_outcome",

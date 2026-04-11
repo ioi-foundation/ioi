@@ -616,22 +616,22 @@ pub fn infer_intent_surface(
     if tool.contains("math__eval") {
         return IntentSurface::Conversation;
     }
-    if tool.contains("os__launch_app") {
+    if tool.contains("app__launch") {
         return IntentSurface::AppLaunch;
     }
-    if tool.contains("sys__install_package") || tool.ends_with("install_package") {
+    if tool.contains("package__install") || tool.ends_with("install_package") {
         return IntentSurface::DependencyInstall;
     }
     if tool.starts_with("web__") || tool.starts_with("browser__") {
         return IntentSurface::WebResearch;
     }
-    if tool.starts_with("filesystem__") || tool.starts_with("fs__") {
+    if tool.starts_with("file__") || tool.starts_with("fs__") {
         return IntentSurface::WorkspaceOps;
     }
-    if tool.starts_with("gui__") || tool.contains("computer") {
+    if tool.starts_with("screen__") || tool == "screen" {
         return IntentSurface::UiInteraction;
     }
-    if tool.starts_with("sys__exec") || tool.starts_with("sys__change_directory") {
+    if tool.starts_with("shell__run") || tool.starts_with("shell__cd") {
         return IntentSurface::CommandExecution;
     }
     if tool.starts_with("automation__") {

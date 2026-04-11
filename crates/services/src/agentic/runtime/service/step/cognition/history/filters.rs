@@ -328,7 +328,7 @@ pub(super) fn dropdown_filter_mismatch_pending_signal(
             .as_deref()
             .unwrap_or(filter_dropdown.semantic_id.as_str());
         return Some(format!(
-            "A recent dropdown changed `{}` to `{}`, but filter `{}` (`{}`) still shows `{}` and may hide the updated item. Do not call `browser__snapshot` again yet. Use `browser__select_dropdown` on `{}` now: first try `{}`; if unavailable, clear it to an all-items option. Then verify the updated item in the list.",
+            "A recent dropdown changed `{}` to `{}`, but filter `{}` (`{}`) still shows `{}` and may hide the updated item. Do not call `browser__inspect` again yet. Use `browser__select_option` on `{}` now: first try `{}`; if unavailable, clear it to an all-items option. Then verify the updated item in the list.",
             dropdown_id,
             selected_label,
             filter_dropdown.semantic_id,
@@ -421,14 +421,14 @@ pub(super) fn stale_queue_reverification_pending_signal(
             .is_some_and(|current| current.eq_ignore_ascii_case(&requested_sort))
         {
             return Some(format!(
-                "Stale queue/list view: row order is not evidence yet. `{}` already shows `{}`, but the list still needs refresh. Do not open ticket/history links or call `browser__snapshot` again. Use {} now, then verify row order on the updated queue.",
+                "Stale queue/list view: row order is not evidence yet. `{}` already shows `{}`, but the list still needs refresh. Do not open ticket/history links or call `browser__inspect` again. Use {} now, then verify row order on the updated queue.",
                 sort_dropdown.semantic_id, requested_sort, apply_control
             ));
         }
 
         if let Some(current_value) = current_value {
             return Some(format!(
-                "Stale queue/list view: row order is not evidence yet. `{}` still shows `{}`. Do not open ticket/history links or call `browser__snapshot` again. Use `browser__select_dropdown` on `{}` to choose `{}`, then use {} to refresh before verifying row order.",
+                "Stale queue/list view: row order is not evidence yet. `{}` still shows `{}`. Do not open ticket/history links or call `browser__inspect` again. Use `browser__select_option` on `{}` to choose `{}`, then use {} to refresh before verifying row order.",
                 sort_dropdown.semantic_id,
                 current_value,
                 sort_dropdown.semantic_id,
@@ -438,13 +438,13 @@ pub(super) fn stale_queue_reverification_pending_signal(
         }
 
         return Some(format!(
-            "Stale queue/list view: row order is not evidence yet. Do not open ticket/history links or call `browser__snapshot` again. Use `browser__select_dropdown` on `{}` to choose `{}`, then use {} to refresh before verifying row order.",
+            "Stale queue/list view: row order is not evidence yet. Do not open ticket/history links or call `browser__inspect` again. Use `browser__select_option` on `{}` to choose `{}`, then use {} to refresh before verifying row order.",
             sort_dropdown.semantic_id, requested_sort, apply_control
         ));
     }
 
     Some(format!(
-        "Stale queue/list view: row order is not evidence yet. Do not open ticket/history links or call `browser__snapshot` again. Reapply the visible queue controls, then use {} to refresh before verifying row order.",
+        "Stale queue/list view: row order is not evidence yet. Do not open ticket/history links or call `browser__inspect` again. Reapply the visible queue controls, then use {} to refresh before verifying row order.",
         apply_control
     ))
 }
@@ -523,7 +523,7 @@ pub(super) fn queue_reverification_history_follow_up_pending_signal_for_snapshot
     };
 
     Some(format!(
-        "The refreshed queue already shows `{target_item}` ahead of `{distractor_item}` under `{requested_sort}`{matched_clause}. Do not reopen `{target_item}` or spend the next step on another `browser__snapshot`. Continue the remaining verification on `{distractor_item}` by using `{}` now.",
+        "The refreshed queue already shows `{target_item}` ahead of `{distractor_item}` under `{requested_sort}`{matched_clause}. Do not reopen `{target_item}` or spend the next step on another `browser__inspect`. Continue the remaining verification on `{distractor_item}` by using `{}` now.",
         distractor_history_link.semantic_id
     ))
 }

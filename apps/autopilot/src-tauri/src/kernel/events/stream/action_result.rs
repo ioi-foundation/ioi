@@ -447,11 +447,7 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         return;
     }
 
-    if res
-        .tool_name
-        .eq_ignore_ascii_case("automation__create_monitor")
-        && !res.has_error_class
-    {
+    if res.tool_name.eq_ignore_ascii_case("monitor__create") && !res.has_error_class {
         let manager: State<crate::kernel::workflows::WorkflowManager> = app.state();
         if let Some(artifact_path) = automation_artifact_path_from_output(&res.output) {
             if let Err(error) = manager
@@ -609,7 +605,7 @@ mod tests {
     fn completion_message_is_truncated_for_very_long_output() {
         let long = "a".repeat(5000);
         let message =
-            completion_message_for_history("sys__exec", &long).expect("message should exist");
+            completion_message_for_history("shell__run", &long).expect("message should exist");
         assert!(message.len() < long.len());
         assert!(message.ends_with('…'));
         assert_eq!(message, truncate_message_chars(&long, 1200));

@@ -5,6 +5,12 @@ async fn wallet_network_mail_reply_via_real_callservice_txs_with_approval_write_
 ) -> Result<()> {
     let _guard = E2E_TEST_LOCK.lock().expect("lock");
     build_test_artifacts();
+    let Some(mail_runtime) = maybe_wallet_mail_runtime_config()? else {
+        eprintln!(
+            "skipping wallet_network_mail_reply_via_real_callservice_txs_with_approval_write_intent: MAIL_E2E_* not configured"
+        );
+        return Ok(());
+    };
 
     let cluster = TestCluster::builder()
         .with_validators(1)
@@ -146,47 +152,51 @@ async fn wallet_network_mail_reply_via_real_callservice_txs_with_approval_write_
             load_wallet_value(rpc_addr, &channel_storage_key(&channel_id)).await?;
         assert_eq!(channel.state, SessionChannelState::Open);
 
-        for (secret_id, alias, value) in [
-            (
-                "mail-imap-user-reply",
-                "mail.imap.user.reply",
-                "agent@example.com",
-            ),
-            (
-                "mail-imap-pass-reply",
-                "mail.imap.pass.reply",
-                "imap-password",
-            ),
-            (
-                "mail-smtp-user-reply",
-                "mail.smtp.user.reply",
-                "agent@example.com",
-            ),
-            (
-                "mail-smtp-pass-reply",
-                "mail.smtp.pass.reply",
-                "smtp-password",
-            ),
-        ] {
-            submit_wallet_call(
-                rpc_addr,
-                keypair,
-                chain_id,
-                nonce,
-                "store_secret_record@v1",
-                VaultSecretRecord {
-                    secret_id: secret_id.to_string(),
-                    alias: alias.to_string(),
-                    kind: SecretKind::AccessToken,
-                    ciphertext: value.as_bytes().to_vec(),
-                    metadata: BTreeMap::new(),
-                    created_at_ms: 4_100_000_000_000,
-                    rotated_at_ms: None,
-                },
-            )
-            .await?;
-            nonce += 1;
-        }
+        let secret_kind = wallet_mail_secret_kind(mail_runtime.auth_mode);
+        store_wallet_secret_record(
+            rpc_addr,
+            keypair,
+            chain_id,
+            &mut nonce,
+            "mail-imap-user-reply",
+            "mail.imap.user.reply",
+            SecretKind::Custom("username".to_string()),
+            &mail_runtime.imap_username,
+        )
+        .await?;
+        store_wallet_secret_record(
+            rpc_addr,
+            keypair,
+            chain_id,
+            &mut nonce,
+            "mail-imap-pass-reply",
+            "mail.imap.pass.reply",
+            secret_kind.clone(),
+            &mail_runtime.imap_secret,
+        )
+        .await?;
+        store_wallet_secret_record(
+            rpc_addr,
+            keypair,
+            chain_id,
+            &mut nonce,
+            "mail-smtp-user-reply",
+            "mail.smtp.user.reply",
+            SecretKind::Custom("username".to_string()),
+            &mail_runtime.smtp_username,
+        )
+        .await?;
+        store_wallet_secret_record(
+            rpc_addr,
+            keypair,
+            chain_id,
+            &mut nonce,
+            "mail-smtp-pass-reply",
+            "mail.smtp.pass.reply",
+            secret_kind,
+            &mail_runtime.smtp_secret,
+        )
+        .await?;
 
         submit_wallet_call(
             rpc_addr,
@@ -196,29 +206,13 @@ async fn wallet_network_mail_reply_via_real_callservice_txs_with_approval_write_
             "mail_connector_upsert@v1",
             MailConnectorUpsertParams {
                 mailbox: "primary".to_string(),
-                config: MailConnectorConfig {
-                    provider: MailConnectorProvider::ImapSmtp,
-                    auth_mode: MailConnectorAuthMode::Password,
-                    account_email: "agent@example.com".to_string(),
-                    sender_display_name: None,
-                    imap: MailConnectorEndpoint {
-                        host: "mock.local".to_string(),
-                        port: 993,
-                        tls_mode: MailConnectorTlsMode::Tls,
-                    },
-                    smtp: MailConnectorEndpoint {
-                        host: "mock.local".to_string(),
-                        port: 465,
-                        tls_mode: MailConnectorTlsMode::Tls,
-                    },
-                    secret_aliases: MailConnectorSecretAliases {
-                        imap_username_alias: "mail.imap.user.reply".to_string(),
-                        imap_password_alias: "mail.imap.pass.reply".to_string(),
-                        smtp_username_alias: "mail.smtp.user.reply".to_string(),
-                        smtp_password_alias: "mail.smtp.pass.reply".to_string(),
-                    },
-                    metadata: BTreeMap::from([("driver".to_string(), "mock".to_string())]),
-                },
+                config: build_wallet_mail_connector_config(
+                    &mail_runtime,
+                    "mail.imap.user.reply",
+                    "mail.imap.pass.reply",
+                    "mail.smtp.user.reply",
+                    "mail.smtp.pass.reply",
+                ),
             },
         )
         .await?;

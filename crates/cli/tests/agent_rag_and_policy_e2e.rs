@@ -22,9 +22,9 @@ use ioi_services::agentic::runtime::{
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::agentic::{EvidenceGraph, InferenceOptions};
-use ioi_types::app::{ActionContext, ActionRequest, ContextSlice};
+use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::codec;
-use ioi_types::error::VmError;
+use ioi_types::error::{TransactionError, VmError};
 use serde_json::json;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -136,12 +136,12 @@ impl InferenceRuntime for MockRagBrain {
         let response = if prompt.contains("favorite color") {
             // Agent "knows" this because it was in the RAG context
             json!({
-                "name": "gui__type", // Just an action to indicate success
+                "name": "screen__type", // Just an action to indicate success
                 "arguments": { "text": "Blue" }
             })
         } else {
             json!({
-                "name": "gui__click",
+                "name": "screen__click_at",
                 "arguments": { "x": 100, "y": 100, "button": "left" }
             })
         };
@@ -267,21 +267,17 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
     );
     println!("✅ RAG Memory Recall Test Passed");
 
-    // --- TEST 2: Policy Enforcement (Window Context) ---
-    // Note: In a full integration test, this would go through `enforce_firewall`.
-    // Here we are unit-testing the components interacting via the service logic,
-    // but the Policy check happens *before* the service call in the Orchestrator.
-    // So to test Policy, we need to invoke `enforce_firewall` manually or trust `ingestion_e2e`.
-
-    // Let's use `enforce_firewall` directly here to prove the OS driver integration works.
+    // --- TEST 2: Firewall Approval Gate ---
+    // The current local-policy contract is interactive by default. Unknown service calls
+    // are intercepted for approval instead of hard-blocked, so this e2e verifies that the
+    // firewall still mediates agentic service traffic before execution.
 
     use ioi_types::app::{
         ChainTransaction, SignHeader, SignatureProof, SystemPayload, SystemTransaction,
     };
     use ioi_validator::firewall::enforce_firewall;
 
-    // Set Forbidden Window
-    *active_window.lock().unwrap() = "Calculator".to_string(); // Assume policy blocks Calculator
+    *active_window.lock().unwrap() = "Calculator".to_string();
 
     // Mock Safety Model (Always Safe)
     struct SafeModel;
@@ -363,12 +359,6 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
 
     let tx = ChainTransaction::System(Box::new(sys_tx));
 
-    // Define Rules (Mocked via code injection or assumption)
-    // The `enforce_firewall` function loads rules from `ActionRules::default()` if `agentic`.
-    // The default rules are empty (DenyAll).
-    // So this should fail by default unless we modify `ActionRules::default` or inject a policy.
-    // For this test, we rely on the fact that `DenyAll` + no Allow rule for "Calculator" means BLOCK.
-
     let res = enforce_firewall(
         &mut state,
         &services_dir,
@@ -386,16 +376,21 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
 
     assert!(
         res.is_err(),
-        "Firewall should block action in Calculator window (Default Deny)"
+        "Firewall should intercept unexpected agentic service calls"
+    );
+    assert!(
+        matches!(res, Err(TransactionError::PendingApproval(_))),
+        "Expected approval gate, got {:?}",
+        res
     );
     let err = res.unwrap_err().to_string();
     assert!(
-        err.contains("Blocked by Policy"),
+        err.contains("Approval required for request"),
         "Unexpected error: {}",
         err
     );
 
-    println!("✅ Policy Enforcement (Window Context) Test Passed");
+    println!("✅ Firewall Approval Gate Test Passed");
 
     Ok(())
 }

@@ -24,13 +24,13 @@ CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography
   ],
   "planned_tool_calls": [],
   "routing_tools": [
-    "agent__await_result",
+    "agent__await",
     "agent__delegate",
     "web__read",
     "web__search"
   ],
   "workload_tools": [
-    "agent__await_result",
+    "agent__await",
     "agent__delegate",
     "memory__search",
     "web__read",
@@ -1647,7 +1647,7 @@ CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography
       "error_class": null
     },
     {
-      "tool_name": "agent__await_result",
+      "tool_name": "agent__await",
       "phase": "step_completed",
       "playbook_id": "citation_grounded_brief",
       "playbook_label": "Citation-Grounded Brief",
@@ -1691,7 +1691,7 @@ CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography
       "error_class": null
     },
     {
-      "tool_name": "agent__await_result",
+      "tool_name": "agent__await",
       "phase": "step_completed",
       "playbook_id": "citation_grounded_brief",
       "playbook_label": "Citation-Grounded Brief",
@@ -1722,7 +1722,7 @@ CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography
       "error_class": null
     },
     {
-      "tool_name": "agent__await_result",
+      "tool_name": "agent__await",
       "phase": "completed",
       "playbook_id": "citation_grounded_brief",
       "playbook_label": "Citation-Grounded Brief",
@@ -1848,7 +1848,7 @@ CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography
       "satisfied": true,
       "timestamp_ms": 1775186277568,
       "probe_source": "service_action_execution",
-      "observed_value": "{\"elapsed_ms\":0,\"finished_at_ms\":1775186277568,\"foreground_window_bound\":true,\"started_at_ms\":1775186277568,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"Custom(\\\"agent__await_result\\\")\"}",
+      "observed_value": "{\"elapsed_ms\":0,\"finished_at_ms\":1775186277568,\"foreground_window_bound\":true,\"started_at_ms\":1775186277568,\"status\":\"completed\",\"target_app_hint\":null,\"tool_target\":\"Custom(\\\"agent__await\\\")\"}",
       "evidence_type": "json",
       "provider_id": null
     },
@@ -1859,7 +1859,7 @@ CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography
       "satisfied": true,
       "timestamp_ms": 1775186277572,
       "probe_source": "service_action_execution",
-      "observed_value": "{\"elapsed_ms\":3,\"finished_at_ms\":1775186277572,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"Custom(\\\"agent__await_result\\\")\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1775186277569,\"status\":\"completed\"}",
+      "observed_value": "{\"elapsed_ms\":3,\"finished_at_ms\":1775186277572,\"net_mode\":\"disabled\",\"observed_domain\":null,\"request_target\":\"Custom(\\\"agent__await\\\")\",\"runtime_target\":\"control_plane\",\"started_at_ms\":1775186277569,\"status\":\"completed\"}",
       "evidence_type": "json",
       "provider_id": null
     },
@@ -1881,7 +1881,7 @@ CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography
       "satisfied": true,
       "timestamp_ms": 1775186277572,
       "probe_source": "workload_spec.evaluate_lease.v1",
-      "observed_value": "target=agent__await_result;runtime_target=control_plane;net_mode=disabled",
+      "observed_value": "target=agent__await;runtime_target=control_plane;net_mode=disabled",
       "evidence_type": "scalar",
       "provider_id": null
     },
@@ -4251,7 +4251,7 @@ CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography
     "workload other",
     "workload other",
     "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0...",
-    "routing tool=agent__await_result decision=allowed success=true checks=incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,was_queue=true,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=N..."
+    "routing tool=agent__await decision=allowed success=true checks=incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,was_queue=true,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=N..."
   ],
   "kernel_event_count": 224,
   "kernel_log_lines": [
@@ -4268,10 +4268,10 @@ CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography
     "event(other) payload=AgentSpawn { parent_session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], new_session_id: [253, 167, 254, 148, 61, 230, 20, 195, 187, 10, 96, 120, 163, 159, 90, 70, 13, 70, 124, 62, 203, 139, 243, 192, 228, 85, 31, 86, 210, 183, 17, 218], name: \"Research-Worker-fda7\", role: \"Research Worker\", budget: 90, goal: \"Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.\\n\\n[PARENT PLAYBOOK CONTEXT]\\n- prep_summary: Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.\" }",
     "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 0, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Macro Step] Executing queued action\", raw_output: \"{\\\"budget\\\":90,\\\"child_session_id_hex\\\":\\\"fda7fe943de614c3bb0a6078a39f5a460d467c3ecb8bf3c0e4551f56d2b711da\\\",\\\"expected_output\\\":\\\"Research brief with findings, sources, freshness notes, and open questions.\\\",\\\"merge_mode\\\":\\\"append_summary_to_parent\\\",\\\"playbook_id\\\":\\\"citation_grounded_brief\\\",\\\"role\\\":\\\"Research Worker\\\",\\\"success_criteria\\\":\\\"Return a cited research brief that answers the delegated topic, calls out freshness windows, and names unresolved questions or blockers.\\\",\\\"template_id\\\":\\\"researcher\\\",\\\"workflow_id\\\":\\\"live_research_brief\\\"}\", success: true, error: None, cost_incurred: 0, fitness_score: None, skill_hash: None, timestamp: 1775186277 })",
     "routing tool=agent__delegate decision=allowed success=true checks=incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,was_queue=true,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true",
-    "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"web.research\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1775186277568, evidence_commit_hash: \"sha256:75ff4c35c64d5b3b0a591592bcc2b3b849957a5542d196f292c978b1216a48ea\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":0,\\\"finished_at_ms\\\":1775186277568,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1775186277568,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"Custom(\\\\\\\"agent__await_result\\\\\\\")\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
-    "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"web.research\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1775186277572, evidence_commit_hash: \"sha256:0ae5523cbe7753c76a7082c94997cbd44a49586d6fda5914e03221595911f20f\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":3,\\\"finished_at_ms\\\":1775186277572,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"Custom(\\\\\\\"agent__await_result\\\\\\\")\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1775186277569,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+    "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"web.research\", stage: \"execution\", key: \"service_prepare_tool\", satisfied: true, timestamp_ms: 1775186277568, evidence_commit_hash: \"sha256:75ff4c35c64d5b3b0a591592bcc2b3b849957a5542d196f292c978b1216a48ea\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":0,\\\"finished_at_ms\\\":1775186277568,\\\"foreground_window_bound\\\":true,\\\"started_at_ms\\\":1775186277568,\\\"status\\\":\\\"completed\\\",\\\"target_app_hint\\\":null,\\\"tool_target\\\":\\\"Custom(\\\\\\\"agent__await\\\\\\\")\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
+    "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"web.research\", stage: \"execution\", key: \"service_determinism_context\", satisfied: true, timestamp_ms: 1775186277572, evidence_commit_hash: \"sha256:0ae5523cbe7753c76a7082c94997cbd44a49586d6fda5914e03221595911f20f\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":3,\\\"finished_at_ms\\\":1775186277572,\\\"net_mode\\\":\\\"disabled\\\",\\\"observed_domain\\\":null,\\\"request_target\\\":\\\"Custom(\\\\\\\"agent__await\\\\\\\")\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1775186277569,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
     "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"web.research\", stage: \"execution\", key: \"policy_hash_binding\", satisfied: true, timestamp_ms: 1775186277572, evidence_commit_hash: \"sha256:70ead72f51547e5ff9c2f11d1473f71b854eac6a3bcefcb264a815964b1013dc\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
-    "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"web.research\", stage: \"execution\", key: \"capability_lease\", satisfied: true, timestamp_ms: 1775186277572, evidence_commit_hash: \"sha256:5bf2d324a720c886ef1d636028607878d5ad1ed6e65c345b319b43796775c5f0\", verifier_command_commit_hash: None, probe_source: Some(\"workload_spec.evaluate_lease.v1\"), observed_value: Some(\"target=agent__await_result;runtime_target=control_plane;net_mode=disabled\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
+    "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"web.research\", stage: \"execution\", key: \"capability_lease\", satisfied: true, timestamp_ms: 1775186277572, evidence_commit_hash: \"sha256:5bf2d324a720c886ef1d636028607878d5ad1ed6e65c345b319b43796775c5f0\", verifier_command_commit_hash: None, probe_source: Some(\"workload_spec.evaluate_lease.v1\"), observed_value: Some(\"target=agent__await;runtime_target=control_plane;net_mode=disabled\"), evidence_type: Some(\"scalar\"), provider_id: None, synthesized_payload_hash: None })",
     "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"web.research\", stage: \"execution\", key: \"firewall_decision_receipt\", satisfied: true, timestamp_ms: 1775186277588, evidence_commit_hash: \"sha256:3ffc1b237ecb20ab839c9f5d4e4596a5cda80205a2bcb9730cf6450f7cbc7a56\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
     "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"web.research\", stage: \"execution\", key: \"determinism_commit\", satisfied: true, timestamp_ms: 1775186277589, evidence_commit_hash: \"sha256:0e04d44c68961f93fb8a9829c002833f1cdc4c7dc097a10853df26555f5ed94c\", verifier_command_commit_hash: None, probe_source: None, observed_value: None, evidence_type: None, provider_id: None, synthesized_payload_hash: None })",
     "event(other) payload=ExecutionContractReceipt(ExecutionContractReceiptEvent { contract_version: \"cec.v0.4\", session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, intent_id: \"web.research\", stage: \"execution\", key: \"service_policy_gate\", satisfied: true, timestamp_ms: 1775186277589, evidence_commit_hash: \"sha256:f0b6862b2f7d66392de4f267a0610a5f4a1cb4526313559044eef8603e4a79ea\", verifier_command_commit_hash: None, probe_source: Some(\"service_action_execution\"), observed_value: Some(\"{\\\"elapsed_ms\\\":17,\\\"finished_at_ms\\\":1775186277589,\\\"net_mode\\\":\\\"disabled\\\",\\\"runtime_target\\\":\\\"control_plane\\\",\\\"started_at_ms\\\":1775186277572,\\\"status\\\":\\\"completed\\\"}\"), evidence_type: Some(\"json\"), provider_id: None, synthesized_payload_hash: None })",
@@ -4478,7 +4478,7 @@ CAPABILITIES_CASE_OBSERVATION_research_the_latest_nist_post_quantum_cryptography
     "workload other",
     "workload other",
     "event(other) payload=AgentStep(StepTrace { session_id: [100, 117, 134, 151, 168, 185, 202, 219, 236, 253, 14, 31, 48, 65, 82, 99, 116, 133, 150, 167, 184, 201, 218, 235, 252, 13, 30, 47, 64, 81, 98, 115], step_index: 1, visual_hash: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], full_prompt: \"[Macro Step] Executing queued action\", raw_output: \"Research Worker handoff\\nGoal: Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.\\n\\n[PARENT PLAYBOOK CONTEXT]\\n- prep_summary: Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.\\nParent playbook: citation_grounded_brief\\nPlaybook: Live Research Brief (live_research_brief)\\n\\nBriefing for 'Research the latest NIST post-quantum cryptography standards and write me a one-page briefing using current web and local memory evidence, then return a cited brief with findings, uncertainties, and next checks.' (as of 2026-04-03T03:18:02Z UTC)\\n\\nWhat happened: As of 2026-04-03, retrieved authoritative sources identify the currently published standards as FIPS 204 and FIPS 205. According to NIST Releases First 3 Finalized Post-Quantum Encryption Standards, FIPS 205 , also designed for digital signatures. FIPS 204 , intended as the primary standard for protecting digital signatures. According to FIPS 203, Module-Lattice-Based Key-Encapsulation Mechanism Standard, FIPS 204 FIPS 205 SP 800-227 Document History: 08/24/23: FIPS 203 (Draft) 08/13/24: FIPS 203 (Final) key management , post-quantum cryptography.\\n\\nKey evidence:\\n- According to NIST Releases First 3 Finalized Post-Quantum Encryption Standards, FIPS 205 , also designed for digital signatures. FIPS 204 , intended as the primary standard for protecting digital signatures.\\n- According to FIPS 203, Module-Lattice-Based Key-Encapsulation Mechanism Standar...",
-    "routing tool=agent__await_result decision=allowed success=true checks=incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,was_queue=true,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true"
+    "routing tool=agent__await decision=allowed success=true checks=incident_active=false,policy_decision=allowed,was_gated=false,awaiting_sudo_password=false,awaiting_clarification=false,was_queue=true,remediation_queued=false,stop_condition_hit=false,routing_tier_selected=ToolFirst,routing_reason_code=tool_first_default,routing_source_failure=None,routing_tier_matches_pre_state=true"
   ]
 }
 test capabilities_query_suite_e2e has been running for over 60 seconds

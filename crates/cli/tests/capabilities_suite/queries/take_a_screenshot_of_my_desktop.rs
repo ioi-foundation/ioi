@@ -189,7 +189,7 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 }
 
 fn has_capture_path_signal(tools: &[String]) -> bool {
-    has_tool_with_token(tools, "computer")
+    has_tool_with_token(tools, "screen")
 }
 
 fn build_environment_receipts(
@@ -216,7 +216,7 @@ fn build_environment_receipts(
                 incident_resolved
             ),
             probe_source:
-                "KernelEvent::AgentActionResult(tool=computer,status=completed) | RoutingReceipt.post_state.verification_checks",
+                "KernelEvent::AgentActionResult(tool=screen,status=completed) | RoutingReceipt.post_state.verification_checks",
             timestamp_ms: obs.run_timestamp_ms,
             satisfied: capture_evidence_present,
         },

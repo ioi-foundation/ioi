@@ -48,14 +48,14 @@ fn is_safe_package_identifier(package: &str) -> bool {
 pub(super) fn normalize_install_package_arguments(arguments: &Value) -> Result<Value> {
     let args_obj = arguments
         .as_object()
-        .ok_or_else(|| anyhow!("sys__install_package arguments must be an object"))?;
+        .ok_or_else(|| anyhow!("package__install arguments must be an object"))?;
 
     let package = args_obj
         .get("package")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|v| !v.is_empty())
-        .ok_or_else(|| anyhow!("sys__install_package requires a non-empty 'package' field"))?;
+        .ok_or_else(|| anyhow!("package__install requires a non-empty 'package' field"))?;
 
     if !is_safe_package_identifier(package) {
         return Err(anyhow!(
@@ -75,26 +75,26 @@ pub(super) fn normalize_install_package_arguments(arguments: &Value) -> Result<V
 pub(super) fn lower_edit_line_to_fs_write(arguments: &Value) -> Result<Value> {
     let args_obj = arguments
         .as_object()
-        .ok_or_else(|| anyhow!("filesystem__edit_line arguments must be an object"))?;
+        .ok_or_else(|| anyhow!("file__replace_line arguments must be an object"))?;
 
     let path = args_obj
         .get("path")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|v| !v.is_empty())
-        .ok_or_else(|| anyhow!("filesystem__edit_line requires a non-empty 'path' field"))?;
+        .ok_or_else(|| anyhow!("file__replace_line requires a non-empty 'path' field"))?;
 
     let line_number_raw = args_obj
         .get("line_number")
         .or_else(|| args_obj.get("line"))
         .and_then(|v| v.as_u64())
         .ok_or_else(|| {
-            anyhow!("filesystem__edit_line requires integer 'line_number' (or alias 'line')")
+            anyhow!("file__replace_line requires integer 'line_number' (or alias 'line')")
         })?;
 
     if line_number_raw == 0 || line_number_raw > u32::MAX as u64 {
         return Err(anyhow!(
-            "filesystem__edit_line 'line_number' must be between 1 and {}",
+            "file__replace_line 'line_number' must be between 1 and {}",
             u32::MAX
         ));
     }
@@ -103,12 +103,10 @@ pub(super) fn lower_edit_line_to_fs_write(arguments: &Value) -> Result<Value> {
         .get("content")
         .or_else(|| args_obj.get("text"))
         .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            anyhow!("filesystem__edit_line requires string 'content' (or alias 'text')")
-        })?;
+        .ok_or_else(|| anyhow!("file__replace_line requires string 'content' (or alias 'text')"))?;
 
     Ok(json!({
-        "name": "filesystem__write_file",
+        "name": "file__write",
         "arguments": {
             "path": path,
             "content": content,
@@ -119,7 +117,7 @@ pub(super) fn lower_edit_line_to_fs_write(arguments: &Value) -> Result<Value> {
 
 pub(super) fn normalize_ui_click_component_arguments(arguments: &Value) -> Result<Value> {
     let args_obj = arguments.as_object().ok_or_else(|| {
-        anyhow!("Schema Validation Error: ui__click_component arguments must be a JSON object.")
+        anyhow!("Schema Validation Error: screen__click arguments must be a JSON object.")
     })?;
 
     let id = args_obj
@@ -135,7 +133,7 @@ pub(super) fn normalize_ui_click_component_arguments(arguments: &Value) -> Resul
         .filter(|v| !v.is_empty())
         .ok_or_else(|| {
             anyhow!(
-                "Schema Validation Error: ui__click_component requires a non-empty 'id' field (aliases: component_id, element_id, target_id)."
+                "Schema Validation Error: screen__click requires a non-empty 'id' field (aliases: component_id, element_id, target_id)."
             )
         })?;
 
@@ -154,29 +152,27 @@ pub(super) fn normalize_browser_wait_arguments(arguments: &Value) -> Result<Valu
 
 pub(super) fn normalize_browser_click_element_arguments(arguments: &Value) -> Result<Value> {
     let args_obj = arguments.as_object().ok_or_else(|| {
-        anyhow!("Schema Validation Error: browser__click_element arguments must be a JSON object.")
+        anyhow!("Schema Validation Error: browser__click arguments must be a JSON object.")
     })?;
     let mut normalized = args_obj.clone();
 
-    normalize_browser_continue_with("browser__click_element", &mut normalized)?;
+    normalize_browser_continue_with("browser__click", &mut normalized)?;
     Ok(Value::Object(normalized))
 }
 
 pub(super) fn normalize_browser_key_arguments(arguments: &Value) -> Result<Value> {
     let args_obj = arguments.as_object().ok_or_else(|| {
-        anyhow!("Schema Validation Error: browser__key arguments must be a JSON object.")
+        anyhow!("Schema Validation Error: browser__press_key arguments must be a JSON object.")
     })?;
     let mut normalized = args_obj.clone();
 
-    normalize_browser_continue_with("browser__key", &mut normalized)?;
+    normalize_browser_continue_with("browser__press_key", &mut normalized)?;
     Ok(Value::Object(normalized))
 }
 
 pub(super) fn normalize_browser_synthetic_click_arguments(arguments: &Value) -> Result<Value> {
     let args_obj = arguments.as_object().ok_or_else(|| {
-        anyhow!(
-            "Schema Validation Error: browser__synthetic_click arguments must be a JSON object."
-        )
+        anyhow!("Schema Validation Error: browser__click_at arguments must be a JSON object.")
     })?;
     let mut normalized = args_obj.clone();
 
@@ -191,13 +187,13 @@ pub(super) fn normalize_browser_synthetic_click_arguments(arguments: &Value) -> 
 
     if parsed_x.is_some() ^ parsed_y.is_some() {
         return Err(anyhow!(
-            "Schema Validation Error: browser__synthetic_click requires both numeric 'x' and 'y' when either coordinate is provided."
+            "Schema Validation Error: browser__click_at requires both numeric 'x' and 'y' when either coordinate is provided."
         ));
     }
 
     if id.is_none() && parsed_x.is_none() {
         return Err(anyhow!(
-            "Schema Validation Error: browser__synthetic_click requires either a grounded non-empty 'id' or both numeric 'x' and 'y' fields."
+            "Schema Validation Error: browser__click_at requires either a grounded non-empty 'id' or both numeric 'x' and 'y' fields."
         ));
     }
 
@@ -208,9 +204,8 @@ pub(super) fn normalize_browser_synthetic_click_arguments(arguments: &Value) -> 
     }
 
     if let Some(x) = parsed_x {
-        let y = parsed_y.expect(
-            "browser__synthetic_click coordinate normalization already validated matching `y`",
-        );
+        let y = parsed_y
+            .expect("browser__click_at coordinate normalization already validated matching `y`");
         normalized.insert("x".to_string(), json!(x));
         normalized.insert("y".to_string(), json!(y));
     } else {
@@ -218,7 +213,7 @@ pub(super) fn normalize_browser_synthetic_click_arguments(arguments: &Value) -> 
         normalized.remove("y");
     }
 
-    normalize_browser_continue_with("browser__synthetic_click", &mut normalized)?;
+    normalize_browser_continue_with("browser__click_at", &mut normalized)?;
     Ok(Value::Object(normalized))
 }
 
@@ -243,14 +238,14 @@ fn normalize_browser_continue_with(
         continue_map.insert("name".to_string(), json!(name));
     }
 
-    if tool_name == "browser__synthetic_click"
+    if tool_name == "browser__click_at"
         && continue_map
             .get("name")
             .and_then(|value| value.as_str())
-            .is_some_and(|name| matches!(name, "browser__mouse_down" | "browser__mouse_up"))
+            .is_some_and(|name| matches!(name, "browser__pointer_down" | "browser__pointer_up"))
     {
         return Err(anyhow!(
-            "Schema Validation Error: browser__synthetic_click continue_with does not allow pointer button state changes. Use grounded drag tools as separate steps with browser__move_mouse plus browser__mouse_down/browser__mouse_up."
+            "Schema Validation Error: browser__click_at continue_with does not allow pointer button state changes. Use grounded drag tools as separate steps with browser__move_pointer plus browser__pointer_down/browser__pointer_up."
         ));
     }
 
@@ -423,7 +418,7 @@ pub(super) fn normalize_ui_type_arguments(arguments: &Value) -> Result<Value> {
         || args_obj.contains_key("componentId")
     {
         return Err(anyhow!(
-            "Schema Validation Error: ui__type does not support targeting by id. Use gui__click_element(id=...) first, then gui__type(text=...)."
+            "Schema Validation Error: ui__type does not support targeting by id. Use screen__click(id=...) first, then screen__type(text=...)."
         ));
     }
 
@@ -468,7 +463,7 @@ pub(super) fn normalize_ui_click_arguments(arguments: &Value) -> Result<Value> {
     if has_any_id {
         let normalized = normalize_ui_click_component_arguments(arguments)?;
         return Ok(json!({
-            "name": "gui__click_element",
+            "name": "screen__click",
             "arguments": normalized,
         }));
     }
@@ -503,7 +498,7 @@ pub(super) fn normalize_ui_click_arguments(arguments: &Value) -> Result<Value> {
         .filter(|v| !v.is_empty());
 
     Ok(json!({
-        "name": "gui__click",
+        "name": "screen__click_at",
         "arguments": if let Some(button) = button {
             json!({"x": x, "y": y, "button": button})
         } else {
@@ -514,7 +509,7 @@ pub(super) fn normalize_ui_click_arguments(arguments: &Value) -> Result<Value> {
 
 pub(super) fn normalize_net_fetch_arguments(arguments: &Value) -> Result<Value> {
     let args_obj = arguments.as_object().ok_or_else(|| {
-        anyhow!("Schema Validation Error: net__fetch arguments must be a JSON object.")
+        anyhow!("Schema Validation Error: http__fetch arguments must be a JSON object.")
     })?;
 
     let url = args_obj
@@ -523,7 +518,7 @@ pub(super) fn normalize_net_fetch_arguments(arguments: &Value) -> Result<Value> 
         .map(str::trim)
         .filter(|v| !v.is_empty())
         .ok_or_else(|| {
-            anyhow!("Schema Validation Error: net__fetch requires a non-empty 'url' field.")
+            anyhow!("Schema Validation Error: http__fetch requires a non-empty 'url' field.")
         })?;
 
     let max_chars = args_obj

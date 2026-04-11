@@ -362,7 +362,7 @@ async fn run_agent_case_session(
 
         let mut snapshot_paths = Vec::new();
         for (index, step) in harness.tool_steps.iter().enumerate() {
-            if step.tool_name == "browser__snapshot" {
+            if step.tool_name == "browser__inspect" {
                 let path = artifact_root.join(format!("snapshot_{}.xml", index + 1));
                 if let Some(xml) = &step.history_entry {
                     let _ = fs::write(&path, xml);

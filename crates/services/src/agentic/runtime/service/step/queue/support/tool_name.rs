@@ -3,23 +3,23 @@ use super::*;
 pub(super) fn infer_sys_tool_name(args: &serde_json::Value) -> &'static str {
     if let Some(obj) = args.as_object() {
         if obj.get("command").is_none() && obj.get("app_name").is_some() {
-            return "os__launch_app";
+            return "app__launch";
         }
         if obj.get("command").is_none() && obj.get("path").is_some() {
-            return "sys__change_directory";
+            return "shell__cd";
         }
     }
-    "sys__exec"
+    "shell__run"
 }
 
 pub(super) fn infer_fs_read_tool_name(args: &serde_json::Value) -> &'static str {
     let Some(obj) = args.as_object() else {
-        return "filesystem__read_file";
+        return "file__read";
     };
 
     // Preserve deterministic filesystem search queued via ActionTarget::FsRead.
     if obj.contains_key("regex") || obj.contains_key("file_pattern") {
-        return "filesystem__search";
+        return "file__search";
     }
 
     if let Some(path) = obj
@@ -29,26 +29,26 @@ pub(super) fn infer_fs_read_tool_name(args: &serde_json::Value) -> &'static str 
         .filter(|value| !value.is_empty())
     {
         if Path::new(path).is_dir() {
-            return "filesystem__list_directory";
+            return "file__list";
         }
     }
 
-    "filesystem__read_file"
+    "file__read"
 }
 
 pub(super) fn infer_fs_write_tool_name(args: &serde_json::Value) -> &'static str {
     let Some(obj) = args.as_object() else {
-        return "filesystem__write_file";
+        return "file__write";
     };
 
     // Preserve deterministic patch requests queued under ActionTarget::FsWrite.
     if obj.contains_key("search") && obj.contains_key("replace") {
-        return "filesystem__patch";
+        return "file__edit";
     }
 
     // Preserve deterministic archive creation requests queued under ActionTarget::FsWrite.
     if obj.contains_key("source_path") && obj.contains_key("destination_zip_path") {
-        return "filesystem__create_zip";
+        return "file__zip";
     }
 
     // Preserve deterministic delete/create-directory requests queued under
@@ -60,17 +60,17 @@ pub(super) fn infer_fs_write_tool_name(args: &serde_json::Value) -> &'static str
     {
         // Delete payloads include `ignore_missing`; prefer delete whenever it is present.
         if obj.contains_key("ignore_missing") {
-            return "filesystem__delete_path";
+            return "file__delete";
         }
 
         // Recursive-without-delete markers maps to create_directory to avoid destructive
         // misclassification of legacy deterministic directory creation requests.
         if obj.contains_key("recursive") {
-            return "filesystem__create_directory";
+            return "file__create_dir";
         }
     }
 
-    "filesystem__write_file"
+    "file__write"
 }
 
 pub(super) fn has_non_empty_string_field(
@@ -93,19 +93,19 @@ pub(super) fn is_ambiguous_fs_write_transfer_payload(args: &serde_json::Value) -
 
 pub(super) fn infer_custom_tool_name(name: &str, args: &serde_json::Value) -> String {
     match name {
-        "ui::find" => "ui__find".to_string(),
-        "os::focus" => "os__focus_window".to_string(),
-        "os::launch_app" => "os__launch_app".to_string(),
-        "clipboard::write" => "os__copy".to_string(),
-        "clipboard::read" => "os__paste".to_string(),
+        "ui::find" => "screen__find".to_string(),
+        "os::focus" => "window__focus".to_string(),
+        "os::launch_app" => "app__launch".to_string(),
+        "clipboard::write" => "clipboard__copy".to_string(),
+        "clipboard::read" => "clipboard__paste".to_string(),
         "math::eval" => "math__eval".to_string(),
-        "computer::cursor" => "computer".to_string(),
+        "screen::cursor" => "screen".to_string(),
         "fs::read" => infer_fs_read_tool_name(args).to_string(),
         "fs::write" => infer_fs_write_tool_name(args).to_string(),
         "sys::exec" => infer_sys_tool_name(args).to_string(),
-        "sys::exec_session" => "sys__exec_session".to_string(),
-        "sys::exec_session_reset" => "sys__exec_session_reset".to_string(),
-        "sys::install_package" => "sys__install_package".to_string(),
+        "sys::exec_session" => "shell__start".to_string(),
+        "sys::exec_session_reset" => "shell__reset".to_string(),
+        "sys::install_package" => "package__install".to_string(),
         _ => name.to_string(),
     }
 }
@@ -143,12 +143,12 @@ pub(super) fn infer_browser_interact_tool_name(
 
     if obj.contains_key("tab_id") {
         if obj.get("close").and_then(|value| value.as_bool()) == Some(true) {
-            return Ok("browser__tab_close");
+            return Ok("browser__close_tab");
         }
-        return Ok("browser__tab_switch");
+        return Ok("browser__switch_tab");
     }
     if obj.contains_key("paths") {
-        return Ok("browser__upload_file");
+        return Ok("browser__upload");
     }
     if obj.contains_key("ms") {
         return Ok("browser__wait");
@@ -163,16 +163,16 @@ pub(super) fn infer_browser_interact_tool_name(
         return Ok("browser__screenshot");
     }
     if obj.contains_key("value") || obj.contains_key("label") {
-        return Ok("browser__select_dropdown");
+        return Ok("browser__select_option");
     }
     if obj.contains_key("som_id") {
-        return Ok("browser__dropdown_options");
+        return Ok("browser__list_options");
     }
     if obj.is_empty() {
-        return Ok("browser__tab_list");
+        return Ok("browser__list_tabs");
     }
     if obj.contains_key("steps") {
-        return Ok("browser__go_back");
+        return Ok("browser__back");
     }
     if obj.contains_key("url") {
         return Ok("browser__navigate");
@@ -181,22 +181,22 @@ pub(super) fn infer_browser_interact_tool_name(
         return Ok("browser__type");
     }
     if obj.contains_key("start_offset") || obj.contains_key("end_offset") {
-        return Ok("browser__select_text");
+        return Ok("browser__select");
     }
     if obj.contains_key("modifiers") {
-        return Ok("browser__key");
+        return Ok("browser__press_key");
     }
     if obj.contains_key("id") || obj.contains_key("ids") {
-        return Ok("browser__click_element");
+        return Ok("browser__click");
     }
     if obj.contains_key("selector") {
         return Ok("browser__click");
     }
     if obj.contains_key("key") {
-        return Ok("browser__key");
+        return Ok("browser__press_key");
     }
     if obj.contains_key("x") && obj.contains_key("y") {
-        return Ok("browser__synthetic_click");
+        return Ok("browser__click_at");
     }
     if obj.contains_key("delta_x") || obj.contains_key("delta_y") {
         return Ok("browser__scroll");
@@ -260,26 +260,23 @@ pub(super) fn is_explicit_tool_name_allowed_for_scope(
     match scope {
         QueueToolNameScope::Read => matches!(
             tool_name,
-            "filesystem__read_file"
-                | "filesystem__list_directory"
-                | "filesystem__search"
-                | "filesystem__stat"
+            "file__read" | "file__list" | "file__search" | "file__info"
         ),
         QueueToolNameScope::Write => matches!(
             tool_name,
-            "filesystem__write_file"
-                | "filesystem__patch"
-                | "filesystem__delete_path"
-                | "filesystem__create_directory"
-                | "filesystem__create_zip"
-                | "filesystem__copy_path"
-                | "filesystem__move_path"
+            "file__write"
+                | "file__edit"
+                | "file__delete"
+                | "file__create_dir"
+                | "file__zip"
+                | "file__copy"
+                | "file__move"
         ),
         QueueToolNameScope::GuiClick => {
-            matches!(tool_name, "gui__click" | "gui__click_element" | "computer")
+            matches!(tool_name, "screen__click_at" | "screen__click" | "screen")
         }
         QueueToolNameScope::SysExec => {
-            matches!(tool_name, "sys__exec_session" | "sys__exec_session_reset")
+            matches!(tool_name, "shell__start" | "shell__reset")
         }
         QueueToolNameScope::WebRetrieve => {
             matches!(
@@ -287,35 +284,34 @@ pub(super) fn is_explicit_tool_name_allowed_for_scope(
                 "web__search"
                     | "web__read"
                     | "media__extract_transcript"
-                    | "media__extract_multimodal_evidence"
+                    | "media__extract_evidence"
             )
         }
         QueueToolNameScope::BrowserInteract => matches!(
             tool_name,
             "browser__navigate"
                 | "browser__click"
-                | "browser__click_element"
                 | "browser__hover"
-                | "browser__move_mouse"
-                | "browser__mouse_down"
-                | "browser__mouse_up"
-                | "browser__synthetic_click"
+                | "browser__move_pointer"
+                | "browser__pointer_down"
+                | "browser__pointer_up"
+                | "browser__click_at"
                 | "browser__scroll"
                 | "browser__type"
-                | "browser__select_text"
-                | "browser__key"
-                | "browser__copy_selection"
-                | "browser__paste_clipboard"
+                | "browser__select"
+                | "browser__press_key"
+                | "browser__copy"
+                | "browser__paste"
                 | "browser__find_text"
                 | "browser__screenshot"
                 | "browser__wait"
-                | "browser__upload_file"
-                | "browser__dropdown_options"
-                | "browser__select_dropdown"
-                | "browser__go_back"
-                | "browser__tab_list"
-                | "browser__tab_switch"
-                | "browser__tab_close"
+                | "browser__upload"
+                | "browser__list_options"
+                | "browser__select_option"
+                | "browser__back"
+                | "browser__list_tabs"
+                | "browser__switch_tab"
+                | "browser__close_tab"
         ),
     }
 }
@@ -389,7 +385,7 @@ pub(super) fn queue_target_to_tool_name_and_args(
     ) && is_ambiguous_fs_write_transfer_payload(&raw_args)
     {
         return Err(TransactionError::Invalid(format!(
-            "Queued fs::write transfer payloads must include {} set to filesystem__copy_path or filesystem__move_path.",
+            "Queued fs::write transfer payloads must include {} set to file__copy or file__move.",
             QUEUE_TOOL_NAME_KEY
         )));
     }
@@ -402,48 +398,48 @@ pub(super) fn queue_target_to_tool_name_and_args(
             infer_web_retrieve_tool_name(&raw_args)?.to_string(),
             raw_args,
         )),
-        ActionTarget::NetFetch => Ok(("net__fetch".to_string(), raw_args)),
+        ActionTarget::NetFetch => Ok(("http__fetch".to_string(), raw_args)),
         ActionTarget::BrowserInteract => Ok((
             infer_browser_interact_tool_name(&raw_args)?.to_string(),
             raw_args,
         )),
-        ActionTarget::BrowserInspect => Ok(("browser__snapshot".to_string(), raw_args)),
+        ActionTarget::BrowserInspect => Ok(("browser__inspect".to_string(), raw_args)),
         ActionTarget::GuiType | ActionTarget::UiType => {
             if looks_like_computer_action_payload(&raw_args) {
-                Ok(("computer".to_string(), raw_args))
+                Ok(("screen".to_string(), raw_args))
             } else {
-                Ok(("gui__type".to_string(), raw_args))
+                Ok(("screen__type".to_string(), raw_args))
             }
         }
         ActionTarget::GuiClick | ActionTarget::UiClick => {
             if looks_like_computer_action_payload(&raw_args) {
-                Ok(("computer".to_string(), raw_args))
+                Ok(("screen".to_string(), raw_args))
             } else {
-                Ok(("gui__click".to_string(), raw_args))
+                Ok(("screen__click_at".to_string(), raw_args))
             }
         }
         ActionTarget::GuiScroll => {
             if looks_like_computer_action_payload(&raw_args) {
-                Ok(("computer".to_string(), raw_args))
+                Ok(("screen".to_string(), raw_args))
             } else {
-                Ok(("gui__scroll".to_string(), raw_args))
+                Ok(("screen__scroll".to_string(), raw_args))
             }
         }
         ActionTarget::GuiMouseMove => Ok((
-            "computer".to_string(),
+            "screen".to_string(),
             ensure_computer_action(raw_args, "mouse_move"),
         )),
         ActionTarget::GuiScreenshot => Ok((
-            "computer".to_string(),
+            "screen".to_string(),
             ensure_computer_action(raw_args, "screenshot"),
         )),
-        ActionTarget::GuiInspect => Ok(("gui__snapshot".to_string(), raw_args)),
-        ActionTarget::GuiSequence => Ok(("computer".to_string(), raw_args)),
+        ActionTarget::GuiInspect => Ok(("screen__inspect".to_string(), raw_args)),
+        ActionTarget::GuiSequence => Ok(("screen".to_string(), raw_args)),
         ActionTarget::SysExec => Ok((infer_sys_tool_name(&raw_args).to_string(), raw_args)),
-        ActionTarget::SysInstallPackage => Ok(("sys__install_package".to_string(), raw_args)),
-        ActionTarget::WindowFocus => Ok(("os__focus_window".to_string(), raw_args)),
-        ActionTarget::ClipboardWrite => Ok(("os__copy".to_string(), raw_args)),
-        ActionTarget::ClipboardRead => Ok(("os__paste".to_string(), raw_args)),
+        ActionTarget::SysInstallPackage => Ok(("package__install".to_string(), raw_args)),
+        ActionTarget::WindowFocus => Ok(("window__focus".to_string(), raw_args)),
+        ActionTarget::ClipboardWrite => Ok(("clipboard__copy".to_string(), raw_args)),
+        ActionTarget::ClipboardRead => Ok(("clipboard__paste".to_string(), raw_args)),
         unsupported => Err(TransactionError::Invalid(format!(
             "Queue execution for target {:?} is not yet mapped to AgentTool",
             unsupported

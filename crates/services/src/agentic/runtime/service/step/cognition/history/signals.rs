@@ -775,7 +775,7 @@ pub(super) fn ranked_result_pending_signal(
             .as_ref()
             .map(|link| {
                 format!(
-                    "Use `browser__click_element` on `{}` now to reach result {}.",
+                    "Use `browser__click` on `{}` now to reach result {}.",
                     link.semantic_id, request.rank
                 )
             })
@@ -792,7 +792,7 @@ pub(super) fn ranked_result_pending_signal(
         };
 
         return Some(format!(
-            "{} `{}` is the instruction token for `{}`, not a search result. Only {} actual result links are visible here (ranks {}-{}), so result {} is still off-screen. Do not click `{}`, do not use `browser__scroll`, and do not spend the next step on `browser__snapshot`.{}{}",
+            "{} `{}` is the instruction token for `{}`, not a search result. Only {} actual result links are visible here (ranks {}-{}), so result {} is still off-screen. Do not click `{}`, do not use `browser__scroll`, and do not spend the next step on `browser__inspect`.{}{}",
             page_hint,
             instruction_token.semantic_id,
             request.ordinal_text,
@@ -834,7 +834,7 @@ pub(super) fn ranked_result_pending_signal(
     };
 
     Some(format!(
-        "Use `browser__click_element` on `{}` now. Result {} on this page is visible result link `{}` (`{}`). `{}` is the visible instruction token for `{}`, not the result to click. Do not use `browser__scroll`, do not spend the next step on `browser__snapshot`, and do not click `{}` or finish.{}{}",
+        "Use `browser__click` on `{}` now. Result {} on this page is visible result link `{}` (`{}`). `{}` is the visible instruction token for `{}`, not the result to click. Do not use `browser__scroll`, do not spend the next step on `browser__inspect`, and do not click `{}` or finish.{}{}",
         target_result.semantic_id,
         request.rank,
         target_result.semantic_id,
@@ -873,13 +873,13 @@ pub(super) fn instruction_only_find_text_pagination_pending_signal(
 
     Some(match current_heading {
         Some(heading) => format!(
-            "`{}` is not on the current record `{}`. Do not click this record's links. The only valid next `browser__click_element` id here is `{}`. Use it now. Do not invent ids or repeat `browser__find_text`.",
+            "`{}` is not on the current record `{}`. Do not click this record's links. The only valid next `browser__click` id here is `{}`. Use it now. Do not invent ids or repeat `browser__find_text`.",
             recent_find.query,
             heading.name,
             page_control.semantic_id,
         ),
         None => format!(
-            "Recent `browser__find_text` for `{}` matched instruction token `{}`, not the current record. The only valid next `browser__click_element` id here is `{}`. Use it now. Do not invent ids, repeat `browser__find_text`, or spend the next step on `browser__snapshot`.",
+            "Recent `browser__find_text` for `{}` matched instruction token `{}`, not the current record. The only valid next `browser__click` id here is `{}`. Use it now. Do not invent ids, repeat `browser__find_text`, or spend the next step on `browser__inspect`.",
             recent_find.query,
             instruction_token.semantic_id,
             page_control.semantic_id,
@@ -951,7 +951,7 @@ pub(super) fn alternate_tab_exploration_pending_signal(
         .join(" or ");
 
     Some(format!(
-        "The currently expanded section `{focused_label}` does not show the target text `{target}`. Do not click `{}` again, and do not spend the next step on another `browser__snapshot`. Use another visible section tab such as {candidate_clause} now. When `{target}` becomes visible, click that target directly.",
+        "The currently expanded section `{focused_label}` does not show the target text `{target}`. Do not click `{}` again, and do not spend the next step on another `browser__inspect`. Use another visible section tab such as {candidate_clause} now. When `{target}` becomes visible, click that target directly.",
         focused_tab.semantic_id,
     ))
 }
@@ -1166,7 +1166,7 @@ pub(super) fn visible_target_click_pending_signal(
     }
 
     Some(format!(
-        "The target text `{target}` is already visible as `{}`. Use `browser__click_element` on `{}` now. Do not click a surrounding container or panel, do not use `browser__find_text`, and do not spend the next step on another `browser__snapshot`.",
+        "The target text `{target}` is already visible as `{}`. Use `browser__click` on `{}` now. Do not click a surrounding container or panel, do not use `browser__find_text`, and do not spend the next step on another `browser__inspect`.",
         candidate.semantic_id, candidate.semantic_id
     ))
 }
@@ -1207,7 +1207,7 @@ pub(super) fn active_target_submit_pending_signal(
     }
 
     Some(format!(
-        "Target text `{target}` is already active as `{}`. Use `browser__click_element` on `{submit_id}` now to commit the current page state. Do not click `{}` again, and do not call `agent__complete` before submission.",
+        "Target text `{target}` is already active as `{}`. Use `browser__click` on `{submit_id}` now to commit the current page state. Do not click `{}` again, and do not call `agent__complete` before submission.",
         candidate.semantic_id, candidate.semantic_id
     ))
 }
@@ -1239,7 +1239,7 @@ pub(super) fn visible_error_text_control_pending_signal(
         .unwrap_or_else(|| " It is still empty or invalid.".to_string());
 
     Some(format!(
-        "Recent submit `{submit_id}` left visible field `{}` marked invalid.{value_clause} Use `browser__click_element` on `{}` now so you can repair it before submitting again. Do not click `{submit_id}` again yet.",
+        "Recent submit `{submit_id}` left visible field `{}` marked invalid.{value_clause} Use `browser__click` on `{}` now so you can repair it before submitting again. Do not click `{submit_id}` again yet.",
         control.semantic_id,
         control.semantic_id,
     ))
@@ -1494,7 +1494,7 @@ pub(super) fn pointer_hold_pending_signal(
         };
 
         return Some(format!(
-            "The pointer is already positioned{target_clause} for the requested pointer task. Use `browser__mouse_down` now to {action_clause}.{repeat_clause}"
+            "The pointer is already positioned{target_clause} for the requested pointer task. Use `browser__pointer_down` now to {action_clause}.{repeat_clause}"
         ));
     }
 
@@ -1502,23 +1502,23 @@ pub(super) fn pointer_hold_pending_signal(
         PointerHoldGoalKind::Drag if latest_action.action == "hover" => {
             let target = pointer_action_target_label(&latest_action, current_snapshot)?;
             Some(format!(
-                "A browser drag is already in progress and the pointer is grounded on `{target}`. Use `browser__mouse_up` now to release there. Do not repeat `browser__hover` on `{target}` or click submit yet."
+                "A browser drag is already in progress and the pointer is grounded on `{target}`. Use `browser__pointer_up` now to release there. Do not repeat `browser__hover` on `{target}` or click submit yet."
             ))
         }
         PointerHoldGoalKind::Drag if latest_action.action == "mouse_down" => Some(
-            "A browser drag is already in progress. Move to the intended drop target with `browser__hover` when a grounded target is visible, or use `browser__move_mouse` if you only have coordinates, then finish with `browser__mouse_up`. Do not click submit yet.".to_string(),
+            "A browser drag is already in progress. Move to the intended drop target with `browser__hover` when a grounded target is visible, or use `browser__move_pointer` if you only have coordinates, then finish with `browser__pointer_up`. Do not click submit yet.".to_string(),
         ),
         PointerHoldGoalKind::Draw if latest_action.action == "mouse_down" => Some(
-            "A browser pointer trace is already in progress. The next action must be `browser__move_mouse` or `browser__hover` to extend the stroke; do not use `browser__mouse_up` yet. Finish with `browser__mouse_up` only after the pointer has moved. Do not submit yet.".to_string(),
+            "A browser pointer trace is already in progress. The next action must be `browser__move_pointer` or `browser__hover` to extend the stroke; do not use `browser__pointer_up` yet. Finish with `browser__pointer_up` only after the pointer has moved. Do not submit yet.".to_string(),
         ),
         PointerHoldGoalKind::Resize if latest_action.action == "mouse_down" => Some(
-            "A browser resize gesture is already in progress. Move the pointer toward the requested size change with `browser__move_mouse` or `browser__hover`, then finish with `browser__mouse_up`. Do not submit yet.".to_string(),
+            "A browser resize gesture is already in progress. Move the pointer toward the requested size change with `browser__move_pointer` or `browser__hover`, then finish with `browser__pointer_up`. Do not submit yet.".to_string(),
         ),
         PointerHoldGoalKind::Slider if latest_action.action == "mouse_down" => Some(
-            "A browser slider drag is already in progress. Move the pointer along the slider with `browser__move_mouse` or `browser__hover`, then finish with `browser__mouse_up` once the requested value is reached. Do not click submit yet.".to_string(),
+            "A browser slider drag is already in progress. Move the pointer along the slider with `browser__move_pointer` or `browser__hover`, then finish with `browser__pointer_up` once the requested value is reached. Do not click submit yet.".to_string(),
         ),
         PointerHoldGoalKind::ColorWheel if latest_action.action == "mouse_down" => Some(
-            "A browser color-wheel gesture is already in progress. Move the pointer to the requested color position with `browser__move_mouse` or `browser__hover`, then finish with `browser__mouse_up`. Do not submit yet.".to_string(),
+            "A browser color-wheel gesture is already in progress. Move the pointer to the requested color position with `browser__move_pointer` or `browser__hover`, then finish with `browser__pointer_up`. Do not submit yet.".to_string(),
         ),
         _ => None,
     }
@@ -1558,11 +1558,11 @@ pub(super) fn target_search_pending_signal(
 
     Some(match affordance.kind {
         SnapshotSearchAffordanceKind::Field => format!(
-            "Target text `{target}` is not visible yet. Search field `{}` is already on the page. Use `browser__click_element` on `{}` now so you can type `{target}` next; use the page's search control instead of `browser__find_text`, and do not click unrelated list actions first.",
+            "Target text `{target}` is not visible yet. Search field `{}` is already on the page. Use `browser__click` on `{}` now so you can type `{target}` next; use the page's search control instead of `browser__find_text`, and do not click unrelated list actions first.",
             affordance.semantic_id, affordance.semantic_id
         ),
         SnapshotSearchAffordanceKind::Activator => format!(
-            "Target text `{target}` is not visible yet. Search control `{}` is available. Use `browser__click_element` on `{}` now so you can search for `{target}`; use the page's search control instead of `browser__find_text`, and do not click unrelated list actions first.",
+            "Target text `{target}` is not visible yet. Search control `{}` is available. Use `browser__click` on `{}` now so you can search for `{target}`; use the page's search control instead of `browser__find_text`, and do not click unrelated list actions first.",
             affordance.semantic_id, affordance.semantic_id
         ),
     })
@@ -1602,7 +1602,7 @@ fn start_gate_pending_signal(
     }
 
     Some(format!(
-        "A visible start gate `{}` is still covering the task surface. Use `browser__click_element` on `{}` now to begin the page, then continue with the working controls. Do not click underlying canvas, form, or list targets before this gate clears.",
+        "A visible start gate `{}` is still covering the task surface. Use `browser__click` on `{}` now to begin the page, then continue with the working controls. Do not click underlying canvas, form, or list targets before this gate clears.",
         start_gate.semantic_id, start_gate.semantic_id
     ))
 }
@@ -1625,11 +1625,11 @@ pub(super) fn message_recipient_pending_signal(
     let send_id = snapshot_visible_send_control_id(snapshot);
     Some(match send_id {
         Some(send_id) => format!(
-            "This message still needs recipient `{recipient}`. Focus recipient field `{}` with `browser__click_element` now, then type `{recipient}` on the following step. Do not click `{send_id}` yet.",
+            "This message still needs recipient `{recipient}`. Focus recipient field `{}` with `browser__click` now, then type `{recipient}` on the following step. Do not click `{send_id}` yet.",
             control.semantic_id
         ),
         None => format!(
-            "This message still needs recipient `{recipient}`. Focus recipient field `{}` with `browser__click_element` now, then type `{recipient}` on the following step before sending.",
+            "This message still needs recipient `{recipient}`. Focus recipient field `{}` with `browser__click` now, then type `{recipient}` on the following step before sending.",
             control.semantic_id
         ),
     })
@@ -1706,7 +1706,7 @@ pub(super) fn browser_effect_success_signal_for_message(
                     next_controls.join("`, `")
                 ));
                 signal.push_str(
-                    " Do not spend the next step on another `browser__snapshot` unless the page changes again.",
+                    " Do not spend the next step on another `browser__inspect` unless the page changes again.",
                 );
             } else {
                 signal.push_str(
@@ -1766,7 +1766,7 @@ pub(super) fn browser_effect_success_signal_for_message(
             if let Some(clause) = recent_typed_text_follow_up_clause(history, current_snapshot) {
                 signal.push_str(&clause);
                 signal.push_str(
-                    " Do not spend the next step on another `browser__snapshot` unless the page changed.",
+                    " Do not spend the next step on another `browser__inspect` unless the page changed.",
                 );
             } else {
                 let next_controls = next_visible_follow_up_controls(current_snapshot, &[]);
@@ -1951,18 +1951,18 @@ pub(super) fn browser_effect_pending_signal(
         if compact.contains("\"key\":{") {
             if compact.contains("\"key\":\"ArrowDown\"") || compact.contains("\"key\":\"ArrowUp\"")
             {
-                return Some("A recent browser navigation key updated the active autocomplete candidate, but the widget is still open. If the highlighted candidate is the intended choice, press `Enter` to commit it before submitting. Otherwise continue navigating or use `browser__snapshot` to verify.".to_string());
+                return Some("A recent browser navigation key updated the active autocomplete candidate, but the widget is still open. If the highlighted candidate is the intended choice, press `Enter` to commit it before submitting. Otherwise continue navigating or use `browser__inspect` to verify.".to_string());
             }
-            return Some("A recent browser key press left autocomplete active, so that key did not resolve the widget. Do not submit or finish. Use `browser__key` with a different navigation key (for example `ArrowDown` or `ArrowUp`) or take `browser__snapshot` to ground the candidate before committing.".to_string());
+            return Some("A recent browser key press left autocomplete active, so that key did not resolve the widget. Do not submit or finish. Use `browser__press_key` with a different navigation key (for example `ArrowDown` or `ArrowUp`) or take `browser__inspect` to ground the candidate before committing.".to_string());
         }
 
-        return Some("A recent browser action surfaced active autocomplete state. This widget is not resolved yet. Do not submit or finish until you explicitly commit or dismiss the suggestion, usually by checking updated browser state or using `browser__key`.".to_string());
+        return Some("A recent browser action surfaced active autocomplete state. This widget is not resolved yet. Do not submit or finish until you explicitly commit or dismiss the suggestion, usually by checking updated browser state or using `browser__press_key`.".to_string());
     }
 
     if compact.contains("\"key\":{")
         && (compact.contains("\"tag_name\":\"body\"") || compact.contains("\"tag_name\":\"html\""))
     {
-        return Some("A recent browser key landed on the page itself, not on a specific control. If you intended a textarea, listbox, or nested scroll region, target that control directly with `browser__key` `selector` when it is already grounded; otherwise focus it first or continue with the next required visible control. Do not repeat the same key blindly.".to_string());
+        return Some("A recent browser key landed on the page itself, not on a specific control. If you intended a textarea, listbox, or nested scroll region, target that control directly with `browser__press_key` `selector` when it is already grounded; otherwise focus it first or continue with the next required visible control. Do not repeat the same key blindly.".to_string());
     }
 
     if compact.contains("\"key\":{")
@@ -2042,7 +2042,7 @@ pub(super) fn browser_effect_pending_signal(
         && compact.contains("\"page_moved\":false")
         && compact.contains("\"target_moved\":false")
     {
-        return Some("A recent browser scroll had no grounded effect on the page or the current scrollable control. Do not repeat the same blind scroll. First verify or focus the intended scroll container with `browser__snapshot`, then use a control-local action such as `browser__key` (`Home`, `End`, `PageUp`, or `PageDown`) or a better-targeted scroll.".to_string());
+        return Some("A recent browser scroll had no grounded effect on the page or the current scrollable control. Do not repeat the same blind scroll. First verify or focus the intended scroll container with `browser__inspect`, then use a control-local action such as `browser__press_key` (`Home`, `End`, `PageUp`, or `PageDown`) or a better-targeted scroll.".to_string());
     }
 
     if compact.contains("\"focused_control\":{")
@@ -2051,7 +2051,7 @@ pub(super) fn browser_effect_pending_signal(
             || compact.contains("\"can_scroll_down\":true"))
         && compact.contains("Clicked element")
     {
-        return Some("A recent browser click already focused a scrollable control. Do not keep clicking the surrounding wrapper or container. If the goal is control-local scrolling or text selection in that control, continue there with a control-local action such as `browser__key` (preferably with the control's grounded `selector`) or `browser__select_text`; otherwise move to the next required visible control.".to_string());
+        return Some("A recent browser click already focused a scrollable control. Do not keep clicking the surrounding wrapper or container. If the goal is control-local scrolling or text selection in that control, continue there with a control-local action such as `browser__press_key` (preferably with the control's grounded `selector`) or `browser__select`; otherwise move to the next required visible control.".to_string());
     }
 
     None
@@ -2102,7 +2102,7 @@ pub(super) fn click_dispatch_timeout_retry_pending_signal(
     }
 
     Some(format!(
-        "A recent `browser__click_element` on `{clicked_id}` timed out before any observed page effect, and `{clicked_id}` is still visible in the current browser observation. If the goal still requires activating `{clicked_id}`, retry `browser__click_element` on `{clicked_id}` now. Do not spend the next step on `browser__snapshot` unless `{clicked_id}` disappears or the page visibly changes."
+        "A recent `browser__click` on `{clicked_id}` timed out before any observed page effect, and `{clicked_id}` is still visible in the current browser observation. If the goal still requires activating `{clicked_id}`, retry `browser__click` on `{clicked_id}` now. Do not spend the next step on `browser__inspect` unless `{clicked_id}` disappears or the page visibly changes."
     ))
 }
 
@@ -2174,7 +2174,7 @@ pub(super) fn navigation_observation_pending_signal(history: &[ChatMessage]) -> 
         .unwrap_or_default();
 
     Some(format!(
-        "A recent browser action{action} changed the page URL to `{}` but there is no newer `browser__snapshot` yet. The current browser observation may still describe the previous page. Do not act on stale element ids or finish yet. Take `browser__snapshot` now, then continue from the updated page state.",
+        "A recent browser action{action} changed the page URL to `{}` but there is no newer `browser__inspect` yet. The current browser observation may still describe the previous page. Do not act on stale element ids or finish yet. Take `browser__inspect` now, then continue from the updated page state.",
         transition.post_url
     ))
 }
@@ -2238,7 +2238,7 @@ pub(super) fn auth_form_pending_signal_from_snapshot(
     }
 
     if typed_username && typed_password {
-        return Some("A visible browser auth form still remains, and recent browser state confirms both credential fields were filled. Do not keep taking snapshots or retyping the same credentials. Use the login action now (for example `browser__click_element` on the visible sign-in button), then verify that the page changes.".to_string());
+        return Some("A visible browser auth form still remains, and recent browser state confirms both credential fields were filled. Do not keep taking snapshots or retyping the same credentials. Use the login action now (for example `browser__click` on the visible sign-in button), then verify that the page changes.".to_string());
     }
 
     None

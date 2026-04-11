@@ -1,5 +1,5 @@
 use super::*;
-use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use ioi_types::app::agentic::{AgentTool, ScreenAction};
 use serde_json::json;
 
 #[test]
@@ -7,14 +7,14 @@ fn test_normalize_clean_json() {
     let input = r#"{"name": "computer", "arguments": {"action": "screenshot"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
-        AgentTool::Computer(ComputerAction::Screenshot) => {}
+        AgentTool::Screen(ScreenAction::Screenshot) => {}
         _ => panic!("Wrong tool type"),
     }
 }
 
 #[test]
 fn test_normalize_markdown() {
-    let input = "```json\n{\"name\": \"sys__exec\", \"arguments\": {\"command\": \"ls\"}}\n```";
+    let input = "```json\n{\"name\": \"shell__run\", \"arguments\": {\"command\": \"ls\"}}\n```";
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::SysExec { command, .. } => assert_eq!(command, "ls"),
@@ -50,7 +50,7 @@ fn test_normalize_openai_tool_calls_wrapper_with_string_arguments() {
               "id": "call_1",
               "type": "function",
               "function": {
-                "name": "sys__exec",
+                "name": "shell__run",
                 "arguments": "{\"command\":\"ls\",\"args\":[]}"
               }
             }
@@ -84,7 +84,7 @@ fn test_normalize_openai_function_wrapper_with_object_arguments() {
 
 #[test]
 fn test_normalize_anthropic_input_alias() {
-    let input = r#"{"name":"sys__exec","input":{"command":"echo","args":["hi"]}}"#;
+    let input = r#"{"name":"shell__run","input":{"command":"echo","args":["hi"]}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::SysExec { command, args, .. } => {
@@ -97,7 +97,7 @@ fn test_normalize_anthropic_input_alias() {
 
 #[test]
 fn test_normalize_arguments_json_string() {
-    let input = r#"{"name":"sys__exec","arguments":"{\"command\":\"pwd\"}"}"#;
+    let input = r#"{"name":"shell__run","arguments":"{\"command\":\"pwd\"}"}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::SysExec { command, .. } => assert_eq!(command, "pwd"),
@@ -108,7 +108,7 @@ fn test_normalize_arguments_json_string() {
 #[test]
 fn test_normalize_parameters_alias() {
     // LLM often outputs "parameters" instead of "arguments"
-    let input = r#"{"name": "gui__type", "parameters": {"text": "hello"}}"#;
+    let input = r#"{"name": "screen__type", "parameters": {"text": "hello"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::GuiType { text } => assert_eq!(text, "hello"),
@@ -134,7 +134,7 @@ fn test_normalize_recipient_name() {
         r#"{"recipient_name": "functions.computer", "parameters": {"action": "screenshot"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
-        AgentTool::Computer(ComputerAction::Screenshot) => {}
+        AgentTool::Screen(ScreenAction::Screenshot) => {}
         _ => panic!("Wrong tool type or failed to handle recipient_name"),
     }
 }
@@ -182,7 +182,7 @@ fn test_normalize_browser_wait_with_follow_up_click_element() {
         "arguments": {
             "ms": 2000,
             "continue_with": {
-                "name": "browser__click_element",
+                "name": "browser__click",
                 "arguments": { "id": "btn_two" }
             }
         }
@@ -194,7 +194,7 @@ fn test_normalize_browser_wait_with_follow_up_click_element() {
         } => {
             assert_eq!(ms, Some(2000));
             let continue_with = continue_with.expect("follow-up should be present");
-            assert_eq!(continue_with.name, "browser__click_element");
+            assert_eq!(continue_with.name, "browser__click");
             assert_eq!(continue_with.arguments["id"], "btn_two");
         }
         other => panic!("Expected BrowserWait, got {:?}", other),
@@ -208,7 +208,7 @@ fn test_normalize_browser_wait_with_follow_up_shorthand_arguments() {
         "arguments": {
             "ms": 2000,
             "continue_with": {
-                "name": "browser__click_element",
+                "name": "browser__click",
                 "id": "btn_two"
             }
         }
@@ -220,7 +220,7 @@ fn test_normalize_browser_wait_with_follow_up_shorthand_arguments() {
         } => {
             assert_eq!(ms, Some(2000));
             let continue_with = continue_with.expect("follow-up should be present");
-            assert_eq!(continue_with.name, "browser__click_element");
+            assert_eq!(continue_with.name, "browser__click");
             assert_eq!(continue_with.arguments, json!({ "id": "btn_two" }));
         }
         other => panic!("Expected BrowserWait, got {:?}", other),
@@ -230,11 +230,11 @@ fn test_normalize_browser_wait_with_follow_up_shorthand_arguments() {
 #[test]
 fn test_normalize_browser_click_element_with_follow_up_shorthand_arguments() {
     let input = r#"{
-        "name": "browser__click_element",
+        "name": "browser__click",
         "arguments": {
             "id": "grp_start",
             "continue_with": {
-                "name": "browser__click_element",
+                "name": "browser__click",
                 "ids": ["btn_one", "btn_two"],
                 "delay_ms_between_ids": 2000
             }
@@ -242,12 +242,12 @@ fn test_normalize_browser_click_element_with_follow_up_shorthand_arguments() {
     }"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
-        AgentTool::BrowserClickElement {
+        AgentTool::BrowserClick {
             id, continue_with, ..
         } => {
             assert_eq!(id.as_deref(), Some("grp_start"));
             let continue_with = continue_with.expect("follow-up should be present");
-            assert_eq!(continue_with.name, "browser__click_element");
+            assert_eq!(continue_with.name, "browser__click");
             assert_eq!(
                 continue_with.arguments,
                 json!({
@@ -256,24 +256,24 @@ fn test_normalize_browser_click_element_with_follow_up_shorthand_arguments() {
                 })
             );
         }
-        other => panic!("Expected BrowserClickElement, got {:?}", other),
+        other => panic!("Expected BrowserClick, got {:?}", other),
     }
 }
 
 #[test]
 fn test_normalize_browser_key_with_nested_follow_up_shorthand_arguments() {
     let input = r#"{
-        "name": "browser__key",
+        "name": "browser__press_key",
         "arguments": {
             "key": "PageUp",
             "selector": "[id=\"text-area\"]",
             "continue_with": {
-                "name": "browser__key",
+                "name": "browser__press_key",
                 "key": "Home",
                 "modifiers": ["Control"],
                 "selector": "[id=\"text-area\"]",
                 "continue_with": {
-                    "name": "browser__click_element",
+                    "name": "browser__click",
                     "id": "btn_submit"
                 }
             }
@@ -290,7 +290,7 @@ fn test_normalize_browser_key_with_nested_follow_up_shorthand_arguments() {
             assert_eq!(key, "PageUp");
             assert_eq!(selector.as_deref(), Some("[id=\"text-area\"]"));
             let continue_with = continue_with.expect("follow-up should be present");
-            assert_eq!(continue_with.name, "browser__key");
+            assert_eq!(continue_with.name, "browser__press_key");
             assert_eq!(
                 continue_with.arguments,
                 json!({
@@ -298,7 +298,7 @@ fn test_normalize_browser_key_with_nested_follow_up_shorthand_arguments() {
                     "modifiers": ["Control"],
                     "selector": "[id=\"text-area\"]",
                     "continue_with": {
-                        "name": "browser__click_element",
+                        "name": "browser__click",
                         "id": "btn_submit"
                     }
                 })
@@ -315,7 +315,7 @@ fn test_normalize_browser_wait_drops_empty_follow_up_shorthand() {
         "arguments": {
             "ms": 2000,
             "continue_with": {
-                "name": "browser__click_element"
+                "name": "browser__click"
             }
         }
     }"#;
@@ -334,23 +334,23 @@ fn test_normalize_browser_wait_drops_empty_follow_up_shorthand() {
 #[test]
 fn test_normalize_browser_click_element_drops_empty_follow_up_shorthand() {
     let input = r#"{
-        "name": "browser__click_element",
+        "name": "browser__click",
         "arguments": {
             "id": "grp_start",
             "continue_with": {
-                "name": "browser__click_element"
+                "name": "browser__click"
             }
         }
     }"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
-        AgentTool::BrowserClickElement {
+        AgentTool::BrowserClick {
             id, continue_with, ..
         } => {
             assert_eq!(id.as_deref(), Some("grp_start"));
             assert!(continue_with.is_none());
         }
-        other => panic!("Expected BrowserClickElement, got {:?}", other),
+        other => panic!("Expected BrowserClick, got {:?}", other),
     }
 }
 
@@ -383,7 +383,7 @@ fn test_dynamic_tool_unknown_name_is_rejected() {
 
 #[test]
 fn test_normalize_ui_click_component_lowers_to_gui_click_element() {
-    let input = r#"{"name":"ui__click_component","arguments":{"id":"btn_submit"}}"#;
+    let input = r#"{"name":"screen__click","arguments":{"id":"btn_submit"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::GuiClickElement { id } => assert_eq!(id, "btn_submit"),
@@ -393,7 +393,7 @@ fn test_normalize_ui_click_component_lowers_to_gui_click_element() {
 
 #[test]
 fn test_normalize_ui_click_component_accepts_component_id_alias() {
-    let input = r#"{"name":"ui__click_component","arguments":{"component_id":"btn_submit"}}"#;
+    let input = r#"{"name":"screen__click","arguments":{"component_id":"btn_submit"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::GuiClickElement { id } => assert_eq!(id, "btn_submit"),
@@ -403,10 +403,10 @@ fn test_normalize_ui_click_component_accepts_component_id_alias() {
 
 #[test]
 fn test_normalize_ui_click_component_rejects_missing_id() {
-    let input = r#"{"name":"ui__click_component","arguments":{}}"#;
+    let input = r#"{"name":"screen__click","arguments":{}}"#;
     let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
     assert!(err.to_string().contains("Schema Validation Error"));
-    assert!(err.to_string().contains("ui__click_component"));
+    assert!(err.to_string().contains("screen__click"));
     assert!(err.to_string().contains("id"));
 }
 
@@ -459,7 +459,7 @@ fn test_normalize_ui_click_with_coordinate_lowers_to_gui_click() {
 
 #[test]
 fn test_normalize_ui_click_element_lowers_to_gui_click_element() {
-    let input = r#"{"name":"ui__click_element","arguments":{"id":"btn_submit"}}"#;
+    let input = r#"{"name":"screen__click","arguments":{"id":"btn_submit"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::GuiClickElement { id } => assert_eq!(id, "btn_submit"),
@@ -479,7 +479,7 @@ fn test_normalize_ui_type_rejects_missing_text() {
 #[test]
 fn test_normalize_net_fetch_accepts_valid_args() {
     let input =
-        r#"{"name":"net__fetch","arguments":{"url":"https://example.com","max_chars":123}}"#;
+        r#"{"name":"http__fetch","arguments":{"url":"https://example.com","max_chars":123}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::NetFetch { url, max_chars } => {
@@ -492,16 +492,16 @@ fn test_normalize_net_fetch_accepts_valid_args() {
 
 #[test]
 fn test_normalize_net_fetch_rejects_empty_url() {
-    let input = r#"{"name":"net__fetch","arguments":{"url":"   "}}"#;
+    let input = r#"{"name":"http__fetch","arguments":{"url":"   "}}"#;
     let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
     assert!(err.to_string().contains("Schema Validation Error"));
-    assert!(err.to_string().contains("net__fetch"));
+    assert!(err.to_string().contains("http__fetch"));
     assert!(err.to_string().contains("url"));
 }
 
 #[test]
 fn test_normalize_net_fetch_decodes_arguments_string() {
-    let input = r#"{"name":"net__fetch","arguments":"{\"url\":\"https://example.com\"}"}"#;
+    let input = r#"{"name":"http__fetch","arguments":"{\"url\":\"https://example.com\"}"}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::NetFetch { url, max_chars } => {
@@ -532,7 +532,7 @@ fn test_empty_input_fails() {
 
 #[test]
 fn test_normalize_synthetic_click() {
-    let input = r#"{"name": "browser__synthetic_click", "arguments": {"x": 100.5, "y": 200.1}}"#;
+    let input = r#"{"name": "browser__click_at", "arguments": {"x": 100.5, "y": 200.1}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::BrowserSyntheticClick {
@@ -552,7 +552,7 @@ fn test_normalize_synthetic_click() {
 
 #[test]
 fn test_normalize_synthetic_click_with_grounded_id() {
-    let input = r#"{"name": "browser__synthetic_click", "arguments": {"id": "grp_blue_circle"}}"#;
+    let input = r#"{"name": "browser__click_at", "arguments": {"id": "grp_blue_circle"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::BrowserSyntheticClick {
@@ -572,7 +572,7 @@ fn test_normalize_synthetic_click_with_grounded_id() {
 
 #[test]
 fn test_normalize_synthetic_click_preserves_coordinates_with_grounded_id() {
-    let input = r#"{"name": "browser__synthetic_click", "arguments": {"id": "grp_click_canvas", "x": "51", "y": 116}}"#;
+    let input = r#"{"name": "browser__click_at", "arguments": {"id": "grp_click_canvas", "x": "51", "y": 116}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::BrowserSyntheticClick {
@@ -593,12 +593,12 @@ fn test_normalize_synthetic_click_preserves_coordinates_with_grounded_id() {
 #[test]
 fn test_normalize_synthetic_click_with_follow_up_shorthand_arguments() {
     let input = r#"{
-        "name": "browser__synthetic_click",
+        "name": "browser__click_at",
         "arguments": {
             "x": "85.012",
             "y": "105.824",
             "continue_with": {
-                "name": "browser__click_element",
+                "name": "browser__click",
                 "id": "btn_submit"
             }
         }
@@ -615,7 +615,7 @@ fn test_normalize_synthetic_click_with_follow_up_shorthand_arguments() {
             assert!((x.expect("x") - 85.012).abs() < f64::EPSILON);
             assert!((y.expect("y") - 105.824).abs() < f64::EPSILON);
             let continue_with = continue_with.expect("follow-up should be present");
-            assert_eq!(continue_with.name, "browser__click_element");
+            assert_eq!(continue_with.name, "browser__click");
             assert_eq!(continue_with.arguments, json!({ "id": "btn_submit" }));
         }
         other => panic!("Expected BrowserSyntheticClick, got {:?}", other),
@@ -625,31 +625,31 @@ fn test_normalize_synthetic_click_with_follow_up_shorthand_arguments() {
 #[test]
 fn test_normalize_synthetic_click_rejects_pointer_state_follow_up() {
     let input = r#"{
-        "name": "browser__synthetic_click",
+        "name": "browser__click_at",
         "arguments": {
             "x": 85,
             "y": 107,
             "continue_with": {
-                "name": "browser__mouse_down",
+                "name": "browser__pointer_down",
                 "arguments": {}
             }
         }
     }"#;
     let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
     assert!(err.to_string().contains("Schema Validation Error"));
-    assert!(err.to_string().contains(
-        "browser__synthetic_click continue_with does not allow pointer button state changes"
-    ));
+    assert!(err
+        .to_string()
+        .contains("browser__click_at continue_with does not allow pointer button state changes"));
 }
 
 #[test]
 fn test_normalize_synthetic_click_rejects_missing_target_and_coordinates() {
-    let input = r#"{"name":"browser__synthetic_click","arguments":{"x":85}}"#;
+    let input = r#"{"name":"browser__click_at","arguments":{"x":85}}"#;
     let err = ToolNormalizer::normalize(input).expect_err("expected schema error");
     assert!(err.to_string().contains("Schema Validation Error"));
     assert!(err
         .to_string()
-        .contains("browser__synthetic_click requires either"));
+        .contains("browser__click_at requires both numeric 'x' and 'y'"));
 }
 
 #[test]
@@ -667,8 +667,7 @@ fn test_normalize_browser_scroll() {
 
 #[test]
 fn test_normalize_install_package_preserves_typed_tool() {
-    let input =
-        r#"{"name":"sys__install_package","arguments":{"manager":"pip","package":"pydantic"}}"#;
+    let input = r#"{"name":"package__install","arguments":{"manager":"pip","package":"pydantic"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::SysInstallPackage { package, manager } => {
@@ -681,14 +680,15 @@ fn test_normalize_install_package_preserves_typed_tool() {
 
 #[test]
 fn test_normalize_install_package_rejects_unsafe_package() {
-    let input = r#"{"name":"sys__install_package","arguments":{"manager":"pip","package":"bad; rm -rf /"}}"#;
+    let input =
+        r#"{"name":"package__install","arguments":{"manager":"pip","package":"bad; rm -rf /"}}"#;
     let err = ToolNormalizer::normalize(input).expect_err("expected validation error");
     assert!(err.to_string().contains("Invalid package identifier"));
 }
 
 #[test]
 fn test_normalize_sys_change_directory() {
-    let input = r#"{"name":"sys__change_directory","arguments":{"path":"../workspace"}}"#;
+    let input = r#"{"name":"shell__cd","arguments":{"path":"../workspace"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::SysChangeDir { path } => assert_eq!(path, "../workspace"),
@@ -698,7 +698,7 @@ fn test_normalize_sys_change_directory() {
 
 #[test]
 fn test_normalize_filesystem_edit_line_alias() {
-    let input = r#"{"name":"filesystem__edit_line","arguments":{"path":"/tmp/demo.txt","line_number":2,"content":"BETA"}}"#;
+    let input = r#"{"name":"file__replace_line","arguments":{"path":"/tmp/demo.txt","line_number":2,"content":"BETA"}}"#;
     let tool = ToolNormalizer::normalize(input).unwrap();
     match tool {
         AgentTool::FsWrite {
@@ -716,7 +716,7 @@ fn test_normalize_filesystem_edit_line_alias() {
 
 #[test]
 fn test_normalize_filesystem_edit_line_rejects_invalid_line_number() {
-    let input = r#"{"name":"filesystem__edit_line","arguments":{"path":"/tmp/demo.txt","line_number":0,"content":"BETA"}}"#;
+    let input = r#"{"name":"file__replace_line","arguments":{"path":"/tmp/demo.txt","line_number":0,"content":"BETA"}}"#;
     let err = ToolNormalizer::normalize(input).expect_err("expected validation error");
     assert!(err.to_string().contains("line_number"));
 }

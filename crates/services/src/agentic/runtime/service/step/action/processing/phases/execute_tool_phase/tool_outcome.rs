@@ -147,6 +147,13 @@ pub(super) async fn apply_tool_outcome_and_followups(
     } = ctx;
 
     match tool {
+        AgentTool::AgentPause { reason } => {
+            agent_state.status = AgentStatus::Paused(reason.clone());
+            *is_lifecycle_action = true;
+            *action_output = Some(reason.clone());
+            *history_entry = Some(reason.clone());
+            verification_checks.push("terminal_chat_reply_ready=false".to_string());
+        }
         AgentTool::AgentComplete { result } => {
             if let Some(blocked_summary) =
                 blocked_terminalization_summary(service, session_id, resolved_intent_id).await
@@ -494,7 +501,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                 )
                 .await;
                 log::info!(
-                    "Auto-completed app-launch session {} after successful os__launch_app.",
+                    "Auto-completed app-launch session {} after successful app__launch.",
                     hex::encode(&session_id[..4])
                 );
             }
@@ -918,7 +925,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "host_discovery",
                         true,
                         "managed_media_multimodal_provider_discovered",
-                        Some("media__extract_multimodal_evidence.runtime"),
+                        Some("media__extract_evidence.runtime"),
                         Some(selected_providers_value.as_str()),
                         Some("provider_ids"),
                         None,
@@ -938,7 +945,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "provider_candidate",
                             provider_candidate.success,
                             "managed_media_provider_candidate",
-                            Some("media__extract_multimodal_evidence.discovery"),
+                            Some("media__extract_evidence.discovery"),
                             Some(provider_candidate_json.as_str()),
                             Some("json"),
                             None,
@@ -955,7 +962,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "provider_selection",
                         true,
                         "managed_media_multimodal_provider_selected",
-                        Some("media__extract_multimodal_evidence.selection"),
+                        Some("media__extract_evidence.selection"),
                         Some(selected_providers_value.as_str()),
                         Some("provider_ids"),
                         None,
@@ -971,7 +978,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "selected_modalities",
                         !selected_modalities_value.trim().is_empty(),
                         "media_modalities_selected",
-                        Some("media__extract_multimodal_evidence.selection"),
+                        Some("media__extract_evidence.selection"),
                         Some(selected_modalities_value.as_str()),
                         Some("csv"),
                         None,
@@ -987,7 +994,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "execution",
                         true,
                         "media_multimodal_executed",
-                        Some("media__extract_multimodal_evidence.execution"),
+                        Some("media__extract_evidence.execution"),
                         Some(bundle.canonical_url.as_str()),
                         Some("url"),
                         None,
@@ -1003,7 +1010,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "verification",
                         true,
                         "media_multimodal_verified",
-                        Some("media__extract_multimodal_evidence.verification"),
+                        Some("media__extract_evidence.verification"),
                         Some(bundle.canonical_url.as_str()),
                         Some("url"),
                         None,
@@ -1019,7 +1026,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "media_title",
                         bundle.title.as_deref().is_some(),
                         "media_title_observed",
-                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("media__extract_evidence.bundle"),
                         bundle.title.as_deref(),
                         Some("text"),
                         None,
@@ -1035,7 +1042,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "media_duration_seconds",
                         bundle.duration_seconds.unwrap_or_default() > 0,
                         "media_duration_observed",
-                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("media__extract_evidence.bundle"),
                         duration_value.as_deref(),
                         Some("seconds"),
                         None,
@@ -1051,7 +1058,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "selected_source_url",
                         true,
                         "media_canonical_url_selected",
-                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("media__extract_evidence.bundle"),
                         Some(bundle.canonical_url.as_str()),
                         Some("url"),
                         None,
@@ -1067,7 +1074,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "selected_source_total",
                         true,
                         "media_selected_source_total_observed",
-                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("media__extract_evidence.bundle"),
                         Some("1"),
                         Some("scalar"),
                         None,
@@ -1083,7 +1090,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "selected_source_distinct_domains",
                         true,
                         "media_selected_source_distinct_domains_observed",
-                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("media__extract_evidence.bundle"),
                         Some("1"),
                         Some("scalar"),
                         None,
@@ -1099,7 +1106,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "selected_source_quality_floor",
                         true,
                         "media_selected_source_quality_floor_met",
-                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("media__extract_evidence.bundle"),
                         Some("selected_total=1;distinct_domains=1"),
                         Some("summary"),
                         None,
@@ -1115,7 +1122,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                         "media_multimodal_evidence_available",
                         true,
                         "media_multimodal_postcondition_met",
-                        Some("media__extract_multimodal_evidence.bundle"),
+                        Some("media__extract_evidence.bundle"),
                         Some("true"),
                         Some("bool"),
                         None,
@@ -1136,7 +1143,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_transcript_char_count",
                             transcript.transcript_char_count > 0,
                             "media_transcript_chars_observed",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some(transcript_char_count_value.as_str()),
                             Some("char_count"),
                             None,
@@ -1152,7 +1159,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_transcript_segment_count",
                             transcript.segment_count > 0,
                             "media_transcript_segments_observed",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some(transcript_segment_count_value.as_str()),
                             Some("segment_count"),
                             None,
@@ -1168,7 +1175,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_transcript_source_kind",
                             true,
                             "media_transcript_source_kind_observed",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some(transcript.transcript_source_kind.as_str()),
                             Some("enum"),
                             None,
@@ -1184,7 +1191,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_transcript_language",
                             true,
                             "media_transcript_language_observed",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some(transcript.transcript_language.as_str()),
                             Some("language"),
                             None,
@@ -1200,7 +1207,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_transcript_available",
                             true,
                             "media_transcript_postcondition_met",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some("true"),
                             Some("bool"),
                             None,
@@ -1220,7 +1227,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_timeline_cue_count",
                             timeline.cue_count > 0,
                             "media_timeline_cues_observed",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some(timeline_cue_count_value.as_str()),
                             Some("cue_count"),
                             None,
@@ -1236,7 +1243,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_timeline_char_count",
                             timeline.timeline_char_count > 0,
                             "media_timeline_chars_observed",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some(timeline_char_count_value.as_str()),
                             Some("char_count"),
                             None,
@@ -1252,7 +1259,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_timeline_source_kind",
                             true,
                             "media_timeline_source_kind_observed",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some(timeline.timeline_source_kind.as_str()),
                             Some("enum"),
                             None,
@@ -1268,7 +1275,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_timeline_available",
                             true,
                             "media_timeline_postcondition_met",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some("true"),
                             Some("bool"),
                             None,
@@ -1288,7 +1295,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_visual_frame_count",
                             visual.frame_count > 0,
                             "media_visual_frames_observed",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some(visual_frame_count_value.as_str()),
                             Some("frame_count"),
                             None,
@@ -1304,7 +1311,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_visual_char_count",
                             visual.visual_char_count > 0,
                             "media_visual_chars_observed",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some(visual_char_count_value.as_str()),
                             Some("char_count"),
                             None,
@@ -1320,7 +1327,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_visual_hash",
                             !visual.visual_hash.trim().is_empty(),
                             "media_visual_hash_observed",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some(visual.visual_hash.as_str()),
                             Some("sha256"),
                             None,
@@ -1336,7 +1343,7 @@ pub(super) async fn apply_tool_outcome_and_followups(
                             "media_visual_evidence_available",
                             true,
                             "media_visual_postcondition_met",
-                            Some("media__extract_multimodal_evidence.bundle"),
+                            Some("media__extract_evidence.bundle"),
                             Some("true"),
                             Some("bool"),
                             None,
@@ -1897,7 +1904,7 @@ mod tests {
             chat_message(
                 "tool",
                 concat!(
-                    "Tool Output (browser__snapshot): ",
+                    "Tool Output (browser__inspect): ",
                     "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
                     "<generic id=\"grp_find_deena_in_the_contact_book\" name=\"Find Deena in the contact book and click on their address.\" dom_id=\"query\" selector=\"[id=&quot;query&quot;]\" tag_name=\"div\" rect=\"0,0,160,50\" />",
                     "<heading id=\"heading_lauraine\" name=\"Lauraine\" tag_name=\"h2\" rect=\"2,64,156,17\" />",
@@ -1931,7 +1938,7 @@ mod tests {
             chat_message(
                 "tool",
                 concat!(
-                    "Tool Output (browser__snapshot): ",
+                    "Tool Output (browser__inspect): ",
                     "<root id=\"root_dom_fallback_tree\" name=\"DOM fallback tree\" rect=\"0,0,800,600\">",
                     "<generic id=\"grp_done\" name=\"Done\" tag_name=\"div\" rect=\"0,0,80,20\" />",
                     "</root>",
@@ -1988,7 +1995,7 @@ mod tests {
         let history = vec![chat_message(
             "tool",
             concat!(
-                "Tool Output (browser__snapshot): <root />\n\n",
+                "Tool Output (browser__inspect): <root />\n\n",
                 "BROWSER_USE_STATE_TXT:\n[12]<button name=Submit />\n\n",
                 "BROWSERGYM_AXTREE_TXT:\n[a1] button \"Submit\""
             ),

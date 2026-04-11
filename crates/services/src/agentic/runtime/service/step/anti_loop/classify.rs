@@ -130,7 +130,7 @@ pub fn requires_wait_for_clarification(tool_name: &str, error: &str) -> bool {
     let tool = tool_name.to_ascii_lowercase();
     let msg = error.to_ascii_lowercase();
 
-    let is_install_tool = tool == "sys__install_package"
+    let is_install_tool = tool == "package__install"
         || tool == "sys::install_package"
         || tool.ends_with("install_package");
     if is_install_tool
@@ -140,7 +140,7 @@ pub fn requires_wait_for_clarification(tool_name: &str, error: &str) -> bool {
     }
 
     let is_launch_tool =
-        tool == "os__launch_app" || tool == "os::launch_app" || tool.ends_with("launch_app");
+        tool == "app__launch" || tool == "os::launch_app" || tool.ends_with("launch_app");
     if is_launch_tool && is_launch_lookup_failure(&msg) {
         return true;
     }

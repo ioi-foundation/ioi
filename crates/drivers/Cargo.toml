@@ -46,7 +46,7 @@ regex = { workspace = true }
 time = { workspace = true, features = ["formatting"] }
 kuchiki = "0.8.1"
 
-# PTY-backed shell sessions for OpenInterpreter parity (`sys__exec_session` on unix).
+# PTY-backed shell sessions for OpenInterpreter parity (`shell__start` on unix).
 portable-pty = "0.9.0"
 
 # [NEW] Clipboard Support

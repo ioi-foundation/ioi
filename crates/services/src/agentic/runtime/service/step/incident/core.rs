@@ -12,7 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub(super) const FORBIDDEN_LIFECYCLE_TOOLS: &[&str] = &[
     "agent__complete",
     "chat__reply",
-    "system__fail",
+    "agent__escalate",
     "agent__delegate",
 ];
 

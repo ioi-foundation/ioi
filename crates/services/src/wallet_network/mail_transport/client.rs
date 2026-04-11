@@ -1,24 +1,20 @@
-use super::constants::{MAIL_PREVIEW_MAX_LEN, MAIL_SUBJECT_MAX_LEN};
 use super::imap_ops::{
     authenticate_imap_session, build_tls_connector, delete_spam_from_imap_session,
     list_recent_from_imap_session, mailbox_total_count_from_mailbox, open_plain_imap_client,
     read_latest_from_imap_session, smtp_auth_secret,
 };
 use super::mailbox::{
-    cleanup_scope_from_mailbox, cleanup_scope_label, is_primary_mailbox_name, is_spam_mailbox_name,
+    cleanup_scope_from_mailbox, is_primary_mailbox_name, is_spam_mailbox_name,
     normalize_remote_mailbox_name, CleanupMailboxScope,
 };
 use super::model::{
     MailProviderClient, MailProviderCredentials, MailProviderDeleteSpamOutcome,
     MailProviderListOutcome, MailProviderMailboxTotalCountOutcome, MailProviderMessage,
 };
-use super::util::{bound_text, deterministic_mock_id};
-use crate::wallet_network::mail_ontology::{
-    parse_volume_band, MAIL_ONTOLOGY_SIGNAL_VERSION, SPAM_HIGH_CONFIDENCE_THRESHOLD_BPS,
-};
+use super::util::bound_text;
 use ioi_types::app::wallet_network::{
     MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
-    MailConnectorTlsMode, MailboxTotalCountProvenance,
+    MailConnectorTlsMode,
 };
 use ioi_types::error::TransactionError;
 use lettre::message::{header::ContentType, Mailbox};
@@ -35,13 +31,7 @@ pub(crate) fn mail_provider_for_config(
     config: &MailConnectorConfig,
 ) -> Result<Box<dyn MailProviderClient>, TransactionError> {
     match config.provider {
-        MailConnectorProvider::ImapSmtp => {
-            if is_mock_provider(config) {
-                Ok(Box::new(MockMailProviderClient))
-            } else {
-                Ok(Box::new(ImapSmtpMailProviderClient))
-            }
-        }
+        MailConnectorProvider::ImapSmtp => Ok(Box::new(ImapSmtpMailProviderClient)),
     }
 }
 
@@ -330,192 +320,6 @@ fn smtp_from_mailbox(config: &MailConnectorConfig) -> Result<Mailbox, Transactio
         .filter(|value| !value.is_empty())
         .map(ToString::to_string);
     Ok(Mailbox::new(display_name, address))
-}
-
-struct MockMailProviderClient;
-
-impl MailProviderClient for MockMailProviderClient {
-    fn read_latest(
-        &self,
-        config: &MailConnectorConfig,
-        credentials: &MailProviderCredentials,
-        mailbox: &str,
-        now_ms: u64,
-    ) -> Result<MailProviderMessage, TransactionError> {
-        let message_id = deterministic_mock_id(&[
-            b"mock_read_latest".as_slice(),
-            mailbox.as_bytes(),
-            config.account_email.as_bytes(),
-            credentials.imap_username.as_bytes(),
-        ])?;
-        Ok(MailProviderMessage {
-            message_id,
-            from: format!("mock@{}", config.imap.host),
-            subject: bound_text(
-                &format!("Mock latest message for {}", mailbox),
-                MAIL_SUBJECT_MAX_LEN,
-            ),
-            received_at_ms: now_ms.saturating_sub(60_000),
-            preview: bound_text(
-                &format!("Mock IMAP read for mailbox '{}'.", mailbox),
-                MAIL_PREVIEW_MAX_LEN,
-            ),
-        })
-    }
-
-    fn list_recent(
-        &self,
-        config: &MailConnectorConfig,
-        credentials: &MailProviderCredentials,
-        mailbox: &str,
-        limit: usize,
-        now_ms: u64,
-    ) -> Result<MailProviderListOutcome, TransactionError> {
-        let mut out = Vec::with_capacity(limit);
-        for idx in 0..limit {
-            let message_id = deterministic_mock_id(&[
-                b"mock_list_recent".as_slice(),
-                mailbox.as_bytes(),
-                config.account_email.as_bytes(),
-                credentials.imap_username.as_bytes(),
-                &(idx as u64).to_be_bytes(),
-            ])?;
-            out.push(MailProviderMessage {
-                message_id,
-                from: format!("mock+{}@{}", idx + 1, config.imap.host),
-                subject: bound_text(
-                    &format!("Mock recent message #{} for {}", idx + 1, mailbox),
-                    MAIL_SUBJECT_MAX_LEN,
-                ),
-                received_at_ms: now_ms.saturating_sub((idx as u64 + 1) * 60_000),
-                preview: bound_text(
-                    &format!("Mock IMAP list item {} for mailbox '{}'.", idx + 1, mailbox),
-                    MAIL_PREVIEW_MAX_LEN,
-                ),
-            });
-        }
-        Ok(MailProviderListOutcome {
-            messages: out,
-            requested_limit: limit,
-            evaluated_count: limit,
-            parse_error_count: 0,
-            parse_confidence_bps: 10_000,
-            parse_volume_band: parse_volume_band(limit).to_string(),
-            mailbox_total_count: u32::try_from(limit).unwrap_or(u32::MAX),
-        })
-    }
-
-    fn mailbox_total_count(
-        &self,
-        _config: &MailConnectorConfig,
-        _credentials: &MailProviderCredentials,
-        mailbox: &str,
-    ) -> Result<MailProviderMailboxTotalCountOutcome, TransactionError> {
-        let mailbox_total_count = if is_primary_mailbox_name(mailbox) {
-            10_000
-        } else if is_spam_mailbox_name(mailbox) {
-            2_000
-        } else {
-            500
-        };
-        Ok(MailProviderMailboxTotalCountOutcome {
-            mailbox_total_count,
-            provenance: MailboxTotalCountProvenance {
-                status_exists: Some(mailbox_total_count),
-                select_exists: None,
-                uid_search_count: None,
-                search_count: None,
-                freshness_marker: "mock_fixed_count".to_string(),
-            },
-        })
-    }
-
-    fn send_reply(
-        &self,
-        _config: &MailConnectorConfig,
-        _credentials: &MailProviderCredentials,
-        to: &str,
-        subject: &str,
-        _body: &str,
-    ) -> Result<String, TransactionError> {
-        deterministic_mock_id(&[
-            b"mock_send_reply".as_slice(),
-            to.as_bytes(),
-            subject.as_bytes(),
-        ])
-    }
-
-    fn delete_spam(
-        &self,
-        _config: &MailConnectorConfig,
-        _credentials: &MailProviderCredentials,
-        mailbox: &str,
-        max_delete: u32,
-    ) -> Result<MailProviderDeleteSpamOutcome, TransactionError> {
-        if !is_spam_mailbox_name(mailbox) && !is_primary_mailbox_name(mailbox) {
-            return Err(TransactionError::Invalid(format!(
-                "mailbox '{}' is not an allowed cleanup target (expected primary/inbox or spam/junk)",
-                mailbox
-            )));
-        }
-        let cleanup_scope = cleanup_scope_from_mailbox(mailbox);
-        if cleanup_scope == CleanupMailboxScope::SpamMailbox {
-            let mailbox_total_count_before = max_delete.saturating_add(80);
-            let mailbox_total_count_after = mailbox_total_count_before.saturating_sub(max_delete);
-            return Ok(MailProviderDeleteSpamOutcome {
-                evaluated_count: max_delete,
-                deleted_count: max_delete,
-                skipped_low_confidence_count: 0,
-                high_confidence_deleted_count: max_delete,
-                mailbox_total_count_before,
-                mailbox_total_count_after,
-                mailbox_total_count_delta: mailbox_total_count_before
-                    .saturating_sub(mailbox_total_count_after),
-                spam_confidence_threshold_bps: SPAM_HIGH_CONFIDENCE_THRESHOLD_BPS,
-                ontology_version: MAIL_ONTOLOGY_SIGNAL_VERSION.to_string(),
-                cleanup_scope: cleanup_scope_label(cleanup_scope).to_string(),
-                preserved_transactional_or_personal_count: 0,
-                preserved_trusted_system_count: 0,
-                preserved_low_confidence_other_count: 0,
-                preserved_due_to_delete_cap_count: 0,
-            });
-        }
-        let deleted_count = max_delete.min(4);
-        let evaluated_count = deleted_count.saturating_add(12);
-        let skipped_low_confidence_count = evaluated_count.saturating_sub(deleted_count);
-        let preserved_transactional_or_personal_count = skipped_low_confidence_count / 2;
-        let preserved_trusted_system_count = skipped_low_confidence_count / 5;
-        let preserved_low_confidence_other_count = skipped_low_confidence_count
-            .saturating_sub(preserved_transactional_or_personal_count)
-            .saturating_sub(preserved_trusted_system_count);
-        let mailbox_total_count_before = evaluated_count.saturating_add(50);
-        let mailbox_total_count_after = mailbox_total_count_before.saturating_sub(deleted_count);
-        Ok(MailProviderDeleteSpamOutcome {
-            evaluated_count,
-            deleted_count,
-            skipped_low_confidence_count,
-            high_confidence_deleted_count: deleted_count,
-            mailbox_total_count_before,
-            mailbox_total_count_after,
-            mailbox_total_count_delta: mailbox_total_count_before
-                .saturating_sub(mailbox_total_count_after),
-            spam_confidence_threshold_bps: SPAM_HIGH_CONFIDENCE_THRESHOLD_BPS,
-            ontology_version: MAIL_ONTOLOGY_SIGNAL_VERSION.to_string(),
-            cleanup_scope: cleanup_scope_label(cleanup_scope).to_string(),
-            preserved_transactional_or_personal_count,
-            preserved_trusted_system_count,
-            preserved_low_confidence_other_count,
-            preserved_due_to_delete_cap_count: 0,
-        })
-    }
-}
-
-fn is_mock_provider(config: &MailConnectorConfig) -> bool {
-    config
-        .metadata
-        .get("driver")
-        .map(|value| value.trim().eq_ignore_ascii_case("mock"))
-        .unwrap_or(false)
 }
 
 fn send_via_smtp_endpoint(

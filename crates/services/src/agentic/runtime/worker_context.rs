@@ -81,10 +81,7 @@ pub(crate) fn looks_like_command_literal(value: &str) -> bool {
     matches_command_literal(value, CommandLiteralHeuristic::Loose)
 }
 
-pub(crate) fn matches_command_literal(
-    value: &str,
-    heuristic: CommandLiteralHeuristic,
-) -> bool {
+pub(crate) fn matches_command_literal(value: &str, heuristic: CommandLiteralHeuristic) -> bool {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         return false;

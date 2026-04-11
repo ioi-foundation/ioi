@@ -37,6 +37,21 @@ impl GuardianMajorityEngine {
     ) -> bool {
         if matches!(self.safety_mode, AftSafetyMode::Asymptote) {
             let Some(expected_collapse) = collapse else {
+                if header.height <= 2 {
+                    warn!(
+                        target: "consensus",
+                        height = header.height,
+                        view = header.view,
+                        reason = "missing_expected_collapse",
+                        "Rejecting committed header hint in Asymptote."
+                    );
+                }
+                if header.height <= 2 {
+                    eprintln!(
+                        "[BENCH-AFT-COMMIT-HINT-REJECT] height={} view={} reason=missing_expected_collapse",
+                        header.height, header.view
+                    );
+                }
                 debug!(
                     target: "consensus",
                     height = header.height,
@@ -49,6 +64,21 @@ impl GuardianMajorityEngine {
                 None
             } else {
                 let Some(previous) = self.committed_collapses.get(&(header.height - 1)) else {
+                    if header.height <= 2 {
+                        warn!(
+                            target: "consensus",
+                            height = header.height,
+                            view = header.view,
+                            reason = "missing_previous_local_collapse",
+                            "Rejecting committed header hint in Asymptote."
+                        );
+                    }
+                    if header.height <= 2 {
+                        eprintln!(
+                            "[BENCH-AFT-COMMIT-HINT-REJECT] height={} view={} reason=missing_previous_local_collapse",
+                            header.height, header.view
+                        );
+                    }
                     debug!(
                         target: "consensus",
                         height = header.height,
@@ -58,6 +88,22 @@ impl GuardianMajorityEngine {
                     return false;
                 };
                 if let Err(error) = self.verify_local_canonical_collapse_chain(previous) {
+                    if header.height <= 2 {
+                        warn!(
+                            target: "consensus",
+                            height = header.height,
+                            view = header.view,
+                            reason = "invalid_previous_local_chain",
+                            error = %error,
+                            "Rejecting committed header hint in Asymptote."
+                        );
+                    }
+                    if header.height <= 2 {
+                        eprintln!(
+                            "[BENCH-AFT-COMMIT-HINT-REJECT] height={} view={} reason=invalid_previous_local_chain error={}",
+                            header.height, header.view, error
+                        );
+                    }
                     debug!(
                         target: "consensus",
                         height = header.height,
@@ -72,6 +118,21 @@ impl GuardianMajorityEngine {
             let Ok(derived) =
                 self.canonical_collapse_from_header_surface_with_previous(header, previous)
             else {
+                if header.height <= 2 {
+                    warn!(
+                        target: "consensus",
+                        height = header.height,
+                        view = header.view,
+                        reason = "header_surface_derivation_failed",
+                        "Rejecting committed header hint in Asymptote."
+                    );
+                }
+                if header.height <= 2 {
+                    eprintln!(
+                        "[BENCH-AFT-COMMIT-HINT-REJECT] height={} view={} reason=header_surface_derivation_failed",
+                        header.height, header.view
+                    );
+                }
                 debug!(
                     target: "consensus",
                     height = header.height,
@@ -80,7 +141,58 @@ impl GuardianMajorityEngine {
                 );
                 return false;
             };
-            if &derived != expected_collapse {
+            if !canonical_collapse_eq_on_header_surface(&derived, expected_collapse) {
+                if header.height <= 2 {
+                    warn!(
+                        target: "consensus",
+                        height = header.height,
+                        view = header.view,
+                        reason = "header_surface_mismatch",
+                        prev_hash_match = derived.previous_canonical_collapse_commitment_hash
+                            == expected_collapse.previous_canonical_collapse_commitment_hash,
+                        ordering_height_match = derived.ordering.height
+                            == expected_collapse.ordering.height,
+                        ordering_kind_match = derived.ordering.kind
+                            == expected_collapse.ordering.kind,
+                        commitment_match = derived.ordering.bulletin_commitment_hash
+                            == expected_collapse.ordering.bulletin_commitment_hash,
+                        availability_match = derived.ordering.bulletin_availability_certificate_hash
+                            == expected_collapse.ordering.bulletin_availability_certificate_hash,
+                        close_match = derived.ordering.bulletin_close_hash
+                            == expected_collapse.ordering.bulletin_close_hash,
+                        order_cert_match = derived.ordering.canonical_order_certificate_hash
+                            == expected_collapse.ordering.canonical_order_certificate_hash,
+                        sealing_match = derived.sealing == expected_collapse.sealing,
+                        tx_root_match = derived.transactions_root_hash
+                            == expected_collapse.transactions_root_hash,
+                        state_root_match = derived.resulting_state_root_hash
+                            == expected_collapse.resulting_state_root_hash,
+                        "Rejecting committed header hint in Asymptote."
+                    );
+                }
+                if header.height <= 2 {
+                    eprintln!(
+                        "[BENCH-AFT-COMMIT-HINT-REJECT] height={} view={} reason=header_surface_mismatch prev_hash={} ordering_height={} ordering_kind={} commitment={} availability={} close={} order_cert={} sealing={} tx_root={} state_root={}",
+                        header.height,
+                        header.view,
+                        derived.previous_canonical_collapse_commitment_hash
+                            == expected_collapse.previous_canonical_collapse_commitment_hash,
+                        derived.ordering.height == expected_collapse.ordering.height,
+                        derived.ordering.kind == expected_collapse.ordering.kind,
+                        derived.ordering.bulletin_commitment_hash
+                            == expected_collapse.ordering.bulletin_commitment_hash,
+                        derived.ordering.bulletin_availability_certificate_hash
+                            == expected_collapse.ordering.bulletin_availability_certificate_hash,
+                        derived.ordering.bulletin_close_hash
+                            == expected_collapse.ordering.bulletin_close_hash,
+                        derived.ordering.canonical_order_certificate_hash
+                            == expected_collapse.ordering.canonical_order_certificate_hash,
+                        derived.sealing == expected_collapse.sealing,
+                        derived.transactions_root_hash == expected_collapse.transactions_root_hash,
+                        derived.resulting_state_root_hash
+                            == expected_collapse.resulting_state_root_hash,
+                    );
+                }
                 debug!(
                     target: "consensus",
                     height = header.height,
@@ -92,6 +204,22 @@ impl GuardianMajorityEngine {
             if let Err(error) =
                 self.verify_runtime_canonical_collapse_continuity(expected_collapse, previous)
             {
+                if header.height <= 2 {
+                    warn!(
+                        target: "consensus",
+                        height = header.height,
+                        view = header.view,
+                        reason = "expected_collapse_backend_failed",
+                        error = %error,
+                        "Rejecting committed header hint in Asymptote."
+                    );
+                }
+                if header.height <= 2 {
+                    eprintln!(
+                        "[BENCH-AFT-COMMIT-HINT-REJECT] height={} view={} reason=expected_collapse_backend_failed error={}",
+                        header.height, header.view, error
+                    );
+                }
                 debug!(
                     target: "consensus",
                     height = header.height,
@@ -118,6 +246,15 @@ impl GuardianMajorityEngine {
             .entry((header.height, header.view))
             .or_default()
             .insert(block_hash, header.clone());
+        if Self::benchmark_trace_enabled() && header.height <= 2 {
+            eprintln!(
+                "[BENCH-AFT-COMMIT-HINT] height={} view={} hash={} collapse={}",
+                header.height,
+                header.view,
+                hex::encode(&block_hash[..4]),
+                collapse.is_some()
+            );
+        }
         true
     }
 

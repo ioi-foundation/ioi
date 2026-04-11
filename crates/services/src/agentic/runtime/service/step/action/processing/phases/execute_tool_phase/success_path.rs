@@ -253,7 +253,7 @@ fn summarize_media_multimodal_bundle_for_chat(bundle: &MediaMultimodalBundle) ->
         .join(",");
 
     let mut lines = vec![format!(
-        "Tool Output (media__extract_multimodal_evidence): title={} canonical_url={} duration_seconds={} selected_modalities={} selected_provider_ids={} provider_candidates={}",
+        "Tool Output (media__extract_evidence): title={} canonical_url={} duration_seconds={} selected_modalities={} selected_provider_ids={} provider_candidates={}",
         bundle.title.as_deref().unwrap_or(""),
         bundle.canonical_url,
         bundle.duration_seconds.unwrap_or_default(),
@@ -982,27 +982,25 @@ fn compact_tool_history_entry_for_chat(current_tool_name: &str, history_entry: &
     }
 
     match current_tool_name {
-        "media__extract_multimodal_evidence" => {
-            serde_json::from_str::<MediaMultimodalBundle>(trimmed)
-                .map(|bundle| summarize_media_multimodal_bundle_for_chat(&bundle))
-                .unwrap_or_else(|_| {
-                    truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT)
-                })
-        }
+        "media__extract_evidence" => serde_json::from_str::<MediaMultimodalBundle>(trimmed)
+            .map(|bundle| summarize_media_multimodal_bundle_for_chat(&bundle))
+            .unwrap_or_else(|_| {
+                truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT)
+            }),
         "media__extract_transcript" => serde_json::from_str::<MediaTranscriptBundle>(trimmed)
             .map(|bundle| summarize_media_transcript_bundle_for_chat(&bundle))
             .unwrap_or_else(|_| {
                 truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT)
             }),
-        "browser__snapshot" => {
+        "browser__inspect" => {
             if looks_like_browser_snapshot_history_entry(trimmed) {
                 compact_browser_snapshot_history_entry(trimmed)
             } else {
                 truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT)
             }
         }
-        "browser__click_element" => compact_browser_click_history_entry(trimmed),
-        "browser__synthetic_click" => compact_browser_synthetic_click_history_entry(trimmed),
+        "browser__click" => compact_browser_click_history_entry(trimmed),
+        "browser__click_at" => compact_browser_synthetic_click_history_entry(trimmed),
         _ => truncate_chars_for_chat_context(trimmed, TOOL_CHAT_HISTORY_RAW_CHAR_LIMIT),
     }
 }
@@ -1073,9 +1071,9 @@ fn workspace_edit_receipt_details(tool: &AgentTool, step_index: u32) -> Option<(
             path, line_number, ..
         } => {
             let tool_name = if line_number.is_some() {
-                "filesystem__edit_line"
+                "file__replace_line"
             } else {
-                "filesystem__write_file"
+                "file__write"
             };
             let path = path.trim();
             if path.is_empty() {
@@ -1092,8 +1090,8 @@ fn workspace_edit_receipt_details(tool: &AgentTool, step_index: u32) -> Option<(
                 return None;
             }
             Some((
-                "filesystem__patch".to_string(),
-                format!("step={step_index};tool=filesystem__patch;path={path}"),
+                "file__edit".to_string(),
+                format!("step={step_index};tool=file__edit;path={path}"),
             ))
         }
         _ => None,
@@ -1108,9 +1106,7 @@ fn workspace_read_receipt_details(tool: &AgentTool, step_index: u32) -> Option<S
     if path.is_empty() {
         return None;
     }
-    Some(format!(
-        "step={step_index};tool=filesystem__read_file;path={path}"
-    ))
+    Some(format!("step={step_index};tool=file__read;path={path}"))
 }
 
 fn record_workspace_read_receipt(agent_state: &mut AgentState, tool: &AgentTool, step_index: u32) {
@@ -2421,7 +2417,7 @@ pub(super) async fn handle_execution_success(
             }
         }
         if let Some(entry) = history_entry.clone() {
-            let snapshot_pending_context = if current_tool_name == "browser__snapshot" {
+            let snapshot_pending_context = if current_tool_name == "browser__inspect" {
                 service
                     .hydrate_session_history(session_id)
                     .ok()
@@ -2434,8 +2430,8 @@ pub(super) async fn handle_execution_success(
             };
             let compact_entry = compact_tool_history_entry_for_chat(current_tool_name, &entry);
             if !compact_entry.trim().is_empty() {
-                let content = if current_tool_name == "browser__snapshot" {
-                    format!("Tool Output (browser__snapshot): {}", compact_entry)
+                let content = if current_tool_name == "browser__inspect" {
+                    format!("Tool Output (browser__inspect): {}", compact_entry)
                 } else {
                     compact_entry
                 };
@@ -2536,7 +2532,7 @@ mod tests {
         let raw = json!({
             "schema_version": 1,
             "retrieved_at_ms": 1773264032396u64,
-            "tool": "media__extract_multimodal_evidence",
+            "tool": "media__extract_evidence",
             "requested_url": "https://www.youtube.com/watch?v=9Tm2c6NJH4Y",
             "canonical_url": "https://www.youtube.com/watch?v=9Tm2c6NJH4Y",
             "title": "Electromagnetism - Maxwell's Laws",
@@ -2626,8 +2622,7 @@ mod tests {
         })
         .to_string();
 
-        let compact =
-            compact_tool_history_entry_for_chat("media__extract_multimodal_evidence", &raw);
+        let compact = compact_tool_history_entry_for_chat("media__extract_evidence", &raw);
 
         assert!(compact.contains("selected_modalities=transcript,visual"));
         assert!(compact.contains("transcript_evidence[1]="));
@@ -2643,7 +2638,7 @@ mod tests {
             "<generic id=\"grp_noise\" name=\"alpha beta gamma delta\" rect=\"0,0,1,1\" /> ".repeat(200)
         );
 
-        let compact = compact_tool_history_entry_for_chat("browser__snapshot", &snapshot);
+        let compact = compact_tool_history_entry_for_chat("browser__inspect", &snapshot);
 
         assert!(compact.starts_with("<root"), "{compact}");
         assert!(compact.contains("ticket-link-t-202"), "{compact}");
@@ -2672,7 +2667,7 @@ mod tests {
             "<generic id=\"grp_noise\" name=\"alpha beta gamma delta\" rect=\"0,0,1,1\" /> ".repeat(200)
         );
 
-        let compact = compact_tool_history_entry_for_chat("browser__snapshot", &snapshot);
+        let compact = compact_tool_history_entry_for_chat("browser__inspect", &snapshot);
 
         assert!(compact.starts_with("<root"), "{compact}");
         assert!(compact.contains("grp_email_row tag=generic"), "{compact}");
@@ -2711,7 +2706,7 @@ mod tests {
             "<generic id=\"grp_noise\" name=\"padding\" rect=\"0,0,1,1\" /> ".repeat(200),
         );
 
-        let compact = compact_tool_history_entry_for_chat("browser__snapshot", &snapshot);
+        let compact = compact_tool_history_entry_for_chat("browser__inspect", &snapshot);
 
         assert!(
             compact.contains("grp_small_blue_circle tag=generic"),
@@ -2757,7 +2752,7 @@ mod tests {
             "<generic id=\"grp_noise\" name=\"padding\" rect=\"0,0,1,1\" /> ".repeat(200),
         );
 
-        let compact = compact_tool_history_entry_for_chat("browser__snapshot", &snapshot);
+        let compact = compact_tool_history_entry_for_chat("browser__inspect", &snapshot);
 
         assert!(compact.contains("lnk_prev tag=link name=Prev"), "{compact}");
         assert!(
@@ -2793,7 +2788,7 @@ mod tests {
             "\"verify_elapsed_ms\":379}"
         );
 
-        let compact = compact_tool_history_entry_for_chat("browser__click_element", raw);
+        let compact = compact_tool_history_entry_for_chat("browser__click", raw);
 
         assert!(
             compact.contains("Clicked element 'grp_4' via geometry fallback."),
@@ -2827,7 +2822,7 @@ mod tests {
     fn compact_browser_synthetic_click_history_entry_summarizes_postcondition() {
         let raw = r##"{"synthetic_click":{"x":60,"y":107},"pre_target":{"semantic_id":"grp_vertex","selector":"#blue-circle","tag_name":"circle","center_point":[31.0,108.0],"focused":false},"post_target":{"semantic_id":"grp_blue_circle","selector":"#blue-circle","tag_name":"circle","center_point":[53.0,118.0],"focused":false},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"##;
 
-        let compact = compact_tool_history_entry_for_chat("browser__synthetic_click", raw);
+        let compact = compact_tool_history_entry_for_chat("browser__click_at", raw);
 
         assert!(
             compact.contains("Synthetic click at (60, 107)"),
@@ -2851,7 +2846,7 @@ mod tests {
     fn compact_browser_synthetic_click_history_entry_keeps_verify_json_parseable_under_budget() {
         let raw = r##"{"synthetic_click":{"x":51.0,"y":103.0},"pre_target":{"semantic_id":"grp_large_line_from_31108_to_9181","selector":"#svg-grid > line:nth-of-type(2)","tag_name":"line","center_point":[61.0,94.5],"focused":false,"editable":false,"checked":null,"selected":null},"post_target":{"semantic_id":"grp_blue_circle","dom_id":"blue-circle","selector":"#blue-circle","tag_name":"circle","center_point":[53.5,105.5],"focused":false,"editable":false,"checked":null,"selected":null},"postcondition":{"met":true,"tree_changed":true,"url_changed":false}}"##;
 
-        let compact = compact_tool_history_entry_for_chat("browser__synthetic_click", raw);
+        let compact = compact_tool_history_entry_for_chat("browser__click_at", raw);
         let verify_json = compact
             .split_once(" verify=")
             .map(|(_, verify)| verify)
@@ -2886,11 +2881,8 @@ mod tests {
             7,
         )
         .expect("write receipt details should exist");
-        assert_eq!(write.0, "filesystem__write_file");
-        assert_eq!(
-            write.1,
-            "step=7;tool=filesystem__write_file;path=path_utils.py"
-        );
+        assert_eq!(write.0, "file__write");
+        assert_eq!(write.1, "step=7;tool=file__write;path=path_utils.py");
 
         let edit = workspace_edit_receipt_details(
             &AgentTool::FsWrite {
@@ -2901,11 +2893,8 @@ mod tests {
             8,
         )
         .expect("edit receipt details should exist");
-        assert_eq!(edit.0, "filesystem__edit_line");
-        assert_eq!(
-            edit.1,
-            "step=8;tool=filesystem__edit_line;path=path_utils.py"
-        );
+        assert_eq!(edit.0, "file__replace_line");
+        assert_eq!(edit.1, "step=8;tool=file__replace_line;path=path_utils.py");
 
         let patch = workspace_edit_receipt_details(
             &AgentTool::FsPatch {
@@ -2916,7 +2905,7 @@ mod tests {
             9,
         )
         .expect("patch receipt details should exist");
-        assert_eq!(patch.0, "filesystem__patch");
-        assert_eq!(patch.1, "step=9;tool=filesystem__patch;path=path_utils.py");
+        assert_eq!(patch.0, "file__edit");
+        assert_eq!(patch.1, "step=9;tool=file__edit;path=path_utils.py");
     }
 }

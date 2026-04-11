@@ -29,7 +29,7 @@ impl PolicySynthesizer {
                     // For MVP, we extract domains from URLs and App names if available.
                     // This logic mirrors the Python SDK's GhostRecorder heuristics.
 
-                    if name == "net__fetch" || name == "browser__navigate" {
+                    if name == "http__fetch" || name == "browser__navigate" {
                         if let Some(url) = tool_call["arguments"]["url"].as_str() {
                             if let Some(domain) = extract_domain(url) {
                                 let domains = conditions.allow_domains.get_or_insert_with(Vec::new);
@@ -38,7 +38,7 @@ impl PolicySynthesizer {
                                 }
                             }
                         }
-                    } else if name == "gui__click" || name == "gui__type" {
+                    } else if name == "screen__click_at" || name == "screen__type" {
                         // [NEW] Suggest blocking high-risk intents for GUI actions if observed in unsafe contexts (heuristic)
                         // For now, we just ensure the rule exists.
                         // Future: integrate SafetyModel hints if trace contains them.
@@ -102,7 +102,7 @@ mod tests {
             step_index: 1,
             visual_hash: [0; 32],
             full_prompt: "".into(),
-            raw_output: r#"{"name": "gui__click", "arguments": {"x": 100, "y": 100}}"#.into(),
+            raw_output: r#"{"name": "screen__click_at", "arguments": {"x": 100, "y": 100}}"#.into(),
             success: true,
             error: None,
             cost_incurred: 0,
@@ -129,7 +129,7 @@ mod tests {
         let click_rule = policy
             .rules
             .iter()
-            .find(|r| r.target == "gui__click")
+            .find(|r| r.target == "screen__click_at")
             .unwrap();
         assert!(click_rule.conditions.allow_domains.is_none());
     }

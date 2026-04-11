@@ -675,11 +675,16 @@ async fn direct_author_continues_incomplete_raw_document_before_repairing() {
         StudioRendererKind::HtmlIframe,
     );
     let brief = sample_quantum_explainer_brief();
-    let live_previews = Arc::new(Mutex::new(Vec::<crate::execution::ExecutionLivePreview>::new()));
+    let live_previews = Arc::new(Mutex::new(
+        Vec::<crate::execution::ExecutionLivePreview>::new(),
+    ));
     let live_preview_observer = {
         let live_previews = live_previews.clone();
         Arc::new(move |preview: crate::execution::ExecutionLivePreview| {
-            live_previews.lock().expect("live preview log").push(preview);
+            live_previews
+                .lock()
+                .expect("live preview log")
+                .push(preview);
         })
     };
 
@@ -700,7 +705,9 @@ async fn direct_author_continues_incomplete_raw_document_before_repairing() {
     .expect("interrupted direct-author stream should continue the raw document");
 
     assert_eq!(payload.files[0].path, "index.html");
-    assert!(payload.files[0].body.contains("Quantum computers explained"));
+    assert!(payload.files[0]
+        .body
+        .contains("Quantum computers explained"));
     assert!(payload.files[0].body.ends_with("</html>"));
 
     let preview_log = live_previews.lock().expect("live preview log");
@@ -732,9 +739,7 @@ async fn direct_author_interrupted_stream_preserves_whitespace_only_chunks_for_r
                     prompt.contains("Quantum computers are"),
                     "continuation prompt lost whitespace-only chunks: {prompt}"
                 );
-                return Ok("</p></section></main></body></html>"
-                    .as_bytes()
-                    .to_vec());
+                return Ok("</p></section></main></body></html>".as_bytes().to_vec());
             }
             Err(VmError::HostError(format!(
                 "unexpected non-streaming prompt in whitespace-sensitive runtime: {prompt}"
@@ -819,9 +824,7 @@ async fn direct_author_interrupted_stream_preserves_whitespace_only_chunks_for_r
     .await
     .expect("whitespace-sensitive interrupted stream should recover the full sentence");
 
-    assert!(payload.files[0]
-        .body
-        .contains("Quantum computers are"));
+    assert!(payload.files[0].body.contains("Quantum computers are"));
     assert!(payload.files[0].body.ends_with("</html>"));
 }
 
@@ -1027,7 +1030,8 @@ fn local_direct_author_prompt_omits_materialization_json_scaffolding() {
 
     let prompt_text = serde_json::to_string(&payload).expect("prompt json");
 
-    assert!(prompt_text.contains("Create an interactive HTML artifact that explains quantum computers."));
+    assert!(prompt_text
+        .contains("Create an interactive HTML artifact that explains quantum computers."));
     assert!(prompt_text.contains("Return only one complete self-contained index.html."));
     assert!(prompt_text.contains("Keep inline CSS concise"));
     assert!(prompt_text.contains("End with a fully closed </main></body></html>."));
@@ -2501,7 +2505,7 @@ fn edit_intent_repair_prompt_requires_json_wrapper_after_missing_payload() {
 fn studio_artifact_production_sources_do_not_special_case_quantum_fixture() {
     for source in [
         include_str!("planning.rs"),
-        include_str!("generation.rs"),
+        include_str!("generation/mod.rs"),
         include_str!("judging.rs"),
         include_str!("payload.rs"),
     ] {
@@ -11344,7 +11348,8 @@ fn modal_first_local_html_judge_prompt_carries_render_eval_focus() {
         assert!(user_content.contains("Render evaluation JSON"));
         assert!(user_content.contains("\"overallScore\":17"));
         assert!(user_content.contains("visually flat"));
-        assert!(user_content.contains("recommendedNextPass: accept|structural_repair|polish_pass|hold_block"));
+        assert!(user_content
+            .contains("recommendedNextPass: accept|structural_repair|polish_pass|hold_block"));
         assert!(user_content.contains("classification: pass|repairable|blocked"));
     });
 }

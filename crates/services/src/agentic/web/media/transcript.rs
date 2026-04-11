@@ -431,7 +431,7 @@ fn extract_timeline_artifact(
     let bundle = MediaTimelineOutlineBundle {
         schema_version: 1,
         retrieved_at_ms,
-        tool: "media__extract_multimodal_evidence".to_string(),
+        tool: "media__extract_evidence".to_string(),
         backend: "edge:media:youtube_key_moments_timeline".to_string(),
         provider_id: YOUTUBE_TIMELINE_PROVIDER_ID.to_string(),
         provider_version: provider_version.clone(),

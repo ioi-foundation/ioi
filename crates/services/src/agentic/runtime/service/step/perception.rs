@@ -311,7 +311,7 @@ pub async fn gather_context(
             if !target_hint.is_empty() && !fg_title.contains(&target_hint) {
                 Some(format!(
                     "❌ CONTEXT_DRIFT: You switched focus to '{}', but the goal requires '{}'. \
-                  This is a FAILURE. Use `os__focus_window` to return.",
+                  This is a FAILURE. Use `window__focus` to return.",
                     active_window_title, target_hint
                 ))
             } else {
@@ -842,7 +842,7 @@ mod tests {
             ExecutionTier::DomHeadless,
             "Chromium (chromium)",
             Some(IntentScopeProfile::UiInteraction),
-            &[tool("browser__snapshot"), tool("browser__click_element")]
+            &[tool("browser__inspect"), tool("browser__click")]
         ));
     }
 
@@ -852,7 +852,7 @@ mod tests {
             ExecutionTier::DomHeadless,
             "Chromium (chromium)",
             Some(IntentScopeProfile::CommandExecution),
-            &[tool("browser__snapshot"), tool("browser__click_element")]
+            &[tool("browser__inspect"), tool("browser__click")]
         ));
     }
 }

@@ -73,7 +73,7 @@ fn routing_receipt_failure_class_preserves_internal_failure_signal() {
 #[test]
 fn routing_receipt_for_explicit_tool_unavailable_marker_preserves_failure_class() {
     let internal = classify_failure(
-        Some("ERROR_CLASS=ToolUnavailable Tool 'sys__install_package' is unavailable."),
+        Some("ERROR_CLASS=ToolUnavailable Tool 'package__install' is unavailable."),
         "allowed",
     )
     .expect("marker should classify");
@@ -84,7 +84,7 @@ fn routing_receipt_for_explicit_tool_unavailable_marker_preserves_failure_class(
         step_index: 3,
         intent_hash: "intent_hash".to_string(),
         policy_decision: "allowed".to_string(),
-        tool_name: "sys__install_package".to_string(),
+        tool_name: "package__install".to_string(),
         tool_version: "test-v1".to_string(),
         pre_state: RoutingStateSummary {
             agent_status: "Running".to_string(),
@@ -93,7 +93,7 @@ fn routing_receipt_for_explicit_tool_unavailable_marker_preserves_failure_class(
             consecutive_failures: 1,
             target_hint: Some("terminal".to_string()),
         },
-        action_json: "{\"name\":\"sys__install_package\"}".to_string(),
+        action_json: "{\"name\":\"package__install\"}".to_string(),
         post_state: RoutingPostStateSummary {
             agent_status: "Paused".to_string(),
             tier: "AxFirst".to_string(),

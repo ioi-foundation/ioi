@@ -3,8 +3,8 @@ use super::support::{
     mark_execution_receipt, mark_execution_receipt_with_value, postcondition_marker,
     receipt_marker,
 };
-use crate::agentic::runtime::types::{AgentState, CommandExecution, ToolCallStatus};
 use crate::agentic::rules::ActionRules;
+use crate::agentic::runtime::types::{AgentState, CommandExecution, ToolCallStatus};
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::agentic::{
     AgentTool, IntentMatrixEntry, IntentRoutingPolicy, IntentScopeProfile,
@@ -574,13 +574,13 @@ mod tests {
         timer_payload_requires_allowlisted_scheduler, VERIFICATION_COMMIT_RECEIPT,
         WEB_PIPELINE_TERMINAL_RECEIPT,
     };
+    use crate::agentic::rules::ActionRules;
     use crate::agentic::runtime::service::step::action::support::{
         mark_execution_postcondition, mark_execution_receipt, mark_execution_receipt_with_value,
     };
     use crate::agentic::runtime::types::{
         AgentMode, AgentState, AgentStatus, CommandExecution, ExecutionTier, ToolCallStatus,
     };
-    use crate::agentic::rules::ActionRules;
     use ioi_types::app::agentic::{AgentTool, CapabilityId};
     use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
     use std::collections::{BTreeMap, VecDeque};
@@ -852,7 +852,7 @@ mod tests {
         };
 
         assert_eq!(
-            capability_route_label(&tool, "filesystem__copy_path").as_deref(),
+            capability_route_label(&tool, "file__copy").as_deref(),
             Some("native_integration")
         );
     }

@@ -19,7 +19,7 @@ impl BrowserDriver {
     fn validate_upload_paths(paths: &[String]) -> std::result::Result<Vec<String>, BrowserError> {
         if paths.is_empty() {
             return Err(BrowserError::Internal(
-                "browser__upload_file requires at least one path".to_string(),
+                "browser__upload requires at least one path".to_string(),
             ));
         }
 
@@ -29,7 +29,7 @@ impl BrowserDriver {
                 let trimmed = raw.trim();
                 if trimmed.is_empty() {
                     return Err(BrowserError::Internal(
-                        "browser__upload_file paths cannot be empty".to_string(),
+                        "browser__upload paths cannot be empty".to_string(),
                     ));
                 }
                 let path = std::path::Path::new(trimmed);

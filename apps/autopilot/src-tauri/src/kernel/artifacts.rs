@@ -1618,11 +1618,11 @@ fn compare_canonical_trace_bundles(
     );
     let left_await_receipts = count_matching_receipts(
         &left.events,
-        &["agent__await_result", "agent::await_result", "await_result"],
+        &["agent__await", "agent::await_result", "await_result"],
     );
     let right_await_receipts = count_matching_receipts(
         &right.events,
-        &["agent__await_result", "agent::await_result", "await_result"],
+        &["agent__await", "agent::await_result", "await_result"],
     );
     let left_workbench_statuses = workbench_status_counter(&left.assistant_workbench_activities);
     let right_workbench_statuses = workbench_status_counter(&right.assistant_workbench_activities);
@@ -2042,7 +2042,7 @@ mod tests {
             step_index: 1,
             event_type: EventType::Receipt,
             title: "Awaited".to_string(),
-            digest: json!({ "tool_name": "agent__await_result" }),
+            digest: json!({ "tool_name": "agent__await" }),
             details: json!({}),
             artifact_refs: Vec::new(),
             receipt_ref: None,

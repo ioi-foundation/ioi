@@ -31,8 +31,6 @@ use std::fs;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
-// --- Helper functions for metrics ---
-
 // Helper to scrape a metrics endpoint and return the body as text.
 async fn scrape_metrics(telemetry_addr: &str) -> Result<String> {
     let url = format!("http://{}/metrics", telemetry_addr);
@@ -157,10 +155,14 @@ async fn test_metrics_endpoint() -> Result<()> {
                         ema_alpha_milli: 200,
                         interval_step_bps: 500,
                         retarget_every_blocks: 0,
+                        base_interval_ms: ioi_types::app::seconds_to_millis(5),
+                        min_interval_ms: ioi_types::app::seconds_to_millis(2),
+                        max_interval_ms: ioi_types::app::seconds_to_millis(10),
                     };
                     let timing_runtime = BlockTimingRuntime {
                         ema_gas_used: 0,
                         effective_interval_secs: timing_params.base_interval_secs,
+                        effective_interval_ms: timing_params.base_interval_ms_or_legacy(),
                     };
                     builder.set_block_timing(&timing_params, &timing_runtime);
                 });
@@ -196,10 +198,14 @@ async fn test_metrics_endpoint() -> Result<()> {
                         ema_alpha_milli: 200,
                         interval_step_bps: 500,
                         retarget_every_blocks: 0,
+                        base_interval_ms: ioi_types::app::seconds_to_millis(5),
+                        min_interval_ms: ioi_types::app::seconds_to_millis(2),
+                        max_interval_ms: ioi_types::app::seconds_to_millis(10),
                     };
                     let timing_runtime = BlockTimingRuntime {
                         ema_gas_used: 0,
                         effective_interval_secs: timing_params.base_interval_secs,
+                        effective_interval_ms: timing_params.base_interval_ms_or_legacy(),
                     };
                     builder.set_block_timing(&timing_params, &timing_runtime);
                 });
@@ -244,6 +250,7 @@ async fn test_storage_crash_recovery() -> Result<()> {
     let cluster = TestCluster::builder()
         .with_validators(1)
         .use_docker_backend(false)
+        .with_consensus_type("ProofOfAuthority")
         .with_initial_service(InitialServiceConfig::Oracle(OracleParams::default()))
         .with_initial_service(InitialServiceConfig::IdentityHub(MigrationConfig {
             chain_id: 1,
@@ -289,10 +296,14 @@ async fn test_storage_crash_recovery() -> Result<()> {
                 ema_alpha_milli: 200,
                 interval_step_bps: 500,
                 retarget_every_blocks: 0,
+                base_interval_ms: ioi_types::app::seconds_to_millis(5),
+                min_interval_ms: ioi_types::app::seconds_to_millis(2),
+                max_interval_ms: ioi_types::app::seconds_to_millis(10),
             };
             let timing_runtime = BlockTimingRuntime {
                 ema_gas_used: 0,
                 effective_interval_secs: timing_params.base_interval_secs,
+                effective_interval_ms: timing_params.base_interval_ms_or_legacy(),
             };
             builder.set_block_timing(&timing_params, &timing_runtime);
         })
@@ -437,6 +448,7 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
 
     let mut cluster = TestCluster::builder()
         .with_validators(1)
+        .with_consensus_type("ProofOfAuthority")
         .with_state_tree("IAVL")
         .with_keep_recent_heights(keep_recent)
         .with_epoch_size(epoch_size)
@@ -483,6 +495,7 @@ async fn test_gc_respects_pinned_epochs() -> Result<()> {
             let timing_runtime = BlockTimingRuntime {
                 ema_gas_used: 0,
                 effective_interval_secs: timing_params.base_interval_secs,
+                effective_interval_ms: timing_params.base_interval_ms_or_legacy(),
             };
             builder.set_block_timing(&timing_params, &timing_runtime);
         })
@@ -594,6 +607,7 @@ async fn test_storage_soak_test() -> Result<()> {
     // Fast GC to stress the system
     let mut cluster = TestCluster::builder()
         .with_validators(1)
+        .with_consensus_type("ProofOfAuthority")
         .with_state_tree("IAVL")
         .with_epoch_size(10)
         .with_keep_recent_heights(20)
@@ -640,6 +654,7 @@ async fn test_storage_soak_test() -> Result<()> {
             let timing_runtime = BlockTimingRuntime {
                 ema_gas_used: 0,
                 effective_interval_secs: timing_params.base_interval_secs,
+                effective_interval_ms: timing_params.base_interval_ms_or_legacy(),
             };
             builder.set_block_timing(&timing_params, &timing_runtime);
         })

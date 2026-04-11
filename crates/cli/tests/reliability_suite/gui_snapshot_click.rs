@@ -165,7 +165,7 @@ async fn snapshot_with_target_retry(
     const RETRY_DELAY_MS: u64 = 500;
     let allow_root_fallback = parse_bool_env("IOI_RELIABILITY_GUI_ALLOW_ROOT_FALLBACK", true);
     let mut last_failure =
-        "gui__snapshot did not return a targetable accessibility node".to_string();
+        "screen__inspect did not return a targetable accessibility node".to_string();
 
     for attempt in 0..MAX_ATTEMPTS {
         let step = step_start + attempt;
@@ -194,7 +194,7 @@ async fn snapshot_with_target_retry(
                     err
                 ),
             );
-            last_failure = format!("gui__snapshot failed: {}", err);
+            last_failure = format!("screen__inspect failed: {}", err);
 
             let transient = err.contains("Failed to fetch UI tree")
                 || err.contains("Accessibility")
@@ -213,7 +213,7 @@ async fn snapshot_with_target_retry(
                 "gui_snapshot_attempts.log",
                 &format!("step={} attempt={} empty_xml=true", step_start, attempt + 1),
             );
-            last_failure = "gui__snapshot returned an empty XML payload".to_string();
+            last_failure = "screen__inspect returned an empty XML payload".to_string();
             if attempt + 1 < MAX_ATTEMPTS {
                 sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
                 continue;
@@ -361,7 +361,7 @@ async fn gui_snapshot_then_click_element_emits_click_input() -> Result<()> {
         app.stop().await;
         browser.stop().await;
         return Err(anyhow!(
-            "gui__click_element failed for id '{}': {}",
+            "screen__click failed for id '{}': {}",
             target_id,
             describe_result(&click)
         ));
@@ -372,7 +372,7 @@ async fn gui_snapshot_then_click_element_emits_click_input() -> Result<()> {
         events
             .iter()
             .any(|event| matches!(event, InputEvent::Click { .. })),
-        "expected gui__click_element to emit an injected click event, got: {:?}",
+        "expected screen__click to emit an injected click event, got: {:?}",
         events
     );
     for step in 1..=snapshot_step {

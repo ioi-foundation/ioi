@@ -8,7 +8,7 @@
         "required": ["content"]
     });
     tools.push(LlmToolDefinition {
-        name: "os__copy".to_string(),
+        name: "clipboard__copy".to_string(),
         description: "Write text to the system clipboard (Copy).".to_string(),
         parameters: copy_params.to_string(),
     });
@@ -19,7 +19,7 @@
         "required": []
     });
     tools.push(LlmToolDefinition {
-        name: "os__paste".to_string(),
+        name: "clipboard__paste".to_string(),
         description: "Read text from the system clipboard (Paste).".to_string(),
         parameters: paste_params.to_string(),
     });

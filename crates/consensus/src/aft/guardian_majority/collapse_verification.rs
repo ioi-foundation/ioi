@@ -296,7 +296,9 @@ impl GuardianMajorityEngine {
             Some(published) => {
                 self.verify_canonical_collapse_chain_with_parent_view(&published, parent_view)
                     .await?;
-                Ok(published == derived)
+                Ok(canonical_collapse_eq_on_header_surface(
+                    &published, &derived,
+                ))
             }
             None => Ok(true),
         }
@@ -435,7 +437,7 @@ impl GuardianMajorityEngine {
     }
 
     pub(super) fn maybe_promote_committed_height_qc(&mut self, height: u64) {
-        if height == 0 || self.highest_qc.height >= height {
+        if height == 0 || self.highest_qc.height > height {
             return;
         }
 
@@ -449,8 +451,24 @@ impl GuardianMajorityEngine {
             let Ok(qc) = Self::quorum_certificate_from_header(header) else {
                 return;
             };
+            if self.highest_qc == qc {
+                return;
+            }
+            if Self::benchmark_trace_enabled() && height <= 2 {
+                eprintln!(
+                    "[BENCH-AFT-QC-PROMOTE] height={} old_height={} old_hash={} new_hash={}",
+                    height,
+                    self.highest_qc.height,
+                    hex::encode(&self.highest_qc.block_hash[..4]),
+                    hex::encode(&qc.block_hash[..4]),
+                );
+            }
             self.highest_qc = qc.clone();
             self.queue_qc_broadcast(&qc);
+            return;
+        }
+
+        if self.highest_qc.height >= height {
             return;
         }
 
@@ -2431,10 +2449,23 @@ impl GuardianMajorityEngine {
         let derived = self
             .canonical_collapse_from_header_surface_with_parent_view(header, parent_view)
             .await?;
-        if published != derived {
+        if !canonical_collapse_eq_on_header_surface(&published, &derived) {
             return Err(ConsensusError::BlockVerificationFailed(format!(
-                "published canonical collapse object does not match the proof-carried surface for slot {}",
-                header.height
+                "published canonical collapse object does not match the proof-carried surface for slot {} (prev_hash={}, ordering_height={}, ordering_kind={}, commitment={}, availability={}, order_cert={}, sealing={}, tx_root={}, state_root={})",
+                header.height,
+                published.previous_canonical_collapse_commitment_hash
+                    == derived.previous_canonical_collapse_commitment_hash,
+                published.ordering.height == derived.ordering.height,
+                published.ordering.kind == derived.ordering.kind,
+                published.ordering.bulletin_commitment_hash
+                    == derived.ordering.bulletin_commitment_hash,
+                published.ordering.bulletin_availability_certificate_hash
+                    == derived.ordering.bulletin_availability_certificate_hash,
+                published.ordering.canonical_order_certificate_hash
+                    == derived.ordering.canonical_order_certificate_hash,
+                published.sealing == derived.sealing,
+                published.transactions_root_hash == derived.transactions_root_hash,
+                published.resulting_state_root_hash == derived.resulting_state_root_hash,
             )));
         }
         self.verify_canonical_collapse_chain_with_parent_view(&published, parent_view)

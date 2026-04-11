@@ -62,9 +62,8 @@ impl InferenceRuntime for StandardInferenceRuntime {
         // 2. Parse input (AgentContext or raw bytes)
         // For Phase 3, we assume raw bytes are prompt tokens for simplicity.
 
-        // Native runtime path; model execution is wired by the loaded hardware driver.
-        // Full tensor generation remains driver-specific, so this runtime returns a
-        // deterministic placeholder until model forward integration is expanded.
-        Ok(b"Mock inference result".to_vec())
+        Err(VmError::HostError(
+            "Standard inference runtime forward execution is not implemented yet.".into(),
+        ))
     }
 }

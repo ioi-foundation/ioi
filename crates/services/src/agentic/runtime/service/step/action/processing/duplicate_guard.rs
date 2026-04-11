@@ -57,12 +57,12 @@ pub(super) fn duplicate_command_completion_summary(
     let target_utc = target_utc_from_run_and_sleep(entry.timestamp_ms, sleep_seconds)?;
     let mechanism = if let Some(pid) = extract_background_pid(&entry.stdout) {
         format!(
-            "Detached sys__exec command '{}' launched as background process (PID: {}).",
+            "Detached shell__run command '{}' launched as background process (PID: {}).",
             executed_command, pid
         )
     } else {
         format!(
-            "Detached sys__exec command '{}' launched as background process.",
+            "Detached shell__run command '{}' launched as background process.",
             executed_command
         )
     };

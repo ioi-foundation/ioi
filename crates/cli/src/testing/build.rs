@@ -7,17 +7,45 @@ use std::sync::Once;
 
 static BUILD_MOCK_VERIFIER: Once = Once::new();
 
+pub fn workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("Failed to resolve workspace root")
+        .to_path_buf()
+}
+
+fn deterministic_feature_hash(features: &str) -> u64 {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in features.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
+pub fn test_node_target_dir(build_profile: &str, features: &str) -> PathBuf {
+    workspace_root()
+        .join("target")
+        .join("test-node-builds")
+        .join(format!(
+            "{}-{:016x}",
+            build_profile,
+            deterministic_feature_hash(features)
+        ))
+}
+
+pub fn test_node_binary_dir(build_profile: &str, features: &str) -> PathBuf {
+    test_node_target_dir(build_profile, features).join(build_profile)
+}
+
 /// Builds the mock verifier component used by dynamic verifier tests.
 pub fn build_mock_verifier_artifact() {
     BUILD_MOCK_VERIFIER.call_once(|| {
         println!("--- Building Test Artifacts (one-time setup) ---");
 
         let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        // Resolve workspace root relative to crates/cli
-        let workspace_root = manifest_dir
-            .parent()
-            .and_then(|p| p.parent())
-            .expect("Failed to resolve workspace root");
+        let workspace_root = workspace_root();
         let target_dir = workspace_root.join("target");
 
         // [NEW] Mock Verifier for Dynamic IBC

@@ -136,12 +136,8 @@ pub(super) async fn handle_install_package(
     let receipt_cwd =
         scrub_workload_text_field_for_receipt(exec, resolved_cwd_string.as_str()).await;
     let receipt_preview = command_preview(&receipt_command, &receipt_args);
-    let workload_id = compute_workload_id(
-        session_id,
-        step_index,
-        "sys__install_package",
-        &receipt_preview,
-    );
+    let workload_id =
+        compute_workload_id(session_id, step_index, "package__install", &receipt_preview);
     if let Some(tx) = exec.event_sender.as_ref() {
         emit_workload_activity(
             tx,
@@ -229,7 +225,7 @@ pub(super) async fn handle_install_package(
             step_index,
             workload_id.clone(),
             WorkloadReceipt::Exec(WorkloadExecReceipt {
-                tool_name: "sys__install_package".to_string(),
+                tool_name: "package__install".to_string(),
                 command: receipt_command,
                 args: receipt_args,
                 cwd: receipt_cwd,

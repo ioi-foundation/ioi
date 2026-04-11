@@ -14,15 +14,18 @@ use bollard::{
     Docker,
 };
 use futures_util::stream::{self, Stream, StreamExt};
+use ioi_api::chain::WorkloadClientApi;
+use ioi_client::WorkloadClient;
 use ioi_validator::common::generate_certificates_if_needed;
 use libp2p::Multiaddr;
 use std::any::Any;
+use std::collections::VecDeque;
 use std::io;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Stdio;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use tokio::io::AsyncBufReadExt;
 use tokio::process::{Child, Command as TokioCommand};
@@ -81,9 +84,12 @@ pub struct ProcessBackend {
     /// Pinned workload IPC address (never :0 after constructor runs).
     pub workload_ipc_addr: String,
     pub certs_dir_path: PathBuf,
+    pub shmem_id: String,
 }
 
 impl ProcessBackend {
+    const WORKLOAD_READY_TIMEOUT: Duration = Duration::from_secs(120);
+
     pub fn new(
         rpc_addr: String,
         p2p_addr: Multiaddr,
@@ -91,6 +97,7 @@ impl ProcessBackend {
         workload_config_path: PathBuf,
         mut workload_ipc_addr: String,
         certs_dir_path: PathBuf,
+        shmem_id: String,
     ) -> Self {
         // Normalize ":0" to a concrete free port so the address is stable across restarts.
         if workload_ipc_addr.ends_with(":0") {
@@ -117,7 +124,98 @@ impl ProcessBackend {
             workload_config_path,
             workload_ipc_addr,
             certs_dir_path,
+            shmem_id,
         }
+    }
+
+    async fn wait_for_workload_genesis_ready(
+        &mut self,
+        log_rx: &mut broadcast::Receiver<String>,
+    ) -> Result<()> {
+        let ca = self
+            .certs_dir_path
+            .join("ca.pem")
+            .to_string_lossy()
+            .to_string();
+        let cert = self
+            .certs_dir_path
+            .join("orchestration.pem")
+            .to_string_lossy()
+            .to_string();
+        let key = self
+            .certs_dir_path
+            .join("orchestration.key")
+            .to_string_lossy()
+            .to_string();
+        let start = Instant::now();
+        let mut recent_log_lines = VecDeque::new();
+        loop {
+            loop {
+                match log_rx.try_recv() {
+                    Ok(line) => {
+                        if recent_log_lines.len() >= 40 {
+                            recent_log_lines.pop_front();
+                        }
+                        recent_log_lines.push_back(line);
+                    }
+                    Err(broadcast::error::TryRecvError::Lagged(count)) => {
+                        if recent_log_lines.len() >= 40 {
+                            recent_log_lines.pop_front();
+                        }
+                        recent_log_lines
+                            .push_back(format!("[workload log stream lagged by {} lines]", count));
+                    }
+                    Err(broadcast::error::TryRecvError::Empty)
+                    | Err(broadcast::error::TryRecvError::Closed) => break,
+                }
+            }
+
+            if let Some(child) = self.workload_process.as_mut() {
+                if let Some(status) = child.try_wait()? {
+                    let recent_logs = if recent_log_lines.is_empty() {
+                        "<no workload logs captured>".to_string()
+                    } else {
+                        recent_log_lines
+                            .iter()
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    };
+                    return Err(anyhow!(
+                        "Restarted workload exited before becoming ready: {}\n--- Recent workload logs ---\n{}\n--- End workload logs ---",
+                        status,
+                        recent_logs
+                    ));
+                }
+            }
+
+            if let Ok(client) = WorkloadClient::new(&self.workload_ipc_addr, &ca, &cert, &key).await
+            {
+                if let Ok(true) = client.get_genesis_status().await {
+                    return Ok(());
+                }
+            }
+
+            if start.elapsed() > Self::WORKLOAD_READY_TIMEOUT {
+                let recent_logs = if recent_log_lines.is_empty() {
+                    "<no workload logs captured>".to_string()
+                } else {
+                    recent_log_lines
+                        .iter()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                };
+                return Err(anyhow!(
+                    "Timeout waiting for restarted workload to become ready\n--- Recent workload logs ---\n{}\n--- End workload logs ---",
+                    recent_logs
+                ));
+            }
+
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
+
+        Ok(())
     }
 }
 
@@ -182,16 +280,22 @@ impl TestBackend for ProcessBackend {
 
     async fn cleanup(&mut self) -> Result<()> {
         if let Some(mut child) = self.orchestration_process.take() {
-            child.start_kill()?;
-            let _ = child.wait().await;
+            if child.try_wait()?.is_none() {
+                child.start_kill()?;
+                let _ = child.wait().await;
+            }
         }
         if let Some(mut child) = self.workload_process.take() {
-            child.start_kill()?;
-            let _ = child.wait().await;
+            if child.try_wait()?.is_none() {
+                child.start_kill()?;
+                let _ = child.wait().await;
+            }
         }
         if let Some(mut child) = self.guardian_process.take() {
-            child.start_kill()?;
-            let _ = child.wait().await;
+            if child.try_wait()?.is_none() {
+                child.start_kill()?;
+                let _ = child.wait().await;
+            }
         }
         Ok(())
     }
@@ -233,6 +337,7 @@ impl TestBackend for ProcessBackend {
             )
             .env("IPC_SERVER_ADDR", &self.workload_ipc_addr)
             .env("CERTS_DIR", self.certs_dir_path.to_string_lossy().as_ref())
+            .env("IOI_SHMEM_ID", &self.shmem_id)
             .stderr(Stdio::piped())
             .kill_on_drop(true);
 
@@ -253,22 +358,8 @@ impl TestBackend for ProcessBackend {
 
         self.workload_process = Some(child);
 
-        // Wait until the restarted workload announces its IPC server.
-        // This avoids racing the orchestrator’s reconnect loop.
-        let mut rx = log_tx.subscribe();
-        tokio::time::timeout(Duration::from_secs(30), async move {
-            tracing::info!(
-                target: "cli",
-                "Waiting for restarted workload to announce its IPC listener..."
-            );
-            while let Ok(line) = rx.recv().await {
-                if line.contains("WORKLOAD_IPC_LISTENING_ON_") {
-                    return Ok::<(), anyhow::Error>(());
-                }
-            }
-            Err(anyhow!("Workload did not announce IPC listening in time"))
-        })
-        .await??;
+        let mut log_rx = log_tx.subscribe();
+        self.wait_for_workload_genesis_ready(&mut log_rx).await?;
 
         Ok(())
     }
@@ -276,11 +367,19 @@ impl TestBackend for ProcessBackend {
     async fn kill_workload_process(&mut self) -> Result<()> {
         if let Some(mut child) = self.workload_process.take() {
             tracing::info!(target: "cli", "Killing workload process (handle-based)...");
-            child.start_kill()?;
-            // Wait for the process to actually exit to ensure resources/ports are released
-            // and to prevent zombie processes.
-            let status = child.wait().await?;
-            tracing::info!(target: "cli", "Workload process exited with: {}", status);
+            if let Some(status) = child.try_wait()? {
+                tracing::info!(
+                    target: "cli",
+                    "Workload process already exited before kill request: {}",
+                    status
+                );
+            } else {
+                child.start_kill()?;
+                // Wait for the process to actually exit to ensure resources/ports are released
+                // and to prevent zombie processes.
+                let status = child.wait().await?;
+                tracing::info!(target: "cli", "Workload process exited with: {}", status);
+            }
         } else {
             tracing::warn!(target: "cli", "kill_workload_process called but no process handle found.");
         }

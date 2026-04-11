@@ -256,7 +256,7 @@ mod tests {
             title: format!("{} {}", phase, playbook.label.as_str()),
             digest: json!({
                 "kind": "parent_playbook",
-                "tool_name": if phase == "step_spawned" { "agent__delegate" } else { "agent__await_result" },
+                "tool_name": if phase == "step_spawned" { "agent__delegate" } else { "agent__await" },
                 "phase": phase,
                 "playbook_id": playbook.playbook_id.clone(),
                 "playbook_label": playbook.label.clone(),
@@ -386,11 +386,11 @@ mod tests {
         assert!(coder_workflow
             .allowed_tools
             .iter()
-            .any(|tool| tool == "filesystem__patch"));
+            .any(|tool| tool == "file__edit"));
         assert!(coder_workflow
             .allowed_tools
             .iter()
-            .any(|tool| tool == "sys__exec_session"));
+            .any(|tool| tool == "shell__start"));
         assert!(coder_workflow
             .allowed_tools
             .iter()

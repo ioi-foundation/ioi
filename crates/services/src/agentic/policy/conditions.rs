@@ -116,9 +116,9 @@ impl PolicyEngine {
         // [NEW] System Command Allowlist
         if let ActionTarget::SysExec = target {
             if let Ok(json) = serde_json::from_slice::<serde_json::Value>(params) {
-                // Only enforce command allowlists for sys__exec-style payloads that carry a
+                // Only enforce command allowlists for shell__run-style payloads that carry a
                 // concrete `command` field. Other sys::exec-targeted tools (for example:
-                // sys__change_directory, sys__exec_session_reset, os__launch_app) omit it.
+                // shell__cd, shell__reset, app__launch) omit it.
                 let cmd = json
                     .get("command")
                     .and_then(|v| v.as_str())

@@ -1,5 +1,7 @@
 // Path: crates/validator/src/standard/orchestration/consensus.rs
-use super::aft_collapse::require_persisted_aft_canonical_collapse_if_needed;
+use super::aft_collapse::{
+    observe_live_committed_chain_through_block, require_persisted_aft_canonical_collapse_if_needed,
+};
 use crate::metrics::consensus_metrics as metrics;
 use crate::standard::orchestration::context::MainLoopContext;
 use crate::standard::orchestration::ingestion::ChainTipInfo;

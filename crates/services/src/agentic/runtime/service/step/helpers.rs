@@ -1,10 +1,10 @@
 // Path: crates/services/src/agentic/runtime/service/step/helpers.rs
 
-use crate::agentic::runtime::connectors::google_workspace;
-use crate::agentic::runtime::service::step::signals;
 use crate::agentic::rules::{
     ActionRules, IntentFailureOverride, OntologyPolicy, Rule, RuleConditions, Verdict,
 };
+use crate::agentic::runtime::connectors::google_workspace;
+use crate::agentic::runtime::service::step::signals;
 
 fn browser_allow_apps() -> Vec<String> {
     vec![
@@ -35,7 +35,7 @@ pub fn default_safe_policy() -> ActionRules {
         },
         Rule {
             rule_id: Some("allow-await".into()),
-            target: "agent__await_result".into(),
+            target: "agent__await".into(),
             conditions: Default::default(),
             action: Verdict::Allow,
         },

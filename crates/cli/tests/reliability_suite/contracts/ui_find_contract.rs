@@ -3,13 +3,16 @@
 use async_trait::async_trait;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::drivers::os::WindowInfo;
-use ioi_api::vm::inference::InferenceRuntime;
+use ioi_api::vm::inference::{
+    InferenceRuntime, LocalSafetyModel, PiiInspection, PiiRiskSurface, SafetyVerdict,
+};
 use ioi_drivers::gui::accessibility::{AccessibilityNode, Rect};
 use ioi_drivers::gui::lenses::{auto::AutoLens, react::ReactLens, LensRegistry};
 use ioi_drivers::mcp::McpManager;
 use ioi_drivers::os::UnavailableOsDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_services::agentic::runtime::execution::computer::find_semantic_ui_match;
+use ioi_services::agentic::pii_scrubber::PiiScrubber;
+use ioi_services::agentic::runtime::execution::screen::find_semantic_ui_match;
 use ioi_services::agentic::runtime::execution::ToolExecutor;
 use ioi_services::agentic::runtime::service::step::action::{
     canonical_intent_hash, canonical_tool_identity,
@@ -21,6 +24,7 @@ use ioi_services::agentic::runtime::service::step::anti_loop::{
 use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};
 use ioi_types::app::agentic::AgentTool;
+use ioi_types::app::agentic::EvidenceGraph;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{ActionRequest, ContextSlice};
 use ioi_types::app::{RoutingFailureClass, RoutingReceiptEvent};
@@ -128,6 +132,31 @@ impl InferenceRuntime for MockVisualRuntime {
     }
 }
 
+struct NoopSafetyModel;
+
+#[async_trait]
+impl LocalSafetyModel for NoopSafetyModel {
+    async fn classify_intent(&self, _input: &str) -> anyhow::Result<SafetyVerdict> {
+        Ok(SafetyVerdict::Safe)
+    }
+
+    async fn detect_pii(&self, _input: &str) -> anyhow::Result<Vec<(usize, usize, String)>> {
+        Ok(Vec::new())
+    }
+
+    async fn inspect_pii(
+        &self,
+        _input: &str,
+        _risk_surface: PiiRiskSurface,
+    ) -> anyhow::Result<PiiInspection> {
+        Ok(PiiInspection {
+            evidence: EvidenceGraph::default(),
+            ambiguous: false,
+            stage2_status: None,
+        })
+    }
+}
+
 fn build_test_png(width: u32, height: u32) -> Vec<u8> {
     let image = image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
         width,
@@ -190,13 +219,13 @@ fn ui_find_primary_semantic_path_uses_aria_label_hints() {
     };
 
     let found = find_semantic_ui_match(&tree, "save draft")
-        .expect("semantic ui__find should resolve aria-label-backed controls");
+        .expect("semantic screen__find should resolve aria-label-backed controls");
     assert_eq!(found.id.as_deref(), Some("button_17"));
     assert_eq!(found.label.as_deref(), Some("Save Draft"));
     assert_eq!(found.source, "semantic_tree");
 
     let visual_clause = find_semantic_ui_match(&tree, "save draft icon")
-        .expect("semantic ui__find should recover match with extra visual clause");
+        .expect("semantic screen__find should recover match with extra visual clause");
     assert_eq!(visual_clause.id.as_deref(), Some("button_17"));
     assert_eq!(visual_clause.label.as_deref(), Some("Save Draft"));
     assert_eq!(visual_clause.source, "semantic_tree");
@@ -744,7 +773,7 @@ fn routing_receipt_contract_for_ui_find_includes_pre_state_and_binding_hash() {
     };
 
     let (tool_name, args) = canonical_tool_identity(&tool);
-    assert_eq!(tool_name, "ui__find");
+    assert_eq!(tool_name, "screen__find");
     assert_eq!(
         args.get("query").and_then(|value| value.as_str()),
         Some("calculator icon")
@@ -828,7 +857,7 @@ fn routing_receipt_for_ui_find_primary_success_exposes_fallback_visibility() {
     let pre_state = build_state_summary(&state);
     let verification_checks = vec![
         "routing_reason_code=primary_success".to_string(),
-        "escalation_chain=ToolFirst(ui__find.semantic)".to_string(),
+        "escalation_chain=ToolFirst(screen__find.semantic)".to_string(),
         "fallback_used=false".to_string(),
     ];
     let post_state = build_post_state_summary(&state, true, verification_checks.clone());
@@ -873,6 +902,7 @@ async fn ui_find_uses_visual_locator_for_visual_queries() {
     let gui: Arc<dyn GuiDriver> = Arc::new(UiFindMockGuiDriver::new(build_test_png(320, 240)));
     let inference_runtime = Arc::new(MockVisualRuntime::default());
     let inference: Arc<dyn InferenceRuntime> = inference_runtime.clone();
+    let pii_scrubber = Some(PiiScrubber::new(Arc::new(NoopSafetyModel)));
     let executor = ToolExecutor::new(
         gui,
         Arc::new(UnavailableOsDriver::default()),
@@ -882,7 +912,7 @@ async fn ui_find_uses_visual_locator_for_visual_queries() {
         None,
         None,
         inference,
-        None,
+        pii_scrubber,
     )
     .with_window_context(
         Some(WindowInfo {
@@ -911,12 +941,12 @@ async fn ui_find_uses_visual_locator_for_visual_queries() {
         )
         .await;
 
-    assert!(result.success, "ui__find failed: {:?}", result.error);
+    assert!(result.success, "screen__find failed: {:?}", result.error);
 
-    let history = result.history_entry.expect("missing ui__find output");
+    let history = result.history_entry.expect("missing screen__find output");
     let payload = history
         .strip_prefix("UI find resolved: ")
-        .expect("unexpected ui__find payload prefix");
+        .expect("unexpected screen__find payload prefix");
     let parsed: serde_json::Value = serde_json::from_str(payload).expect("invalid JSON payload");
 
     assert_eq!(parsed["source"], "visual_locator");
@@ -929,8 +959,8 @@ async fn ui_find_uses_visual_locator_for_visual_queries() {
     let escalation_chain = parsed["escalation_chain"]
         .as_str()
         .expect("escalation_chain should be a string");
-    assert!(escalation_chain.starts_with("ToolFirst(ui__find.semantic"));
-    assert!(escalation_chain.ends_with("VisualLast(ui__find.visual_locator)"));
+    assert!(escalation_chain.starts_with("ToolFirst(screen__find.semantic"));
+    assert!(escalation_chain.ends_with("VisualLast(screen__find.visual_locator)"));
 
     let prompt = inference_runtime
         .first_prompt()

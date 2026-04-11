@@ -287,7 +287,7 @@ pub(crate) async fn run_lifecycle_status_phase(
             let _ = tx.send(KernelEvent::AgentActionResult {
                 session_id,
                 step_index: agent_state.step_count,
-                tool_name: "sys__install_package".to_string(),
+                tool_name: "package__install".to_string(),
                 output: err.clone().unwrap_or_default(),
                 error_class: extract_error_class_token(err.as_deref()).map(str::to_string),
                 agent_status: "Paused".to_string(),
@@ -556,7 +556,7 @@ pub(crate) async fn run_lifecycle_status_phase(
                     }
                     agent_state.status = AgentStatus::Running;
                 }
-                AgentTool::Computer(ComputerAction::Screenshot) => {
+                AgentTool::Screen(ScreenAction::Screenshot) => {
                     if success
                         && is_ui_capture_screenshot_intent(agent_state.resolved_intent.as_ref())
                     {
@@ -1743,7 +1743,7 @@ mod tests {
         );
         agent_state.tool_execution_log.insert(
             receipt_marker("execution"),
-            ToolCallStatus::Executed("automation__create_monitor".to_string()),
+            ToolCallStatus::Executed("monitor__create".to_string()),
         );
         agent_state.tool_execution_log.insert(
             receipt_marker("verification"),
@@ -1776,12 +1776,12 @@ mod tests {
             policy_decision: "approved".to_string(),
             verification_checks: &mut verification_checks,
             tool,
-            tool_name: "automation__create_monitor".to_string(),
+            tool_name: "monitor__create".to_string(),
             tool_jcs,
             tool_hash: [0u8; 32],
             pending_vhash: [0u8; 32],
             action_json: json!({
-                "name": "automation__create_monitor",
+                "name": "monitor__create",
                 "arguments": {
                     "interval_seconds": 300,
                     "keywords": ["Web4", "post-quantum cryptography"],
@@ -1818,7 +1818,7 @@ mod tests {
                 if tool_name == "chat__reply" && agent_status == "Completed" {
                     saw_chat_reply = true;
                 }
-                if tool_name == "automation__create_monitor" && agent_status == "Running" {
+                if tool_name == "monitor__create" && agent_status == "Running" {
                     saw_running_automation_result = true;
                 }
             }
@@ -1861,7 +1861,7 @@ mod tests {
         );
         agent_state.tool_execution_log.insert(
             receipt_marker("execution"),
-            ToolCallStatus::Executed("sys__install_package".to_string()),
+            ToolCallStatus::Executed("package__install".to_string()),
         );
         agent_state.tool_execution_log.insert(
             receipt_marker("verification"),
@@ -1894,12 +1894,12 @@ mod tests {
             policy_decision: "approved".to_string(),
             verification_checks: &mut verification_checks,
             tool,
-            tool_name: "sys__install_package".to_string(),
+            tool_name: "package__install".to_string(),
             tool_jcs,
             tool_hash: [0u8; 32],
             pending_vhash: [0u8; 32],
             action_json: json!({
-                "name": "sys__install_package",
+                "name": "package__install",
                 "arguments": {
                     "package": "cowsay",
                     "manager": "apt",
@@ -1936,7 +1936,7 @@ mod tests {
                 if tool_name == "chat__reply" && agent_status == "Completed" {
                     saw_chat_reply = true;
                 }
-                if tool_name == "sys__install_package" && agent_status == "Running" {
+                if tool_name == "package__install" && agent_status == "Running" {
                     saw_running_install_result = true;
                 }
             }

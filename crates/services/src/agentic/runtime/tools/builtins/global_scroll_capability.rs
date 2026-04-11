@@ -8,7 +8,7 @@
         }
     });
     tools.push(LlmToolDefinition {
-        name: "gui__scroll".to_string(),
+        name: "screen__scroll".to_string(),
         description:
             "Scroll the mouse wheel. Ensure the mouse is hovering over the target area first."
                 .to_string(),

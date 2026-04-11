@@ -27,7 +27,7 @@ pub fn case() -> QueryCase {
         id: CASE_ID,
         query: concat!(
             "Schedule my computer to shut down at 11 PM tonight. ",
-            "Use exactly one `sys__exec` invocation to run ",
+            "Use exactly one `shell__run` invocation to run ",
             "\"{SHUTDOWN_SCHEDULE_PROBE_PATH} --target-local 23:00\". ",
             "The fixture-backed probe performs provider discovery and writes schedule receipts; ",
             "do not invoke raw shutdown/poweroff/halt/reboot/systemctl/at commands directly. ",
@@ -191,22 +191,22 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         && scope_satisfied
         && exec_action_success_count == 1;
 
-    let action_exec_path_seen = has_tool_with_token(&obs.action_tools, "sys__exec");
-    let routing_exec_path_seen = has_tool_with_token(&obs.routing_tools, "sys__exec");
-    let exec_session_seen = has_tool_with_token(&obs.action_tools, "sys__exec_session")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec_session");
+    let action_exec_path_seen = has_tool_with_token(&obs.action_tools, "shell__run");
+    let routing_exec_path_seen = has_tool_with_token(&obs.routing_tools, "shell__run");
+    let exec_session_seen = has_tool_with_token(&obs.action_tools, "shell__start")
+        || has_tool_with_token(&obs.routing_tools, "shell__start");
     let remote_path_seen = has_tool_with_token(&obs.action_tools, "web__")
         || has_tool_with_token(&obs.routing_tools, "web__")
         || has_tool_with_token(&obs.workload_tools, "web__")
         || has_tool_with_token(&obs.action_tools, "browser__")
         || has_tool_with_token(&obs.routing_tools, "browser__")
         || has_tool_with_token(&obs.workload_tools, "browser__")
-        || has_tool_with_token(&obs.action_tools, "net__fetch")
-        || has_tool_with_token(&obs.routing_tools, "net__fetch")
-        || has_tool_with_token(&obs.workload_tools, "net__fetch");
-    let install_tool_seen = has_tool_with_token(&obs.action_tools, "sys__install_package")
-        || has_tool_with_token(&obs.routing_tools, "sys__install_package")
-        || has_tool_with_token(&obs.workload_tools, "sys__install_package");
+        || has_tool_with_token(&obs.action_tools, "http__fetch")
+        || has_tool_with_token(&obs.routing_tools, "http__fetch")
+        || has_tool_with_token(&obs.workload_tools, "http__fetch");
+    let install_tool_seen = has_tool_with_token(&obs.action_tools, "package__install")
+        || has_tool_with_token(&obs.routing_tools, "package__install")
+        || has_tool_with_token(&obs.workload_tools, "package__install");
     let disallowed_mutating_action_seen = has_disallowed_mutating_action(obs);
     let tool_and_route_path_evidence_present = action_exec_path_seen
         && routing_exec_path_seen
@@ -421,19 +421,19 @@ fn has_disallowed_mutating_action(obs: &RunObservation) -> bool {
     observation_has_any_tool_name(
         obs,
         &[
-            "filesystem__write_file",
-            "filesystem__patch",
-            "filesystem__delete_path",
-            "filesystem__create_directory",
-            "filesystem__create_zip",
-            "filesystem__move_path",
-            "filesystem__copy_path",
+            "file__write",
+            "file__edit",
+            "file__delete",
+            "file__create_dir",
+            "file__zip",
+            "file__move",
+            "file__copy",
         ],
     )
 }
 
 fn is_exec_action_success(entry: &super::super::types::ActionEvidence) -> bool {
-    entry.tool_name.eq_ignore_ascii_case("sys__exec")
+    entry.tool_name.eq_ignore_ascii_case("shell__run")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
         && !action_has_hard_error_class(entry)
 }

@@ -14,7 +14,7 @@ use ioi_services::agentic::runtime::service::step::anti_loop::{
 };
 use ioi_services::agentic::runtime::types::{ExecutionTier, InteractionTarget};
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus};
-use ioi_types::app::agentic::{AgentTool, ComputerAction};
+use ioi_types::app::agentic::{AgentTool, ScreenAction};
 use ioi_types::app::{ActionRequest, ActionTarget, ContextSlice, RoutingReceiptEvent};
 use ioi_types::error::VmError;
 use std::collections::BTreeMap;
@@ -140,7 +140,7 @@ fn scroll_tool_types_and_target_mapping() {
     };
     assert_eq!(tool.target(), ActionTarget::GuiScroll);
 
-    let computer_scroll = AgentTool::Computer(ComputerAction::Scroll {
+    let computer_scroll = AgentTool::Screen(ScreenAction::Scroll {
         coordinate: Some([100, 100]),
         delta: [0, -5],
     });
@@ -181,7 +181,7 @@ async fn computer_scroll_dispatch_preserves_delta_axis_order() {
 
     let result = exec
         .execute(
-            AgentTool::Computer(ComputerAction::Scroll {
+            AgentTool::Screen(ScreenAction::Scroll {
                 coordinate: None,
                 delta: [11, 240],
             }),
@@ -210,7 +210,7 @@ fn routing_receipt_contract_for_scroll_includes_canonical_hash_and_pre_state() {
     };
 
     let (tool_name, args) = canonical_tool_identity(&tool);
-    assert_eq!(tool_name, "gui__scroll");
+    assert_eq!(tool_name, "screen__scroll");
     assert_eq!(args.get("delta_x").and_then(|v| v.as_i64()), Some(64));
     assert_eq!(args.get("delta_y").and_then(|v| v.as_i64()), Some(-240));
 

@@ -353,11 +353,11 @@ fn open_channel_with_ordering(
         ))
         .expect("open confirm");
 
-        provision_mock_mail_connector(service, state, ctx);
+        provision_test_mail_connector(service, state, ctx);
     });
 }
 
-fn provision_mock_mail_connector(
+fn provision_test_mail_connector(
     service: &WalletNetworkService,
     state: &mut MockState,
     ctx: &mut TxContext<'_>,
@@ -406,12 +406,12 @@ fn provision_mock_mail_connector(
                 account_email: "agent@example.com".to_string(),
                 sender_display_name: None,
                 imap: MailConnectorEndpoint {
-                    host: "mock.local".to_string(),
+                    host: "imap.example.com".to_string(),
                     port: 993,
                     tls_mode: MailConnectorTlsMode::Tls,
                 },
                 smtp: MailConnectorEndpoint {
-                    host: "mock.local".to_string(),
+                    host: "smtp.example.com".to_string(),
                     port: 465,
                     tls_mode: MailConnectorTlsMode::Tls,
                 },
@@ -421,7 +421,7 @@ fn provision_mock_mail_connector(
                     smtp_username_alias: "mail.smtp.username".to_string(),
                     smtp_password_alias: "mail.smtp.password".to_string(),
                 },
-                metadata: BTreeMap::from([("driver".to_string(), "mock".to_string())]),
+                metadata: BTreeMap::new(),
             },
         };
         let connector_params =
@@ -432,7 +432,7 @@ fn provision_mock_mail_connector(
             &connector_params,
             ctx,
         ))
-        .expect("upsert mock mail connector");
+        .expect("upsert test mail connector");
     }
 }
 

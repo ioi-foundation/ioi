@@ -1,10 +1,9 @@
 // Path: crates/cli/tests/policy_synthesis_e2e.rs
 #![cfg(all(feature = "consensus-aft", feature = "vm-wasm"))]
 
-use anyhow::Result;
 use ioi_cli::testing::build_test_artifacts;
+use ioi_services::agentic::rules::DefaultPolicy;
 use ioi_types::app::agentic::StepTrace;
-use ioi_validator::firewall::rules::DefaultPolicy;
 use ioi_validator::firewall::synthesizer::PolicySynthesizer;
 
 // We reuse the synthesis logic but feed it mock traces instead of running a full node
@@ -22,6 +21,9 @@ fn test_policy_synthesis_logic() {
         raw_output: r#"{"name": "browser__navigate", "arguments": {"url": "https://wikipedia.org/wiki/Rust"}}"#.into(),
         success: true,
         error: None,
+        cost_incurred: 0,
+        fitness_score: None,
+        skill_hash: None,
         timestamp: 0,
     };
 
@@ -30,9 +32,12 @@ fn test_policy_synthesis_logic() {
         step_index: 1,
         visual_hash: [0; 32],
         full_prompt: "".into(),
-        raw_output: r#"{"name": "gui__click", "arguments": {"x": 500, "y": 500}}"#.into(),
+        raw_output: r#"{"name": "screen__click_at", "arguments": {"x": 500, "y": 500}}"#.into(),
         success: true,
         error: None,
+        cost_incurred: 0,
+        fitness_score: None,
+        skill_hash: None,
         timestamp: 1,
     };
 
@@ -41,9 +46,12 @@ fn test_policy_synthesis_logic() {
         step_index: 2,
         visual_hash: [0; 32],
         full_prompt: "".into(),
-        raw_output: r#"{"name": "net__fetch", "arguments": {"url": "http://evil.com"}}"#.into(),
+        raw_output: r#"{"name": "http__fetch", "arguments": {"url": "http://evil.com"}}"#.into(),
         success: false, // Failed action should NOT be whitelisted
         error: Some("Blocked".into()),
+        cost_incurred: 0,
+        fitness_score: None,
+        skill_hash: None,
         timestamp: 2,
     };
 
@@ -75,7 +83,7 @@ fn test_policy_synthesis_logic() {
     let click_rule = policy
         .rules
         .iter()
-        .find(|r| r.target == "gui__click")
+        .find(|r| r.target == "screen__click_at")
         .expect("Click rule missing");
     assert!(click_rule.conditions.allow_domains.is_none());
 
@@ -83,7 +91,7 @@ fn test_policy_synthesis_logic() {
     assert!(policy
         .rules
         .iter()
-        .find(|r| r.target == "net__fetch")
+        .find(|r| r.target == "http__fetch")
         .is_none());
 
     println!("✅ Policy Synthesis Logic Test Passed");

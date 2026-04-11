@@ -12,12 +12,6 @@ mod utils;
 
 use crate::models::AppState;
 use chrono::{TimeZone, Utc};
-use ioi_services::agentic::runtime::connectors::mock_fixtures::{
-    generic_connector_mock_records as shared_generic_connector_mock_records,
-    google_mock_fixture_active as shared_google_mock_fixture_active,
-    mail_mock_fixture as shared_mail_mock_fixture, GenericConnectorMockRecord,
-    MailAccountMockFixture, MailMessageMockFixture, MockConnectorCatalogEntry,
-};
 use serde_json::Value;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, State};
@@ -44,243 +38,6 @@ const GOOGLE_CONNECTOR_ID: &str = "google.workspace";
 const MAIL_CONNECTOR_ID: &str = "mail.primary";
 const MAIL_PROVIDER_FAMILY: &str = "mail.wallet_network";
 const SHIELD_APPROVAL_MEMORY_UPDATED_EVENT: &str = "shield-approval-memory-updated";
-const MAIL_MOCK_DEFAULT_CHANNEL_ID_HEX: &str =
-    "1111111111111111111111111111111111111111111111111111111111111111";
-const MAIL_MOCK_DEFAULT_LEASE_ID_HEX: &str =
-    "2222222222222222222222222222222222222222222222222222222222222222";
-
-fn google_mock_fixture_active() -> bool {
-    shared_google_mock_fixture_active()
-}
-
-fn catalog_entry_from_shared(record: MockConnectorCatalogEntry) -> ConnectorCatalogEntry {
-    ConnectorCatalogEntry {
-        id: record.id,
-        plugin_id: record.plugin_id,
-        name: record.name,
-        provider: record.provider,
-        category: record.category,
-        description: record.description,
-        status: record.status,
-        auth_mode: record.auth_mode,
-        scopes: record.scopes,
-        last_sync_at_utc: record.last_sync_at_utc,
-        notes: record.notes,
-    }
-}
-
-fn generic_connector_mock_records() -> Vec<GenericConnectorMockRecord> {
-    shared_generic_connector_mock_records()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|mut record| {
-            record.catalog = MockConnectorCatalogEntry {
-                id: record.catalog.id.trim().to_string(),
-                plugin_id: record.catalog.plugin_id.trim().to_string(),
-                name: record.catalog.name.trim().to_string(),
-                provider: record.catalog.provider,
-                category: record.catalog.category,
-                description: record.catalog.description,
-                status: record.catalog.status,
-                auth_mode: record.catalog.auth_mode,
-                scopes: record.catalog.scopes,
-                last_sync_at_utc: record.catalog.last_sync_at_utc,
-                notes: record.catalog.notes,
-            };
-            record
-        })
-        .filter(|record| {
-            !record.catalog.id.trim().is_empty()
-                && !record.catalog.plugin_id.trim().is_empty()
-                && !record.catalog.name.trim().is_empty()
-        })
-        .collect()
-}
-
-fn mail_mock_fixture_accounts() -> Vec<WalletMailConfiguredAccountView> {
-    let fixture = match shared_mail_mock_fixture().ok().flatten() {
-        Some(fixture) => fixture,
-        None => return Vec::new(),
-    };
-    fixture
-        .accounts
-        .into_iter()
-        .filter_map(|mut account| {
-            if account.mailbox.trim().is_empty() || account.account_email.trim().is_empty() {
-                return None;
-            }
-            if account
-                .default_channel_id_hex
-                .as_deref()
-                .unwrap_or("")
-                .trim()
-                .is_empty()
-            {
-                account.default_channel_id_hex = Some(MAIL_MOCK_DEFAULT_CHANNEL_ID_HEX.to_string());
-            }
-            if account
-                .default_lease_id_hex
-                .as_deref()
-                .unwrap_or("")
-                .trim()
-                .is_empty()
-            {
-                account.default_lease_id_hex = Some(MAIL_MOCK_DEFAULT_LEASE_ID_HEX.to_string());
-            }
-            Some(mail_account_from_shared(account))
-        })
-        .collect()
-}
-
-pub(crate) fn mail_mock_fixture_messages(mailbox: &str) -> Vec<types::WalletMailMessageView> {
-    let fixture = match shared_mail_mock_fixture().ok().flatten() {
-        Some(fixture) => fixture,
-        None => return Vec::new(),
-    };
-    let normalized_mailbox = mailbox.trim().to_ascii_lowercase();
-    let mut messages = fixture
-        .messages_by_mailbox
-        .into_iter()
-        .find_map(|(key, value)| {
-            if key.trim().eq_ignore_ascii_case(&normalized_mailbox) {
-                Some(value)
-            } else {
-                None
-            }
-        })
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|message| {
-            !message.message_id.trim().is_empty()
-                && !message.subject.trim().is_empty()
-                && !message.from.trim().is_empty()
-        })
-        .map(mail_message_from_shared)
-        .collect::<Vec<_>>();
-    messages.sort_by(|left, right| {
-        right
-            .received_at_ms
-            .cmp(&left.received_at_ms)
-            .then_with(|| left.message_id.cmp(&right.message_id))
-    });
-    messages
-}
-
-fn mail_account_from_shared(account: MailAccountMockFixture) -> WalletMailConfiguredAccountView {
-    WalletMailConfiguredAccountView {
-        mailbox: account.mailbox,
-        account_email: account.account_email,
-        sender_display_name: account.sender_display_name,
-        default_channel_id_hex: account.default_channel_id_hex,
-        default_lease_id_hex: account.default_lease_id_hex,
-        updated_at_ms: account.updated_at_ms,
-    }
-}
-
-fn mail_message_from_shared(message: MailMessageMockFixture) -> types::WalletMailMessageView {
-    types::WalletMailMessageView {
-        message_id: message.message_id,
-        from: message.from,
-        subject: message.subject,
-        received_at_ms: message.received_at_ms,
-        preview: message.preview,
-    }
-}
-
-fn patch_connector_catalog_from_generic_mock_fixture(entries: &mut Vec<ConnectorCatalogEntry>) {
-    for record in generic_connector_mock_records() {
-        entries.retain(|entry| entry.id != record.catalog.id);
-        entries.push(catalog_entry_from_shared(record.catalog));
-    }
-}
-
-fn generic_connector_mock_actions(
-    connector_id: &str,
-) -> Option<Vec<google_workspace::ConnectorActionDefinition>> {
-    generic_connector_mock_records()
-        .into_iter()
-        .find(|record| record.catalog.id == connector_id)
-        .map(|record| record.actions)
-}
-
-fn generic_connector_mock_configure_result(
-    connector_id: &str,
-) -> Option<google_workspace::ConnectorConfigureResult> {
-    let record = generic_connector_mock_records()
-        .into_iter()
-        .find(|record| record.catalog.id == connector_id)?;
-    let mut result =
-        record
-            .configure_result
-            .unwrap_or(google_workspace::ConnectorConfigureResult {
-                connector_id: record.catalog.id.clone(),
-                provider: record.catalog.provider.clone(),
-                status: "connected".to_string(),
-                summary: format!(
-                    "Connected {} through the local generic mock fixture.",
-                    record.catalog.name
-                ),
-                data: Some(serde_json::json!({
-                    "mockFixture": true,
-                    "connectorId": record.catalog.id,
-                })),
-                executed_at_utc: Utc::now().to_rfc3339(),
-            });
-    result.connector_id = connector_id.to_string();
-    if result.provider.trim().is_empty() {
-        result.provider = record.catalog.provider;
-    }
-    if result.executed_at_utc.trim().is_empty() {
-        result.executed_at_utc = Utc::now().to_rfc3339();
-    }
-    Some(result)
-}
-
-fn generic_connector_mock_action_result(
-    connector_id: &str,
-    action_id: &str,
-    input: &Value,
-) -> Option<google_workspace::ConnectorActionResult> {
-    let record = generic_connector_mock_records()
-        .into_iter()
-        .find(|record| record.catalog.id == connector_id)?;
-    let action = record
-        .actions
-        .iter()
-        .find(|candidate| candidate.id == action_id)?;
-    let mut result = record.action_results.get(action_id).cloned().unwrap_or(
-        google_workspace::ConnectorActionResult {
-            connector_id: connector_id.to_string(),
-            action_id: action_id.to_string(),
-            tool_name: action.tool_name.clone(),
-            provider: record.catalog.provider.clone(),
-            summary: format!(
-                "Ran {} through the local generic mock fixture.",
-                action.label
-            ),
-            data: serde_json::json!({
-                "mockFixture": true,
-                "connectorId": connector_id,
-                "actionId": action_id,
-                "input": input,
-            }),
-            raw_output: None,
-            executed_at_utc: Utc::now().to_rfc3339(),
-        },
-    );
-    result.connector_id = connector_id.to_string();
-    result.action_id = action_id.to_string();
-    if result.tool_name.trim().is_empty() {
-        result.tool_name = action.tool_name.clone();
-    }
-    if result.provider.trim().is_empty() {
-        result.provider = record.catalog.provider;
-    }
-    if result.executed_at_utc.trim().is_empty() {
-        result.executed_at_utc = Utc::now().to_rfc3339();
-    }
-    Some(result)
-}
 
 fn connector_status_from_wallet_state(state: &str) -> String {
     match state.trim().to_ascii_lowercase().as_str() {
@@ -430,24 +187,6 @@ fn patch_connector_catalog_from_auth(
     }
 }
 
-fn patch_connector_catalog_from_google_mock_fixture(entries: &mut [ConnectorCatalogEntry]) {
-    if !google_mock_fixture_active() {
-        return;
-    }
-
-    if let Some(google_entry) = entries
-        .iter_mut()
-        .find(|entry| entry.id == GOOGLE_CONNECTOR_ID)
-    {
-        google_entry.status = "connected".to_string();
-        google_entry.notes = Some(
-            "Connected Google Workspace auth is being provided by the local mock fixture."
-                .to_string(),
-        );
-        google_entry.last_sync_at_utc = None;
-    }
-}
-
 fn mail_account_views_from_auth(
     auth: &WalletConnectorAuthListResult,
 ) -> Vec<WalletMailConfiguredAccountView> {
@@ -484,37 +223,6 @@ fn mail_account_views_from_auth(
     accounts
 }
 
-fn patch_connector_catalog_from_mail_mock_fixture(
-    entries: &mut [ConnectorCatalogEntry],
-    accounts: &[WalletMailConfiguredAccountView],
-) {
-    if accounts.is_empty() {
-        return;
-    }
-
-    if let Some(mail_entry) = entries
-        .iter_mut()
-        .find(|entry| entry.id == MAIL_CONNECTOR_ID)
-    {
-        mail_entry.status = "connected".to_string();
-        mail_entry.last_sync_at_utc = accounts
-            .iter()
-            .map(|account| account.updated_at_ms)
-            .max()
-            .and_then(timestamp_ms_to_utc);
-        mail_entry.notes = Some(match accounts.len() {
-            1 => format!(
-                "Connected mail mock account {} on mailbox {}.",
-                accounts[0].account_email, accounts[0].mailbox
-            ),
-            count => format!(
-                "Connected {} mock mailboxes for local connector proof.",
-                count
-            ),
-        });
-    }
-}
-
 pub(crate) fn wallet_backed_bootstrap_enabled() -> bool {
     if let Ok(explicit) = std::env::var("AUTOPILOT_CONNECTOR_WALLET_BOOTSTRAP") {
         let normalized = explicit.trim().to_ascii_lowercase();
@@ -541,58 +249,7 @@ pub(crate) fn wallet_backed_bootstrap_enabled() -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        base_connector_catalog, generic_connector_mock_action_result,
-        generic_connector_mock_actions, generic_connector_mock_configure_result,
-        mail_mock_fixture_accounts, mail_mock_fixture_messages,
-        patch_connector_catalog_from_generic_mock_fixture,
-        patch_connector_catalog_from_google_mock_fixture,
-        patch_connector_catalog_from_mail_mock_fixture, wallet_backed_bootstrap_enabled,
-        GOOGLE_CONNECTOR_ID, MAIL_CONNECTOR_ID, MAIL_MOCK_DEFAULT_CHANNEL_ID_HEX,
-        MAIL_MOCK_DEFAULT_LEASE_ID_HEX,
-    };
-    use ioi_services::agentic::runtime::connectors::mock_fixtures::{
-        CONNECTOR_MOCK_FIXTURE_PATH_ENV, LEGACY_GENERIC_CONNECTOR_MOCK_FIXTURE_PATH_ENV,
-        LEGACY_GOOGLE_MOCK_FIXTURE_PATH_ENV, LEGACY_MAIL_MOCK_FIXTURE_PATH_ENV,
-    };
-    use serde_json::json;
-    use std::sync::{Mutex, OnceLock};
-
-    fn fixture_env_guard() -> std::sync::MutexGuard<'static, ()> {
-        static FIXTURE_ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        FIXTURE_ENV_LOCK
-            .get_or_init(|| Mutex::new(()))
-            .lock()
-            .expect("lock fixture env guard")
-    }
-
-    fn capture_fixture_envs() -> [Option<std::ffi::OsString>; 4] {
-        [
-            std::env::var_os(CONNECTOR_MOCK_FIXTURE_PATH_ENV),
-            std::env::var_os(LEGACY_GOOGLE_MOCK_FIXTURE_PATH_ENV),
-            std::env::var_os(LEGACY_MAIL_MOCK_FIXTURE_PATH_ENV),
-            std::env::var_os(LEGACY_GENERIC_CONNECTOR_MOCK_FIXTURE_PATH_ENV),
-        ]
-    }
-
-    fn restore_fixture_envs(previous: [Option<std::ffi::OsString>; 4]) {
-        match previous[0].clone() {
-            Some(value) => std::env::set_var(CONNECTOR_MOCK_FIXTURE_PATH_ENV, value),
-            None => std::env::remove_var(CONNECTOR_MOCK_FIXTURE_PATH_ENV),
-        }
-        match previous[1].clone() {
-            Some(value) => std::env::set_var(LEGACY_GOOGLE_MOCK_FIXTURE_PATH_ENV, value),
-            None => std::env::remove_var(LEGACY_GOOGLE_MOCK_FIXTURE_PATH_ENV),
-        }
-        match previous[2].clone() {
-            Some(value) => std::env::set_var(LEGACY_MAIL_MOCK_FIXTURE_PATH_ENV, value),
-            None => std::env::remove_var(LEGACY_MAIL_MOCK_FIXTURE_PATH_ENV),
-        }
-        match previous[3].clone() {
-            Some(value) => std::env::set_var(LEGACY_GENERIC_CONNECTOR_MOCK_FIXTURE_PATH_ENV, value),
-            None => std::env::remove_var(LEGACY_GENERIC_CONNECTOR_MOCK_FIXTURE_PATH_ENV),
-        }
-    }
+    use super::wallet_backed_bootstrap_enabled;
 
     #[test]
     fn wallet_bootstrap_is_disabled_for_local_gpu_dev() {
@@ -619,138 +276,6 @@ mod tests {
             None => std::env::remove_var("AUTOPILOT_CONNECTOR_WALLET_BOOTSTRAP"),
         }
     }
-
-    #[test]
-    fn google_mock_fixture_marks_catalog_as_connected() {
-        let _guard = fixture_env_guard();
-        let previous = capture_fixture_envs();
-        let fixture_path = std::env::temp_dir().join("connector-google-mock-fixture.json");
-        std::fs::write(
-            &fixture_path,
-            r#"{"google":{"auth":{"accountEmail":"calendar-proof@example.com","grantedScopes":["https://www.googleapis.com/auth/gmail.readonly","https://www.googleapis.com/auth/calendar"]}}}"#,
-        )
-        .expect("write unified google mock fixture");
-        std::env::set_var(CONNECTOR_MOCK_FIXTURE_PATH_ENV, &fixture_path);
-        std::env::remove_var(LEGACY_GOOGLE_MOCK_FIXTURE_PATH_ENV);
-        std::env::remove_var(LEGACY_MAIL_MOCK_FIXTURE_PATH_ENV);
-        std::env::remove_var(LEGACY_GENERIC_CONNECTOR_MOCK_FIXTURE_PATH_ENV);
-
-        let mut entries = base_connector_catalog();
-        patch_connector_catalog_from_google_mock_fixture(&mut entries);
-
-        let google = entries
-            .into_iter()
-            .find(|entry| entry.id == GOOGLE_CONNECTOR_ID)
-            .expect("google catalog entry");
-        assert_eq!(google.status, "connected");
-        assert!(google
-            .notes
-            .as_deref()
-            .unwrap_or_default()
-            .contains("mock fixture"));
-
-        let _ = std::fs::remove_file(&fixture_path);
-        restore_fixture_envs(previous);
-    }
-
-    #[test]
-    fn mail_mock_fixture_marks_catalog_as_connected_and_lists_accounts() {
-        let _guard = fixture_env_guard();
-        let previous = capture_fixture_envs();
-        let fixture_path = std::env::temp_dir().join("connector-mail-mock-fixture.json");
-        std::fs::write(
-            &fixture_path,
-            r#"{"mail":{"accounts":[{"mailbox":"primary","accountEmail":"proof-mail@example.com","updatedAtMs":1712345678000}],"messagesByMailbox":{"primary":[{"messageId":"msg-2","from":"two@example.com","subject":"Two","receivedAtMs":200,"preview":"Second"},{"messageId":"msg-1","from":"one@example.com","subject":"One","receivedAtMs":100,"preview":"First"}]}}}"#,
-        )
-        .expect("write unified mail mock fixture");
-        std::env::set_var(CONNECTOR_MOCK_FIXTURE_PATH_ENV, &fixture_path);
-        std::env::remove_var(LEGACY_GOOGLE_MOCK_FIXTURE_PATH_ENV);
-        std::env::remove_var(LEGACY_MAIL_MOCK_FIXTURE_PATH_ENV);
-        std::env::remove_var(LEGACY_GENERIC_CONNECTOR_MOCK_FIXTURE_PATH_ENV);
-
-        let accounts = mail_mock_fixture_accounts();
-        assert_eq!(accounts.len(), 1);
-        assert_eq!(accounts[0].mailbox, "primary");
-        assert_eq!(accounts[0].account_email, "proof-mail@example.com");
-        assert_eq!(
-            accounts[0].default_channel_id_hex.as_deref(),
-            Some(MAIL_MOCK_DEFAULT_CHANNEL_ID_HEX)
-        );
-        assert_eq!(
-            accounts[0].default_lease_id_hex.as_deref(),
-            Some(MAIL_MOCK_DEFAULT_LEASE_ID_HEX)
-        );
-        let messages = mail_mock_fixture_messages("primary");
-        assert_eq!(messages.len(), 2);
-        assert_eq!(messages[0].message_id, "msg-2");
-        assert_eq!(messages[1].message_id, "msg-1");
-
-        let mut entries = base_connector_catalog();
-        patch_connector_catalog_from_mail_mock_fixture(&mut entries, &accounts);
-        let mail = entries
-            .into_iter()
-            .find(|entry| entry.id == MAIL_CONNECTOR_ID)
-            .expect("mail catalog entry");
-        assert_eq!(mail.status, "connected");
-        assert!(mail.notes.as_deref().unwrap_or_default().contains("mock"));
-
-        let _ = std::fs::remove_file(&fixture_path);
-        restore_fixture_envs(previous);
-    }
-
-    #[test]
-    fn generic_mock_fixture_adds_catalog_and_serves_runtime_shapes() {
-        let _guard = fixture_env_guard();
-        let previous = capture_fixture_envs();
-        let fixture_path = std::env::temp_dir().join("connector-generic-mock-fixture.json");
-        std::fs::write(
-            &fixture_path,
-            r#"{"connectors":[{"catalog":{"id":"mock.crm","pluginId":"mock_crm","name":"Mock CRM","provider":"mock.fixture","category":"productivity","description":"Safe generic connector fixture for the shared fallback.","status":"needs_auth","authMode":"api_key","scopes":["accounts.read","accounts.write"],"notes":"Safe generic mock fixture for connector fallback proof."},"actions":[{"id":"accounts.list_recent","service":"accounts","serviceLabel":"Accounts","toolName":"mock__crm__accounts__list_recent","label":"List recent accounts","description":"Inspect recently updated accounts from the mock fixture.","kind":"read","fields":[{"id":"limit","label":"Limit","type":"number","required":false,"defaultValue":5}],"requiredScopes":["accounts.read"]},{"id":"accounts.create_note","service":"accounts","serviceLabel":"Accounts","toolName":"mock__crm__accounts__create_note","label":"Create account note","description":"Attach a note to the selected mock account.","kind":"write","confirmBeforeRun":true,"fields":[{"id":"accountId","label":"Account ID","type":"text","required":true},{"id":"title","label":"Title","type":"text","required":true},{"id":"note","label":"Note","type":"textarea","required":true},{"id":"visibility","label":"Visibility","type":"select","required":true,"options":[{"label":"Private","value":"private"},{"label":"Shared","value":"shared"}]}],"requiredScopes":["accounts.write"]}],"configureResult":{"connectorId":"mock.crm","provider":"mock.fixture","status":"connected","summary":"Connected Mock CRM through the local generic mock fixture.","data":{"mockFixture":true},"executedAtUtc":"2026-04-05T12:00:00Z"},"actionResults":{"accounts.list_recent":{"connectorId":"mock.crm","actionId":"accounts.list_recent","toolName":"mock__crm__accounts__list_recent","provider":"mock.fixture","summary":"Loaded 2 recent mock accounts.","data":{"accounts":[{"id":"acct_001","name":"Northwind"},{"id":"acct_002","name":"Fabrikam"}]},"executedAtUtc":"2026-04-05T12:00:01Z"}}}]}"#,
-        )
-        .expect("write unified generic connector mock fixture");
-        std::env::set_var(CONNECTOR_MOCK_FIXTURE_PATH_ENV, &fixture_path);
-        std::env::remove_var(LEGACY_GOOGLE_MOCK_FIXTURE_PATH_ENV);
-        std::env::remove_var(LEGACY_MAIL_MOCK_FIXTURE_PATH_ENV);
-        std::env::remove_var(LEGACY_GENERIC_CONNECTOR_MOCK_FIXTURE_PATH_ENV);
-
-        let mut entries = base_connector_catalog();
-        patch_connector_catalog_from_generic_mock_fixture(&mut entries);
-        let generic = entries
-            .into_iter()
-            .find(|entry| entry.id == "mock.crm")
-            .expect("generic connector entry");
-        assert_eq!(generic.plugin_id, "mock_crm");
-        assert_eq!(generic.status, "needs_auth");
-
-        let actions = generic_connector_mock_actions("mock.crm").expect("mock actions");
-        assert_eq!(actions.len(), 2);
-        assert_eq!(actions[1].id, "accounts.create_note");
-
-        let configure =
-            generic_connector_mock_configure_result("mock.crm").expect("generic configure result");
-        assert_eq!(configure.status, "connected");
-
-        let list_result = generic_connector_mock_action_result(
-            "mock.crm",
-            "accounts.list_recent",
-            &json!({ "limit": 2 }),
-        )
-        .expect("list result");
-        assert_eq!(list_result.summary, "Loaded 2 recent mock accounts.");
-
-        let default_result = generic_connector_mock_action_result(
-            "mock.crm",
-            "accounts.create_note",
-            &json!({ "accountId": "acct_001", "title": "Follow up" }),
-        )
-        .expect("default result");
-        assert_eq!(default_result.connector_id, "mock.crm");
-        assert_eq!(default_result.action_id, "accounts.create_note");
-        assert_eq!(default_result.tool_name, "mock__crm__accounts__create_note");
-
-        let _ = std::fs::remove_file(&fixture_path);
-        restore_fixture_envs(previous);
-    }
 }
 
 #[tauri::command]
@@ -758,13 +283,9 @@ pub async fn connector_list_catalog(
     state: State<'_, Mutex<AppState>>,
 ) -> Result<Vec<ConnectorCatalogEntry>, String> {
     let mut entries = base_connector_catalog();
-    patch_connector_catalog_from_google_mock_fixture(&mut entries);
     if let Ok(auth) = auth::wallet_connector_auth_list_inner(&state, None).await {
         patch_connector_catalog_from_auth(&mut entries, &auth);
     }
-    let mail_fixture_accounts = mail_mock_fixture_accounts();
-    patch_connector_catalog_from_mail_mock_fixture(&mut entries, &mail_fixture_accounts);
-    patch_connector_catalog_from_generic_mock_fixture(&mut entries);
     Ok(entries)
 }
 
@@ -772,11 +293,6 @@ pub async fn connector_list_catalog(
 pub async fn wallet_mail_list_accounts(
     state: State<'_, Mutex<AppState>>,
 ) -> Result<Vec<WalletMailConfiguredAccountView>, String> {
-    let fixture_accounts = mail_mock_fixture_accounts();
-    if !fixture_accounts.is_empty() {
-        return Ok(fixture_accounts);
-    }
-
     let auth =
         auth::wallet_connector_auth_list_inner(&state, Some(MAIL_PROVIDER_FAMILY.to_string()))
             .await?;
@@ -984,9 +500,6 @@ pub async fn wallet_connector_auth_import(
 pub async fn connector_list_actions(
     connector_id: String,
 ) -> Result<Vec<google_workspace::ConnectorActionDefinition>, String> {
-    if let Some(actions) = generic_connector_mock_actions(&connector_id) {
-        return Ok(actions);
-    }
     google_workspace::connector_list_actions(connector_id).await
 }
 
@@ -997,9 +510,6 @@ pub async fn connector_configure(
     connector_id: String,
     input: Value,
 ) -> Result<google_workspace::ConnectorConfigureResult, String> {
-    if let Some(result) = generic_connector_mock_configure_result(&connector_id) {
-        return Ok(result);
-    }
     google_workspace::connector_configure(state, manager, connector_id, input).await
 }
 
@@ -1012,9 +522,6 @@ pub async fn connector_run_action(
     action_id: String,
     input: Value,
 ) -> Result<google_workspace::ConnectorActionResult, String> {
-    if let Some(result) = generic_connector_mock_action_result(&connector_id, &action_id, &input) {
-        return Ok(result);
-    }
     let result = google_workspace::connector_run_action(
         manager,
         policy_manager.clone(),

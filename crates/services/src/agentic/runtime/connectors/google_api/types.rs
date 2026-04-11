@@ -13,7 +13,6 @@ pub(super) const CHAT_BASE_URL: &str = "https://chat.googleapis.com/v1";
 pub(super) const BIGQUERY_BASE_URL: &str = "https://bigquery.googleapis.com/bigquery/v2";
 pub(super) const PUBSUB_BASE_URL: &str = "https://pubsub.googleapis.com/v1";
 pub(super) const WORKSPACE_EVENTS_BASE_URL: &str = "https://workspaceevents.googleapis.com/v1";
-pub(super) const GOOGLE_MOCK_FIXTURE_PATH_ENV: &str = "IOI_GOOGLE_MOCK_FIXTURE_PATH";
 
 #[derive(Debug, Clone)]
 pub struct GmailMessageReadback {

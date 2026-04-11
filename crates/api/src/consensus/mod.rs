@@ -179,6 +179,17 @@ pub trait ConsensusEngine<T: Clone + parity_scale_codec::Encode>:
         true
     }
 
+    /// Returns a locally verified canonical collapse object for a committed
+    /// height when the engine keeps an in-memory collapse chain for live
+    /// progression. Durable restart hydration should still come from
+    /// persisted state.
+    fn canonical_collapse_for_committed_height(
+        &self,
+        _height: u64,
+    ) -> Option<CanonicalCollapseObject> {
+        None
+    }
+
     /// Records a compact recovered canonical-header hint so restart-time
     /// consensus can recover bounded parent/QC continuity even when the full
     /// committed block is not locally available.

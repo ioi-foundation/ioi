@@ -178,7 +178,7 @@ async fn run_inject_skill(rpc: &str, file: PathBuf) -> Result<()> {
     let mut steps = Vec::new();
     for step in human.steps {
         let target = match step.tool.as_str() {
-            "sys__exec" => ActionTarget::SysExec,
+            "shell__run" => ActionTarget::SysExec,
             "agent__complete" => ActionTarget::Custom("agent__complete".into()),
             other => ActionTarget::Custom(other.to_string()),
         };

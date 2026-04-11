@@ -28,8 +28,8 @@ pub fn case() -> QueryCase {
             "Compress the \"Projects\" folder into a zip file and put it on my desktop. ",
             "For deterministic repeatable testing, operate only on \"~/Projects\" as source and ",
             "\"~/Desktop/Projects.zip\" as destination in the harness-provisioned fixture environment. ",
-            "Use deterministic filesystem operations (filesystem__create_zip and filesystem metadata checks) ",
-            "and do not invoke sys__exec/sys__exec_session for compression. ",
+            "Use deterministic filesystem operations (file__zip and filesystem metadata checks) ",
+            "and do not invoke shell__run/shell__start for compression. ",
             "After archive creation, verify the archive members include README.md, src/main.rs, and docs/spec.txt, ",
             "then return a concise completion summary."
         ),
@@ -122,12 +122,12 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
         verification_bool(obs, "env_receipt::projects_zip_source_preserved_satisfied")
             .unwrap_or(false);
 
-    let action_path_seen = has_tool_with_token(&obs.action_tools, "filesystem__create_zip");
-    let routing_path_seen = has_tool_with_token(&obs.routing_tools, "filesystem__create_zip");
-    let sys_exec_path_seen = has_tool_with_token(&obs.action_tools, "sys__exec")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec")
-        || has_tool_with_token(&obs.action_tools, "sys__exec_session")
-        || has_tool_with_token(&obs.routing_tools, "sys__exec_session");
+    let action_path_seen = has_tool_with_token(&obs.action_tools, "file__zip");
+    let routing_path_seen = has_tool_with_token(&obs.routing_tools, "file__zip");
+    let sys_exec_path_seen = has_tool_with_token(&obs.action_tools, "shell__run")
+        || has_tool_with_token(&obs.routing_tools, "shell__run")
+        || has_tool_with_token(&obs.action_tools, "shell__start")
+        || has_tool_with_token(&obs.routing_tools, "shell__start");
     let tool_and_route_path_evidence_present =
         action_path_seen && routing_path_seen && !sys_exec_path_seen;
 
@@ -260,17 +260,13 @@ fn evaluate(obs: &RunObservation) -> LocalJudgeResult {
 }
 
 fn is_zip_action_success(entry: &super::super::types::ActionEvidence) -> bool {
-    entry
-        .tool_name
-        .eq_ignore_ascii_case("filesystem__create_zip")
+    entry.tool_name.eq_ignore_ascii_case("file__zip")
         && !entry.agent_status.eq_ignore_ascii_case("failed")
         && !action_has_hard_error_class(entry)
 }
 
 fn is_zip_action_failure(entry: &super::super::types::ActionEvidence) -> bool {
-    entry
-        .tool_name
-        .eq_ignore_ascii_case("filesystem__create_zip")
+    entry.tool_name.eq_ignore_ascii_case("file__zip")
         && (entry.agent_status.eq_ignore_ascii_case("failed") || action_has_hard_error_class(entry))
 }
 

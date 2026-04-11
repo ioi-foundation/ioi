@@ -39,7 +39,7 @@ pub(super) fn apply_web_research_followups(
     }
 
     if success
-        && current_tool_name == "browser__snapshot"
+        && current_tool_name == "browser__inspect"
         && agent_state.pending_search_completion.is_none()
         && history_entry
             .as_deref()

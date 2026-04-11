@@ -49,7 +49,7 @@ pub async fn edge_media_extract_multimodal_evidence(
     browser: Arc<BrowserDriver>,
     inference: Arc<dyn InferenceRuntime>,
 ) -> Result<MediaMultimodalBundle> {
-    let requested_url = validate_media_url(url, "media__extract_multimodal_evidence")?;
+    let requested_url = validate_media_url(url, "media__extract_evidence")?;
     let requested_language = normalize_requested_language(language);
     let transcript_max_chars = max_chars
         .unwrap_or(MEDIA_MULTIMODAL_DEFAULT_MAX_CHARS)
@@ -146,7 +146,7 @@ pub async fn edge_media_extract_multimodal_evidence(
     let bundle = MediaMultimodalBundle {
         schema_version: 1,
         retrieved_at_ms,
-        tool: "media__extract_multimodal_evidence".to_string(),
+        tool: "media__extract_evidence".to_string(),
         requested_url: requested_url.to_string(),
         canonical_url: canonical_url.clone(),
         title: title.clone(),
