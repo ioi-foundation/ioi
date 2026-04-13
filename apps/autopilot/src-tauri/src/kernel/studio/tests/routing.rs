@@ -99,7 +99,7 @@ fn typed_outcome_router_times_out_with_slow_runtime() {
 
     let error = studio_outcome_request_with_runtime_timeout(
         runtime,
-        "Create an interactive HTML artifact about routing timeouts",
+        "Help me think through routing timeouts for interactive launch work",
         None,
         None,
         Duration::from_millis(5),

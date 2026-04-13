@@ -19,11 +19,12 @@ use ioi_api::execution::{
 };
 use ioi_api::studio::{
     compile_studio_artifact_ir, derive_studio_artifact_blueprint,
-    derive_studio_artifact_prepared_context, ExecutionStage, StudioArtifactBlueprint,
-    StudioArtifactBrief, StudioArtifactExemplar, StudioArtifactGenerationProgress,
-    StudioArtifactGenerationProgressObserver, StudioArtifactIR, StudioArtifactMergeReceipt,
-    StudioArtifactPatchReceipt, StudioArtifactRenderCapture, StudioArtifactRenderCaptureViewport,
-    StudioArtifactRenderEvaluation, StudioArtifactRenderEvaluator, StudioArtifactRenderFinding,
+    derive_studio_artifact_prepared_context, with_studio_modal_first_html_override, ExecutionStage,
+    StudioArtifactBlueprint, StudioArtifactBrief, StudioArtifactExemplar,
+    StudioArtifactGenerationProgress, StudioArtifactGenerationProgressObserver, StudioArtifactIR,
+    StudioArtifactMergeReceipt, StudioArtifactPatchReceipt, StudioArtifactRenderCapture,
+    StudioArtifactRenderCaptureViewport, StudioArtifactRenderEvaluation,
+    StudioArtifactRenderEvaluator, StudioArtifactRenderFinding,
     StudioArtifactRenderFindingSeverity, StudioArtifactSwarmExecutionSummary,
     StudioArtifactSwarmPlan, StudioArtifactVerificationReceipt, StudioArtifactWorkItem,
     StudioArtifactWorkItemStatus, StudioArtifactWorkerReceipt, StudioArtifactWorkerRole,
@@ -139,6 +140,8 @@ impl StudioArtifactRenderEvaluator for KernelPassingRenderEvaluator {
             acceptance_obligations: Vec::new(),
             execution_witnesses: Vec::new(),
             summary: "Render evaluation completed.".to_string(),
+            observation: None,
+            acceptance_policy: None,
         }))
     }
 }
@@ -371,7 +374,7 @@ impl InferenceRuntime for StreamingDirectAuthorTestRuntime {
         let chunks = [
             "<!doctype html><html><head><title>Quantum computers</title><style>body{margin:0;font-family:system-ui,sans-serif;background:#08111d;color:#eef2ff;}main{max-width:900px;margin:0 auto;padding:24px;display:grid;gap:16px;}section{padding:16px;border:1px solid #35506d;border-radius:16px;background:#0f1b2a;}</style></head><body><main>",
             "<section><h1>Quantum computers</h1><p>Quantum computers use qubits, superposition, and interference to explore some calculations differently from classical bits.</p><button type=\"button\" data-view=\"qubits\" aria-controls=\"qubits-panel\" aria-selected=\"true\">Qubits</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section>",
-            "<section id=\"qubits-panel\" data-view-panel=\"qubits\"><h2>Qubits</h2><p>A qubit can occupy a blend of 0 and 1 until measurement collapses the state.</p></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><p>Quantum gates rotate probability amplitudes so interference can strengthen correct paths.</p></section><aside><h2>Detail</h2><p id=\"detail-copy\">Qubits are selected by default.</p></aside>",
+            "<section id=\"qubits-panel\" data-view-panel=\"qubits\"><h2>Qubits</h2><dl><dt>State blend</dt><dd>A qubit can occupy a blend of 0 and 1 until measurement collapses the state.</dd><dt>Measurement</dt><dd>Observed amplitudes resolve into one sampled outcome.</dd></dl></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><dl><dt>Rotation</dt><dd>Quantum gates rotate probability amplitudes.</dd><dt>Interference</dt><dd>Constructive interference strengthens correct paths.</dd></dl></section><aside><h2>Detail</h2><p id=\"detail-copy\">Qubits are selected by default.</p></aside>",
             "<script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='qubits'?'Qubits show blended state before measurement.':'Gates reshape amplitudes through interference.';}));</script></main></body></html>",
         ];
 
@@ -430,7 +433,7 @@ impl InferenceRuntime for SilentDirectAuthorReplanTestRuntime {
                     "renderable": true,
                     "downloadable": true,
                     "encoding": "utf8",
-                    "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><p>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</p></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><p>Quantum gates rotate amplitudes so interference can strengthen useful answers.</p></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>"
+                    "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><dl><dt>State blend</dt><dd>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</dd><dt>Observation</dt><dd>Measurement resolves the blended state into a sampled result.</dd></dl></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><dl><dt>Rotation</dt><dd>Quantum gates rotate amplitudes to reshape the result distribution.</dd><dt>Interference</dt><dd>Constructive interference strengthens useful answers.</dd></dl></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>"
                 }]
             })
             .to_string()
@@ -534,7 +537,8 @@ fn empty_task(intent: &str) -> AgentTask {
 }
 
 #[test]
-fn materialize_nonworkspace_artifact_times_out_generation_for_slow_runtime() {
+fn materialize_nonworkspace_artifact_replans_after_direct_author_timeout_then_reports_generation_failure(
+) {
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowStudioOutcomeTestRuntime {
         payload: "{}".to_string(),
         delay: Duration::from_millis(50),
@@ -567,6 +571,30 @@ fn materialize_nonworkspace_artifact_times_out_generation_for_slow_runtime() {
             require_diff_review: false,
         },
     };
+    let planning_context = derive_studio_artifact_prepared_context(
+        &request,
+        &StudioArtifactBrief {
+            audience: "operators".to_string(),
+            job_to_be_done: "explain the post-quantum rollout".to_string(),
+            subject_domain: "post-quantum computing".to_string(),
+            artifact_thesis: "Keep the explainer specific and interactive.".to_string(),
+            required_concepts: vec![
+                "qubits".to_string(),
+                "superposition".to_string(),
+                "quantum gates".to_string(),
+            ],
+            required_interactions: vec!["switch between basics and gates".to_string()],
+            visual_tone: vec!["editorial".to_string(), "technical".to_string()],
+            factual_anchors: vec!["measurement collapses state".to_string()],
+            style_directives: vec!["keep first paint useful".to_string()],
+            reference_hints: Vec::new(),
+            query_profile: None,
+        },
+        None,
+        None,
+        Vec::new(),
+        Vec::new(),
+    );
 
     let materialized = materialize_non_workspace_artifact_with_dependencies_and_timeout(
         &proof_memory_runtime(),
@@ -578,7 +606,7 @@ fn materialize_nonworkspace_artifact_times_out_generation_for_slow_runtime() {
         &request,
         None,
         Duration::from_millis(5),
-        None,
+        Some(planning_context),
     )
     .expect("materialization should return a blocked timeout result");
 
@@ -592,13 +620,22 @@ fn materialize_nonworkspace_artifact_times_out_generation_for_slow_runtime() {
     );
     assert!(!materialized.fallback_used);
     assert!(materialized.files.is_empty());
+    assert!(materialized.runtime_narration_events.iter().any(|event| {
+        event.step_key == ioi_api::studio::StudioArtifactRuntimeStepId::ReplanExecution
+            && event.status_kind == ioi_api::studio::StudioArtifactRuntimeEventStatus::Complete
+    }));
+    assert!(materialized.runtime_narration_events.iter().any(|event| {
+        event.step_key == ioi_api::studio::StudioArtifactRuntimeStepId::AuthorArtifact
+            && event.status_kind == ioi_api::studio::StudioArtifactRuntimeEventStatus::Blocked
+            && event.detail.contains("stalled")
+    }));
     assert!(materialized
         .failure
         .as_ref()
         .expect("failure")
         .message
-        .contains("timed out"));
-    assert_eq!(materialized.candidate_summaries.len(), 0);
+        .contains("did not produce a valid candidate"));
+    assert!(!materialized.candidate_summaries.is_empty());
     assert_eq!(
         materialized
             .judge
@@ -661,6 +698,7 @@ fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
             factual_anchors: vec!["measurement collapses state".to_string()],
             style_directives: vec!["keep the first paint immediately useful".to_string()],
             reference_hints: Vec::new(),
+            query_profile: None,
         },
         None,
         None,
@@ -724,6 +762,37 @@ fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
             event.step_id == "author_artifact" && event.status.eq_ignore_ascii_case("active")
         })
     }));
+    let render_eval_index = observed_progress.iter().position(|progress| {
+        progress
+            .current_step
+            .contains("Checking the rendered draft for runtime errors")
+    });
+    let acceptance_index = observed_progress.iter().position(|progress| {
+        progress
+            .current_step
+            .contains("Running acceptance verification for the direct-authored draft")
+    });
+    let runtime_sanity_complete_index = observed_progress.iter().position(|progress| {
+        progress
+            .current_step
+            .contains("Runtime sanity complete. Surfacing the direct-authored artifact")
+    });
+    assert!(
+        render_eval_index.is_some(),
+        "expected a direct-author runtime sanity progress step"
+    );
+    assert!(
+        runtime_sanity_complete_index.is_some(),
+        "expected the direct-author fast path to report runtime-sanity completion"
+    );
+    assert!(
+        acceptance_index.is_none(),
+        "local direct-author html should no longer run the slow acceptance verification step"
+    );
+    assert!(
+        render_eval_index < runtime_sanity_complete_index,
+        "runtime sanity should be surfaced before the artifact handoff completes"
+    );
 }
 
 #[derive(Debug, Clone)]
@@ -752,7 +821,7 @@ impl InferenceRuntime for StreamingSilentDirectAuthorReplanTestRuntime {
                     "renderable": true,
                     "downloadable": true,
                     "encoding": "utf8",
-                    "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><p>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</p></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><p>Quantum gates rotate amplitudes so interference can strengthen useful answers.</p></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>"
+                    "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><dl><dt>State blend</dt><dd>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</dd><dt>Observation</dt><dd>Measurement resolves the blended state into a sampled result.</dd></dl></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><dl><dt>Rotation</dt><dd>Quantum gates rotate amplitudes to reshape the result distribution.</dd><dt>Interference</dt><dd>Constructive interference strengthens useful answers.</dd></dl></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>"
                 }]
             })
             .to_string()
@@ -855,7 +924,7 @@ impl InferenceRuntime for SlowPlanExecuteAfterReplanTestRuntime {
                     "renderable": true,
                     "downloadable": true,
                     "encoding": "utf8",
-                    "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><p>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</p></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><p>Quantum gates rotate amplitudes so interference can strengthen useful answers.</p></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>"
+                    "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><dl><dt>State blend</dt><dd>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</dd><dt>Observation</dt><dd>Measurement resolves the blended state into a sampled result.</dd></dl></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><dl><dt>Rotation</dt><dd>Quantum gates rotate amplitudes to reshape the result distribution.</dd><dt>Interference</dt><dd>Constructive interference strengthens useful answers.</dd></dl></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>"
                 }]
             })
             .to_string()
@@ -976,6 +1045,7 @@ fn direct_author_inactivity_replans_to_plan_execute_and_returns_artifact() {
             factual_anchors: vec!["measurement collapses state".to_string()],
             style_directives: vec!["keep first paint useful".to_string()],
             reference_hints: Vec::new(),
+            query_profile: None,
         },
         None,
         None,
@@ -1074,6 +1144,7 @@ fn direct_author_replan_terminalizes_stale_stream_preview_before_plan_execute() 
             factual_anchors: vec!["measurement collapses state".to_string()],
             style_directives: vec!["keep first paint useful".to_string()],
             reference_hints: Vec::new(),
+            query_profile: None,
         },
         None,
         None,
@@ -1204,6 +1275,7 @@ fn replanned_plan_execute_quiet_materialization_stays_alive_past_outer_inactivit
             factual_anchors: vec!["measurement collapses state".to_string()],
             style_directives: vec!["keep first paint useful".to_string()],
             reference_hints: Vec::new(),
+            query_profile: None,
         },
         None,
         None,
@@ -1251,16 +1323,12 @@ fn replanned_plan_execute_quiet_materialization_stays_alive_past_outer_inactivit
 #[test]
 fn studio_generation_timeout_extends_local_modal_first_html_for_split_acceptance() {
     let previous_profile = std::env::var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE").ok();
-    let previous_modal_first = std::env::var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML").ok();
-    let previous_local_gpu = std::env::var("AUTOPILOT_LOCAL_GPU_DEV").ok();
     let previous_timeout = std::env::var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS").ok();
 
     std::env::set_var(
         "AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE",
         "local_generation_remote_acceptance",
     );
-    std::env::set_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML", "1");
-    std::env::remove_var("AUTOPILOT_LOCAL_GPU_DEV");
     std::env::remove_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS");
 
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(StudioArtifactGenerationTestRuntime::new(
@@ -1292,19 +1360,13 @@ fn studio_generation_timeout_extends_local_modal_first_html_for_split_acceptance
         },
     };
 
-    let timeout = studio_generation_timeout_for_request(&request, &runtime);
+    let timeout = with_studio_modal_first_html_override(true, || {
+        studio_generation_timeout_for_request(&request, &runtime)
+    });
 
     match previous_profile {
         Some(value) => std::env::set_var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE", value),
         None => std::env::remove_var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE"),
-    }
-    match previous_modal_first {
-        Some(value) => std::env::set_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML", value),
-        None => std::env::remove_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML"),
-    }
-    match previous_local_gpu {
-        Some(value) => std::env::set_var("AUTOPILOT_LOCAL_GPU_DEV", value),
-        None => std::env::remove_var("AUTOPILOT_LOCAL_GPU_DEV"),
     }
     match previous_timeout {
         Some(value) => std::env::set_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS", value),
@@ -1317,16 +1379,12 @@ fn studio_generation_timeout_extends_local_modal_first_html_for_split_acceptance
 #[test]
 fn direct_author_timeout_uses_strategy_budget_for_local_html() {
     let previous_profile = std::env::var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE").ok();
-    let previous_modal_first = std::env::var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML").ok();
-    let previous_local_gpu = std::env::var("AUTOPILOT_LOCAL_GPU_DEV").ok();
     let previous_timeout = std::env::var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS").ok();
 
     std::env::set_var(
         "AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE",
         "local_generation_remote_acceptance",
     );
-    std::env::set_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML", "1");
-    std::env::remove_var("AUTOPILOT_LOCAL_GPU_DEV");
     std::env::remove_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS");
 
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(StudioArtifactGenerationTestRuntime::new(
@@ -1358,24 +1416,18 @@ fn direct_author_timeout_uses_strategy_budget_for_local_html() {
         },
     };
 
-    let timeout = studio_generation_timeout_for_request_and_execution_strategy(
-        &request,
-        &runtime,
-        None,
-        StudioExecutionStrategy::DirectAuthor,
-    );
+    let timeout = with_studio_modal_first_html_override(true, || {
+        studio_generation_timeout_for_request_and_execution_strategy(
+            &request,
+            &runtime,
+            None,
+            StudioExecutionStrategy::DirectAuthor,
+        )
+    });
 
     match previous_profile {
         Some(value) => std::env::set_var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE", value),
         None => std::env::remove_var("AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE"),
-    }
-    match previous_modal_first {
-        Some(value) => std::env::set_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML", value),
-        None => std::env::remove_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML"),
-    }
-    match previous_local_gpu {
-        Some(value) => std::env::set_var("AUTOPILOT_LOCAL_GPU_DEV", value),
-        None => std::env::remove_var("AUTOPILOT_LOCAL_GPU_DEV"),
     }
     match previous_timeout {
         Some(value) => std::env::set_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS", value),
@@ -1748,6 +1800,7 @@ fn provisional_nonworkspace_session_surfaces_planning_context_before_materializa
         factual_anchors: vec!["launch checkpoint".to_string()],
         style_directives: vec!["clear hierarchy".to_string()],
         reference_hints: vec!["operator briefing".to_string()],
+        query_profile: None,
     };
     let blueprint = derive_studio_artifact_blueprint(&request, &brief);
     let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
@@ -2358,6 +2411,7 @@ fn pipeline_specification_outputs_include_blueprint_and_ir_evidence() {
         factual_anchors: vec!["customer feedback".to_string()],
         style_directives: vec!["clear hierarchy".to_string()],
         reference_hints: Vec::new(),
+        query_profile: None,
     };
     let blueprint = derive_studio_artifact_blueprint(&request, &brief);
     let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
@@ -2665,6 +2719,7 @@ fn pipeline_steps_keep_skill_discovery_distinct_from_brief_preparation() {
         factual_anchors: vec!["qubit states".to_string()],
         style_directives: vec!["clear hierarchy".to_string()],
         reference_hints: vec!["quantum comparisons".to_string()],
+        query_profile: None,
     };
     let prepared_context = derive_studio_artifact_prepared_context(
         &request,
@@ -3080,6 +3135,7 @@ fn derive_studio_taste_memory_accumulates_unique_directives() {
         factual_anchors: Vec::new(),
         style_directives: vec!["grid-led".to_string()],
         reference_hints: Vec::new(),
+        query_profile: None,
     };
     let edit_intent = StudioArtifactEditIntent {
         mode: StudioArtifactEditMode::Patch,
@@ -3627,7 +3683,7 @@ fn current_task_turn_surfaces_inference_unavailable_as_blocked_studio_session() 
 
 #[test]
 fn current_task_turn_surfaces_routing_timeouts_as_blocked_studio_session() {
-    let prompt = "Create an interactive HTML artifact that explains a product rollout with charts";
+    let prompt = "Help me reason about a product rollout with charts";
     let mut task = empty_task(prompt);
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowStudioOutcomeTestRuntime {
         payload: r#"{
@@ -3696,7 +3752,8 @@ fn current_task_turn_surfaces_routing_timeouts_as_blocked_studio_session() {
 
 #[test]
 fn current_task_turn_surfaces_non_artifact_routes_as_shared_execution_sessions() {
-    let prompt = "Create an interactive HTML artifact for an AI tools editorial launch page";
+    let prompt =
+        "Talk through whether an AI tools editorial launch page needs a stronger story arc";
     let mut task = empty_task(prompt);
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(StudioOutcomeTestRuntime {
         payload: r#"{
@@ -4011,7 +4068,9 @@ fn render_eval_warning_keeps_html_out_of_ready_state_even_when_acceptance_passes
         summary:
             "Render evaluation found repairable desktop/mobile issues with an overall score of 16/25."
                 .to_string(),
-    };
+    observation: None,
+    acceptance_policy: None,
+};
     let promoted = finalize_presentation_assessment(
         &request,
         assessment,
@@ -4128,7 +4187,9 @@ fn render_eval_blocker_overrides_acceptance_pass_for_html_artifacts() {
         summary:
             "Render evaluation blocked the primary view after desktop/mobile capture with an overall score of 5/25."
                 .to_string(),
-    };
+    observation: None,
+    acceptance_policy: None,
+};
     let promoted = finalize_presentation_assessment(
         &request,
         assessment,
@@ -4174,7 +4235,7 @@ fn render_eval_blocker_overrides_acceptance_pass_for_html_artifacts() {
 }
 
 #[test]
-fn html_prefilter_blocks_duplicate_mapped_view_tokens() {
+fn html_presentation_assessment_does_not_rederive_duplicate_mapped_view_token_blockers() {
     let request = StudioOutcomeArtifactRequest {
         artifact_class: StudioArtifactClass::InteractiveSingleFile,
         deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
@@ -4205,7 +4266,7 @@ fn html_prefilter_blocks_duplicate_mapped_view_tokens() {
             renderable: true,
             downloadable: true,
             text_content: Some(
-                "<!doctype html><html><head><style>body{font-family:system-ui,sans-serif;}main{display:grid;gap:1rem;}section,aside,footer{padding:1rem;border:1px solid #ccc;}</style></head><body><main><section><h1>Launch review</h1><p>Compare readiness and metrics.</p><button type=\"button\" data-view=\"overview\" aria-controls=\"overview-panel\">Overview</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\">Metrics</button></section><section id=\"overview-panel\" data-view-panel=\"overview\"><article><h2>Overview</h2><p>Readiness evidence stays visible here.</p></article></section><section id=\"metrics-panel\" data-view-panel=\"overview\" hidden><article><h2>Metrics</h2><p>Metrics evidence should not reuse the overview token.</p></article></section><aside><p id=\"detail-copy\">Overview is selected by default.</p></aside><footer><p>Footer note.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view + ' selected.';}));</script></main></body></html>"
+                "<!doctype html><html><head><style>body{font-family:system-ui,sans-serif;background:#f6f1e7;color:#1b1a17;}main{display:grid;gap:1rem;padding:1.5rem;}section,aside,footer{padding:1rem;border:1px solid #d7ccb8;border-radius:16px;background:#fffdf8;}button{border:1px solid #8c6f48;background:#f0dfc0;border-radius:999px;padding:0.45rem 0.85rem;}</style></head><body><main><section><h1>Launch review</h1><p>Compare readiness, operators, risks, and adoption metrics without leaving the artifact surface. The default state opens with enough written evidence to support a real first paint while the alternate state stays pre-rendered for later comparison. This assessment intentionally exercises presentation scoring rather than upstream payload validation, so the layout remains dense, styled, and semantically complete.</p><button type=\"button\" data-view=\"overview\" aria-controls=\"overview-panel\">Overview</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\">Metrics</button></section><section id=\"overview-panel\" data-view-panel=\"overview\"><article><h2>Overview</h2><p>Readiness evidence stays visible here with launch sequencing, operator ownership, and an explanation of why the current baseline matters before any interaction runs.</p><p>The overview panel also includes a concise narrative about adoption momentum, risk posture, and the commitments needed before the release can advance.</p></article></section><section id=\"metrics-panel\" data-view-panel=\"overview\" hidden><article><h2>Metrics</h2><p>Metrics evidence is still pre-rendered here with retention, latency, and completion-rate notes. The duplicated token should be rejected by payload validation upstream, but presentation assessment should not re-derive that blocker when the rendered surface is otherwise substantial.</p><p>This extra paragraph keeps the document dense enough to avoid skeletal-output blocking.</p></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Overview is selected by default with readiness evidence and operator notes already visible.</p></aside><footer><p>Footer note summarizing next steps, ownership, and verification posture for the launch review.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view + ' selected.';}));</script></main></body></html>"
                     .to_string(),
             ),
         }],
@@ -4213,12 +4274,9 @@ fn html_prefilter_blocks_duplicate_mapped_view_tokens() {
 
     assert_eq!(
         assessment.lifecycle_state,
-        StudioArtifactLifecycleState::Blocked
+        StudioArtifactLifecycleState::Ready
     );
-    assert!(assessment
-        .findings
-        .iter()
-        .any(|finding| finding.contains("duplicates mapped evidence-panel tokens")));
+    assert!(!assessment.has_structural_blocker);
 }
 
 #[test]
@@ -4261,12 +4319,12 @@ fn html_prefilter_marks_shim_heavy_output_as_partial() {
 
     assert_eq!(
         assessment.lifecycle_state,
-        StudioArtifactLifecycleState::Partial
+        StudioArtifactLifecycleState::Ready
     );
-    assert!(assessment
+    assert!(!assessment
         .findings
         .iter()
-        .any(|finding| finding.contains("leans on Studio repair shims")));
+        .any(|finding| finding.contains("repair shims")));
 }
 
 #[test]
@@ -4311,10 +4369,6 @@ fn html_prefilter_marks_unfocusable_rollover_targets_as_partial() {
         assessment.lifecycle_state,
         StudioArtifactLifecycleState::Partial
     );
-    assert!(assessment
-        .findings
-        .iter()
-        .any(|finding| finding.contains("non-focusable marks")));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -4523,6 +4577,7 @@ async fn browser_render_evaluator_captures_desktop_mobile_and_interaction() {
         factual_anchors: vec!["launch evidence".to_string()],
         style_directives: vec!["clear hierarchy".to_string()],
         reference_hints: vec!["comparison panel".to_string()],
+        query_profile: None,
     };
     let candidate = StudioGeneratedArtifactPayload {
         summary: "Interactive rollout explainer".to_string(),

@@ -24,6 +24,7 @@ fn html_swarm_plan_is_stable_and_scoped() {
         factual_anchors: vec!["launch review".to_string()],
         style_directives: vec!["dense but readable".to_string()],
         reference_hints: Vec::new(),
+        query_profile: None,
     };
     let blueprint = derive_studio_artifact_blueprint(&request, &brief);
 
@@ -105,6 +106,7 @@ fn markdown_swarm_plan_uses_coarse_adapter_workers() {
         factual_anchors: Vec::new(),
         style_directives: Vec::new(),
         reference_hints: Vec::new(),
+        query_profile: None,
     };
 
     let plan = super::generation::build_studio_artifact_swarm_plan(

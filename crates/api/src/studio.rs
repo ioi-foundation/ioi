@@ -10,7 +10,9 @@ use ioi_types::app::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::cell::Cell;
 use std::collections::HashSet;
+use std::future::Future;
 use std::sync::Arc;
 
 mod generation;
@@ -23,6 +25,14 @@ mod planning;
 mod render_eval;
 mod types;
 
+tokio::task_local! {
+    static STUDIO_MODAL_FIRST_HTML_TASK_OVERRIDE: bool;
+}
+
+thread_local! {
+    static STUDIO_MODAL_FIRST_HTML_THREAD_OVERRIDE: Cell<Option<bool>> = const { Cell::new(None) };
+}
+
 fn truthy_env_var(key: &str) -> bool {
     std::env::var(key)
         .map(|value| {
@@ -34,15 +44,53 @@ fn truthy_env_var(key: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn studio_modal_first_html_override() -> Option<bool> {
+    STUDIO_MODAL_FIRST_HTML_TASK_OVERRIDE
+        .try_with(|enabled| *enabled)
+        .ok()
+        .or_else(|| STUDIO_MODAL_FIRST_HTML_THREAD_OVERRIDE.with(|enabled| enabled.get()))
+}
+
 fn studio_modal_first_html_enabled() -> bool {
-    truthy_env_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML") || truthy_env_var("AUTOPILOT_LOCAL_GPU_DEV")
+    studio_modal_first_html_override().unwrap_or_else(|| {
+        truthy_env_var("AUTOPILOT_STUDIO_MODAL_FIRST_HTML")
+            || truthy_env_var("AUTOPILOT_LOCAL_GPU_DEV")
+    })
+}
+
+#[doc(hidden)]
+pub fn with_studio_modal_first_html_override<T>(enabled: bool, f: impl FnOnce() -> T) -> T {
+    STUDIO_MODAL_FIRST_HTML_THREAD_OVERRIDE.with(|override_cell| {
+        let previous = override_cell.replace(Some(enabled));
+        let result = f();
+        override_cell.set(previous);
+        result
+    })
+}
+
+#[doc(hidden)]
+pub async fn with_studio_modal_first_html_override_async<T, F>(
+    enabled: bool,
+    f: impl FnOnce() -> F,
+) -> T
+where
+    F: Future<Output = T>,
+{
+    STUDIO_MODAL_FIRST_HTML_TASK_OVERRIDE
+        .scope(enabled, async move { f().await })
+        .await
+}
+
+#[doc(hidden)]
+pub fn studio_modal_first_html_enabled_for_tests_and_runtime() -> bool {
+    studio_modal_first_html_enabled()
 }
 
 use html::*;
 use html_registry::*;
 
 pub use generation::{
-    acceptance_timeout_for_execution_strategy, build_studio_artifact_candidate_refinement_prompt,
+    build_studio_artifact_candidate_refinement_prompt,
     build_studio_artifact_candidate_refinement_repair_prompt,
     build_studio_artifact_materialization_prompt,
     build_studio_artifact_materialization_repair_prompt, derive_studio_artifact_prepared_context,
@@ -84,7 +132,7 @@ pub use planning::{
     synthesize_studio_artifact_brief_for_execution_strategy_with_runtime,
 };
 pub use render_eval::{
-    evaluate_studio_artifact_render_if_configured,
+    build_studio_artifact_render_acceptance_policy, evaluate_studio_artifact_render_if_configured,
     merge_studio_artifact_render_evaluation_into_judge, StudioArtifactRenderEvaluator,
 };
 pub use types::*;

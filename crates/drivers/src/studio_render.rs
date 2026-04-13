@@ -1,13 +1,14 @@
 use crate::browser::{BrowserDriver, BrowserError};
 use async_trait::async_trait;
 use ioi_api::studio::{
-    StudioArtifactAcceptanceObligation, StudioArtifactAcceptanceObligationStatus,
-    StudioArtifactBlueprint, StudioArtifactBrief, StudioArtifactEditIntent,
-    StudioArtifactExecutionWitness, StudioArtifactExecutionWitnessStatus, StudioArtifactIR,
-    StudioArtifactRenderCapture, StudioArtifactRenderCaptureViewport,
-    StudioArtifactRenderEvaluation, StudioArtifactRenderEvaluator, StudioArtifactRenderFinding,
-    StudioArtifactRenderFindingSeverity, StudioGeneratedArtifactFile,
-    StudioGeneratedArtifactPayload,
+    build_studio_artifact_render_acceptance_policy, StudioArtifactAcceptanceObligation,
+    StudioArtifactAcceptanceObligationStatus, StudioArtifactBlueprint, StudioArtifactBrief,
+    StudioArtifactEditIntent, StudioArtifactExecutionWitness, StudioArtifactExecutionWitnessStatus,
+    StudioArtifactIR, StudioArtifactRenderAcceptancePolicy, StudioArtifactRenderCapture,
+    StudioArtifactRenderCaptureViewport, StudioArtifactRenderEvaluation,
+    StudioArtifactRenderEvaluator, StudioArtifactRenderFinding,
+    StudioArtifactRenderFindingSeverity, StudioArtifactRenderObservation,
+    StudioGeneratedArtifactFile, StudioGeneratedArtifactPayload,
 };
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::{StudioOutcomeArtifactRequest, StudioRendererKind};
@@ -20,7 +21,8 @@ use uuid::Uuid;
 
 const DESKTOP_VIEWPORT: (u32, u32) = (1440, 960);
 const MOBILE_VIEWPORT: (u32, u32) = (390, 844);
-const CAPTURE_SETTLE_MS: u64 = 140;
+const DEFAULT_CAPTURE_SETTLE_MS: u64 = 140;
+const DEFAULT_MAX_AFFORDANCE_PROBES: usize = 4;
 
 fn studio_render_trace(message: impl AsRef<str>) {
     if std::env::var_os("IOI_STUDIO_PROOF_TRACE").is_some() {
@@ -47,8 +49,10 @@ struct DomCaptureMetrics {
     visible_text_chars: usize,
     interactive_element_count: usize,
     section_count: usize,
-    detail_region_count: usize,
+    response_region_count: usize,
     evidence_surface_count: usize,
+    actionable_affordance_count: usize,
+    active_affordance_count: usize,
     heading_count: usize,
     main_present: bool,
     body_font_size: f64,
@@ -60,9 +64,7 @@ struct DomCaptureMetrics {
     gap_consistency: f64,
     overlap_count: usize,
     #[serde(default)]
-    primary_action_selector: Option<String>,
-    #[serde(default)]
-    detail_copy: Option<String>,
+    response_region_text: Option<String>,
 }
 
 #[derive(Debug)]
@@ -100,13 +102,108 @@ struct ActionableControl {
 struct InteractionStateSnapshot {
     signature: String,
     #[serde(default)]
-    detail_copy: Option<String>,
+    response_text: Option<String>,
     #[serde(default)]
     visible_text_sample: String,
     #[serde(default)]
-    visible_panel_count: usize,
+    visible_region_count: usize,
     #[serde(default)]
-    active_state_count: usize,
+    active_affordance_count: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct BrowserRenderSamplingPolicy {
+    capture_settle_ms: u64,
+    max_affordance_probes: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct LayoutDensityScorePolicy {
+    medium_visible_elements: usize,
+    medium_visible_text_chars: usize,
+    medium_occupied_ratio: f64,
+    strong_visible_elements: usize,
+    strong_visible_text_chars: usize,
+    strong_occupied_ratio: f64,
+    full_visible_elements: usize,
+    full_visible_text_chars: usize,
+    full_occupied_ratio: f64,
+    medium_section_count: usize,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SpacingAlignmentScorePolicy {
+    medium_alignment_ratio: f64,
+    strong_gap_consistency: f64,
+    full_alignment_ratio: f64,
+    full_gap_consistency: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TypographyScorePolicy {
+    medium_avg_contrast: f64,
+    strong_min_contrast: f64,
+    strong_heading_ratio: f64,
+    full_avg_contrast: f64,
+    full_heading_ratio: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct VisualHierarchyScorePolicy {
+    strong_heading_ratio: f64,
+    strong_evidence_surface_count: usize,
+    strong_luminance_stddev: f64,
+    full_heading_count: usize,
+    full_evidence_surface_count: usize,
+    full_luminance_stddev: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct BrowserRenderScoringPolicy {
+    layout_density: LayoutDensityScorePolicy,
+    spacing_alignment: SpacingAlignmentScorePolicy,
+    typography: TypographyScorePolicy,
+    visual_hierarchy: VisualHierarchyScorePolicy,
+}
+
+impl Default for BrowserRenderScoringPolicy {
+    fn default() -> Self {
+        Self {
+            layout_density: LayoutDensityScorePolicy {
+                medium_visible_elements: 8,
+                medium_visible_text_chars: 120,
+                medium_occupied_ratio: 0.16,
+                strong_visible_elements: 16,
+                strong_visible_text_chars: 220,
+                strong_occupied_ratio: 0.24,
+                full_visible_elements: 24,
+                full_visible_text_chars: 320,
+                full_occupied_ratio: 0.32,
+                medium_section_count: 3,
+            },
+            spacing_alignment: SpacingAlignmentScorePolicy {
+                medium_alignment_ratio: 0.35,
+                strong_gap_consistency: 0.45,
+                full_alignment_ratio: 0.55,
+                full_gap_consistency: 0.6,
+            },
+            typography: TypographyScorePolicy {
+                medium_avg_contrast: 3.5,
+                strong_min_contrast: 3.0,
+                strong_heading_ratio: 1.45,
+                full_avg_contrast: 4.5,
+                full_heading_ratio: 1.75,
+            },
+            visual_hierarchy: VisualHierarchyScorePolicy {
+                strong_heading_ratio: 1.6,
+                strong_evidence_surface_count: 2,
+                strong_luminance_stddev: 0.14,
+                full_heading_count: 2,
+                full_evidence_surface_count: 3,
+                full_luminance_stddev: 0.18,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -120,6 +217,18 @@ struct WitnessProbeResult {
 }
 
 impl BrowserStudioArtifactRenderEvaluator {
+    fn sampling_policy(
+        &self,
+        acceptance_policy: &StudioArtifactRenderAcceptancePolicy,
+    ) -> BrowserRenderSamplingPolicy {
+        BrowserRenderSamplingPolicy {
+            capture_settle_ms: DEFAULT_CAPTURE_SETTLE_MS,
+            max_affordance_probes: acceptance_policy
+                .minimum_actionable_affordances
+                .max(DEFAULT_MAX_AFFORDANCE_PROBES),
+        }
+    }
+
     async fn ensure_headless_browser(&self) -> Result<(), String> {
         self.browser.set_lease(true);
         self.browser
@@ -134,8 +243,9 @@ impl BrowserStudioArtifactRenderEvaluator {
         width: u32,
         height: u32,
         previous_sha: Option<&str>,
+        sampling_policy: BrowserRenderSamplingPolicy,
     ) -> Result<ViewportCapture, String> {
-        tokio::time::sleep(Duration::from_millis(CAPTURE_SETTLE_MS)).await;
+        tokio::time::sleep(Duration::from_millis(sampling_policy.capture_settle_ms)).await;
         let png = self
             .browser
             .capture_tab_screenshot_with_viewport(width, height, false)
@@ -204,7 +314,11 @@ impl BrowserStudioArtifactRenderEvaluator {
             .map_err(browser_error_to_string)
     }
 
-    async fn perform_action_probe(&self, action: &ActionableControl) -> WitnessProbeResult {
+    async fn perform_action_probe(
+        &self,
+        action: &ActionableControl,
+        sampling_policy: BrowserRenderSamplingPolicy,
+    ) -> WitnessProbeResult {
         let before = self.capture_interaction_state().await.ok();
         let _ = self.clear_runtime_witness_errors().await;
 
@@ -222,7 +336,7 @@ impl BrowserStudioArtifactRenderEvaluator {
                 .map_err(browser_error_to_string),
         };
 
-        tokio::time::sleep(Duration::from_millis(CAPTURE_SETTLE_MS)).await;
+        tokio::time::sleep(Duration::from_millis(sampling_policy.capture_settle_ms)).await;
         let after = self.capture_interaction_state().await.ok();
         let runtime_state = self.runtime_witness_state().await.ok();
         let console_errors = runtime_state.map(|state| state.errors).unwrap_or_default();
@@ -247,7 +361,7 @@ impl BrowserStudioArtifactRenderEvaluator {
                 format!("'{}' changed visible artifact state.", action.label),
                 after
                     .as_ref()
-                    .and_then(|snapshot| snapshot.detail_copy.clone())
+                    .and_then(|snapshot| snapshot.response_text.clone())
                     .or_else(|| {
                         after.as_ref().map(|snapshot| {
                             snapshot.visible_text_sample.chars().take(220).collect()
@@ -257,10 +371,10 @@ impl BrowserStudioArtifactRenderEvaluator {
             Ok(()) => {
                 let detail = after.as_ref().map(|snapshot| {
                     format!(
-                        "No visible state delta was observed after exercising '{}'. panels={} activeStates={} text='{}'",
+                        "No visible state delta was observed after exercising '{}'. visibleRegions={} activeAffordances={} text='{}'",
                         action.label,
-                        snapshot.visible_panel_count,
-                        snapshot.active_state_count,
+                        snapshot.visible_region_count,
+                        snapshot.active_affordance_count,
                         snapshot.visible_text_sample.chars().take(180).collect::<String>(),
                     )
                 });
@@ -286,17 +400,21 @@ impl BrowserStudioArtifactRenderEvaluator {
         &self,
         should_probe: bool,
         previous_sha: Option<&str>,
+        sampling_policy: BrowserRenderSamplingPolicy,
     ) -> Result<(Vec<WitnessProbeResult>, Option<ViewportCapture>), String> {
         if !should_probe {
             return Ok((Vec::new(), None));
         }
         let discovered = self.discover_actionable_controls().await?;
-        let actionable = select_actionable_controls_for_probe(&discovered);
+        let actionable = select_actionable_controls_for_probe(
+            &discovered,
+            sampling_policy.max_affordance_probes,
+        );
         let mut witnesses = Vec::new();
         let mut interaction_capture = None;
 
         for action in actionable {
-            let witness = self.perform_action_probe(&action).await;
+            let witness = self.perform_action_probe(&action, sampling_policy).await;
             if interaction_capture.is_none()
                 && witness.status == StudioArtifactExecutionWitnessStatus::Passed
             {
@@ -306,6 +424,7 @@ impl BrowserStudioArtifactRenderEvaluator {
                         DESKTOP_VIEWPORT.0,
                         DESKTOP_VIEWPORT.1,
                         previous_sha,
+                        sampling_policy,
                     )
                     .await
                     .ok();
@@ -339,6 +458,9 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
         }
 
         let started_at = Instant::now();
+        let acceptance_policy =
+            build_studio_artifact_render_acceptance_policy(request, brief, blueprint, artifact_ir);
+        let sampling_policy = self.sampling_policy(&acceptance_policy);
         let preview_bundle = build_preview_bundle(request.renderer, candidate)?;
         studio_render_trace(format!(
             "artifact_generation:render_eval:bundle_ready renderer={:?} entry={} elapsed_ms={}",
@@ -381,6 +503,7 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
                 DESKTOP_VIEWPORT.0,
                 DESKTOP_VIEWPORT.1,
                 None,
+                sampling_policy,
             )
             .await?;
         studio_render_trace(format!(
@@ -398,6 +521,7 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
                 MOBILE_VIEWPORT.0,
                 MOBILE_VIEWPORT.1,
                 Some(&desktop.capture.screenshot_sha256),
+                sampling_policy,
             )
             .await?;
         studio_render_trace(format!(
@@ -405,7 +529,7 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
             mobile.capture.screenshot_byte_count,
             started_at.elapsed().as_millis()
         ));
-        let interaction_expected = !brief.required_interactions.is_empty()
+        let interaction_expected = brief.has_required_interaction_goals()
             || blueprint
                 .map(|value| !value.interaction_plan.is_empty())
                 .unwrap_or(false)
@@ -428,6 +552,7 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
             .probe_interactions(
                 should_probe_interactions,
                 Some(&desktop.capture.screenshot_sha256),
+                sampling_policy,
             )
             .await?;
         studio_render_trace(format!(
@@ -448,6 +573,7 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
             interaction_expected,
             &boot_errors,
             &interaction_witnesses,
+            acceptance_policy,
         );
         studio_render_trace(format!(
             "artifact_generation:render_eval:scored overall={} elapsed_ms={}",
@@ -812,21 +938,22 @@ fn render_dom_metrics_script() -> &'static str {
   }
   const interactiveSelector = [
     "button",
+    "[role='button']",
     "[role='tab']",
-    "[data-view]",
-    "[data-target]",
+    "[role='switch']",
+    "[role='checkbox']",
+    "[role='radio']",
     "summary",
     "input:not([type='hidden'])",
     "select",
     "textarea",
-    "a[href^='#']"
+    "a[href]"
   ].join(",");
   const interactive = Array.from(document.querySelectorAll(interactiveSelector)).filter(visible);
-  const tagged = interactive.find((el) => el.hasAttribute("data-studio-render-primary-action"));
-  const actionTarget = tagged || interactive[0] || null;
-  if (actionTarget && !actionTarget.hasAttribute("data-studio-render-primary-action")) {
-    actionTarget.setAttribute("data-studio-render-primary-action", "true");
-  }
+  const responseRegions = Array.from(document.querySelectorAll("aside, [aria-live], [role='status'], [role='region'], [role='alert']"))
+    .filter((el) => visible(el) && String(el.innerText || "").trim().length > 0);
+  const activeAffordances = Array.from(document.querySelectorAll("[aria-selected='true'], [aria-expanded='true'], [aria-pressed='true'], [aria-current], input:checked, option:checked, details[open], [open]"))
+    .filter(visible);
   const alignments = semanticElements.map((el) => {
     const rect = el.getBoundingClientRect();
     return { left: Math.round(rect.left / 8) * 8, top: Math.round(rect.top / 8) * 8, bottom: Math.round(rect.bottom / 8) * 8, width: rect.width, height: rect.height };
@@ -847,8 +974,8 @@ fn render_dom_metrics_script() -> &'static str {
   const avgGap = gaps.length ? gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length : 0;
   const gapStd = gaps.length ? Math.sqrt(gaps.reduce((sum, gap) => sum + Math.pow(gap - avgGap, 2), 0) / gaps.length) : 0;
   const gapConsistency = avgGap > 0 ? Math.max(0, 1 - Math.min(1, gapStd / avgGap)) : 0;
-  const detail = Array.from(document.querySelectorAll("aside, [data-detail], [data-studio-shared-detail='true']")).find(visible);
-  const evidenceSurfaceCount = Array.from(document.querySelectorAll("[data-view-panel], [data-panel], [role='tabpanel'], svg, canvas, table, figure"))
+  const responseRegion = responseRegions[0] || null;
+  const evidenceSurfaceCount = Array.from(document.querySelectorAll("section, article, aside, figure, svg, canvas, table, [role='region'], [role='tabpanel']"))
     .filter(visible)
     .length;
   return {
@@ -856,8 +983,10 @@ fn render_dom_metrics_script() -> &'static str {
     visibleTextChars: textChars,
     interactiveElementCount: interactive.length,
     sectionCount: Array.from(document.querySelectorAll("main, section, article, aside, nav, footer")).filter(visible).length,
-    detailRegionCount: detail ? 1 : 0,
+    responseRegionCount: responseRegions.length,
     evidenceSurfaceCount,
+    actionableAffordanceCount: interactive.length,
+    activeAffordanceCount: activeAffordances.length,
     headingCount: Array.from(document.querySelectorAll("h1,h2,h3")).filter(visible).length,
     mainPresent: Boolean(document.querySelector("main")),
     bodyFontSize: bodyFont,
@@ -868,8 +997,7 @@ fn render_dom_metrics_script() -> &'static str {
     dominantLeftAlignmentRatio: semanticElements.length ? dominantLeft / semanticElements.length : 0,
     gapConsistency,
     overlapCount,
-    primaryActionSelector: actionTarget ? "[data-studio-render-primary-action='true']" : null,
-    detailCopy: detail ? (detail.innerText || "").trim() : null
+    responseRegionText: responseRegion ? (responseRegion.innerText || "").trim() : null
   };
 })()"#
 }
@@ -929,29 +1057,29 @@ fn render_interaction_state_snapshot_script() -> &'static str {
     return true;
   };
   const text = (node) => String(node?.innerText || "").replace(/\s+/g, " ").trim();
-  const detailTarget = Array.from(document.querySelectorAll("#detail-copy, [data-studio-shared-detail='true'], [aria-live], aside, [data-detail-copy]"))
+  const responseTarget = Array.from(document.querySelectorAll("aside, [aria-live], [role='status'], [role='region'], [role='alert']"))
     .find((el) => visible(el) && text(el).length > 0);
-  const visiblePanels = Array.from(document.querySelectorAll("[data-view-panel], [role='tabpanel'], [data-panel], section, article, aside"))
+  const visibleRegions = Array.from(document.querySelectorAll("main, section, article, aside, nav, footer, figure, table, [role='region'], [role='tabpanel'], svg, canvas"))
     .filter(visible)
     .slice(0, 12)
-    .map((el) => el.getAttribute("data-view-panel") || el.getAttribute("data-panel") || el.id || text(el).slice(0, 48));
-  const activeStates = Array.from(document.querySelectorAll("[aria-selected='true'], [aria-expanded='true'], [data-active='true'], .active, details[open]"))
+    .map((el) => el.getAttribute("aria-label") || el.id || text(el).slice(0, 48));
+  const activeAffordances = Array.from(document.querySelectorAll("[aria-selected='true'], [aria-expanded='true'], [aria-pressed='true'], [aria-current], input:checked, option:checked, details[open], [open]"))
     .filter(visible)
     .slice(0, 12)
-    .map((el) => el.id || el.getAttribute("data-view") || el.getAttribute("data-target") || text(el).slice(0, 32));
+    .map((el) => el.getAttribute("aria-label") || el.id || text(el).slice(0, 32));
   const visibleTextSample = text(document.querySelector("main") || document.body).slice(0, 360);
   const signature = JSON.stringify({
-    visiblePanels,
-    activeStates,
-    detailCopy: detailTarget ? text(detailTarget).slice(0, 200) : null,
+    visibleRegions,
+    activeAffordances,
+    responseText: responseTarget ? text(responseTarget).slice(0, 200) : null,
     visibleTextSample,
   });
   return {
     signature,
-    detailCopy: detailTarget ? text(detailTarget).slice(0, 200) : null,
+    responseText: responseTarget ? text(responseTarget).slice(0, 200) : null,
     visibleTextSample,
-    visiblePanelCount: visiblePanels.length,
-    activeStateCount: activeStates.length,
+    visibleRegionCount: visibleRegions.length,
+    activeAffordanceCount: activeAffordances.length,
   };
 })()"##
 }
@@ -970,28 +1098,23 @@ fn render_actionable_controls_script() -> &'static str {
   const text = (value) => String(value || "").replace(/\s+/g, " ").trim();
   const makeSelector = (el) => {
     if (!el) return null;
-    if (el.id) return `#${CSS.escape(el.id)}`;
-    if (el.hasAttribute("data-view")) return `[data-view="${CSS.escape(el.getAttribute("data-view"))}"]`;
-    if (el.hasAttribute("data-target")) return `[data-target="${CSS.escape(el.getAttribute("data-target"))}"]`;
-    if (el.hasAttribute("aria-controls")) return `[aria-controls="${CSS.escape(el.getAttribute("aria-controls"))}"]`;
-    if (el.hasAttribute("name")) return `${el.tagName.toLowerCase()}[name="${CSS.escape(el.getAttribute("name"))}"]`;
-    const label = text(el.getAttribute("aria-label") || el.innerText || el.value).slice(0, 48);
-    if (label) {
-      el.setAttribute("data-studio-witness-label", label);
-      return `${el.tagName.toLowerCase()}[data-studio-witness-label="${CSS.escape(label)}"]`;
+    const current = el.getAttribute("data-ioi-affordance-id");
+    if (current) {
+      return `[data-ioi-affordance-id="${CSS.escape(current)}"]`;
     }
-    const siblings = Array.from(el.parentElement?.children || []).filter((node) => node.tagName === el.tagName);
-    const index = Math.max(0, siblings.indexOf(el)) + 1;
-    return `${el.tagName.toLowerCase()}:nth-of-type(${index})`;
+    const generated = `aff-${Math.random().toString(36).slice(2, 10)}`;
+    el.setAttribute("data-ioi-affordance-id", generated);
+    return `[data-ioi-affordance-id="${CSS.escape(generated)}"]`;
   };
   const selector = [
     "button",
     "summary",
+    "[role='button']",
     "[role='tab']",
-    "[data-view]",
-    "[data-target]",
-    "[onclick]",
-    "a[href^='#']",
+    "[role='switch']",
+    "[role='checkbox']",
+    "[role='radio']",
+    "a[href]",
     "input:not([type='hidden'])",
     "select",
     "textarea"
@@ -1015,8 +1138,7 @@ fn render_actionable_controls_script() -> &'static str {
           el.value ||
           el.getAttribute("title") ||
           el.id ||
-          el.getAttribute("data-view") ||
-          el.getAttribute("data-target") ||
+          el.getAttribute("name") ||
           el.tagName
       );
       return {
@@ -1026,8 +1148,8 @@ fn render_actionable_controls_script() -> &'static str {
         active:
           el.getAttribute("aria-selected") === "true" ||
           el.getAttribute("aria-pressed") === "true" ||
-          el.getAttribute("data-active") === "true" ||
-          el.classList.contains("active") ||
+          el.getAttribute("aria-expanded") === "true" ||
+          el.hasAttribute("aria-current") ||
           (el.matches("details") && el.hasAttribute("open")) ||
           (el.matches("input[type='checkbox'], input[type='radio']") && el.checked === true)
       };
@@ -1038,7 +1160,7 @@ fn render_actionable_controls_script() -> &'static str {
       seen.add(entry.selector);
       return true;
     })
-    .slice(0, 8);
+    .slice(0, 12);
 })()"##
 }
 
@@ -1090,6 +1212,7 @@ fn render_action_execution_script(selector: &str, action_kind: &str) -> String {
 
 fn select_actionable_controls_for_probe(
     discovered: &[ActionableControl],
+    max_affordance_probes: usize,
 ) -> Vec<ActionableControl> {
     let mut seen = HashSet::<String>::new();
     let mut candidates = if discovered.iter().any(|action| !action.active) {
@@ -1102,7 +1225,7 @@ fn select_actionable_controls_for_probe(
         discovered.to_vec()
     };
     candidates.retain(|action| seen.insert(action.selector.clone()));
-    candidates.truncate(4);
+    candidates.truncate(max_affordance_probes);
     candidates
 }
 
@@ -1128,6 +1251,8 @@ fn build_execution_witnesses(
 
 fn build_html_acceptance_obligations(
     request: &StudioOutcomeArtifactRequest,
+    observation: &StudioArtifactRenderObservation,
+    acceptance_policy: &StudioArtifactRenderAcceptancePolicy,
     desktop: &ViewportCapture,
     mobile: &ViewportCapture,
     interaction_expected: bool,
@@ -1176,7 +1301,11 @@ fn build_html_acceptance_obligations(
             obligation_id: "primary_surface_present".to_string(),
             family: "presentation_truth".to_string(),
             required: true,
-            status: if desktop.dom.main_present && desktop.capture.visible_text_chars >= 40 {
+            status: if (!acceptance_policy.require_primary_region
+                || observation.primary_region_present)
+                && observation.first_paint_visible_text_chars
+                    >= acceptance_policy.minimum_first_paint_text_chars
+            {
                 StudioArtifactAcceptanceObligationStatus::Passed
             } else {
                 StudioArtifactAcceptanceObligationStatus::Failed
@@ -1184,9 +1313,9 @@ fn build_html_acceptance_obligations(
             summary: "The primary artifact surface is visibly present on first paint.".to_string(),
             detail: Some(format!(
                 "mainPresent={} desktopVisibleText={} mobileVisibleText={}",
-                desktop.dom.main_present,
-                desktop.capture.visible_text_chars,
-                mobile.capture.visible_text_chars
+                observation.primary_region_present,
+                observation.first_paint_visible_text_chars,
+                observation.mobile_visible_text_chars
             )),
             witness_ids: Vec::new(),
         },
@@ -1212,7 +1341,9 @@ fn build_html_acceptance_obligations(
             obligation_id: "artifact_query_outcome_materialized".to_string(),
             family: "query_outcome_truth".to_string(),
             required: true,
-            status: if desktop.capture.screenshot_byte_count > 0 && desktop.dom.main_present {
+            status: if desktop.capture.screenshot_byte_count > 0
+                && (!acceptance_policy.require_primary_region || observation.primary_region_present)
+            {
                 StudioArtifactAcceptanceObligationStatus::Passed
             } else {
                 StudioArtifactAcceptanceObligationStatus::Blocked
@@ -1236,18 +1367,40 @@ fn build_html_acceptance_obligations(
             },
             summary: "Studio discovered surfaced controls to exercise.".to_string(),
             detail: Some(format!(
-                "desktopInteractiveElements={} witnessedControls={}",
-                desktop.capture.interactive_element_count,
+                "desktopActionableAffordances={} witnessedControls={}",
+                observation.actionable_affordance_count,
                 execution_witnesses.len()
             )),
             witness_ids: witness_ids.clone(),
         });
+        if acceptance_policy.require_response_region_when_interactive {
+            obligations.push(StudioArtifactAcceptanceObligation {
+                obligation_id: "response_region_present".to_string(),
+                family: "interaction_truth".to_string(),
+                required: true,
+                status: if observation.response_region_count > 0 {
+                    StudioArtifactAcceptanceObligationStatus::Passed
+                } else {
+                    StudioArtifactAcceptanceObligationStatus::Failed
+                },
+                summary:
+                    "A visible response or explanation region remains present during interaction."
+                        .to_string(),
+                detail: Some(format!(
+                    "responseRegions={} evidenceSurfaces={}",
+                    observation.response_region_count, observation.evidence_surface_count
+                )),
+                witness_ids: Vec::new(),
+            });
+        }
         obligations.push(StudioArtifactAcceptanceObligation {
             obligation_id: "default_state_visible".to_string(),
             family: "interaction_truth".to_string(),
             required: true,
-            status: if desktop.capture.visible_text_chars >= 80
-                && desktop.capture.interactive_element_count > 0
+            status: if observation.first_paint_visible_text_chars
+                >= acceptance_policy.minimum_first_paint_text_chars
+                && observation.actionable_affordance_count
+                    >= acceptance_policy.minimum_actionable_affordances
             {
                 StudioArtifactAcceptanceObligationStatus::Passed
             } else {
@@ -1256,8 +1409,10 @@ fn build_html_acceptance_obligations(
             summary: "The artifact exposes a visible default interactive state on first paint."
                 .to_string(),
             detail: Some(format!(
-                "desktopVisibleText={} desktopInteractiveElements={}",
-                desktop.capture.visible_text_chars, desktop.capture.interactive_element_count
+                "desktopVisibleText={} actionableAffordances={} responseRegions={}",
+                observation.first_paint_visible_text_chars,
+                observation.actionable_affordance_count,
+                observation.response_region_count
             )),
             witness_ids: Vec::new(),
         });
@@ -1284,7 +1439,9 @@ fn build_html_acceptance_obligations(
             obligation_id: "interaction_witnessed".to_string(),
             family: "interaction_truth".to_string(),
             required: true,
-            status: if successful_witness_count > 0 {
+            status: if successful_witness_count > 0
+                || !acceptance_policy.require_state_change_when_interactive
+            {
                 StudioArtifactAcceptanceObligationStatus::Passed
             } else {
                 StudioArtifactAcceptanceObligationStatus::Failed
@@ -1406,6 +1563,47 @@ fn analyze_screenshot(png: &[u8]) -> Result<ScreenshotAnalysis, String> {
     })
 }
 
+fn build_render_observation(
+    desktop: &ViewportCapture,
+    mobile: &ViewportCapture,
+    interaction: Option<&ViewportCapture>,
+    boot_errors: &[String],
+    interaction_witnesses: &[WitnessProbeResult],
+) -> StudioArtifactRenderObservation {
+    StudioArtifactRenderObservation {
+        primary_region_present: desktop.dom.main_present || mobile.dom.main_present,
+        first_paint_visible_text_chars: desktop
+            .capture
+            .visible_text_chars
+            .max(mobile.capture.visible_text_chars),
+        mobile_visible_text_chars: mobile.capture.visible_text_chars,
+        semantic_region_count: desktop.dom.section_count.max(mobile.dom.section_count),
+        evidence_surface_count: desktop
+            .dom
+            .evidence_surface_count
+            .max(mobile.dom.evidence_surface_count),
+        response_region_count: desktop
+            .dom
+            .response_region_count
+            .max(mobile.dom.response_region_count),
+        actionable_affordance_count: desktop
+            .dom
+            .actionable_affordance_count
+            .max(mobile.dom.actionable_affordance_count),
+        active_affordance_count: desktop
+            .dom
+            .active_affordance_count
+            .max(mobile.dom.active_affordance_count),
+        runtime_error_count: boot_errors.len(),
+        interaction_state_changed: interaction
+            .map(|capture| capture.capture.screenshot_changed_from_previous)
+            .unwrap_or(false)
+            || interaction_witnesses
+                .iter()
+                .any(|witness| witness.state_changed),
+    }
+}
+
 fn score_render_evaluation(
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
@@ -1417,11 +1615,22 @@ fn score_render_evaluation(
     interaction_expected: bool,
     boot_errors: &[String],
     interaction_witnesses: &[WitnessProbeResult],
+    acceptance_policy: StudioArtifactRenderAcceptancePolicy,
 ) -> StudioArtifactRenderEvaluation {
-    let layout_density_score = score_layout_density(desktop, mobile);
-    let spacing_alignment_score = score_spacing_alignment(desktop, mobile);
-    let typography_contrast_score = score_typography(desktop, mobile);
-    let visual_hierarchy_score = score_visual_hierarchy(desktop, mobile);
+    let observation = build_render_observation(
+        desktop,
+        mobile,
+        interaction,
+        boot_errors,
+        interaction_witnesses,
+    );
+    let scoring_policy = BrowserRenderScoringPolicy::default();
+    let layout_density_score = score_layout_density(desktop, mobile, scoring_policy.layout_density);
+    let spacing_alignment_score =
+        score_spacing_alignment(desktop, mobile, scoring_policy.spacing_alignment);
+    let typography_contrast_score = score_typography(desktop, mobile, scoring_policy.typography);
+    let visual_hierarchy_score =
+        score_visual_hierarchy(desktop, mobile, scoring_policy.visual_hierarchy);
     let blueprint_consistency_score = score_blueprint_consistency(
         brief,
         blueprint,
@@ -1440,6 +1649,8 @@ fn score_render_evaluation(
     let acceptance_obligations = if request.renderer == StudioRendererKind::HtmlIframe {
         build_html_acceptance_obligations(
             request,
+            &observation,
+            &acceptance_policy,
             desktop,
             mobile,
             interaction_expected,
@@ -1462,7 +1673,9 @@ fn score_render_evaluation(
     if layout_density_score <= 2 {
         findings.push(StudioArtifactRenderFinding {
             code: "layout_density_low".to_string(),
-            severity: if desktop.dom.visible_text_chars < 80 {
+            severity: if observation.first_paint_visible_text_chars
+                < acceptance_policy.minimum_first_paint_text_chars
+            {
                 StudioArtifactRenderFindingSeverity::Blocked
             } else {
                 StudioArtifactRenderFindingSeverity::Warning
@@ -1517,7 +1730,10 @@ fn score_render_evaluation(
             ),
         });
     }
-    if interaction_expected && interaction.is_none() {
+    if interaction_expected
+        && acceptance_policy.require_state_change_when_interactive
+        && interaction.is_none()
+    {
         findings.push(StudioArtifactRenderFinding {
             code: "interaction_capture_missing".to_string(),
             severity: StudioArtifactRenderFindingSeverity::Blocked,
@@ -1525,6 +1741,7 @@ fn score_render_evaluation(
                 .to_string(),
         });
     } else if interaction_expected
+        && acceptance_policy.require_state_change_when_interactive
         && interaction.is_some_and(|capture| !capture.capture.screenshot_changed_from_previous)
     {
         findings.push(StudioArtifactRenderFinding {
@@ -1534,7 +1751,10 @@ fn score_render_evaluation(
                 .to_string(),
         });
     }
-    if request.renderer == StudioRendererKind::HtmlIframe && !desktop.dom.main_present {
+    if request.renderer == StudioRendererKind::HtmlIframe
+        && acceptance_policy.require_primary_region
+        && !observation.primary_region_present
+    {
         findings.push(StudioArtifactRenderFinding {
             code: "main_region_missing".to_string(),
             severity: StudioArtifactRenderFindingSeverity::Blocked,
@@ -1556,6 +1776,8 @@ fn score_render_evaluation(
         first_paint_captured: true,
         interaction_capture_attempted: interaction_expected,
         captures,
+        observation: Some(observation),
+        acceptance_policy: Some(acceptance_policy),
         layout_density_score,
         spacing_alignment_score,
         typography_contrast_score,
@@ -1569,7 +1791,11 @@ fn score_render_evaluation(
     }
 }
 
-fn score_layout_density(desktop: &ViewportCapture, mobile: &ViewportCapture) -> u8 {
+fn score_layout_density(
+    desktop: &ViewportCapture,
+    mobile: &ViewportCapture,
+    policy: LayoutDensityScorePolicy,
+) -> u8 {
     let visible_elements = desktop
         .dom
         .visible_element_count
@@ -1584,22 +1810,36 @@ fn score_layout_density(desktop: &ViewportCapture, mobile: &ViewportCapture) -> 
         .max(mobile.analysis.occupied_ratio);
     let section_count = desktop.dom.section_count.max(mobile.dom.section_count);
     let mut score = 1;
-    if visible_elements >= 8 || visible_text >= 120 {
+    if visible_elements >= policy.medium_visible_elements
+        || visible_text >= policy.medium_visible_text_chars
+    {
         score += 1;
     }
-    if occupied_ratio >= 0.16 || section_count >= 3 {
+    if occupied_ratio >= policy.medium_occupied_ratio
+        || section_count >= policy.medium_section_count
+    {
         score += 1;
     }
-    if visible_elements >= 16 && visible_text >= 220 && occupied_ratio >= 0.24 {
+    if visible_elements >= policy.strong_visible_elements
+        && visible_text >= policy.strong_visible_text_chars
+        && occupied_ratio >= policy.strong_occupied_ratio
+    {
         score += 1;
     }
-    if visible_elements >= 24 && visible_text >= 320 && occupied_ratio >= 0.32 {
+    if visible_elements >= policy.full_visible_elements
+        && visible_text >= policy.full_visible_text_chars
+        && occupied_ratio >= policy.full_occupied_ratio
+    {
         score += 1;
     }
     score
 }
 
-fn score_spacing_alignment(desktop: &ViewportCapture, mobile: &ViewportCapture) -> u8 {
+fn score_spacing_alignment(
+    desktop: &ViewportCapture,
+    mobile: &ViewportCapture,
+    policy: SpacingAlignmentScorePolicy,
+) -> u8 {
     let dominant_alignment = desktop
         .dom
         .dominant_left_alignment_ratio
@@ -1610,19 +1850,26 @@ fn score_spacing_alignment(desktop: &ViewportCapture, mobile: &ViewportCapture) 
     if overlap_count == 0 {
         score += 1;
     }
-    if dominant_alignment >= 0.35 {
+    if dominant_alignment >= policy.medium_alignment_ratio {
         score += 1;
     }
-    if gap_consistency >= 0.45 {
+    if gap_consistency >= policy.strong_gap_consistency {
         score += 1;
     }
-    if overlap_count == 0 && dominant_alignment >= 0.55 && gap_consistency >= 0.6 {
+    if overlap_count == 0
+        && dominant_alignment >= policy.full_alignment_ratio
+        && gap_consistency >= policy.full_gap_consistency
+    {
         score += 1;
     }
     score
 }
 
-fn score_typography(desktop: &ViewportCapture, mobile: &ViewportCapture) -> u8 {
+fn score_typography(
+    desktop: &ViewportCapture,
+    mobile: &ViewportCapture,
+    policy: TypographyScorePolicy,
+) -> u8 {
     let avg_contrast = desktop
         .dom
         .avg_text_contrast
@@ -1638,22 +1885,29 @@ fn score_typography(desktop: &ViewportCapture, mobile: &ViewportCapture) -> u8 {
         .font_family_count
         .max(mobile.dom.font_family_count);
     let mut score = 1;
-    if avg_contrast >= 3.5 {
+    if avg_contrast >= policy.medium_avg_contrast {
         score += 1;
     }
-    if min_contrast >= 3.0 {
+    if min_contrast >= policy.strong_min_contrast {
         score += 1;
     }
-    if heading_ratio >= 1.45 {
+    if heading_ratio >= policy.strong_heading_ratio {
         score += 1;
     }
-    if avg_contrast >= 4.5 && heading_ratio >= 1.75 && font_family_count >= 1 {
+    if avg_contrast >= policy.full_avg_contrast
+        && heading_ratio >= policy.full_heading_ratio
+        && font_family_count >= 1
+    {
         score += 1;
     }
     score
 }
 
-fn score_visual_hierarchy(desktop: &ViewportCapture, mobile: &ViewportCapture) -> u8 {
+fn score_visual_hierarchy(
+    desktop: &ViewportCapture,
+    mobile: &ViewportCapture,
+    policy: VisualHierarchyScorePolicy,
+) -> u8 {
     let heading_count = desktop.dom.heading_count.max(mobile.dom.heading_count);
     let heading_ratio = (desktop.dom.heading_font_size / desktop.dom.body_font_size.max(1.0))
         .max(mobile.dom.heading_font_size / mobile.dom.body_font_size.max(1.0));
@@ -1669,13 +1923,18 @@ fn score_visual_hierarchy(desktop: &ViewportCapture, mobile: &ViewportCapture) -
     if heading_count >= 1 {
         score += 1;
     }
-    if heading_ratio >= 1.6 {
+    if heading_ratio >= policy.strong_heading_ratio {
         score += 1;
     }
-    if evidence_surface_count >= 2 || luminance_stddev >= 0.14 {
+    if evidence_surface_count >= policy.strong_evidence_surface_count
+        || luminance_stddev >= policy.strong_luminance_stddev
+    {
         score += 1;
     }
-    if heading_count >= 2 && evidence_surface_count >= 3 && luminance_stddev >= 0.18 {
+    if heading_count >= policy.full_heading_count
+        && evidence_surface_count >= policy.full_evidence_surface_count
+        && luminance_stddev >= policy.full_luminance_stddev
+    {
         score += 1;
     }
     score
@@ -1695,10 +1954,10 @@ fn score_blueprint_consistency(
         .unwrap_or_else(|| brief.required_concepts.len().max(2))
         .max(1);
     let captured_sections = desktop.dom.section_count.max(mobile.dom.section_count);
-    let detail_regions = desktop
+    let response_regions = desktop
         .dom
-        .detail_region_count
-        .max(mobile.dom.detail_region_count);
+        .response_region_count
+        .max(mobile.dom.response_region_count);
     let evidence_surfaces = desktop
         .dom
         .evidence_surface_count
@@ -1716,7 +1975,7 @@ fn score_blueprint_consistency(
     if captured_sections >= target_sections.min(3) {
         score += 1;
     }
-    if detail_regions >= 1 || evidence_surfaces >= 2 {
+    if response_regions >= 1 || evidence_surfaces >= 2 {
         score += 1;
     }
     if !interaction_expected || interaction_changed || ir_interaction_targets == 0 {

@@ -77,9 +77,9 @@ pub(super) fn normalize_html_interactions(html: &str) -> String {
     if modal_first {
         return normalized;
     }
-    normalized = ensure_html_view_switch_contract(&normalized);
-    normalized = ensure_html_mapped_panels_define_referenced_ids(&normalized);
     normalized = ensure_html_button_accessibility_contract(&normalized);
+    normalized = ensure_html_mapped_panels_define_referenced_ids(&normalized);
+    normalized = ensure_html_view_switch_contract(&normalized);
     normalized = ensure_minimum_html_shared_detail_region(&normalized);
     normalized = ensure_minimum_html_mapped_panel_content(&normalized);
     normalized = ensure_minimum_html_rollover_detail_payloads(&normalized);
@@ -101,7 +101,7 @@ fn html_has_trailing_fragment(html: &str) -> bool {
     !trimmed[last_gt + 1..].trim().is_empty()
 }
 
-fn ensure_html_mapped_panels_define_referenced_ids(html: &str) -> String {
+pub(super) fn ensure_html_mapped_panels_define_referenced_ids(html: &str) -> String {
     let lower = html.to_ascii_lowercase();
     let defined_ids = collect_html_attribute_ids(&lower);
     let mut missing_refs = collect_html_referenced_ids(&lower)
@@ -512,7 +512,7 @@ fn ensure_html_synthesized_view_controls(html: &str) -> String {
     rebuilt
 }
 
-fn ensure_minimum_html_mapped_panel_content(html: &str) -> String {
+pub(super) fn ensure_minimum_html_mapped_panel_content(html: &str) -> String {
     let lower = html.to_ascii_lowercase();
     if count_empty_html_mapped_view_panels(&lower) == 0 {
         return html.to_string();
@@ -706,7 +706,7 @@ fn collect_html_buttons(html: &str) -> Vec<HtmlButtonDescriptor> {
     buttons
 }
 
-fn ensure_html_button_accessibility_contract(html: &str) -> String {
+pub(super) fn ensure_html_button_accessibility_contract(html: &str) -> String {
     let lower = html.to_ascii_lowercase();
     if !lower.contains("<button") {
         return html.to_string();
@@ -1534,7 +1534,7 @@ pub(super) fn ensure_minimum_brief_rollover_detail_marks(
     let has_chart_surface =
         count_populated_html_chart_regions(&lower) > 0 || count_html_svg_regions(&lower) > 0;
     let should_add_detail_targets = brief_requires_rollover_detail(brief)
-        || (!brief.required_interactions.is_empty() && has_detail_region && has_chart_surface);
+        || (brief.has_required_interaction_goals() && has_detail_region && has_chart_surface);
     if !should_add_detail_targets {
         return html.to_string();
     }
@@ -1990,7 +1990,7 @@ fn insert_html_before_head_close_or_body_close(html: &str, snippet: &str) -> Str
     insert_html_before_body_close(html, snippet)
 }
 
-fn ensure_html_interaction_polish_styles(html: &str) -> String {
+pub(super) fn ensure_html_interaction_polish_styles(html: &str) -> String {
     let lower = html.to_ascii_lowercase();
     let needs_polish = lower.contains("<button")
         || lower.contains("data-view-panel=")
@@ -3197,7 +3197,7 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
         );
     }
 
-    if request.renderer == StudioRendererKind::HtmlIframe && !brief.required_interactions.is_empty()
+    if request.renderer == StudioRendererKind::HtmlIframe && brief.has_required_interaction_goals()
     {
         directives.push(
             "- Realize requiredInteractions with visible controls that update on-page state, reveal deeper detail, filter views, or compare scenarios."
@@ -3257,7 +3257,7 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
                 "- Dedicate a second named evidence surface, comparison rail, or preview directly to this factual anchor: {secondary_anchor}. Keep it visible on first paint instead of burying it inside one generic shared summary."
             ));
         }
-        if brief.required_interactions.len() >= 2 {
+        if brief.required_interaction_goal_count() >= 2 {
             if modal_first_html {
                 directives.push(
                     "- Spread multiple interaction requirements across the artifact: keep one explicit authored state-change seam and at least one in-evidence inspection, hover/focus, or input behavior on visible marks, cards, chips, form fields, or list items."
@@ -4202,6 +4202,73 @@ pub(super) fn count_populated_html_detail_regions(html_lower: &str) -> usize {
     total
 }
 
+pub(super) fn count_populated_html_response_regions(html_lower: &str) -> usize {
+    let mut total = 0usize;
+
+    for tag in ["aside", "section", "article", "div"] {
+        let open_pattern = format!("<{tag}");
+        let close_pattern = format!("</{tag}>");
+        let mut cursor = 0usize;
+
+        while let Some(relative_start) = html_lower[cursor..].find(&open_pattern) {
+            let start = cursor + relative_start;
+            let Some(relative_open_end) = html_lower[start..].find('>') else {
+                break;
+            };
+            let open_end = start + relative_open_end + 1;
+            let open_tag = &html_lower[start..open_end];
+            let response_hint_present = tag == "aside"
+                || open_tag.contains("aria-live=")
+                || open_tag.contains("role=\"status\"")
+                || open_tag.contains("role='status'")
+                || open_tag.contains("role=\"region\"")
+                || open_tag.contains("role='region'")
+                || open_tag.contains("role=\"alert\"")
+                || open_tag.contains("role='alert'");
+            if !response_hint_present {
+                cursor = open_end;
+                continue;
+            }
+
+            let Some(relative_close) = html_lower[open_end..].find(&close_pattern) else {
+                cursor = open_end;
+                continue;
+            };
+            let close_start = open_end + relative_close;
+            let inner = &html_lower[open_end..close_start];
+            if html_fragment_has_detail_content(inner) {
+                total += 1;
+            }
+            cursor = close_start + close_pattern.len();
+        }
+    }
+
+    total
+}
+
+pub(super) fn count_html_actionable_affordances(html_lower: &str) -> usize {
+    [
+        "<button",
+        "<input",
+        "<select",
+        "<textarea",
+        "<summary",
+        "role=\"button\"",
+        "role='button'",
+        "role=\"tab\"",
+        "role='tab'",
+        "role=\"switch\"",
+        "role='switch'",
+        "role=\"checkbox\"",
+        "role='checkbox'",
+        "role=\"radio\"",
+        "role='radio'",
+    ]
+    .iter()
+    .map(|needle| html_lower.matches(needle).count())
+    .sum()
+}
+
 pub(super) fn html_contains_state_mutation_behavior(html_lower: &str) -> bool {
     [
         "textcontent =",
@@ -4275,6 +4342,10 @@ pub(super) fn contains_html_interaction_hooks(html_lower: &str) -> bool {
     .any(|needle| html_lower.contains(needle))
 }
 
+pub(super) fn html_contains_stateful_interaction_behavior(html_lower: &str) -> bool {
+    contains_html_interaction_hooks(html_lower) && html_contains_state_mutation_behavior(html_lower)
+}
+
 pub(super) fn html_contains_rollover_detail_behavior(html_lower: &str) -> bool {
     let has_hover_or_focus_handlers = [
         "addeventlistener(\"mouseenter\"",
@@ -4291,12 +4362,29 @@ pub(super) fn html_contains_rollover_detail_behavior(html_lower: &str) -> bool {
     ]
     .iter()
     .any(|needle| html_lower.contains(needle));
-    let has_visible_marks_or_detail_payloads =
-        html_lower.contains("data-detail=") || html_lower.contains("data-description=");
 
     has_hover_or_focus_handlers
-        && has_visible_marks_or_detail_payloads
-        && count_populated_html_detail_regions(html_lower) > 0
+        && count_html_actionable_affordances(html_lower) > 0
+        && (count_populated_html_response_regions(html_lower) > 0
+            || count_populated_html_detail_regions(html_lower) > 0)
+        && html_contains_state_mutation_behavior(html_lower)
+}
+
+pub(super) fn html_contains_state_transition_behavior(html_lower: &str) -> bool {
+    [
+        "addeventlistener(\"click\"",
+        "addeventlistener('click'",
+        "addeventlistener(\"change\"",
+        "addeventlistener('change'",
+        "addeventlistener(\"input\"",
+        "addeventlistener('input'",
+        "onclick=",
+        "onchange=",
+        "oninput=",
+        "onkeydown=",
+    ]
+    .iter()
+    .any(|needle| html_lower.contains(needle))
         && html_contains_state_mutation_behavior(html_lower)
 }
 
@@ -4381,46 +4469,43 @@ pub(super) fn html_has_unfocusable_rollover_marks(html_lower: &str) -> bool {
     false
 }
 
-pub(super) fn interaction_requires_view_switching(interaction: &str) -> bool {
-    let lower = interaction.to_ascii_lowercase();
-    ["click", "navigation", "switch", "toggle", "tab", "view"]
-        .iter()
-        .any(|needle| lower.contains(needle))
+pub(super) fn brief_required_interaction_goal_count(brief: &StudioArtifactBrief) -> usize {
+    brief.required_interaction_goal_count()
+}
+
+pub(super) fn brief_requires_response_region(brief: &StudioArtifactBrief) -> bool {
+    brief.requires_response_region()
 }
 
 pub(super) fn brief_requires_rollover_detail(brief: &StudioArtifactBrief) -> bool {
-    brief.required_interactions.iter().any(|interaction| {
-        let lower = interaction.to_ascii_lowercase();
-        lower.contains("rollover") || lower.contains("hover")
+    brief.query_profile.as_ref().is_some_and(|profile| {
+        profile.has_interaction_kind(StudioArtifactInteractionGoalKind::DetailInspect)
     })
 }
 
 pub(super) fn brief_requires_sequence_browsing(brief: &StudioArtifactBrief) -> bool {
-    brief.required_interactions.iter().any(|interaction| {
-        let lower = interaction.to_ascii_lowercase();
-        lower.contains("sequence")
-            || lower.contains("timeline")
-            || lower.contains("scroll")
-            || lower.contains("scrub")
-            || lower.contains("step")
-            || lower.contains("staged")
+    brief.query_profile.as_ref().is_some_and(|profile| {
+        profile.has_interaction_kind(StudioArtifactInteractionGoalKind::SequenceBrowse)
     })
 }
 
 pub(super) fn brief_requires_view_switching(brief: &StudioArtifactBrief) -> bool {
-    brief
-        .required_interactions
-        .iter()
-        .any(|interaction| interaction_requires_view_switching(interaction))
+    if let Some(profile) = brief.query_profile.as_ref() {
+        return profile.has_interaction_kind(StudioArtifactInteractionGoalKind::StateSwitch);
+    }
+    false
 }
 
 pub(crate) fn studio_artifact_interaction_contract(
     brief: &StudioArtifactBrief,
 ) -> serde_json::Value {
     json!({
+        "requiredInteractionGoalCount": brief_required_interaction_goal_count(brief),
         "viewSwitchingRequired": brief_requires_view_switching(brief),
         "rolloverDetailRequired": brief_requires_rollover_detail(brief),
         "sequenceBrowsingRequired": brief_requires_sequence_browsing(brief),
+        "responseRegionRequired": brief_requires_response_region(brief),
+        "queryProfile": brief.query_profile,
     })
 }
 
@@ -4646,12 +4731,6 @@ pub(super) fn html_has_static_view_mapping_markers(html_lower: &str) -> bool {
     data_target_targets.intersection(&container_ids).count() >= 2
 }
 
-pub(super) fn html_contains_explicit_view_mapping(html_lower: &str) -> bool {
-    html_has_static_view_mapping_markers(html_lower)
-        && count_populated_html_detail_regions(html_lower) > 0
-        && html_contains_view_switching_control_behavior(html_lower)
-}
-
 pub(super) fn html_open_tag_hides_first_paint(open_tag: &str) -> bool {
     open_tag.contains(" hidden")
         || open_tag.contains("\thidden")
@@ -4661,31 +4740,6 @@ pub(super) fn html_open_tag_hides_first_paint(open_tag: &str) -> bool {
         || open_tag.contains("aria-hidden='true'")
         || open_tag.contains("display:none")
         || open_tag.contains("display: none")
-}
-
-pub(super) fn html_has_visible_mapped_view_panel(html_lower: &str) -> bool {
-    let control_targets = html_view_panel_control_targets(html_lower);
-
-    for tag in ["section", "article", "div", "aside", "figure"] {
-        let open_pattern = format!("<{tag}");
-        let mut cursor = 0usize;
-
-        while let Some(relative_start) = html_lower[cursor..].find(&open_pattern) {
-            let start = cursor + relative_start;
-            let Some(relative_open_end) = html_lower[start..].find('>') else {
-                break;
-            };
-            let open_end = start + relative_open_end + 1;
-            let open_tag = &html_lower[start..open_end];
-            let is_mapped_panel = html_open_tag_is_mapped_panel(open_tag, &control_targets);
-            if is_mapped_panel && !html_open_tag_hides_first_paint(open_tag) {
-                return true;
-            }
-            cursor = open_end;
-        }
-    }
-
-    false
 }
 
 pub(super) fn count_empty_html_mapped_view_panels(html_lower: &str) -> usize {
@@ -4724,67 +4778,6 @@ pub(super) fn count_empty_html_mapped_view_panels(html_lower: &str) -> usize {
     }
 
     total
-}
-
-pub(super) fn html_has_visible_populated_mapped_view_panel(html_lower: &str) -> bool {
-    let control_targets = html_view_panel_control_targets(html_lower);
-
-    for tag in ["section", "article", "div", "aside", "figure"] {
-        let open_pattern = format!("<{tag}");
-        let close_pattern = format!("</{tag}>");
-        let mut cursor = 0usize;
-
-        while let Some(relative_start) = html_lower[cursor..].find(&open_pattern) {
-            let start = cursor + relative_start;
-            let Some(relative_open_end) = html_lower[start..].find('>') else {
-                break;
-            };
-            let open_end = start + relative_open_end + 1;
-            let open_tag = &html_lower[start..open_end];
-            if !html_open_tag_is_mapped_panel(open_tag, &control_targets) {
-                cursor = open_end;
-                continue;
-            }
-            let Some(relative_close) = html_lower[open_end..].find(&close_pattern) else {
-                cursor = open_end;
-                continue;
-            };
-            let close_start = open_end + relative_close;
-            let inner = &html_lower[open_end..close_start];
-            if !html_open_tag_hides_first_paint(open_tag) && html_fragment_has_detail_content(inner)
-            {
-                return true;
-            }
-            cursor = close_start + close_pattern.len();
-        }
-    }
-
-    false
-}
-
-pub(super) fn html_has_duplicate_mapped_view_tokens(html_lower: &str) -> bool {
-    let mut seen = HashSet::<String>::new();
-    for token in extract_html_attribute_values(html_lower, "data-view-panel")
-        .into_iter()
-        .filter_map(|value| normalize_html_selector_token(&value))
-    {
-        if !seen.insert(token) {
-            return true;
-        }
-    }
-    false
-}
-
-pub(super) fn html_has_invalid_mapped_view_default_state(html: &str) -> bool {
-    let panels = collect_html_mapped_view_panels(html);
-    if panels.len() < 2 {
-        return false;
-    }
-    panels
-        .iter()
-        .filter(|panel| panel.visible_on_first_paint)
-        .count()
-        != 1
 }
 
 pub(super) fn html_uses_custom_font_family_without_loading(html_lower: &str) -> bool {
@@ -4946,19 +4939,4 @@ pub(super) fn html_uses_external_runtime_dependency(html_lower: &str) -> bool {
     .iter()
     .any(|needle| html_lower.contains(needle));
     html_lower.contains("new chart(") && !chart_defined_locally
-}
-
-pub(super) fn count_html_repair_shim_markers(html_lower: &str) -> usize {
-    let rollover_chip_rail_needs_counting = html_lower.contains("data-studio-rollover-chip-rail=")
-        && count_html_rollover_detail_marks(html_lower) < 3;
-    let specific_repairs = usize::from(html_lower.contains("data-studio-view-switch-repair="))
-        + usize::from(html_lower.contains("data-studio-rollover-repair="))
-        + usize::from(html_lower.contains("data-studio-view-controls-repair="))
-        + usize::from(html_lower.contains("data-studio-view-panel-repair="))
-        + usize::from(html_lower.contains("data-studio-empty-panel-repair="))
-        + usize::from(html_lower.contains("data-studio-shared-detail="))
-        + usize::from(rollover_chip_rail_needs_counting);
-    let structural_only_normalization =
-        usize::from(specific_repairs == 0 && html_lower.contains("data-studio-normalized="));
-    specific_repairs + structural_only_normalization
 }

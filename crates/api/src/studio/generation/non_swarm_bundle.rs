@@ -1,15 +1,17 @@
 use super::*;
 
+const DIRECT_AUTHOR_FAST_RUNTIME_REPAIR_ATTEMPTS: usize = 2;
+
 fn author_artifact_active_event(
     attempt_id: impl Into<String>,
     detail: impl Into<String>,
 ) -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "author_artifact",
-        "author_artifact",
+        StudioArtifactRuntimeEventType::AuthorArtifact,
+        StudioArtifactRuntimeStepId::AuthorArtifact,
         "Write artifact",
         detail.into(),
-        "active",
+        StudioArtifactRuntimeEventStatus::Active,
     )
     .with_attempt_id(attempt_id)
 }
@@ -18,11 +20,11 @@ fn author_artifact_complete_event(
     attempt_id: impl Into<String>,
 ) -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "author_artifact",
-        "author_artifact",
+        StudioArtifactRuntimeEventType::AuthorArtifact,
+        StudioArtifactRuntimeStepId::AuthorArtifact,
         "Write artifact",
         "Studio finished authoring the current artifact draft and is handing it to verification.",
-        "complete",
+        StudioArtifactRuntimeEventStatus::Complete,
     )
     .with_attempt_id(attempt_id)
 }
@@ -32,11 +34,11 @@ fn author_artifact_blocked_event(
     detail: impl Into<String>,
 ) -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "author_artifact",
-        "author_artifact",
+        StudioArtifactRuntimeEventType::AuthorArtifact,
+        StudioArtifactRuntimeStepId::AuthorArtifact,
         "Write artifact",
         detail.into(),
-        "blocked",
+        StudioArtifactRuntimeEventStatus::Blocked,
     )
     .with_attempt_id(attempt_id)
 }
@@ -45,15 +47,42 @@ fn author_preview_event(
     attempt_id: impl Into<String>,
     preview: &ExecutionLivePreview,
 ) -> StudioArtifactRuntimeNarrationEvent {
+    let normalized_status = preview.status.trim().to_ascii_lowercase();
     StudioArtifactRuntimeNarrationEvent::new(
-        "author_preview",
-        "author_artifact",
+        StudioArtifactRuntimeEventType::AuthorPreview,
+        StudioArtifactRuntimeStepId::AuthorArtifact,
         "Write artifact",
-        format!("Streaming {}.", preview.label),
-        "active",
+        author_preview_progress_detail(preview),
+        match normalized_status.as_str() {
+            "completed" | "recovered" => StudioArtifactRuntimeEventStatus::Complete,
+            "failed" => StudioArtifactRuntimeEventStatus::Blocked,
+            _ => StudioArtifactRuntimeEventStatus::Active,
+        },
     )
     .with_attempt_id(attempt_id)
     .with_preview_snapshot(runtime_preview_snapshot_from_execution_preview(preview))
+}
+
+fn author_preview_progress_detail(preview: &ExecutionLivePreview) -> String {
+    match preview.status.trim().to_ascii_lowercase().as_str() {
+        "streaming" => format!("Streaming {}.", preview.label),
+        "interrupted" => format!(
+            "{} was interrupted. Studio is recovering the streamed draft.",
+            preview.label
+        ),
+        "continuing" => format!("Studio is completing {} after streaming.", preview.label),
+        "repairing" => format!("Studio is repairing {} after streaming.", preview.label),
+        "recovered" => format!(
+            "Studio recovered {} and is handing it to verification.",
+            preview.label
+        ),
+        "completed" => format!(
+            "{} finished streaming and is ready for verification.",
+            preview.label
+        ),
+        "failed" => format!("Studio could not recover {}.", preview.label),
+        _ => format!("Updating {}.", preview.label),
+    }
 }
 
 fn verify_artifact_active_event(
@@ -61,72 +90,78 @@ fn verify_artifact_active_event(
     detail: impl Into<String>,
 ) -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "verify_artifact",
-        "verify_artifact",
+        StudioArtifactRuntimeEventType::VerifyArtifact,
+        StudioArtifactRuntimeStepId::VerifyArtifact,
         "Verify artifact",
         detail.into(),
-        "active",
+        StudioArtifactRuntimeEventStatus::Active,
     )
     .with_attempt_id(attempt_id)
 }
 
-fn verify_artifact_result_event(
-    attempt_id: impl Into<String>,
-    judge: &StudioArtifactJudgeResult,
-) -> StudioArtifactRuntimeNarrationEvent {
-    StudioArtifactRuntimeNarrationEvent::new(
-        "verify_artifact",
-        "verify_artifact",
-        "Verify artifact",
-        format!(
-            "Studio verification classified the artifact as {}.",
-            judge_classification_id(judge.classification)
-        ),
-        if judge.classification == StudioArtifactJudgeClassification::Blocked {
-            "blocked"
-        } else {
-            "complete"
-        },
-    )
-    .with_attempt_id(attempt_id)
+fn direct_author_render_eval_step_detail(fallback: bool) -> &'static str {
+    if fallback {
+        "Studio is evaluating the rendered fallback direct-authored draft before surfacing it."
+    } else {
+        "Studio is evaluating the direct-authored draft before surfacing it."
+    }
 }
 
-async fn ensure_candidate_render_evaluation_for_acceptance(
+fn direct_author_runtime_sanity_step_detail() -> &'static str {
+    "Studio is checking the rendered direct-authored draft for concrete runtime errors before surfacing it."
+}
+
+fn direct_author_runtime_sanity_progress_message() -> &'static str {
+    "Checking the rendered draft for runtime errors..."
+}
+
+fn direct_author_runtime_repair_step_detail() -> &'static str {
+    "Studio detected a concrete runtime failure in the rendered draft and is applying a bounded repair pass before surfacing it."
+}
+
+fn direct_author_runtime_repair_progress_message() -> &'static str {
+    "Repairing the rendered draft after a runtime error..."
+}
+
+async fn evaluate_direct_author_runtime_sanity(
     render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
-    blueprint: Option<&StudioArtifactBlueprint>,
-    artifact_ir: Option<&StudioArtifactIR>,
-    edit_intent: Option<&StudioArtifactEditIntent>,
     candidate: &StudioGeneratedArtifactPayload,
     runtime_kind: StudioRuntimeProvenanceKind,
-    summary: &mut StudioArtifactCandidateSummary,
     activity_observer: Option<StudioArtifactActivityObserver>,
-) {
-    if summary.render_evaluation.is_some() || !render_evaluation_required(request) {
-        return;
-    }
+) -> Option<StudioArtifactRenderEvaluation> {
+    let sanity_timeout = direct_author_fast_runtime_sanity_timeout(request, runtime_kind);
     let render_eval_future = evaluate_candidate_render_with_fallback(
         render_evaluator,
         request,
         brief,
-        blueprint,
-        artifact_ir,
-        edit_intent,
+        None,
+        None,
+        None,
         candidate,
         runtime_kind,
     );
-    summary.render_evaluation =
-        if render_eval_timeout_for_runtime(request.renderer, runtime_kind).is_some() {
-            await_with_activity_heartbeat(
-                render_eval_future,
-                activity_observer,
-                Duration::from_millis(125),
-            )
-            .await
-        } else {
-            render_eval_future.await
-        };
+    match sanity_timeout {
+        Some(limit) => {
+            let bounded = async move {
+                match tokio::time::timeout(limit, render_eval_future).await {
+                    Ok(render_evaluation) => render_evaluation,
+                    Err(_) => {
+                        studio_generation_trace(format!(
+                            "artifact_generation:direct_author_runtime_sanity:timeout renderer={:?} timeout_ms={}",
+                            request.renderer,
+                            limit.as_millis()
+                        ));
+                        None
+                    }
+                }
+            };
+            await_with_activity_heartbeat(bounded, activity_observer, Duration::from_millis(125))
+                .await
+        }
+        None => render_eval_future.await,
+    }
 }
 
 pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
@@ -150,7 +185,6 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
     let acceptance_provenance = final_acceptance_runtime.studio_runtime_provenance();
     let repair_provenance = repair_runtime.studio_runtime_provenance();
     let model = runtime_model_label(&production_runtime);
-    let repair_model = runtime_model_label(&repair_runtime);
     studio_generation_trace(format!(
         "artifact_generation:start renderer={:?} profile={:?} planning_model={:?} production_model={:?} acceptance_model={:?} repair_model={:?} refinement={}",
         request.renderer,
@@ -287,7 +321,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
     let mut candidate_generation_errors = Vec::<String>::new();
     let mut next_candidate_index = 0usize;
     let mut target_candidate_count = adaptive_search_budget.initial_candidate_count.max(1);
-    let (mut candidate_summaries, ranked_candidate_indices) = loop {
+    let (candidate_summaries, ranked_candidate_indices) = loop {
         while next_candidate_index < target_candidate_count {
             let candidate_id = format!("candidate-{}", next_candidate_index + 1);
             let seed = candidate_seed_for(title, intent, next_candidate_index);
@@ -341,7 +375,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                 &direct_request,
                                 StudioExecutionStrategy::DirectAuthor,
                                 &live_previews,
-                                format!("Streaming {}.", preview.label),
+                                author_preview_progress_detail(&preview),
                                 None,
                                 None,
                                 ExecutionCompletionInvariantStatus::Pending,
@@ -381,7 +415,14 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                             request,
                             execution_strategy,
                             &snapshot_execution_live_previews(&live_preview_state),
-                            "Direct-authored draft landed. Evaluating rendered artifact...",
+                            if direct_author_fast_runtime_sanity_enabled(
+                                request,
+                                production_provenance.kind,
+                            ) {
+                                direct_author_runtime_sanity_progress_message()
+                            } else {
+                                "Direct-authored draft landed. Evaluating rendered artifact..."
+                            },
                             None,
                             None,
                             ExecutionCompletionInvariantStatus::Pending,
@@ -390,15 +431,31 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                 author_artifact_complete_event(candidate_id.clone()),
                                 verify_artifact_active_event(
                                     candidate_id.clone(),
-                                    "Studio is evaluating the direct-authored draft before acceptance verification.",
+                                    if direct_author_fast_runtime_sanity_enabled(
+                                        request,
+                                        production_provenance.kind,
+                                    ) {
+                                        direct_author_runtime_sanity_step_detail()
+                                    } else {
+                                        direct_author_render_eval_step_detail(false)
+                                    },
                                 ),
                             ],
                         );
-                        let render_evaluation = if direct_author_should_defer_render_evaluation(
+                        let mut payload = payload;
+                        let mut render_evaluation = if direct_author_fast_runtime_sanity_enabled(
                             request,
                             production_provenance.kind,
                         ) {
-                            None
+                            evaluate_direct_author_runtime_sanity(
+                                render_evaluator,
+                                request,
+                                &brief,
+                                &payload,
+                                production_provenance.kind,
+                                activity_observer.clone(),
+                            )
+                            .await
                         } else {
                             let render_eval_future = evaluate_candidate_render_with_fallback(
                                 render_evaluator,
@@ -426,15 +483,97 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                 render_eval_future.await
                             }
                         };
+                        if direct_author_fast_runtime_sanity_enabled(
+                            request,
+                            production_provenance.kind,
+                        ) {
+                            for repair_attempt in 0..DIRECT_AUTHOR_FAST_RUNTIME_REPAIR_ATTEMPTS {
+                                let Some(runtime_failure_reason) =
+                                    direct_author_runtime_failure_reason(
+                                        render_evaluation.as_ref(),
+                                    )
+                                else {
+                                    break;
+                                };
+                                emit_non_swarm_generation_progress(
+                                    progress_observer.as_ref(),
+                                    request,
+                                    execution_strategy,
+                                    &snapshot_execution_live_previews(&live_preview_state),
+                                    direct_author_runtime_repair_progress_message(),
+                                    render_evaluation.as_ref(),
+                                    None,
+                                    ExecutionCompletionInvariantStatus::Pending,
+                                    non_swarm_required_artifact_paths(&payload),
+                                    vec![verify_artifact_active_event(
+                                        candidate_id.clone(),
+                                        direct_author_runtime_repair_step_detail(),
+                                    )],
+                                );
+                                let repaired_payload =
+                                    match repair_direct_author_generated_candidate_with_runtime_error(
+                                        repair_runtime.clone(),
+                                        title,
+                                        intent,
+                                        request,
+                                        &brief,
+                                        &selected_skills,
+                                        refinement,
+                                        &candidate_id,
+                                        seed,
+                                        &payload,
+                                        &runtime_failure_reason,
+                                        activity_observer.clone(),
+                                    )
+                                    .await
+                                    {
+                                        Ok(repaired) => repaired,
+                                        Err(error) => {
+                                            studio_generation_trace(format!(
+                                                "artifact_generation:direct_author_runtime_repair:error id={} attempt={} error={}",
+                                                candidate_id,
+                                                repair_attempt + 1,
+                                                error
+                                            ));
+                                            break;
+                                        }
+                                    };
+                                if let Some(preview) = non_swarm_canonical_preview(
+                                    request,
+                                    &repaired_payload,
+                                    "repairing",
+                                    false,
+                                ) {
+                                    if let Ok(mut previews) = live_preview_state.lock() {
+                                        upsert_execution_live_preview(&mut previews, preview);
+                                    }
+                                }
+                                payload = repaired_payload;
+                                render_evaluation = evaluate_direct_author_runtime_sanity(
+                                    render_evaluator,
+                                    request,
+                                    &brief,
+                                    &payload,
+                                    production_provenance.kind,
+                                    activity_observer.clone(),
+                                )
+                                .await;
+                            }
+                        }
                         emit_non_swarm_generation_progress(
                             progress_observer.as_ref(),
                             request,
                             execution_strategy,
                             &snapshot_execution_live_previews(&live_preview_state),
-                            if render_evaluation.is_some() {
-                                "Render evaluation complete. Preparing acceptance verification..."
+                            if direct_author_fast_runtime_sanity_enabled(
+                                request,
+                                production_provenance.kind,
+                            ) {
+                                "Runtime sanity complete. Surfacing the direct-authored artifact..."
+                            } else if render_evaluation.is_some() {
+                                "Render evaluation complete. Surfacing the direct-authored artifact..."
                             } else {
-                                "Draft landed. Deferring render capture and preparing acceptance verification..."
+                                "Draft landed. Surfacing the direct-authored artifact..."
                             },
                             render_evaluation.as_ref(),
                             None,
@@ -442,17 +581,29 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                             non_swarm_required_artifact_paths(&payload),
                             vec![verify_artifact_active_event(
                                 candidate_id.clone(),
-                                if render_evaluation.is_some() {
-                                    "Render evaluation is complete and acceptance verification is starting."
+                                if direct_author_fast_runtime_sanity_enabled(
+                                    request,
+                                    production_provenance.kind,
+                                ) {
+                                    "Runtime sanity is complete and Studio is surfacing the rendered artifact."
+                                } else if render_evaluation.is_some() {
+                                    "Render evaluation is complete and Studio is surfacing the rendered artifact."
                                 } else {
-                                    "Acceptance verification is starting while render capture stays deferred."
+                                    "Studio is surfacing the rendered artifact without waiting on the old acceptance gate."
                                 },
                             )],
                         );
-                        let judge = direct_author_provisional_candidate_judge(
-                            &payload,
-                            render_evaluation.as_ref(),
-                        );
+                        let judge = if direct_author_fast_runtime_sanity_enabled(
+                            request,
+                            production_provenance.kind,
+                        ) {
+                            direct_author_runtime_sanity_judge(&payload, render_evaluation.as_ref())
+                        } else {
+                            direct_author_provisional_candidate_judge(
+                                &payload,
+                                render_evaluation.as_ref(),
+                            )
+                        };
                         Ok((
                             StudioArtifactCandidateSummary {
                                 candidate_id: candidate_id.clone(),
@@ -627,567 +778,27 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
         adaptive_search_budget.signals
     ));
 
-    if !direct_author_mode
-        && local_draft_fast_path_enabled(
-            request,
-            refinement,
-            &production_provenance,
-            &acceptance_provenance,
-        )
-    {
-        if let Some(winner_index) = ranked_candidate_indices.iter().copied().find(|index| {
+    let selected_winner_index = ranked_candidate_indices.iter().copied().find(|index| {
+        candidate_summaries
+            .get(*index)
+            .map(|summary| judge_clears_primary_view(&summary.judge))
+            .unwrap_or(false)
+    });
+    let best_available_index = ranked_candidate_indices
+        .iter()
+        .copied()
+        .find(|index| {
             candidate_summaries
                 .get(*index)
-                .map(|summary| judge_supports_local_draft_surface(&summary.judge))
+                .map(candidate_supports_fast_surface)
                 .unwrap_or(false)
-        }) {
-            studio_generation_trace(format!(
-                "artifact_generation:local_draft_fast_path winner={}",
-                candidate_summaries
-                    .get(winner_index)
-                    .map(|summary| summary.candidate_id.as_str())
-                    .unwrap_or("missing")
-            ));
-            let draft_judge = candidate_summaries
-                .get(winner_index)
-                .map(|summary| local_draft_pending_acceptance_judge(&summary.judge, None, None))
-                .ok_or_else(|| StudioArtifactGenerationError {
-                    message: "Studio winning draft candidate summary is missing.".to_string(),
-                    brief: Some(brief.clone()),
-                    blueprint: blueprint.clone(),
-                    artifact_ir: artifact_ir.clone(),
-                    selected_skills: selected_skills.clone(),
-                    edit_intent: edit_intent.clone(),
-                    candidate_summaries: merged_candidate_summaries(
-                        &candidate_summaries,
-                        &failed_candidate_summaries,
-                    ),
-                })?;
-
-            return build_non_swarm_draft_bundle(
-                request,
-                brief,
-                blueprint,
-                artifact_ir,
-                selected_skills,
-                edit_intent,
-                candidate_summaries,
-                &failed_candidate_summaries,
-                &candidate_rows,
-                winner_index,
-                draft_judge,
-                "draft_surface_pending_acceptance",
-                execution_strategy,
-                origin,
-                production_provenance,
-                acceptance_provenance,
-                runtime_policy.clone(),
-                adaptive_search_budget.clone(),
-                refinement.and_then(|context| context.taste_memory.clone()),
-                &snapshot_execution_live_previews(&live_preview_state),
-            );
-        }
-    }
-
-    let acceptance_timeout =
-        acceptance_timeout_for_execution_strategy(execution_strategy, &final_acceptance_runtime);
-    let mut evaluated_acceptance_indices = std::collections::HashSet::<usize>::new();
-    let mut refined_candidate_roots = std::collections::HashSet::<String>::new();
-    let mut best_acceptance_index = None;
-    let mut best_acceptance_score = i32::MIN;
-    let mut selected_winner_index = None;
-
-    for candidate_index in shortlisted_candidate_indices {
-        let candidate_id = candidate_summaries
-            .get(candidate_index)
-            .map(|summary| summary.candidate_id.clone())
-            .unwrap_or_else(|| format!("candidate-index-{candidate_index}"));
-        if direct_author_mode {
-            emit_non_swarm_generation_progress(
-                progress_observer.as_ref(),
-                request,
-                execution_strategy,
-                &snapshot_execution_live_previews(&live_preview_state),
-                "Running acceptance verification for the direct-authored draft...",
-                candidate_summaries
-                    .get(candidate_index)
-                    .and_then(|summary| summary.render_evaluation.as_ref()),
-                None,
-                ExecutionCompletionInvariantStatus::Pending,
-                non_swarm_required_artifact_paths(&candidate_rows[candidate_index].1),
-                vec![verify_artifact_active_event(
-                    candidate_id.clone(),
-                    "Studio is running acceptance verification for the direct-authored draft.",
-                )],
-            );
-        }
-        studio_generation_trace(format!(
-            "artifact_generation:acceptance:start id={}",
-            candidate_id
-        ));
-        if let Some(summary) = candidate_summaries.get_mut(candidate_index) {
-            ensure_candidate_render_evaluation_for_acceptance(
-                render_evaluator,
-                request,
-                &brief,
-                blueprint.as_ref(),
-                artifact_ir.as_ref(),
-                edit_intent.as_ref(),
-                &candidate_rows[candidate_index].1,
-                production_provenance.kind,
-                summary,
-                activity_observer.clone(),
-            )
-            .await;
-        }
-        let acceptance_judge_future = judge_candidate_with_runtime_and_render_eval_with_timeout(
-            final_acceptance_runtime.clone(),
-            acceptance_timeout,
-            candidate_summaries
-                .get(candidate_index)
-                .and_then(|summary| summary.render_evaluation.as_ref()),
-            title,
-            request,
-            &brief,
-            edit_intent.as_ref(),
-            &candidate_rows[candidate_index].1,
-        );
-        let acceptance_judge = match if acceptance_timeout.is_some() {
-            await_with_activity_heartbeat(
-                acceptance_judge_future,
-                activity_observer.clone(),
-                Duration::from_millis(125),
-            )
-            .await
-        } else {
-            acceptance_judge_future.await
-        } {
-            Ok(judge) => judge,
-            Err(message)
-                if acceptance_timeout.is_some()
-                    && message.contains("Acceptance judging timed out")
-                    && direct_author_mode =>
-            {
-                let draft_index = std::iter::once(candidate_index)
-                    .chain(ranked_candidate_indices.iter().copied())
-                    .find(|index| {
-                        candidate_summaries
-                            .get(*index)
-                            .map(candidate_supports_pending_draft_surface)
-                            .unwrap_or(false)
-                    });
-                if let Some(winner_index) = draft_index {
-                    studio_generation_trace(format!(
-                        "artifact_generation:acceptance_timeout_fallback winner={} message={}",
-                        candidate_summaries
-                            .get(winner_index)
-                            .map(|summary| summary.candidate_id.as_str())
-                            .unwrap_or("missing"),
-                        message
-                    ));
-                    let draft_judge = candidate_summaries
-                        .get(winner_index)
-                        .map(|summary| {
-                            local_draft_pending_acceptance_judge(
-                                &summary.judge,
-                                Some(message.clone()),
-                                Some(format!(
-                                    "Studio kept a viable direct-authored draft available after {}",
-                                    message.to_ascii_lowercase()
-                                )),
-                            )
-                        })
-                        .ok_or_else(|| StudioArtifactGenerationError {
-                            message: "Studio winning draft candidate summary is missing."
-                                .to_string(),
-                            brief: Some(brief.clone()),
-                            blueprint: blueprint.clone(),
-                            artifact_ir: artifact_ir.clone(),
-                            selected_skills: selected_skills.clone(),
-                            edit_intent: edit_intent.clone(),
-                            candidate_summaries: merged_candidate_summaries(
-                                &candidate_summaries,
-                                &failed_candidate_summaries,
-                            ),
-                        })?;
-                    return build_non_swarm_draft_bundle(
-                        request,
-                        brief.clone(),
-                        blueprint.clone(),
-                        artifact_ir.clone(),
-                        selected_skills.clone(),
-                        edit_intent.clone(),
-                        candidate_summaries.clone(),
-                        &failed_candidate_summaries,
-                        &candidate_rows,
-                        winner_index,
-                        draft_judge,
-                        "draft_surface_acceptance_timeout",
-                        execution_strategy,
-                        origin,
-                        production_provenance.clone(),
-                        acceptance_provenance.clone(),
-                        runtime_policy.clone(),
-                        adaptive_search_budget.clone(),
-                        refinement.and_then(|context| context.taste_memory.clone()),
-                        &snapshot_execution_live_previews(&live_preview_state),
-                    );
-                }
-                return Err(StudioArtifactGenerationError {
-                    message,
-                    brief: Some(brief.clone()),
-                    blueprint: blueprint.clone(),
-                    artifact_ir: artifact_ir.clone(),
-                    selected_skills: selected_skills.clone(),
-                    edit_intent: edit_intent.clone(),
-                    candidate_summaries: candidate_summaries.clone(),
-                });
-            }
-            Err(message) => {
-                return Err(StudioArtifactGenerationError {
-                    message,
-                    brief: Some(brief.clone()),
-                    blueprint: blueprint.clone(),
-                    artifact_ir: artifact_ir.clone(),
-                    selected_skills: selected_skills.clone(),
-                    edit_intent: edit_intent.clone(),
-                    candidate_summaries: candidate_summaries.clone(),
-                });
-            }
-        };
-        studio_generation_trace(format!(
-            "artifact_generation:acceptance:ok id={} classification={:?}",
-            candidate_id, acceptance_judge.classification
-        ));
-        if direct_author_mode {
-            emit_non_swarm_generation_progress(
-                progress_observer.as_ref(),
-                request,
-                execution_strategy,
-                &snapshot_execution_live_previews(&live_preview_state),
-                format!(
-                    "Acceptance judge returned {}.",
-                    judge_classification_id(acceptance_judge.classification)
-                ),
-                candidate_summaries
-                    .get(candidate_index)
-                    .and_then(|summary| summary.render_evaluation.as_ref()),
-                Some(&acceptance_judge),
-                if judge_clears_primary_view(&acceptance_judge) {
-                    ExecutionCompletionInvariantStatus::Satisfied
-                } else {
-                    ExecutionCompletionInvariantStatus::Blocked
-                },
-                non_swarm_required_artifact_paths(&candidate_rows[candidate_index].1),
-                vec![verify_artifact_result_event(
-                    candidate_id.clone(),
-                    &acceptance_judge,
-                )],
-            );
-        }
-        evaluated_acceptance_indices.insert(candidate_index);
-        if let Some(summary) = candidate_summaries.get_mut(candidate_index) {
-            update_candidate_summary_judge(summary, acceptance_judge.clone());
-        }
-        let acceptance_score = judge_total_score(&acceptance_judge);
-        if acceptance_score > best_acceptance_score {
-            best_acceptance_score = acceptance_score;
-            best_acceptance_index = Some(candidate_index);
-        }
-        if judge_clears_primary_view(&acceptance_judge) {
-            selected_winner_index = Some(candidate_index);
-            break;
-        }
-    }
-
-    if selected_winner_index.is_none()
-        && renderer_supports_semantic_refinement(request.renderer)
-        && best_acceptance_index.is_some()
-    {
-        let progress = attempt_semantic_refinement_for_candidate(
-            repair_runtime.clone(),
-            final_acceptance_runtime.clone(),
-            render_evaluator,
-            title,
-            intent,
-            request,
-            &brief,
-            blueprint.as_ref(),
-            artifact_ir.as_ref(),
-            &selected_skills,
-            &retrieved_exemplars,
-            edit_intent.as_ref(),
-            refinement,
-            strategy,
-            origin,
-            &repair_model,
-            &repair_provenance,
-            &adaptive_search_budget,
-            best_acceptance_index.expect("best acceptance index"),
-            &mut candidate_rows,
-            &mut candidate_summaries,
-            &mut refined_candidate_roots,
-            best_acceptance_index,
-            best_acceptance_score,
-            activity_observer.clone(),
-        )
-        .await?;
-        best_acceptance_index = progress.best_acceptance_index;
-        best_acceptance_score = progress.best_acceptance_score;
-        selected_winner_index = progress.selected_winner_index;
-    }
-
-    if selected_winner_index.is_none() {
-        for candidate_index in ranked_candidate_indices.iter().copied() {
-            if evaluated_acceptance_indices.contains(&candidate_index) {
-                continue;
-            }
-            let candidate_id = candidate_summaries
-                .get(candidate_index)
-                .map(|summary| summary.candidate_id.clone())
-                .unwrap_or_else(|| format!("candidate-index-{candidate_index}"));
-            if direct_author_mode {
-                emit_non_swarm_generation_progress(
-                    progress_observer.as_ref(),
-                    request,
-                    execution_strategy,
-                    &snapshot_execution_live_previews(&live_preview_state),
-                    "Running fallback acceptance verification for the direct-authored draft...",
-                    candidate_summaries
-                        .get(candidate_index)
-                        .and_then(|summary| summary.render_evaluation.as_ref()),
-                    None,
-                    ExecutionCompletionInvariantStatus::Pending,
-                    non_swarm_required_artifact_paths(&candidate_rows[candidate_index].1),
-                    vec![verify_artifact_active_event(
-                        candidate_id.clone(),
-                        "Studio is running fallback acceptance verification for the direct-authored draft.",
-                    )],
-                );
-            }
-            studio_generation_trace(format!(
-                "artifact_generation:acceptance_fallback:start id={}",
-                candidate_id
-            ));
-            if let Some(summary) = candidate_summaries.get_mut(candidate_index) {
-                ensure_candidate_render_evaluation_for_acceptance(
-                    render_evaluator,
-                    request,
-                    &brief,
-                    blueprint.as_ref(),
-                    artifact_ir.as_ref(),
-                    edit_intent.as_ref(),
-                    &candidate_rows[candidate_index].1,
-                    production_provenance.kind,
-                    summary,
-                    activity_observer.clone(),
-                )
-                .await;
-            }
-            let acceptance_judge_future = judge_candidate_with_runtime_and_render_eval_with_timeout(
-                final_acceptance_runtime.clone(),
-                acceptance_timeout,
-                candidate_summaries
-                    .get(candidate_index)
-                    .and_then(|summary| summary.render_evaluation.as_ref()),
-                title,
-                request,
-                &brief,
-                edit_intent.as_ref(),
-                &candidate_rows[candidate_index].1,
-            );
-            let acceptance_judge = match if acceptance_timeout.is_some() {
-                await_with_activity_heartbeat(
-                    acceptance_judge_future,
-                    activity_observer.clone(),
-                    Duration::from_millis(125),
-                )
-                .await
-            } else {
-                acceptance_judge_future.await
-            } {
-                Ok(judge) => judge,
-                Err(message)
-                    if acceptance_timeout.is_some()
-                        && message.contains("Acceptance judging timed out")
-                        && direct_author_mode =>
-                {
-                    let draft_index = std::iter::once(candidate_index)
-                        .chain(ranked_candidate_indices.iter().copied())
-                        .find(|index| {
-                            candidate_summaries
-                                .get(*index)
-                                .map(candidate_supports_pending_draft_surface)
-                                .unwrap_or(false)
-                        });
-                    if let Some(winner_index) = draft_index {
-                        studio_generation_trace(format!(
-                            "artifact_generation:acceptance_timeout_fallback winner={} message={}",
-                            candidate_summaries
-                                .get(winner_index)
-                                .map(|summary| summary.candidate_id.as_str())
-                                .unwrap_or("missing"),
-                            message
-                        ));
-                        let draft_judge = candidate_summaries
-                            .get(winner_index)
-                            .map(|summary| {
-                                local_draft_pending_acceptance_judge(
-                                    &summary.judge,
-                                    Some(message.clone()),
-                                    Some(format!(
-                                        "Studio kept a viable direct-authored draft available after {}",
-                                        message.to_ascii_lowercase()
-                                    )),
-                                )
-                            })
-                            .ok_or_else(|| StudioArtifactGenerationError {
-                                message: "Studio winning draft candidate summary is missing."
-                                    .to_string(),
-                                brief: Some(brief.clone()),
-                                blueprint: blueprint.clone(),
-                                artifact_ir: artifact_ir.clone(),
-                                selected_skills: selected_skills.clone(),
-                                edit_intent: edit_intent.clone(),
-                                candidate_summaries: merged_candidate_summaries(
-                                    &candidate_summaries,
-                                    &failed_candidate_summaries,
-                                ),
-                            })?;
-                        return build_non_swarm_draft_bundle(
-                            request,
-                            brief.clone(),
-                            blueprint.clone(),
-                            artifact_ir.clone(),
-                            selected_skills.clone(),
-                            edit_intent.clone(),
-                            candidate_summaries.clone(),
-                            &failed_candidate_summaries,
-                            &candidate_rows,
-                            winner_index,
-                            draft_judge,
-                            "draft_surface_acceptance_timeout",
-                            execution_strategy,
-                            origin,
-                            production_provenance.clone(),
-                            acceptance_provenance.clone(),
-                            runtime_policy.clone(),
-                            adaptive_search_budget.clone(),
-                            refinement.and_then(|context| context.taste_memory.clone()),
-                            &snapshot_execution_live_previews(&live_preview_state),
-                        );
-                    }
-                    return Err(StudioArtifactGenerationError {
-                        message,
-                        brief: Some(brief.clone()),
-                        blueprint: blueprint.clone(),
-                        artifact_ir: artifact_ir.clone(),
-                        selected_skills: selected_skills.clone(),
-                        edit_intent: edit_intent.clone(),
-                        candidate_summaries: merged_candidate_summaries(
-                            &candidate_summaries,
-                            &failed_candidate_summaries,
-                        ),
-                    });
-                }
-                Err(message) => {
-                    return Err(StudioArtifactGenerationError {
-                        message,
-                        brief: Some(brief.clone()),
-                        blueprint: blueprint.clone(),
-                        artifact_ir: artifact_ir.clone(),
-                        selected_skills: selected_skills.clone(),
-                        edit_intent: edit_intent.clone(),
-                        candidate_summaries: merged_candidate_summaries(
-                            &candidate_summaries,
-                            &failed_candidate_summaries,
-                        ),
-                    });
-                }
-            };
-            studio_generation_trace(format!(
-                "artifact_generation:acceptance_fallback:ok id={} classification={:?}",
-                candidate_id, acceptance_judge.classification
-            ));
-            if direct_author_mode {
-                emit_non_swarm_generation_progress(
-                    progress_observer.as_ref(),
-                    request,
-                    execution_strategy,
-                    &snapshot_execution_live_previews(&live_preview_state),
-                    format!(
-                        "Fallback acceptance judge returned {}.",
-                        judge_classification_id(acceptance_judge.classification)
-                    ),
-                    candidate_summaries
-                        .get(candidate_index)
-                        .and_then(|summary| summary.render_evaluation.as_ref()),
-                    Some(&acceptance_judge),
-                    if judge_clears_primary_view(&acceptance_judge) {
-                        ExecutionCompletionInvariantStatus::Satisfied
-                    } else {
-                        ExecutionCompletionInvariantStatus::Blocked
-                    },
-                    non_swarm_required_artifact_paths(&candidate_rows[candidate_index].1),
-                    vec![verify_artifact_result_event(
-                        candidate_id.clone(),
-                        &acceptance_judge,
-                    )],
-                );
-            }
-            evaluated_acceptance_indices.insert(candidate_index);
-            if let Some(summary) = candidate_summaries.get_mut(candidate_index) {
-                update_candidate_summary_judge(summary, acceptance_judge.clone());
-            }
-            let acceptance_score = judge_total_score(&acceptance_judge);
-            if acceptance_score > best_acceptance_score {
-                best_acceptance_score = acceptance_score;
-                best_acceptance_index = Some(candidate_index);
-            }
-            if judge_clears_primary_view(&acceptance_judge) {
-                selected_winner_index = Some(candidate_index);
-                break;
-            }
-            if renderer_supports_semantic_refinement(request.renderer) {
-                let progress = attempt_semantic_refinement_for_candidate(
-                    repair_runtime.clone(),
-                    final_acceptance_runtime.clone(),
-                    render_evaluator,
-                    title,
-                    intent,
-                    request,
-                    &brief,
-                    blueprint.as_ref(),
-                    artifact_ir.as_ref(),
-                    &selected_skills,
-                    &retrieved_exemplars,
-                    edit_intent.as_ref(),
-                    refinement,
-                    strategy,
-                    origin,
-                    &repair_model,
-                    &repair_provenance,
-                    &adaptive_search_budget,
-                    candidate_index,
-                    &mut candidate_rows,
-                    &mut candidate_summaries,
-                    &mut refined_candidate_roots,
-                    best_acceptance_index,
-                    best_acceptance_score,
-                    activity_observer.clone(),
-                )
-                .await?;
-                best_acceptance_index = progress.best_acceptance_index;
-                best_acceptance_score = progress.best_acceptance_score;
-                if let Some(winner_index) = progress.selected_winner_index {
-                    selected_winner_index = Some(winner_index);
-                    break;
-                }
-            }
-        }
-    }
-
-    build_non_swarm_winner_bundle(
+        })
+        .or_else(|| ranked_candidate_indices.first().copied());
+    studio_generation_trace(format!(
+        "artifact_generation:fast_finalize direct_author={} winner={:?} best_available={:?}",
+        direct_author_mode, selected_winner_index, best_available_index
+    ));
+    return build_non_swarm_winner_bundle(
         request,
         refinement,
         execution_strategy,
@@ -1206,6 +817,6 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
         candidate_summaries,
         failed_candidate_summaries,
         selected_winner_index,
-        best_acceptance_index,
-    )
+        best_available_index,
+    );
 }

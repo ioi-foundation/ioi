@@ -4,7 +4,8 @@ use super::*;
 use ioi_api::execution::{ExecutionEnvelope, ExecutionStage};
 use ioi_api::studio::{
     StudioArtifactExemplar, StudioArtifactGenerationProgress, StudioArtifactMergeReceipt,
-    StudioArtifactPatchReceipt, StudioArtifactRuntimeNarrationEvent,
+    StudioArtifactPatchReceipt, StudioArtifactRuntimeEventStatus, StudioArtifactRuntimeEventType,
+    StudioArtifactRuntimeNarrationEvent, StudioArtifactRuntimeStepId,
     StudioArtifactSwarmExecutionSummary, StudioArtifactSwarmPlan,
     StudioArtifactVerificationReceipt, StudioArtifactWorkerReceipt,
 };
@@ -78,11 +79,11 @@ fn initial_understand_request_event(
     _outcome_request: &StudioOutcomeRequest,
 ) -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "understand_request",
-        "understand_request",
+        StudioArtifactRuntimeEventType::UnderstandRequest,
+        StudioArtifactRuntimeStepId::UnderstandRequest,
         "Understand request",
         "Studio captured the request and established the active artifact context.",
-        "complete",
+        StudioArtifactRuntimeEventStatus::Complete,
     )
 }
 
@@ -100,11 +101,11 @@ fn artifact_route_committed_event(
         })
         .unwrap_or_else(|| "Studio committed the request to the artifact route.".to_string());
     StudioArtifactRuntimeNarrationEvent::new(
-        "artifact_route_committed",
-        "artifact_route_committed",
+        StudioArtifactRuntimeEventType::ArtifactRouteCommitted,
+        StudioArtifactRuntimeStepId::ArtifactRouteCommitted,
         "Route to artifact",
         route_detail,
-        "complete",
+        StudioArtifactRuntimeEventStatus::Complete,
     )
 }
 
@@ -604,11 +605,11 @@ fn maybe_prepare_task_for_studio_with_request(
                 "Evaluating rendered artifact...".to_string()
             } else if let Some(blueprint) = materialized_artifact.blueprint.as_ref() {
                 format!(
-                    "Running static audits and acceptance verification for the {} scaffold...",
+                    "Running static audits and render sanity for the {} scaffold...",
                     blueprint.scaffold_family
                 )
             } else {
-                "Running static audits and acceptance verification...".to_string()
+                "Running static audits and render sanity...".to_string()
             },
         );
         initial_lifecycle_state = materialized_artifact.lifecycle_state;

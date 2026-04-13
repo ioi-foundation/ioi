@@ -231,7 +231,7 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
         && request.renderer == StudioRendererKind::HtmlIframe
         && returns_raw_document
     {
-        "Keep the page compact and finishable in one local-model pass.\n- Use one self-contained index.html with concise inline CSS and tiny inline JavaScript.\n- Prefer 2-4 meaningful sections and one strong interactive seam instead of a dashboard shell or long style system.\n- Keep visible markup first, keep CSS lean, avoid decorative comment blocks, and do not spend the response on exhaustive theming.\n- Use semantic HTML with <main>, ship a complete default state on first paint, and end with a fully closed </body></html>."
+        "Keep the page compact and finishable in one local-model pass.\n- Use one self-contained index.html with concise inline CSS and tiny inline JavaScript.\n- Keep visible markup first, keep CSS lean, and spend the response on the request-shaped surface rather than decorative scaffolding.\n- Realize the typed query goals through explicit authored states, evidence surfaces, or response regions instead of placeholder shells.\n- Use semantic HTML with <main>, ship a complete default state on first paint, and end with a fully closed </body></html>."
             .to_string()
     } else {
         renderer_guidance.clone()
@@ -274,8 +274,42 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
     } else {
         "You are Studio's typed artifact materializer. The raw user request is the primary instruction. Author the artifact directly and return exactly one JSON object. Do not emit prose outside JSON."
     };
+    let query_profile_focus = brief
+        .query_profile
+        .as_ref()
+        .map(|profile| {
+            let interaction_goals = if profile.interaction_goals.is_empty() {
+                "None specified".to_string()
+            } else {
+                profile
+                    .interaction_goals
+                    .iter()
+                    .map(|goal| goal.summary.trim().to_string())
+                    .take(4)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            let presentation_constraints = if profile.presentation_constraints.is_empty() {
+                "None specified".to_string()
+            } else {
+                profile
+                    .presentation_constraints
+                    .iter()
+                    .filter(|constraint| constraint.required)
+                    .map(|constraint| constraint.summary.trim().to_string())
+                    .take(4)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            format!(
+                "\nTyped query goals: {}\nPresentation constraints: {}",
+                interaction_goals, presentation_constraints
+            )
+        })
+        .unwrap_or_default();
+    let required_interactions = brief.required_interaction_summaries();
     let brief_focus_text = format!(
-        "Audience: {}\nJob to be done: {}\nArtifact thesis: {}\nRequired concepts: {}\nRequired interactions: {}",
+        "Audience: {}\nJob to be done: {}\nArtifact thesis: {}\nRequired concepts: {}\nRequired interactions: {}{}",
         brief.audience.trim(),
         brief.job_to_be_done.trim(),
         brief.artifact_thesis.trim(),
@@ -290,18 +324,19 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
                 .collect::<Vec<_>>()
                 .join(", ")
         },
-        if brief.required_interactions.is_empty() {
+        if required_interactions.is_empty() {
             "None specified".to_string()
         } else {
-            brief
-                .required_interactions
+            required_interactions
                 .iter()
                 .take(5)
                 .cloned()
                 .collect::<Vec<_>>()
                 .join(", ")
-        }
+        },
+        query_profile_focus,
     );
+
     let selected_skills_focus_text = if selected_skills.is_empty() {
         "No selected skill guidance was attached.".to_string()
     } else {
@@ -336,7 +371,7 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
                 {
                     "role": "user",
                     "content": format!(
-                        "{}\n\nPrepared artifact brief:\n{}\n\nSelected skill guidance:\n{}\n\nRequirements:\n- Deliver one request-specific interactive HTML document.\n- Use semantic HTML with <main> and 2-4 meaningful sections.\n- Keep first paint useful before scripts run.\n- Include one real interactive seam that changes visible evidence or explanatory copy.\n- Keep CSS short enough to finish the full document in one pass.\n- End with a fully closed </main></body></html>.",
+                        "{}\n\nPrepared artifact brief:\n{}\n\nSelected skill guidance:\n{}\n\nRequirements:\n- Deliver one request-specific interactive HTML document.\n- Use semantic HTML with <main> and a coherent set of authored regions for the typed query goals.\n- Keep first paint useful before scripts run.\n- Include one or more real interaction seams that change visible evidence or response context.\n- Keep CSS short enough to finish the full document in one pass.\n- End with a fully closed </main></body></html>.",
                         intent.trim(),
                         brief_focus_text,
                         selected_skills_focus_text,
@@ -610,6 +645,7 @@ pub(super) fn studio_artifact_renderer_authoring_guidance_for_runtime(
     candidate_seed: u64,
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> String {
+    let required_interactions = brief.required_interaction_summaries();
     if request.renderer == StudioRendererKind::HtmlIframe && studio_modal_first_html_enabled() {
         return studio_artifact_renderer_authoring_guidance(request, brief, candidate_seed);
     }
@@ -627,11 +663,8 @@ pub(super) fn studio_artifact_renderer_authoring_guidance_for_runtime(
                 "the typed request concepts",
                 4,
             );
-            let interaction_focus = summarized_guidance_terms(
-                &brief.required_interactions,
-                "the required interactions",
-                3,
-            );
+            let interaction_focus =
+                summarized_guidance_terms(&required_interactions, "the required interactions", 3);
             let sequence_browsing_directive = if super::brief_requires_sequence_browsing(brief) {
                 " Include a visible progression mechanic such as previous/next, a stepper, a scrubber, or an evidence rail."
             } else {
@@ -659,7 +692,7 @@ pub(super) fn studio_artifact_renderer_authoring_guidance_for_runtime(
         let concept_focus =
             summarized_guidance_terms(&brief.required_concepts, "the typed request concepts", 4);
         let interaction_focus =
-            summarized_guidance_terms(&brief.required_interactions, "the required interactions", 3);
+            summarized_guidance_terms(&required_interactions, "the required interactions", 3);
         let exact_view_scaffold = super::html_prompt_exact_view_scaffold(brief);
         let two_view_example = super::html_prompt_two_view_example(brief);
         let sequence_browsing_directive = if super::brief_requires_sequence_browsing(brief) {
@@ -694,6 +727,7 @@ pub(super) fn studio_artifact_renderer_authoring_guidance(
     brief: &StudioArtifactBrief,
     candidate_seed: u64,
 ) -> String {
+    let required_interactions = brief.required_interaction_summaries();
     match request.renderer {
         StudioRendererKind::HtmlIframe => {
             if studio_modal_first_html_enabled() {
@@ -714,7 +748,7 @@ pub(super) fn studio_artifact_renderer_authoring_guidance(
                     4,
                 );
                 let interaction_focus = summarized_guidance_terms(
-                    &brief.required_interactions,
+                    &required_interactions,
                     "the required interactions",
                     3,
                 );
@@ -765,7 +799,7 @@ pub(super) fn studio_artifact_renderer_authoring_guidance(
                 4,
             );
             let interaction_focus = summarized_guidance_terms(
-                &brief.required_interactions,
+                &required_interactions,
                 "the required interactions",
                 3,
             );
@@ -968,8 +1002,8 @@ pub(super) fn html_factual_anchor_surface_directive(brief: &StudioArtifactBrief)
 }
 
 pub(super) fn html_interaction_distribution_directive(brief: &StudioArtifactBrief) -> String {
-    let interactions = brief
-        .required_interactions
+    let required_interactions = brief.required_interaction_summaries();
+    let interactions = required_interactions
         .iter()
         .map(|item| item.trim())
         .filter(|item| !item.is_empty())

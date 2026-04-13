@@ -310,11 +310,44 @@ export interface StudioArtifactAcceptanceObligation {
   witnessIds: string[];
 }
 
+export type StudioArtifactRenderPolicyMode =
+  | "balanced"
+  | "observation_only"
+  | "strict";
+
+export interface StudioArtifactRenderObservation {
+  primaryRegionPresent: boolean;
+  firstPaintVisibleTextChars: number;
+  mobileVisibleTextChars: number;
+  semanticRegionCount: number;
+  evidenceSurfaceCount: number;
+  responseRegionCount: number;
+  actionableAffordanceCount: number;
+  activeAffordanceCount: number;
+  runtimeErrorCount: number;
+  interactionStateChanged: boolean;
+}
+
+export interface StudioArtifactRenderAcceptancePolicy {
+  mode: StudioArtifactRenderPolicyMode;
+  minimumFirstPaintTextChars: number;
+  minimumSemanticRegions: number;
+  minimumEvidenceSurfaces: number;
+  minimumActionableAffordances: number;
+  blockedScoreThreshold: number;
+  primaryViewScoreThreshold: number;
+  requirePrimaryRegion: boolean;
+  requireResponseRegionWhenInteractive: boolean;
+  requireStateChangeWhenInteractive: boolean;
+}
+
 export interface StudioArtifactRenderEvaluation {
   supported: boolean;
   firstPaintCaptured: boolean;
   interactionCaptureAttempted: boolean;
   captures: StudioArtifactRenderCapture[];
+  observation?: StudioArtifactRenderObservation | null;
+  acceptancePolicy?: StudioArtifactRenderAcceptancePolicy | null;
   layoutDensityScore: number;
   spacingAlignmentScore: number;
   typographyContrastScore: number;
@@ -374,10 +407,72 @@ export interface StudioArtifactBrief {
   artifactThesis: string;
   requiredConcepts: string[];
   requiredInteractions: string[];
+  queryProfile?: StudioArtifactQueryProfile | null;
   visualTone: string[];
   factualAnchors: string[];
   styleDirectives: string[];
   referenceHints: string[];
+}
+
+export type StudioArtifactContentGoalKind =
+  | "orient"
+  | "explain"
+  | "compare"
+  | "evidence"
+  | "example"
+  | "summary"
+  | "implementation";
+
+export type StudioArtifactInteractionGoalKind =
+  | "state_switch"
+  | "detail_inspect"
+  | "sequence_browse"
+  | "state_adjust"
+  | "guided_response";
+
+export type StudioArtifactEvidenceGoalKind =
+  | "primary_surface"
+  | "comparison_surface"
+  | "detail_surface"
+  | "supporting_surface";
+
+export type StudioArtifactPresentationConstraintKind =
+  | "semantic_structure"
+  | "first_paint_evidence"
+  | "response_region"
+  | "keyboard_affordances"
+  | "runtime_self_containment"
+  | "typography_separation";
+
+export interface StudioArtifactContentGoal {
+  kind: StudioArtifactContentGoalKind;
+  summary: string;
+  required: boolean;
+}
+
+export interface StudioArtifactInteractionGoal {
+  kind: StudioArtifactInteractionGoalKind;
+  summary: string;
+  required: boolean;
+}
+
+export interface StudioArtifactEvidenceGoal {
+  kind: StudioArtifactEvidenceGoalKind;
+  summary: string;
+  required: boolean;
+}
+
+export interface StudioArtifactPresentationConstraint {
+  kind: StudioArtifactPresentationConstraintKind;
+  summary: string;
+  required: boolean;
+}
+
+export interface StudioArtifactQueryProfile {
+  contentGoals: StudioArtifactContentGoal[];
+  interactionGoals: StudioArtifactInteractionGoal[];
+  evidenceGoals: StudioArtifactEvidenceGoal[];
+  presentationConstraints: StudioArtifactPresentationConstraint[];
 }
 
 export type StudioArtifactSkillNeedKind =
@@ -659,15 +754,67 @@ export interface StudioArtifactRuntimePreviewSnapshot {
 export interface StudioArtifactRuntimeNarrationEvent {
   eventId: string;
   eventType: string;
+  eventTypeKey?: StudioArtifactRuntimeEventType | null;
   stepId: string;
+  stepKey?: StudioArtifactRuntimeStepId | null;
+  stepKind?: StudioArtifactRuntimeStepKind | null;
   eventKind: string;
+  eventKindKey?: StudioArtifactRuntimeEventKind | null;
   attemptId?: string | null;
   title: string;
   detail: string;
   status: string;
+  statusKind?: StudioArtifactRuntimeEventStatus | null;
   occurredAtMs: number;
   preview?: StudioArtifactRuntimePreviewSnapshot | null;
 }
+
+export type StudioArtifactRuntimeEventType =
+  | "understand_request"
+  | "artifact_route_committed"
+  | "skill_discovery"
+  | "skill_read"
+  | "artifact_brief"
+  | "author_artifact"
+  | "author_preview"
+  | "replan_execution"
+  | "verify_artifact"
+  | "present_artifact"
+  | "other";
+
+export type StudioArtifactRuntimeStepId =
+  | "understand_request"
+  | "artifact_route_committed"
+  | "skill_discovery"
+  | "skill_read"
+  | "artifact_brief"
+  | "author_artifact"
+  | "replan_execution"
+  | "verify_artifact"
+  | "present_artifact"
+  | "other";
+
+export type StudioArtifactRuntimeStepKind =
+  | "intake"
+  | "routing"
+  | "guidance"
+  | "planning"
+  | "authoring"
+  | "strategy"
+  | "verification"
+  | "presentation"
+  | "other";
+
+export type StudioArtifactRuntimeEventKind = "step" | "preview";
+
+export type StudioArtifactRuntimeEventStatus =
+  | "pending"
+  | "active"
+  | "complete"
+  | "failed"
+  | "blocked"
+  | "interrupted"
+  | "other";
 
 export interface StudioArtifactMaterializationContract {
   version: number;

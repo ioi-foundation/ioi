@@ -123,8 +123,7 @@ pub(crate) fn derive_studio_adaptive_search_budget(
     }
 
     let interaction_load = brief
-        .required_interactions
-        .len()
+        .required_interaction_goal_count()
         .max(
             blueprint
                 .map(|value| value.interaction_plan.len())
@@ -399,23 +398,7 @@ pub(crate) fn shortlisted_candidate_indices_for_budget(
     shortlisted
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(super) struct SemanticConvergenceBudget {
-    pub(super) max_passes: usize,
-    pub(super) plateau_limit: usize,
-    pub(super) min_score_delta: i32,
-}
-
-pub(super) fn semantic_convergence_budget(
-    adaptive_budget: &StudioAdaptiveSearchBudget,
-) -> SemanticConvergenceBudget {
-    SemanticConvergenceBudget {
-        max_passes: adaptive_budget.max_semantic_refinement_passes,
-        plateau_limit: adaptive_budget.plateau_limit,
-        min_score_delta: adaptive_budget.min_score_delta,
-    }
-}
-
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn requested_follow_up_pass(judge: &StudioArtifactJudgeResult) -> Option<&'static str> {
     if judge.classification == StudioArtifactJudgeClassification::Repairable {
         let render_warning_only = judge
@@ -462,14 +445,6 @@ pub(crate) fn requested_follow_up_pass(judge: &StudioArtifactJudgeResult) -> Opt
     }
 }
 
-pub(super) fn refinement_temperature_for_pass(pass_kind: &str) -> f32 {
-    match pass_kind {
-        "polish_pass" => 0.1,
-        "structural_repair" => 0.18,
-        _ => 0.18,
-    }
-}
-
 pub(super) fn initial_candidate_convergence_trace(
     candidate_id: &str,
     pass_kind: &str,
@@ -483,43 +458,6 @@ pub(super) fn initial_candidate_convergence_trace(
         score_total,
         score_delta_from_parent: None,
         terminated_reason: None,
-    }
-}
-
-pub(super) fn refined_candidate_convergence_trace(
-    source_summary: &StudioArtifactCandidateSummary,
-    pass_kind: &str,
-    score_total: i32,
-    score_delta_from_parent: i32,
-) -> StudioArtifactCandidateConvergenceTrace {
-    let (lineage_root_id, pass_index) = source_summary
-        .convergence
-        .as_ref()
-        .map(|trace| (trace.lineage_root_id.clone(), trace.pass_index + 1))
-        .unwrap_or_else(|| {
-            (
-                refined_candidate_root(&source_summary.candidate_id).to_string(),
-                1,
-            )
-        });
-    StudioArtifactCandidateConvergenceTrace {
-        lineage_root_id,
-        parent_candidate_id: Some(source_summary.candidate_id.clone()),
-        pass_kind: pass_kind.to_string(),
-        pass_index,
-        score_total,
-        score_delta_from_parent: Some(score_delta_from_parent),
-        terminated_reason: None,
-    }
-}
-
-pub(super) fn update_candidate_summary_judge(
-    summary: &mut StudioArtifactCandidateSummary,
-    judge: StudioArtifactJudgeResult,
-) {
-    summary.judge = judge.clone();
-    if let Some(convergence) = summary.convergence.as_mut() {
-        convergence.score_total = judge_total_score(&judge);
     }
 }
 

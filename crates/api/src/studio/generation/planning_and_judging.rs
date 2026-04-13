@@ -18,6 +18,17 @@ pub(super) fn studio_surface_contract_prompt_bundle(
     candidate_seed: u64,
 ) -> StudioSurfaceContractPromptBundle {
     match blueprint.renderer {
+        StudioRendererKind::HtmlIframe if studio_modal_first_html_enabled() => {
+            StudioSurfaceContractPromptBundle {
+                design_label: "Studio HTML query profile guidance",
+                design_spine: None,
+                scaffold_label: "Studio HTML renderer policy",
+                scaffold_contract: None,
+                component_label: "Studio HTML renderer capability packs",
+                component_packs: Vec::new(),
+                execution_digest: String::new(),
+            }
+        }
         StudioRendererKind::HtmlIframe => StudioSurfaceContractPromptBundle {
             design_label: "Studio promoted design skill spine",
             design_spine: studio_html_promoted_design_skill_spine(
@@ -200,7 +211,7 @@ pub fn derive_studio_artifact_prepared_context(
          resolved_artifact_ir: Option<&StudioArtifactIR>| StudioArtifactPreparationNeeds {
             renderer: request.renderer,
             required_concepts: brief.required_concepts.clone(),
-            required_interactions: brief.required_interactions.clone(),
+            required_interactions: brief.required_interaction_summaries(),
             skill_needs: resolved_blueprint
                 .map(|value| value.skill_needs.clone())
                 .unwrap_or_default(),
@@ -362,6 +373,8 @@ pub(super) fn failed_render_evaluation(
         first_paint_captured: false,
         interaction_capture_attempted: false,
         captures: Vec::new(),
+        observation: None,
+        acceptance_policy: None,
         layout_density_score: 1,
         spacing_alignment_score: 1,
         typography_contrast_score: 1,
@@ -467,62 +480,5 @@ pub(crate) async fn evaluate_candidate_render_with_fallback(
                 error
             ),
         )),
-    }
-}
-
-pub(super) async fn judge_candidate_with_runtime_and_render_eval(
-    runtime: Arc<dyn InferenceRuntime>,
-    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-    title: &str,
-    request: &StudioOutcomeArtifactRequest,
-    brief: &StudioArtifactBrief,
-    edit_intent: Option<&StudioArtifactEditIntent>,
-    candidate: &StudioGeneratedArtifactPayload,
-) -> Result<StudioArtifactJudgeResult, String> {
-    let judge = judge_studio_artifact_candidate_with_runtime_and_render_eval(
-        runtime,
-        title,
-        request,
-        brief,
-        edit_intent,
-        candidate,
-        render_evaluation,
-    )
-    .await?;
-    Ok(merge_studio_artifact_render_evaluation_into_judge(
-        request,
-        judge,
-        render_evaluation,
-    ))
-}
-
-pub(super) async fn judge_candidate_with_runtime_and_render_eval_with_timeout(
-    runtime: Arc<dyn InferenceRuntime>,
-    acceptance_timeout: Option<Duration>,
-    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-    title: &str,
-    request: &StudioOutcomeArtifactRequest,
-    brief: &StudioArtifactBrief,
-    edit_intent: Option<&StudioArtifactEditIntent>,
-    candidate: &StudioGeneratedArtifactPayload,
-) -> Result<StudioArtifactJudgeResult, String> {
-    let judge = judge_candidate_with_runtime_and_render_eval(
-        runtime,
-        render_evaluation,
-        title,
-        request,
-        brief,
-        edit_intent,
-        candidate,
-    );
-    match acceptance_timeout {
-        Some(limit) => match tokio::time::timeout(limit, judge).await {
-            Ok(result) => result,
-            Err(_) => Err(format!(
-                "Acceptance judging timed out after {}.",
-                format_timeout_duration(limit)
-            )),
-        },
-        None => judge.await,
     }
 }

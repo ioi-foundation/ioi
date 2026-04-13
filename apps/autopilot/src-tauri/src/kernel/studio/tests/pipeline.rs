@@ -4,13 +4,53 @@ use super::*;
 fn pipeline_steps_for_ready_markdown_artifact_are_complete() {
     let request = test_outcome_request().artifact.expect("artifact request");
     let manifest = test_manifest(StudioArtifactVerificationStatus::Ready);
-    let materialization = materialization_contract_for_request(
+    let mut materialization = materialization_contract_for_request(
         "Create a release artifact",
         &request,
         "Studio created the artifact.",
         None,
         StudioExecutionStrategy::PlanExecute,
     );
+    materialization.artifact_brief = Some(StudioArtifactBrief {
+        audience: "operators".to_string(),
+        job_to_be_done: "ship a concise release artifact".to_string(),
+        subject_domain: "release operations".to_string(),
+        artifact_thesis: "Summarize release state with enough structure to stand alone."
+            .to_string(),
+        required_concepts: vec!["status".to_string(), "risks".to_string()],
+        required_interactions: Vec::new(),
+        query_profile: None,
+        visual_tone: vec!["clear".to_string()],
+        factual_anchors: vec!["release train".to_string()],
+        style_directives: vec!["tight hierarchy".to_string()],
+        reference_hints: Vec::new(),
+    });
+    materialization.prepared_context_resolution =
+        Some(ioi_api::studio::StudioArtifactPreparedContextResolution {
+            status: "resolved".to_string(),
+            renderer: request.renderer,
+            require_blueprint: false,
+            require_artifact_ir: false,
+            skill_need_count: 0,
+            selected_skill_count: 0,
+            exemplar_count: 0,
+            selected_skill_names: Vec::new(),
+        });
+    materialization.skill_discovery_resolution =
+        Some(ioi_api::studio::StudioArtifactSkillDiscoveryResolution {
+            status: "resolved".to_string(),
+            guidance_evaluated: true,
+            guidance_recommended: false,
+            guidance_found: false,
+            guidance_attached: false,
+            skill_need_count: 0,
+            selected_skill_count: 0,
+            selected_skill_names: Vec::new(),
+            search_scope: "published_runtime_skills".to_string(),
+            rationale: "The markdown release artifact does not require extra runtime guidance."
+                .to_string(),
+            failure_reason: None,
+        });
     let steps = pipeline_steps_for_state(
         "Create a release artifact",
         &request,
@@ -21,7 +61,7 @@ fn pipeline_steps_for_ready_markdown_artifact_are_complete() {
         None,
     );
 
-    assert_eq!(steps.len(), 8);
+    assert_eq!(steps.len(), 10);
     assert!(steps.iter().all(|step| step.status == "complete"));
     assert!(!steps.iter().any(|step| step.id == "execution"));
     assert!(!steps.iter().any(|step| step.id == "repair"));

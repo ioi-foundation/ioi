@@ -372,15 +372,9 @@ pub fn validate_generated_artifact_payload(
                         .to_string(),
                 );
             }
-            if html_has_duplicate_mapped_view_tokens(&lower) {
+            if html_has_unfocusable_rollover_marks(&lower) {
                 return Err(
-                    "HTML iframe artifacts must not duplicate mapped view-panel tokens across pre-rendered evidence regions."
-                        .to_string(),
-                );
-            }
-            if html_has_invalid_mapped_view_default_state(html) {
-                return Err(
-                    "HTML iframe artifacts with mapped evidence panels must keep exactly one populated panel visible on first paint."
+                    "HTML iframe artifacts that wire focus-based detail behavior must make their data-detail marks keyboard-focusable."
                         .to_string(),
                 );
             }
@@ -423,12 +417,6 @@ pub fn validate_generated_artifact_payload(
             if html_uses_custom_font_family_without_loading(&lower) {
                 return Err(
                     "HTML iframe artifacts that declare custom font families must load them with a real stylesheet or @font-face rule."
-                        .to_string(),
-                );
-            }
-            if html_has_unfocusable_rollover_marks(&lower) {
-                return Err(
-                    "HTML iframe artifacts that wire focus-based detail behavior must make their data-detail marks keyboard-focusable."
                         .to_string(),
                 );
             }
@@ -1053,9 +1041,11 @@ pub(crate) fn validate_generated_artifact_payload_against_brief_with_edit_intent
         return Ok(());
     };
     let lower = primary_file.body.to_ascii_lowercase();
-    let detail_regions = count_populated_html_detail_regions(&lower);
+    let response_regions = count_populated_html_response_regions(&lower);
     let chart_regions = count_populated_html_chart_regions(&lower);
     let evidence_regions = count_populated_html_evidence_regions(&lower);
+    let actionable_affordances = count_html_actionable_affordances(&lower);
+    let required_interaction_goals = brief_required_interaction_goal_count(brief);
     let selection_scoped_patch = edit_intent.is_some_and(|intent| {
         intent.patch_existing_artifact && !intent.selected_targets.is_empty()
     });
@@ -1064,62 +1054,52 @@ pub(crate) fn validate_generated_artifact_payload_against_brief_with_edit_intent
         || html_contains_empty_chart_container_regions(&lower);
 
     if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
-        && !brief.required_interactions.is_empty()
-        && detail_regions == 0
+        && required_interaction_goals > 0
+        && brief_requires_response_region(brief)
+        && response_regions == 0
     {
         return Err(
-            "HTML iframe briefs with required interactions must include a populated shared detail or comparison region on first paint."
+            "HTML iframe briefs with interactive query goals must include a populated response or comparison region on first paint."
                 .to_string(),
         );
     }
 
     if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
         && brief_requires_view_switching(brief)
-        && html_has_static_view_mapping_markers(&lower)
-        && !html_contains_view_switching_control_behavior(&lower)
+        && actionable_affordances < 2
     {
         return Err(
-            "HTML iframe briefs that call for clickable view switching must wire controls to change panel visibility or selection state on click."
+            "HTML iframe briefs that call for state switching must surface at least two actionable controls on first paint."
                 .to_string(),
         );
     }
 
     if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
         && brief_requires_view_switching(brief)
-        && !html_contains_explicit_view_mapping(&lower)
+        && !html_contains_state_transition_behavior(&lower)
     {
         return Err(
-            "HTML iframe briefs that call for clickable view switching must map at least two controls to pre-rendered view panels with explicit static selectors."
+            "HTML iframe briefs that call for state switching must wire controls to produce a visible on-page state change."
                 .to_string(),
         );
     }
 
     if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
         && brief_requires_view_switching(brief)
-        && count_empty_html_mapped_view_panels(&lower) > 0
+        && evidence_regions + chart_regions < 2
     {
         return Err(
-            "HTML iframe briefs that call for clickable view switching must keep every mapped evidence panel pre-rendered with first-paint content."
-                .to_string(),
-        );
-    }
-
-    if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
-        && brief_requires_view_switching(brief)
-        && !html_has_visible_populated_mapped_view_panel(&lower)
-    {
-        return Err(
-            "HTML iframe briefs that call for clickable view switching must keep one populated mapped evidence panel visible on first paint."
+            "HTML iframe briefs that call for state switching must keep at least two evidence surfaces or authored states available on first paint."
                 .to_string(),
         );
     }
 
     if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
         && brief_requires_rollover_detail(brief)
-        && count_html_rollover_detail_marks(&lower) < 3
+        && actionable_affordances < 3
     {
         return Err(
-            "HTML iframe briefs that call for rollover detail must surface at least three visible data-detail marks or cards on first paint."
+            "HTML iframe briefs that call for inspection detail must surface at least three actionable evidence marks or controls on first paint."
                 .to_string(),
         );
     }
@@ -1129,14 +1109,14 @@ pub(crate) fn validate_generated_artifact_payload_against_brief_with_edit_intent
         && !html_contains_rollover_detail_behavior(&lower)
     {
         return Err(
-            "HTML iframe briefs that call for rollover detail must wire hover or focus handlers on visible marks to update shared detail on first paint."
+            "HTML iframe briefs that call for inspection detail must wire hover, focus, or equivalent handlers to update visible on-page context."
                 .to_string(),
         );
     }
 
     if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
         && has_chart_surface
-        && brief.required_interactions.len() >= 2
+        && required_interaction_goals >= 2
         && evidence_regions < 2
         && !selection_scoped_patch
     {
@@ -1155,7 +1135,7 @@ fn studio_artifact_soft_validation_error(error: &str) -> bool {
         "HTML iframe artifacts that include chart or diagram SVG regions must include visible labels, legends, or aria labels on first paint.",
         "HTML iframe artifacts that include chart or diagram containers must render visible chart content on first paint.",
         "HTML iframe artifacts must contain at least three sectioning elements with first-paint content.",
-        "Interactive HTML iframe artifacts must update on-page state or shared detail, not only scroll, jump, or log.",
+        "Interactive HTML iframe artifacts must update on-page state or visible response context, not only scroll, jump, or log.",
     ]
     .iter()
     .any(|needle| error.contains(needle))
@@ -1410,9 +1390,18 @@ pub(crate) fn enrich_generated_artifact_payload(
                 return;
             };
 
+            primary_html.body = ensure_html_button_accessibility_contract(&primary_html.body);
+            primary_html.body = ensure_html_mapped_panels_define_referenced_ids(&primary_html.body);
+            primary_html.body = ensure_html_view_switch_contract(&primary_html.body);
+            primary_html.body = ensure_first_visible_mapped_view_panel(&primary_html.body);
+            primary_html.body = ensure_minimum_html_shared_detail_region(&primary_html.body);
+            primary_html.body = ensure_minimum_html_mapped_panel_content(&primary_html.body);
             primary_html.body =
                 ensure_minimum_brief_rollover_detail_marks(&primary_html.body, brief);
+            primary_html.body = ensure_minimum_html_rollover_detail_payloads(&primary_html.body);
+            primary_html.body = ensure_grouped_html_rollover_detail_marks(&primary_html.body);
             primary_html.body = ensure_focusable_html_rollover_marks(&primary_html.body);
+            primary_html.body = ensure_html_interaction_polish_styles(&primary_html.body);
             primary_html.body = ensure_html_rollover_detail_contract(&primary_html.body);
         }
         _ => {}
@@ -1443,41 +1432,41 @@ fn renderer_primary_view_contract_failure(
             if studio_modal_first_html_enabled() {
                 return None;
             }
+            let response_regions = count_populated_html_response_regions(&lower);
+            let evidence_surfaces = count_populated_html_evidence_regions(&lower)
+                + count_populated_html_chart_regions(&lower);
+            let actionable_affordances = count_html_actionable_affordances(&lower);
+            let required_interaction_goals = brief_required_interaction_goal_count(brief);
             if count_html_nonempty_sectioning_elements(&lower) < 3 {
                 Some("HTML sectioning regions are empty shells on first paint.")
             } else if html_contains_placeholder_markers(&lower) {
                 Some("HTML still contains placeholder-grade copy or comments on first paint.")
             } else if html_interactions_are_navigation_only(&lower) {
-                Some("HTML interactions are navigation-only and do not update shared detail state.")
+                Some("HTML interactions are navigation-only and do not update visible response state.")
             } else if html_contains_empty_chart_container_regions(&lower) {
                 Some("HTML chart containers are empty placeholder shells on first paint.")
-            } else if html_contains_empty_detail_regions(&lower) {
-                Some("HTML shared detail or comparison regions are empty on first paint.")
+            } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
+                && brief_requires_response_region(brief)
+                && response_regions == 0
+            {
+                Some("HTML interactive query goals do not surface a populated response region on first paint.")
             } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
                 && brief_requires_view_switching(brief)
-                && html_has_static_view_mapping_markers(&lower)
-                && !html_contains_view_switching_control_behavior(&lower)
+                && actionable_affordances < 2
+            {
+                Some("HTML state switching does not surface enough actionable controls on first paint.")
+            } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
+                && brief_requires_view_switching(brief)
+                && !html_contains_state_transition_behavior(&lower)
             {
                 Some(
-                    "HTML clickable navigation renders mapped panels but does not change panel visibility or selection state."
+                    "HTML state switching does not wire controls to produce visible state changes.",
                 )
             } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
                 && brief_requires_view_switching(brief)
-                && !html_contains_explicit_view_mapping(&lower)
+                && evidence_surfaces < 2
             {
-                Some("HTML clickable navigation does not map controls to pre-rendered views.")
-            } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
-                && brief_requires_view_switching(brief)
-                && count_empty_html_mapped_view_panels(&lower) > 0
-            {
-                Some("HTML clickable navigation maps controls to empty pre-rendered panels.")
-            } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
-                && brief_requires_view_switching(brief)
-                && !html_has_visible_populated_mapped_view_panel(&lower)
-            {
-                Some(
-                    "HTML clickable navigation does not keep a populated mapped evidence panel visible on first paint."
-                )
+                Some("HTML state switching does not keep enough authored evidence surfaces available on first paint.")
             } else if html_contains_unlabeled_chart_svg_regions(&lower) {
                 Some("HTML chart SVG regions are unlabeled on first paint.")
             } else if html_contains_placeholder_svg_regions(&lower) {
@@ -1485,40 +1474,30 @@ fn renderer_primary_view_contract_failure(
             } else if html_references_missing_dom_ids(&lower) {
                 Some("HTML interactions target missing DOM ids in the surfaced artifact.")
             } else if html_has_unfocusable_rollover_marks(&lower) {
-                Some("HTML rollover detail marks are not keyboard-focusable.")
-            } else if count_html_repair_shim_markers(&lower) >= 5 {
-                Some("HTML still depends on too many Studio repair shims to qualify as native output.")
+                Some("HTML interactive detail affordances are not keyboard-focusable.")
             } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
-                && !brief.required_interactions.is_empty()
-                && count_populated_html_detail_regions(&lower) == 0
+                && required_interaction_goals > 0
+                && response_regions == 0
             {
-                Some("HTML required interactions do not surface a shared detail panel on first paint.")
+                Some("HTML required interactions do not surface a visible response region on first paint.")
             } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
                 && (count_populated_html_chart_regions(&lower) > 0
                     || count_html_svg_regions(&lower) > 0
                     || html_contains_empty_chart_container_regions(&lower))
-                && brief.required_interactions.len() >= 2
-                && count_populated_html_chart_regions(&lower)
-                    + count_populated_html_detail_regions(&lower)
-                    < 2
+                && required_interaction_goals >= 2
+                && evidence_surfaces < 2
             {
                 Some("HTML only surfaces one evidence view on first paint.")
             } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
-                && brief.required_interactions.iter().any(|interaction| {
-                    let lower = interaction.to_ascii_lowercase();
-                    lower.contains("rollover") || lower.contains("hover")
-                })
-                && count_html_rollover_detail_marks(&lower) < 3
+                && brief_requires_rollover_detail(brief)
+                && actionable_affordances < 3
             {
-                Some("HTML only surfaces sparse rollover detail targets on first paint.")
+                Some("HTML only surfaces sparse inspection affordances on first paint.")
             } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
-                && brief.required_interactions.iter().any(|interaction| {
-                    let lower = interaction.to_ascii_lowercase();
-                    lower.contains("rollover") || lower.contains("hover")
-                })
+                && brief_requires_rollover_detail(brief)
                 && !html_contains_rollover_detail_behavior(&lower)
             {
-                Some("HTML lacks hover or focus detail behavior for rollover interactions.")
+                Some("HTML lacks hover, focus, or equivalent inspection behavior for the requested detail interactions.")
             } else {
                 None
             }

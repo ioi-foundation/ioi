@@ -54,7 +54,7 @@ pub(crate) fn materialization_max_tokens_for_runtime(
     materialization_max_tokens(renderer)
 }
 
-pub(super) fn materialization_max_tokens_for_execution_strategy(
+pub(crate) fn materialization_max_tokens_for_execution_strategy(
     renderer: StudioRendererKind,
     execution_strategy: StudioExecutionStrategy,
     runtime_kind: StudioRuntimeProvenanceKind,
@@ -77,7 +77,7 @@ pub(super) fn materialization_max_tokens_for_execution_strategy(
             }
             StudioRendererKind::HtmlIframe => {
                 if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
-                    1800
+                    materialization_max_tokens_for_runtime(renderer, runtime_kind)
                 } else {
                     materialization_max_tokens(renderer).min(2600)
                 }
@@ -90,46 +90,6 @@ pub(super) fn materialization_max_tokens_for_execution_strategy(
     }
 
     materialization_max_tokens_for_runtime(renderer, runtime_kind)
-}
-
-pub(super) fn format_timeout_duration(duration: Duration) -> String {
-    if duration.as_secs() > 0 && duration.subsec_millis() == 0 {
-        format!("{}s", duration.as_secs())
-    } else {
-        format!("{}ms", duration.as_millis())
-    }
-}
-
-pub fn acceptance_timeout_for_execution_strategy(
-    execution_strategy: StudioExecutionStrategy,
-    runtime: &Arc<dyn InferenceRuntime>,
-) -> Option<Duration> {
-    if execution_strategy != StudioExecutionStrategy::DirectAuthor {
-        return None;
-    }
-
-    if let Some(ms) = [
-        "AUTOPILOT_STUDIO_ACCEPTANCE_TIMEOUT_MS",
-        "IOI_STUDIO_ACCEPTANCE_TIMEOUT_MS",
-    ]
-    .iter()
-    .find_map(|key| {
-        std::env::var(key)
-            .ok()
-            .and_then(|value| value.trim().parse::<u64>().ok())
-            .filter(|ms| *ms > 0)
-    }) {
-        return Some(Duration::from_millis(ms));
-    }
-
-    Some(match runtime.studio_runtime_provenance().kind {
-        StudioRuntimeProvenanceKind::RealLocalRuntime => Duration::from_secs(20),
-        StudioRuntimeProvenanceKind::FixtureRuntime
-        | StudioRuntimeProvenanceKind::MockRuntime
-        | StudioRuntimeProvenanceKind::DeterministicContinuityFallback
-        | StudioRuntimeProvenanceKind::InferenceUnavailable => Duration::from_millis(50),
-        _ => Duration::from_secs(15),
-    })
 }
 
 pub(crate) fn materialization_repair_runtime_for_request(

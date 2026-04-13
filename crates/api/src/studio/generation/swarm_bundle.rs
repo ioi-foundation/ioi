@@ -20,10 +20,9 @@ pub(super) async fn generate_studio_artifact_bundle_with_swarm(
     let swarm_started_at = Instant::now();
     let planning_runtime = runtime_plan.planning_runtime.clone();
     let production_runtime = runtime_plan.generation_runtime.clone();
-    let acceptance_runtime = runtime_plan.acceptance_runtime.clone();
     let repair_runtime = runtime_plan.repair_runtime.clone();
     let production_provenance = production_runtime.studio_runtime_provenance();
-    let acceptance_provenance = acceptance_runtime.studio_runtime_provenance();
+    let acceptance_provenance = runtime_plan.acceptance_runtime.studio_runtime_provenance();
     let origin = output_origin_from_provenance(&production_provenance);
     let mut swarm_plan =
         build_studio_artifact_swarm_plan(request, blueprint, brief, execution_strategy);
@@ -512,7 +511,6 @@ pub(super) async fn generate_studio_artifact_bundle_with_swarm(
         progress_observer,
         activity_observer,
         swarm_started_at,
-        acceptance_runtime,
         repair_runtime,
         production_provenance,
         acceptance_provenance,

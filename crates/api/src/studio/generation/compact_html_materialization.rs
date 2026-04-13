@@ -19,6 +19,7 @@ pub(super) fn compact_local_html_materialization_request_focus(
 pub(super) fn compact_local_html_materialization_brief_focus(
     brief: &StudioArtifactBrief,
 ) -> serde_json::Value {
+    let required_interactions = brief.required_interaction_summaries();
     json!({
         "audience": truncate_materialization_focus_text(&brief.audience, 80),
         "jobToBeDone": truncate_materialization_focus_text(&brief.job_to_be_done, 120),
@@ -30,8 +31,7 @@ pub(super) fn compact_local_html_materialization_brief_focus(
             .take(4)
             .map(|concept| truncate_materialization_focus_text(concept, 80))
             .collect::<Vec<_>>(),
-        "requiredInteractions": brief
-            .required_interactions
+        "requiredInteractions": required_interactions
             .iter()
             .take(3)
             .map(|interaction| truncate_materialization_focus_text(interaction, 100))
@@ -96,6 +96,7 @@ pub(super) fn compact_local_html_materialization_request_text(
 }
 
 pub(super) fn compact_local_html_materialization_brief_text(brief: &StudioArtifactBrief) -> String {
+    let required_interactions = brief.required_interaction_summaries();
     let concepts = brief
         .required_concepts
         .iter()
@@ -103,8 +104,7 @@ pub(super) fn compact_local_html_materialization_brief_text(brief: &StudioArtifa
         .map(|concept| truncate_materialization_focus_text(concept, 48))
         .collect::<Vec<_>>()
         .join(" | ");
-    let interactions = brief
-        .required_interactions
+    let interactions = required_interactions
         .iter()
         .take(2)
         .map(|interaction| truncate_materialization_focus_text(interaction, 64))
