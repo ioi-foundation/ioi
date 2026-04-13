@@ -12,6 +12,18 @@ import { ExecutionRouteCard } from "./ExecutionRouteCard";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { VisualEvidenceCard } from "./VisualEvidenceCard";
 
+function formatLifecycleLabel(value: string | null | undefined): string {
+  if (!value) {
+    return "Pending";
+  }
+
+  return value
+    .split(/[-_]+/g)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 type ConversationTimelineProps = {
   conversationTurns: ConversationTurn[];
   latestAnsweredTurnIndex: number;
@@ -35,6 +47,7 @@ type ConversationTimelineProps = {
   onOpenSourceSummary: (summary: SourceSummary) => void;
   activeStudioArtifactSessionId?: string | null;
   onOpenStudioArtifact?: (studioSessionId: string) => void;
+  inlineStatusCard?: React.ReactNode;
 };
 
 function compactArtifactClassLabel(value: string): string {
@@ -90,10 +103,35 @@ function artifactReplyText(turnContext: TurnContext | null): string | null {
     }
     const summary =
       artifact.studioSession.verifiedReply.summary.trim() || artifact.summary.trim();
+    const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
+    const failedLifecycle =
+      lifecycleState === "blocked" || lifecycleState === "failed";
+
+    if (failedLifecycle) {
+      return summary.length > 0
+        ? `Artifact **${artifact.title}** ${lifecycleState}. ${summary}`
+        : `Artifact **${artifact.title}** ${lifecycleState}. Inspect the blocked artifact card below for details.`;
+    }
 
     return summary.length > 0
       ? `Created **${artifact.title}**. ${summary}`
       : `Created **${artifact.title}**. Open it from the artifact card below.`;
+  }
+
+  const failedArtifacts = turnContext.artifacts.filter((artifact) => {
+    const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
+    return lifecycleState === "blocked" || lifecycleState === "failed";
+  });
+  if (failedArtifacts.length === turnContext.artifacts.length) {
+    const previewTitles = failedArtifacts
+      .slice(0, 3)
+      .map((artifact) => `**${artifact.title}**`)
+      .join(", ");
+    const overflowCount =
+      failedArtifacts.length - Math.min(failedArtifacts.length, 3);
+    const overflowSuffix =
+      overflowCount > 0 ? `, and ${overflowCount} more` : "";
+    return `Artifact generation blocked for this request: ${previewTitles}${overflowSuffix}. Inspect the artifact cards below for failure details.`;
   }
 
   const previewTitles = turnContext.artifacts
@@ -105,6 +143,20 @@ function artifactReplyText(turnContext: TurnContext | null): string | null {
     overflowCount > 0 ? `, and ${overflowCount} more` : "";
 
   return `Created ${turnContext.artifacts.length} artifacts for this request: ${previewTitles}${overflowSuffix}. Open one from the cards below.`;
+}
+
+function artifactTurnMetaLabel(artifact: NonNullable<TurnContext>["artifacts"][number]): string {
+  const lifecycleLabel = formatLifecycleLabel(artifact.lifecycleState || artifact.status);
+  const fileCountLabel = `${artifact.fileCount} ${
+    artifact.fileCount === 1 ? "file" : "files"
+  }`;
+  const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
+
+  if (lifecycleState === "blocked" || lifecycleState === "failed") {
+    return `${lifecycleLabel} · ${fileCountLabel}`;
+  }
+
+  return fileCountLabel;
 }
 
 export function ConversationTimeline({
@@ -124,6 +176,7 @@ export function ConversationTimeline({
   onOpenSourceSummary,
   activeStudioArtifactSessionId = null,
   onOpenStudioArtifact,
+  inlineStatusCard,
 }: ConversationTimelineProps) {
   const normalizePendingReplyDetail = (
     detail: string | undefined,
@@ -178,8 +231,10 @@ export function ConversationTimeline({
           !turn.answer &&
           isRunning &&
           !suppressPendingIndicators;
+        const showInlineStatusCard =
+          isLatestTurn && !!turn.prompt && !turn.answer && !!inlineStatusCard;
         const showExecutionRouteCard =
-          !!turn.prompt && hasPlanSummary && !showLiveThinking;
+          !!turn.prompt && hasPlanSummary && !showLiveThinking && !showInlineStatusCard;
         const showAssistantPendingBubble =
           isLatestTurn &&
           !!turn.prompt &&
@@ -187,9 +242,11 @@ export function ConversationTimeline({
           !showPendingRunAnswer &&
           !runPresentation.finalAnswer &&
           !showExecutionRouteCard &&
+          !showInlineStatusCard &&
           !suppressPendingIndicators;
         const showThoughtTrigger =
           !showExecutionRouteCard &&
+          !showInlineStatusCard &&
           !!turn.prompt &&
           (showLiveThinking || !!turn.answer);
         const thoughtCount = turnContext?.thoughtCount || 0;
@@ -236,6 +293,12 @@ export function ConversationTimeline({
             {turn.prompt && (
               <div className="spot-message user spot-message--prompt">
                 <div className="message-content-text">{turn.prompt.text}</div>
+              </div>
+            )}
+
+            {showInlineStatusCard && (
+              <div className="spot-message agent spot-message--studio-status">
+                {inlineStatusCard}
               </div>
             )}
 
@@ -398,7 +461,7 @@ export function ConversationTimeline({
                   <span>Artifacts</span>
                   <small>
                     {turnContext.artifacts.length}{" "}
-                    {turnContext.artifacts.length === 1 ? "project" : "projects"}
+                    {turnContext.artifacts.length === 1 ? "artifact" : "artifacts"}
                   </small>
                 </div>
                 <div className="spot-conversation-artifact-list">
@@ -429,8 +492,7 @@ export function ConversationTimeline({
                           </span>
                         </span>
                         <span className="spot-conversation-artifact-meta">
-                          {artifact.fileCount}{" "}
-                          {artifact.fileCount === 1 ? "file" : "files"}
+                          {artifactTurnMetaLabel(artifact)}
                         </span>
                       </button>
                     );

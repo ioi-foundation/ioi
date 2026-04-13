@@ -44,6 +44,43 @@ function describeStudioError(
     };
   }
 
+  if (typeof ErrorEvent !== "undefined" && value instanceof ErrorEvent) {
+    return {
+      source,
+      message: value.message || fallbackMessage,
+      detail: value.filename
+        ? `${value.filename}:${value.lineno}:${value.colno}`
+        : null,
+    };
+  }
+
+  if (typeof Event !== "undefined" && value instanceof Event) {
+    const target = value.target as HTMLScriptElement | null;
+    const sourceUrl =
+      target?.getAttribute?.("src") ||
+      (target && "src" in target ? String((target as { src?: string }).src || "") : "");
+    return {
+      source,
+      message: sourceUrl
+        ? `Studio render asset failed to load from ${sourceUrl}.`
+        : fallbackMessage,
+      detail: value.type ? `Event type: ${value.type}` : null,
+    };
+  }
+
+  if (
+    value &&
+    typeof value === "object" &&
+    "message" in value &&
+    typeof (value as { message?: unknown }).message === "string"
+  ) {
+    return {
+      source,
+      message: ((value as { message: string }).message || "").trim() || fallbackMessage,
+      detail: null,
+    };
+  }
+
   return {
     source,
     message: fallbackMessage,

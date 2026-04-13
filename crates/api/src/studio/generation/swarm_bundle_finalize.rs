@@ -34,6 +34,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
     execution_strategy: StudioExecutionStrategy,
     render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
+    activity_observer: Option<StudioArtifactActivityObserver>,
     swarm_started_at: Instant,
     acceptance_runtime: Arc<dyn InferenceRuntime>,
     repair_runtime: Arc<dyn InferenceRuntime>,
@@ -77,7 +78,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
             .collect(),
     });
 
-    let mut render_evaluation = evaluate_candidate_render_with_fallback(
+    let initial_render_eval_future = evaluate_candidate_render_with_fallback(
         render_evaluator,
         request,
         brief,
@@ -86,8 +87,22 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         edit_intent,
         &final_payload,
         production_provenance.kind,
+    );
+    let mut render_evaluation = if render_eval_timeout_for_runtime(
+        request.renderer,
+        production_provenance.kind,
     )
-    .await;
+    .is_some()
+    {
+        await_with_activity_heartbeat(
+            initial_render_eval_future,
+            activity_observer.clone(),
+            Duration::from_millis(125),
+        )
+        .await
+    } else {
+        initial_render_eval_future.await
+    };
     verification_receipts.push(StudioArtifactVerificationReceipt {
         id: "render-evaluation".to_string(),
         kind: "render_evaluation".to_string(),
@@ -148,14 +163,18 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         .find(|item| item.id == "judge")
         .cloned()
         .ok_or_else(|| build_error("Swarm judge work item is missing.".to_string()))?;
-    let mut judge = judge_candidate_with_runtime_and_render_eval(
-        acceptance_runtime.clone(),
-        render_evaluation.as_ref(),
-        title,
-        request,
-        brief,
-        edit_intent,
-        &final_payload,
+    let mut judge = await_with_activity_heartbeat(
+        judge_candidate_with_runtime_and_render_eval(
+            acceptance_runtime.clone(),
+            render_evaluation.as_ref(),
+            title,
+            request,
+            brief,
+            edit_intent,
+            &final_payload,
+        ),
+        activity_observer.clone(),
+        Duration::from_millis(125),
     )
     .await
     .map_err(build_error)?;
@@ -485,6 +504,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                         ),
                         candidate_seed_for(title, intent, 900 + repair_index),
                         repair_live_preview_observer,
+                        activity_observer.clone(),
                     )
                     .await
                     .map_err(build_error)?;
@@ -518,23 +538,29 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                     patch_receipts.push(patch_receipt);
                     merge_receipts.push(merge_receipt);
                 } else if renderer_supports_semantic_refinement(request.renderer) {
-                    let refined = refine_studio_artifact_candidate_with_runtime(
-                        repair_runtime.clone(),
-                        title,
-                        intent,
-                        request,
-                        brief,
-                        blueprint,
-                        artifact_ir,
-                        selected_skills,
-                        retrieved_exemplars,
-                        edit_intent,
-                        refinement,
-                        &final_payload,
-                        &judge,
-                        "swarm-repair",
-                        candidate_seed_for(title, intent, 900 + repair_index),
-                        0.18,
+                    let refined = await_with_activity_heartbeat(
+                        refine_studio_artifact_candidate_with_runtime(
+                            repair_runtime.clone(),
+                            title,
+                            intent,
+                            request,
+                            brief,
+                            blueprint,
+                            artifact_ir,
+                            selected_skills,
+                            retrieved_exemplars,
+                            edit_intent,
+                            refinement,
+                            &final_payload,
+                            render_evaluation.as_ref(),
+                            &judge,
+                            "swarm-repair",
+                            candidate_seed_for(title, intent, 900 + repair_index),
+                            0.18,
+                            activity_observer.clone(),
+                        ),
+                        activity_observer.clone(),
+                        Duration::from_millis(125),
                     )
                     .await
                     .map_err(build_error)?;
@@ -602,7 +628,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
 
             final_payload = validate_swarm_generated_artifact_payload(&canonical, request)
                 .map_err(build_error)?;
-            render_evaluation = evaluate_candidate_render_with_fallback(
+            let repair_render_eval_future = evaluate_candidate_render_with_fallback(
                 render_evaluator,
                 request,
                 brief,
@@ -611,16 +637,32 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 edit_intent,
                 &final_payload,
                 production_provenance.kind,
-            )
-            .await;
-            judge = judge_candidate_with_runtime_and_render_eval(
-                acceptance_runtime.clone(),
-                render_evaluation.as_ref(),
-                title,
-                request,
-                brief,
-                edit_intent,
-                &final_payload,
+            );
+            render_evaluation =
+                if render_eval_timeout_for_runtime(request.renderer, production_provenance.kind)
+                    .is_some()
+                {
+                    await_with_activity_heartbeat(
+                        repair_render_eval_future,
+                        activity_observer.clone(),
+                        Duration::from_millis(125),
+                    )
+                    .await
+                } else {
+                    repair_render_eval_future.await
+                };
+            judge = await_with_activity_heartbeat(
+                judge_candidate_with_runtime_and_render_eval(
+                    acceptance_runtime.clone(),
+                    render_evaluation.as_ref(),
+                    title,
+                    request,
+                    brief,
+                    edit_intent,
+                    &final_payload,
+                ),
+                activity_observer.clone(),
+                Duration::from_millis(125),
             )
             .await
             .map_err(build_error)?;

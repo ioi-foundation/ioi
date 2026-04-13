@@ -12,6 +12,27 @@ type StudioArtifactMenuSurfaceProps = {
   onCollapse?: (() => void) | null;
 };
 
+function artifactMenuBadge(
+  artifact: StudioConversationArtifactEntry,
+  isActive: boolean,
+): { label: string; muted?: boolean } | null {
+  const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
+  if (
+    lifecycleState === "ready" ||
+    lifecycleState === "partial" ||
+    lifecycleState === "blocked" ||
+    lifecycleState === "failed"
+  ) {
+    return { label: formatStatusLabel(artifact.lifecycleState || artifact.status) };
+  }
+
+  if (isActive) {
+    return { label: "Live" };
+  }
+
+  return null;
+}
+
 function artifactMenuSummary(artifact: StudioConversationArtifactEntry): string {
   const verifiedSummary = artifact.studioSession.verifiedReply.summary.trim();
   if (verifiedSummary.length > 0) {
@@ -67,20 +88,28 @@ export function StudioArtifactMenuSurface({
         <div className="studio-artifact-menu-list" role="list">
           {artifacts.map((artifact) => {
             const isLive = artifact.sessionId === activeStudioSessionId;
+            const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
+            const showLiveStyling =
+              isLive && lifecycleState !== "blocked" && lifecycleState !== "failed";
             const timestampLabel = artifactMenuTimestamp(artifact);
+            const badge = artifactMenuBadge(artifact, isLive);
 
             return (
               <button
                 key={artifact.key}
                 type="button"
-                className={`studio-artifact-menu-item ${isLive ? "is-live" : ""}`}
+                className={`studio-artifact-menu-item ${showLiveStyling ? "is-live" : ""}`}
                 onClick={() => onOpenStudioSession(artifact.sessionId)}
               >
                 <div className="studio-artifact-menu-item-head">
                   <div className="studio-artifact-menu-item-title-row">
                     <strong>{artifact.title}</strong>
-                    {isLive ? (
-                      <span className="studio-artifact-badge">Live</span>
+                    {badge ? (
+                      <span
+                        className={`studio-artifact-badge ${badge.muted ? "is-muted" : ""}`.trim()}
+                      >
+                        {badge.label}
+                      </span>
                     ) : null}
                   </div>
                   {timestampLabel ? (

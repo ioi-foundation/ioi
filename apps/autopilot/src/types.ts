@@ -276,6 +276,40 @@ export interface StudioArtifactRenderFinding {
   summary: string;
 }
 
+export type StudioArtifactExecutionWitnessStatus =
+  | "passed"
+  | "failed"
+  | "blocked"
+  | "not_applicable";
+
+export type StudioArtifactAcceptanceObligationStatus =
+  | "passed"
+  | "failed"
+  | "blocked"
+  | "not_applicable";
+
+export interface StudioArtifactExecutionWitness {
+  witnessId: string;
+  obligationId?: string | null;
+  actionKind: string;
+  status: StudioArtifactExecutionWitnessStatus;
+  summary: string;
+  detail?: string | null;
+  selector?: string | null;
+  consoleErrors: string[];
+  stateChanged: boolean;
+}
+
+export interface StudioArtifactAcceptanceObligation {
+  obligationId: string;
+  family: string;
+  required: boolean;
+  status: StudioArtifactAcceptanceObligationStatus;
+  summary: string;
+  detail?: string | null;
+  witnessIds: string[];
+}
+
 export interface StudioArtifactRenderEvaluation {
   supported: boolean;
   firstPaintCaptured: boolean;
@@ -288,6 +322,8 @@ export interface StudioArtifactRenderEvaluation {
   blueprintConsistencyScore: number;
   overallScore: number;
   findings: StudioArtifactRenderFinding[];
+  acceptanceObligations: StudioArtifactAcceptanceObligation[];
+  executionWitnesses: StudioArtifactExecutionWitness[];
   summary: string;
 }
 
@@ -358,6 +394,41 @@ export interface StudioArtifactSkillNeed {
   kind: StudioArtifactSkillNeedKind;
   priority: StudioArtifactSkillNeedPriority;
   rationale: string;
+}
+
+export interface StudioArtifactPreparationNeeds {
+  renderer: StudioRendererKind;
+  requiredConcepts: string[];
+  requiredInteractions: string[];
+  skillNeeds: StudioArtifactSkillNeed[];
+  requireBlueprint: boolean;
+  requireArtifactIr: boolean;
+  exemplarDiscoveryEnabled: boolean;
+}
+
+export interface StudioArtifactPreparedContextResolution {
+  status: string;
+  renderer: StudioRendererKind;
+  requireBlueprint: boolean;
+  requireArtifactIr: boolean;
+  skillNeedCount: number;
+  selectedSkillCount: number;
+  exemplarCount: number;
+  selectedSkillNames: string[];
+}
+
+export interface StudioArtifactSkillDiscoveryResolution {
+  status: string;
+  guidanceEvaluated: boolean;
+  guidanceRecommended: boolean;
+  guidanceFound: boolean;
+  guidanceAttached: boolean;
+  skillNeedCount: number;
+  selectedSkillCount: number;
+  selectedSkillNames: string[];
+  searchScope: string;
+  rationale: string;
+  failureReason?: string | null;
 }
 
 export interface StudioArtifactSectionPlan {
@@ -552,6 +623,7 @@ export interface StudioArtifactCandidateSummary {
   failure?: string | null;
   rawOutputPreview?: string | null;
   convergence?: StudioArtifactCandidateConvergenceTrace | null;
+  renderEvaluation?: StudioArtifactRenderEvaluation | null;
   judge: StudioArtifactJudgeResult;
 }
 
@@ -575,12 +647,37 @@ export type StudioArtifactPatchReceipt = SwarmChangeReceipt;
 export type StudioArtifactMergeReceipt = SwarmMergeReceipt;
 export type StudioArtifactVerificationReceipt = SwarmVerificationReceipt;
 
+export interface StudioArtifactRuntimePreviewSnapshot {
+  label: string;
+  content: string;
+  status: string;
+  kind?: string | null;
+  language?: string | null;
+  isFinal: boolean;
+}
+
+export interface StudioArtifactRuntimeNarrationEvent {
+  eventId: string;
+  eventType: string;
+  stepId: string;
+  eventKind: string;
+  attemptId?: string | null;
+  title: string;
+  detail: string;
+  status: string;
+  occurredAtMs: number;
+  preview?: StudioArtifactRuntimePreviewSnapshot | null;
+}
+
 export interface StudioArtifactMaterializationContract {
   version: number;
   requestKind: string;
   normalizedIntent: string;
   summary: string;
   artifactBrief?: StudioArtifactBrief | null;
+  preparationNeeds?: StudioArtifactPreparationNeeds | null;
+  preparedContextResolution?: StudioArtifactPreparedContextResolution | null;
+  skillDiscoveryResolution?: StudioArtifactSkillDiscoveryResolution | null;
   blueprint?: StudioArtifactBlueprint | null;
   artifactIr?: StudioArtifactIR | null;
   selectedSkills: StudioArtifactSelectedSkill[];
@@ -611,6 +708,7 @@ export interface StudioArtifactMaterializationContract {
   previewIntent?: StudioArtifactMaterializationPreviewIntent | null;
   verificationSteps: StudioArtifactMaterializationVerificationStep[];
   pipelineSteps: StudioArtifactPipelineStep[];
+  runtimeNarrationEvents: StudioArtifactRuntimeNarrationEvent[];
   notes: string[];
 }
 
@@ -861,6 +959,9 @@ export interface StudioArtifactRevision {
   uxLifecycle: StudioArtifactUxLifecycle;
   artifactManifest: StudioArtifactManifest;
   artifactBrief?: StudioArtifactBrief | null;
+  preparationNeeds?: StudioArtifactPreparationNeeds | null;
+  preparedContextResolution?: StudioArtifactPreparedContextResolution | null;
+  skillDiscoveryResolution?: StudioArtifactSkillDiscoveryResolution | null;
   blueprint?: StudioArtifactBlueprint | null;
   artifactIr?: StudioArtifactIR | null;
   selectedSkills: StudioArtifactSelectedSkill[];

@@ -652,6 +652,7 @@ export function SpotlightWindow({
       detail={studioStatusCard.detail}
       metrics={studioStatusCard.metrics}
       processes={studioStatusCard.processes}
+      selectedSkills={studioStatusCard.selectedSkills}
       livePreview={studioStatusCard.livePreview}
       codePreview={studioStatusCard.codePreview}
     />
@@ -781,7 +782,6 @@ export function SpotlightWindow({
 
       <div className="spot-chat" ref={chatAreaRef}>
         {!hasSessionContent &&
-          !studioStatusCardNode &&
           (isStudioVariant ? (
             <StudioConversationWelcome
               onSuggestionClick={(text) => {
@@ -791,8 +791,6 @@ export function SpotlightWindow({
           ) : (
             <IOIWatermark onSuggestionClick={(text) => setIntent(text)} />
           ))}
-
-        {studioStatusCardNode}
 
         {CONTENT_PIPELINE_V2_ENABLED ? (
           <ConversationTimeline
@@ -816,6 +814,7 @@ export function SpotlightWindow({
             onOpenStudioArtifact={
               isStudioVariant ? handleOpenStudioArtifact : undefined
             }
+            inlineStatusCard={isStudioVariant ? studioStatusCardNode : null}
           />
         ) : (
           <>{legacyChatElements}</>

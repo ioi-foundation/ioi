@@ -142,20 +142,104 @@ pub(super) fn merged_candidate_summaries(
     combined
 }
 
-pub(super) fn derive_planning_context_for_request(
+pub fn derive_studio_artifact_prepared_context(
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
     blueprint: Option<StudioArtifactBlueprint>,
     artifact_ir: Option<StudioArtifactIR>,
     selected_skills: Vec<StudioArtifactSelectedSkill>,
+    retrieved_exemplars: Vec<StudioArtifactExemplar>,
 ) -> StudioArtifactPlanningContext {
+    let derive_skill_discovery_resolution =
+        |preparation_needs: &StudioArtifactPreparationNeeds,
+         selected_skills: &[StudioArtifactSelectedSkill],
+         status: &str| StudioArtifactSkillDiscoveryResolution {
+            status: status.to_string(),
+            guidance_evaluated: true,
+            guidance_recommended: !preparation_needs.skill_needs.is_empty(),
+            guidance_found: !selected_skills.is_empty(),
+            guidance_attached: !selected_skills.is_empty(),
+            skill_need_count: preparation_needs.skill_needs.len() as u32,
+            selected_skill_count: selected_skills.len() as u32,
+            selected_skill_names: selected_skills
+                .iter()
+                .map(|skill| skill.name.clone())
+                .collect(),
+            search_scope: "published_runtime_skills".to_string(),
+            rationale: if let Some(first_skill) = selected_skills.first() {
+                if selected_skills.len() == 1 {
+                    format!(
+                        "The request benefits from {} guidance before authoring.",
+                        first_skill.name
+                    )
+                } else {
+                    format!(
+                        "The request benefits from {} selected skill guides before authoring.",
+                        selected_skills.len()
+                    )
+                }
+            } else if preparation_needs.skill_needs.is_empty() {
+                "The request can be authored directly without extra skill guidance.".to_string()
+            } else {
+                "Studio checked the published runtime guidance corpus for this request but did not find a qualifying skill to attach before authoring."
+                    .to_string()
+            },
+            failure_reason: if selected_skills.is_empty()
+                && !preparation_needs.skill_needs.is_empty()
+            {
+                Some(
+                    "No qualifying published runtime guidance matched the request's current skill needs."
+                        .to_string(),
+                )
+            } else {
+                None
+            },
+        };
+    let derive_preparation_needs =
+        |resolved_blueprint: Option<&StudioArtifactBlueprint>,
+         resolved_artifact_ir: Option<&StudioArtifactIR>| StudioArtifactPreparationNeeds {
+            renderer: request.renderer,
+            required_concepts: brief.required_concepts.clone(),
+            required_interactions: brief.required_interactions.clone(),
+            skill_needs: resolved_blueprint
+                .map(|value| value.skill_needs.clone())
+                .unwrap_or_default(),
+            require_blueprint: request.renderer != StudioRendererKind::WorkspaceSurface,
+            require_artifact_ir: request.renderer != StudioRendererKind::WorkspaceSurface,
+            exemplar_discovery_enabled: request.renderer != StudioRendererKind::WorkspaceSurface
+                && (resolved_blueprint.is_some()
+                    || resolved_artifact_ir.is_some()
+                    || !brief.reference_hints.is_empty()),
+        };
+    let derive_resolution = |preparation_needs: &StudioArtifactPreparationNeeds| {
+        StudioArtifactPreparedContextResolution {
+            status: "resolved".to_string(),
+            renderer: request.renderer,
+            require_blueprint: preparation_needs.require_blueprint,
+            require_artifact_ir: preparation_needs.require_artifact_ir,
+            skill_need_count: preparation_needs.skill_needs.len() as u32,
+            selected_skill_count: selected_skills.len() as u32,
+            exemplar_count: retrieved_exemplars.len() as u32,
+            selected_skill_names: selected_skills
+                .iter()
+                .map(|skill| skill.name.clone())
+                .collect(),
+        }
+    };
     if request.renderer == StudioRendererKind::WorkspaceSurface {
+        let preparation_needs = derive_preparation_needs(None, None);
+        let prepared_context_resolution = derive_resolution(&preparation_needs);
+        let skill_discovery_resolution =
+            derive_skill_discovery_resolution(&preparation_needs, &selected_skills, "resolved");
         return StudioArtifactPlanningContext {
             brief: brief.clone(),
             blueprint: None,
             artifact_ir: None,
+            preparation_needs: Some(preparation_needs),
+            prepared_context_resolution: Some(prepared_context_resolution),
+            skill_discovery_resolution: Some(skill_discovery_resolution),
             selected_skills,
-            retrieved_exemplars: Vec::new(),
+            retrieved_exemplars,
         };
     }
 
@@ -163,12 +247,20 @@ pub(super) fn derive_planning_context_for_request(
         blueprint.unwrap_or_else(|| derive_studio_artifact_blueprint(request, brief));
     let resolved_artifact_ir = artifact_ir
         .unwrap_or_else(|| compile_studio_artifact_ir(request, brief, &resolved_blueprint));
+    let preparation_needs =
+        derive_preparation_needs(Some(&resolved_blueprint), Some(&resolved_artifact_ir));
+    let prepared_context_resolution = derive_resolution(&preparation_needs);
+    let skill_discovery_resolution =
+        derive_skill_discovery_resolution(&preparation_needs, &selected_skills, "resolved");
     StudioArtifactPlanningContext {
         brief: brief.clone(),
         blueprint: Some(resolved_blueprint),
         artifact_ir: Some(resolved_artifact_ir),
+        preparation_needs: Some(preparation_needs),
+        prepared_context_resolution: Some(prepared_context_resolution),
+        skill_discovery_resolution: Some(skill_discovery_resolution),
         selected_skills,
-        retrieved_exemplars: Vec::new(),
+        retrieved_exemplars,
     }
 }
 
@@ -281,6 +373,8 @@ pub(super) fn failed_render_evaluation(
             severity: StudioArtifactRenderFindingSeverity::Blocked,
             summary: message.to_string(),
         }],
+        acceptance_obligations: Vec::new(),
+        execution_witnesses: Vec::new(),
         summary: message.to_string(),
     }
 }
@@ -309,6 +403,12 @@ pub(crate) async fn evaluate_candidate_render_with_fallback(
             request.renderer
         ));
         return None;
+    }
+    if render_evaluator.is_none() {
+        return Some(failed_render_evaluation(
+            request,
+            "Render evaluation is required for this artifact, but no render evaluator is configured.",
+        ));
     }
     let timeout = render_eval_timeout_for_runtime(request.renderer, runtime_kind);
     studio_generation_trace(format!(

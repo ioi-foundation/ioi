@@ -813,15 +813,15 @@ pub fn resolve_studio_artifact_runtime_plan(
 
 pub fn render_eval_timeout_for_runtime(
     renderer: StudioRendererKind,
-    runtime_kind: StudioRuntimeProvenanceKind,
+    _runtime_kind: StudioRuntimeProvenanceKind,
 ) -> Option<Duration> {
-    if renderer == StudioRendererKind::HtmlIframe
-        && runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
-    {
-        return Some(Duration::from_secs(20));
+    match renderer {
+        StudioRendererKind::HtmlIframe => Some(Duration::from_secs(60)),
+        StudioRendererKind::Svg | StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed => {
+            Some(Duration::from_secs(30))
+        }
+        _ => None,
     }
-
-    None
 }
 
 pub(crate) fn materialization_repair_pass_limit(

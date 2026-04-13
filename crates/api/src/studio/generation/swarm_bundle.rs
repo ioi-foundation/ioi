@@ -15,6 +15,7 @@ pub(super) async fn generate_studio_artifact_bundle_with_swarm(
     execution_strategy: StudioExecutionStrategy,
     render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
+    activity_observer: Option<StudioArtifactActivityObserver>,
 ) -> Result<StudioArtifactGenerationBundle, StudioArtifactGenerationError> {
     let swarm_started_at = Instant::now();
     let planning_runtime = runtime_plan.planning_runtime.clone();
@@ -252,6 +253,7 @@ pub(super) async fn generate_studio_artifact_bundle_with_swarm(
                 );
                 let seed = candidate_seed_for(title.as_str(), intent.as_str(), execution_index);
                 let worker_live_preview_observer = live_preview_observer.clone();
+                let worker_activity_observer = activity_observer.clone();
                 execution_index += 1;
                 join_set.spawn(async move {
                     execute_studio_swarm_patch_worker(
@@ -271,6 +273,7 @@ pub(super) async fn generate_studio_artifact_bundle_with_swarm(
                         worker_context,
                         seed,
                         worker_live_preview_observer,
+                        worker_activity_observer,
                     )
                     .await
                     .map(|(envelope, receipt)| (work_item.id.clone(), envelope, receipt))
@@ -433,6 +436,7 @@ pub(super) async fn generate_studio_artifact_bundle_with_swarm(
                 StudioArtifactWorkerRole::Skeleton,
                 production_provenance.kind,
             ),
+            activity_observer.clone(),
         )
         .await
         .map_err(|error| build_error(error.message))?;
@@ -506,6 +510,7 @@ pub(super) async fn generate_studio_artifact_bundle_with_swarm(
         execution_strategy,
         render_evaluator,
         progress_observer,
+        activity_observer,
         swarm_started_at,
         acceptance_runtime,
         repair_runtime,

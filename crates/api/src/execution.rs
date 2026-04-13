@@ -812,6 +812,47 @@ pub fn derive_execution_mode_decision(
     }
 }
 
+pub fn committed_execution_mode_decision(
+    outcome_kind: StudioOutcomeKind,
+    artifact: Option<&StudioOutcomeArtifactRequest>,
+    execution_strategy: StudioExecutionStrategy,
+) -> StudioExecutionModeDecision {
+    let mut decision = derive_execution_mode_decision(
+        outcome_kind,
+        artifact,
+        execution_strategy,
+        1.0,
+        false,
+        false,
+    );
+    decision.requested_strategy = execution_strategy;
+    decision.resolved_strategy = execution_strategy;
+    decision.mode_confidence = 1.0;
+    decision.work_graph_required = matches!(
+        execution_strategy,
+        StudioExecutionStrategy::MicroSwarm | StudioExecutionStrategy::AdaptiveWorkGraph
+    );
+    decision.decomposition_reason = match execution_strategy {
+        StudioExecutionStrategy::SinglePass => {
+            "Studio committed to a single bounded execution pass for this outcome.".to_string()
+        }
+        StudioExecutionStrategy::DirectAuthor => {
+            "Studio committed to direct authoring for this outcome.".to_string()
+        }
+        StudioExecutionStrategy::PlanExecute => {
+            "Studio committed to a staged plan-and-execute pass for this outcome.".to_string()
+        }
+        StudioExecutionStrategy::MicroSwarm => {
+            "Studio committed to a bounded micro-swarm for this outcome.".to_string()
+        }
+        StudioExecutionStrategy::AdaptiveWorkGraph => {
+            "Studio committed to an adaptive work graph for this outcome.".to_string()
+        }
+    };
+    decision.budget_envelope = execution_budget_envelope_for_strategy(execution_strategy);
+    decision
+}
+
 pub fn annotate_execution_envelope(
     envelope: &mut Option<ExecutionEnvelope>,
     mode_decision: Option<StudioExecutionModeDecision>,

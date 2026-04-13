@@ -24,6 +24,7 @@ function formatStatusLabel(value: string | null | undefined): string {
 export function formatStudioExecutionPreviewPhase(
   preview:
     | {
+        kind?: string | null;
         status?: string | null;
         isFinal?: boolean | null;
       }
@@ -34,6 +35,17 @@ export function formatStudioExecutionPreviewPhase(
   const normalized = String(preview?.status || "").trim().toLowerCase();
   if (!preview) {
     return "";
+  }
+  if ((preview.kind || "").trim().toLowerCase() === "token_stream") {
+    if (normalized === "completed") {
+      return "Completed stream";
+    }
+    if (normalized === "interrupted") {
+      return "Interrupted stream";
+    }
+    if (normalized === "recovered") {
+      return "Recovered stream";
+    }
   }
   if (normalized === "completed") {
     return preview.isFinal ? `${status} final` : status;
@@ -76,6 +88,12 @@ function latestSortedLivePreviews(executionEnvelope?: ExecutionEnvelope | null) 
     );
 }
 
+function latestCanonicalExecutionPreview(executionEnvelope?: ExecutionEnvelope | null) {
+  return latestSortedLivePreviews(executionEnvelope)
+    .filter((preview) => preview.kind === "change_preview")
+    .at(-1);
+}
+
 export function resolveStudioExecutionStreamPreview({
   executionEnvelope,
   workerReceipts = [],
@@ -85,9 +103,17 @@ export function resolveStudioExecutionStreamPreview({
   workerReceipts?: SwarmWorkerReceipt[] | null;
   changeReceipts?: SwarmChangeReceipt[] | null;
 }): StudioExecutionPreview {
+  const latestCanonicalPreview = latestCanonicalExecutionPreview(executionEnvelope);
   const latestLivePreview = latestSortedLivePreviews(executionEnvelope)
     .filter((preview) => preview.kind !== "change_preview")
     .at(-1);
+  if (
+    latestCanonicalPreview &&
+    latestLivePreview?.kind === "token_stream" &&
+    latestLivePreview.isFinal
+  ) {
+    return null;
+  }
   const latestWorkerPreview = [...(workerReceipts ?? [])]
     .reverse()
     .find(
@@ -142,9 +168,7 @@ export function resolveStudioExecutionCodePreview({
   workerReceipts?: SwarmWorkerReceipt[] | null;
   changeReceipts?: SwarmChangeReceipt[] | null;
 }): StudioExecutionPreview {
-  const latestCanonicalPreview = latestSortedLivePreviews(executionEnvelope)
-    .filter((preview) => preview.kind === "change_preview")
-    .at(-1);
+  const latestCanonicalPreview = latestCanonicalExecutionPreview(executionEnvelope);
   const latestChangePreview = [...(changeReceipts ?? [])]
     .reverse()
     .find(

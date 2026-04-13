@@ -601,6 +601,11 @@ pub(super) fn apply_revision_to_studio_session(
     studio_session.materialization.summary =
         materialization_summary_for_revision(studio_session, revision);
     studio_session.materialization.ux_lifecycle = Some(revision.ux_lifecycle);
+    studio_session.materialization.preparation_needs = revision.preparation_needs.clone();
+    studio_session.materialization.prepared_context_resolution =
+        revision.prepared_context_resolution.clone();
+    studio_session.materialization.skill_discovery_resolution =
+        revision.skill_discovery_resolution.clone();
     studio_session.materialization.selected_skills = revision.selected_skills.clone();
     studio_session.materialization.retrieved_exemplars = revision.retrieved_exemplars.clone();
     studio_session.verified_reply =
@@ -913,6 +918,15 @@ fn build_revision_from_session(
             .unwrap_or(StudioArtifactUxLifecycle::Judged),
         artifact_manifest: studio_session.artifact_manifest.clone(),
         artifact_brief: studio_session.materialization.artifact_brief.clone(),
+        preparation_needs: studio_session.materialization.preparation_needs.clone(),
+        prepared_context_resolution: studio_session
+            .materialization
+            .prepared_context_resolution
+            .clone(),
+        skill_discovery_resolution: studio_session
+            .materialization
+            .skill_discovery_resolution
+            .clone(),
         blueprint: studio_session.materialization.blueprint.clone(),
         artifact_ir: studio_session.materialization.artifact_ir.clone(),
         selected_skills: studio_session.materialization.selected_skills.clone(),

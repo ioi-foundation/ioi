@@ -6,9 +6,13 @@ use crate::kernel::state::connect_public_api;
 use crate::models::AppState;
 use ioi_api::studio::{
     build_studio_artifact_exemplar_query, compile_studio_artifact_ir,
-    derive_studio_artifact_blueprint, plan_studio_artifact_brief_with_runtime,
-    StudioArtifactBlueprint, StudioArtifactExemplar, StudioArtifactIR,
-    StudioArtifactPlanningContext, StudioArtifactSelectedSkill, StudioArtifactSkillNeed,
+    derive_request_grounded_studio_artifact_brief, derive_studio_artifact_blueprint,
+    derive_studio_artifact_prepared_context,
+    synthesize_studio_artifact_brief_for_execution_strategy_with_runtime, StudioArtifactBlueprint,
+    StudioArtifactExemplar, StudioArtifactGenerationProgress,
+    StudioArtifactGenerationProgressObserver, StudioArtifactIR, StudioArtifactPlanningContext,
+    StudioArtifactPreparationNeeds, StudioArtifactRuntimeNarrationEvent,
+    StudioArtifactSelectedSkill, StudioArtifactSkillDiscoveryResolution, StudioArtifactSkillNeed,
     StudioArtifactSkillNeedKind, StudioArtifactSkillNeedPriority, StudioArtifactTasteMemory,
 };
 use ioi_ipc::blockchain::QueryRawStateRequest;
@@ -22,6 +26,7 @@ use ioi_services::agentic::skill_registry::{
     skill_is_runtime_eligible, skill_reliability_score, SKILL_ARCHIVAL_SCOPE,
 };
 use ioi_types::app::agentic::{PublishedSkillDoc, SkillRecord, SkillStats};
+use ioi_types::app::StudioExecutionStrategy;
 use ioi_types::codec;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -227,6 +232,158 @@ fn build_skill_need_query(
     )
 }
 
+fn emit_planning_context_progress(
+    observer: Option<&StudioArtifactGenerationProgressObserver>,
+    current_step: impl Into<String>,
+    planning_context: &StudioArtifactPlanningContext,
+    runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
+) {
+    let Some(observer) = observer else {
+        return;
+    };
+
+    observer(StudioArtifactGenerationProgress {
+        current_step: current_step.into(),
+        artifact_brief: Some(planning_context.brief.clone()),
+        preparation_needs: planning_context.preparation_needs.clone(),
+        prepared_context_resolution: planning_context.prepared_context_resolution.clone(),
+        skill_discovery_resolution: planning_context.skill_discovery_resolution.clone(),
+        blueprint: planning_context.blueprint.clone(),
+        artifact_ir: planning_context.artifact_ir.clone(),
+        selected_skills: planning_context.selected_skills.clone(),
+        retrieved_exemplars: planning_context.retrieved_exemplars.clone(),
+        execution_envelope: None,
+        swarm_plan: None,
+        swarm_execution: None,
+        swarm_worker_receipts: Vec::new(),
+        swarm_change_receipts: Vec::new(),
+        swarm_merge_receipts: Vec::new(),
+        swarm_verification_receipts: Vec::new(),
+        render_evaluation: None,
+        judge: None,
+        runtime_narration_events,
+    });
+}
+
+fn emit_skill_discovery_progress(
+    observer: Option<&StudioArtifactGenerationProgressObserver>,
+    current_step: impl Into<String>,
+    preparation_needs: Option<StudioArtifactPreparationNeeds>,
+    skill_discovery_resolution: Option<StudioArtifactSkillDiscoveryResolution>,
+    selected_skills: Vec<StudioArtifactSelectedSkill>,
+    runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
+) {
+    let Some(observer) = observer else {
+        return;
+    };
+
+    observer(StudioArtifactGenerationProgress {
+        current_step: current_step.into(),
+        artifact_brief: None,
+        preparation_needs,
+        prepared_context_resolution: None,
+        skill_discovery_resolution,
+        blueprint: None,
+        artifact_ir: None,
+        selected_skills,
+        retrieved_exemplars: Vec::new(),
+        execution_envelope: None,
+        swarm_plan: None,
+        swarm_execution: None,
+        swarm_worker_receipts: Vec::new(),
+        swarm_change_receipts: Vec::new(),
+        swarm_merge_receipts: Vec::new(),
+        swarm_verification_receipts: Vec::new(),
+        render_evaluation: None,
+        judge: None,
+        runtime_narration_events,
+    });
+}
+
+fn skill_discovery_active_event() -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "skill_discovery",
+        "skill_discovery",
+        "Check for guidance",
+        "Studio is checking whether published runtime guidance should be attached before authoring.",
+        "active",
+    )
+}
+
+fn skill_discovery_complete_event(
+    resolution: &StudioArtifactSkillDiscoveryResolution,
+) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "skill_discovery",
+        "skill_discovery",
+        "Check for guidance",
+        resolution.rationale.clone(),
+        if resolution.status.eq_ignore_ascii_case("blocked") {
+            "blocked"
+        } else if resolution.status.eq_ignore_ascii_case("failed") {
+            "failed"
+        } else {
+            "complete"
+        },
+    )
+}
+
+fn skill_read_complete_event(
+    selected_skills: &[StudioArtifactSelectedSkill],
+) -> Option<StudioArtifactRuntimeNarrationEvent> {
+    if selected_skills.is_empty() {
+        return None;
+    }
+
+    let detail = if selected_skills.len() == 1 {
+        format!(
+            "Studio read {} before authoring the artifact.",
+            selected_skills[0].name
+        )
+    } else {
+        format!(
+            "Studio read {} skill guides before authoring the artifact.",
+            selected_skills.len()
+        )
+    };
+    Some(StudioArtifactRuntimeNarrationEvent::new(
+        "skill_read",
+        "skill_read",
+        if selected_skills.len() == 1 {
+            format!("Read {}", selected_skills[0].name)
+        } else {
+            "Read guidance".to_string()
+        },
+        detail,
+        "complete",
+    ))
+}
+
+fn artifact_brief_active_event() -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "artifact_brief",
+        "artifact_brief",
+        "Shape artifact brief",
+        "Studio is shaping the artifact brief that will guide authoring.",
+        "active",
+    )
+}
+
+fn artifact_brief_complete_event(
+    planning_context: &StudioArtifactPlanningContext,
+) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "artifact_brief",
+        "artifact_brief",
+        "Shape artifact brief",
+        format!(
+            "Studio prepared a typed artifact brief for {}.",
+            planning_context.brief.subject_domain
+        ),
+        "complete",
+    )
+}
+
 pub(super) fn prepare_studio_artifact_planning_context(
     app: &AppHandle,
     memory_runtime: &Arc<MemoryRuntime>,
@@ -235,23 +392,141 @@ pub(super) fn prepare_studio_artifact_planning_context(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
-) -> Option<StudioArtifactPlanningContext> {
+    execution_strategy: StudioExecutionStrategy,
+    progress_observer: Option<StudioArtifactGenerationProgressObserver>,
+) -> Result<StudioArtifactPlanningContext, String> {
     if request.renderer == StudioRendererKind::WorkspaceSurface {
-        return None;
+        return Err(
+            "Prepared artifact context is unavailable for workspace-surface requests.".to_string(),
+        );
     }
 
     let planning_timeout = Duration::from_secs(30).min(
         super::studio_generation_timeout_for_runtime(&inference_runtime),
     );
+    let discovery_brief =
+        derive_request_grounded_studio_artifact_brief(title, intent, request, refinement);
+    let discovery_blueprint = derive_studio_artifact_blueprint(request, &discovery_brief);
+    let discovery_artifact_ir =
+        compile_studio_artifact_ir(request, &discovery_brief, &discovery_blueprint);
+    let discovery_context = derive_studio_artifact_prepared_context(
+        request,
+        &discovery_brief,
+        Some(discovery_blueprint.clone()),
+        Some(discovery_artifact_ir.clone()),
+        Vec::new(),
+        Vec::new(),
+    );
+    let pending_skill_discovery_resolution =
+        discovery_context
+            .preparation_needs
+            .as_ref()
+            .map(|preparation_needs| StudioArtifactSkillDiscoveryResolution {
+                status: "active".to_string(),
+                guidance_evaluated: false,
+                guidance_recommended: !preparation_needs.skill_needs.is_empty(),
+                guidance_found: false,
+                guidance_attached: false,
+                skill_need_count: preparation_needs.skill_needs.len() as u32,
+                selected_skill_count: 0,
+                selected_skill_names: Vec::new(),
+                search_scope: "published_runtime_skills".to_string(),
+                rationale:
+                    "Studio is checking the published runtime guidance corpus before authoring."
+                        .to_string(),
+                failure_reason: None,
+            });
+    emit_skill_discovery_progress(
+        progress_observer.as_ref(),
+        "Deciding whether to read skill guidance before authoring.",
+        discovery_context.preparation_needs.clone(),
+        pending_skill_discovery_resolution,
+        Vec::new(),
+        vec![skill_discovery_active_event()],
+    );
+    let discovery_timeout = planning_context_discovery_timeout(planning_timeout);
+    let selected_skills = match tauri::async_runtime::block_on(async {
+        tokio::time::timeout(
+            discovery_timeout,
+            resolve_selected_skills(
+                app,
+                memory_runtime,
+                inference_runtime.clone(),
+                &discovery_brief,
+                &discovery_blueprint,
+                &discovery_artifact_ir,
+            ),
+        )
+        .await
+    }) {
+        Ok(Ok(skills)) => skills,
+        Ok(Err(error)) => {
+            studio_skill_trace(format!("planning_context:skill_error {}", error));
+            Vec::new()
+        }
+        Err(_) => {
+            studio_skill_trace("planning_context:skill_timeout");
+            Vec::new()
+        }
+    };
+    let skill_discovery_context = derive_studio_artifact_prepared_context(
+        request,
+        &discovery_brief,
+        Some(discovery_blueprint),
+        Some(discovery_artifact_ir),
+        selected_skills.clone(),
+        Vec::new(),
+    );
+    let skill_discovery_step = if selected_skills.is_empty() {
+        "Skill discovery is complete. No extra skill guide was needed before authoring.".to_string()
+    } else if selected_skills.len() == 1 {
+        format!(
+            "Skill discovery is complete. Read {} before authoring.",
+            selected_skills[0].name
+        )
+    } else {
+        format!(
+            "Skill discovery is complete. Read {} selected skill guides before authoring.",
+            selected_skills.len()
+        )
+    };
+    emit_skill_discovery_progress(
+        progress_observer.as_ref(),
+        skill_discovery_step,
+        skill_discovery_context.preparation_needs.clone(),
+        skill_discovery_context.skill_discovery_resolution.clone(),
+        selected_skills.clone(),
+        {
+            let mut events = skill_discovery_context
+                .skill_discovery_resolution
+                .as_ref()
+                .map(skill_discovery_complete_event)
+                .into_iter()
+                .collect::<Vec<_>>();
+            if let Some(skill_read_event) = skill_read_complete_event(&selected_skills) {
+                events.push(skill_read_event);
+            }
+            events
+        },
+    );
+    emit_skill_discovery_progress(
+        progress_observer.as_ref(),
+        "Preparing the artifact brief before authoring.",
+        skill_discovery_context.preparation_needs.clone(),
+        skill_discovery_context.skill_discovery_resolution.clone(),
+        selected_skills.clone(),
+        vec![artifact_brief_active_event()],
+    );
     let brief = match tauri::async_runtime::block_on(async {
         tokio::time::timeout(
             planning_timeout,
-            plan_studio_artifact_brief_with_runtime(
+            synthesize_studio_artifact_brief_for_execution_strategy_with_runtime(
                 inference_runtime.clone(),
                 title,
                 intent,
                 request,
                 refinement,
+                execution_strategy,
             ),
         )
         .await
@@ -259,16 +534,21 @@ pub(super) fn prepare_studio_artifact_planning_context(
         Ok(Ok(brief)) => brief,
         Ok(Err(error)) => {
             studio_skill_trace(format!("planning_context:brief_error {}", error));
-            return None;
+            return Err(format!(
+                "Prepared artifact context failed during brief synthesis: {}",
+                error
+            ));
         }
         Err(_) => {
             studio_skill_trace("planning_context:brief_timeout");
-            return None;
+            return Err(
+                "Prepared artifact context timed out while synthesizing the artifact brief."
+                    .to_string(),
+            );
         }
     };
     let blueprint = derive_studio_artifact_blueprint(request, &brief);
     let artifact_ir = compile_studio_artifact_ir(request, &brief, &blueprint);
-    let discovery_timeout = planning_context_discovery_timeout(planning_timeout);
     let retrieved_exemplars = match tauri::async_runtime::block_on(async {
         tokio::time::timeout(
             discovery_timeout,
@@ -293,38 +573,22 @@ pub(super) fn prepare_studio_artifact_planning_context(
             Vec::new()
         }
     };
-    let selected_skills = match tauri::async_runtime::block_on(async {
-        tokio::time::timeout(
-            discovery_timeout,
-            resolve_selected_skills(
-                app,
-                memory_runtime,
-                inference_runtime,
-                &brief,
-                &blueprint,
-                &artifact_ir,
-            ),
-        )
-        .await
-    }) {
-        Ok(Ok(skills)) => skills,
-        Ok(Err(error)) => {
-            studio_skill_trace(format!("planning_context:skill_error {}", error));
-            Vec::new()
-        }
-        Err(_) => {
-            studio_skill_trace("planning_context:skill_timeout");
-            Vec::new()
-        }
-    };
-
-    Some(StudioArtifactPlanningContext {
-        brief,
-        blueprint: Some(blueprint),
-        artifact_ir: Some(artifact_ir),
+    let planning_context = derive_studio_artifact_prepared_context(
+        request,
+        &brief,
+        Some(blueprint),
+        Some(artifact_ir),
         selected_skills,
         retrieved_exemplars,
-    })
+    );
+    emit_planning_context_progress(
+        progress_observer.as_ref(),
+        "Prepared the artifact brief. Authoring can begin.",
+        &planning_context,
+        vec![artifact_brief_complete_event(&planning_context)],
+    );
+
+    Ok(planning_context)
 }
 
 async fn resolve_selected_skills(

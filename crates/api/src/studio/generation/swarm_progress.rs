@@ -56,6 +56,14 @@ pub(super) fn emit_studio_swarm_generation_progress(
 
     observer(StudioArtifactGenerationProgress {
         current_step: current_step.into(),
+        artifact_brief: None,
+        preparation_needs: None,
+        prepared_context_resolution: None,
+        skill_discovery_resolution: None,
+        blueprint: None,
+        artifact_ir: None,
+        selected_skills: Vec::new(),
+        retrieved_exemplars: Vec::new(),
         execution_envelope,
         swarm_plan: Some(swarm_plan.clone()),
         swarm_execution: Some(swarm_execution),
@@ -65,6 +73,7 @@ pub(super) fn emit_studio_swarm_generation_progress(
         swarm_verification_receipts: verification_receipts.to_vec(),
         render_evaluation: render_evaluation.cloned(),
         judge: judge.cloned(),
+        runtime_narration_events: Vec::new(),
     });
 }
 

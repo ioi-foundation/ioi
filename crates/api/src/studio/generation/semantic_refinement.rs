@@ -34,6 +34,7 @@ pub(super) async fn attempt_semantic_refinement_for_candidate(
     refined_candidate_roots: &mut std::collections::HashSet<String>,
     mut best_acceptance_index: Option<usize>,
     mut best_acceptance_score: i32,
+    activity_observer: Option<StudioArtifactActivityObserver>,
 ) -> Result<SemanticRefinementProgress, StudioArtifactGenerationError> {
     let budget = semantic_convergence_budget(adaptive_search_budget);
     let mut refinement_source_index = source_index;
@@ -111,10 +112,12 @@ pub(super) async fn attempt_semantic_refinement_for_candidate(
             edit_intent,
             refinement,
             &source_payload,
+            source_summary.render_evaluation.as_ref(),
             &source_summary.judge,
             &refined_candidate_id,
             source_summary.seed,
             refinement_temperature_for_pass(pass_kind),
+            activity_observer.clone(),
         )
         .await
         {
@@ -142,7 +145,7 @@ pub(super) async fn attempt_semantic_refinement_for_candidate(
             "artifact_generation:refine_acceptance:start id={}",
             refined_candidate_id
         ));
-        let refined_render_evaluation = evaluate_candidate_render_with_fallback(
+        let refined_render_eval_future = evaluate_candidate_render_with_fallback(
             render_evaluator,
             request,
             brief,
@@ -151,16 +154,34 @@ pub(super) async fn attempt_semantic_refinement_for_candidate(
             edit_intent,
             &refined_payload,
             repair_provenance.kind,
+        );
+        let refined_render_evaluation = if render_eval_timeout_for_runtime(
+            request.renderer,
+            repair_provenance.kind,
         )
-        .await;
-        let refined_acceptance_judge = judge_candidate_with_runtime_and_render_eval(
-            acceptance_runtime.clone(),
-            refined_render_evaluation.as_ref(),
-            title,
-            request,
-            brief,
-            edit_intent,
-            &refined_payload,
+        .is_some()
+        {
+            await_with_activity_heartbeat(
+                refined_render_eval_future,
+                activity_observer.clone(),
+                Duration::from_millis(125),
+            )
+            .await
+        } else {
+            refined_render_eval_future.await
+        };
+        let refined_acceptance_judge = await_with_activity_heartbeat(
+            judge_candidate_with_runtime_and_render_eval(
+                acceptance_runtime.clone(),
+                refined_render_evaluation.as_ref(),
+                title,
+                request,
+                brief,
+                edit_intent,
+                &refined_payload,
+            ),
+            activity_observer.clone(),
+            Duration::from_millis(125),
         )
         .await
         .map_err(|message| StudioArtifactGenerationError {

@@ -1,7 +1,9 @@
 use crate::browser::{BrowserDriver, BrowserError};
 use async_trait::async_trait;
 use ioi_api::studio::{
-    StudioArtifactBlueprint, StudioArtifactBrief, StudioArtifactEditIntent, StudioArtifactIR,
+    StudioArtifactAcceptanceObligation, StudioArtifactAcceptanceObligationStatus,
+    StudioArtifactBlueprint, StudioArtifactBrief, StudioArtifactEditIntent,
+    StudioArtifactExecutionWitness, StudioArtifactExecutionWitnessStatus, StudioArtifactIR,
     StudioArtifactRenderCapture, StudioArtifactRenderCaptureViewport,
     StudioArtifactRenderEvaluation, StudioArtifactRenderEvaluator, StudioArtifactRenderFinding,
     StudioArtifactRenderFindingSeverity, StudioGeneratedArtifactFile,
@@ -10,6 +12,7 @@ use ioi_api::studio::{
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_types::app::{StudioOutcomeArtifactRequest, StudioRendererKind};
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -56,6 +59,10 @@ struct DomCaptureMetrics {
     dominant_left_alignment_ratio: f64,
     gap_consistency: f64,
     overlap_count: usize,
+    #[serde(default)]
+    primary_action_selector: Option<String>,
+    #[serde(default)]
+    detail_copy: Option<String>,
 }
 
 #[derive(Debug)]
@@ -69,6 +76,47 @@ struct ViewportCapture {
     capture: StudioArtifactRenderCapture,
     dom: DomCaptureMetrics,
     analysis: ScreenshotAnalysis,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeWitnessState {
+    #[serde(default)]
+    errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ActionableControl {
+    selector: String,
+    label: String,
+    action_kind: String,
+    #[serde(default)]
+    active: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct InteractionStateSnapshot {
+    signature: String,
+    #[serde(default)]
+    detail_copy: Option<String>,
+    #[serde(default)]
+    visible_text_sample: String,
+    #[serde(default)]
+    visible_panel_count: usize,
+    #[serde(default)]
+    active_state_count: usize,
+}
+
+#[derive(Debug, Clone)]
+struct WitnessProbeResult {
+    action: ActionableControl,
+    status: StudioArtifactExecutionWitnessStatus,
+    summary: String,
+    detail: Option<String>,
+    console_errors: Vec<String>,
+    state_changed: bool,
 }
 
 impl BrowserStudioArtifactRenderEvaluator {
@@ -119,34 +167,153 @@ impl BrowserStudioArtifactRenderEvaluator {
         })
     }
 
-    async fn maybe_capture_interaction(
-        &self,
-        interaction_expected: bool,
-        previous_sha: Option<&str>,
-    ) -> Result<Option<ViewportCapture>, String> {
-        if !interaction_expected {
-            return Ok(None);
-        }
-        let selector = self
-            .browser
-            .evaluate_js::<Option<String>>(render_primary_action_script())
-            .await
-            .map_err(browser_error_to_string)?;
-        let Some(selector) = selector else {
-            return Ok(None);
-        };
+    async fn install_runtime_witness_collector(&self) -> Result<(), String> {
         self.browser
-            .click_selector(&selector)
+            .evaluate_js::<bool>(render_runtime_witness_collector_install_script())
             .await
             .map_err(browser_error_to_string)?;
-        self.capture_viewport(
-            StudioArtifactRenderCaptureViewport::Interaction,
-            DESKTOP_VIEWPORT.0,
-            DESKTOP_VIEWPORT.1,
-            previous_sha,
-        )
-        .await
-        .map(Some)
+        Ok(())
+    }
+
+    async fn runtime_witness_state(&self) -> Result<RuntimeWitnessState, String> {
+        self.browser
+            .evaluate_js::<RuntimeWitnessState>(render_runtime_witness_state_script())
+            .await
+            .map_err(browser_error_to_string)
+    }
+
+    async fn clear_runtime_witness_errors(&self) -> Result<(), String> {
+        self.browser
+            .evaluate_js::<bool>(render_runtime_witness_clear_script())
+            .await
+            .map_err(browser_error_to_string)?;
+        Ok(())
+    }
+
+    async fn capture_interaction_state(&self) -> Result<InteractionStateSnapshot, String> {
+        self.browser
+            .evaluate_js::<InteractionStateSnapshot>(render_interaction_state_snapshot_script())
+            .await
+            .map_err(browser_error_to_string)
+    }
+
+    async fn discover_actionable_controls(&self) -> Result<Vec<ActionableControl>, String> {
+        self.browser
+            .evaluate_js::<Vec<ActionableControl>>(render_actionable_controls_script())
+            .await
+            .map_err(browser_error_to_string)
+    }
+
+    async fn perform_action_probe(&self, action: &ActionableControl) -> WitnessProbeResult {
+        let before = self.capture_interaction_state().await.ok();
+        let _ = self.clear_runtime_witness_errors().await;
+
+        let action_result = match action.action_kind.as_str() {
+            "click" => self
+                .browser
+                .click_selector(&action.selector)
+                .await
+                .map_err(browser_error_to_string),
+            kind => self
+                .browser
+                .evaluate_js::<bool>(&render_action_execution_script(&action.selector, kind))
+                .await
+                .map(|_| ())
+                .map_err(browser_error_to_string),
+        };
+
+        tokio::time::sleep(Duration::from_millis(CAPTURE_SETTLE_MS)).await;
+        let after = self.capture_interaction_state().await.ok();
+        let runtime_state = self.runtime_witness_state().await.ok();
+        let console_errors = runtime_state.map(|state| state.errors).unwrap_or_default();
+        let state_changed = before
+            .as_ref()
+            .zip(after.as_ref())
+            .is_some_and(|(left, right)| left.signature != right.signature);
+
+        let (status, summary, detail) = match action_result {
+            Err(error) => (
+                StudioArtifactExecutionWitnessStatus::Blocked,
+                format!("Studio could not exercise '{}'.", action.label),
+                Some(error),
+            ),
+            Ok(()) if !console_errors.is_empty() => (
+                StudioArtifactExecutionWitnessStatus::Failed,
+                format!("'{}' triggered a runtime error.", action.label),
+                Some(console_errors.join(" | ")),
+            ),
+            Ok(()) if state_changed => (
+                StudioArtifactExecutionWitnessStatus::Passed,
+                format!("'{}' changed visible artifact state.", action.label),
+                after
+                    .as_ref()
+                    .and_then(|snapshot| snapshot.detail_copy.clone())
+                    .or_else(|| {
+                        after.as_ref().map(|snapshot| {
+                            snapshot.visible_text_sample.chars().take(220).collect()
+                        })
+                    }),
+            ),
+            Ok(()) => {
+                let detail = after.as_ref().map(|snapshot| {
+                    format!(
+                        "No visible state delta was observed after exercising '{}'. panels={} activeStates={} text='{}'",
+                        action.label,
+                        snapshot.visible_panel_count,
+                        snapshot.active_state_count,
+                        snapshot.visible_text_sample.chars().take(180).collect::<String>(),
+                    )
+                });
+                (
+                    StudioArtifactExecutionWitnessStatus::Failed,
+                    format!("'{}' did not change visible artifact state.", action.label),
+                    detail,
+                )
+            }
+        };
+
+        WitnessProbeResult {
+            action: action.clone(),
+            status,
+            summary,
+            detail,
+            console_errors,
+            state_changed,
+        }
+    }
+
+    async fn probe_interactions(
+        &self,
+        should_probe: bool,
+        previous_sha: Option<&str>,
+    ) -> Result<(Vec<WitnessProbeResult>, Option<ViewportCapture>), String> {
+        if !should_probe {
+            return Ok((Vec::new(), None));
+        }
+        let discovered = self.discover_actionable_controls().await?;
+        let actionable = select_actionable_controls_for_probe(&discovered);
+        let mut witnesses = Vec::new();
+        let mut interaction_capture = None;
+
+        for action in actionable {
+            let witness = self.perform_action_probe(&action).await;
+            if interaction_capture.is_none()
+                && witness.status == StudioArtifactExecutionWitnessStatus::Passed
+            {
+                interaction_capture = self
+                    .capture_viewport(
+                        StudioArtifactRenderCaptureViewport::Interaction,
+                        DESKTOP_VIEWPORT.0,
+                        DESKTOP_VIEWPORT.1,
+                        previous_sha,
+                    )
+                    .await
+                    .ok();
+            }
+            witnesses.push(witness);
+        }
+
+        Ok((witnesses, interaction_capture))
     }
 }
 
@@ -202,6 +369,7 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
             "artifact_generation:render_eval:navigate:ok elapsed_ms={}",
             started_at.elapsed().as_millis()
         ));
+        self.install_runtime_witness_collector().await?;
 
         studio_render_trace(format!(
             "artifact_generation:render_eval:desktop:start elapsed_ms={}",
@@ -244,20 +412,28 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
             || artifact_ir
                 .map(|value| !value.interaction_graph.is_empty())
                 .unwrap_or(false);
+        let should_probe_interactions = request.renderer == StudioRendererKind::HtmlIframe
+            && (request.artifact_class
+                == ioi_types::app::StudioArtifactClass::InteractiveSingleFile
+                || interaction_expected
+                || desktop.capture.interactive_element_count > 0);
+        let boot_errors = self.runtime_witness_state().await?.errors;
         studio_render_trace(format!(
-            "artifact_generation:render_eval:interaction:start expected={} elapsed_ms={}",
+            "artifact_generation:render_eval:interaction:start expected={} probe={} elapsed_ms={}",
             interaction_expected,
+            should_probe_interactions,
             started_at.elapsed().as_millis()
         ));
-        let interaction = self
-            .maybe_capture_interaction(
-                interaction_expected,
+        let (interaction_witnesses, interaction) = self
+            .probe_interactions(
+                should_probe_interactions,
                 Some(&desktop.capture.screenshot_sha256),
             )
             .await?;
         studio_render_trace(format!(
-            "artifact_generation:render_eval:interaction:ok captured={} elapsed_ms={}",
+            "artifact_generation:render_eval:interaction:ok captured={} witnesses={} elapsed_ms={}",
             interaction.is_some(),
+            interaction_witnesses.len(),
             started_at.elapsed().as_millis()
         ));
 
@@ -270,6 +446,8 @@ impl StudioArtifactRenderEvaluator for BrowserStudioArtifactRenderEvaluator {
             &mobile,
             interaction.as_ref(),
             interaction_expected,
+            &boot_errors,
+            &interaction_witnesses,
         );
         studio_render_trace(format!(
             "artifact_generation:render_eval:scored overall={} elapsed_ms={}",
@@ -696,11 +874,497 @@ fn render_dom_metrics_script() -> &'static str {
 })()"#
 }
 
-fn render_primary_action_script() -> &'static str {
+fn render_runtime_witness_collector_install_script() -> &'static str {
     r#"(() => {
-  const el = document.querySelector("[data-studio-render-primary-action='true']");
-  return el ? "[data-studio-render-primary-action='true']" : null;
+  const root = window.__studioRenderWitness || { errors: [], installed: false };
+  if (!Array.isArray(root.errors)) {
+    root.errors = [];
+  }
+  if (!root.installed) {
+    window.addEventListener("error", (event) => {
+      const detail = event && event.error && event.error.stack
+        ? String(event.error.stack)
+        : [event?.message, event?.filename, event?.lineno].filter(Boolean).join(" @ ");
+      root.errors.push(detail || "window.error");
+      root.errors = root.errors.slice(-12);
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      const reason = event && event.reason
+        ? (event.reason.stack || event.reason.message || String(event.reason))
+        : "unhandledrejection";
+      root.errors.push(String(reason));
+      root.errors = root.errors.slice(-12);
+    });
+    root.installed = true;
+  }
+  window.__studioRenderWitness = root;
+  return true;
 })()"#
+}
+
+fn render_runtime_witness_state_script() -> &'static str {
+    r#"(() => {
+  const root = window.__studioRenderWitness || { errors: [] };
+  return { errors: Array.isArray(root.errors) ? root.errors.slice(-12) : [] };
+})()"#
+}
+
+fn render_runtime_witness_clear_script() -> &'static str {
+    r#"(() => {
+  const root = window.__studioRenderWitness || { errors: [], installed: true };
+  root.errors = [];
+  window.__studioRenderWitness = root;
+  return true;
+})()"#
+}
+
+fn render_interaction_state_snapshot_script() -> &'static str {
+    r##"(() => {
+  const visible = (el) => {
+    if (!el || typeof el.getBoundingClientRect !== "function") return false;
+    const rect = el.getBoundingClientRect();
+    if (!(rect.width > 0 && rect.height > 0)) return false;
+    const style = window.getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || "1") <= 0.02) return false;
+    return true;
+  };
+  const text = (node) => String(node?.innerText || "").replace(/\s+/g, " ").trim();
+  const detailTarget = Array.from(document.querySelectorAll("#detail-copy, [data-studio-shared-detail='true'], [aria-live], aside, [data-detail-copy]"))
+    .find((el) => visible(el) && text(el).length > 0);
+  const visiblePanels = Array.from(document.querySelectorAll("[data-view-panel], [role='tabpanel'], [data-panel], section, article, aside"))
+    .filter(visible)
+    .slice(0, 12)
+    .map((el) => el.getAttribute("data-view-panel") || el.getAttribute("data-panel") || el.id || text(el).slice(0, 48));
+  const activeStates = Array.from(document.querySelectorAll("[aria-selected='true'], [aria-expanded='true'], [data-active='true'], .active, details[open]"))
+    .filter(visible)
+    .slice(0, 12)
+    .map((el) => el.id || el.getAttribute("data-view") || el.getAttribute("data-target") || text(el).slice(0, 32));
+  const visibleTextSample = text(document.querySelector("main") || document.body).slice(0, 360);
+  const signature = JSON.stringify({
+    visiblePanels,
+    activeStates,
+    detailCopy: detailTarget ? text(detailTarget).slice(0, 200) : null,
+    visibleTextSample,
+  });
+  return {
+    signature,
+    detailCopy: detailTarget ? text(detailTarget).slice(0, 200) : null,
+    visibleTextSample,
+    visiblePanelCount: visiblePanels.length,
+    activeStateCount: activeStates.length,
+  };
+})()"##
+}
+
+fn render_actionable_controls_script() -> &'static str {
+    r##"(() => {
+  const visible = (el) => {
+    if (!el || typeof el.getBoundingClientRect !== "function") return false;
+    const rect = el.getBoundingClientRect();
+    if (!(rect.width > 0 && rect.height > 0)) return false;
+    const style = window.getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || "1") <= 0.02) return false;
+    if (el.matches("[disabled],[aria-disabled='true']")) return false;
+    return true;
+  };
+  const text = (value) => String(value || "").replace(/\s+/g, " ").trim();
+  const makeSelector = (el) => {
+    if (!el) return null;
+    if (el.id) return `#${CSS.escape(el.id)}`;
+    if (el.hasAttribute("data-view")) return `[data-view="${CSS.escape(el.getAttribute("data-view"))}"]`;
+    if (el.hasAttribute("data-target")) return `[data-target="${CSS.escape(el.getAttribute("data-target"))}"]`;
+    if (el.hasAttribute("aria-controls")) return `[aria-controls="${CSS.escape(el.getAttribute("aria-controls"))}"]`;
+    if (el.hasAttribute("name")) return `${el.tagName.toLowerCase()}[name="${CSS.escape(el.getAttribute("name"))}"]`;
+    const label = text(el.getAttribute("aria-label") || el.innerText || el.value).slice(0, 48);
+    if (label) {
+      el.setAttribute("data-studio-witness-label", label);
+      return `${el.tagName.toLowerCase()}[data-studio-witness-label="${CSS.escape(label)}"]`;
+    }
+    const siblings = Array.from(el.parentElement?.children || []).filter((node) => node.tagName === el.tagName);
+    const index = Math.max(0, siblings.indexOf(el)) + 1;
+    return `${el.tagName.toLowerCase()}:nth-of-type(${index})`;
+  };
+  const selector = [
+    "button",
+    "summary",
+    "[role='tab']",
+    "[data-view]",
+    "[data-target]",
+    "[onclick]",
+    "a[href^='#']",
+    "input:not([type='hidden'])",
+    "select",
+    "textarea"
+  ].join(",");
+  const seen = new Set();
+  return Array.from(document.querySelectorAll(selector))
+    .filter(visible)
+    .map((el) => {
+      const actionKind = el.matches("select")
+        ? "select_next"
+        : el.matches("input[type='range']")
+        ? "input_step"
+        : el.matches("input[type='checkbox'], input[type='radio']")
+        ? "toggle_input"
+        : el.matches("input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='range']), textarea")
+        ? "input_text"
+        : "click";
+      const label = text(
+        el.getAttribute("aria-label") ||
+          el.innerText ||
+          el.value ||
+          el.getAttribute("title") ||
+          el.id ||
+          el.getAttribute("data-view") ||
+          el.getAttribute("data-target") ||
+          el.tagName
+      );
+      return {
+        selector: makeSelector(el),
+        label: label || el.tagName.toLowerCase(),
+        actionKind,
+        active:
+          el.getAttribute("aria-selected") === "true" ||
+          el.getAttribute("aria-pressed") === "true" ||
+          el.getAttribute("data-active") === "true" ||
+          el.classList.contains("active") ||
+          (el.matches("details") && el.hasAttribute("open")) ||
+          (el.matches("input[type='checkbox'], input[type='radio']") && el.checked === true)
+      };
+    })
+    .filter((entry) => Boolean(entry.selector))
+    .filter((entry) => {
+      if (seen.has(entry.selector)) return false;
+      seen.add(entry.selector);
+      return true;
+    })
+    .slice(0, 8);
+})()"##
+}
+
+fn render_action_execution_script(selector: &str, action_kind: &str) -> String {
+    let selector_json = serde_json::to_string(selector).unwrap_or_else(|_| "\"\"".to_string());
+    let action_kind_json =
+        serde_json::to_string(action_kind).unwrap_or_else(|_| "\"click\"".to_string());
+    format!(
+        r#"(() => {{
+  const selector = {selector_json};
+  const actionKind = {action_kind_json};
+  const el = document.querySelector(selector);
+  if (!el) {{
+    throw new Error(`missing actionable selector: ${{selector}}`);
+  }}
+  if (actionKind === "select_next" && el.matches("select")) {{
+    if (el.options.length < 2) return true;
+    const nextIndex = el.selectedIndex >= 0 ? (el.selectedIndex + 1) % el.options.length : 0;
+    el.selectedIndex = nextIndex;
+    el.dispatchEvent(new Event("input", {{ bubbles: true }}));
+    el.dispatchEvent(new Event("change", {{ bubbles: true }}));
+    return true;
+  }}
+  if (actionKind === "input_step" && el.matches("input")) {{
+    const current = Number(el.value || el.min || 0);
+    const step = Number(el.step || 1) || 1;
+    const next = Number.isFinite(current) ? current + step : step;
+    el.value = String(next);
+    el.dispatchEvent(new Event("input", {{ bubbles: true }}));
+    el.dispatchEvent(new Event("change", {{ bubbles: true }}));
+    return true;
+  }}
+  if (actionKind === "toggle_input" && el.matches("input")) {{
+    el.click();
+    return true;
+  }}
+  if (actionKind === "input_text" && (el.matches("input") || el.matches("textarea"))) {{
+    const next = `${{el.value || ""}}x`;
+    el.value = next;
+    el.dispatchEvent(new Event("input", {{ bubbles: true }}));
+    el.dispatchEvent(new Event("change", {{ bubbles: true }}));
+    return true;
+  }}
+  el.click();
+  return true;
+}})()"#
+    )
+}
+
+fn select_actionable_controls_for_probe(
+    discovered: &[ActionableControl],
+) -> Vec<ActionableControl> {
+    let mut seen = HashSet::<String>::new();
+    let mut candidates = if discovered.iter().any(|action| !action.active) {
+        discovered
+            .iter()
+            .filter(|action| !action.active)
+            .cloned()
+            .collect::<Vec<_>>()
+    } else {
+        discovered.to_vec()
+    };
+    candidates.retain(|action| seen.insert(action.selector.clone()));
+    candidates.truncate(4);
+    candidates
+}
+
+fn build_execution_witnesses(
+    witnesses: &[WitnessProbeResult],
+) -> Vec<StudioArtifactExecutionWitness> {
+    witnesses
+        .iter()
+        .enumerate()
+        .map(|(index, witness)| StudioArtifactExecutionWitness {
+            witness_id: format!("witness-{}", index + 1),
+            obligation_id: Some("controls_execute_cleanly".to_string()),
+            action_kind: witness.action.action_kind.clone(),
+            status: witness.status,
+            summary: witness.summary.clone(),
+            detail: witness.detail.clone(),
+            selector: Some(witness.action.selector.clone()),
+            console_errors: witness.console_errors.clone(),
+            state_changed: witness.state_changed,
+        })
+        .collect()
+}
+
+fn build_html_acceptance_obligations(
+    request: &StudioOutcomeArtifactRequest,
+    desktop: &ViewportCapture,
+    mobile: &ViewportCapture,
+    interaction_expected: bool,
+    boot_errors: &[String],
+    execution_witnesses: &[StudioArtifactExecutionWitness],
+) -> Vec<StudioArtifactAcceptanceObligation> {
+    let requires_interaction_contract = request.artifact_class
+        == ioi_types::app::StudioArtifactClass::InteractiveSingleFile
+        || interaction_expected
+        || !execution_witnesses.is_empty();
+    let successful_witness_count = execution_witnesses
+        .iter()
+        .filter(|witness| witness.status == StudioArtifactExecutionWitnessStatus::Passed)
+        .count();
+    let failed_witness_count = execution_witnesses
+        .iter()
+        .filter(|witness| {
+            matches!(
+                witness.status,
+                StudioArtifactExecutionWitnessStatus::Failed
+                    | StudioArtifactExecutionWitnessStatus::Blocked
+            )
+        })
+        .count();
+    let witness_ids = execution_witnesses
+        .iter()
+        .map(|witness| witness.witness_id.clone())
+        .collect::<Vec<_>>();
+    let mut obligations = vec![
+        StudioArtifactAcceptanceObligation {
+            obligation_id: "document_complete".to_string(),
+            family: "document_truth".to_string(),
+            required: true,
+            status: if desktop.capture.screenshot_byte_count > 0
+                && mobile.capture.screenshot_byte_count > 0
+            {
+                StudioArtifactAcceptanceObligationStatus::Passed
+            } else {
+                StudioArtifactAcceptanceObligationStatus::Blocked
+            },
+            summary: "Studio captured desktop and mobile first paint.".to_string(),
+            detail: None,
+            witness_ids: Vec::new(),
+        },
+        StudioArtifactAcceptanceObligation {
+            obligation_id: "primary_surface_present".to_string(),
+            family: "presentation_truth".to_string(),
+            required: true,
+            status: if desktop.dom.main_present && desktop.capture.visible_text_chars >= 40 {
+                StudioArtifactAcceptanceObligationStatus::Passed
+            } else {
+                StudioArtifactAcceptanceObligationStatus::Failed
+            },
+            summary: "The primary artifact surface is visibly present on first paint.".to_string(),
+            detail: Some(format!(
+                "mainPresent={} desktopVisibleText={} mobileVisibleText={}",
+                desktop.dom.main_present,
+                desktop.capture.visible_text_chars,
+                mobile.capture.visible_text_chars
+            )),
+            witness_ids: Vec::new(),
+        },
+        StudioArtifactAcceptanceObligation {
+            obligation_id: "runtime_boot_clean".to_string(),
+            family: "boot_truth".to_string(),
+            required: true,
+            status: if boot_errors.is_empty() {
+                StudioArtifactAcceptanceObligationStatus::Passed
+            } else {
+                StudioArtifactAcceptanceObligationStatus::Failed
+            },
+            summary: "No runtime witness errors were observed while validating the artifact."
+                .to_string(),
+            detail: if boot_errors.is_empty() {
+                None
+            } else {
+                Some(boot_errors.join(" | "))
+            },
+            witness_ids: Vec::new(),
+        },
+        StudioArtifactAcceptanceObligation {
+            obligation_id: "artifact_query_outcome_materialized".to_string(),
+            family: "query_outcome_truth".to_string(),
+            required: true,
+            status: if desktop.capture.screenshot_byte_count > 0 && desktop.dom.main_present {
+                StudioArtifactAcceptanceObligationStatus::Passed
+            } else {
+                StudioArtifactAcceptanceObligationStatus::Blocked
+            },
+            summary: "The queried artifact outcome materialized into a renderable surface."
+                .to_string(),
+            detail: None,
+            witness_ids: Vec::new(),
+        },
+    ];
+
+    if requires_interaction_contract {
+        obligations.push(StudioArtifactAcceptanceObligation {
+            obligation_id: "controls_discovered".to_string(),
+            family: "interaction_truth".to_string(),
+            required: true,
+            status: if !execution_witnesses.is_empty() {
+                StudioArtifactAcceptanceObligationStatus::Passed
+            } else {
+                StudioArtifactAcceptanceObligationStatus::Failed
+            },
+            summary: "Studio discovered surfaced controls to exercise.".to_string(),
+            detail: Some(format!(
+                "desktopInteractiveElements={} witnessedControls={}",
+                desktop.capture.interactive_element_count,
+                execution_witnesses.len()
+            )),
+            witness_ids: witness_ids.clone(),
+        });
+        obligations.push(StudioArtifactAcceptanceObligation {
+            obligation_id: "default_state_visible".to_string(),
+            family: "interaction_truth".to_string(),
+            required: true,
+            status: if desktop.capture.visible_text_chars >= 80
+                && desktop.capture.interactive_element_count > 0
+            {
+                StudioArtifactAcceptanceObligationStatus::Passed
+            } else {
+                StudioArtifactAcceptanceObligationStatus::Failed
+            },
+            summary: "The artifact exposes a visible default interactive state on first paint."
+                .to_string(),
+            detail: Some(format!(
+                "desktopVisibleText={} desktopInteractiveElements={}",
+                desktop.capture.visible_text_chars, desktop.capture.interactive_element_count
+            )),
+            witness_ids: Vec::new(),
+        });
+        obligations.push(StudioArtifactAcceptanceObligation {
+            obligation_id: "controls_execute_cleanly".to_string(),
+            family: "interaction_truth".to_string(),
+            required: true,
+            status: if execution_witnesses.is_empty() {
+                StudioArtifactAcceptanceObligationStatus::Failed
+            } else if failed_witness_count == 0 {
+                StudioArtifactAcceptanceObligationStatus::Passed
+            } else {
+                StudioArtifactAcceptanceObligationStatus::Failed
+            },
+            summary: "Surfaced controls executed without runtime errors or no-op behavior."
+                .to_string(),
+            detail: Some(format!(
+                "successfulWitnesses={} failedWitnesses={}",
+                successful_witness_count, failed_witness_count
+            )),
+            witness_ids: witness_ids.clone(),
+        });
+        obligations.push(StudioArtifactAcceptanceObligation {
+            obligation_id: "interaction_witnessed".to_string(),
+            family: "interaction_truth".to_string(),
+            required: true,
+            status: if successful_witness_count > 0 {
+                StudioArtifactAcceptanceObligationStatus::Passed
+            } else {
+                StudioArtifactAcceptanceObligationStatus::Failed
+            },
+            summary:
+                "At least one surfaced interaction produced a meaningful visible state change."
+                    .to_string(),
+            detail: Some(format!(
+                "successfulWitnesses={} failedWitnesses={}",
+                successful_witness_count, failed_witness_count
+            )),
+            witness_ids,
+        });
+    }
+
+    obligations
+}
+
+fn append_obligation_findings(
+    findings: &mut Vec<StudioArtifactRenderFinding>,
+    obligations: &[StudioArtifactAcceptanceObligation],
+) {
+    for obligation in obligations {
+        if !obligation.required {
+            continue;
+        }
+        let severity = match obligation.status {
+            StudioArtifactAcceptanceObligationStatus::Passed
+            | StudioArtifactAcceptanceObligationStatus::NotApplicable => continue,
+            StudioArtifactAcceptanceObligationStatus::Failed
+            | StudioArtifactAcceptanceObligationStatus::Blocked => {
+                StudioArtifactRenderFindingSeverity::Blocked
+            }
+        };
+        let summary = obligation
+            .detail
+            .as_ref()
+            .map(|detail| format!("{} {}", obligation.summary, detail))
+            .unwrap_or_else(|| obligation.summary.clone());
+        if findings.iter().any(|finding| finding.summary == summary) {
+            continue;
+        }
+        findings.push(StudioArtifactRenderFinding {
+            code: obligation.obligation_id.clone(),
+            severity,
+            summary,
+        });
+    }
+}
+
+fn render_evaluation_summary(
+    overall_score: u8,
+    findings: &[StudioArtifactRenderFinding],
+    obligations: &[StudioArtifactAcceptanceObligation],
+) -> String {
+    let cleared_required = obligations
+        .iter()
+        .filter(|obligation| obligation.required)
+        .filter(|obligation| obligation.status == StudioArtifactAcceptanceObligationStatus::Passed)
+        .count();
+    let required_total = obligations
+        .iter()
+        .filter(|obligation| obligation.required)
+        .count();
+    if findings
+        .iter()
+        .any(|finding| finding.severity == StudioArtifactRenderFindingSeverity::Blocked)
+    {
+        return format!(
+            "Render evaluation blocked the primary view after clearing {cleared_required}/{required_total} required obligations with an overall score of {overall_score}/25."
+        );
+    }
+    if findings.is_empty() {
+        return format!(
+            "Render evaluation cleared {cleared_required}/{required_total} required obligations with an overall score of {overall_score}/25."
+        );
+    }
+    format!(
+        "Render evaluation found repairable issues after clearing {cleared_required}/{required_total} required obligations with an overall score of {overall_score}/25."
+    )
 }
 
 fn analyze_screenshot(png: &[u8]) -> Result<ScreenshotAnalysis, String> {
@@ -751,6 +1415,8 @@ fn score_render_evaluation(
     mobile: &ViewportCapture,
     interaction: Option<&ViewportCapture>,
     interaction_expected: bool,
+    boot_errors: &[String],
+    interaction_witnesses: &[WitnessProbeResult],
 ) -> StudioArtifactRenderEvaluation {
     let layout_density_score = score_layout_density(desktop, mobile);
     let spacing_alignment_score = score_spacing_alignment(desktop, mobile);
@@ -770,6 +1436,19 @@ fn score_render_evaluation(
         + typography_contrast_score
         + visual_hierarchy_score
         + blueprint_consistency_score;
+    let execution_witnesses = build_execution_witnesses(interaction_witnesses);
+    let acceptance_obligations = if request.renderer == StudioRendererKind::HtmlIframe {
+        build_html_acceptance_obligations(
+            request,
+            desktop,
+            mobile,
+            interaction_expected,
+            boot_errors,
+            &execution_witnesses,
+        )
+    } else {
+        Vec::new()
+    };
 
     let mut findings = Vec::<StudioArtifactRenderFinding>::new();
     if desktop.capture.screenshot_byte_count == 0 || mobile.capture.screenshot_byte_count == 0 {
@@ -828,6 +1507,16 @@ fn score_render_evaluation(
                 .to_string(),
         });
     }
+    if !boot_errors.is_empty() {
+        findings.push(StudioArtifactRenderFinding {
+            code: "runtime_boot_errors".to_string(),
+            severity: StudioArtifactRenderFindingSeverity::Blocked,
+            summary: format!(
+                "Runtime witness evaluation observed browser errors while validating the artifact. {}",
+                boot_errors.join(" | ")
+            ),
+        });
+    }
     if interaction_expected && interaction.is_none() {
         findings.push(StudioArtifactRenderFinding {
             code: "interaction_capture_missing".to_string(),
@@ -853,23 +1542,9 @@ fn score_render_evaluation(
                 .to_string(),
         });
     }
+    append_obligation_findings(&mut findings, &acceptance_obligations);
 
-    let summary = if findings
-        .iter()
-        .any(|finding| finding.severity == StudioArtifactRenderFindingSeverity::Blocked)
-    {
-        format!(
-            "Render evaluation blocked the primary view after runtime/mobile capture with an overall score of {overall_score}/25."
-        )
-    } else if findings.is_empty() {
-        format!(
-            "Render evaluation cleared runtime/mobile capture with an overall score of {overall_score}/25."
-        )
-    } else {
-        format!(
-            "Render evaluation found repairable runtime/mobile issues with an overall score of {overall_score}/25."
-        )
-    };
+    let summary = render_evaluation_summary(overall_score, &findings, &acceptance_obligations);
 
     let mut captures = vec![desktop.capture.clone(), mobile.capture.clone()];
     if let Some(interaction) = interaction {
@@ -888,6 +1563,8 @@ fn score_render_evaluation(
         blueprint_consistency_score,
         overall_score,
         findings,
+        acceptance_obligations,
+        execution_witnesses,
         summary,
     }
 }

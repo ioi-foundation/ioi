@@ -22,14 +22,19 @@ import type {
   ChatMessage,
   RunPresentation,
   SessionSummary,
+  StudioArtifactRuntimeNarrationEvent,
+  StudioArtifactRuntimePreviewSnapshot,
+  StudioArtifactSelectedSkill,
+  StudioArtifactSkillDiscoveryResolution,
 } from "../../../types";
 
 export type StudioStatusCardState = {
-  tone?: "active";
+  tone?: "active" | "error";
   title: string;
   detail: string;
   metrics?: StudioExecutionMetrics;
   processes?: StudioExecutionProcess[];
+  selectedSkills?: StudioArtifactSelectedSkill[];
   livePreview?: {
     label: string;
     content: string;
@@ -48,6 +53,8 @@ export type StudioStatusCardState = {
   } | null;
 } | null;
 
+type StudioStatusPreview = NonNullable<StudioStatusCardState>["livePreview"];
+
 function deriveTaskStudioExecutionChrome(task: any) {
   const materialization = task?.studio_session?.materialization;
   const executionEnvelope = materialization?.executionEnvelope ?? null;
@@ -61,6 +68,199 @@ function deriveTaskStudioExecutionChrome(task: any) {
     changeReceipts:
       materialization?.swarmChangeReceipts ?? executionEnvelope?.changeReceipts ?? [],
   });
+}
+
+function isArtifactStudioRoute(task: any): boolean {
+  return (
+    task?.studio_session?.outcomeRequest?.outcomeKind === "artifact" ||
+    task?.studio_outcome?.outcomeKind === "artifact"
+  );
+}
+
+function formatArtifactThinkingStatus(status: string | null | undefined): string {
+  switch ((status || "").trim().toLowerCase()) {
+    case "complete":
+      return "Done";
+    case "active":
+      return "Working";
+    case "blocked":
+      return "Blocked";
+    case "failed":
+      return "Failed";
+    case "pending":
+      return "Queued";
+    default:
+      return formatStudioStatusLabel(status) || "Queued";
+  }
+}
+
+function resolveArtifactThinkingSubject(task: any): string {
+  const subjectDomain =
+    task?.studio_session?.materialization?.artifactBrief?.subjectDomain?.trim() || "";
+  if (subjectDomain) {
+    return subjectDomain;
+  }
+
+  const title = task?.studio_session?.title?.trim() || "";
+  if (title) {
+    return title.toLowerCase();
+  }
+
+  return "the artifact request";
+}
+
+function sortArtifactRuntimeNarrationEvents(
+  events: StudioArtifactRuntimeNarrationEvent[],
+): StudioArtifactRuntimeNarrationEvent[] {
+  return [...events].sort((left, right) => {
+    const timeDelta = (left.occurredAtMs || 0) - (right.occurredAtMs || 0);
+    if (timeDelta !== 0) {
+      return timeDelta;
+    }
+    return String(left.eventId || "").localeCompare(String(right.eventId || ""));
+  });
+}
+
+function artifactThinkingLabelForEvent(
+  event: StudioArtifactRuntimeNarrationEvent,
+): string {
+  switch ((event.stepId || "").trim()) {
+    case "understand_request":
+      return "Understand request";
+    case "artifact_route_committed":
+      return "Route to artifact";
+    case "skill_discovery":
+      return "Check for guidance";
+    case "skill_read":
+      return event.title || "Read guidance";
+    case "artifact_brief":
+      return "Shape artifact brief";
+    case "author_artifact":
+      return "Write artifact";
+    case "replan_execution":
+      return "Switch execution strategy";
+    case "verify_artifact":
+      return "Verify artifact";
+    case "present_artifact":
+      return "Open artifact";
+    default:
+      return event.title || "Artifact step";
+  }
+}
+
+function artifactThinkingIconKeyForEvent(
+  event: StudioArtifactRuntimeNarrationEvent,
+): string {
+  switch ((event.stepId || "").trim()) {
+    case "understand_request":
+      return "search";
+    case "artifact_route_committed":
+      return "cube";
+    case "skill_discovery":
+    case "skill_read":
+      return "sparkles";
+    case "artifact_brief":
+      return "copy";
+    case "author_artifact":
+      return "code";
+    case "replan_execution":
+      return "retry";
+    case "verify_artifact":
+      return "check";
+    case "present_artifact":
+      return "artifacts";
+    default:
+      return "sparkles";
+  }
+}
+
+function buildArtifactThinkingPreview(
+  task: any,
+): StudioStatusPreview {
+  const runtimeNarrationEvents = sortArtifactRuntimeNarrationEvents(
+    ((task?.studio_session?.materialization?.runtimeNarrationEvents ??
+      []) as StudioArtifactRuntimeNarrationEvent[]).filter(
+      (event) => (event.eventKind || "").trim().toLowerCase() === "preview",
+    ),
+  );
+  if (runtimeNarrationEvents.length === 0) {
+    return null;
+  }
+
+  const stepEvents = sortArtifactRuntimeNarrationEvents(
+    ((task?.studio_session?.materialization?.runtimeNarrationEvents ??
+      []) as StudioArtifactRuntimeNarrationEvent[]).filter(
+      (event) => (event.eventKind || "").trim().toLowerCase() !== "preview",
+    ),
+  );
+  const activeAttemptId =
+    [...stepEvents]
+      .reverse()
+      .find(
+        (event) =>
+          (event.status || "").trim().toLowerCase() === "active" &&
+          typeof event.attemptId === "string" &&
+          event.attemptId.trim().length > 0,
+      )
+      ?.attemptId ?? null;
+  const matchingPreview = activeAttemptId
+    ? [...runtimeNarrationEvents]
+        .reverse()
+        .find((event) => event.attemptId === activeAttemptId && event.preview)
+    : [...runtimeNarrationEvents]
+        .reverse()
+        .find(
+          (event) =>
+            event.preview &&
+            (Boolean(event.preview.isFinal) ||
+              ["complete", "completed", "blocked", "failed", "interrupted"].includes(
+                String(event.preview.status || "").trim().toLowerCase(),
+              )),
+        ) ?? null;
+  if (activeAttemptId && !matchingPreview) {
+    return null;
+  }
+  const preview = matchingPreview?.preview as StudioArtifactRuntimePreviewSnapshot | null;
+  if (!preview?.content?.trim()) {
+    return null;
+  }
+  return {
+    label: preview.label,
+    content: preview.content,
+    status: preview.status,
+    kind: preview.kind || null,
+    language: preview.language || null,
+    isFinal: Boolean(preview.isFinal),
+  };
+}
+
+function buildArtifactThinkingProcesses(task: any): StudioExecutionProcess[] {
+  const materialization = task?.studio_session?.materialization;
+  const runtimeNarrationEvents = sortArtifactRuntimeNarrationEvents(
+    ((materialization?.runtimeNarrationEvents ?? []) as StudioArtifactRuntimeNarrationEvent[])
+      .filter((event) => (event.eventKind || "").trim().toLowerCase() !== "preview"),
+  );
+  const skillDiscoveryResolution = (materialization?.skillDiscoveryResolution ??
+    null) as StudioArtifactSkillDiscoveryResolution | null;
+  if (runtimeNarrationEvents.length === 0) {
+    return [];
+  }
+
+  const processes = runtimeNarrationEvents
+    .filter((event) => (event.stepId || "").trim().length > 0)
+    .map((event) => ({
+      id: event.eventId || `${event.stepId}:${event.occurredAtMs}`,
+      label: artifactThinkingLabelForEvent(event),
+      status: formatArtifactThinkingStatus(event.status),
+      summary:
+        event.detail ||
+        skillDiscoveryResolution?.rationale ||
+        "Studio is working through the active artifact step.",
+      isActive: (event.status || "").trim().toLowerCase() === "active",
+      iconKey: artifactThinkingIconKeyForEvent(event),
+    }));
+
+  return processes;
 }
 
 function summarizeStudioFailure(
@@ -185,9 +385,7 @@ export function useSpotlightSurfaceState({
 
   const hasSessionContent = activeHistory.length > 0 || chatEvents.length > 0;
   const activeStudioSessionId = task?.studio_session?.sessionId ?? null;
-  const studioArtifactExpected =
-    Boolean(task?.studio_session) &&
-    task?.studio_session?.outcomeRequest?.outcomeKind === "artifact";
+  const studioArtifactExpected = isArtifactStudioRoute(task);
   const shouldAutoFocusStudioComposer =
     isStudioVariant &&
     !inputLockedByCredential &&
@@ -260,15 +458,51 @@ export function useSpotlightSurfaceState({
     }
 
     const submissionFailureSummary = summarizeStudioFailure(submissionError);
+    const executionChrome = deriveTaskStudioExecutionChrome(task);
+    const artifactRouteActive = isArtifactStudioRoute(task);
+    const artifactThinkingProcesses = artifactRouteActive
+      ? buildArtifactThinkingProcesses(task)
+      : executionChrome.processes;
+    const artifactThinkingActiveProcess =
+      artifactThinkingProcesses.find((process) => process.isActive) ?? null;
+    const artifactThinkingLatestProcess =
+      artifactThinkingProcesses[artifactThinkingProcesses.length - 1] ?? null;
+    const artifactSelectedSkills = artifactRouteActive
+      ? ((task?.studio_session?.materialization?.selectedSkills ??
+          []) as StudioArtifactSelectedSkill[])
+      : [];
+    const artifactThinkingPreview = artifactRouteActive
+      ? buildArtifactThinkingPreview(task)
+      : null;
+    const artifactThinkingTitle = artifactRouteActive
+      ? `Thinking through ${resolveArtifactThinkingSubject(task)}`
+      : "Routing the request";
+    const artifactThinkingDetail =
+      artifactThinkingActiveProcess?.summary ||
+      artifactThinkingLatestProcess?.summary ||
+      task?.current_step ||
+      "Studio is moving through the current artifact run.";
 
     if (hasOperatorDecisionPrompt) {
       return null;
     }
 
     if (submissionError) {
-      const executionChrome = deriveTaskStudioExecutionChrome(task);
+      if (artifactRouteActive) {
+        return {
+          tone: "error",
+          title: artifactThinkingTitle,
+          detail: artifactThinkingDetail || submissionFailureSummary.detail,
+          metrics: null,
+          processes: artifactThinkingProcesses,
+          selectedSkills: artifactSelectedSkills,
+          livePreview: artifactThinkingPreview ?? executionChrome.livePreview,
+          codePreview: executionChrome.codePreview,
+        };
+      }
+
       return {
-        tone: "active",
+        tone: "error",
         title: submissionFailureSummary.title,
         detail: submissionFailureSummary.detail,
         ...executionChrome,
@@ -277,10 +511,17 @@ export function useSpotlightSurfaceState({
 
     if (submissionInFlight) {
       return {
-        title: "Routing the request",
-        detail:
-          "Studio is choosing whether this should remain conversational, open a tool surface, render a visualizer, or materialize an artifact.",
-        ...deriveTaskStudioExecutionChrome(task),
+        title: artifactRouteActive
+          ? artifactThinkingTitle
+          : "Routing the request",
+        detail: artifactRouteActive
+          ? artifactThinkingDetail
+          : "Studio is choosing whether this should remain conversational, open a tool surface, render a visualizer, or materialize an artifact.",
+        metrics: artifactRouteActive ? null : executionChrome.metrics,
+        processes: artifactRouteActive ? artifactThinkingProcesses : executionChrome.processes,
+        selectedSkills: artifactRouteActive ? artifactSelectedSkills : [],
+        livePreview: artifactThinkingPreview ?? executionChrome.livePreview,
+        codePreview: executionChrome.codePreview,
       };
     }
 
@@ -291,11 +532,13 @@ export function useSpotlightSurfaceState({
       !runPresentation.finalAnswer
     ) {
       return {
-        title: "Preparing the outcome surface",
+        title: studioArtifactExpected
+          ? "Thinking through the artifact request"
+          : "Preparing the outcome surface",
         detail:
           task.current_step ||
           "Studio is materializing the right outcome type and waiting for verification evidence.",
-        ...deriveTaskStudioExecutionChrome(task),
+        ...executionChrome,
       };
     }
 
@@ -323,14 +566,32 @@ export function useSpotlightSurfaceState({
       return {
         title:
           studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
-            ? "Building the artifact surface"
+            ? artifactThinkingTitle
             : outcomeLabel
               ? `Working the ${outcomeLabel.toLowerCase()} route`
               : "Working the outcome surface",
         detail:
-          task.current_step ||
-          "Studio is routing the active work items, merging worker output, and verifying the next usable surface.",
-        ...deriveTaskStudioExecutionChrome(task),
+          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+            ? artifactThinkingDetail
+            : task.current_step ||
+              "Studio is routing the active work items, merging worker output, and verifying the next usable surface.",
+        metrics:
+          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+            ? null
+            : executionChrome.metrics,
+        processes:
+          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+            ? artifactThinkingProcesses
+            : executionChrome.processes,
+        selectedSkills:
+          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+            ? artifactSelectedSkills
+            : [],
+        livePreview:
+          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+            ? artifactThinkingPreview ?? executionChrome.livePreview
+            : executionChrome.livePreview,
+        codePreview: executionChrome.codePreview,
       };
     }
 
@@ -345,10 +606,22 @@ export function useSpotlightSurfaceState({
           task.studio_session.verifiedReply.summary,
       );
       return {
-        tone: "active",
-        title: blockedSummary.title,
-        detail: blockedSummary.detail,
-        ...deriveTaskStudioExecutionChrome(task),
+        tone: "error",
+        title: artifactRouteActive ? artifactThinkingTitle : blockedSummary.title,
+        detail:
+          artifactRouteActive && artifactThinkingDetail
+            ? artifactThinkingDetail
+            : blockedSummary.detail,
+        metrics: artifactRouteActive ? null : deriveTaskStudioExecutionChrome(task).metrics,
+        processes: artifactRouteActive
+          ? artifactThinkingProcesses
+          : deriveTaskStudioExecutionChrome(task).processes,
+        selectedSkills: artifactRouteActive ? artifactSelectedSkills : [],
+        livePreview:
+          artifactRouteActive
+            ? artifactThinkingPreview ?? deriveTaskStudioExecutionChrome(task).livePreview
+            : deriveTaskStudioExecutionChrome(task).livePreview,
+        codePreview: deriveTaskStudioExecutionChrome(task).codePreview,
       };
     }
 

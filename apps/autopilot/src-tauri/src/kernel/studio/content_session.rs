@@ -14,7 +14,9 @@ use ioi_api::execution::{
 };
 use ioi_api::studio::{
     StudioArtifactBlueprint, StudioArtifactExemplar, StudioArtifactIR,
-    StudioArtifactRenderEvaluation, StudioArtifactSelectedSkill,
+    StudioArtifactPreparationNeeds, StudioArtifactPreparedContextResolution,
+    StudioArtifactRenderEvaluation, StudioArtifactRuntimeNarrationEvent,
+    StudioArtifactSelectedSkill, StudioArtifactSkillDiscoveryResolution,
 };
 use ioi_types::app::{StudioExecutionModeDecision, StudioExecutionStrategy};
 use std::time::Duration;
@@ -45,6 +47,9 @@ pub(super) struct MaterializedContentArtifact {
     pub(super) file_writes: Vec<StudioArtifactMaterializationFileWrite>,
     pub(super) notes: Vec<String>,
     pub(super) brief: StudioArtifactBrief,
+    pub(super) preparation_needs: Option<StudioArtifactPreparationNeeds>,
+    pub(super) prepared_context_resolution: Option<StudioArtifactPreparedContextResolution>,
+    pub(super) skill_discovery_resolution: Option<StudioArtifactSkillDiscoveryResolution>,
     pub(super) blueprint: Option<StudioArtifactBlueprint>,
     pub(super) artifact_ir: Option<StudioArtifactIR>,
     pub(super) selected_skills: Vec<StudioArtifactSelectedSkill>,
@@ -72,6 +77,7 @@ pub(super) struct MaterializedContentArtifact {
     pub(super) selected_targets: Vec<StudioArtifactSelectionTarget>,
     pub(super) lifecycle_state: StudioArtifactLifecycleState,
     pub(super) verification_summary: String,
+    pub(super) runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
 }
 
 fn default_studio_outcome_request(
@@ -668,11 +674,14 @@ fn non_artifact_materialization_contract(
     );
 
     StudioArtifactMaterializationContract {
-        version: 6,
+        version: 7,
         request_kind: outcome_kind_id(outcome_request.outcome_kind).to_string(),
         normalized_intent: intent.trim().to_string(),
         summary: summary.to_string(),
         artifact_brief: None,
+        preparation_needs: None,
+        prepared_context_resolution: None,
+        skill_discovery_resolution: None,
         blueprint: None,
         artifact_ir: None,
         selected_skills: Vec::new(),
@@ -713,6 +722,7 @@ fn non_artifact_materialization_contract(
             ),
         ],
         pipeline_steps: Vec::new(),
+        runtime_narration_events: Vec::new(),
         notes: vec![
             "Studio intentionally kept this request off the artifact materialization path."
                 .to_string(),
@@ -1310,11 +1320,14 @@ pub(super) fn materialization_contract_for_request(
     );
 
     StudioArtifactMaterializationContract {
-        version: 6,
+        version: 7,
         request_kind: artifact_class_id_for_request(request),
         normalized_intent: intent.trim().to_string(),
         summary: summary.to_string(),
         artifact_brief: None,
+        preparation_needs: None,
+        prepared_context_resolution: None,
+        skill_discovery_resolution: None,
         blueprint: None,
         artifact_ir: None,
         selected_skills: Vec::new(),
@@ -1344,6 +1357,7 @@ pub(super) fn materialization_contract_for_request(
         preview_intent: None,
         verification_steps,
         pipeline_steps: Vec::new(),
+        runtime_narration_events: Vec::new(),
         notes: vec![
             "Conversation remains the control plane; this artifact is the work product."
                 .to_string(),
@@ -1396,6 +1410,11 @@ pub(super) fn apply_materialized_artifact_to_contract(
     materialization.file_writes = materialized_artifact.file_writes.clone();
     materialization.notes = materialized_artifact.notes.clone();
     materialization.artifact_brief = Some(materialized_artifact.brief.clone());
+    materialization.preparation_needs = materialized_artifact.preparation_needs.clone();
+    materialization.prepared_context_resolution =
+        materialized_artifact.prepared_context_resolution.clone();
+    materialization.skill_discovery_resolution =
+        materialized_artifact.skill_discovery_resolution.clone();
     materialization.blueprint = materialized_artifact.blueprint.clone();
     materialization.artifact_ir = materialized_artifact.artifact_ir.clone();
     materialization.selected_skills = materialized_artifact.selected_skills.clone();
@@ -1433,6 +1452,8 @@ pub(super) fn apply_materialized_artifact_to_contract(
     materialization.fallback_used = materialized_artifact.fallback_used;
     materialization.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
     materialization.failure = materialized_artifact.failure.clone();
+    materialization.runtime_narration_events =
+        materialized_artifact.runtime_narration_events.clone();
 }
 
 pub(super) fn should_refine_current_non_workspace_artifact(
@@ -1591,6 +1612,11 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     materialization.file_writes = materialized_artifact.file_writes.clone();
     materialization.notes = materialized_artifact.notes.clone();
     materialization.artifact_brief = Some(materialized_artifact.brief.clone());
+    materialization.preparation_needs = materialized_artifact.preparation_needs.clone();
+    materialization.prepared_context_resolution =
+        materialized_artifact.prepared_context_resolution.clone();
+    materialization.skill_discovery_resolution =
+        materialized_artifact.skill_discovery_resolution.clone();
     materialization.blueprint = materialized_artifact.blueprint.clone();
     materialization.artifact_ir = materialized_artifact.artifact_ir.clone();
     materialization.selected_skills = materialized_artifact.selected_skills.clone();

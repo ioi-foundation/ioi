@@ -24,6 +24,7 @@ export type StudioExecutionProcess = {
   status: string;
   summary: string;
   isActive?: boolean;
+  iconKey?: string | null;
 };
 
 export type StudioExecutionChrome = {
@@ -106,12 +107,16 @@ function invariantProcesses(
   const satisfiedWorkItems = new Set(invariant.satisfiedWorkItemIds ?? []);
   const prunedWorkItems = new Set(invariant.prunedWorkItemIds ?? []);
   const remainingObligations = new Set(invariant.remainingObligations ?? []);
+  const invariantBlocked =
+    String(invariant.status || "").trim().toLowerCase() === "blocked";
 
   const workItemProcesses = requiredWorkItems.map((id) => {
     const status = prunedWorkItems.has(id)
       ? "Pruned"
       : satisfiedWorkItems.has(id)
         ? "Complete"
+        : invariantBlocked
+          ? "Blocked"
         : remainingObligations.has(`work_item:${id}`)
           ? "Pending"
           : "Ready";
@@ -124,6 +129,8 @@ function invariantProcesses(
           ? "This required work item is satisfied."
           : status === "Pruned"
             ? "This work item was pruned after the completion invariant narrowed."
+            : status === "Blocked"
+              ? "This obligation was left unsatisfied when the execution invariant blocked."
             : "This obligation is still in the active execution frontier.",
       isActive: status === "Pending" || status === "Ready",
     };
@@ -131,14 +138,17 @@ function invariantProcesses(
 
   const verificationProcesses = (invariant.requiredVerificationIds ?? []).map((id) => {
     const satisfied = (invariant.satisfiedVerificationIds ?? []).includes(id);
+    const status = satisfied ? "Complete" : invariantBlocked ? "Blocked" : "Pending";
     return {
       id: `verification:${id}`,
       label: formatStudioStatusLabel(id) || id,
-      status: satisfied ? "Complete" : "Pending",
+      status,
       summary: satisfied
         ? "This verification requirement is satisfied."
-        : "This verification requirement is still gating completion.",
-      isActive: !satisfied,
+        : invariantBlocked
+          ? "This verification requirement remained unsatisfied when execution blocked."
+          : "This verification requirement is still gating completion.",
+      isActive: !satisfied && !invariantBlocked,
     };
   });
 

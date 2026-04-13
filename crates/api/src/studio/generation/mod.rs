@@ -9,7 +9,7 @@ use super::judging::{
 use super::*;
 use crate::execution::{
     annotate_execution_envelope, build_execution_envelope_from_swarm,
-    completion_invariant_for_direct_execution, derive_execution_mode_decision,
+    committed_execution_mode_decision, completion_invariant_for_direct_execution,
     ExecutionCompletionInvariantStatus, ExecutionDomainKind, ExecutionEnvelope,
     ExecutionLivePreview, ExecutionLivePreviewKind,
 };
@@ -72,6 +72,7 @@ pub use non_swarm_entrypoints::{
     generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
 };
 use non_swarm_finalize::*;
+pub use planning_and_judging::derive_studio_artifact_prepared_context;
 pub(crate) use planning_and_judging::evaluate_candidate_render_with_fallback;
 #[allow(unused_imports)]
 pub(crate) use planning_and_judging::render_evaluation_required;
@@ -122,8 +123,10 @@ pub(crate) use swarm_plan::build_studio_artifact_swarm_plan;
 pub(crate) use swarm_progress::apply_studio_swarm_patch_envelope;
 use swarm_progress::*;
 pub(crate) use validation_preview::validate_swarm_generated_artifact_payload;
-pub use validation_preview::StudioArtifactGenerationProgressObserver;
 use validation_preview::*;
+pub use validation_preview::{
+    StudioArtifactActivityObserver, StudioArtifactGenerationProgressObserver,
+};
 
 pub(crate) use materialization_prompt::{
     build_studio_artifact_direct_author_prompt_for_runtime,

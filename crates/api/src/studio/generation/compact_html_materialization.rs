@@ -319,25 +319,6 @@ pub(super) fn compact_local_direct_author_prompt(
     runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime && returns_raw_document
 }
 
-pub(super) fn direct_author_brief(title: &str, intent: &str) -> StudioArtifactBrief {
-    StudioArtifactBrief {
-        audience: "the user".to_string(),
-        job_to_be_done: "receive the requested artifact in one direct authoring pass".to_string(),
-        subject_domain: if title.trim().is_empty() {
-            "the requested subject".to_string()
-        } else {
-            title.trim().to_string()
-        },
-        artifact_thesis: intent.trim().to_string(),
-        required_concepts: Vec::new(),
-        required_interactions: Vec::new(),
-        visual_tone: Vec::new(),
-        factual_anchors: Vec::new(),
-        style_directives: Vec::new(),
-        reference_hints: Vec::new(),
-    }
-}
-
 pub(super) fn direct_author_search_budget(
     request: &StudioOutcomeArtifactRequest,
     production_kind: StudioRuntimeProvenanceKind,

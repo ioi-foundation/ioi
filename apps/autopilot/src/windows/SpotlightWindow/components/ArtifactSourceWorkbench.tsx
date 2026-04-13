@@ -8,7 +8,7 @@ import type {
 
 const MonacoEditor = Editor as unknown as ComponentType<any>;
 
-let monacoLoaderConfigured = false;
+let configuredBasePath: string | null = null;
 let configuredWorkerBaseUrl: string | null = null;
 let monacoWorkerBootstrapUrl: string | null = null;
 
@@ -48,7 +48,7 @@ function ensureStudioMonacoWorkerEnvironment(basePath: string) {
 }
 
 function configureStudioMonacoLoader(basePath = "/monaco/vs") {
-  if (monacoLoaderConfigured) {
+  if (!basePath || configuredBasePath === basePath) {
     return;
   }
 
@@ -58,7 +58,7 @@ function configureStudioMonacoLoader(basePath = "/monaco/vs") {
     },
   });
   ensureStudioMonacoWorkerEnvironment(basePath);
-  monacoLoaderConfigured = true;
+  configuredBasePath = basePath;
 }
 
 function defineStudioMonacoTheme(monaco: any) {
@@ -261,6 +261,40 @@ function syncSelectionText(setSelectionText: (value: string) => void) {
   setSelectionText(nextSelection);
 }
 
+function describeMonacoLoadError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message || "Monaco editor failed to initialize.";
+  }
+
+  if (typeof ErrorEvent !== "undefined" && error instanceof ErrorEvent) {
+    return error.message || `Monaco editor failed during ${error.type || "load"}.`;
+  }
+
+  if (typeof Event !== "undefined" && error instanceof Event) {
+    const target = error.target as HTMLScriptElement | null;
+    const source =
+      target?.getAttribute?.("src") ||
+      (target && "src" in target ? String((target as { src?: string }).src || "") : "");
+    if (source) {
+      return `Monaco editor failed to load required runtime assets from ${source}.`;
+    }
+    return `Monaco editor failed during ${error.type || "load"}.`;
+  }
+
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    return ((error as { message: string }).message || "").trim() ||
+      "Monaco editor failed to initialize.";
+  }
+
+  const text = String(error ?? "").trim();
+  return text || "Monaco editor failed to initialize.";
+}
+
 export function ArtifactSourceWorkbench({
   artifactId,
   files,
@@ -274,11 +308,37 @@ export function ArtifactSourceWorkbench({
   tooLargeOverride,
 }: ArtifactSourceWorkbenchProps) {
   const [selectionText, setSelectionText] = useState("");
+  const [monacoReady, setMonacoReady] = useState(false);
+  const [monacoLoadError, setMonacoLoadError] = useState<string | null>(null);
   const editorRef = useRef<MonacoEditorApi.IStandaloneCodeEditor | null>(null);
 
   useEffect(() => {
     configureStudioMonacoLoader();
+    let cancelled = false;
+
+    loader
+      .init()
+      .then(() => {
+        if (cancelled) {
+          return;
+        }
+        setMonacoLoadError(null);
+        setMonacoReady(true);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setMonacoReady(false);
+        setMonacoLoadError(describeMonacoLoadError(error));
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  configureStudioMonacoLoader();
 
   const sourceText = useMemo(
     () => decodePayloadText(payload, sourceTextOverride),
@@ -373,6 +433,14 @@ export function ArtifactSourceWorkbench({
               <div className="studio-artifact-renderer-empty">
                 <strong>Source preview too large</strong>
                 <p>{selectedFile.path} is too large for inline viewing in Studio.</p>
+              </div>
+            ) : monacoLoadError ? (
+              <div className="studio-artifact-banner is-error">
+                {monacoLoadError}
+              </div>
+            ) : !monacoReady ? (
+              <div className="studio-artifact-renderer-empty">
+                <strong>Preparing source editor…</strong>
               </div>
             ) : (
               <div className="studio-artifact-source-editor-stage">
