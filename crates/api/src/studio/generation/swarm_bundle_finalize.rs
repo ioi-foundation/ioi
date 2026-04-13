@@ -36,7 +36,6 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
     activity_observer: Option<StudioArtifactActivityObserver>,
     swarm_started_at: Instant,
-    acceptance_runtime: Arc<dyn InferenceRuntime>,
     repair_runtime: Arc<dyn InferenceRuntime>,
     production_provenance: StudioRuntimeProvenance,
     acceptance_provenance: StudioRuntimeProvenance,
@@ -151,7 +150,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 Some(StudioArtifactWorkerRole::Judge),
                 "running",
             ),
-            "Render evaluation finished and acceptance judging is starting.",
+            "Render evaluation finished and fast render sanity is starting.",
         ),
         render_evaluation.as_ref(),
         None,
@@ -163,21 +162,8 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         .find(|item| item.id == "judge")
         .cloned()
         .ok_or_else(|| build_error("Swarm judge work item is missing.".to_string()))?;
-    let mut judge = await_with_activity_heartbeat(
-        judge_candidate_with_runtime_and_render_eval(
-            acceptance_runtime.clone(),
-            render_evaluation.as_ref(),
-            title,
-            request,
-            brief,
-            edit_intent,
-            &final_payload,
-        ),
-        activity_observer.clone(),
-        Duration::from_millis(125),
-    )
-    .await
-    .map_err(build_error)?;
+    let mut judge =
+        render_sanity_candidate_judge(request, brief, &final_payload, render_evaluation.as_ref());
     update_swarm_work_item_status(
         &mut swarm_plan,
         &judge_item.id,
@@ -191,7 +177,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         summary: judge.rationale.clone(),
         started_at: studio_swarm_now_iso(),
         finished_at: Some(studio_swarm_now_iso()),
-        runtime: acceptance_runtime.studio_runtime_provenance(),
+        runtime: production_provenance.clone(),
         read_paths: Vec::new(),
         write_paths: Vec::new(),
         write_regions: Vec::new(),
@@ -236,7 +222,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 judge_classification_id(judge.classification),
             ),
             format!(
-                "Acceptance judge returned {}.",
+                "Fast render sanity returned {}.",
                 judge_classification_id(judge.classification)
             ),
         ),
@@ -256,7 +242,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
             id: "repair-requested".to_string(),
             mutation_kind: "repair_requested".to_string(),
             status: "applied".to_string(),
-            summary: "Acceptance verification requested a scoped repair pass.".to_string(),
+            summary: "Render sanity requested a scoped repair pass.".to_string(),
             triggered_by_work_item_id: Some("acceptance-judge".to_string()),
             affected_work_item_ids: vec![repair_template_item.id.clone()],
             details: judge.repair_hints.clone(),
@@ -264,19 +250,15 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         replan_receipts.push(ExecutionReplanReceipt {
             id: "repair-replan".to_string(),
             status: "requested".to_string(),
-            summary: "Acceptance judge blocked the merged artifact and requested bounded repair coordination.".to_string(),
+            summary:
+                "Render sanity found a concrete issue in the merged artifact and requested bounded repair coordination."
+                    .to_string(),
             triggered_by_work_item_id: Some("acceptance-judge".to_string()),
             spawned_work_item_ids: vec![repair_template_item.id.clone()],
             blocked_work_item_ids: vec!["acceptance-judge".to_string()],
             details: judge.repair_hints.clone(),
         });
-        let repair_budget = if request.renderer == StudioRendererKind::HtmlIframe
-            && production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
-        {
-            2
-        } else {
-            semantic_refinement_pass_limit(request.renderer, production_provenance.kind).clamp(1, 2)
-        };
+        let repair_budget = 2;
         let mut spawned_repair_work_item_ids = Vec::<String>::new();
         for repair_index in 0..repair_budget {
             let prior_repair_pass_id = spawned_repair_work_item_ids.last().cloned();
@@ -420,7 +402,10 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                             Some(repair_item.role),
                             "repairing",
                         ),
-                        format!("Running {} after acceptance blocking.", repair_item.title),
+                        format!(
+                            "Running {} after render sanity found a concrete issue.",
+                            repair_item.title
+                        ),
                     ),
                     render_evaluation.as_ref(),
                     Some(&judge),
@@ -651,21 +636,12 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 } else {
                     repair_render_eval_future.await
                 };
-            judge = await_with_activity_heartbeat(
-                judge_candidate_with_runtime_and_render_eval(
-                    acceptance_runtime.clone(),
-                    render_evaluation.as_ref(),
-                    title,
-                    request,
-                    brief,
-                    edit_intent,
-                    &final_payload,
-                ),
-                activity_observer.clone(),
-                Duration::from_millis(125),
-            )
-            .await
-            .map_err(build_error)?;
+            judge = render_sanity_candidate_judge(
+                request,
+                brief,
+                &final_payload,
+                render_evaluation.as_ref(),
+            );
             verification_receipts.push(StudioArtifactVerificationReceipt {
                 id: format!("repair-pass-{}", repair_index + 1),
                 kind: "repair_verification".to_string(),

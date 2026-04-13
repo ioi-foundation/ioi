@@ -1,6 +1,12 @@
 use super::evidence::build_artifact_lane_receipts;
 use super::*;
-use ioi_api::studio::{StudioArtifactRuntimePolicyProfile, StudioArtifactSelectionTarget};
+use ioi_api::studio::{
+    compile_studio_artifact_ir, derive_request_grounded_studio_artifact_brief,
+    derive_studio_artifact_blueprint,
+    generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
+    StudioArtifactPlanningContext, StudioArtifactRuntimePolicyProfile,
+    StudioArtifactSelectionTarget,
+};
 use ioi_drivers::studio_render::BrowserStudioArtifactRenderEvaluator;
 use std::env;
 
@@ -307,6 +313,24 @@ pub(super) async fn run_generate(
             .map_err(anyhow::Error::msg)
         } else {
             let render_evaluator = BrowserStudioArtifactRenderEvaluator::default();
+            let brief = derive_request_grounded_studio_artifact_brief(
+                &title,
+                prompt,
+                &request,
+                refinement_context.as_ref(),
+            );
+            let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+            let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+            let planning_context = StudioArtifactPlanningContext {
+                brief,
+                blueprint: Some(blueprint),
+                artifact_ir: Some(artifact_ir),
+                preparation_needs: None,
+                prepared_context_resolution: None,
+                skill_discovery_resolution: None,
+                selected_skills: Vec::new(),
+                retrieved_exemplars: Vec::new(),
+            };
             generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
                 runtime,
                 Some(acceptance_runtime),
@@ -315,7 +339,7 @@ pub(super) async fn run_generate(
                 prompt,
                 &request,
                 refinement_context.as_ref(),
-                None,
+                &planning_context,
                 Some(&render_evaluator),
             )
             .await

@@ -72,14 +72,14 @@ pub(super) fn trace_html_contract_state(
 
     let lower = primary_html.body.to_ascii_lowercase();
     studio_generation_trace(format!(
-        "{stage} id={} rollover_marks={} detail_regions={} has_rollover_behavior={} unfocusable_rollover={} rollover_chip_rail={} repair_shims={}",
+        "{stage} id={} response_regions={} evidence_surfaces={} actionable_affordances={} stateful_behavior={} inspection_behavior={} unfocusable_detail={}",
         candidate_id,
-        count_html_rollover_detail_marks(&lower),
-        count_populated_html_detail_regions(&lower),
+        count_populated_html_response_regions(&lower),
+        count_populated_html_evidence_regions(&lower) + count_populated_html_chart_regions(&lower),
+        count_html_actionable_affordances(&lower),
+        html_contains_stateful_interaction_behavior(&lower),
         html_contains_rollover_detail_behavior(&lower),
         html_has_unfocusable_rollover_marks(&lower),
-        lower.contains("data-studio-rollover-chip-rail=\"true\""),
-        count_html_repair_shim_markers(&lower),
     ));
 }
 

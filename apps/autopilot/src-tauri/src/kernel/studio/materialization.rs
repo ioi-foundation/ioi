@@ -5,15 +5,16 @@ use ioi_api::execution::{
     ExecutionLivePreviewKind,
 };
 use ioi_api::studio::{
-    acceptance_timeout_for_execution_strategy, derive_studio_artifact_prepared_context,
+    derive_studio_artifact_prepared_context,
     generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator,
     pdf_artifact_bytes, render_eval_timeout_for_runtime, resolve_studio_artifact_runtime_plan,
     synthesize_studio_artifact_brief_for_execution_strategy_with_runtime,
     StudioArtifactActivityObserver, StudioArtifactBlueprint, StudioArtifactExemplar,
     StudioArtifactGenerationProgress, StudioArtifactGenerationProgressObserver, StudioArtifactIR,
     StudioArtifactPlanningContext, StudioArtifactRenderEvaluation, StudioArtifactRenderEvaluator,
+    StudioArtifactRuntimeEventStatus, StudioArtifactRuntimeEventType,
     StudioArtifactRuntimeNarrationEvent, StudioArtifactRuntimePolicyProfile,
-    StudioArtifactRuntimePreviewSnapshot, StudioArtifactSelectedSkill,
+    StudioArtifactRuntimePreviewSnapshot, StudioArtifactRuntimeStepId, StudioArtifactSelectedSkill,
 };
 use ioi_drivers::studio_render::BrowserStudioArtifactRenderEvaluator;
 use ioi_types::app::StudioExecutionStrategy;
@@ -104,11 +105,11 @@ fn author_artifact_blocked_event(
     detail: impl Into<String>,
 ) -> StudioArtifactRuntimeNarrationEvent {
     let event = StudioArtifactRuntimeNarrationEvent::new(
-        "author_artifact",
-        "author_artifact",
+        StudioArtifactRuntimeEventType::AuthorArtifact,
+        StudioArtifactRuntimeStepId::AuthorArtifact,
         "Write artifact",
         detail.into(),
-        "blocked",
+        StudioArtifactRuntimeEventStatus::Blocked,
     );
     if let Some(attempt_id) = attempt_id {
         event.with_attempt_id(attempt_id)
@@ -122,35 +123,35 @@ fn replan_execution_event(
     to: StudioExecutionStrategy,
 ) -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "replan_execution",
-        "replan_execution",
+        StudioArtifactRuntimeEventType::ReplanExecution,
+        StudioArtifactRuntimeStepId::ReplanExecution,
         "Switch execution strategy",
         format!(
             "Studio hit a concrete blocker under {} and is continuing with {} so the artifact route can still finish.",
             execution_strategy_id(from).replace('_', " "),
             execution_strategy_id(to).replace('_', " ")
         ),
-        "complete",
+        StudioArtifactRuntimeEventStatus::Complete,
     )
 }
 
 fn present_artifact_blocked_event(error: &str) -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "present_artifact",
-        "present_artifact",
+        StudioArtifactRuntimeEventType::PresentArtifact,
+        StudioArtifactRuntimeStepId::PresentArtifact,
         "Open artifact",
         format!("Studio could not present the artifact because {error}"),
-        "blocked",
+        StudioArtifactRuntimeEventStatus::Blocked,
     )
 }
 
 fn present_artifact_complete_event() -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "present_artifact",
-        "present_artifact",
+        StudioArtifactRuntimeEventType::PresentArtifact,
+        StudioArtifactRuntimeStepId::PresentArtifact,
         "Open artifact",
         "Studio finished materializing the artifact and can now surface it.",
-        "complete",
+        StudioArtifactRuntimeEventStatus::Complete,
     )
 }
 
@@ -686,7 +687,7 @@ pub(super) fn studio_generation_timeout_for_request(
 pub(super) fn studio_generation_timeout_for_request_and_execution_strategy(
     request: &StudioOutcomeArtifactRequest,
     runtime: &Arc<dyn InferenceRuntime>,
-    acceptance_runtime: Option<&Arc<dyn InferenceRuntime>>,
+    _acceptance_runtime: Option<&Arc<dyn InferenceRuntime>>,
     execution_strategy: StudioExecutionStrategy,
 ) -> Duration {
     if execution_strategy == StudioExecutionStrategy::DirectAuthor {
@@ -698,15 +699,9 @@ pub(super) fn studio_generation_timeout_for_request_and_execution_strategy(
             runtime.studio_runtime_provenance().kind,
         )
         .unwrap_or_default();
-        let acceptance_budget = acceptance_timeout_for_execution_strategy(
-            execution_strategy,
-            acceptance_runtime.unwrap_or(runtime),
-        )
-        .unwrap_or_default();
         let orchestration_slack = Duration::from_secs(5);
         return authoring_budget
             .saturating_add(render_eval_budget)
-            .saturating_add(acceptance_budget)
             .saturating_add(orchestration_slack);
     }
 
@@ -715,8 +710,7 @@ pub(super) fn studio_generation_timeout_for_request_and_execution_strategy(
 
 fn studio_modal_first_html_enabled_for_request(request: &StudioOutcomeArtifactRequest) -> bool {
     request.renderer == StudioRendererKind::HtmlIframe
-        && (crate::is_env_var_truthy("AUTOPILOT_STUDIO_MODAL_FIRST_HTML")
-            || crate::is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV"))
+        && ioi_api::studio::studio_modal_first_html_enabled_for_tests_and_runtime()
 }
 
 fn studio_extended_local_html_timeout_enabled(
@@ -765,7 +759,12 @@ where
 {
     tokio::pin!(future);
 
-    let mut ticker = tokio::time::interval(Duration::from_millis(250));
+    let poll_interval = if inactivity_timeout.is_zero() {
+        Duration::from_millis(1)
+    } else {
+        std::cmp::min(Duration::from_millis(250), inactivity_timeout)
+    };
+    let mut ticker = tokio::time::interval(poll_interval);
     ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
     loop {
@@ -1678,6 +1677,7 @@ pub(super) fn blocked_failure_brief(
         artifact_thesis: intent.to_string(),
         required_concepts: vec![renderer_kind_id(renderer).to_string()],
         required_interactions: Vec::new(),
+        query_profile: None,
         visual_tone: vec!["truthful failure".to_string()],
         factual_anchors: vec![failure_message.to_string()],
         style_directives: Vec::new(),

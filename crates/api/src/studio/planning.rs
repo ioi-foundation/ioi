@@ -810,6 +810,7 @@ fn request_grounded_subject_domain(title: &str, intent: &str) -> String {
             artifact_thesis: String::new(),
             required_concepts: Vec::new(),
             required_interactions: Vec::new(),
+            query_profile: None,
             visual_tone: Vec::new(),
             factual_anchors: Vec::new(),
             style_directives: Vec::new(),
@@ -891,22 +892,214 @@ fn request_grounded_required_concepts(
     canonicalize_brief_list(concepts)
 }
 
-fn request_grounded_required_interactions(
+fn request_grounded_query_profile(
     request: &StudioOutcomeArtifactRequest,
     subject_domain: &str,
+) -> StudioArtifactQueryProfile {
+    let mut content_goals = vec![
+        StudioArtifactContentGoal {
+            kind: StudioArtifactContentGoalKind::Orient,
+            summary: format!("Orient the user to {subject_domain} immediately."),
+            required: true,
+        },
+        StudioArtifactContentGoal {
+            kind: StudioArtifactContentGoalKind::Explain,
+            summary: format!("Explain the core ideas behind {subject_domain}."),
+            required: true,
+        },
+    ];
+    let mut evidence_goals = vec![StudioArtifactEvidenceGoal {
+        kind: StudioArtifactEvidenceGoalKind::PrimarySurface,
+        summary: "Keep one grounded evidence surface visible on first paint.".to_string(),
+        required: true,
+    }];
+    let mut interaction_goals = Vec::<StudioArtifactInteractionGoal>::new();
+    let mut presentation_constraints = vec![
+        StudioArtifactPresentationConstraint {
+            kind: StudioArtifactPresentationConstraintKind::SemanticStructure,
+            summary: "Use semantic structure so the primary surface is legible before enhancement."
+                .to_string(),
+            required: true,
+        },
+        StudioArtifactPresentationConstraint {
+            kind: StudioArtifactPresentationConstraintKind::FirstPaintEvidence,
+            summary: "Populate the first paint with meaningful content rather than empty shells."
+                .to_string(),
+            required: true,
+        },
+        StudioArtifactPresentationConstraint {
+            kind: StudioArtifactPresentationConstraintKind::RuntimeSelfContainment,
+            summary: "Keep the artifact self-contained and renderable without external runtime assumptions."
+                .to_string(),
+            required: true,
+        },
+    ];
+
+    match request.renderer {
+        StudioRendererKind::HtmlIframe => {
+            content_goals.push(StudioArtifactContentGoal {
+                kind: StudioArtifactContentGoalKind::Compare,
+                summary: format!("Let the user compare multiple angles of {subject_domain}."),
+                required: true,
+            });
+            evidence_goals.push(StudioArtifactEvidenceGoal {
+                kind: StudioArtifactEvidenceGoalKind::ComparisonSurface,
+                summary:
+                    "Keep at least one alternate evidence surface pre-rendered for comparison."
+                        .to_string(),
+                required: true,
+            });
+            interaction_goals.extend([
+                StudioArtifactInteractionGoal {
+                    kind: StudioArtifactInteractionGoalKind::StateSwitch,
+                    summary: format!(
+                        "Switch between authored states to compare how the explanation of {subject_domain} changes."
+                    ),
+                    required: true,
+                },
+                StudioArtifactInteractionGoal {
+                    kind: StudioArtifactInteractionGoalKind::DetailInspect,
+                    summary: format!(
+                        "Inspect visible evidence to reveal more context about {subject_domain} inline."
+                    ),
+                    required: true,
+                },
+                StudioArtifactInteractionGoal {
+                    kind: StudioArtifactInteractionGoalKind::SequenceBrowse,
+                    summary: format!(
+                        "Progress through staged evidence or examples so the {subject_domain} story unfolds step by step."
+                    ),
+                    required: false,
+                },
+            ]);
+            presentation_constraints.extend([
+                StudioArtifactPresentationConstraint {
+                    kind: StudioArtifactPresentationConstraintKind::ResponseRegion,
+                    summary: "Keep one shared response or explanation region visible while interactions run."
+                        .to_string(),
+                    required: true,
+                },
+                StudioArtifactPresentationConstraint {
+                    kind: StudioArtifactPresentationConstraintKind::KeyboardAffordances,
+                    summary: "Expose keyboard-reachable affordances for the primary interactive surfaces."
+                        .to_string(),
+                    required: true,
+                },
+                StudioArtifactPresentationConstraint {
+                    kind: StudioArtifactPresentationConstraintKind::TypographySeparation,
+                    summary: "Create clear typographic separation between framing, evidence, and response surfaces."
+                        .to_string(),
+                    required: false,
+                },
+            ]);
+        }
+        StudioRendererKind::JsxSandbox => {
+            content_goals.push(StudioArtifactContentGoal {
+                kind: StudioArtifactContentGoalKind::Implementation,
+                summary: format!("Expose a working interactive surface for {subject_domain}."),
+                required: true,
+            });
+            interaction_goals.extend([
+                StudioArtifactInteractionGoal {
+                    kind: StudioArtifactInteractionGoalKind::StateAdjust,
+                    summary: format!(
+                        "Adjust controls to update the visible response for {subject_domain}."
+                    ),
+                    required: true,
+                },
+                StudioArtifactInteractionGoal {
+                    kind: StudioArtifactInteractionGoalKind::DetailInspect,
+                    summary: format!(
+                        "Inspect visible state details to understand the current {subject_domain} response."
+                    ),
+                    required: true,
+                },
+            ]);
+            presentation_constraints.extend([
+                StudioArtifactPresentationConstraint {
+                    kind: StudioArtifactPresentationConstraintKind::ResponseRegion,
+                    summary: "Keep a visible response region on first paint so state changes stay interpretable."
+                        .to_string(),
+                    required: true,
+                },
+                StudioArtifactPresentationConstraint {
+                    kind: StudioArtifactPresentationConstraintKind::KeyboardAffordances,
+                    summary: "Provide keyboard-reachable controls for the interactive demo surface."
+                        .to_string(),
+                    required: true,
+                },
+            ]);
+        }
+        StudioRendererKind::Svg | StudioRendererKind::Mermaid => {
+            content_goals.push(StudioArtifactContentGoal {
+                kind: StudioArtifactContentGoalKind::Summary,
+                summary: format!("Summarize {subject_domain} at a glance."),
+                required: true,
+            });
+            evidence_goals.push(StudioArtifactEvidenceGoal {
+                kind: StudioArtifactEvidenceGoalKind::SupportingSurface,
+                summary: "Use labeled supporting marks so the visual remains self-explanatory."
+                    .to_string(),
+                required: true,
+            });
+            presentation_constraints.push(StudioArtifactPresentationConstraint {
+                kind: StudioArtifactPresentationConstraintKind::TypographySeparation,
+                summary:
+                    "Use strong labeling and hierarchy so the visual reads without extra narration."
+                        .to_string(),
+                required: true,
+            });
+        }
+        StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed => {
+            content_goals.push(StudioArtifactContentGoal {
+                kind: StudioArtifactContentGoalKind::Summary,
+                summary: format!("Summarize {subject_domain} clearly and with grounded evidence."),
+                required: true,
+            });
+            evidence_goals.push(StudioArtifactEvidenceGoal {
+                kind: StudioArtifactEvidenceGoalKind::SupportingSurface,
+                summary: "Support the document with grounded evidence and explicit takeaways."
+                    .to_string(),
+                required: true,
+            });
+        }
+        StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest => {
+            content_goals.push(StudioArtifactContentGoal {
+                kind: StudioArtifactContentGoalKind::Implementation,
+                summary: format!(
+                    "Package the useful {subject_domain} fileset with clear orientation."
+                ),
+                required: true,
+            });
+        }
+        StudioRendererKind::WorkspaceSurface => {
+            content_goals.push(StudioArtifactContentGoal {
+                kind: StudioArtifactContentGoalKind::Implementation,
+                summary: "Expose a working implementation surface and scaffolding cues."
+                    .to_string(),
+                required: true,
+            });
+        }
+    }
+
+    StudioArtifactQueryProfile {
+        content_goals,
+        interaction_goals,
+        evidence_goals,
+        presentation_constraints,
+    }
+}
+
+fn request_grounded_required_interactions(
+    request: &StudioOutcomeArtifactRequest,
+    _subject_domain: &str,
+    query_profile: &StudioArtifactQueryProfile,
 ) -> Vec<String> {
-    let interactions = match request.renderer {
-        StudioRendererKind::HtmlIframe => vec![
-            format!("switch between {subject_domain} views to compare how the explanation changes"),
-            format!("inspect {subject_domain} callouts to reveal deeper context inline"),
-            format!("step through {subject_domain} examples to see the explanation progress"),
-        ],
-        StudioRendererKind::JsxSandbox => vec![
-            format!("adjust {subject_domain} controls to update the visible response"),
-            format!("inspect {subject_domain} state details in the shared panel"),
-        ],
-        _ => Vec::new(),
-    };
+    let interactions = query_profile
+        .interaction_goals
+        .iter()
+        .map(|goal| goal.summary.clone())
+        .collect::<Vec<_>>();
 
     canonicalize_brief_interactions(interactions, request)
 }
@@ -963,6 +1156,7 @@ pub fn derive_request_grounded_studio_artifact_brief(
         format!("{subject_domain} comparisons"),
         format!("{subject_domain} evidence"),
     ]);
+    let query_profile = request_grounded_query_profile(request, &subject_domain);
 
     let brief = StudioArtifactBrief {
         audience: derive_brief_audience(request, &subject_domain)
@@ -980,7 +1174,12 @@ pub fn derive_request_grounded_studio_artifact_brief(
                 .unwrap_or_else(|| format!("A {subject_domain} artifact")),
         },
         required_concepts: request_grounded_required_concepts(request, &subject_domain),
-        required_interactions: request_grounded_required_interactions(request, &subject_domain),
+        required_interactions: request_grounded_required_interactions(
+            request,
+            &subject_domain,
+            &query_profile,
+        ),
+        query_profile: Some(query_profile),
         visual_tone: request_grounded_visual_tone(request),
         factual_anchors,
         style_directives: request_grounded_style_directives(request),
@@ -1639,148 +1838,97 @@ fn canonicalize_brief_interactions(
     normalized
 }
 
-fn concise_interaction_focus_phrase(value: &str) -> Option<String> {
-    let normalized = trim_sentence_terminal(&normalize_inline_whitespace(value));
+fn canonicalize_query_profile_summary(summary: &str) -> Option<String> {
+    let normalized = normalize_inline_whitespace(summary);
     if normalized.is_empty() {
-        return None;
-    }
-
-    let words = normalized.split_whitespace().collect::<Vec<_>>();
-    let phrase = if words.len() > 6 {
-        words[..6].join(" ")
+        None
     } else {
-        normalized
-    };
-    Some(phrase)
+        Some(normalized)
+    }
 }
 
-fn html_brief_interaction_focus_phrases(brief: &StudioArtifactBrief) -> Vec<String> {
-    let mut phrases = Vec::<String>::new();
-    for value in brief
-        .required_concepts
+fn canonicalize_query_profile(
+    mut profile: StudioArtifactQueryProfile,
+) -> StudioArtifactQueryProfile {
+    profile.content_goals.retain_mut(|goal| {
+        canonicalize_query_profile_summary(&goal.summary)
+            .map(|summary| {
+                goal.summary = summary;
+                true
+            })
+            .unwrap_or(false)
+    });
+    profile.interaction_goals.retain_mut(|goal| {
+        canonicalize_query_profile_summary(&goal.summary)
+            .map(|summary| {
+                goal.summary = summary;
+                true
+            })
+            .unwrap_or(false)
+    });
+    profile.evidence_goals.retain_mut(|goal| {
+        canonicalize_query_profile_summary(&goal.summary)
+            .map(|summary| {
+                goal.summary = summary;
+                true
+            })
+            .unwrap_or(false)
+    });
+    profile.presentation_constraints.retain_mut(|constraint| {
+        canonicalize_query_profile_summary(&constraint.summary)
+            .map(|summary| {
+                constraint.summary = summary;
+                true
+            })
+            .unwrap_or(false)
+    });
+    profile
+}
+
+fn interaction_family_for_kind(kind: StudioArtifactInteractionGoalKind) -> &'static str {
+    match kind {
+        StudioArtifactInteractionGoalKind::StateSwitch => "view_switching",
+        StudioArtifactInteractionGoalKind::DetailInspect => "detail_inspection",
+        StudioArtifactInteractionGoalKind::SequenceBrowse => "sequence_browsing",
+        StudioArtifactInteractionGoalKind::StateAdjust => "state_manipulation",
+        StudioArtifactInteractionGoalKind::GuidedResponse => "guided_response",
+    }
+}
+
+fn brief_interaction_goals(brief: &StudioArtifactBrief) -> Vec<StudioArtifactInteractionGoal> {
+    if let Some(profile) = brief.query_profile.as_ref() {
+        return profile
+            .interaction_goals
+            .iter()
+            .filter(|goal| goal.required)
+            .cloned()
+            .collect();
+    }
+
+    brief
+        .required_interactions
         .iter()
-        .chain(brief.factual_anchors.iter())
-        .chain(brief.reference_hints.iter())
-        .map(String::as_str)
-        .chain(std::iter::once(brief.subject_domain.as_str()))
-    {
-        let Some(phrase) = concise_interaction_focus_phrase(value) else {
-            continue;
-        };
-        if phrases
-            .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(&phrase))
-        {
-            continue;
-        }
-        phrases.push(phrase);
-        if phrases.len() >= 3 {
-            break;
-        }
-    }
-    phrases
+        .map(|summary| StudioArtifactInteractionGoal {
+            kind: StudioArtifactInteractionGoalKind::GuidedResponse,
+            summary: summary.clone(),
+            required: true,
+        })
+        .collect()
 }
 
-fn derived_grounded_html_interaction(
-    family: &str,
-    primary_focus: &str,
-    secondary_focus: &str,
-) -> String {
-    if studio_modal_first_html_enabled() {
-        return match family {
-            "view_switching" => {
-                format!(
-                    "switch between {primary_focus} views to compare how the explanation changes"
-                )
-            }
-            "detail_inspection" => {
-                format!("inspect {secondary_focus} callouts to reveal deeper context inline")
-            }
-            "sequence_browsing" => {
-                format!("step through {primary_focus} examples to see the explanation progress")
-            }
-            _ => {
-                format!("interact with {secondary_focus} examples to reveal deeper context inline")
-            }
-        };
-    }
-    match family {
-        "view_switching" => {
-            format!("switch {primary_focus} sections to update the visible comparison panel")
-        }
-        "detail_inspection" => {
-            format!("inspect {secondary_focus} details in the shared detail panel")
-        }
-        "sequence_browsing" => {
-            format!("step through {primary_focus} examples to update the visible detail panel")
-        }
-        _ => format!("compare {secondary_focus} callouts in the shared detail panel"),
-    }
+fn brief_required_interaction_summaries(brief: &StudioArtifactBrief) -> Vec<String> {
+    brief.required_interaction_summaries()
 }
 
-fn ground_html_brief_interactions(
-    interactions: Vec<String>,
-    brief: &StudioArtifactBrief,
-) -> Vec<String> {
-    let grounding_terms = interaction_grounding_terms_for_validation(brief, None);
-    let focus_phrases = html_brief_interaction_focus_phrases(brief);
-    let primary_focus = focus_phrases
-        .first()
-        .map(String::as_str)
-        .unwrap_or("request");
-    let secondary_focus = focus_phrases
-        .get(1)
-        .or_else(|| focus_phrases.first())
-        .map(String::as_str)
-        .unwrap_or(primary_focus);
-    let mut grounded = Vec::<String>::new();
-
-    for interaction in interactions {
-        let entry = if interaction_has_grounded_terms(&interaction, &grounding_terms)
-            && interaction_has_behavior_terms(&interaction)
-        {
-            interaction
-        } else {
-            derived_grounded_html_interaction(
-                blueprint_interaction_family(&interaction),
-                primary_focus,
-                secondary_focus,
-            )
-        };
-        if grounded
-            .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(&entry))
-        {
-            continue;
+fn brief_interaction_families(brief: &StudioArtifactBrief) -> Vec<&'static str> {
+    let mut families = Vec::<&'static str>::new();
+    for goal in brief_interaction_goals(brief) {
+        let family = interaction_family_for_kind(goal.kind);
+        if !families.contains(&family) {
+            families.push(family);
         }
-        grounded.push(entry);
     }
-
-    let defaults = if studio_modal_first_html_enabled() {
-        [
-            format!("switch between {primary_focus} views to compare how the explanation changes"),
-            format!("inspect {secondary_focus} callouts to reveal deeper context inline"),
-        ]
-    } else {
-        [
-            format!("switch {primary_focus} sections to update the visible comparison panel"),
-            format!("inspect {secondary_focus} details in the shared detail panel"),
-        ]
-    };
-    for entry in defaults {
-        if grounded.len() >= 2 {
-            break;
-        }
-        if grounded
-            .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(&entry))
-        {
-            continue;
-        }
-        grounded.push(entry);
-    }
-
-    grounded
+    families
 }
 
 pub(crate) fn canonicalize_studio_artifact_brief_for_request(
@@ -1798,12 +1946,16 @@ pub(crate) fn canonicalize_studio_artifact_brief_for_request(
     brief.reference_hints = canonicalize_brief_list(brief.reference_hints);
     brief.required_interactions =
         canonicalize_brief_interactions(std::mem::take(&mut brief.required_interactions), request);
-    if request.renderer == StudioRendererKind::HtmlIframe {
-        brief.required_interactions = ground_html_brief_interactions(
-            std::mem::take(&mut brief.required_interactions),
-            &brief,
-        );
+    let query_profile = brief
+        .query_profile
+        .take()
+        .map(canonicalize_query_profile)
+        .unwrap_or_else(|| request_grounded_query_profile(request, &brief.subject_domain));
+    if brief.required_interactions.is_empty() {
+        brief.required_interactions =
+            request_grounded_required_interactions(request, &brief.subject_domain, &query_profile);
     }
+    brief.query_profile = Some(query_profile);
     brief
 }
 
@@ -2025,13 +2177,6 @@ fn interaction_has_grounded_terms(interaction: &str, grounding_terms: &[String])
     })
 }
 
-fn interaction_has_behavior_terms(interaction: &str) -> bool {
-    split_interaction_identifier_terms(interaction)
-        .into_iter()
-        .filter(|term| term.len() >= 3 && !interaction_grounding_noise_term(term))
-        .any(|term| interaction_behavior_term(&term))
-}
-
 fn html_visual_direction_noise_term(term: &str) -> bool {
     matches!(
         term,
@@ -2135,6 +2280,8 @@ pub fn build_studio_artifact_exemplar_query(
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "none noted".to_string());
 
+    let required_interactions = brief_required_interaction_summaries(brief).join(", ");
+
     format!(
         "Studio artifact exemplar retrieval.\nRenderer: {:?}\nScaffold family: {}\nAudience: {}\nJob to be done: {}\nSubject domain: {}\nArtifact thesis: {}\nSection roles: {}\nInteraction families: {}\nEvidence kinds: {}\nComponent patterns: {}\nRequired concepts: {}\nRequired interactions: {}\nTypography preferences: {}\nDensity preference: {}\nTone family: {}\nMotion tolerance: {}\nPreferred scaffold families: {}\nPreferred component patterns: {}\nAnti patterns: {}\nStatic audit expectations: {}\nRender evaluation checklist: {}\nRetrieve high-quality prior artifacts that match this structural shape and design intent. Use them as structural grounding only, never as text-copy templates.",
         blueprint.renderer,
@@ -2148,7 +2295,7 @@ pub fn build_studio_artifact_exemplar_query(
         evidence_kinds,
         component_patterns,
         brief.required_concepts.join(", "),
-        brief.required_interactions.join(", "),
+        required_interactions,
         typography_preferences,
         density_preference,
         tone_family,
@@ -2174,20 +2321,20 @@ pub(crate) fn validate_studio_artifact_brief_against_request(
 
     match request.renderer {
         StudioRendererKind::HtmlIframe => {
+            let required_interactions = brief_required_interaction_summaries(brief);
             if brief.required_concepts.len() < 3 {
                 return Err(
                     "Interactive HTML briefs must keep at least three concrete request concepts visible."
                         .to_string(),
                 );
             }
-            if brief.required_interactions.len() < 2 {
+            if required_interactions.len() < 2 {
                 return Err(
                     "Interactive HTML briefs must name at least two concrete interaction patterns."
                         .to_string(),
                 );
             }
-            if brief
-                .required_interactions
+            if required_interactions
                 .iter()
                 .any(|interaction| interaction_phrase_term_count(interaction) < 2)
             {
@@ -2203,8 +2350,7 @@ pub(crate) fn validate_studio_artifact_brief_against_request(
                 );
             }
             let grounding_terms = interaction_grounding_terms_for_validation(brief, refinement);
-            if brief
-                .required_interactions
+            if required_interactions
                 .iter()
                 .any(|interaction| !interaction_has_grounded_terms(interaction, &grounding_terms))
             {
@@ -2221,14 +2367,14 @@ pub(crate) fn validate_studio_artifact_brief_against_request(
             }
         }
         StudioRendererKind::JsxSandbox => {
-            if brief.required_interactions.is_empty() {
+            let required_interactions = brief_required_interaction_summaries(brief);
+            if required_interactions.is_empty() {
                 return Err(
                     "Interactive JSX briefs must name at least one concrete interaction pattern."
                         .to_string(),
                 );
             }
-            if brief
-                .required_interactions
+            if required_interactions
                 .iter()
                 .any(|interaction| interaction_phrase_term_count(interaction) < 2)
             {
@@ -2257,54 +2403,16 @@ fn concise_requirement_list(values: &[String], fallback: &str, max_items: usize)
     items
 }
 
-fn blueprint_interaction_family(interaction: &str) -> &'static str {
-    let terms = split_interaction_identifier_terms(interaction);
-    if terms.iter().any(|term| {
-        matches!(
-            term.as_str(),
-            "tab" | "tabs" | "toggle" | "switch" | "view" | "views" | "compare" | "comparison"
-        )
-    }) {
-        "view_switching"
-    } else if terms.iter().any(|term| {
-        matches!(
-            term.as_str(),
-            "hover" | "rollover" | "detail" | "focus" | "inspect" | "highlight"
-        )
-    }) {
-        "detail_inspection"
-    } else if terms.iter().any(|term| {
-        matches!(
-            term.as_str(),
-            "step" | "sequence" | "browse" | "scroll" | "tour" | "previous" | "next" | "scrub"
-        )
-    }) {
-        "sequence_browsing"
-    } else if terms.iter().any(|term| {
-        matches!(
-            term.as_str(),
-            "drag" | "rotate" | "measure" | "simulate" | "manipulate" | "state"
-        )
-    }) {
-        "state_manipulation"
-    } else {
-        "guided_response"
-    }
-}
-
 fn blueprint_scaffold_family(
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
 ) -> String {
     match request.renderer {
         StudioRendererKind::HtmlIframe => {
-            if super::brief_requires_sequence_browsing(brief) {
+            let families = brief_interaction_families(brief);
+            if families.contains(&"sequence_browsing") {
                 "guided_tutorial".to_string()
-            } else if brief
-                .required_interactions
-                .iter()
-                .any(|interaction| blueprint_interaction_family(interaction) == "view_switching")
-            {
+            } else if families.contains(&"view_switching") {
                 "comparison_story".to_string()
             } else if brief.factual_anchors.len() + brief.reference_hints.len() >= 2 {
                 "data_forward_walkthrough".to_string()
@@ -2359,11 +2467,9 @@ fn blueprint_skill_needs(
         });
     }
 
-    if brief
-        .required_interactions
-        .iter()
-        .any(|interaction| blueprint_interaction_family(interaction) == "sequence_browsing")
-    {
+    let interaction_families = brief_interaction_families(brief);
+
+    if interaction_families.contains(&"sequence_browsing") {
         skill_needs.push(StudioArtifactSkillNeed {
             kind: StudioArtifactSkillNeedKind::MotionHierarchy,
             priority: StudioArtifactSkillNeedPriority::Recommended,
@@ -2373,12 +2479,9 @@ fn blueprint_skill_needs(
         });
     }
 
-    if brief.required_interactions.iter().any(|interaction| {
-        matches!(
-            blueprint_interaction_family(interaction),
-            "view_switching" | "detail_inspection"
-        )
-    }) {
+    if interaction_families.contains(&"view_switching")
+        || interaction_families.contains(&"detail_inspection")
+    {
         skill_needs.push(StudioArtifactSkillNeed {
             kind: StudioArtifactSkillNeedKind::DataStorytelling,
             priority: StudioArtifactSkillNeedPriority::Recommended,
@@ -2448,12 +2551,13 @@ fn blueprint_section_plan(
         request.renderer,
         StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox
     ) {
+        let interaction_summaries = brief_required_interaction_summaries(brief);
         sections.push(StudioArtifactSectionPlan {
             id: "interaction-lab".to_string(),
             role: "interaction_lab".to_string(),
             visible_purpose: "Make the planned interaction families tangible.".to_string(),
             content_requirements: concise_requirement_list(
-                &brief.required_interactions,
+                &interaction_summaries,
                 "Expose at least one concrete interaction.",
                 3,
             ),
@@ -2487,12 +2591,12 @@ fn blueprint_section_plan(
 }
 
 fn blueprint_interaction_plan(brief: &StudioArtifactBrief) -> Vec<StudioArtifactInteractionPlan> {
-    let mut plans = brief
-        .required_interactions
+    let interaction_goals = brief_interaction_goals(brief);
+    let mut plans = interaction_goals
         .iter()
         .enumerate()
         .map(|(index, interaction)| {
-            let family = blueprint_interaction_family(interaction).to_string();
+            let family = interaction_family_for_kind(interaction.kind).to_string();
             let (source_controls, target_surfaces, default_state, required_first_paint_affordances) =
                 match family.as_str() {
                     "view_switching" => (
@@ -2529,7 +2633,8 @@ fn blueprint_interaction_plan(brief: &StudioArtifactBrief) -> Vec<StudioArtifact
                         "default_detail_visible".to_string(),
                         vec![
                             if studio_modal_first_html_enabled() {
-                                "Visible explanatory context is rendered before interaction.".to_string()
+                                "Visible explanatory context is rendered before interaction."
+                                    .to_string()
                             } else {
                                 "Visible detail text is rendered before interaction.".to_string()
                             },
@@ -2539,7 +2644,10 @@ fn blueprint_interaction_plan(brief: &StudioArtifactBrief) -> Vec<StudioArtifact
                     "sequence_browsing" => (
                         vec!["stepper".to_string(), "previous_next_controls".to_string()],
                         if studio_modal_first_html_enabled() {
-                            vec!["sequence_surface".to_string(), "inline_annotation_surface".to_string()]
+                            vec![
+                                "sequence_surface".to_string(),
+                                "inline_annotation_surface".to_string(),
+                            ]
                         } else {
                             vec!["sequence_panel".to_string(), "shared_detail_region".to_string()]
                         },

@@ -822,10 +822,10 @@ pub(super) fn pipeline_steps_for_state(
             format!("audience:{}", truncate_pipeline_output(&brief.audience, 48)),
             format!("concepts:{}", brief.required_concepts.len()),
         ];
-        if !brief.required_interactions.is_empty() {
+        if brief.has_required_interaction_goals() {
             outputs.push(format!(
                 "interactions:{}",
-                brief.required_interactions.len()
+                brief.required_interaction_goal_count()
             ));
         }
         outputs

@@ -245,7 +245,7 @@ pub(crate) fn build_studio_artifact_swarm_plan(
                         exclusive_write_lease_for_region("interaction"),
                     ],
                     acceptance_criteria: {
-                        let mut criteria = brief.required_interactions.clone();
+                        let mut criteria = brief.required_interaction_summaries();
                         if criteria.is_empty() {
                             criteria.push(
                                 "Keep authored state changes truthful and inline.".to_string(),

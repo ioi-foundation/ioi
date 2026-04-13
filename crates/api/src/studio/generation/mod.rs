@@ -1,9 +1,8 @@
 use super::judging::{
     candidate_generation_config, candidate_seed_for, html_first_paint_section_blueprint,
-    judge_clears_primary_view, judge_studio_artifact_candidate_with_runtime_and_render_eval,
-    judge_total_score, materialization_max_tokens, output_origin_from_provenance,
-    refined_candidate_root, renderer_supports_semantic_refinement, runtime_model_label,
-    semantic_refinement_pass_limit, studio_artifact_refinement_candidate_view,
+    judge_clears_primary_view, judge_total_score, materialization_max_tokens,
+    output_origin_from_provenance, refined_candidate_root, renderer_supports_semantic_refinement,
+    runtime_model_label, semantic_refinement_pass_limit, studio_artifact_refinement_candidate_view,
     studio_artifact_refinement_context_view, summarized_guidance_terms,
 };
 use super::*;
@@ -37,7 +36,6 @@ mod planning_and_judging;
 mod refinement_prompt;
 mod runtime_materialization;
 mod runtime_plan;
-mod semantic_refinement;
 mod swarm;
 mod swarm_bundle;
 mod swarm_bundle_finalize;
@@ -47,11 +45,12 @@ mod swarm_plan;
 mod swarm_progress;
 mod validation_preview;
 
+#[cfg(test)]
+pub(crate) use adaptive_search::requested_follow_up_pass;
 use adaptive_search::*;
 pub(crate) use adaptive_search::{
     derive_studio_adaptive_search_budget, ranked_candidate_indices_by_score,
-    requested_follow_up_pass, shortlisted_candidate_indices_for_budget,
-    target_candidate_count_after_initial_search,
+    shortlisted_candidate_indices_for_budget, target_candidate_count_after_initial_search,
 };
 use candidate_materialization::*;
 use common::*;
@@ -91,20 +90,19 @@ pub(crate) use runtime_materialization::{
     materialize_studio_artifact_candidate_with_runtime_direct_author_detailed,
     refine_studio_artifact_candidate_with_runtime,
 };
-pub use runtime_plan::{
-    acceptance_timeout_for_execution_strategy, render_eval_timeout_for_runtime,
-    resolve_studio_artifact_runtime_plan, StudioArtifactResolvedRuntimePlan,
-};
 use runtime_plan::{
     compact_local_html_materialization_prompt, effective_direct_author_temperature,
-    format_timeout_duration, materialization_max_tokens_for_execution_strategy,
     studio_runtime_provenance_matches, warm_local_html_generation_runtime_if_needed,
 };
 pub(crate) use runtime_plan::{
-    effective_candidate_generation_temperature, materialization_max_tokens_for_runtime,
-    materialization_repair_pass_limit, materialization_repair_runtime_for_request,
+    effective_candidate_generation_temperature, materialization_max_tokens_for_execution_strategy,
+    materialization_max_tokens_for_runtime, materialization_repair_pass_limit,
+    materialization_repair_runtime_for_request,
 };
-use semantic_refinement::*;
+pub use runtime_plan::{
+    render_eval_timeout_for_runtime, resolve_studio_artifact_runtime_plan,
+    StudioArtifactResolvedRuntimePlan,
+};
 use swarm::{
     default_generated_artifact_file_for_renderer, default_studio_artifact_execution_strategy,
     judge_classification_id, push_unique_focus_strings, section_region_id,

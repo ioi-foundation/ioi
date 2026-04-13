@@ -98,7 +98,7 @@ fn studio_artifact_judge_brief_focus(brief: &StudioArtifactBrief) -> serde_json:
         "subjectDomain": brief.subject_domain,
         "artifactThesis": brief.artifact_thesis,
         "requiredConcepts": brief.required_concepts,
-        "requiredInteractions": brief.required_interactions,
+        "requiredInteractions": brief.required_interaction_summaries(),
         "visualTone": brief.visual_tone,
         "factualAnchors": brief.factual_anchors,
         "styleDirectives": brief.style_directives,
@@ -2222,8 +2222,8 @@ pub(crate) fn html_first_paint_section_blueprint(brief: &StudioArtifactBrief) ->
         .map(|item| item.trim())
         .find(|item| !item.is_empty())
         .unwrap_or("the primary evidence topics");
-    let detail_focus = brief
-        .required_interactions
+    let required_interactions = brief.required_interaction_summaries();
+    let detail_focus = required_interactions
         .iter()
         .chain(brief.factual_anchors.iter().skip(2))
         .chain(brief.reference_hints.iter())

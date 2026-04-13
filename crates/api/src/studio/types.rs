@@ -69,6 +69,45 @@ pub struct StudioArtifactRenderFinding {
     pub summary: String,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRenderPolicyMode {
+    #[default]
+    Balanced,
+    ObservationOnly,
+    Strict,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactRenderObservation {
+    pub primary_region_present: bool,
+    pub first_paint_visible_text_chars: usize,
+    pub mobile_visible_text_chars: usize,
+    pub semantic_region_count: usize,
+    pub evidence_surface_count: usize,
+    pub response_region_count: usize,
+    pub actionable_affordance_count: usize,
+    pub active_affordance_count: usize,
+    pub runtime_error_count: usize,
+    pub interaction_state_changed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactRenderAcceptancePolicy {
+    pub mode: StudioArtifactRenderPolicyMode,
+    pub minimum_first_paint_text_chars: usize,
+    pub minimum_semantic_regions: usize,
+    pub minimum_evidence_surfaces: usize,
+    pub minimum_actionable_affordances: usize,
+    pub blocked_score_threshold: u8,
+    pub primary_view_score_threshold: u8,
+    pub require_primary_region: bool,
+    pub require_response_region_when_interactive: bool,
+    pub require_state_change_when_interactive: bool,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum StudioArtifactExecutionWitnessStatus {
@@ -128,6 +167,10 @@ pub struct StudioArtifactRenderEvaluation {
     pub interaction_capture_attempted: bool,
     #[serde(default)]
     pub captures: Vec<StudioArtifactRenderCapture>,
+    #[serde(default)]
+    pub observation: Option<StudioArtifactRenderObservation>,
+    #[serde(default)]
+    pub acceptance_policy: Option<StudioArtifactRenderAcceptancePolicy>,
     pub layout_density_score: u8,
     pub spacing_alignment_score: u8,
     pub typography_contrast_score: u8,
@@ -144,6 +187,20 @@ pub struct StudioArtifactRenderEvaluation {
 }
 
 impl StudioArtifactRenderEvaluation {
+    pub fn blocked_score_threshold(&self) -> u8 {
+        self.acceptance_policy
+            .as_ref()
+            .map(|policy| policy.blocked_score_threshold)
+            .unwrap_or(9)
+    }
+
+    pub fn primary_view_score_threshold(&self) -> u8 {
+        self.acceptance_policy
+            .as_ref()
+            .map(|policy| policy.primary_view_score_threshold)
+            .unwrap_or(18)
+    }
+
     pub fn required_obligation_count(&self) -> usize {
         self.acceptance_obligations
             .iter()
@@ -177,6 +234,26 @@ impl StudioArtifactRenderEvaluation {
 
     pub fn has_failed_required_obligations(&self) -> bool {
         self.failed_required_obligation_count() > 0
+    }
+
+    pub fn blocked_by_policy(&self) -> bool {
+        !self.first_paint_captured
+            || self
+                .findings
+                .iter()
+                .any(|finding| finding.severity == StudioArtifactRenderFindingSeverity::Blocked)
+            || self.has_failed_required_obligations()
+            || self.overall_score <= self.blocked_score_threshold()
+    }
+
+    pub fn clears_primary_view_by_policy(&self) -> bool {
+        self.first_paint_captured
+            && !self.has_failed_required_obligations()
+            && self
+                .findings
+                .iter()
+                .all(|finding| finding.severity == StudioArtifactRenderFindingSeverity::Info)
+            && self.overall_score >= self.primary_view_score_threshold()
     }
 }
 
@@ -241,19 +318,237 @@ pub struct StudioArtifactRuntimePreviewSnapshot {
     pub is_final: bool,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRuntimeEventType {
+    UnderstandRequest,
+    ArtifactRouteCommitted,
+    SkillDiscovery,
+    SkillRead,
+    ArtifactBrief,
+    AuthorArtifact,
+    AuthorPreview,
+    ReplanExecution,
+    VerifyArtifact,
+    PresentArtifact,
+    #[default]
+    Other,
+}
+
+impl StudioArtifactRuntimeEventType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::UnderstandRequest => "understand_request",
+            Self::ArtifactRouteCommitted => "artifact_route_committed",
+            Self::SkillDiscovery => "skill_discovery",
+            Self::SkillRead => "skill_read",
+            Self::ArtifactBrief => "artifact_brief",
+            Self::AuthorArtifact => "author_artifact",
+            Self::AuthorPreview => "author_preview",
+            Self::ReplanExecution => "replan_execution",
+            Self::VerifyArtifact => "verify_artifact",
+            Self::PresentArtifact => "present_artifact",
+            Self::Other => "other",
+        }
+    }
+
+    pub fn parse(value: &str) -> Self {
+        serde_json::from_str(&format!("\"{}\"", value.trim().to_ascii_lowercase()))
+            .unwrap_or(Self::Other)
+    }
+}
+
+impl From<&str> for StudioArtifactRuntimeEventType {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for StudioArtifactRuntimeEventType {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRuntimeStepId {
+    UnderstandRequest,
+    ArtifactRouteCommitted,
+    SkillDiscovery,
+    SkillRead,
+    ArtifactBrief,
+    AuthorArtifact,
+    ReplanExecution,
+    VerifyArtifact,
+    PresentArtifact,
+    #[default]
+    Other,
+}
+
+impl StudioArtifactRuntimeStepId {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::UnderstandRequest => "understand_request",
+            Self::ArtifactRouteCommitted => "artifact_route_committed",
+            Self::SkillDiscovery => "skill_discovery",
+            Self::SkillRead => "skill_read",
+            Self::ArtifactBrief => "artifact_brief",
+            Self::AuthorArtifact => "author_artifact",
+            Self::ReplanExecution => "replan_execution",
+            Self::VerifyArtifact => "verify_artifact",
+            Self::PresentArtifact => "present_artifact",
+            Self::Other => "other",
+        }
+    }
+
+    pub fn parse(value: &str) -> Self {
+        serde_json::from_str(&format!("\"{}\"", value.trim().to_ascii_lowercase()))
+            .unwrap_or(Self::Other)
+    }
+
+    pub fn phase_kind(self) -> StudioArtifactRuntimeStepKind {
+        match self {
+            Self::UnderstandRequest => StudioArtifactRuntimeStepKind::Intake,
+            Self::ArtifactRouteCommitted => StudioArtifactRuntimeStepKind::Routing,
+            Self::SkillDiscovery | Self::SkillRead => StudioArtifactRuntimeStepKind::Guidance,
+            Self::ArtifactBrief => StudioArtifactRuntimeStepKind::Planning,
+            Self::AuthorArtifact => StudioArtifactRuntimeStepKind::Authoring,
+            Self::ReplanExecution => StudioArtifactRuntimeStepKind::Strategy,
+            Self::VerifyArtifact => StudioArtifactRuntimeStepKind::Verification,
+            Self::PresentArtifact => StudioArtifactRuntimeStepKind::Presentation,
+            Self::Other => StudioArtifactRuntimeStepKind::Other,
+        }
+    }
+}
+
+impl From<&str> for StudioArtifactRuntimeStepId {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for StudioArtifactRuntimeStepId {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRuntimeStepKind {
+    Intake,
+    Routing,
+    Guidance,
+    Planning,
+    Authoring,
+    Strategy,
+    Verification,
+    Presentation,
+    #[default]
+    Other,
+}
+
+impl StudioArtifactRuntimeStepKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Intake => "intake",
+            Self::Routing => "routing",
+            Self::Guidance => "guidance",
+            Self::Planning => "planning",
+            Self::Authoring => "authoring",
+            Self::Strategy => "strategy",
+            Self::Verification => "verification",
+            Self::Presentation => "presentation",
+            Self::Other => "other",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRuntimeEventKind {
+    #[default]
+    Step,
+    Preview,
+}
+
+impl StudioArtifactRuntimeEventKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Step => "step",
+            Self::Preview => "preview",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactRuntimeEventStatus {
+    Pending,
+    Active,
+    Complete,
+    Failed,
+    Blocked,
+    Interrupted,
+    #[default]
+    Other,
+}
+
+impl StudioArtifactRuntimeEventStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Active => "active",
+            Self::Complete => "complete",
+            Self::Failed => "failed",
+            Self::Blocked => "blocked",
+            Self::Interrupted => "interrupted",
+            Self::Other => "other",
+        }
+    }
+
+    pub fn parse(value: &str) -> Self {
+        serde_json::from_str(&format!("\"{}\"", value.trim().to_ascii_lowercase()))
+            .unwrap_or(Self::Other)
+    }
+}
+
+impl From<&str> for StudioArtifactRuntimeEventStatus {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
+    }
+}
+
+impl From<String> for StudioArtifactRuntimeEventStatus {
+    fn from(value: String) -> Self {
+        Self::parse(&value)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct StudioArtifactRuntimeNarrationEvent {
     pub event_id: String,
     pub event_type: String,
+    #[serde(default)]
+    pub event_type_key: StudioArtifactRuntimeEventType,
     pub step_id: String,
     #[serde(default)]
+    pub step_key: StudioArtifactRuntimeStepId,
+    #[serde(default)]
+    pub step_kind: StudioArtifactRuntimeStepKind,
+    #[serde(default)]
     pub event_kind: String,
+    #[serde(default)]
+    pub event_kind_key: StudioArtifactRuntimeEventKind,
     #[serde(default)]
     pub attempt_id: Option<String>,
     pub title: String,
     pub detail: String,
     pub status: String,
+    #[serde(default)]
+    pub status_kind: StudioArtifactRuntimeEventStatus,
     pub occurred_at_ms: u64,
     #[serde(default)]
     pub preview: Option<StudioArtifactRuntimePreviewSnapshot>,
@@ -261,11 +556,11 @@ pub struct StudioArtifactRuntimeNarrationEvent {
 
 impl StudioArtifactRuntimeNarrationEvent {
     pub fn new(
-        event_type: impl Into<String>,
-        step_id: impl Into<String>,
+        event_type: impl Into<StudioArtifactRuntimeEventType>,
+        step_id: impl Into<StudioArtifactRuntimeStepId>,
         title: impl Into<String>,
         detail: impl Into<String>,
-        status: impl Into<String>,
+        status: impl Into<StudioArtifactRuntimeEventStatus>,
     ) -> Self {
         use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -276,16 +571,24 @@ impl StudioArtifactRuntimeNarrationEvent {
             .map(|duration| duration.as_millis() as u64)
             .unwrap_or_default();
         let event_type = event_type.into();
+        let step_key = step_id.into();
+        let step_kind = step_key.phase_kind();
+        let status = status.into();
         let event_sequence = STUDIO_RUNTIME_EVENT_COUNTER.fetch_add(1, Ordering::SeqCst);
         Self {
-            event_id: format!("{event_type}:{occurred_at_ms}:{event_sequence}"),
-            event_type,
-            step_id: step_id.into(),
-            event_kind: "step".to_string(),
+            event_id: format!("{}:{occurred_at_ms}:{event_sequence}", event_type.as_str()),
+            event_type: event_type.as_str().to_string(),
+            event_type_key: event_type,
+            step_id: step_key.as_str().to_string(),
+            step_key,
+            step_kind,
+            event_kind: StudioArtifactRuntimeEventKind::Step.as_str().to_string(),
+            event_kind_key: StudioArtifactRuntimeEventKind::Step,
             attempt_id: None,
             title: title.into(),
             detail: detail.into(),
-            status: status.into(),
+            status: status.as_str().to_string(),
+            status_kind: status,
             occurred_at_ms,
             preview: None,
         }
@@ -297,7 +600,8 @@ impl StudioArtifactRuntimeNarrationEvent {
     }
 
     pub fn with_preview_snapshot(mut self, preview: StudioArtifactRuntimePreviewSnapshot) -> Self {
-        self.event_kind = "preview".to_string();
+        self.event_kind = StudioArtifactRuntimeEventKind::Preview.as_str().to_string();
+        self.event_kind_key = StudioArtifactRuntimeEventKind::Preview;
         self.preview = Some(preview);
         self
     }
@@ -358,6 +662,8 @@ pub struct StudioArtifactBrief {
     #[serde(default)]
     pub required_interactions: Vec<String>,
     #[serde(default)]
+    pub query_profile: Option<StudioArtifactQueryProfile>,
+    #[serde(default)]
     pub visual_tone: Vec<String>,
     #[serde(default)]
     pub factual_anchors: Vec<String>,
@@ -365,6 +671,157 @@ pub struct StudioArtifactBrief {
     pub style_directives: Vec<String>,
     #[serde(default)]
     pub reference_hints: Vec<String>,
+}
+
+impl StudioArtifactBrief {
+    pub fn required_interaction_summaries(&self) -> Vec<String> {
+        if let Some(profile) = self.query_profile.as_ref() {
+            return profile
+                .interaction_goals
+                .iter()
+                .filter(|goal| goal.required)
+                .map(|goal| goal.summary.trim())
+                .filter(|summary| !summary.is_empty())
+                .map(ToOwned::to_owned)
+                .collect();
+        }
+
+        self.required_interactions
+            .iter()
+            .map(|interaction| interaction.trim())
+            .filter(|interaction| !interaction.is_empty())
+            .map(ToOwned::to_owned)
+            .collect()
+    }
+
+    pub fn required_interaction_goal_count(&self) -> usize {
+        self.query_profile
+            .as_ref()
+            .map(|profile| profile.required_interaction_goal_count())
+            .unwrap_or_else(|| self.required_interaction_summaries().len())
+    }
+
+    pub fn has_required_interaction_goals(&self) -> bool {
+        self.required_interaction_goal_count() > 0
+    }
+
+    pub fn requires_response_region(&self) -> bool {
+        self.query_profile
+            .as_ref()
+            .map(|profile| profile.requires_response_region())
+            .unwrap_or_else(|| self.has_required_interaction_goals())
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactContentGoalKind {
+    #[default]
+    Orient,
+    Explain,
+    Compare,
+    Evidence,
+    Example,
+    Summary,
+    Implementation,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactInteractionGoalKind {
+    StateSwitch,
+    DetailInspect,
+    SequenceBrowse,
+    StateAdjust,
+    #[default]
+    GuidedResponse,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactEvidenceGoalKind {
+    #[default]
+    PrimarySurface,
+    ComparisonSurface,
+    DetailSurface,
+    SupportingSurface,
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactPresentationConstraintKind {
+    #[default]
+    SemanticStructure,
+    FirstPaintEvidence,
+    ResponseRegion,
+    KeyboardAffordances,
+    RuntimeSelfContainment,
+    TypographySeparation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactContentGoal {
+    pub kind: StudioArtifactContentGoalKind,
+    pub summary: String,
+    pub required: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactInteractionGoal {
+    pub kind: StudioArtifactInteractionGoalKind,
+    pub summary: String,
+    pub required: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactEvidenceGoal {
+    pub kind: StudioArtifactEvidenceGoalKind,
+    pub summary: String,
+    pub required: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactPresentationConstraint {
+    pub kind: StudioArtifactPresentationConstraintKind,
+    pub summary: String,
+    pub required: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactQueryProfile {
+    #[serde(default)]
+    pub content_goals: Vec<StudioArtifactContentGoal>,
+    #[serde(default)]
+    pub interaction_goals: Vec<StudioArtifactInteractionGoal>,
+    #[serde(default)]
+    pub evidence_goals: Vec<StudioArtifactEvidenceGoal>,
+    #[serde(default)]
+    pub presentation_constraints: Vec<StudioArtifactPresentationConstraint>,
+}
+
+impl StudioArtifactQueryProfile {
+    pub fn has_interaction_kind(&self, kind: StudioArtifactInteractionGoalKind) -> bool {
+        self.interaction_goals.iter().any(|goal| goal.kind == kind)
+    }
+
+    pub fn required_interaction_goal_count(&self) -> usize {
+        self.interaction_goals
+            .iter()
+            .filter(|goal| goal.required)
+            .count()
+    }
+
+    pub fn requires_response_region(&self) -> bool {
+        self.presentation_constraints.iter().any(|constraint| {
+            constraint.kind == StudioArtifactPresentationConstraintKind::ResponseRegion
+                && constraint.required
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

@@ -43,8 +43,17 @@ export function formatStudioExecutionPreviewPhase(
     if (normalized === "interrupted") {
       return "Interrupted stream";
     }
+    if (normalized === "continuing") {
+      return "Completing draft";
+    }
+    if (normalized === "repairing") {
+      return "Repairing draft";
+    }
     if (normalized === "recovered") {
       return "Recovered stream";
+    }
+    if (normalized === "failed") {
+      return "Stream recovery failed";
     }
   }
   if (normalized === "completed") {

@@ -281,7 +281,7 @@ pub(super) fn studio_swarm_skip_summary_for_html_work_item(
     }
 
     if work_item.role == StudioArtifactWorkerRole::Interaction
-        && brief.required_interactions.is_empty()
+        && !brief.has_required_interaction_goals()
         && blueprint.is_none_or(|value| value.interaction_plan.is_empty())
     {
         return Some(

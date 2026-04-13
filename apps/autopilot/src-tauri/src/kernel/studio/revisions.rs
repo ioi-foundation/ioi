@@ -188,6 +188,8 @@ fn build_studio_artifact_exemplar_content(
     blueprint: &StudioArtifactBlueprint,
     artifact_ir: &StudioArtifactIR,
 ) -> String {
+    let required_interactions = brief.required_interaction_summaries().join(", ");
+
     format!(
         "Studio artifact exemplar.\nTitle: {}\nRenderer: {:?}\nScaffold family: {}\nAudience: {}\nJob to be done: {}\nSubject domain: {}\nArtifact thesis: {}\nSummary: {}\nQuality rationale: {}\nScore total: {}\nRequired concepts: {}\nRequired interactions: {}\nSection roles: {}\nInteraction families: {}\nEvidence kinds: {}\nComponent patterns: {}\nDesign cues: {}\nAnti patterns to avoid: {}\nRender evaluation checklist: {}",
         exemplar.title,
@@ -201,7 +203,7 @@ fn build_studio_artifact_exemplar_content(
         exemplar.quality_rationale,
         exemplar.score_total,
         brief.required_concepts.join(", "),
-        brief.required_interactions.join(", "),
+        required_interactions,
         blueprint
             .section_plan
             .iter()

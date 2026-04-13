@@ -40,6 +40,66 @@ pub async fn evaluate_studio_artifact_render_if_configured(
     }
 }
 
+pub fn build_studio_artifact_render_acceptance_policy(
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+) -> StudioArtifactRenderAcceptancePolicy {
+    let required_interaction_goals = brief.required_interaction_goal_count();
+    let require_response_region = brief.requires_response_region();
+    let minimum_semantic_regions = blueprint
+        .map(|blueprint| blueprint.acceptance_targets.minimum_section_count as usize)
+        .unwrap_or(3)
+        .max(2);
+    let evidence_surfaces_from_ir = artifact_ir
+        .map(|artifact_ir| artifact_ir.evidence_surfaces.len())
+        .unwrap_or_default();
+    let minimum_evidence_surfaces = match request.renderer {
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => {
+            if required_interaction_goals >= 2 || evidence_surfaces_from_ir >= 2 {
+                2
+            } else {
+                1
+            }
+        }
+        StudioRendererKind::Svg | StudioRendererKind::Mermaid => 1,
+        _ => 0,
+    };
+    let minimum_actionable_affordances = match request.renderer {
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => {
+            if required_interaction_goals > 0 {
+                2
+            } else {
+                0
+            }
+        }
+        _ => 0,
+    };
+    let minimum_first_paint_text_chars = match request.renderer {
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => 60,
+        StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed => 80,
+        StudioRendererKind::Svg | StudioRendererKind::Mermaid => 24,
+        _ => 0,
+    };
+
+    StudioArtifactRenderAcceptancePolicy {
+        mode: StudioArtifactRenderPolicyMode::Balanced,
+        minimum_first_paint_text_chars,
+        minimum_semantic_regions,
+        minimum_evidence_surfaces,
+        minimum_actionable_affordances,
+        blocked_score_threshold: 9,
+        primary_view_score_threshold: 18,
+        require_primary_region: matches!(
+            request.renderer,
+            StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox
+        ),
+        require_response_region_when_interactive: require_response_region,
+        require_state_change_when_interactive: required_interaction_goals > 0,
+    }
+}
+
 pub fn merge_studio_artifact_render_evaluation_into_judge(
     request: &StudioOutcomeArtifactRequest,
     mut judge: StudioArtifactJudgeResult,
@@ -93,18 +153,19 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
     let render_clears_primary_view = render_evaluation.first_paint_captured
         && blocked_render_finding.is_none()
         && !render_evaluation.has_failed_required_obligations()
-        && render_evaluation.overall_score >= 18;
+        && render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold();
 
     if !render_clears_primary_view {
         judge.deserves_primary_artifact_view = false;
     }
 
     if let Some(failed_obligation) = failed_required_obligation {
-        judge.classification = if render_evaluation.overall_score <= 9 {
-            StudioArtifactJudgeClassification::Blocked
-        } else {
-            StudioArtifactJudgeClassification::Repairable
-        };
+        judge.classification =
+            if render_evaluation.overall_score <= render_evaluation.blocked_score_threshold() {
+                StudioArtifactJudgeClassification::Blocked
+            } else {
+                StudioArtifactJudgeClassification::Repairable
+            };
         judge.deserves_primary_artifact_view = false;
         judge.recommended_next_pass = Some("structural_repair".to_string());
         let contradiction = failed_obligation
@@ -166,11 +227,12 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
             ));
         }
     } else if let Some(blocked) = blocked_render_finding {
-        judge.classification = if render_evaluation.overall_score <= 9 {
-            StudioArtifactJudgeClassification::Blocked
-        } else {
-            StudioArtifactJudgeClassification::Repairable
-        };
+        judge.classification =
+            if render_evaluation.overall_score <= render_evaluation.blocked_score_threshold() {
+                StudioArtifactJudgeClassification::Blocked
+            } else {
+                StudioArtifactJudgeClassification::Repairable
+            };
         judge.deserves_primary_artifact_view = false;
         judge.recommended_next_pass = Some("structural_repair".to_string());
         judge.strongest_contradiction = Some(blocked.summary.clone());
@@ -205,11 +267,14 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
                 candidate_renderable_path(request)
             ));
         }
-    } else if warning_count > 0 || render_evaluation.overall_score < 18 {
+    } else if warning_count > 0
+        || render_evaluation.overall_score < render_evaluation.primary_view_score_threshold()
+    {
         if judge.classification == StudioArtifactJudgeClassification::Pass {
             judge.classification = StudioArtifactJudgeClassification::Repairable;
         }
-        judge.deserves_primary_artifact_view &= render_evaluation.overall_score >= 18;
+        judge.deserves_primary_artifact_view &=
+            render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold();
         if !judge
             .issue_classes
             .iter()
@@ -250,7 +315,7 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
         );
     }
 
-    if render_evaluation.overall_score <= 9
+    if render_evaluation.overall_score <= render_evaluation.blocked_score_threshold()
         && request.renderer != StudioRendererKind::DownloadCard
         && request.renderer != StudioRendererKind::BundleManifest
     {

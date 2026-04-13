@@ -179,7 +179,6 @@ pub(super) fn extract_html_attribute_values(
 pub(super) fn compact_local_html_dom_selector_hints(body: &str, max_items: usize) -> Vec<String> {
     let class_budget = max_items.min(8);
     let id_budget = max_items.min(6);
-    let data_budget = max_items.min(8);
     let mut hints = Vec::<String>::new();
 
     for class_name in extract_html_attribute_values(body, "class", true, class_budget) {
@@ -200,24 +199,34 @@ pub(super) fn compact_local_html_dom_selector_hints(body: &str, max_items: usize
             return hints;
         }
     }
-    for attr in [
-        "data-phase",
-        "data-target",
-        "data-view",
-        "data-view-panel",
-        "data-detail",
-        "data-control-phase",
-        "data-control-risk",
-    ] {
-        for value in extract_html_attribute_values(body, attr, false, data_budget) {
+    let mut search_start = 0usize;
+    while hints.len() < max_items {
+        let Some(relative_attr_start) = body[search_start..].find("data-") else {
+            break;
+        };
+        let attr_start = search_start + relative_attr_start;
+        let Some(relative_equals) = body[attr_start..].find("=\"") else {
+            break;
+        };
+        let attr_end = attr_start + relative_equals;
+        let attr = body[attr_start..attr_end].trim();
+        if attr.is_empty() || attr.contains(char::is_whitespace) {
+            search_start = attr_end.saturating_add(1);
+            continue;
+        }
+        let value_start = attr_end + 2;
+        let Some(relative_value_end) = body[value_start..].find('"') else {
+            break;
+        };
+        let value_end = value_start + relative_value_end;
+        let value = body[value_start..value_end].trim();
+        if !value.is_empty() {
             let selector = format!("[{attr}=\"{value}\"]");
             if !hints.iter().any(|existing| existing == &selector) {
                 hints.push(selector);
             }
-            if hints.len() >= max_items {
-                return hints;
-            }
         }
+        search_start = value_end.saturating_add(1);
     }
 
     hints
@@ -526,7 +535,7 @@ pub(super) fn compact_local_html_swarm_renderer_guidance(
                 3,
             );
             let interaction_focus = summarized_guidance_terms(
-                &brief.required_interactions,
+                &brief.required_interaction_summaries(),
                 "the required interactions",
                 2,
             );

@@ -11,9 +11,11 @@ use ioi_api::studio::{
     synthesize_studio_artifact_brief_for_execution_strategy_with_runtime, StudioArtifactBlueprint,
     StudioArtifactExemplar, StudioArtifactGenerationProgress,
     StudioArtifactGenerationProgressObserver, StudioArtifactIR, StudioArtifactPlanningContext,
-    StudioArtifactPreparationNeeds, StudioArtifactRuntimeNarrationEvent,
-    StudioArtifactSelectedSkill, StudioArtifactSkillDiscoveryResolution, StudioArtifactSkillNeed,
-    StudioArtifactSkillNeedKind, StudioArtifactSkillNeedPriority, StudioArtifactTasteMemory,
+    StudioArtifactPreparationNeeds, StudioArtifactRuntimeEventStatus,
+    StudioArtifactRuntimeEventType, StudioArtifactRuntimeNarrationEvent,
+    StudioArtifactRuntimeStepId, StudioArtifactSelectedSkill,
+    StudioArtifactSkillDiscoveryResolution, StudioArtifactSkillNeed, StudioArtifactSkillNeedKind,
+    StudioArtifactSkillNeedPriority, StudioArtifactTasteMemory,
 };
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
@@ -203,6 +205,8 @@ fn build_skill_need_query(
         .collect::<Vec<_>>()
         .join(", ");
 
+    let required_interactions = brief.required_interaction_summaries().join(", ");
+
     format!(
         "Artifact skill discovery request.\nNeed id: {need_id}\nNeed kind: {}\nNeed priority: {}\nNeed rationale: {}\nRenderer: {:?}\nScaffold family: {}\nNarrative arc: {}\nAudience: {}\nJob to be done: {}\nArtifact thesis: {}\nDesign system: color={}, typography={}, density={}, motion={}\nSection roles: {}\nInteraction families: {}\nEvidence kinds: {}\nComponent families: {}\nRequired concepts: {}\nRequired interactions: {}\nVisual tone: {}\nReference hints: {}\nStatic audit expectations: {}\nRender evaluation checklist: {}\nDesign tokens: {}\nLook for reusable procedural skill guidance that would improve this structural requirement in a renderer-native artifact pipeline.",
         skill_kind_label(need.kind),
@@ -223,7 +227,7 @@ fn build_skill_need_query(
         evidence_kinds,
         component_families,
         brief.required_concepts.join(", "),
-        brief.required_interactions.join(", "),
+        required_interactions,
         brief.visual_tone.join(", "),
         brief.reference_hints.join(", "),
         artifact_ir.static_audit_expectations.join(", "),
@@ -302,11 +306,11 @@ fn emit_skill_discovery_progress(
 
 fn skill_discovery_active_event() -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "skill_discovery",
-        "skill_discovery",
+        StudioArtifactRuntimeEventType::SkillDiscovery,
+        StudioArtifactRuntimeStepId::SkillDiscovery,
         "Check for guidance",
         "Studio is checking whether published runtime guidance should be attached before authoring.",
-        "active",
+        StudioArtifactRuntimeEventStatus::Active,
     )
 }
 
@@ -314,16 +318,16 @@ fn skill_discovery_complete_event(
     resolution: &StudioArtifactSkillDiscoveryResolution,
 ) -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "skill_discovery",
-        "skill_discovery",
+        StudioArtifactRuntimeEventType::SkillDiscovery,
+        StudioArtifactRuntimeStepId::SkillDiscovery,
         "Check for guidance",
         resolution.rationale.clone(),
         if resolution.status.eq_ignore_ascii_case("blocked") {
-            "blocked"
+            StudioArtifactRuntimeEventStatus::Blocked
         } else if resolution.status.eq_ignore_ascii_case("failed") {
-            "failed"
+            StudioArtifactRuntimeEventStatus::Failed
         } else {
-            "complete"
+            StudioArtifactRuntimeEventStatus::Complete
         },
     )
 }
@@ -347,25 +351,25 @@ fn skill_read_complete_event(
         )
     };
     Some(StudioArtifactRuntimeNarrationEvent::new(
-        "skill_read",
-        "skill_read",
+        StudioArtifactRuntimeEventType::SkillRead,
+        StudioArtifactRuntimeStepId::SkillRead,
         if selected_skills.len() == 1 {
             format!("Read {}", selected_skills[0].name)
         } else {
             "Read guidance".to_string()
         },
         detail,
-        "complete",
+        StudioArtifactRuntimeEventStatus::Complete,
     ))
 }
 
 fn artifact_brief_active_event() -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "artifact_brief",
-        "artifact_brief",
+        StudioArtifactRuntimeEventType::ArtifactBrief,
+        StudioArtifactRuntimeStepId::ArtifactBrief,
         "Shape artifact brief",
         "Studio is shaping the artifact brief that will guide authoring.",
-        "active",
+        StudioArtifactRuntimeEventStatus::Active,
     )
 }
 
@@ -373,14 +377,14 @@ fn artifact_brief_complete_event(
     planning_context: &StudioArtifactPlanningContext,
 ) -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
-        "artifact_brief",
-        "artifact_brief",
+        StudioArtifactRuntimeEventType::ArtifactBrief,
+        StudioArtifactRuntimeStepId::ArtifactBrief,
         "Shape artifact brief",
         format!(
             "Studio prepared a typed artifact brief for {}.",
             planning_context.brief.subject_domain
         ),
-        "complete",
+        StudioArtifactRuntimeEventStatus::Complete,
     )
 }
 
@@ -832,6 +836,7 @@ mod tests {
             factual_anchors: vec!["weekly adoption".to_string()],
             style_directives: vec!["structured hierarchy".to_string()],
             reference_hints: vec!["comparison cards".to_string()],
+            query_profile: None,
         };
         let blueprint = derive_studio_artifact_blueprint(&request, &brief);
         let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
@@ -845,7 +850,7 @@ mod tests {
         let query = build_skill_need_query(&brief, &blueprint, &artifact_ir, &need, "need-1");
 
         assert!(query.contains("Need kind: visual_art_direction"));
-        assert!(query.contains("Scaffold family: comparison_story"));
+        assert!(query.contains(&format!("Scaffold family: {}", blueprint.scaffold_family)));
         assert!(query.contains("Interaction families:"));
         assert!(!query.contains("frontend-skill"));
     }

@@ -51,6 +51,150 @@ fn apply_direct_author_recovery_payload(
     }
 }
 
+fn emit_direct_author_live_preview(
+    observer: Option<&StudioArtifactLivePreviewObserver>,
+    preview_id: &str,
+    preview_label: &str,
+    preview_language: &Option<String>,
+    status: &str,
+    raw: &str,
+    is_final: bool,
+) {
+    let preview_content = live_token_stream_preview_text(raw, 2200);
+    if preview_content.trim().is_empty() {
+        return;
+    }
+
+    if let Some(observer) = observer {
+        observer(studio_swarm_live_preview(
+            preview_id.to_string(),
+            ExecutionLivePreviewKind::TokenStream,
+            preview_label.to_string(),
+            None,
+            None,
+            status,
+            preview_language.clone(),
+            preview_content,
+            is_final,
+        ));
+    }
+}
+
+fn parse_direct_author_generated_candidate(
+    raw: &str,
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    candidate_id: &str,
+) -> Result<StudioGeneratedArtifactPayload, StudioCandidateMaterializationError> {
+    let mut generated = super::parse_and_validate_generated_artifact_payload(raw, request)?;
+    trace_html_contract_state(
+        "artifact_generation:direct_author_contract_state:parsed",
+        request,
+        candidate_id,
+        &generated,
+    );
+    super::enrich_generated_artifact_payload(&mut generated, request, brief);
+    trace_html_contract_state(
+        "artifact_generation:direct_author_contract_state:enriched",
+        request,
+        candidate_id,
+        &generated,
+    );
+    super::validate_generated_artifact_payload_against_brief_with_edit_intent(
+        &generated, request, brief, None,
+    )?;
+    Ok(generated)
+}
+
+pub(crate) async fn repair_direct_author_generated_candidate_with_runtime_error(
+    repair_runtime: Arc<dyn InferenceRuntime>,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    selected_skills: &[StudioArtifactSelectedSkill],
+    _refinement: Option<&StudioArtifactRefinementContext>,
+    candidate_id: &str,
+    _candidate_seed: u64,
+    candidate: &StudioGeneratedArtifactPayload,
+    latest_error: &str,
+    activity_observer: Option<StudioArtifactActivityObserver>,
+) -> Result<StudioGeneratedArtifactPayload, String> {
+    if !direct_author_uses_raw_document(request) {
+        return Err("direct-author runtime repair requires a raw-document renderer".to_string());
+    }
+
+    let latest_raw = candidate
+        .files
+        .iter()
+        .find(|file| file.renderable)
+        .or_else(|| candidate.files.first())
+        .map(|file| file.body.clone())
+        .ok_or_else(|| {
+            "direct-author runtime repair requires a surfaced renderable document".to_string()
+        })?;
+    let repair_runtime_kind = repair_runtime.studio_runtime_provenance().kind;
+    let repair_payload = build_studio_artifact_direct_author_repair_prompt_for_runtime(
+        title,
+        intent,
+        request,
+        brief,
+        selected_skills,
+        &latest_raw,
+        latest_error,
+        repair_runtime_kind,
+    );
+    let repair_input = serde_json::to_vec(&repair_payload)
+        .map_err(|error| format!("Failed to encode Studio direct-author repair prompt: {error}"))?;
+    let repair_output = await_with_activity_heartbeat(
+        repair_runtime.execute_inference(
+            [0u8; 32],
+            &repair_input,
+            InferenceOptions {
+                temperature: 0.0,
+                json_mode: true,
+                max_tokens: materialization_max_tokens_for_execution_strategy(
+                    request.renderer,
+                    StudioExecutionStrategy::DirectAuthor,
+                    repair_runtime_kind,
+                ),
+                ..Default::default()
+            },
+        ),
+        activity_observer,
+        Duration::from_millis(125),
+    )
+    .await
+    .map_err(|error| format!("Studio direct-author runtime repair inference failed: {error}"))?;
+    let repair_raw = String::from_utf8(repair_output).map_err(|error| {
+        format!("Studio direct-author runtime repair utf8 decode failed: {error}")
+    })?;
+    let recovery_payload = parse_studio_direct_author_recovery_payload(&repair_raw)?;
+    if recovery_payload.mode != StudioDirectAuthorRecoveryMode::FullDocument {
+        return Err(
+            "Studio direct-author runtime repair payload must use mode=full_document".to_string(),
+        );
+    }
+    parse_direct_author_generated_candidate(&recovery_payload.content, request, brief, candidate_id)
+        .map_err(|error| error.message)
+        .map(|mut generated| {
+            if generated.summary.trim().is_empty() {
+                generated.summary = candidate.summary.clone();
+            }
+            if generated.notes.is_empty() {
+                generated.notes = candidate.notes.clone();
+            } else {
+                generated
+                    .notes
+                    .push(format!("runtime repair applied after: {latest_error}"));
+            }
+            if generated.files.is_empty() {
+                generated.files = candidate.files.clone();
+            }
+            generated
+        })
+}
+
 pub async fn materialize_studio_artifact_with_runtime(
     runtime: Arc<dyn InferenceRuntime>,
     title: &str,
@@ -69,6 +213,7 @@ pub async fn materialize_studio_artifact_with_runtime(
             artifact_thesis: intent.to_string(),
             required_concepts: Vec::new(),
             required_interactions: Vec::new(),
+            query_profile: None,
             visual_tone: Vec::new(),
             factual_anchors: Vec::new(),
             style_directives: Vec::new(),
@@ -357,29 +502,8 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
         StudioExecutionStrategy::DirectAuthor,
         runtime_kind,
     );
-    let parse_candidate = |raw: &str| -> Result<
-        StudioGeneratedArtifactPayload,
-        StudioCandidateMaterializationError,
-    > {
-        let mut generated = super::parse_and_validate_generated_artifact_payload(raw, request)?;
-        trace_html_contract_state(
-            "artifact_generation:direct_author_contract_state:parsed",
-            request,
-            candidate_id,
-            &generated,
-        );
-        super::enrich_generated_artifact_payload(&mut generated, request, brief);
-        trace_html_contract_state(
-            "artifact_generation:direct_author_contract_state:enriched",
-            request,
-            candidate_id,
-            &generated,
-        );
-        super::validate_generated_artifact_payload_against_brief_with_edit_intent(
-            &generated, request, brief, None,
-        )?;
-        Ok(generated)
-    };
+    let parse_candidate =
+        |raw: &str| parse_direct_author_generated_candidate(raw, request, brief, candidate_id);
     let payload = build_studio_artifact_direct_author_prompt_for_runtime(
         title,
         intent,
@@ -441,25 +565,6 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
         )
         .await;
     let streamed_preview = finish_token_stream_preview_collector(stream_collector).await;
-    if !streamed_preview.trim().is_empty() {
-        if let Some(observer) = live_preview_observer.as_ref() {
-            observer(studio_swarm_live_preview(
-                preview_id.clone(),
-                ExecutionLivePreviewKind::TokenStream,
-                preview_label.clone(),
-                None,
-                None,
-                if output_result.is_ok() {
-                    "completed"
-                } else {
-                    "interrupted"
-                },
-                preview_language.clone(),
-                live_token_stream_preview_text(&streamed_preview, 2200),
-                true,
-            ));
-        }
-    }
     let inference_error_message = output_result
         .as_ref()
         .err()
@@ -489,48 +594,33 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                 streamed_preview.len(),
                 error
             ));
-            if let Some(observer) = live_preview_observer.as_ref() {
-                observer(studio_swarm_live_preview(
-                    preview_id.clone(),
-                    ExecutionLivePreviewKind::TokenStream,
-                    preview_label.clone(),
-                    None,
-                    None,
-                    "interrupted",
-                    preview_language.clone(),
-                    live_token_stream_preview_text(&streamed_preview, 2200),
-                    true,
-                ));
-            }
+            emit_direct_author_live_preview(
+                live_preview_observer.as_ref(),
+                &preview_id,
+                &preview_label,
+                &preview_language,
+                "interrupted",
+                &streamed_preview,
+                false,
+            );
             streamed_preview.clone()
         }
     };
     match parse_candidate(&raw) {
         Ok(generated) => {
-            if let Some(observer) = live_preview_observer.as_ref() {
-                observer(studio_swarm_live_preview(
-                    preview_id,
-                    ExecutionLivePreviewKind::TokenStream,
-                    preview_label,
-                    None,
-                    None,
-                    if recovered_from_partial_stream {
-                        "recovered"
-                    } else {
-                        "completed"
-                    },
-                    preview_language,
-                    live_token_stream_preview_text(
-                        if streamed_preview.trim().is_empty() {
-                            &raw
-                        } else {
-                            &streamed_preview
-                        },
-                        2200,
-                    ),
-                    true,
-                ));
-            }
+            emit_direct_author_live_preview(
+                live_preview_observer.as_ref(),
+                &preview_id,
+                &preview_label,
+                &preview_language,
+                if recovered_from_partial_stream {
+                    "recovered"
+                } else {
+                    "completed"
+                },
+                &raw,
+                true,
+            );
             Ok(generated)
         }
         Err(first_error) => {
@@ -540,6 +630,22 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                 first_error.message
             };
             let mut latest_raw = raw;
+            let mut preview_status = if returns_raw_document
+                && direct_author_document_is_incomplete(request, &latest_raw, &latest_error)
+            {
+                "continuing"
+            } else {
+                "repairing"
+            };
+            emit_direct_author_live_preview(
+                live_preview_observer.as_ref(),
+                &preview_id,
+                &preview_label,
+                &preview_language,
+                preview_status,
+                &latest_raw,
+                false,
+            );
             let repair_runtime = materialization_repair_runtime_for_request(
                 request,
                 &runtime,
@@ -553,6 +659,15 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                     if !direct_author_document_is_incomplete(request, &latest_raw, &latest_error) {
                         break;
                     }
+                    emit_direct_author_live_preview(
+                        live_preview_observer.as_ref(),
+                        &preview_id,
+                        &preview_label,
+                        &preview_language,
+                        "continuing",
+                        &latest_raw,
+                        false,
+                    );
                     let continuation_payload =
                         build_studio_artifact_direct_author_continuation_prompt_for_runtime(
                             title,
@@ -591,34 +706,83 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                         activity_observer.clone(),
                         Duration::from_millis(125),
                     )
-                    .await
-                    .map_err(|error| StudioCandidateMaterializationError {
-                        message: format!(
-                            "{latest_error}; continuation attempt {} inference failed: {error}",
-                            continuation_attempt + 1
-                        ),
-                        raw_output_preview: truncate_candidate_failure_preview(&latest_raw, 2000),
-                    })?;
-                    let continuation_raw = String::from_utf8(continuation_output).map_err(
-                        |error| StudioCandidateMaterializationError {
-                            message: format!(
-                                "{latest_error}; continuation attempt {} utf8 decode failed: {error}",
-                                continuation_attempt + 1
-                            ),
-                            raw_output_preview: truncate_candidate_failure_preview(
+                    .await;
+                    let continuation_output = match continuation_output {
+                        Ok(output) => output,
+                        Err(error) => {
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                "failed",
                                 &latest_raw,
-                                2000,
-                            ),
-                        },
-                    )?;
+                                true,
+                            );
+                            return Err(StudioCandidateMaterializationError {
+                                message: format!(
+                                    "{latest_error}; continuation attempt {} inference failed: {error}",
+                                    continuation_attempt + 1
+                                ),
+                                raw_output_preview: truncate_candidate_failure_preview(
+                                    &latest_raw,
+                                    2000,
+                                ),
+                            });
+                        }
+                    };
+                    let continuation_raw = match String::from_utf8(continuation_output) {
+                        Ok(raw) => raw,
+                        Err(error) => {
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                "failed",
+                                &latest_raw,
+                                true,
+                            );
+                            return Err(StudioCandidateMaterializationError {
+                                message: format!(
+                                    "{latest_error}; continuation attempt {} utf8 decode failed: {error}",
+                                    continuation_attempt + 1
+                                ),
+                                raw_output_preview: truncate_candidate_failure_preview(
+                                    &latest_raw,
+                                    2000,
+                                ),
+                            });
+                        }
+                    };
                     match parse_studio_direct_author_recovery_payload(&continuation_raw) {
                         Ok(recovery_payload) => {
                             latest_raw = apply_direct_author_recovery_payload(
                                 &latest_raw,
                                 &recovery_payload,
                             );
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                "continuing",
+                                &latest_raw,
+                                false,
+                            );
                             match parse_candidate(&latest_raw) {
-                                Ok(generated) => return Ok(generated),
+                                Ok(generated) => {
+                                    emit_direct_author_live_preview(
+                                        live_preview_observer.as_ref(),
+                                        &preview_id,
+                                        &preview_label,
+                                        &preview_language,
+                                        "recovered",
+                                        &latest_raw,
+                                        true,
+                                    );
+                                    return Ok(generated);
+                                }
                                 Err(continuation_error) => {
                                     latest_error = format!(
                                         "{latest_error}; continuation attempt {} failed: {}",
@@ -643,6 +807,16 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                 for repair_attempt in
                     0..materialization_repair_pass_limit(request.renderer, repair_runtime_kind)
                 {
+                    preview_status = "repairing";
+                    emit_direct_author_live_preview(
+                        live_preview_observer.as_ref(),
+                        &preview_id,
+                        &preview_label,
+                        &preview_language,
+                        preview_status,
+                        &latest_raw,
+                        false,
+                    );
                     let repair_payload =
                         build_studio_artifact_direct_author_repair_prompt_for_runtime(
                             title,
@@ -684,26 +858,55 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                         activity_observer.clone(),
                         Duration::from_millis(125),
                     )
-                    .await
-                    .map_err(|error| StudioCandidateMaterializationError {
-                        message: format!(
-                            "{latest_error}; repair attempt {} inference failed: {error}",
-                            repair_attempt + 1
-                        ),
-                        raw_output_preview: truncate_candidate_failure_preview(&latest_raw, 2000),
-                    })?;
-                    let repair_raw = String::from_utf8(repair_output).map_err(|error| {
-                        StudioCandidateMaterializationError {
-                            message: format!(
-                                "{latest_error}; repair attempt {} utf8 decode failed: {error}",
-                                repair_attempt + 1
-                            ),
-                            raw_output_preview: truncate_candidate_failure_preview(
+                    .await;
+                    let repair_output = match repair_output {
+                        Ok(output) => output,
+                        Err(error) => {
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                "failed",
                                 &latest_raw,
-                                2000,
-                            ),
+                                true,
+                            );
+                            return Err(StudioCandidateMaterializationError {
+                                message: format!(
+                                    "{latest_error}; repair attempt {} inference failed: {error}",
+                                    repair_attempt + 1
+                                ),
+                                raw_output_preview: truncate_candidate_failure_preview(
+                                    &latest_raw,
+                                    2000,
+                                ),
+                            });
                         }
-                    })?;
+                    };
+                    let repair_raw = match String::from_utf8(repair_output) {
+                        Ok(raw) => raw,
+                        Err(error) => {
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                "failed",
+                                &latest_raw,
+                                true,
+                            );
+                            return Err(StudioCandidateMaterializationError {
+                                message: format!(
+                                    "{latest_error}; repair attempt {} utf8 decode failed: {error}",
+                                    repair_attempt + 1
+                                ),
+                                raw_output_preview: truncate_candidate_failure_preview(
+                                    &latest_raw,
+                                    2000,
+                                ),
+                            });
+                        }
+                    };
                     match parse_studio_direct_author_recovery_payload(&repair_raw) {
                         Ok(recovery_payload) => {
                             if recovery_payload.mode != StudioDirectAuthorRecoveryMode::FullDocument
@@ -715,8 +918,28 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                                 continue;
                             }
                             let repaired_document = recovery_payload.content;
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                preview_status,
+                                &repaired_document,
+                                false,
+                            );
                             match parse_candidate(&repaired_document) {
-                                Ok(generated) => return Ok(generated),
+                                Ok(generated) => {
+                                    emit_direct_author_live_preview(
+                                        live_preview_observer.as_ref(),
+                                        &preview_id,
+                                        &preview_label,
+                                        &preview_language,
+                                        "recovered",
+                                        &repaired_document,
+                                        true,
+                                    );
+                                    return Ok(generated);
+                                }
                                 Err(repair_error) => {
                                     latest_raw = repaired_document;
                                     latest_error = format!(
@@ -740,6 +963,16 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                 for repair_attempt in
                     0..materialization_repair_pass_limit(request.renderer, repair_runtime_kind)
                 {
+                    preview_status = "repairing";
+                    emit_direct_author_live_preview(
+                        live_preview_observer.as_ref(),
+                        &preview_id,
+                        &preview_label,
+                        &preview_language,
+                        preview_status,
+                        &latest_raw,
+                        false,
+                    );
                     let repair_payload =
                         build_studio_artifact_materialization_repair_prompt_for_runtime(
                             title,
@@ -797,28 +1030,68 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                         activity_observer.clone(),
                         Duration::from_millis(125),
                     )
-                    .await
-                    .map_err(|error| StudioCandidateMaterializationError {
-                        message: format!(
-                            "{latest_error}; repair attempt {} inference failed: {error}",
-                            repair_attempt + 1
-                        ),
-                        raw_output_preview: truncate_candidate_failure_preview(&latest_raw, 2000),
-                    })?;
-                    let repair_raw = String::from_utf8(repair_output).map_err(|error| {
-                        StudioCandidateMaterializationError {
-                            message: format!(
-                                "{latest_error}; repair attempt {} utf8 decode failed: {error}",
-                                repair_attempt + 1
-                            ),
-                            raw_output_preview: truncate_candidate_failure_preview(
+                    .await;
+                    let repair_output = match repair_output {
+                        Ok(output) => output,
+                        Err(error) => {
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                "failed",
                                 &latest_raw,
-                                2000,
-                            ),
+                                true,
+                            );
+                            return Err(StudioCandidateMaterializationError {
+                                message: format!(
+                                    "{latest_error}; repair attempt {} inference failed: {error}",
+                                    repair_attempt + 1
+                                ),
+                                raw_output_preview: truncate_candidate_failure_preview(
+                                    &latest_raw,
+                                    2000,
+                                ),
+                            });
                         }
-                    })?;
+                    };
+                    let repair_raw = match String::from_utf8(repair_output) {
+                        Ok(raw) => raw,
+                        Err(error) => {
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                "failed",
+                                &latest_raw,
+                                true,
+                            );
+                            return Err(StudioCandidateMaterializationError {
+                                message: format!(
+                                    "{latest_error}; repair attempt {} utf8 decode failed: {error}",
+                                    repair_attempt + 1
+                                ),
+                                raw_output_preview: truncate_candidate_failure_preview(
+                                    &latest_raw,
+                                    2000,
+                                ),
+                            });
+                        }
+                    };
                     match parse_candidate(&repair_raw) {
-                        Ok(generated) => return Ok(generated),
+                        Ok(generated) => {
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                "recovered",
+                                &repair_raw,
+                                true,
+                            );
+                            return Ok(generated);
+                        }
                         Err(repair_error) => {
                             latest_raw = repair_raw;
                             latest_error = format!(
@@ -830,6 +1103,16 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                     }
                 }
             }
+
+            emit_direct_author_live_preview(
+                live_preview_observer.as_ref(),
+                &preview_id,
+                &preview_label,
+                &preview_language,
+                "failed",
+                &latest_raw,
+                true,
+            );
 
             Err(StudioCandidateMaterializationError {
                 message: latest_error,

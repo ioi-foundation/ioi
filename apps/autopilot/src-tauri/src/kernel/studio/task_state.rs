@@ -82,11 +82,11 @@ fn studio_authoritative_step_hint(
             scaffold_family
                 .map(|scaffold| {
                     format!(
-                        "Running static audits and acceptance verification for the {scaffold} artifact."
+                        "Running static audits and render sanity for the {scaffold} artifact."
                     )
                 })
                 .unwrap_or_else(|| {
-                    "Running static audits and acceptance verification for the artifact."
+                    "Running static audits and render sanity for the artifact."
                         .to_string()
                 }),
         ),
