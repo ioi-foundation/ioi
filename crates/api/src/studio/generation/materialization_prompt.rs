@@ -216,6 +216,8 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    selected_skills: &[StudioArtifactSelectedSkill],
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate_id: &str,
     candidate_seed: u64,
@@ -272,6 +274,54 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
     } else {
         "You are Studio's typed artifact materializer. The raw user request is the primary instruction. Author the artifact directly and return exactly one JSON object. Do not emit prose outside JSON."
     };
+    let brief_focus_text = format!(
+        "Audience: {}\nJob to be done: {}\nArtifact thesis: {}\nRequired concepts: {}\nRequired interactions: {}",
+        brief.audience.trim(),
+        brief.job_to_be_done.trim(),
+        brief.artifact_thesis.trim(),
+        if brief.required_concepts.is_empty() {
+            "None specified".to_string()
+        } else {
+            brief
+                .required_concepts
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        },
+        if brief.required_interactions.is_empty() {
+            "None specified".to_string()
+        } else {
+            brief
+                .required_interactions
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        }
+    );
+    let selected_skills_focus_text = if selected_skills.is_empty() {
+        "No selected skill guidance was attached.".to_string()
+    } else {
+        selected_skills
+            .iter()
+            .take(3)
+            .map(|skill| {
+                let guidance = skill
+                    .guidance_markdown
+                    .as_ref()
+                    .map(|markdown| truncate_materialization_focus_text(markdown, 220))
+                    .filter(|markdown| !markdown.trim().is_empty())
+                    .unwrap_or_else(|| {
+                        truncate_materialization_focus_text(&skill.match_rationale, 220)
+                    });
+                format!("- {}: {}", skill.name.trim(), guidance)
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
 
     if compact_local_direct_author_prompt(runtime_kind, returns_raw_document) {
         if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
@@ -286,8 +336,10 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
                 {
                     "role": "user",
                     "content": format!(
-                        "{}\n\nRequirements:\n- Deliver one request-specific interactive HTML document.\n- Use semantic HTML with <main> and 2-4 meaningful sections.\n- Keep first paint useful before scripts run.\n- Include one real interactive seam that changes visible evidence or explanatory copy.\n- Keep CSS short enough to finish the full document in one pass.\n- End with a fully closed </main></body></html>.",
-                        intent.trim()
+                        "{}\n\nPrepared artifact brief:\n{}\n\nSelected skill guidance:\n{}\n\nRequirements:\n- Deliver one request-specific interactive HTML document.\n- Use semantic HTML with <main> and 2-4 meaningful sections.\n- Keep first paint useful before scripts run.\n- Include one real interactive seam that changes visible evidence or explanatory copy.\n- Keep CSS short enough to finish the full document in one pass.\n- End with a fully closed </main></body></html>.",
+                        intent.trim(),
+                        brief_focus_text,
+                        selected_skills_focus_text,
                     )
                 }
             ]));
@@ -296,6 +348,11 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
         let mut sections = vec![
             Some(format!("Title: {}", title.trim())),
             Some(format!("Raw user request:\n{}", intent.trim())),
+            Some(format!("Prepared artifact brief:\n{}", brief_focus_text)),
+            Some(format!(
+                "Selected skill guidance:\n{}",
+                selected_skills_focus_text
+            )),
             refinement.map(|context| {
                 format!(
                     "Existing artifact context:\n{}",
@@ -338,6 +395,13 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
     }
 
     let compact_prompt = compact_local_html_materialization_prompt(request.renderer, runtime_kind);
+    let brief_json =
+        serialize_materialization_prompt_json(brief, "Studio artifact brief", compact_prompt)?;
+    let selected_skills_json = serialize_materialization_prompt_json(
+        &studio_artifact_selected_skill_prompt_view(selected_skills),
+        "Studio selected skill guidance",
+        compact_prompt,
+    )?;
     let request_focus_json = serialize_materialization_prompt_json(
         &compact_local_html_materialization_request_focus(request),
         "Studio artifact request focus",
@@ -357,10 +421,12 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
         {
             "role": "user",
             "content": format!(
-                "Title:\n{}\n\nRaw user request:\n{}\n\nArtifact request focus JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
+                "Title:\n{}\n\nRaw user request:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
                 title,
                 intent,
                 request_focus_json,
+                brief_json,
+                selected_skills_json,
                 refinement_json,
                 candidate_id,
                 candidate_seed,
@@ -376,6 +442,8 @@ pub(super) fn build_studio_artifact_direct_author_continuation_prompt_for_runtim
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    selected_skills: &[StudioArtifactSelectedSkill],
     partial_document: &str,
     latest_error: &str,
     runtime_kind: StudioRuntimeProvenanceKind,
@@ -383,20 +451,36 @@ pub(super) fn build_studio_artifact_direct_author_continuation_prompt_for_runtim
     let boundary = direct_author_completion_boundary(request).unwrap_or("</html>");
     let continuation_contract = match request.renderer {
         StudioRendererKind::HtmlIframe => {
-            "Return only the missing HTML suffix. Do not restart from <!doctype html>, <html>, <head>, or <body>. Continue exactly where the partial document stopped and make sure the final combined document ends with </body></html>."
+            "If the existing document is valid up to the stopping point, return mode=\"suffix\" and only the missing HTML tail. If the document needs structural rewrites, return mode=\"full_document\" and the full corrected HTML document. A full document must start with <!doctype html> or <html> and end with </html>."
         }
         StudioRendererKind::Svg => {
-            "Return only the missing SVG suffix. Do not restart from <svg>. Continue exactly where the partial document stopped and make sure the final combined document ends with </svg>."
+            "If the existing document is valid up to the stopping point, return mode=\"suffix\" and only the missing SVG tail. If the document needs structural rewrites, return mode=\"full_document\" and the full corrected SVG document. A full document must start with <svg and end with </svg>."
         }
         _ => {
-            "Return only the missing document suffix. Do not repeat the earlier portion."
+            "Return mode=\"suffix\" with only the missing document tail, or mode=\"full_document\" with the full corrected document when a rewrite is necessary."
         }
     };
     let tail = live_token_stream_preview_text(partial_document, 4000);
-    let system_contract = if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
-        "You are Studio's direct document author continuing an interrupted document. Return only the missing suffix. Do not emit JSON, summaries, markdown fences, or explanations."
+    let selected_skills_focus_text = if selected_skills.is_empty() {
+        "No selected skill guidance was attached.".to_string()
     } else {
-        "You are Studio's direct document author. Continue the interrupted document by returning only the missing suffix."
+        selected_skills
+            .iter()
+            .take(3)
+            .map(|skill| {
+                format!(
+                    "- {}: {}",
+                    skill.name.trim(),
+                    truncate_materialization_focus_text(&skill.match_rationale, 180)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    let system_contract = if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
+        "You are Studio's typed direct document continuation author. Return exactly one JSON object and nothing else."
+    } else {
+        "You are Studio's typed direct document continuation author. Return exactly one JSON object and nothing else."
     };
     json!([
         {
@@ -406,9 +490,13 @@ pub(super) fn build_studio_artifact_direct_author_continuation_prompt_for_runtim
         {
             "role": "user",
             "content": format!(
-                "Title: {}\n\nRaw user request:\n{}\n\nValidation failure:\n{}\n\nContinuation contract:\n{}\n\nThe current partial document is below. Continue from the exact stopping point, do not repeat earlier content, and end the combined document with {}.\n\nPartial document tail:\n{}",
+                "Title: {}\n\nRaw user request:\n{}\n\nPrepared artifact brief:\nAudience: {}\nJob to be done: {}\nArtifact thesis: {}\n\nSelected skill guidance:\n{}\n\nValidation failure:\n{}\n\nContinuation contract:\n{}\n\nContinuation output schema:\n{{\n  \"mode\": \"suffix\" | \"full_document\",\n  \"content\": <string>\n}}\nRules:\n- Return JSON only, with no markdown fences or explanations.\n- content must contain only document text.\n- Prefer mode=\"suffix\" when the earlier bytes are still valid and only a tail is missing.\n- Use mode=\"full_document\" when the document needs a structural rewrite.\n- If mode=\"suffix\", do not repeat the earlier portion, and make sure the combined document ends with {}.\n- If mode=\"full_document\", return the entire corrected document in content.\n\nThe current partial document is below.\n\nPartial document tail:\n{}",
                 title.trim(),
                 intent.trim(),
+                brief.audience.trim(),
+                brief.job_to_be_done.trim(),
+                brief.artifact_thesis.trim(),
+                selected_skills_focus_text,
                 latest_error.trim(),
                 continuation_contract,
                 boundary,
@@ -422,6 +510,8 @@ pub(super) fn build_studio_artifact_direct_author_repair_prompt_for_runtime(
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    selected_skills: &[StudioArtifactSelectedSkill],
     invalid_document: &str,
     latest_error: &str,
     runtime_kind: StudioRuntimeProvenanceKind,
@@ -433,26 +523,42 @@ pub(super) fn build_studio_artifact_direct_author_repair_prompt_for_runtime(
     );
     let output_contract = match request.renderer {
         StudioRendererKind::Markdown => {
-            "Return one complete corrected markdown document only."
+            "Return mode=\"full_document\" with one complete corrected markdown document."
         }
         StudioRendererKind::HtmlIframe => {
-            "Return one complete corrected self-contained HTML document only. Start with <!doctype html> or <html> and end with </html>."
+            "Return mode=\"full_document\" with one complete corrected self-contained HTML document. The document must start with <!doctype html> or <html> and end with </html>."
         }
         StudioRendererKind::Svg => {
-            "Return one complete corrected standalone SVG document only. Start with <svg and end with </svg>."
+            "Return mode=\"full_document\" with one complete corrected standalone SVG document. The document must start with <svg and end with </svg>."
         }
         StudioRendererKind::Mermaid => {
-            "Return one complete corrected Mermaid document only."
+            "Return mode=\"full_document\" with one complete corrected Mermaid document."
         }
         StudioRendererKind::PdfEmbed => {
-            "Return one complete corrected document text only."
+            "Return mode=\"full_document\" with one complete corrected document text."
         }
-        _ => "Return one complete corrected document only.",
+        _ => "Return mode=\"full_document\" with one complete corrected document.",
     };
     let system_contract = if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
-        "You are Studio's direct document repair author. Return only the corrected document. Do not emit JSON, summaries, notes, or markdown fences."
+        "You are Studio's typed direct document repair author. Return exactly one JSON object and nothing else."
     } else {
-        "You are Studio's direct document repair author. Return only the corrected document."
+        "You are Studio's typed direct document repair author. Return exactly one JSON object and nothing else."
+    };
+    let selected_skills_focus_text = if selected_skills.is_empty() {
+        "No selected skill guidance was attached.".to_string()
+    } else {
+        selected_skills
+            .iter()
+            .take(3)
+            .map(|skill| {
+                format!(
+                    "- {}: {}",
+                    skill.name.trim(),
+                    truncate_materialization_focus_text(&skill.match_rationale, 180)
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     };
     json!([
         {
@@ -462,9 +568,13 @@ pub(super) fn build_studio_artifact_direct_author_repair_prompt_for_runtime(
         {
             "role": "user",
             "content": format!(
-                "Title: {}\n\nRaw user request:\n{}\n\nValidation failure:\n{}\n\nRepair contract:\n- Preserve the existing authored direction when possible.\n- Correct the structural failure without switching to a generic platform artifact.\n- {}\n\nRenderer-native guidance:\n{}\n\nCurrent invalid document:\n{}",
+                "Title: {}\n\nRaw user request:\n{}\n\nPrepared artifact brief:\nAudience: {}\nJob to be done: {}\nArtifact thesis: {}\n\nSelected skill guidance:\n{}\n\nValidation failure:\n{}\n\nRepair contract:\n- Preserve the existing authored direction when possible.\n- Correct the structural failure without switching to a generic platform artifact.\n- {}\n\nRepair output schema:\n{{\n  \"mode\": \"full_document\",\n  \"content\": <string>\n}}\nRules:\n- Return JSON only, with no markdown fences or explanations.\n- content must contain only the corrected document text.\n- mode must be \"full_document\" for repair.\n\nRenderer-native guidance:\n{}\n\nCurrent invalid document:\n{}",
                 title.trim(),
                 intent.trim(),
+                brief.audience.trim(),
+                brief.job_to_be_done.trim(),
+                brief.artifact_thesis.trim(),
+                selected_skills_focus_text,
                 latest_error.trim(),
                 output_contract,
                 renderer_guidance,

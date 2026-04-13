@@ -257,6 +257,14 @@
   border-color: var(--interactive-selected-border);
 }
 
+.spot-studio-status-card.is-thinking {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  gap: 10px;
+}
+
 .spot-studio-status-card.is-error {
   border-color: rgba(255, 85, 85, 0.28);
   background:
@@ -281,14 +289,38 @@
   animation: spot-studio-spin 1s linear infinite;
 }
 
+.spot-studio-status-card.is-thinking .spot-studio-status-icon {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--spot-accent);
+  padding-top: 2px;
+}
+
+.spot-studio-status-card.is-thinking .spot-studio-status-icon svg {
+  animation: none;
+}
+
 .spot-studio-status-copy {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .spot-studio-status-copy strong {
   color: var(--spot-text-primary);
+}
+
+.spot-studio-status-card.is-thinking .spot-studio-status-copy {
+  gap: 8px;
+}
+
+.spot-studio-status-card.is-thinking .spot-studio-status-copy strong {
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .spot-studio-status-copy p {
@@ -323,22 +355,99 @@
 
 .spot-studio-status-process-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   margin-top: 6px;
+  padding-left: 16px;
+  position: relative;
+}
+
+.spot-studio-status-process-list::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 4px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0.04)
+  );
 }
 
 .spot-studio-status-process {
   display: grid;
   gap: 4px;
+  position: relative;
   padding: 10px 12px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.018);
 }
 
+.spot-studio-status-process::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: -18px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--spot-bg-secondary);
+  box-shadow: 0 0 0 3px rgba(9, 10, 12, 0.92);
+}
+
 .spot-studio-status-process.is-active {
   border-color: var(--interactive-selected-border);
   background: var(--interactive-selected-bg);
+}
+
+.spot-studio-status-process.is-active::before {
+  border-color: var(--interactive-selected-border);
+  background: var(--interactive-selected-border);
+}
+
+.spot-studio-status-process-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.spot-studio-status-process-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--spot-text-secondary);
+  flex: 0 0 auto;
+}
+
+.spot-studio-status-process.is-active .spot-studio-status-process-icon {
+  color: var(--spot-text-primary);
+}
+
+.spot-studio-status-card.is-thinking .spot-studio-status-process-list {
+  gap: 12px;
+  margin-top: 0;
+}
+
+.spot-studio-status-card.is-thinking .spot-studio-status-process {
+  padding: 0 0 0 6px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.spot-studio-status-card.is-thinking .spot-studio-status-process.is-active {
+  background: transparent;
+  border: none;
+}
+
+.spot-studio-status-card.is-thinking .spot-studio-status-process::before {
+  top: 7px;
 }
 
 .spot-studio-status-process-row {
@@ -366,6 +475,103 @@
   line-height: 1.45;
 }
 
+.spot-studio-status-skill-shell {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.spot-studio-status-card.is-thinking .spot-studio-status-skill-shell {
+  margin-top: 2px;
+}
+
+.spot-studio-status-skill-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.spot-studio-status-skill-copy span {
+  color: var(--spot-text-dim);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.spot-studio-status-skill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.spot-studio-status-skill-chip {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--spot-text-primary);
+  border-radius: 999px;
+  min-height: 30px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    border-color var(--spot-transition-fast),
+    background var(--spot-transition-fast),
+    transform var(--spot-transition-fast);
+}
+
+.spot-studio-status-skill-chip:hover {
+  border-color: var(--spot-border-focus);
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.spot-studio-status-skill-chip.is-active {
+  border-color: var(--interactive-selected-border);
+  background: var(--interactive-selected-bg);
+}
+
+.spot-studio-status-skill-detail {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.spot-studio-status-skill-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spot-studio-status-skill-detail-head p,
+.spot-studio-status-skill-note {
+  margin: 0;
+  color: var(--spot-text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.spot-studio-status-skill-markdown {
+  margin: 0;
+  max-height: 200px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--spot-text-primary);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .spot-studio-status-preview {
   margin-top: 6px;
   border-radius: 16px;
@@ -384,11 +590,21 @@
   font-size: 12px;
 }
 
+.spot-studio-status-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 12px 0;
+  color: var(--spot-text-dim);
+  font-size: 11px;
+}
+
 .spot-studio-status-preview pre {
   margin: 0;
   padding: 12px;
   max-height: 240px;
   overflow: auto;
+  overscroll-behavior: contain;
   color: var(--spot-text-primary);
   font-size: 12px;
   line-height: 1.5;
@@ -396,6 +612,17 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.spot-studio-status-preview.is-code-preview pre {
+  min-height: 280px;
+  max-height: min(68vh, 720px);
+  resize: vertical;
+}
+
+.spot-studio-status-preview.is-stream-preview pre {
+  min-height: 150px;
+  max-height: 260px;
 }
 
 .spot-studio-status-preview code,
@@ -436,6 +663,7 @@
   margin: 14px 0 0;
   max-height: 260px;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 12px;
   border-radius: 14px;
   border: 1px solid var(--spot-border-subtle);
@@ -446,6 +674,17 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.studio-artifact-pending-preview.is-code-preview {
+  min-height: 320px;
+  max-height: min(70vh, 760px);
+  resize: vertical;
+}
+
+.studio-artifact-pending-preview.is-stream-preview {
+  min-height: 160px;
+  max-height: 260px;
 }
 
 .spot-studio-artifact-drawer.is-open {

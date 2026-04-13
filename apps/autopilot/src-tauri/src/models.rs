@@ -4,10 +4,12 @@ use ioi_api::studio::{
     ExecutionEnvelope, ExecutionStage, StudioArtifactBlueprint, StudioArtifactBrief,
     StudioArtifactCandidateSummary, StudioArtifactEditIntent, StudioArtifactExemplar,
     StudioArtifactIR, StudioArtifactJudgeResult, StudioArtifactOutputOrigin,
-    StudioArtifactRenderEvaluation, StudioArtifactSelectedSkill, StudioArtifactSelectionTarget,
-    StudioArtifactTasteMemory, StudioArtifactUxLifecycle, SwarmChangeReceipt,
-    SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan, SwarmVerificationReceipt,
-    SwarmWorkerReceipt,
+    StudioArtifactPreparationNeeds, StudioArtifactPreparedContextResolution,
+    StudioArtifactRenderEvaluation, StudioArtifactRuntimeNarrationEvent,
+    StudioArtifactSelectedSkill, StudioArtifactSelectionTarget,
+    StudioArtifactSkillDiscoveryResolution, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    SwarmChangeReceipt, SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan,
+    SwarmVerificationReceipt, SwarmWorkerReceipt,
 };
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
@@ -1524,6 +1526,12 @@ pub struct StudioArtifactMaterializationContract {
     #[serde(default)]
     pub artifact_brief: Option<StudioArtifactBrief>,
     #[serde(default)]
+    pub preparation_needs: Option<StudioArtifactPreparationNeeds>,
+    #[serde(default)]
+    pub prepared_context_resolution: Option<StudioArtifactPreparedContextResolution>,
+    #[serde(default)]
+    pub skill_discovery_resolution: Option<StudioArtifactSkillDiscoveryResolution>,
+    #[serde(default)]
     pub blueprint: Option<StudioArtifactBlueprint>,
     #[serde(default)]
     pub artifact_ir: Option<StudioArtifactIR>,
@@ -1582,6 +1590,8 @@ pub struct StudioArtifactMaterializationContract {
     #[serde(default)]
     pub pipeline_steps: Vec<StudioArtifactPipelineStep>,
     #[serde(default)]
+    pub runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
+    #[serde(default)]
     pub notes: Vec<String>,
 }
 
@@ -1599,6 +1609,12 @@ pub struct StudioArtifactRevision {
     pub artifact_manifest: StudioArtifactManifest,
     #[serde(default)]
     pub artifact_brief: Option<StudioArtifactBrief>,
+    #[serde(default)]
+    pub preparation_needs: Option<StudioArtifactPreparationNeeds>,
+    #[serde(default)]
+    pub prepared_context_resolution: Option<StudioArtifactPreparedContextResolution>,
+    #[serde(default)]
+    pub skill_discovery_resolution: Option<StudioArtifactSkillDiscoveryResolution>,
     #[serde(default)]
     pub blueprint: Option<StudioArtifactBlueprint>,
     #[serde(default)]

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type {
   SkillDetailView,
+  StudioArtifactRenderEvaluation,
   StudioArtifactRevision,
   StudioArtifactSelectedSkill,
 } from "../../../types";
@@ -79,6 +80,23 @@ function sourceLocationForSkill(
   return fragments.join(" · ");
 }
 
+function obligationCounts(
+  evaluation?: StudioArtifactRenderEvaluation | null,
+): { required: number; cleared: number; failed: number } {
+  const required = evaluation?.acceptanceObligations?.filter(
+    (obligation) => obligation.required,
+  ) ?? [];
+  return {
+    required: required.length,
+    cleared: required.filter((obligation) => obligation.status === "passed")
+      .length,
+    failed: required.filter(
+      (obligation) =>
+        obligation.status === "failed" || obligation.status === "blocked",
+    ).length,
+  };
+}
+
 export function StudioArtifactEvidencePanel({
   manifest,
   studioSession,
@@ -142,14 +160,19 @@ export function StudioArtifactEvidencePanel({
   const winningCandidate =
     !hasSwarmExecution
       ? candidates.find((candidate) => candidate.selected) ??
-    (studioSession.materialization.winningCandidateId
-      ? (candidates.find(
-          (candidate) =>
-            candidate.candidateId ===
-            studioSession.materialization.winningCandidateId,
-        ) ?? null)
-      : null)
+        (studioSession.materialization.winningCandidateId
+          ? (candidates.find(
+              (candidate) =>
+                candidate.candidateId ===
+                studioSession.materialization.winningCandidateId,
+            ) ?? null)
+          : null)
       : null;
+  const winningRenderEvaluation =
+    studioSession.materialization.renderEvaluation ??
+    winningCandidate?.renderEvaluation ??
+    null;
+  const validationCounts = obligationCounts(winningRenderEvaluation);
   const [comparison, setComparison] =
     useState<StudioArtifactRevisionComparison | null>(null);
   const [revisionBusy, setRevisionBusy] = useState<string | null>(null);
@@ -374,8 +397,17 @@ export function StudioArtifactEvidencePanel({
             </p>
             <p>
               {revisions.length} revision{revisions.length === 1 ? "" : "s"} ·{" "}
-              {repairPassCount} repair pass{repairPassCount === 1 ? "" : "es"}
+              {validationCounts.required > 0
+                ? `${validationCounts.cleared}/${validationCounts.required} required obligations cleared`
+                : "Execution-witness obligation counts pending"}
             </p>
+            {repairPassCount > 0 ? (
+              <p>
+                {repairPassCount} bounded repair attempt
+                {repairPassCount === 1 ? "" : "s"} recorded separately from
+                acceptance truth.
+              </p>
+            ) : null}
             {hasSwarmExecution && swarmExecution?.activeWorkerRole ? (
               <p>
                 Active role: {formatStatusLabel(swarmExecution.activeWorkerRole)}
@@ -983,9 +1015,20 @@ export function StudioArtifactEvidencePanel({
             {repairPassCount > 0 ? (
               <p>
                 <strong>Repair history:</strong> {repairPassCount} bounded
-                repair pass
-                {repairPassCount === 1 ? "" : "es"} recorded across the selected
-                candidate line.
+                repair attempt
+                {repairPassCount === 1 ? "" : "s"} recorded across the selected
+                candidate line; acceptance is grounded in cleared obligations,
+                not attempt count.
+              </p>
+            ) : null}
+            {validationCounts.required > 0 ? (
+              <p>
+                <strong>Validation:</strong> {validationCounts.cleared}/
+                {validationCounts.required} required obligations cleared
+                {validationCounts.failed > 0
+                  ? ` · ${validationCounts.failed} unresolved`
+                  : ""}
+                .
               </p>
             ) : null}
             {candidates.map((candidate) => (

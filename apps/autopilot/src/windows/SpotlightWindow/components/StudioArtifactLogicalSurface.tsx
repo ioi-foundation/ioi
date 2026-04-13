@@ -64,6 +64,23 @@ function decodeArtifactPayloadText(
   return payload.content;
 }
 
+function previewMode(
+  preview:
+    | {
+        kind?: string | null;
+      }
+    | null
+    | undefined,
+) {
+  return preview?.kind === "change_preview" ? "code" : "stream";
+}
+
+function formatPreviewStats(content: string) {
+  const lineCount = content.split(/\r?\n/).length;
+  const charCount = content.length;
+  return `${lineCount.toLocaleString()} lines · ${charCount.toLocaleString()} chars`;
+}
+
 export function StudioArtifactLogicalSurface({
   manifest,
   studioSession,
@@ -98,7 +115,7 @@ export function StudioArtifactLogicalSurface({
   const renderExecutionPreviewAriaLabel = (
     preview: NonNullable<typeof livePreview>,
   ) =>
-    `${preview.label}. ${formatStudioExecutionPreviewPhase(preview)}. ${preview.content}`;
+    `${preview.label}. ${formatStudioExecutionPreviewPhase(preview)}.`;
   const isNonArtifactRoute = studioSession.outcomeRequest.outcomeKind !== "artifact";
   const routeLabel = formatStatusLabel(studioSession.outcomeRequest.outcomeKind);
   const showRouteSummary = isNonArtifactRoute && manifest.files.length === 0;
@@ -358,7 +375,11 @@ export function StudioArtifactLogicalSurface({
                 ) : null}
                 {livePreview?.content ? (
                   <div
-                    className="spot-studio-status-preview"
+                    className={`spot-studio-status-preview ${
+                      previewMode(livePreview) === "code"
+                        ? "is-code-preview"
+                        : "is-stream-preview"
+                    }`}
                     aria-live="polite"
                     aria-label={renderExecutionPreviewAriaLabel(livePreview)}
                   >
@@ -368,14 +389,31 @@ export function StudioArtifactLogicalSurface({
                         {formatStudioExecutionPreviewPhase(livePreview)}
                       </span>
                     </div>
-                    <pre className="studio-artifact-pending-preview">
-                      <code aria-label={livePreview.content}>{livePreview.content}</code>
+                    <div className="spot-studio-status-preview-meta">
+                      <span>{formatPreviewStats(livePreview.content)}</span>
+                      {previewMode(livePreview) === "code" ? (
+                        <span>Scroll to inspect the full artifact.</span>
+                      ) : null}
+                    </div>
+                    <pre
+                      className={`studio-artifact-pending-preview ${
+                        previewMode(livePreview) === "code"
+                          ? "is-code-preview"
+                          : "is-stream-preview"
+                      }`}
+                      tabIndex={0}
+                    >
+                      <code>{livePreview.content}</code>
                     </pre>
                   </div>
                 ) : null}
                 {codePreview?.content && codePreview.content !== livePreview?.content ? (
                   <div
-                    className="spot-studio-status-preview"
+                    className={`spot-studio-status-preview ${
+                      previewMode(codePreview) === "code"
+                        ? "is-code-preview"
+                        : "is-stream-preview"
+                    }`}
                     aria-live="polite"
                     aria-label={renderExecutionPreviewAriaLabel(codePreview)}
                   >
@@ -385,8 +423,21 @@ export function StudioArtifactLogicalSurface({
                         {formatStudioExecutionPreviewPhase(codePreview)}
                       </span>
                     </div>
-                    <pre className="studio-artifact-pending-preview">
-                      <code aria-label={codePreview.content}>{codePreview.content}</code>
+                    <div className="spot-studio-status-preview-meta">
+                      <span>{formatPreviewStats(codePreview.content)}</span>
+                      {previewMode(codePreview) === "code" ? (
+                        <span>Scroll to inspect the full artifact.</span>
+                      ) : null}
+                    </div>
+                    <pre
+                      className={`studio-artifact-pending-preview ${
+                        previewMode(codePreview) === "code"
+                          ? "is-code-preview"
+                          : "is-stream-preview"
+                      }`}
+                      tabIndex={0}
+                    >
+                      <code>{codePreview.content}</code>
                     </pre>
                   </div>
                 ) : null}

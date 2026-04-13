@@ -329,7 +329,9 @@ pub fn validate_generated_artifact_payload(
             if !(lower.contains("<html") || lower.contains("<!doctype html")) {
                 return Err("HTML iframe artifacts must contain an HTML document.".to_string());
             }
-            if let Some(failure) = html_document_completeness_failure(html, &lower) {
+            if let Some(failure) =
+                renderer_document_completeness_failure(request.renderer, html, &lower)
+            {
                 return Err(failure.to_string());
             }
             if studio_modal_first_html_enabled() {
@@ -457,8 +459,15 @@ pub fn validate_generated_artifact_payload(
         }
         StudioRendererKind::Svg => {
             validate_exact_primary_file(primary_file, ".svg", "image/svg+xml", true)?;
-            if !primary_file.body.contains("<svg") {
+            let svg = primary_file.body.as_str();
+            let lower = svg.to_ascii_lowercase();
+            if !lower.contains("<svg") {
                 return Err("SVG artifacts must contain an <svg element.".to_string());
+            }
+            if let Some(failure) =
+                renderer_document_completeness_failure(request.renderer, svg, &lower)
+            {
+                return Err(failure.to_string());
             }
         }
         StudioRendererKind::Mermaid => {
@@ -507,6 +516,18 @@ pub fn validate_generated_artifact_payload(
     Ok(())
 }
 
+fn renderer_document_completeness_failure(
+    renderer: StudioRendererKind,
+    document: &str,
+    lower: &str,
+) -> Option<&'static str> {
+    match renderer {
+        StudioRendererKind::HtmlIframe => html_document_completeness_failure(document, lower),
+        StudioRendererKind::Svg => svg_document_completeness_failure(document, lower),
+        _ => None,
+    }
+}
+
 fn html_document_completeness_failure<'a>(html: &'a str, lower: &'a str) -> Option<&'static str> {
     if !lower.contains("</body>") || !lower.contains("</html>") {
         return Some("HTML iframe artifacts must contain a fully closed </body></html> document.");
@@ -514,16 +535,46 @@ fn html_document_completeness_failure<'a>(html: &'a str, lower: &'a str) -> Opti
     if lower.contains("<main") && !lower.contains("</main>") {
         return Some("HTML iframe artifacts must contain a closed <main> region.");
     }
-    if html_has_trailing_unclosed_tag_fragment(html) {
+    if markup_has_trailing_unclosed_tag_fragment(html) {
         return Some(
             "HTML iframe artifacts must not end with an unfinished tag or trailing fragment.",
+        );
+    }
+    if markup_has_unclosed_non_void_elements(
+        html,
+        html_is_void_tag,
+        html_has_optional_closing_behavior,
+        html_is_raw_text_tag,
+    ) {
+        return Some(
+            "HTML iframe artifacts must not close the document while non-void HTML elements remain unclosed.",
         );
     }
     None
 }
 
-fn html_has_trailing_unclosed_tag_fragment(html: &str) -> bool {
-    let trimmed = html.trim_end();
+fn svg_document_completeness_failure(svg: &str, lower: &str) -> Option<&'static str> {
+    if !lower.contains("</svg>") {
+        return Some("SVG artifacts must contain a closing </svg> document.");
+    }
+    if markup_has_trailing_unclosed_tag_fragment(svg) {
+        return Some("SVG artifacts must not end with an unfinished tag or trailing fragment.");
+    }
+    if markup_has_unclosed_non_void_elements(
+        svg,
+        svg_is_void_tag,
+        svg_has_optional_closing_behavior,
+        svg_is_raw_text_tag,
+    ) {
+        return Some(
+            "SVG artifacts must not close the document while SVG elements remain unclosed.",
+        );
+    }
+    None
+}
+
+fn markup_has_trailing_unclosed_tag_fragment(source: &str) -> bool {
+    let trimmed = source.trim_end();
     if trimmed.is_empty() {
         return true;
     }
@@ -531,6 +582,175 @@ fn html_has_trailing_unclosed_tag_fragment(html: &str) -> bool {
         return true;
     };
     !trimmed[last_gt + 1..].trim().is_empty()
+}
+
+fn markup_tag_end_index(source: &str, start: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let mut quote: Option<u8> = None;
+    let mut index = start;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        match quote {
+            Some(active) if byte == active => quote = None,
+            Some(_) => {}
+            None if byte == b'"' || byte == b'\'' => quote = Some(byte),
+            None if byte == b'>' => return Some(index),
+            None => {}
+        }
+        index += 1;
+    }
+    None
+}
+
+fn markup_tag_name_char(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b':' | b'_')
+}
+
+fn html_is_void_tag(tag_name: &str) -> bool {
+    matches!(
+        tag_name,
+        "area"
+            | "base"
+            | "br"
+            | "col"
+            | "embed"
+            | "hr"
+            | "img"
+            | "input"
+            | "link"
+            | "meta"
+            | "param"
+            | "source"
+            | "track"
+            | "wbr"
+    )
+}
+
+fn html_has_optional_closing_behavior(tag_name: &str) -> bool {
+    matches!(
+        tag_name,
+        "p" | "li"
+            | "dt"
+            | "dd"
+            | "option"
+            | "optgroup"
+            | "thead"
+            | "tbody"
+            | "tfoot"
+            | "tr"
+            | "td"
+            | "th"
+            | "colgroup"
+            | "caption"
+            | "rb"
+            | "rt"
+            | "rtc"
+            | "rp"
+    )
+}
+
+fn html_is_raw_text_tag(tag_name: &str) -> bool {
+    matches!(tag_name, "script" | "style" | "textarea" | "title")
+}
+
+fn svg_is_void_tag(_tag_name: &str) -> bool {
+    false
+}
+
+fn svg_has_optional_closing_behavior(_tag_name: &str) -> bool {
+    false
+}
+
+fn svg_is_raw_text_tag(tag_name: &str) -> bool {
+    matches!(tag_name, "script" | "style")
+}
+
+fn markup_has_unclosed_non_void_elements(
+    source: &str,
+    is_void_tag: fn(&str) -> bool,
+    has_optional_closing_behavior: fn(&str) -> bool,
+    is_raw_text_tag: fn(&str) -> bool,
+) -> bool {
+    let lower = source.to_ascii_lowercase();
+    let bytes = lower.as_bytes();
+    let mut stack = Vec::<String>::new();
+    let mut index = 0usize;
+
+    while index < bytes.len() {
+        let Some(relative_lt) = lower[index..].find('<') else {
+            break;
+        };
+        index += relative_lt;
+
+        if lower[index..].starts_with("<!--") {
+            let Some(comment_end) = lower[index + 4..].find("-->") else {
+                return true;
+            };
+            index += 4 + comment_end + 3;
+            continue;
+        }
+
+        if lower[index..].starts_with("<!") || lower[index..].starts_with("<?") {
+            let Some(tag_end) = markup_tag_end_index(source, index + 2) else {
+                return true;
+            };
+            index = tag_end + 1;
+            continue;
+        }
+
+        let mut cursor = index + 1;
+        let is_closing = bytes.get(cursor) == Some(&b'/');
+        if is_closing {
+            cursor += 1;
+        }
+        while cursor < bytes.len() && bytes[cursor].is_ascii_whitespace() {
+            cursor += 1;
+        }
+        let name_start = cursor;
+        while cursor < bytes.len() && markup_tag_name_char(bytes[cursor]) {
+            cursor += 1;
+        }
+        if cursor == name_start {
+            index += 1;
+            continue;
+        }
+
+        let tag_name = &lower[name_start..cursor];
+        let Some(tag_end) = markup_tag_end_index(source, cursor) else {
+            return true;
+        };
+        let tag_fragment = lower[index..=tag_end].trim_end();
+        let self_closing = tag_fragment.ends_with("/>") || tag_fragment.ends_with("?>");
+
+        if is_closing {
+            if is_void_tag(tag_name) || has_optional_closing_behavior(tag_name) {
+                index = tag_end + 1;
+                continue;
+            }
+            match stack.pop() {
+                Some(open_tag) if open_tag == tag_name => {}
+                Some(_) | None => return true,
+            }
+            index = tag_end + 1;
+            continue;
+        }
+
+        if !self_closing && !is_void_tag(tag_name) && !has_optional_closing_behavior(tag_name) {
+            stack.push(tag_name.to_string());
+            if is_raw_text_tag(tag_name) {
+                let close_pattern = format!("</{tag_name}");
+                let Some(close_relative) = lower[tag_end + 1..].find(&close_pattern) else {
+                    return true;
+                };
+                index = tag_end + 1 + close_relative;
+                continue;
+            }
+        }
+
+        index = tag_end + 1;
+    }
+
+    !stack.is_empty()
 }
 
 pub(crate) fn parse_and_validate_generated_artifact_payload(
@@ -1211,12 +1431,15 @@ fn renderer_primary_view_contract_failure(
         )
     })?;
 
+    let lower = primary_file.body.to_ascii_lowercase();
+    if let Some(failure) =
+        renderer_document_completeness_failure(request.renderer, &primary_file.body, &lower)
+    {
+        return Some(failure);
+    }
+
     match request.renderer {
         StudioRendererKind::HtmlIframe => {
-            let lower = primary_file.body.to_ascii_lowercase();
-            if let Some(failure) = html_document_completeness_failure(&primary_file.body, &lower) {
-                return Some(failure);
-            }
             if studio_modal_first_html_enabled() {
                 return None;
             }

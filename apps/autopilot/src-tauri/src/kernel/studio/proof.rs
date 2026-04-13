@@ -236,6 +236,13 @@ fn prepare_task_for_studio_with_request_for_proof(
     let mut ux_lifecycle: Option<StudioArtifactUxLifecycle> = None;
     let mut failure: Option<crate::models::StudioArtifactFailure> = None;
     let mut taste_memory: Option<StudioArtifactTasteMemory> = None;
+    let mut preparation_needs: Option<ioi_api::studio::StudioArtifactPreparationNeeds> = None;
+    let mut prepared_context_resolution: Option<
+        ioi_api::studio::StudioArtifactPreparedContextResolution,
+    > = None;
+    let mut skill_discovery_resolution: Option<
+        ioi_api::studio::StudioArtifactSkillDiscoveryResolution,
+    > = None;
     let mut retrieved_exemplars = Vec::<StudioArtifactExemplar>::new();
     let mut selected_targets = Vec::<StudioArtifactSelectionTarget>::new();
 
@@ -369,6 +376,9 @@ fn prepare_task_for_studio_with_request_for_proof(
         non_workspace_verification_summary =
             Some(materialized_artifact.verification_summary.clone());
         artifact_brief = Some(materialized_artifact.brief.clone());
+        preparation_needs = materialized_artifact.preparation_needs.clone();
+        prepared_context_resolution = materialized_artifact.prepared_context_resolution.clone();
+        skill_discovery_resolution = materialized_artifact.skill_discovery_resolution.clone();
         edit_intent = materialized_artifact.edit_intent.clone();
         candidate_summaries = materialized_artifact.candidate_summaries.clone();
         winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
@@ -446,6 +456,9 @@ fn prepare_task_for_studio_with_request_for_proof(
         };
     }
     materialization.artifact_brief = artifact_brief.clone();
+    materialization.preparation_needs = preparation_needs.clone();
+    materialization.prepared_context_resolution = prepared_context_resolution.clone();
+    materialization.skill_discovery_resolution = skill_discovery_resolution.clone();
     materialization.edit_intent = edit_intent.clone();
     materialization.candidate_summaries = candidate_summaries.clone();
     materialization.winning_candidate_id = winning_candidate_id.clone();

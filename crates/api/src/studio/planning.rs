@@ -801,6 +801,216 @@ pub async fn plan_studio_artifact_brief_with_runtime(
     }
 }
 
+fn request_grounded_subject_domain(title: &str, intent: &str) -> String {
+    derive_brief_subject_domain(
+        &StudioArtifactBrief {
+            audience: String::new(),
+            job_to_be_done: String::new(),
+            subject_domain: String::new(),
+            artifact_thesis: String::new(),
+            required_concepts: Vec::new(),
+            required_interactions: Vec::new(),
+            visual_tone: Vec::new(),
+            factual_anchors: Vec::new(),
+            style_directives: Vec::new(),
+            reference_hints: Vec::new(),
+        },
+        title,
+        intent,
+    )
+    .unwrap_or_else(|| {
+        let fallback = trim_sentence_terminal(intent);
+        if fallback.is_empty() {
+            "the requested artifact".to_string()
+        } else {
+            fallback
+        }
+    })
+}
+
+fn request_grounded_job_to_be_done(
+    request: &StudioOutcomeArtifactRequest,
+    subject_domain: &str,
+    intent: &str,
+) -> String {
+    let normalized_intent = trim_sentence_terminal(intent);
+    if !normalized_intent.is_empty() {
+        return normalized_intent;
+    }
+
+    match request.renderer {
+        StudioRendererKind::HtmlIframe => {
+            format!("understand {subject_domain} through an interactive artifact")
+        }
+        StudioRendererKind::JsxSandbox => {
+            format!("explore {subject_domain} through an interactive surface")
+        }
+        StudioRendererKind::Svg | StudioRendererKind::Mermaid => {
+            format!("understand {subject_domain} at a glance")
+        }
+        StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed => {
+            format!("review {subject_domain} clearly")
+        }
+        StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest => {
+            format!("download the useful {subject_domain} fileset")
+        }
+        StudioRendererKind::WorkspaceSurface => {
+            "scaffold a working implementation surface".to_string()
+        }
+    }
+}
+
+fn request_grounded_required_concepts(
+    request: &StudioOutcomeArtifactRequest,
+    subject_domain: &str,
+) -> Vec<String> {
+    let mut concepts = vec![subject_domain.to_string()];
+    match request.renderer {
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => {
+            concepts.push(format!("{subject_domain} fundamentals"));
+            concepts.push(format!("{subject_domain} examples"));
+            concepts.push(format!("{subject_domain} comparisons"));
+        }
+        StudioRendererKind::Svg | StudioRendererKind::Mermaid => {
+            concepts.push(format!("{subject_domain} overview"));
+            concepts.push(format!("{subject_domain} relationships"));
+        }
+        StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed => {
+            concepts.push(format!("{subject_domain} summary"));
+            concepts.push(format!("{subject_domain} evidence"));
+        }
+        StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest => {
+            concepts.push(format!("{subject_domain} files"));
+            concepts.push(format!("{subject_domain} usage"));
+        }
+        StudioRendererKind::WorkspaceSurface => {
+            concepts.push(format!("{subject_domain} interface"));
+            concepts.push(format!("{subject_domain} implementation"));
+        }
+    }
+    canonicalize_brief_list(concepts)
+}
+
+fn request_grounded_required_interactions(
+    request: &StudioOutcomeArtifactRequest,
+    subject_domain: &str,
+) -> Vec<String> {
+    let interactions = match request.renderer {
+        StudioRendererKind::HtmlIframe => vec![
+            format!("switch between {subject_domain} views to compare how the explanation changes"),
+            format!("inspect {subject_domain} callouts to reveal deeper context inline"),
+            format!("step through {subject_domain} examples to see the explanation progress"),
+        ],
+        StudioRendererKind::JsxSandbox => vec![
+            format!("adjust {subject_domain} controls to update the visible response"),
+            format!("inspect {subject_domain} state details in the shared panel"),
+        ],
+        _ => Vec::new(),
+    };
+
+    canonicalize_brief_interactions(interactions, request)
+}
+
+fn request_grounded_visual_tone(request: &StudioOutcomeArtifactRequest) -> Vec<String> {
+    canonicalize_brief_list(match request.renderer {
+        StudioRendererKind::HtmlIframe => vec![
+            "bold editorial contrast".to_string(),
+            "technical explainer clarity".to_string(),
+        ],
+        StudioRendererKind::JsxSandbox => vec![
+            "product-grade interface clarity".to_string(),
+            "interaction-led hierarchy".to_string(),
+        ],
+        StudioRendererKind::Svg | StudioRendererKind::Mermaid => {
+            vec!["diagram-led clarity".to_string()]
+        }
+        _ => vec!["grounded document clarity".to_string()],
+    })
+}
+
+fn request_grounded_style_directives(request: &StudioOutcomeArtifactRequest) -> Vec<String> {
+    canonicalize_brief_list(match request.renderer {
+        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => vec![
+            "request-shaped hierarchy".to_string(),
+            "clear interaction affordances".to_string(),
+        ],
+        StudioRendererKind::Svg | StudioRendererKind::Mermaid => {
+            vec!["strong visual labeling".to_string()]
+        }
+        _ => vec!["clear hierarchy".to_string()],
+    })
+}
+
+pub fn derive_request_grounded_studio_artifact_brief(
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+) -> StudioArtifactBrief {
+    let subject_domain = request_grounded_subject_domain(title, intent);
+    let mut factual_anchors = canonicalize_brief_list(vec![
+        trim_sentence_terminal(title),
+        format!("{subject_domain} examples"),
+    ]);
+    if let Some(refinement) = refinement {
+        factual_anchors = canonicalize_brief_list({
+            let mut anchors = factual_anchors;
+            anchors.push(refinement.title.trim().to_string());
+            anchors
+        });
+    }
+    let reference_hints = canonicalize_brief_list(vec![
+        format!("{subject_domain} comparisons"),
+        format!("{subject_domain} evidence"),
+    ]);
+
+    let brief = StudioArtifactBrief {
+        audience: derive_brief_audience(request, &subject_domain)
+            .unwrap_or_else(|| "people exploring the request".to_string()),
+        job_to_be_done: request_grounded_job_to_be_done(request, &subject_domain, intent),
+        subject_domain: subject_domain.clone(),
+        artifact_thesis: match request.renderer {
+            StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => format!(
+                "Explain {subject_domain} through visible evidence, grounded comparisons, and request-faithful interaction."
+            ),
+            StudioRendererKind::Svg | StudioRendererKind::Mermaid => format!(
+                "Make {subject_domain} understandable at a glance through a clear visual spine."
+            ),
+            _ => derive_brief_artifact_thesis(request, &subject_domain)
+                .unwrap_or_else(|| format!("A {subject_domain} artifact")),
+        },
+        required_concepts: request_grounded_required_concepts(request, &subject_domain),
+        required_interactions: request_grounded_required_interactions(request, &subject_domain),
+        visual_tone: request_grounded_visual_tone(request),
+        factual_anchors,
+        style_directives: request_grounded_style_directives(request),
+        reference_hints,
+    };
+    let canonical = canonicalize_studio_artifact_brief_for_request(brief, request);
+    debug_assert!(
+        validate_studio_artifact_brief_against_request(&canonical, request, refinement).is_ok(),
+        "request-grounded artifact brief must satisfy Studio validation"
+    );
+    canonical
+}
+
+pub async fn synthesize_studio_artifact_brief_for_execution_strategy_with_runtime(
+    runtime: Arc<dyn InferenceRuntime>,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    execution_strategy: StudioExecutionStrategy,
+) -> Result<StudioArtifactBrief, String> {
+    if execution_strategy == StudioExecutionStrategy::DirectAuthor {
+        return Ok(derive_request_grounded_studio_artifact_brief(
+            title, intent, request, refinement,
+        ));
+    }
+
+    plan_studio_artifact_brief_with_runtime(runtime, title, intent, request, refinement).await
+}
+
 pub fn build_studio_artifact_brief_prompt(
     title: &str,
     intent: &str,

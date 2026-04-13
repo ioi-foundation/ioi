@@ -10,6 +10,36 @@ fn studio_repair_pass_count(studio_session: &StudioArtifactSession) -> usize {
         .count()
 }
 
+fn studio_validation_obligation_counts(
+    studio_session: &StudioArtifactSession,
+) -> Option<(usize, usize, usize)> {
+    let materialization = &studio_session.materialization;
+    let evaluation = materialization.render_evaluation.as_ref().or_else(|| {
+        materialization
+            .candidate_summaries
+            .iter()
+            .find(|candidate| candidate.selected)
+            .and_then(|candidate| candidate.render_evaluation.as_ref())
+            .or_else(|| {
+                materialization
+                    .winning_candidate_id
+                    .as_ref()
+                    .and_then(|winner_id| {
+                        materialization
+                            .candidate_summaries
+                            .iter()
+                            .find(|candidate| &candidate.candidate_id == winner_id)
+                            .and_then(|candidate| candidate.render_evaluation.as_ref())
+                    })
+            })
+    })?;
+    Some((
+        evaluation.cleared_required_obligation_count(),
+        evaluation.required_obligation_count(),
+        evaluation.failed_required_obligation_count(),
+    ))
+}
+
 fn studio_authoritative_step_hint(
     task: &AgentTask,
     studio_session: &StudioArtifactSession,
@@ -31,6 +61,7 @@ fn studio_authoritative_step_hint(
 
     let candidate_count = studio_session.materialization.candidate_summaries.len();
     let repair_passes = studio_repair_pass_count(studio_session);
+    let obligation_counts = studio_validation_obligation_counts(studio_session);
     let scaffold_family = studio_session
         .materialization
         .blueprint
@@ -38,9 +69,8 @@ fn studio_authoritative_step_hint(
         .map(|blueprint| blueprint.scaffold_family.as_str());
 
     match studio_session.lifecycle_state {
-        StudioArtifactLifecycleState::Materializing => scaffold_family.map(|scaffold| {
-            format!("Planning the {scaffold} blueprint and selecting structural guidance.")
-        }),
+        StudioArtifactLifecycleState::Materializing => scaffold_family
+            .map(|scaffold| format!("Preparing the {scaffold} artifact plan.")),
         StudioArtifactLifecycleState::Rendering | StudioArtifactLifecycleState::Implementing
             if candidate_count > 0 =>
         {
@@ -66,28 +96,45 @@ fn studio_authoritative_step_hint(
                 .winning_candidate_id
                 .as_deref()
                 .unwrap_or("winner");
-            let repair_suffix = if repair_passes > 0 {
-                format!(" and {repair_passes} repair pass(es)")
+            if let Some((cleared, required, failed)) = obligation_counts {
+                let repair_suffix = if repair_passes > 0 {
+                    format!(
+                        " {repair_passes} bounded repair attempt(s) were recorded separately."
+                    )
+                } else {
+                    String::new()
+                };
+                Some(format!(
+                    "Studio verified {winner} after clearing {cleared}/{required} required obligations across {candidate_count} candidate(s).{}",
+                    if failed > 0 {
+                        format!(" {failed} required obligation(s) remained unresolved in prior attempts.")
+                    } else {
+                        repair_suffix
+                    }
+                ))
             } else {
-                String::new()
-            };
-            Some(format!(
-                "Studio verified {winner} after {candidate_count} candidate(s){repair_suffix}."
-            ))
+                Some(format!(
+                    "Studio verified {winner} after {candidate_count} candidate(s)."
+                ))
+            }
         }
         StudioArtifactLifecycleState::Partial if candidate_count > 0 => Some(format!(
             "Studio surfaced a provisional artifact after {candidate_count} candidate(s); {}",
             studio_session.artifact_manifest.verification.summary
         )),
         StudioArtifactLifecycleState::Blocked if task.clarification_request.is_none() => {
-            if repair_passes > 0 {
-                Some(format!(
-                    "Studio stopped after {repair_passes} repair pass(es); {}",
+            obligation_counts.map(|(cleared, required, failed)| {
+                let repair_suffix = if repair_passes > 0 {
+                    format!(" after {repair_passes} bounded repair attempt(s)")
+                } else {
+                    String::new()
+                };
+                format!(
+                    "Studio stopped with {failed} unresolved required obligation(s) after clearing {cleared}/{required}.{} {}",
+                    repair_suffix,
                     studio_session.artifact_manifest.verification.summary
-                ))
-            } else {
-                None
-            }
+                )
+            })
         }
         _ => None,
     }

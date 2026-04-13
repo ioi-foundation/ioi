@@ -307,7 +307,9 @@ export function ExecutionRouteCard({
       {(summary.selectedSkills.length > 0 || summary.prepSummary) && (
         <div className="spot-execution-card-prep">
           <div className="spot-execution-card-prep-copy">
-            <span>Prepared context</span>
+            <span>
+              {summary.selectedSkills.length > 0 ? "Skill guidance" : "Prepared context"}
+            </span>
             {summary.prepSummary && <p>{summary.prepSummary}</p>}
           </div>
           {summary.selectedSkills.length > 0 && (

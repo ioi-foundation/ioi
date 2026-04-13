@@ -166,6 +166,44 @@ fn request_for(
     }
 }
 
+fn prepared_context_for_request(
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+) -> StudioArtifactPlanningContext {
+    derive_studio_artifact_prepared_context(request, brief, None, None, Vec::new(), Vec::new())
+}
+
+async fn planned_prepared_context_with_runtime_plan(
+    runtime_plan: &StudioArtifactResolvedRuntimePlan,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+) -> StudioArtifactPlanningContext {
+    let brief = plan_studio_artifact_brief_with_runtime(
+        runtime_plan.planning_runtime.clone(),
+        title,
+        intent,
+        request,
+        refinement,
+    )
+    .await
+    .expect("prepared context brief planning should succeed in tests");
+
+    derive_studio_artifact_prepared_context(
+        request,
+        &brief,
+        refinement.and_then(|context| context.blueprint.clone()),
+        refinement.and_then(|context| context.artifact_ir.clone()),
+        refinement
+            .map(|context| context.selected_skills.clone())
+            .unwrap_or_default(),
+        refinement
+            .map(|context| context.retrieved_exemplars.clone())
+            .unwrap_or_default(),
+    )
+}
+
 fn sample_html_brief() -> StudioArtifactBrief {
     StudioArtifactBrief {
         audience: "operators".to_string(),
@@ -225,6 +263,32 @@ fn sample_quantum_explainer_brief() -> StudioArtifactBrief {
     }
 }
 
+fn sample_quantum_markdown_brief() -> StudioArtifactBrief {
+    StudioArtifactBrief {
+        audience: "curious readers".to_string(),
+        job_to_be_done: "understand quantum computing through a concise markdown explainer"
+            .to_string(),
+        subject_domain: "quantum computing fundamentals".to_string(),
+        artifact_thesis:
+            "Explain qubits, superposition, interference, and hardware limits in a compact document."
+                .to_string(),
+        required_concepts: vec![
+            "qubits".to_string(),
+            "superposition".to_string(),
+            "interference".to_string(),
+            "hardware limits".to_string(),
+        ],
+        required_interactions: Vec::new(),
+        visual_tone: vec!["editorial".to_string(), "clear".to_string()],
+        factual_anchors: vec![
+            "measurement outcomes".to_string(),
+            "error rates".to_string(),
+        ],
+        style_directives: vec!["concise hierarchy".to_string()],
+        reference_hints: vec!["explainer memo".to_string()],
+    }
+}
+
 fn sample_complex_mission_control_brief() -> StudioArtifactBrief {
     StudioArtifactBrief {
         audience: "launch operators".to_string(),
@@ -271,7 +335,7 @@ fn sample_complex_mission_control_brief() -> StudioArtifactBrief {
 }
 
 #[test]
-fn direct_author_html_generation_skips_brief_planner_and_edit_intent_planner() {
+fn direct_author_html_generation_preserves_raw_document_contract_after_planning_context() {
     #[derive(Debug, Clone)]
     struct DirectAuthorRuntime {
         prompts: Arc<Mutex<Vec<String>>>,
@@ -296,7 +360,10 @@ fn direct_author_html_generation_skips_brief_planner_and_edit_intent_planner() {
                 .lock()
                 .expect("json mode log")
                 .push(options.json_mode);
-            let response = if prompt.contains("direct document author") {
+            let response = if prompt.contains("typed artifact brief planner") {
+                serde_json::to_string(&sample_html_brief())
+                    .expect("sample html brief should serialize")
+            } else if prompt.contains("direct document author") {
                 "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Product rollout</title><style>body{margin:0;background:#171717;color:#f5f5f5;font-family:Georgia,serif;}main{max-width:1040px;margin:0 auto;padding:32px;display:grid;gap:20px;}section,aside{background:#202020;border:1px solid #3a3a3a;border-radius:18px;padding:18px;}button{border:1px solid #666;background:#2a2a2a;color:#f5f5f5;border-radius:999px;padding:8px 14px;}svg{width:100%;height:auto;}</style></head><body><main><section><h1>Product rollout, explained through launch confidence and adoption</h1><p>The page opens with launch confidence, customer adoption, and issue backlog already visible so the first paint is useful before any interaction. Operators can switch between rollout phases and compare what changed in launch readiness, support load, and revenue contribution.</p><div><button type=\"button\" data-view=\"readiness\" aria-selected=\"true\">Readiness</button><button type=\"button\" data-view=\"adoption\" aria-selected=\"false\">Adoption</button></div></section><section data-view-panel=\"readiness\"><h2>Readiness chart</h2><svg viewBox=\"0 0 240 120\" role=\"img\" aria-label=\"Readiness by phase\"><rect x=\"16\" y=\"42\" width=\"42\" height=\"58\"></rect><rect x=\"86\" y=\"24\" width=\"42\" height=\"76\"></rect><rect x=\"156\" y=\"10\" width=\"42\" height=\"90\"></rect><text x=\"16\" y=\"112\">Pilot</text><text x=\"86\" y=\"112\">Regional</text><text x=\"156\" y=\"112\">Global</text></svg><p>Readiness moves from 64% in pilot to 90% at global launch as training, fulfillment, and support tooling converge.</p></section><section data-view-panel=\"adoption\" hidden><h2>Adoption comparison</h2><svg viewBox=\"0 0 240 120\" role=\"img\" aria-label=\"Adoption and support comparison\"><rect x=\"16\" y=\"28\" width=\"54\" height=\"72\"></rect><rect x=\"98\" y=\"42\" width=\"54\" height=\"58\"></rect><rect x=\"180\" y=\"18\" width=\"32\" height=\"82\"></rect><text x=\"16\" y=\"112\">Signups</text><text x=\"98\" y=\"112\">Tickets</text><text x=\"170\" y=\"112\">Revenue</text></svg><p>Adoption accelerates faster than support load, which is why the comparison view keeps both signals visible instead of forcing a single-metric story.</p></section><aside><h2>Why this rollout is working</h2><p id=\"detail-copy\">Readiness is selected by default, showing how the launch moved from pilot confidence to global approval while keeping support load manageable.</p></aside><script>const buttons=[...document.querySelectorAll('button[data-view]')];const panels=[...document.querySelectorAll('[data-view-panel]')];const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='readiness'?'Readiness is selected by default, showing how the launch moved from pilot confidence to global approval while keeping support load manageable.':'Adoption is selected, comparing signups, support tickets, and revenue contribution through the rollout.';}));</script></main></body></html>".to_string()
             } else if prompt.contains("typed artifact judge") {
                 serde_json::json!({
@@ -366,23 +433,36 @@ fn direct_author_html_generation_skips_brief_planner_and_edit_intent_planner() {
         StudioArtifactClass::InteractiveSingleFile,
         StudioRendererKind::HtmlIframe,
     );
+    let title = "Product rollout explainer";
+    let intent = "Create an interactive HTML artifact that explains a product rollout with charts";
+    let evaluator = StudioPassingRenderEvaluator;
 
     let bundle = tokio::runtime::Runtime::new()
         .expect("tokio runtime")
         .block_on(async {
-        generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
-            resolve_studio_artifact_runtime_plan(
+        let runtime_plan = resolve_studio_artifact_runtime_plan(
                 &request,
                 runtime.clone(),
                 None,
                 StudioArtifactRuntimePolicyProfile::FullyLocal,
-            ),
-            "Product rollout explainer",
-            "Create an interactive HTML artifact that explains a product rollout with charts",
+            );
+        let planning_context = planned_prepared_context_with_runtime_plan(
+            &runtime_plan,
+            title,
+            intent,
             &request,
             None,
+        )
+        .await;
+        generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+            runtime_plan,
+            title,
+            intent,
+            &request,
             None,
+            &planning_context,
             StudioExecutionStrategy::DirectAuthor,
+            Some(&evaluator),
             None,
             None,
         )
@@ -400,10 +480,13 @@ fn direct_author_html_generation_skips_brief_planner_and_edit_intent_planner() {
         .any(|prompt| prompt.contains("Raw user request:")));
     assert!(prompt_log
         .iter()
-        .any(|prompt| prompt.contains("Return only one complete self-contained HTML document.")));
-    assert!(!prompt_log
-        .iter()
         .any(|prompt| prompt.contains("typed artifact brief planner")));
+    assert!(prompt_log
+        .iter()
+        .any(|prompt| prompt.contains("Artifact brief JSON:")));
+    assert!(prompt_log
+        .iter()
+        .any(|prompt| prompt.contains("Return only one complete self-contained HTML document.")));
     assert!(!prompt_log
         .iter()
         .any(|prompt| prompt.contains("typed artifact edit intent planner")));
@@ -420,8 +503,8 @@ fn direct_author_html_generation_skips_brief_planner_and_edit_intent_planner() {
             .and_then(|entry| entry.strategy),
         Some(StudioExecutionStrategy::DirectAuthor)
     );
-    assert!(bundle.blueprint.is_none());
-    assert!(bundle.artifact_ir.is_none());
+    assert!(bundle.blueprint.is_some());
+    assert!(bundle.artifact_ir.is_some());
     assert!(bundle.selected_skills.is_empty());
     assert_eq!(bundle.winner.files[0].path, "index.html");
     assert_eq!(
@@ -446,6 +529,11 @@ async fn direct_author_streams_token_preview_into_generation_progress() {
             _options: InferenceOptions,
         ) -> Result<Vec<u8>, VmError> {
             let prompt = decode_studio_test_prompt(input_context);
+            if prompt.contains("typed artifact brief planner") {
+                return Ok(serde_json::to_string(&sample_quantum_markdown_brief())
+                    .expect("sample markdown brief should serialize")
+                    .into_bytes());
+            }
             if prompt.contains("typed artifact judge") {
                 return Ok(serde_json::json!({
                     "classification": "pass",
@@ -538,6 +626,8 @@ async fn direct_author_streams_token_preview_into_generation_progress() {
         },
     });
     let request = request_for(StudioArtifactClass::Document, StudioRendererKind::Markdown);
+    let title = "Quantum computers overview";
+    let intent = "Create a markdown artifact that explains quantum computers";
     let progress_log = Arc::new(Mutex::new(Vec::<StudioArtifactGenerationProgress>::new()));
     let progress_observer: StudioArtifactGenerationProgressObserver = {
         let progress_log = progress_log.clone();
@@ -546,22 +636,27 @@ async fn direct_author_streams_token_preview_into_generation_progress() {
         })
     };
 
+    let runtime_plan = resolve_studio_artifact_runtime_plan(
+        &request,
+        runtime.clone(),
+        None,
+        StudioArtifactRuntimePolicyProfile::FullyLocal,
+    );
+    let planning_context =
+        planned_prepared_context_with_runtime_plan(&runtime_plan, title, intent, &request, None)
+            .await;
     let bundle =
         generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
-            resolve_studio_artifact_runtime_plan(
-                &request,
-                runtime.clone(),
-                None,
-                StudioArtifactRuntimePolicyProfile::FullyLocal,
-            ),
-            "Quantum computers overview",
-            "Create a markdown artifact that explains quantum computers",
+            runtime_plan,
+            title,
+            intent,
             &request,
             None,
-            None,
+            &planning_context,
             StudioExecutionStrategy::DirectAuthor,
             None,
             Some(progress_observer),
+            None,
         )
         .await
         .expect("streaming direct author bundle");
@@ -606,10 +701,10 @@ async fn direct_author_continues_incomplete_raw_document_before_repairing() {
             _options: InferenceOptions,
         ) -> Result<Vec<u8>, VmError> {
             let prompt = decode_studio_test_prompt(input_context);
-            if prompt.contains("Continue the same document")
-                || prompt.contains("continuing an interrupted document")
+            if prompt.contains("Continuation output schema")
+                || prompt.contains("typed direct document continuation author")
             {
-                return Ok("</style></head><body><main><section><h1>Quantum computers explained</h1><p>Qubits use superposition and interference so some simulation and optimization problems can be attacked differently from classical systems.</p><button type=\"button\" data-view=\"concepts\" aria-selected=\"true\">Concepts</button><button type=\"button\" data-view=\"hardware\" aria-selected=\"false\">Hardware</button></section><section data-view-panel=\"concepts\"><h2>Concepts</h2><p>Amplitude, interference, and measurement work together to shape the result distribution.</p></section><section data-view-panel=\"hardware\" hidden><h2>Hardware</h2><p>Error correction and qubit stability are still major constraints.</p></section><aside><p id=\"detail-copy\">Concepts are selected by default.</p></aside><script>const buttons=[...document.querySelectorAll('button[data-view]')];const panels=[...document.querySelectorAll('[data-view-panel]')];const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='concepts'?'Concepts are selected by default.':'Hardware limits are selected.';}));</script></main></body></html>".as_bytes().to_vec());
+                return Ok("{\"mode\":\"suffix\",\"content\":\"</style></head><body><main><section><h1>Quantum computers explained</h1><p>Qubits use superposition and interference so some simulation and optimization problems can be attacked differently from classical systems.</p><button type=\\\"button\\\" data-view=\\\"concepts\\\" aria-selected=\\\"true\\\">Concepts</button><button type=\\\"button\\\" data-view=\\\"hardware\\\" aria-selected=\\\"false\\\">Hardware</button></section><section data-view-panel=\\\"concepts\\\"><h2>Concepts</h2><p>Amplitude, interference, and measurement work together to shape the result distribution.</p></section><section data-view-panel=\\\"hardware\\\" hidden><h2>Hardware</h2><p>Error correction and qubit stability are still major constraints.</p></section><aside><p id=\\\"detail-copy\\\">Concepts are selected by default.</p></aside><script>const buttons=[...document.querySelectorAll('button[data-view]')];const panels=[...document.querySelectorAll('[data-view-panel]')];const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='concepts'?'Concepts are selected by default.':'Hardware limits are selected.';}));</script></main></body></html>\"}".as_bytes().to_vec());
             }
             Err(VmError::HostError(format!(
                 "unexpected non-streaming prompt in interrupted direct-author runtime: {prompt}"
@@ -695,11 +790,13 @@ async fn direct_author_continues_incomplete_raw_document_before_repairing() {
         "Create an interactive HTML artifact that explains quantum computers",
         &request,
         &brief,
+        &[],
         None,
         "candidate-1",
         7,
         0.72,
         Some(live_preview_observer),
+        None,
     )
     .await
     .expect("interrupted direct-author stream should continue the raw document");
@@ -719,6 +816,133 @@ async fn direct_author_continues_incomplete_raw_document_before_repairing() {
 }
 
 #[tokio::test]
+async fn direct_author_successful_but_invalid_stream_terminalizes_preview_before_failure() {
+    #[derive(Debug, Clone)]
+    struct CompletedInvalidStreamingDirectAuthorRuntime;
+
+    #[async_trait]
+    impl InferenceRuntime for CompletedInvalidStreamingDirectAuthorRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            Err(VmError::HostError(format!(
+                "no repair or continuation output for prompt: {prompt}"
+            )))
+        }
+
+        async fn execute_inference_streaming(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+            token_stream: Option<Sender<String>>,
+        ) -> Result<Vec<u8>, VmError> {
+            let prompt = decode_studio_test_prompt(input_context);
+            if !prompt.contains("direct document author")
+                && !prompt.contains("Return only one complete self-contained index.html.")
+            {
+                return self
+                    .execute_inference([0u8; 32], input_context, InferenceOptions::default())
+                    .await;
+            }
+
+            let chunks = [
+                "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>Quantum Explorer</title><style>".to_string(),
+                "body{margin:0;background:#0f172a;color:#e2e8f0;font-family:Georgia,serif;}main{max-width:960px;margin:0 auto;padding:32px;}".to_string(),
+                "</style></head><body><main class=\"container\"><header><h1>Quantum computers</h1></header>".to_string(),
+            ];
+            if let Some(sender) = token_stream.as_ref() {
+                for chunk in &chunks {
+                    sender.send(chunk.clone()).await.map_err(|error| {
+                        VmError::HostError(format!("stream send failed: {error}"))
+                    })?;
+                }
+            }
+
+            Ok(chunks.concat().into_bytes())
+        }
+
+        async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+            Ok(Vec::new())
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+            StudioRuntimeProvenance {
+                kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                label: "fixture completed-but-invalid direct-author runtime".to_string(),
+                model: Some("fixture-completed-invalid-direct-author".to_string()),
+                endpoint: Some("fixture://completed-invalid-direct-author".to_string()),
+            }
+        }
+    }
+
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let brief = sample_quantum_explainer_brief();
+    let live_previews = Arc::new(Mutex::new(
+        Vec::<crate::execution::ExecutionLivePreview>::new(),
+    ));
+    let live_preview_observer = {
+        let live_previews = live_previews.clone();
+        Arc::new(move |preview: crate::execution::ExecutionLivePreview| {
+            live_previews
+                .lock()
+                .expect("live preview log")
+                .push(preview);
+        })
+    };
+
+    let error =
+        super::generation::materialize_studio_artifact_candidate_with_runtime_direct_author_detailed(
+            Arc::new(CompletedInvalidStreamingDirectAuthorRuntime),
+            None,
+            "Quantum computers",
+            "Create an interactive HTML artifact that explains quantum computers",
+            &request,
+            &brief,
+            &[],
+            None,
+            "candidate-1",
+            7,
+            0.72,
+            Some(live_preview_observer),
+            None,
+        )
+        .await
+        .expect_err("invalid streamed document should fail after continuation and repair");
+
+    assert!(error.message.contains("continuation attempt"));
+
+    let preview_log = live_previews.lock().expect("live preview log");
+    let latest_preview = preview_log
+        .iter()
+        .rev()
+        .find(|preview| preview.id == "candidate-1-live-output")
+        .expect("terminal preview should be recorded");
+    assert_eq!(
+        latest_preview.kind,
+        crate::execution::ExecutionLivePreviewKind::TokenStream
+    );
+    assert_eq!(latest_preview.status, "completed");
+    assert!(latest_preview.is_final);
+    assert!(latest_preview.content.contains("Quantum computers"));
+}
+
+#[tokio::test]
 async fn direct_author_interrupted_stream_preserves_whitespace_only_chunks_for_recovery() {
     #[derive(Debug, Clone)]
     struct WhitespaceSensitiveInterruptedRuntime;
@@ -732,14 +956,14 @@ async fn direct_author_interrupted_stream_preserves_whitespace_only_chunks_for_r
             _options: InferenceOptions,
         ) -> Result<Vec<u8>, VmError> {
             let prompt = decode_studio_test_prompt(input_context);
-            if prompt.contains("Continue the same document")
-                || prompt.contains("continuing an interrupted document")
+            if prompt.contains("Continuation output schema")
+                || prompt.contains("typed direct document continuation author")
             {
                 assert!(
                     prompt.contains("Quantum computers are"),
                     "continuation prompt lost whitespace-only chunks: {prompt}"
                 );
-                return Ok("</p></section></main></body></html>".as_bytes().to_vec());
+                return Ok("{\"mode\":\"suffix\",\"content\":\"</p></section><section><button type=\\\"button\\\" id=\\\"state-toggle\\\" aria-pressed=\\\"false\\\">Toggle measurement</button><p id=\\\"detail-copy\\\">Superposition is visible.</p></section><aside id=\\\"state-panel\\\" hidden><p>Measurement collapses the state into a classical outcome.</p></aside><script>const button=document.getElementById('state-toggle');const detail=document.getElementById('detail-copy');const panel=document.getElementById('state-panel');button.addEventListener('click',()=>{const next=button.getAttribute('aria-pressed')!=='true';button.setAttribute('aria-pressed',String(next));panel.hidden=!next;detail.textContent=next?'Measurement collapses the state into a classical outcome.':'Superposition is visible.';});</script></main></body></html>\"}".as_bytes().to_vec());
             }
             Err(VmError::HostError(format!(
                 "unexpected non-streaming prompt in whitespace-sensitive runtime: {prompt}"
@@ -815,10 +1039,12 @@ async fn direct_author_interrupted_stream_preserves_whitespace_only_chunks_for_r
         "Create an interactive HTML artifact that explains quantum computers",
         &request,
         &brief,
+        &[],
         None,
         "candidate-1",
         11,
         0.72,
+        None,
         None,
     )
     .await
@@ -826,6 +1052,125 @@ async fn direct_author_interrupted_stream_preserves_whitespace_only_chunks_for_r
 
     assert!(payload.files[0].body.contains("Quantum computers are"));
     assert!(payload.files[0].body.ends_with("</html>"));
+}
+
+#[tokio::test]
+async fn direct_author_repairs_structurally_truncated_document_with_terminal_closers() {
+    with_modal_first_html_env_async(|| async {
+        #[derive(Debug, Clone)]
+        struct StructurallyBrokenDirectAuthorRuntime {
+            prompts: Arc<Mutex<Vec<String>>>,
+        }
+
+        #[async_trait]
+        impl InferenceRuntime for StructurallyBrokenDirectAuthorRuntime {
+            async fn execute_inference(
+                &self,
+                _model_hash: [u8; 32],
+                input_context: &[u8],
+                _options: InferenceOptions,
+            ) -> Result<Vec<u8>, VmError> {
+                let prompt = decode_studio_test_prompt(input_context);
+                self.prompts.lock().expect("prompt log").push(prompt.clone());
+                if prompt.contains("direct document repair author") {
+                    return Ok("{\"mode\":\"full_document\",\"content\":\"<!doctype html><html lang=\\\"en\\\"><head><meta charset=\\\"utf-8\\\"><title>Quantum Explorer</title></head><body><main><section><h1>Quantum Explorer</h1><p>Use the tabs to compare classical bits and qubits.</p><button type=\\\"button\\\" data-view=\\\"basics\\\" aria-selected=\\\"true\\\">Basics</button><button type=\\\"button\\\" data-view=\\\"measurement\\\" aria-selected=\\\"false\\\">Measurement</button></section><section data-view-panel=\\\"basics\\\"><h2>Basics</h2><p>Qubits can occupy superposition before they are measured.</p></section><section data-view-panel=\\\"measurement\\\" hidden><h2>Measurement</h2><p>Measurement collapses amplitudes into observable outcomes.</p></section><aside><p id=\\\"detail-copy\\\">Basics are selected by default.</p></aside><script>const buttons=Array.from(document.querySelectorAll('button[data-view]'));const panels=Array.from(document.querySelectorAll('[data-view-panel]'));const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='basics'?'Basics are selected by default.':'Measurement is selected.';}));</script></main></body></html>\"}".as_bytes().to_vec());
+                }
+                Err(VmError::HostError(format!(
+                    "unexpected non-streaming prompt in structurally broken runtime: {prompt}"
+                )))
+            }
+
+            async fn execute_inference_streaming(
+                &self,
+                _model_hash: [u8; 32],
+                input_context: &[u8],
+                _options: InferenceOptions,
+                token_stream: Option<Sender<String>>,
+            ) -> Result<Vec<u8>, VmError> {
+                let prompt = decode_studio_test_prompt(input_context);
+                self.prompts.lock().expect("prompt log").push(prompt.clone());
+                if !prompt.contains("direct document author")
+                    && !prompt.contains("Return only one complete self-contained index.html.")
+                {
+                    return self
+                        .execute_inference([0u8; 32], input_context, InferenceOptions::default())
+                        .await;
+                }
+                let broken = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quantum Explorer</title></head><body><main><section><h1>Quantum Explorer</h1><p>Use the tabs to compare classical bits and qubits.</p><button type=\"button\" data-view=\"basics\">Basics</button><section data-view-panel=\"basics\"><h2>Basics</h2><p>Qubits can occupy superposition before they are measured.</p></main></body></html>";
+                if let Some(sender) = token_stream.as_ref() {
+                    sender
+                        .send(broken.to_string())
+                        .await
+                        .map_err(|error| VmError::HostError(format!("stream send failed: {error}")))?;
+                }
+                Ok(broken.as_bytes().to_vec())
+            }
+
+            async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+                Ok(Vec::new())
+            }
+
+            async fn load_model(
+                &self,
+                _model_hash: [u8; 32],
+                _path: &Path,
+            ) -> Result<(), VmError> {
+                Ok(())
+            }
+
+            async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+                Ok(())
+            }
+
+            fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+                StudioRuntimeProvenance {
+                    kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                    label: "fixture structurally broken direct-author runtime".to_string(),
+                    model: Some("fixture-structurally-broken".to_string()),
+                    endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+                }
+            }
+        }
+
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let brief = sample_quantum_explainer_brief();
+        let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+
+        let payload = super::generation::materialize_studio_artifact_candidate_with_runtime_direct_author_detailed(
+            Arc::new(StructurallyBrokenDirectAuthorRuntime {
+                prompts: prompts.clone(),
+            }),
+            None,
+            "Quantum Explorer",
+            "Create an interactive HTML artifact that explains quantum computers",
+            &request,
+            &brief,
+            &[],
+            None,
+            "candidate-1",
+            19,
+            0.72,
+            None,
+            None,
+        )
+        .await
+        .expect("structurally broken direct-author output should be repaired");
+
+        assert!(payload.files[0].body.contains("Measurement is selected."));
+        assert!(payload.files[0].body.ends_with("</html>"));
+
+        let prompt_log = prompts.lock().expect("prompt log");
+        assert!(prompt_log
+            .iter()
+            .any(|prompt| prompt.contains("direct document repair author")));
+        assert!(!prompt_log
+            .iter()
+            .any(|prompt| prompt.contains("continuing an interrupted document")));
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -846,7 +1191,11 @@ async fn direct_author_runs_acceptance_before_using_draft_pending_state() {
             _options: InferenceOptions,
         ) -> Result<Vec<u8>, VmError> {
             let prompt = decode_studio_test_prompt(input_context);
-            let stage = if prompt.contains("direct document author") {
+            let stage = if prompt.contains("typed artifact brief planner") {
+                "brief"
+            } else if prompt.contains("direct document author")
+                || prompt.contains("Return only one complete self-contained index.html.")
+            {
                 "author"
             } else if prompt.contains("typed artifact judge") {
                 "judge"
@@ -859,6 +1208,8 @@ async fn direct_author_runs_acceptance_before_using_draft_pending_state() {
                 .push(format!("{}:{stage}", self.role));
 
             let response = match stage {
+                "brief" => serde_json::to_string(&sample_quantum_explainer_brief())
+                    .expect("sample html brief should serialize"),
                 "author" => "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum Computing Explained</title><style>body{margin:0;background:#111827;color:#f8fafc;font-family:Georgia,serif;}main{max-width:960px;margin:0 auto;padding:32px;display:grid;gap:20px;}section,aside{background:#172033;border:1px solid #334155;border-radius:20px;padding:20px;}button{border:1px solid #475569;background:#1e293b;color:#f8fafc;border-radius:999px;padding:8px 14px;}</style></head><body><main><section><h1>Quantum computers explained through qubits, interference, and error correction</h1><p>Quantum computers use qubits, superposition, and interference to solve some classes of problems differently from classical machines.</p><div><button type=\"button\" data-view=\"concepts\" aria-selected=\"true\">Core concepts</button><button type=\"button\" data-view=\"hardware\" aria-selected=\"false\">Hardware limits</button></div></section><section data-view-panel=\"concepts\"><h2>Core concepts</h2><p>Qubits keep amplitudes in play, gates reshape those amplitudes, and measurement samples a classical answer.</p></section><section data-view-panel=\"hardware\" hidden><h2>Hardware limits</h2><p>Error rates, cooling systems, and qubit connectivity are still major constraints.</p></section><aside><p id=\"detail-copy\">Core concepts are selected by default.</p></aside><script>const buttons=[...document.querySelectorAll('button[data-view]')];const panels=[...document.querySelectorAll('[data-view-panel]')];const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='concepts'?'Core concepts are selected by default.':'Hardware limits are selected.';}));</script></main></body></html>".to_string(),
                 "judge" if self.role == "acceptance" => serde_json::json!({
                     "classification": "repairable",
@@ -940,6 +1291,7 @@ async fn direct_author_runs_acceptance_before_using_draft_pending_state() {
 
     with_modal_first_html_env_async(|| async {
         let calls = Arc::new(Mutex::new(Vec::<String>::new()));
+        let evaluator = StudioPassingRenderEvaluator;
         let production_runtime: Arc<dyn InferenceRuntime> = Arc::new(DirectAuthorAcceptanceRuntime {
             role: "production",
             calls: calls.clone(),
@@ -964,21 +1316,33 @@ async fn direct_author_runs_acceptance_before_using_draft_pending_state() {
             StudioArtifactClass::InteractiveSingleFile,
             StudioRendererKind::HtmlIframe,
         );
+        let title = "Quantum computing explainer";
+        let intent = "Create an interactive HTML artifact that explains quantum computers.";
+        let runtime_plan = resolve_studio_artifact_runtime_plan(
+            &request,
+            production_runtime,
+            Some(acceptance_runtime),
+            StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
+        );
+        let planning_context = planned_prepared_context_with_runtime_plan(
+            &runtime_plan,
+            title,
+            intent,
+            &request,
+            None,
+        )
+        .await;
 
         let bundle =
             generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
-                resolve_studio_artifact_runtime_plan(
-                    &request,
-                    production_runtime,
-                    Some(acceptance_runtime),
-                    StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
-                ),
-                "Quantum computing explainer",
-                "Create an interactive HTML artifact that explains quantum computers.",
+                runtime_plan,
+                title,
+                intent,
                 &request,
                 None,
-                None,
+                &planning_context,
                 StudioExecutionStrategy::DirectAuthor,
+                Some(&evaluator),
                 None,
                 None,
             )
@@ -989,10 +1353,10 @@ async fn direct_author_runs_acceptance_before_using_draft_pending_state() {
         assert!(recorded_calls.iter().any(|entry| entry == "production:author"));
         assert!(!recorded_calls.iter().any(|entry| entry == "production:judge"));
         assert!(recorded_calls.iter().any(|entry| entry == "acceptance:judge"));
-        assert_eq!(
-            bundle.judge.rationale,
-            "acceptance runtime evaluated the direct-authored draft"
-        );
+        assert!(bundle
+            .judge
+            .rationale
+            .starts_with("acceptance runtime evaluated the direct-authored draft"));
         assert_ne!(
             bundle.judge.strongest_contradiction.as_deref(),
             Some("Acceptance judging is still pending for this draft.")
@@ -1015,11 +1379,34 @@ fn local_direct_author_prompt_omits_materialization_json_scaffolding() {
         StudioArtifactClass::InteractiveSingleFile,
         StudioRendererKind::HtmlIframe,
     );
+    let brief = sample_quantum_explainer_brief();
+    let selected_skills = vec![StudioArtifactSelectedSkill {
+        skill_hash: "skill-hash".to_string(),
+        name: "frontend-skill".to_string(),
+        description: "Create distinctive production-grade frontend interfaces.".to_string(),
+        lifecycle_state: "promoted".to_string(),
+        source_type: "filesystem".to_string(),
+        reliability_bps: 9800,
+        semantic_score_bps: 9100,
+        adjusted_score_bps: 9450,
+        relative_path: Some("skills/frontend-skill/SKILL.md".to_string()),
+        matched_need_ids: vec!["visual_art_direction-1".to_string()],
+        matched_need_kinds: vec![StudioArtifactSkillNeedKind::VisualArtDirection],
+        match_rationale:
+            "Matched the request because the artifact needs strong editorial frontend direction."
+                .to_string(),
+        guidance_markdown: Some(
+            "Before coding, understand the context and commit to a bold aesthetic direction."
+                .to_string(),
+        ),
+    }];
 
     let payload = build_studio_artifact_direct_author_prompt_for_runtime(
         "Quantum explainer",
         "Create an interactive HTML artifact that explains quantum computers.",
         &request,
+        &brief,
+        &selected_skills,
         None,
         "candidate-1",
         7,
@@ -1032,6 +1419,9 @@ fn local_direct_author_prompt_omits_materialization_json_scaffolding() {
 
     assert!(prompt_text
         .contains("Create an interactive HTML artifact that explains quantum computers."));
+    assert!(prompt_text.contains("Prepared artifact brief:"));
+    assert!(prompt_text.contains("Selected skill guidance:"));
+    assert!(prompt_text.contains("frontend-skill"));
     assert!(prompt_text.contains("Return only one complete self-contained index.html."));
     assert!(prompt_text.contains("Keep inline CSS concise"));
     assert!(prompt_text.contains("End with a fully closed </main></body></html>."));
@@ -1066,7 +1456,10 @@ fn direct_author_markdown_generation_uses_raw_document_contract() {
                 .lock()
                 .expect("json mode log")
                 .push(options.json_mode);
-            let response = if prompt.contains("direct document author") {
+            let response = if prompt.contains("typed artifact brief planner") {
+                serde_json::to_string(&sample_quantum_markdown_brief())
+                    .expect("sample markdown brief should serialize")
+            } else if prompt.contains("direct document author") {
                 "# Quantum computers\n\n## Why they matter\nQuantum computers use superposition and interference to explore specific classes of problems differently from classical machines.\n\n## Core ideas\n- Qubits carry amplitudes instead of one fixed bit value.\n- Gates rotate state so interference can amplify useful outcomes.\n- Measurement collapses the state into a sampled result.\n\n## Practical caution\nUseful quantum workflows still depend on careful error handling, hardware constraints, and problem selection."
                     .to_string()
             } else if prompt.contains("typed artifact judge") {
@@ -1134,23 +1527,35 @@ fn direct_author_markdown_generation_uses_raw_document_contract() {
         },
     });
     let request = request_for(StudioArtifactClass::Document, StudioRendererKind::Markdown);
+    let title = "Quantum computers brief";
+    let intent = "Create a markdown artifact that explains quantum computers";
 
     let bundle = tokio::runtime::Runtime::new()
         .expect("tokio runtime")
         .block_on(async {
-            generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
-                resolve_studio_artifact_runtime_plan(
-                    &request,
-                    runtime.clone(),
-                    None,
-                    StudioArtifactRuntimePolicyProfile::FullyLocal,
-                ),
-                "Quantum computers brief",
-                "Create a markdown artifact that explains quantum computers",
+            let runtime_plan = resolve_studio_artifact_runtime_plan(
+                &request,
+                runtime.clone(),
+                None,
+                StudioArtifactRuntimePolicyProfile::FullyLocal,
+            );
+            let planning_context = planned_prepared_context_with_runtime_plan(
+                &runtime_plan,
+                title,
+                intent,
                 &request,
                 None,
+            )
+            .await;
+            generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+                runtime_plan,
+                title,
+                intent,
+                &request,
                 None,
+                &planning_context,
                 StudioExecutionStrategy::DirectAuthor,
+                None,
                 None,
                 None,
             )
@@ -1169,7 +1574,7 @@ fn direct_author_markdown_generation_uses_raw_document_contract() {
     assert!(prompt_log
         .iter()
         .any(|prompt| prompt.contains("Return only one complete markdown document.")));
-    assert!(!prompt_log
+    assert!(prompt_log
         .iter()
         .any(|prompt| prompt.contains("typed artifact brief planner")));
     assert!(!direct_author_prompt.contains("Return exactly one JSON object"));
@@ -1206,7 +1611,10 @@ fn direct_author_acceptance_timeout_surfaces_draft_instead_of_failing() {
             _options: InferenceOptions,
         ) -> Result<Vec<u8>, VmError> {
             let prompt = decode_studio_test_prompt(input_context);
-            let response = if prompt.contains("direct document author") {
+            let response = if prompt.contains("typed artifact brief planner") {
+                serde_json::to_string(&sample_quantum_markdown_brief())
+                    .expect("sample markdown brief should serialize")
+            } else if prompt.contains("direct document author") {
                 "# Quantum computers\n\nQuantum computing uses qubits, interference, and measurement to solve certain classes of problems differently from classical machines.\n\n## Core concepts\n- Superposition keeps multiple amplitudes in play.\n- Entanglement links qubit states.\n- Measurement samples a concrete result."
                     .to_string()
             } else if prompt.contains("typed artifact judge") {
@@ -1348,23 +1756,36 @@ fn direct_author_acceptance_timeout_surfaces_draft_instead_of_failing() {
     let request = request_for(StudioArtifactClass::Document, StudioRendererKind::Markdown);
     let production_runtime: Arc<dyn InferenceRuntime> = Arc::new(FastProductionRuntime);
     let acceptance_runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowAcceptanceRuntime);
+    let title = "Quantum computers brief";
+    let intent = "Create a markdown artifact that explains quantum computers";
+    let evaluator = StudioPassingRenderEvaluator;
 
     let bundle = tokio::runtime::Runtime::new()
         .expect("tokio runtime")
         .block_on(async {
-            generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
-                resolve_studio_artifact_runtime_plan(
-                    &request,
-                    production_runtime.clone(),
-                    Some(acceptance_runtime.clone()),
-                    StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
-                ),
-                "Quantum computers brief",
-                "Create a markdown artifact that explains quantum computers",
+            let runtime_plan = resolve_studio_artifact_runtime_plan(
+                &request,
+                production_runtime.clone(),
+                Some(acceptance_runtime.clone()),
+                StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
+            );
+            let planning_context = planned_prepared_context_with_runtime_plan(
+                &runtime_plan,
+                title,
+                intent,
                 &request,
                 None,
+            )
+            .await;
+            generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
+                runtime_plan,
+                title,
+                intent,
+                &request,
                 None,
+                &planning_context,
                 StudioExecutionStrategy::DirectAuthor,
+                Some(&evaluator),
                 None,
                 None,
             )
@@ -1599,7 +2020,40 @@ fn studio_test_render_evaluation(
         blueprint_consistency_score: 4,
         overall_score,
         findings,
+        acceptance_obligations: Vec::new(),
+        execution_witnesses: Vec::new(),
         summary: "Render evaluation completed.".to_string(),
+    }
+}
+
+#[derive(Default)]
+struct StudioPassingRenderEvaluator;
+
+#[async_trait]
+impl StudioArtifactRenderEvaluator for StudioPassingRenderEvaluator {
+    async fn evaluate_candidate_render(
+        &self,
+        _request: &StudioOutcomeArtifactRequest,
+        _brief: &StudioArtifactBrief,
+        _blueprint: Option<&StudioArtifactBlueprint>,
+        _artifact_ir: Option<&StudioArtifactIR>,
+        _edit_intent: Option<&StudioArtifactEditIntent>,
+        _candidate: &StudioGeneratedArtifactPayload,
+    ) -> Result<Option<StudioArtifactRenderEvaluation>, String> {
+        Ok(Some(studio_test_render_evaluation(
+            18,
+            true,
+            Vec::new(),
+            vec![
+                studio_test_render_capture(
+                    StudioArtifactRenderCaptureViewport::Desktop,
+                    88,
+                    720,
+                    4,
+                ),
+                studio_test_render_capture(StudioArtifactRenderCaptureViewport::Mobile, 72, 610, 4),
+            ],
+        )))
     }
 }
 
@@ -1838,8 +2292,10 @@ fn render_eval_merge_ignores_unsupported_markdown_failures() {
         findings: vec![StudioArtifactRenderFinding {
             code: "render_eval_failure".to_string(),
             severity: StudioArtifactRenderFindingSeverity::Blocked,
-            summary: "Render evaluation failed before Studio could verify the surfaced first paint: Driver internal error: JS decode failed: No value found".to_string(),
+                summary: "Render evaluation failed before Studio could verify the surfaced first paint: Driver internal error: JS decode failed: No value found".to_string(),
         }],
+        acceptance_obligations: Vec::new(),
+        execution_witnesses: Vec::new(),
         summary: "Render evaluation failed before Studio could verify the surfaced first paint: Driver internal error: JS decode failed: No value found".to_string(),
     };
 
@@ -1879,6 +2335,88 @@ fn render_evaluation_required_preserves_html_first_paint_checks() {
     assert!(render_evaluation_required(&request));
 }
 
+#[test]
+fn render_eval_merge_blocks_pass_when_required_execution_obligations_fail() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let judge = studio_test_judge(
+        StudioArtifactJudgeClassification::Pass,
+        true,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+    );
+    let render_evaluation = StudioArtifactRenderEvaluation {
+        supported: true,
+        first_paint_captured: true,
+        interaction_capture_attempted: true,
+        captures: vec![
+            studio_test_render_capture(StudioArtifactRenderCaptureViewport::Desktop, 24, 220, 4),
+            studio_test_render_capture(StudioArtifactRenderCaptureViewport::Mobile, 22, 196, 4),
+        ],
+        layout_density_score: 4,
+        spacing_alignment_score: 4,
+        typography_contrast_score: 4,
+        visual_hierarchy_score: 4,
+        blueprint_consistency_score: 4,
+        overall_score: 20,
+        findings: Vec::new(),
+        acceptance_obligations: vec![StudioArtifactAcceptanceObligation {
+            obligation_id: "controls_execute_cleanly".to_string(),
+            family: "interaction_truth".to_string(),
+            required: true,
+            status: StudioArtifactAcceptanceObligationStatus::Failed,
+            summary: "Surfaced controls executed without runtime errors or no-op behavior."
+                .to_string(),
+            detail: Some("successfulWitnesses=1 failedWitnesses=3".to_string()),
+            witness_ids: vec!["witness-1".to_string()],
+        }],
+        execution_witnesses: vec![StudioArtifactExecutionWitness {
+            witness_id: "witness-1".to_string(),
+            obligation_id: Some("controls_execute_cleanly".to_string()),
+            action_kind: "click".to_string(),
+            status: StudioArtifactExecutionWitnessStatus::Failed,
+            summary: "'Quantum Qubit' triggered a runtime error.".to_string(),
+            detail: Some("ReferenceError: toggleQubit is not defined".to_string()),
+            selector: Some("#btn-qubit".to_string()),
+            console_errors: vec!["ReferenceError: toggleQubit is not defined".to_string()],
+            state_changed: false,
+        }],
+        summary: "Render evaluation blocked the primary view.".to_string(),
+    };
+
+    let merged = merge_studio_artifact_render_evaluation_into_judge(
+        &request,
+        judge,
+        Some(&render_evaluation),
+    );
+
+    assert_eq!(
+        merged.classification,
+        StudioArtifactJudgeClassification::Repairable
+    );
+    assert!(!merged.deserves_primary_artifact_view);
+    assert_eq!(
+        merged.strongest_contradiction.as_deref(),
+        Some(
+            "Surfaced controls executed without runtime errors or no-op behavior. successfulWitnesses=1 failedWitnesses=3"
+        )
+    );
+    assert!(merged
+        .issue_classes
+        .iter()
+        .any(|value| value == "execution_witness"));
+    assert!(merged
+        .repair_hints
+        .iter()
+        .any(|value| value.contains("runtime error")));
+}
+
 #[derive(Default)]
 struct StudioSlowRenderEvaluator;
 
@@ -1909,17 +2447,24 @@ impl StudioArtifactRenderEvaluator for StudioSlowRenderEvaluator {
 }
 
 #[test]
-fn local_html_render_eval_timeout_is_bounded() {
+fn browser_backed_render_eval_timeout_is_bounded() {
     assert_eq!(
         render_eval_timeout_for_runtime(
             StudioRendererKind::HtmlIframe,
             StudioRuntimeProvenanceKind::RealLocalRuntime,
         ),
-        Some(Duration::from_secs(20))
+        Some(Duration::from_secs(60))
     );
     assert_eq!(
         render_eval_timeout_for_runtime(
             StudioRendererKind::Markdown,
+            StudioRuntimeProvenanceKind::RealLocalRuntime,
+        ),
+        Some(Duration::from_secs(30))
+    );
+    assert_eq!(
+        render_eval_timeout_for_runtime(
+            StudioRendererKind::BundleManifest,
             StudioRuntimeProvenanceKind::RealLocalRuntime,
         ),
         None
@@ -2979,9 +3524,9 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
     assert!(materializer_text.contains("Artifact blueprint JSON"));
     assert!(materializer_text.contains("Artifact IR JSON"));
     assert!(materializer_text.contains("Selected skill guidance JSON"));
-    assert!(materializer_text.contains("Promoted design skill spine JSON"));
-    assert!(materializer_text.contains("HTML scaffold contract JSON"));
-    assert!(materializer_text.contains("Component pack contract JSON"));
+    assert!(materializer_text.contains("Studio promoted design skill spine JSON"));
+    assert!(materializer_text.contains("Studio HTML scaffold contract JSON"));
+    assert!(materializer_text.contains("Studio HTML component pack contracts JSON"));
     assert!(materializer_text.contains("Scaffold execution digest"));
 
     let refinement_materializer_prompt = build_studio_artifact_materialization_prompt(
@@ -3013,13 +3558,51 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
     assert!(refinement_materializer_text.contains("Artifact blueprint JSON"));
     assert!(refinement_materializer_text.contains("Artifact IR JSON"));
     assert!(refinement_materializer_text.contains("Selected skill guidance JSON"));
-    assert!(refinement_materializer_text.contains("Promoted design skill spine JSON"));
-    assert!(refinement_materializer_text.contains("HTML scaffold contract JSON"));
-    assert!(refinement_materializer_text.contains("Component pack contract JSON"));
+    assert!(refinement_materializer_text.contains("Studio promoted design skill spine JSON"));
+    assert!(refinement_materializer_text.contains("Studio HTML scaffold contract JSON"));
+    assert!(refinement_materializer_text.contains("Studio HTML component pack contracts JSON"));
     assert!(refinement_materializer_text.contains("Refinement output contract"));
     assert!(refinement_materializer_text.contains(
         "do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object"
     ));
+
+    let mut render_evaluation = studio_test_render_evaluation(
+        16,
+        true,
+        Vec::new(),
+        vec![studio_test_render_capture(
+            StudioArtifactRenderCaptureViewport::Desktop,
+            56,
+            520,
+            4,
+        )],
+    );
+    render_evaluation.acceptance_obligations = vec![StudioArtifactAcceptanceObligation {
+        obligation_id: "controls_discovered".to_string(),
+        family: "controls_discovered".to_string(),
+        required: true,
+        status: StudioArtifactAcceptanceObligationStatus::Passed,
+        summary: "Actionable controls were discovered on first paint.".to_string(),
+        detail: None,
+        witness_ids: vec!["witness-1".to_string()],
+    }];
+    render_evaluation.execution_witnesses = vec![StudioArtifactExecutionWitness {
+        witness_id: "witness-1".to_string(),
+        obligation_id: Some("interaction_witnessed".to_string()),
+        action_kind: "click".to_string(),
+        status: StudioArtifactExecutionWitnessStatus::Failed,
+        summary: "Clicking the chart toggles did not update the visible evidence panel."
+            .to_string(),
+        detail: Some(
+            "The mapped evidence surface stayed visually unchanged after the attempted toggle."
+                .to_string(),
+        ),
+        selector: Some("button[data-view=\"comparison\"]".to_string()),
+        console_errors: Vec::new(),
+        state_changed: false,
+    }];
+    render_evaluation.summary =
+        "One required interaction still fails to produce a visible state change.".to_string();
 
     let refinement_prompt = build_studio_artifact_candidate_refinement_prompt(
         "Dog shampoo rollout",
@@ -3029,6 +3612,7 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
         None,
         None,
         &candidate,
+        Some(&render_evaluation),
         &StudioArtifactJudgeResult {
             classification: StudioArtifactJudgeClassification::Repairable,
             request_faithfulness: 3,
@@ -3071,9 +3655,9 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
     assert!(refinement_text.contains("Artifact blueprint JSON"));
     assert!(refinement_text.contains("Artifact IR JSON"));
     assert!(refinement_text.contains("Selected skill guidance JSON"));
-    assert!(refinement_text.contains("Promoted design skill spine JSON"));
-    assert!(refinement_text.contains("HTML scaffold contract JSON"));
-    assert!(refinement_text.contains("Component pack contract JSON"));
+    assert!(refinement_text.contains("Studio promoted design skill spine JSON"));
+    assert!(refinement_text.contains("Studio HTML scaffold contract JSON"));
+    assert!(refinement_text.contains("Studio HTML component pack contracts JSON"));
     assert!(refinement_text.contains("two distinct evidence views or chart families"));
     assert!(refinement_text.contains("single chart with generic prose"));
     assert!(refinement_text.contains("querySelectorAll"));
@@ -3092,6 +3676,9 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
     assert!(refinement_text.contains("do not only echo the raw view id or button label"));
     assert!(refinement_text.contains("wrap querySelectorAll results with Array.from first"));
     assert!(refinement_text.contains("selected metric, milestone, or evidence sentence"));
+    assert!(refinement_text.contains("Render evaluation JSON"));
+    assert!(refinement_text.contains("controls_discovered"));
+    assert!(refinement_text.contains("did not update the visible evidence panel"));
     assert!(refinement_text.contains("Refinement output contract"));
     assert!(refinement_text.contains(
         "do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object"
@@ -3109,6 +3696,7 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
         None,
         None,
         &candidate,
+        Some(&render_evaluation),
         &StudioArtifactJudgeResult {
             classification: StudioArtifactJudgeClassification::Repairable,
             request_faithfulness: 3,
@@ -3153,11 +3741,12 @@ fn html_chart_prompts_require_multi_view_request_specific_repairs() {
 
     let refinement_prompt_bytes = serde_json::to_vec(&refinement_prompt).expect("refinement bytes");
     assert!(local_refinement_bytes.len() < refinement_prompt_bytes.len());
-    assert!(local_refinement_bytes.len() < 12_000);
+    assert!(local_refinement_bytes.len() < 16_000);
     assert!(local_refinement_text.contains("Artifact request focus JSON"));
     assert!(local_refinement_text.contains("Artifact brief focus JSON"));
     assert!(local_refinement_text.contains("Current candidate focus JSON"));
     assert!(local_refinement_text.contains("Acceptance judgment focus JSON"));
+    assert!(local_refinement_text.contains("Render evaluation focus JSON"));
     assert!(local_refinement_text.contains("Scaffold execution digest"));
     assert!(!local_refinement_text.contains("Artifact blueprint JSON"));
     assert!(!local_refinement_text.contains("Artifact IR JSON"));
@@ -4263,6 +4852,14 @@ async fn modal_first_local_html_can_open_draft_before_acceptance() {
             Some(acceptance_runtime),
             StudioArtifactRuntimePolicyProfile::FullyLocal,
         );
+        let planning_context = planned_prepared_context_with_runtime_plan(
+            &runtime_plan,
+            "Quantum computers interactive explainer",
+            "Create an interactive HTML artifact that explains quantum computers",
+            &request,
+            None,
+        )
+        .await;
         let evaluator = DraftFirstHtmlRenderEvaluator;
 
         let bundle =
@@ -4272,9 +4869,10 @@ async fn modal_first_local_html_can_open_draft_before_acceptance() {
                 "Create an interactive HTML artifact that explains quantum computers",
                 &request,
                 None,
-                None,
+                &planning_context,
                 StudioExecutionStrategy::SinglePass,
                 Some(&evaluator),
+                None,
                 None,
             )
             .await
@@ -4921,7 +5519,7 @@ fn parse_and_validate_repairs_json_wrapped_html_missing_main_region() {
 }
 
 #[test]
-fn modal_first_html_normalization_injects_minimum_interaction_when_missing() {
+fn modal_first_html_requires_real_interaction_instead_of_injected_disclosure() {
     with_modal_first_html_env(|| {
         let request = request_for(
             StudioArtifactClass::InteractiveSingleFile,
@@ -4942,15 +5540,11 @@ fn modal_first_html_normalization_injects_minimum_interaction_when_missing() {
         })
         .to_string();
 
-        let payload = parse_and_validate_generated_artifact_payload(&raw, &request)
-            .expect("modal-first normalization should add a minimal interaction affordance");
+        let error = parse_and_validate_generated_artifact_payload(&raw, &request).expect_err(
+            "modal-first html should require authored interaction instead of injecting one",
+        );
 
-        let html = payload.files[0].body.to_ascii_lowercase();
-        assert!(html.contains("<details"));
-        assert!(html.contains("<summary"));
-        assert!(html.contains("data-studio-interaction=\"true\""));
-        validate_generated_artifact_payload(&payload, &request)
-            .expect("the normalized modal-first draft should satisfy interaction validation");
+        assert!(error.contains("must contain real interactive controls or handlers"));
     });
 }
 
@@ -4971,6 +5565,25 @@ fn modal_first_html_validation_rejects_truncated_documents() {
 }
 
 #[test]
+fn modal_first_html_validation_rejects_structurally_truncated_documents_even_with_terminal_closers()
+{
+    with_modal_first_html_env(|| {
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let raw = "<!doctype html><html><body><main><section><h1>Quantum computing explained</h1><p>Inspect qubits, entanglement, and measurement through a request-specific explainer.</p><button type=\"button\" data-view=\"superposition\">Superposition</button><section><article><h2>Quantum circuit</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Quantum circuit\"><rect x=\"24\" y=\"54\" width=\"42\" height=\"62\"></rect><text x=\"24\" y=\"132\">Gate</text></svg></article></section></main></body></html>";
+
+        let error = parse_and_validate_generated_artifact_payload(raw, &request).expect_err(
+            "terminally closed but structurally truncated modal-first html should be rejected",
+        );
+
+        assert!(error
+            .contains("must not close the document while non-void HTML elements remain unclosed"));
+    });
+}
+
+#[test]
 fn modal_first_html_normalization_closes_missing_terminal_suffix() {
     with_modal_first_html_env(|| {
         let request = request_for(
@@ -4987,6 +5600,17 @@ fn modal_first_html_normalization_closes_missing_terminal_suffix() {
         validate_generated_artifact_payload(&payload, &request)
             .expect("the normalized html suffix should validate");
     });
+}
+
+#[test]
+fn parse_and_validate_rejects_structurally_truncated_svg_even_with_terminal_closer() {
+    let request = request_for(StudioArtifactClass::Visual, StudioRendererKind::Svg);
+    let raw = "<svg viewBox=\"0 0 240 140\" xmlns=\"http://www.w3.org/2000/svg\"><g><rect x=\"16\" y=\"58\" width=\"42\" height=\"54\" /></svg>";
+
+    let error = parse_and_validate_generated_artifact_payload(raw, &request)
+        .expect_err("terminally closed but structurally truncated svg should be rejected");
+
+    assert!(error.contains("must not close the document while SVG elements remain unclosed"));
 }
 
 #[test]
@@ -5685,7 +6309,7 @@ fn parse_and_validate_resections_nested_div_shells() {
 }
 
 #[test]
-fn parse_and_validate_normalizes_alert_only_html_into_inline_disclosure() {
+fn parse_and_validate_preserves_authored_controls_without_injecting_disclosure() {
     let raw = serde_json::json!({
             "summary": "Dog shampoo rollout artifact",
             "notes": ["alert-only interaction"],
@@ -5712,12 +6336,12 @@ fn parse_and_validate_normalizes_alert_only_html_into_inline_disclosure() {
 
     let html = &payload.files[0].body;
     assert!(!html.to_ascii_lowercase().contains("alert("));
-    assert!(html.contains("data-studio-interaction=\"true\""));
-    assert!(html.contains("<details"));
+    assert!(html.contains("<button"));
+    assert!(!html.contains("data-studio-interaction=\"true\""));
 }
 
 #[test]
-fn parse_and_validate_injects_disclosure_when_html_lacks_interaction_hooks() {
+fn parse_and_validate_rejects_static_interactive_html_without_real_controls() {
     let raw = serde_json::json!({
             "summary": "Instacart rollout artifact",
             "notes": ["static html draft"],
@@ -5739,12 +6363,12 @@ fn parse_and_validate_injects_disclosure_when_html_lacks_interaction_hooks() {
             StudioArtifactClass::InteractiveSingleFile,
             StudioRendererKind::HtmlIframe,
         ),
-    )
-    .expect("static interactive HTML should gain a minimal inline disclosure");
+    );
 
-    let html = &payload.files[0].body;
-    assert!(html.contains("data-studio-interaction=\"true\""));
-    assert!(contains_html_interaction_hooks(&html.to_ascii_lowercase()));
+    let error = payload.expect_err(
+        "static interactive HTML should be rejected instead of gaining a synthetic disclosure",
+    );
+    assert!(error.contains("must contain real interactive controls or handlers"));
 }
 
 #[test]
@@ -9332,6 +9956,7 @@ async fn refinement_repair_recovers_schema_invalid_candidate() {
                     body: "<!doctype html><html><body><main><section><h1>Dog shampoo rollout</h1><p>Initial chart draft.</p></section><article><svg width=\"300\" height=\"200\"><rect x=\"20\" y=\"50\" width=\"40\" height=\"100\"></rect></svg></article><footer><p>Needs better interactions.</p></footer></main></body></html>".to_string(),
                 }],
             },
+            None,
             &StudioArtifactJudgeResult {
                 classification: StudioArtifactJudgeClassification::Repairable,
                 request_faithfulness: 3,
@@ -9370,6 +9995,7 @@ async fn refinement_repair_recovers_schema_invalid_candidate() {
             "candidate-1-refine-1",
             42,
             0.18,
+            None,
         )
         .await
         .expect("refinement repair should recover the candidate");
@@ -12918,6 +13544,11 @@ async fn fully_local_matching_provenance_runs_acceptance_instead_of_pending_draf
     });
     let evaluator = StudioSlowRenderEvaluator;
 
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let planning_context = prepared_context_for_request(&request, &sample_html_brief());
     let bundle =
         generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
             production_runtime,
@@ -12925,12 +13556,9 @@ async fn fully_local_matching_provenance_runs_acceptance_instead_of_pending_draf
             StudioArtifactRuntimePolicyProfile::FullyLocal,
             "AI tools editorial launch page",
             "Create an interactive HTML artifact for an AI tools editorial launch page",
-            &request_for(
-                StudioArtifactClass::InteractiveSingleFile,
-                StudioRendererKind::HtmlIframe,
-            ),
+            &request,
             None,
-            None,
+            &planning_context,
             Some(&evaluator),
         )
         .await
@@ -13075,6 +13703,11 @@ async fn lane_tagged_matching_local_provenance_runs_acceptance_instead_of_pendin
         calls: calls.clone(),
     });
 
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let planning_context = prepared_context_for_request(&request, &sample_html_brief());
     let bundle =
         generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
             production_runtime,
@@ -13082,12 +13715,9 @@ async fn lane_tagged_matching_local_provenance_runs_acceptance_instead_of_pendin
             StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
             "AI tools editorial launch page",
             "Create an interactive HTML artifact for an AI tools editorial launch page",
-            &request_for(
-                StudioArtifactClass::InteractiveSingleFile,
-                StudioRendererKind::HtmlIframe,
-            ),
+            &request,
             None,
-            None,
+            &planning_context,
             None,
         )
         .await
@@ -13516,6 +14146,7 @@ fn html_refinement_prompt_keeps_anchor_specific_evidence_surfaces() {
         None,
         None,
         &candidate,
+        None,
         &judge,
         "candidate-1",
         42,
@@ -13892,6 +14523,24 @@ async fn premium_planning_profile_uses_acceptance_runtime_for_brief_and_refine()
             "acceptance",
             calls.clone(),
         ));
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let runtime_plan = resolve_studio_artifact_runtime_plan(
+        &request,
+        production_runtime.clone(),
+        Some(acceptance_runtime.clone()),
+        StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration,
+    );
+    let planning_context = planned_prepared_context_with_runtime_plan(
+        &runtime_plan,
+        "Instacart rollout artifact",
+        "Create an interactive HTML artifact that explains a product rollout with charts for an Instacart MCP",
+        &request,
+        None,
+    )
+    .await;
 
     let bundle = generate_studio_artifact_bundle_with_runtimes_and_planning_context(
         production_runtime,
@@ -13899,12 +14548,9 @@ async fn premium_planning_profile_uses_acceptance_runtime_for_brief_and_refine()
         StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration,
         "Instacart rollout artifact",
         "Create an interactive HTML artifact that explains a product rollout with charts for an Instacart MCP",
-        &request_for(
-            StudioArtifactClass::InteractiveSingleFile,
-            StudioRendererKind::HtmlIframe,
-        ),
+        &request,
         None,
-        None,
+        &planning_context,
     )
     .await
     .expect("bundle should generate");
@@ -14645,6 +15291,11 @@ async fn local_generation_remote_acceptance_materializes_html_on_primary_runtime
             calls.clone(),
         ));
 
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let planning_context = prepared_context_for_request(&request, &sample_html_brief());
     let bundle =
         generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
             production_runtime,
@@ -14652,12 +15303,9 @@ async fn local_generation_remote_acceptance_materializes_html_on_primary_runtime
             StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
             "AI tools editorial launch page",
             "Create an interactive HTML artifact for an AI tools editorial launch page",
-            &request_for(
-                StudioArtifactClass::InteractiveSingleFile,
-                StudioRendererKind::HtmlIframe,
-            ),
+            &request,
             None,
-            None,
+            &planning_context,
             None,
         )
         .await
@@ -14706,6 +15354,11 @@ async fn modal_first_local_generation_remote_acceptance_materializes_html_on_pri
                 calls.clone(),
             ));
 
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let planning_context = prepared_context_for_request(&request, &sample_html_brief());
         let bundle =
             generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
                 production_runtime,
@@ -14713,12 +15366,9 @@ async fn modal_first_local_generation_remote_acceptance_materializes_html_on_pri
                 StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance,
                 "AI tools editorial launch page",
                 "Create an interactive HTML artifact for an AI tools editorial launch page",
-                &request_for(
-                    StudioArtifactClass::InteractiveSingleFile,
-                    StudioRendererKind::HtmlIframe,
-                ),
+                &request,
                 None,
-                None,
+                &planning_context,
                 None,
             )
             .await
@@ -15227,6 +15877,14 @@ async fn local_html_swarm_strategy_repairs_and_passes_quantum_artifact_regressio
             Some(acceptance_runtime),
             StudioArtifactRuntimePolicyProfile::FullyLocal,
         );
+        let planning_context = planned_prepared_context_with_runtime_plan(
+            &runtime_plan,
+            "Quantum computers interactive explainer",
+            "Create an interactive HTML artifact that explains quantum computers",
+            &request,
+            None,
+        )
+        .await;
         let evaluator = QuantumSwarmRegressionRenderEvaluator;
 
         let bundle =
@@ -15236,9 +15894,10 @@ async fn local_html_swarm_strategy_repairs_and_passes_quantum_artifact_regressio
                 "Create an interactive HTML artifact that explains quantum computers",
                 &request,
                 None,
-                None,
+                &planning_context,
                 StudioExecutionStrategy::AdaptiveWorkGraph,
                 Some(&evaluator),
+                None,
                 None,
             )
             .await
@@ -15673,6 +16332,14 @@ async fn local_html_swarm_strategy_breaks_complex_mission_control_query_into_ite
             Some(acceptance_runtime),
             StudioArtifactRuntimePolicyProfile::FullyLocal,
         );
+        let planning_context = planned_prepared_context_with_runtime_plan(
+            &runtime_plan,
+            "Post-quantum migration mission control",
+            "Create an interactive HTML mission control artifact for a post-quantum migration program that lets operators compare rollout phases, inspect cryptography risk, simulate cutover decisions, and review owner handoffs with a visible rollback playbook.",
+            &request,
+            None,
+        )
+        .await;
         let evaluator = ComplexMissionControlRenderEvaluator;
 
         let bundle =
@@ -15682,9 +16349,10 @@ async fn local_html_swarm_strategy_breaks_complex_mission_control_query_into_ite
                 "Create an interactive HTML mission control artifact for a post-quantum migration program that lets operators compare rollout phases, inspect cryptography risk, simulate cutover decisions, and review owner handoffs with a visible rollback playbook.",
                 &request,
                 None,
-                None,
+                &planning_context,
                 StudioExecutionStrategy::AdaptiveWorkGraph,
                 Some(&evaluator),
+                None,
                 None,
             )
             .await

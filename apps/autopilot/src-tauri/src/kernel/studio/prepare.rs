@@ -4,7 +4,8 @@ use super::*;
 use ioi_api::execution::{ExecutionEnvelope, ExecutionStage};
 use ioi_api::studio::{
     StudioArtifactExemplar, StudioArtifactGenerationProgress, StudioArtifactMergeReceipt,
-    StudioArtifactPatchReceipt, StudioArtifactSwarmExecutionSummary, StudioArtifactSwarmPlan,
+    StudioArtifactPatchReceipt, StudioArtifactRuntimeNarrationEvent,
+    StudioArtifactSwarmExecutionSummary, StudioArtifactSwarmPlan,
     StudioArtifactVerificationReceipt, StudioArtifactWorkerReceipt,
 };
 use ioi_types::app::StudioExecutionStrategy;
@@ -73,6 +74,40 @@ fn lifecycle_state_for_generation_progress(
     }
 }
 
+fn initial_understand_request_event(
+    _outcome_request: &StudioOutcomeRequest,
+) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "understand_request",
+        "understand_request",
+        "Understand request",
+        "Studio captured the request and established the active artifact context.",
+        "complete",
+    )
+}
+
+fn artifact_route_committed_event(
+    outcome_request: &StudioOutcomeRequest,
+) -> StudioArtifactRuntimeNarrationEvent {
+    let route_detail = outcome_request
+        .artifact
+        .as_ref()
+        .map(|artifact| {
+            format!(
+                "Studio committed the request to the artifact route for a {:?} renderer.",
+                artifact.renderer
+            )
+        })
+        .unwrap_or_else(|| "Studio committed the request to the artifact route.".to_string());
+    StudioArtifactRuntimeNarrationEvent::new(
+        "artifact_route_committed",
+        "artifact_route_committed",
+        "Route to artifact",
+        route_detail,
+        "complete",
+    )
+}
+
 fn publish_current_task_generation_progress(
     app: &AppHandle,
     task_id: &str,
@@ -93,6 +128,26 @@ fn publish_current_task_generation_progress(
         task.phase = AgentPhase::Running;
         task.current_step = progress.current_step.clone();
         if let Some(session) = task.studio_session.as_mut() {
+            if progress.artifact_brief.is_some()
+                || progress.preparation_needs.is_some()
+                || progress.prepared_context_resolution.is_some()
+                || progress.skill_discovery_resolution.is_some()
+                || progress.blueprint.is_some()
+                || progress.artifact_ir.is_some()
+                || !progress.selected_skills.is_empty()
+                || !progress.retrieved_exemplars.is_empty()
+            {
+                session.materialization.artifact_brief = progress.artifact_brief.clone();
+                session.materialization.preparation_needs = progress.preparation_needs.clone();
+                session.materialization.prepared_context_resolution =
+                    progress.prepared_context_resolution.clone();
+                session.materialization.skill_discovery_resolution =
+                    progress.skill_discovery_resolution.clone();
+                session.materialization.blueprint = progress.blueprint.clone();
+                session.materialization.artifact_ir = progress.artifact_ir.clone();
+                session.materialization.selected_skills = progress.selected_skills.clone();
+                session.materialization.retrieved_exemplars = progress.retrieved_exemplars.clone();
+            }
             session.materialization.execution_envelope = progress.execution_envelope.clone();
             session.materialization.swarm_plan = progress.swarm_plan.clone();
             session.materialization.swarm_execution = progress.swarm_execution.clone();
@@ -107,11 +162,16 @@ fn publish_current_task_generation_progress(
             if progress.judge.is_some() {
                 session.materialization.judge = progress.judge.clone();
             }
+            merge_runtime_narration_events(
+                &mut session.materialization.runtime_narration_events,
+                &progress.runtime_narration_events,
+            );
             session.lifecycle_state = lifecycle_state_for_generation_progress(progress);
             session.status = lifecycle_state_label(session.lifecycle_state).to_string();
             session.updated_at = now_iso();
             session.artifact_manifest.verification.summary = progress.current_step.clone();
             session.verified_reply.summary = progress.current_step.clone();
+            refresh_pipeline_steps(session, None);
         }
 
         task.clone()
@@ -127,7 +187,7 @@ pub(super) fn provisional_non_workspace_studio_session(
     summary: &str,
     created_at: &str,
     outcome_request: &StudioOutcomeRequest,
-    materialization: StudioArtifactMaterializationContract,
+    mut materialization: StudioArtifactMaterializationContract,
 ) -> Result<StudioArtifactSession, String> {
     let artifact_request = outcome_request
         .artifact
@@ -139,20 +199,20 @@ pub(super) fn provisional_non_workspace_studio_session(
     artifact_manifest.verification.summary = materialization
         .blueprint
         .as_ref()
-        .map(|blueprint| {
-            format!(
-                "Planning the {} blueprint and selecting structural guidance.",
-                blueprint.scaffold_family
-            )
-        })
-        .unwrap_or_else(|| {
-            "Planning the artifact blueprint and selecting structural guidance.".to_string()
-        });
+        .map(|blueprint| format!("Preparing the {} artifact plan.", blueprint.scaffold_family))
+        .unwrap_or_else(|| "Preparing the artifact plan.".to_string());
     artifact_manifest.verification.production_provenance =
         materialization.production_provenance.clone();
     artifact_manifest.verification.acceptance_provenance =
         materialization.acceptance_provenance.clone();
     let retrieved_exemplars = materialization.retrieved_exemplars.clone();
+    merge_runtime_narration_events(
+        &mut materialization.runtime_narration_events,
+        &[
+            initial_understand_request_event(outcome_request),
+            artifact_route_committed_event(outcome_request),
+        ],
+    );
 
     let mut studio_session = StudioArtifactSession {
         session_id: studio_session_id.to_string(),
@@ -497,47 +557,11 @@ fn maybe_prepare_task_for_studio_with_request(
             app,
             task,
             if outcome_request.execution_strategy == StudioExecutionStrategy::DirectAuthor {
-                "Authoring artifact directly..."
+                "Understanding the artifact request..."
             } else {
                 "Planning artifact blueprint..."
             },
         );
-        let (memory_runtime, inference_runtime, acceptance_inference_runtime) = {
-            let state = app.state::<Mutex<AppState>>();
-            let guard = state
-                .lock()
-                .map_err(|_| "Failed to lock app state".to_string())?;
-            (
-                guard.memory_runtime.clone().ok_or_else(|| {
-                    "Memory runtime is unavailable for Studio artifact materialization.".to_string()
-                })?,
-                guard.inference_runtime.clone(),
-                guard.acceptance_inference_runtime.clone(),
-            )
-        };
-        let planning_context =
-            if outcome_request.execution_strategy == StudioExecutionStrategy::DirectAuthor {
-                None
-            } else {
-                inference_runtime.as_ref().and_then(|runtime| {
-                    super::skills::prepare_studio_artifact_planning_context(
-                        app,
-                        &memory_runtime,
-                        runtime.clone(),
-                        &title,
-                        intent,
-                        &artifact_request,
-                        None,
-                    )
-                })
-            };
-        if let Some(context) = planning_context.as_ref() {
-            materialization.artifact_brief = Some(context.brief.clone());
-            materialization.blueprint = context.blueprint.clone();
-            materialization.artifact_ir = context.artifact_ir.clone();
-            materialization.selected_skills = context.selected_skills.clone();
-            materialization.retrieved_exemplars = context.retrieved_exemplars.clone();
-        }
         materialization.production_provenance = app_runtime_provenance.clone();
         materialization.acceptance_provenance = app_acceptance_runtime_provenance
             .clone()
@@ -551,20 +575,7 @@ fn maybe_prepare_task_for_studio_with_request(
             &outcome_request,
             materialization.clone(),
         )?);
-        publish_current_task_progress(
-            app,
-            task,
-            if outcome_request.execution_strategy == StudioExecutionStrategy::DirectAuthor {
-                "Authoring artifact directly...".to_string()
-            } else if materialization.selected_skills.is_empty() {
-                "Running the artifact execution plan...".to_string()
-            } else {
-                format!(
-                    "Running the artifact execution plan with {} selected skill guide(s)...",
-                    materialization.selected_skills.len()
-                )
-            },
-        );
+        publish_current_task_snapshot(app, task);
         let progress_app = app.clone();
         let progress_task_id = task.id.clone();
         let progress_observer =
@@ -576,16 +587,13 @@ fn maybe_prepare_task_for_studio_with_request(
                 );
             });
         let materialized_artifact =
-            materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
-                &memory_runtime,
-                inference_runtime,
-                acceptance_inference_runtime,
+            materialize_non_workspace_artifact_with_execution_strategy_and_progress_observer(
+                app,
                 &thread_id,
                 &title,
                 intent,
                 &artifact_request,
                 None,
-                planning_context.clone(),
                 outcome_request.execution_strategy,
                 Some(progress_observer),
             )?;
@@ -679,6 +687,12 @@ fn maybe_prepare_task_for_studio_with_request(
             outcome_request.execution_mode_decision.clone(),
             outcome_request.execution_strategy,
         );
+        if let Some(existing_session) = task.studio_session.as_ref() {
+            merge_runtime_narration_events(
+                &mut materialization.runtime_narration_events,
+                &existing_session.materialization.runtime_narration_events,
+            );
+        }
     } else {
         materialization.artifact_brief = artifact_brief.clone();
         materialization.edit_intent = edit_intent.clone();

@@ -73,9 +73,7 @@ pub(super) fn normalize_html_interactions(html: &str) -> String {
         "alert(",
         "console.info(",
     );
-    if had_alert || !contains_html_interaction_hooks(&normalized.to_ascii_lowercase()) {
-        normalized = ensure_minimum_html_interaction(&normalized);
-    }
+    let _ = had_alert;
     if modal_first {
         return normalized;
     }
@@ -2306,23 +2304,6 @@ pub(super) fn inject_inline_svg_chart_fallback(html: &str) -> String {
         fallback,
         &html[main_close_start..],
     )
-}
-
-pub(super) fn ensure_minimum_html_interaction(html: &str) -> String {
-    let lower = html.to_ascii_lowercase();
-    if lower.contains("<details") || lower.contains("data-studio-interaction=\"true\"") {
-        return html.to_string();
-    }
-    let disclosure = "<details data-studio-normalized=\"true\" data-studio-interaction=\"true\" class=\"studio-inline-disclosure\"><summary>Inspect supporting detail</summary><p>This inline detail keeps the current section explorable without leaving the artifact.</p></details>";
-    if let Some(main_close_start) = lower.rfind("</main>") {
-        return format!(
-            "{}{}{}",
-            &html[..main_close_start],
-            disclosure,
-            &html[main_close_start..],
-        );
-    }
-    insert_html_before_body_close(html, disclosure)
 }
 
 pub(super) fn replace_case_insensitive(source: &str, needle: &str, replacement: &str) -> String {

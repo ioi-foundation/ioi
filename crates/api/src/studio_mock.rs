@@ -2782,6 +2782,7 @@ mod tests {
             None,
             None,
             &candidate,
+            None,
             &judge,
             "candidate-1",
             1,

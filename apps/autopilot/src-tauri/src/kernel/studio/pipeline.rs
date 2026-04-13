@@ -328,6 +328,35 @@ fn repair_pass_count(materialization: &StudioArtifactMaterializationContract) ->
         .count()
 }
 
+fn validation_obligation_counts(
+    materialization: &StudioArtifactMaterializationContract,
+) -> Option<(usize, usize, usize)> {
+    let evaluation = materialization.render_evaluation.as_ref().or_else(|| {
+        materialization
+            .candidate_summaries
+            .iter()
+            .find(|candidate| candidate.selected)
+            .and_then(|candidate| candidate.render_evaluation.as_ref())
+            .or_else(|| {
+                materialization
+                    .winning_candidate_id
+                    .as_ref()
+                    .and_then(|winner_id| {
+                        materialization
+                            .candidate_summaries
+                            .iter()
+                            .find(|candidate| &candidate.candidate_id == winner_id)
+                            .and_then(|candidate| candidate.render_evaluation.as_ref())
+                    })
+            })
+    })?;
+    Some((
+        evaluation.cleared_required_obligation_count(),
+        evaluation.required_obligation_count(),
+        evaluation.failed_required_obligation_count(),
+    ))
+}
+
 fn judge_classification_id(classification: StudioArtifactJudgeClassification) -> &'static str {
     match classification {
         StudioArtifactJudgeClassification::Pass => "pass",
@@ -550,12 +579,16 @@ pub(super) fn pipeline_steps_for_state(
         .is_some()
         && manifest.primary_tab == "preview";
     let verification_gate = "Verification state, not worker prose, authorizes Studio replies.";
+    let prepared_context_resolution = materialization.prepared_context_resolution.as_ref();
     let mut spec_outputs = vec![
         artifact_class_id_for_request(request),
         renderer_kind_id(request.renderer).to_string(),
         presentation_surface_id(request.presentation_surface).to_string(),
         persistence_mode_id(request.persistence).to_string(),
     ];
+    if let Some(resolution) = prepared_context_resolution {
+        spec_outputs.push(format!("prepared_context:{}", resolution.status));
+    }
     if let Some(blueprint) = materialization.blueprint.as_ref() {
         spec_outputs.push(format!("blueprint:{}", blueprint.scaffold_family));
         if !blueprint.component_plan.is_empty() {
@@ -599,6 +632,7 @@ pub(super) fn pipeline_steps_for_state(
     };
     let candidate_count = materialization.candidate_summaries.len();
     let repair_passes = repair_pass_count(materialization);
+    let obligation_counts = validation_obligation_counts(materialization);
     let show_repair_step = has_swarm_execution
         || repair_passes > 0
         || materialization.failure.is_some()
@@ -629,6 +663,12 @@ pub(super) fn pipeline_steps_for_state(
     }
     if let Some(winner) = winner_summary {
         materialization_outputs.push(winner);
+    }
+    if let Some((cleared, required, failed)) = obligation_counts {
+        materialization_outputs.push(format!("obligations:{cleared}/{required}"));
+        if failed > 0 {
+            materialization_outputs.push(format!("failed_obligations:{failed}"));
+        }
     }
     if repair_passes > 0 {
         materialization_outputs.push(format!("repair_passes:{repair_passes}"));
@@ -773,6 +813,103 @@ pub(super) fn pipeline_steps_for_state(
         }
         outputs
     };
+    let brief_outputs = if let Some(brief) = materialization.artifact_brief.as_ref() {
+        let mut outputs = vec![
+            format!(
+                "subject:{}",
+                truncate_pipeline_output(&brief.subject_domain, 48)
+            ),
+            format!("audience:{}", truncate_pipeline_output(&brief.audience, 48)),
+            format!("concepts:{}", brief.required_concepts.len()),
+        ];
+        if !brief.required_interactions.is_empty() {
+            outputs.push(format!(
+                "interactions:{}",
+                brief.required_interactions.len()
+            ));
+        }
+        outputs
+    } else {
+        vec!["brief:pending".to_string()]
+    };
+    let brief_status = if materialization.artifact_brief.is_some() {
+        "complete"
+    } else if lifecycle_state == StudioArtifactLifecycleState::Failed {
+        "failed"
+    } else if lifecycle_state == StudioArtifactLifecycleState::Blocked {
+        "blocked"
+    } else if matches!(
+        lifecycle_state,
+        StudioArtifactLifecycleState::Materializing
+            | StudioArtifactLifecycleState::Rendering
+            | StudioArtifactLifecycleState::Implementing
+            | StudioArtifactLifecycleState::Verifying
+            | StudioArtifactLifecycleState::Ready
+            | StudioArtifactLifecycleState::Partial
+    ) {
+        "active"
+    } else {
+        "pending"
+    };
+    let skill_discovery_resolution = materialization.skill_discovery_resolution.as_ref();
+    let skill_discovery_outputs = if let Some(resolution) = skill_discovery_resolution {
+        let mut outputs = vec![
+            format!("guidance_evaluated:{}", resolution.guidance_evaluated),
+            format!("guidance_recommended:{}", resolution.guidance_recommended),
+            format!("guidance_found:{}", resolution.guidance_found),
+            format!("guidance_attached:{}", resolution.guidance_attached),
+            format!("skill_needs:{}", resolution.skill_need_count),
+            format!("selected_skills:{}", resolution.selected_skill_count),
+        ];
+        if !resolution.search_scope.is_empty() {
+            outputs.push(format!("search_scope:{}", resolution.search_scope));
+        }
+        if !resolution.selected_skill_names.is_empty() {
+            outputs.push(format!(
+                "skills:{}",
+                resolution.selected_skill_names.join(" · ")
+            ));
+        }
+        if let Some(failure_reason) = resolution.failure_reason.as_ref() {
+            outputs.push(format!(
+                "failure_reason:{}",
+                truncate_pipeline_output(failure_reason, 72)
+            ));
+        }
+        outputs
+    } else {
+        vec!["guidance_evaluated:pending".to_string()]
+    };
+    let skill_discovery_status = if let Some(resolution) = skill_discovery_resolution {
+        match resolution.status.trim().to_ascii_lowercase().as_str() {
+            "resolved" | "complete" => "complete",
+            "blocked" => "blocked",
+            "failed" => "failed",
+            "active" | "working" => "active",
+            _ => "active",
+        }
+    } else if materialization.artifact_brief.is_some()
+        && matches!(
+            lifecycle_state,
+            StudioArtifactLifecycleState::Materializing
+                | StudioArtifactLifecycleState::Rendering
+                | StudioArtifactLifecycleState::Implementing
+                | StudioArtifactLifecycleState::Verifying
+                | StudioArtifactLifecycleState::Ready
+                | StudioArtifactLifecycleState::Partial
+        )
+    {
+        "active"
+    } else if lifecycle_state == StudioArtifactLifecycleState::Failed {
+        "failed"
+    } else if lifecycle_state == StudioArtifactLifecycleState::Blocked {
+        "blocked"
+    } else {
+        "pending"
+    };
+    let guidance_attached = skill_discovery_resolution
+        .map(|resolution| resolution.guidance_attached)
+        .unwrap_or(false);
     let reply_outputs = {
         let mut outputs = vec![manifest.verification.summary.clone()];
         if let Some(taste_memory) = taste_memory {
@@ -853,7 +990,67 @@ pub(super) fn pipeline_steps_for_state(
             spec_outputs,
             None,
         ),
+        pipeline_step(
+            "brief",
+            ExecutionStage::Plan,
+            "Artifact brief",
+            brief_status,
+            if let Some(brief) = materialization.artifact_brief.as_ref() {
+                format!(
+                    "Studio grounded the request into a typed artifact brief about {} before authoring.",
+                    truncate_pipeline_output(&brief.subject_domain, 48)
+                )
+            } else {
+                "Studio is grounding the request into a typed artifact brief before authoring can begin."
+                    .to_string()
+            },
+            brief_outputs,
+            None,
+        ),
+        pipeline_step(
+            "skill_discovery",
+            ExecutionStage::Plan,
+            "Skill discovery",
+            skill_discovery_status,
+            if let Some(resolution) = skill_discovery_resolution {
+                resolution.rationale.clone()
+            } else {
+                "Studio is deciding whether this request should attach runtime guidance before authoring."
+                    .to_string()
+            },
+            skill_discovery_outputs,
+            None,
+        ),
     ];
+    if guidance_attached {
+        steps.push(pipeline_step(
+            "skill_read",
+            ExecutionStage::Plan,
+            "Read skill guidance",
+            if materialization.selected_skills.is_empty() {
+                "active"
+            } else {
+                "complete"
+            },
+            if materialization.selected_skills.len() == 1 {
+                format!(
+                    "Studio attached {} before authoring the artifact.",
+                    materialization.selected_skills[0].name
+                )
+            } else {
+                format!(
+                    "Studio attached {} selected skill guides before authoring.",
+                    materialization.selected_skills.len()
+                )
+            },
+            materialization
+                .selected_skills
+                .iter()
+                .map(|skill| skill.name.clone())
+                .collect(),
+            None,
+        ));
+    }
     if has_swarm_execution {
         steps.push(pipeline_step_for_phase(
             "planner",
@@ -973,10 +1170,29 @@ pub(super) fn pipeline_steps_for_state(
         has_files,
         preview_ready,
         if candidate_count > 0 {
-            format!(
-                "Studio drafted {} candidate(s), selected the strongest winner, and tracked {} repair pass(es).",
-                candidate_count, repair_passes
-            )
+            if let Some((cleared, required, failed)) = obligation_counts {
+                format!(
+                    "Studio drafted {} candidate(s) and cleared {}/{} required obligations{}.",
+                    candidate_count,
+                    cleared,
+                    required,
+                    if repair_passes > 0 {
+                        format!(
+                            "; {} bounded repair attempt(s) were tracked separately",
+                            repair_passes
+                        )
+                    } else if failed > 0 {
+                        format!("; {failed} obligation(s) remained unresolved in prior attempts")
+                    } else {
+                        String::new()
+                    }
+                )
+            } else {
+                format!(
+                    "Studio drafted {} candidate(s) and selected the strongest winner.",
+                    candidate_count
+                )
+            }
         } else {
             "Studio is creating the files or workspace required by the manifest.".to_string()
         },

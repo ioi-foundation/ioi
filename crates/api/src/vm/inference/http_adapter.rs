@@ -809,10 +809,12 @@ pub struct HttpInferenceRuntime {
     model_name: String,
     strategy: Box<dyn ProviderStrategy>,
     provider_kind: ProviderKind,
+    stream_idle_timeout: Duration,
 }
 
 impl HttpInferenceRuntime {
     pub fn new(api_url: String, api_key: String, model_name: String) -> Self {
+        let stream_idle_timeout = inference_http_stream_idle_timeout_for_api_url(&api_url);
         let client = match Client::builder()
             .timeout(inference_http_timeout_for_api_url(&api_url))
             .build()
@@ -846,6 +848,7 @@ impl HttpInferenceRuntime {
             model_name,
             strategy,
             provider_kind,
+            stream_idle_timeout,
         }
     }
 
@@ -894,8 +897,13 @@ impl HttpInferenceRuntime {
         let mut pending = String::new();
         let mut content = String::new();
 
-        while let Some(chunk) = byte_stream.next().await {
-            let chunk = chunk.map_err(|e| VmError::HostError(format!("Stream Error: {}", e)))?;
+        while let Some(chunk) = next_stream_chunk_with_idle_timeout(
+            &mut byte_stream,
+            self.stream_idle_timeout,
+            "Local Ollama native chat stream",
+        )
+        .await?
+        {
             let chunk_text = std::str::from_utf8(&chunk).map_err(|e| {
                 VmError::HostError(format!("Streaming chunk was not valid UTF-8: {}", e))
             })?;
@@ -1009,8 +1017,13 @@ impl HttpInferenceRuntime {
         };
         let mut emitted_text_len = 0usize;
 
-        while let Some(chunk) = byte_stream.next().await {
-            let chunk = chunk.map_err(|e| VmError::HostError(format!("Stream Error: {}", e)))?;
+        while let Some(chunk) = next_stream_chunk_with_idle_timeout(
+            &mut byte_stream,
+            self.stream_idle_timeout,
+            "OpenAI inference stream",
+        )
+        .await?
+        {
             let chunk_text = std::str::from_utf8(&chunk).map_err(|e| {
                 VmError::HostError(format!("Streaming chunk was not valid UTF-8: {}", e))
             })?;
@@ -1064,6 +1077,80 @@ fn inference_http_timeout_for_api_url(api_url: &str) -> Duration {
         api_url,
         |key| std::env::var(key).ok(),
     ))
+}
+
+fn inference_http_stream_idle_timeout_for_api_url(api_url: &str) -> Duration {
+    Duration::from_secs(
+        inference_http_stream_idle_timeout_seconds_for_api_url_with_lookup(api_url, |key| {
+            std::env::var(key).ok()
+        }),
+    )
+}
+
+fn inference_http_stream_idle_timeout_seconds_for_api_url_with_lookup<F>(
+    api_url: &str,
+    lookup: F,
+) -> u64
+where
+    F: Fn(&str) -> Option<String>,
+{
+    inference_http_stream_idle_timeout_override_seconds_with_lookup(&lookup)
+        .unwrap_or_else(|| default_inference_http_stream_idle_timeout_seconds(api_url))
+}
+
+fn inference_http_stream_idle_timeout_override_seconds_with_lookup<F>(lookup: &F) -> Option<u64>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    [
+        "AUTOPILOT_INFERENCE_HTTP_STREAM_IDLE_TIMEOUT_SECS",
+        "IOI_INFERENCE_HTTP_STREAM_IDLE_TIMEOUT_SECS",
+    ]
+    .iter()
+    .find_map(|key| {
+        lookup(key).and_then(|value| {
+            value
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .filter(|seconds| *seconds > 0)
+        })
+    })
+}
+
+fn default_inference_http_stream_idle_timeout_seconds(api_url: &str) -> u64 {
+    match runtime_kind_for_api_url(api_url) {
+        StudioRuntimeProvenanceKind::RealLocalRuntime => 20,
+        _ => 30,
+    }
+}
+
+fn format_timeout_duration(timeout: Duration) -> String {
+    if timeout.as_secs() > 0 {
+        format!("{}s", timeout.as_secs())
+    } else {
+        format!("{}ms", timeout.as_millis())
+    }
+}
+
+async fn next_stream_chunk_with_idle_timeout<S, T>(
+    stream: &mut S,
+    idle_timeout: Duration,
+    label: &str,
+) -> Result<Option<T>, VmError>
+where
+    S: futures_util::stream::Stream<Item = Result<T, reqwest::Error>> + Unpin,
+{
+    tokio::time::timeout(idle_timeout, stream.next())
+        .await
+        .map_err(|_| {
+            VmError::HostError(format!(
+                "{label} stalled after {} without yielding bytes",
+                format_timeout_duration(idle_timeout)
+            ))
+        })?
+        .transpose()
+        .map_err(|error| VmError::HostError(format!("Stream Error: {}", error)))
 }
 
 fn ollama_request_options_for_api_url(api_url: &str) -> Option<Value> {
@@ -1543,7 +1630,8 @@ fn runtime_kind_for_api_url(api_url: &str) -> StudioRuntimeProvenanceKind {
 mod tests {
     use super::{
         apply_local_qwen_no_think_prompt_for_request_with_lookup,
-        default_inference_http_timeout_seconds,
+        default_inference_http_stream_idle_timeout_seconds, default_inference_http_timeout_seconds,
+        inference_http_stream_idle_timeout_seconds_for_api_url_with_lookup,
         inference_http_timeout_seconds_for_api_url_with_lookup, local_ollama_native_chat_url,
         local_openai_reasoning_effort_for_request_with_lookup, resolve_embedding_model_with,
         resolve_embedding_target_url, restore_consumed_stop_sequence, should_use_openai_streaming,
@@ -2048,6 +2136,70 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn local_qwen_native_chat_stream_idle_timeout_fails_stalled_streams() {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind local listener");
+        let address = listener.local_addr().expect("listener address");
+
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept test client");
+            let mut request = vec![0u8; 16384];
+            let bytes_read = socket.read(&mut request).await.expect("read request");
+            let request_text = String::from_utf8_lossy(&request[..bytes_read]);
+            assert!(request_text.starts_with("POST /api/chat HTTP/1.1"));
+
+            let response_head = "HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nTransfer-Encoding: chunked\r\n\r\n";
+            socket
+                .write_all(response_head.as_bytes())
+                .await
+                .expect("write response headers");
+            let stalled_chunk =
+                "{\"message\":{\"content\":\"<!doctype html><html><body>\"},\"done\":false}\n";
+            let chunk = format!("{:x}\r\n{}\r\n", stalled_chunk.len(), stalled_chunk);
+            socket
+                .write_all(chunk.as_bytes())
+                .await
+                .expect("write first chunk");
+            socket.flush().await.expect("flush first chunk");
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        });
+
+        let runtime = HttpInferenceRuntime {
+            client: Client::builder()
+                .timeout(Duration::from_secs(10))
+                .build()
+                .expect("http client"),
+            api_url: format!("http://{address}/v1/chat/completions"),
+            api_key: String::new(),
+            model_name: "qwen3.5:9b".to_string(),
+            strategy: Box::new(OpenAiStrategy),
+            provider_kind: ProviderKind::OpenAi,
+            stream_idle_timeout: Duration::from_millis(250),
+        };
+
+        let error = runtime
+            .execute_inference(
+                [0u8; 32],
+                br#"[{"role":"user","content":"Return only html."}]"#,
+                InferenceOptions {
+                    max_tokens: 321,
+                    stop_sequences: vec!["</html>".to_string()],
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect_err("stalled stream should fail");
+
+        assert!(
+            error
+                .to_string()
+                .contains("Local Ollama native chat stream stalled after 250ms"),
+            "unexpected error: {error}"
+        );
+    }
+
     #[test]
     fn local_embedding_routes_use_local_model_defaults() {
         let env = HashMap::from([(
@@ -2097,6 +2249,22 @@ mod tests {
     }
 
     #[test]
+    fn local_runtime_defaults_to_shorter_stream_idle_timeout() {
+        assert_eq!(
+            default_inference_http_stream_idle_timeout_seconds(
+                "http://127.0.0.1:11434/v1/chat/completions"
+            ),
+            20
+        );
+        assert_eq!(
+            default_inference_http_stream_idle_timeout_seconds(
+                "https://api.openai.com/v1/chat/completions"
+            ),
+            30
+        );
+    }
+
+    #[test]
     fn explicit_http_timeout_override_takes_precedence() {
         let env = HashMap::from([("AUTOPILOT_INFERENCE_HTTP_TIMEOUT_SECS", "300".to_string())]);
 
@@ -2106,6 +2274,21 @@ mod tests {
         );
 
         assert_eq!(timeout, 300);
+    }
+
+    #[test]
+    fn explicit_stream_idle_timeout_override_takes_precedence() {
+        let env = HashMap::from([(
+            "AUTOPILOT_INFERENCE_HTTP_STREAM_IDLE_TIMEOUT_SECS",
+            "45".to_string(),
+        )]);
+
+        let timeout = inference_http_stream_idle_timeout_seconds_for_api_url_with_lookup(
+            "http://127.0.0.1:11434/v1/chat/completions",
+            |key| env.get(key).cloned(),
+        );
+
+        assert_eq!(timeout, 45);
     }
 
     #[test]

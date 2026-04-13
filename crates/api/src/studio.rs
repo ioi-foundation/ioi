@@ -45,7 +45,7 @@ pub use generation::{
     acceptance_timeout_for_execution_strategy, build_studio_artifact_candidate_refinement_prompt,
     build_studio_artifact_candidate_refinement_repair_prompt,
     build_studio_artifact_materialization_prompt,
-    build_studio_artifact_materialization_repair_prompt,
+    build_studio_artifact_materialization_repair_prompt, derive_studio_artifact_prepared_context,
     generate_studio_artifact_bundle_with_runtime,
     generate_studio_artifact_bundle_with_runtime_plan_and_planning_context,
     generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy,
@@ -56,7 +56,8 @@ pub use generation::{
     generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
     materialize_studio_artifact_candidate_with_runtime, materialize_studio_artifact_with_runtime,
     render_eval_timeout_for_runtime, resolve_studio_artifact_runtime_plan,
-    StudioArtifactGenerationProgressObserver, StudioArtifactResolvedRuntimePlan,
+    StudioArtifactActivityObserver, StudioArtifactGenerationProgressObserver,
+    StudioArtifactResolvedRuntimePlan,
 };
 pub use judging::{
     build_studio_artifact_judge_prompt, build_studio_artifact_judge_repair_prompt,
@@ -75,10 +76,12 @@ pub use planning::{
     build_studio_artifact_brief_prompt, build_studio_artifact_brief_repair_prompt,
     build_studio_artifact_edit_intent_prompt, build_studio_artifact_edit_intent_repair_prompt,
     build_studio_artifact_exemplar_query, build_studio_outcome_router_prompt,
-    compile_studio_artifact_ir, derive_studio_artifact_blueprint, parse_studio_artifact_brief,
+    compile_studio_artifact_ir, derive_request_grounded_studio_artifact_brief,
+    derive_studio_artifact_blueprint, parse_studio_artifact_brief,
     parse_studio_artifact_edit_intent, parse_studio_outcome_planning_payload,
     plan_studio_artifact_brief_with_runtime, plan_studio_artifact_edit_intent_with_runtime,
     plan_studio_outcome_with_runtime, studio_execution_strategy_for_outcome,
+    synthesize_studio_artifact_brief_for_execution_strategy_with_runtime,
 };
 pub use render_eval::{
     evaluate_studio_artifact_render_if_configured,

@@ -1,11 +1,19 @@
 use super::*;
-use ioi_api::execution::{execution_budget_envelope_for_strategy, execution_strategy_for_outcome};
+use ioi_api::execution::{
+    execution_budget_envelope_for_strategy, execution_strategy_for_outcome,
+    ExecutionCompletionInvariantStatus, ExecutionEnvelope, ExecutionLivePreview,
+    ExecutionLivePreviewKind,
+};
 use ioi_api::studio::{
-    acceptance_timeout_for_execution_strategy,
+    acceptance_timeout_for_execution_strategy, derive_studio_artifact_prepared_context,
     generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator,
     pdf_artifact_bytes, render_eval_timeout_for_runtime, resolve_studio_artifact_runtime_plan,
-    StudioArtifactBlueprint, StudioArtifactGenerationProgressObserver, StudioArtifactIR,
-    StudioArtifactRuntimePolicyProfile, StudioArtifactSelectedSkill,
+    synthesize_studio_artifact_brief_for_execution_strategy_with_runtime,
+    StudioArtifactActivityObserver, StudioArtifactBlueprint, StudioArtifactExemplar,
+    StudioArtifactGenerationProgress, StudioArtifactGenerationProgressObserver, StudioArtifactIR,
+    StudioArtifactPlanningContext, StudioArtifactRenderEvaluation, StudioArtifactRenderEvaluator,
+    StudioArtifactRuntimeNarrationEvent, StudioArtifactRuntimePolicyProfile,
+    StudioArtifactRuntimePreviewSnapshot, StudioArtifactSelectedSkill,
 };
 use ioi_drivers::studio_render::BrowserStudioArtifactRenderEvaluator;
 use ioi_types::app::StudioExecutionStrategy;
@@ -18,6 +26,303 @@ use ioi_api::studio::StudioGeneratedArtifactPayload;
 
 const LOCAL_HTML_GENERATION_TIMEOUT_SECS: u64 = 420;
 const LOCAL_HTML_SPLIT_ACCEPTANCE_TIMEOUT_SECS: u64 = 1200;
+
+fn execution_strategy_id(strategy: StudioExecutionStrategy) -> &'static str {
+    match strategy {
+        StudioExecutionStrategy::SinglePass => "single_pass",
+        StudioExecutionStrategy::DirectAuthor => "direct_author",
+        StudioExecutionStrategy::PlanExecute => "plan_execute",
+        StudioExecutionStrategy::MicroSwarm => "micro_swarm",
+        StudioExecutionStrategy::AdaptiveWorkGraph => "adaptive_work_graph",
+    }
+}
+
+fn synthesize_prepared_context_with_runtime_plan(
+    runtime_plan: &ioi_api::studio::StudioArtifactResolvedRuntimePlan,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    execution_strategy: StudioExecutionStrategy,
+) -> Result<StudioArtifactPlanningContext, String> {
+    let planning_timeout = Duration::from_secs(30).min(studio_generation_timeout_for_runtime(
+        &runtime_plan.planning_runtime,
+    ));
+    let brief = match tauri::async_runtime::block_on(async {
+        tokio::time::timeout(
+            planning_timeout,
+            synthesize_studio_artifact_brief_for_execution_strategy_with_runtime(
+                runtime_plan.planning_runtime.clone(),
+                title,
+                intent,
+                request,
+                refinement,
+                execution_strategy,
+            ),
+        )
+        .await
+    }) {
+        Ok(Ok(brief)) => brief,
+        Ok(Err(error)) => {
+            return Err(format!(
+                "Prepared artifact context failed during brief synthesis: {}",
+                error
+            ));
+        }
+        Err(_) => {
+            return Err(
+                "Prepared artifact context timed out while synthesizing the artifact brief."
+                    .to_string(),
+            );
+        }
+    };
+
+    Ok(derive_studio_artifact_prepared_context(
+        request,
+        &brief,
+        refinement.and_then(|context| context.blueprint.clone()),
+        refinement.and_then(|context| context.artifact_ir.clone()),
+        refinement
+            .map(|context| context.selected_skills.clone())
+            .unwrap_or_default(),
+        refinement
+            .map(|context| context.retrieved_exemplars.clone())
+            .unwrap_or_default(),
+    ))
+}
+
+fn prepared_context_progress_message(execution_strategy: StudioExecutionStrategy) -> String {
+    if execution_strategy == StudioExecutionStrategy::DirectAuthor {
+        "Prepared the artifact brief and structural context. Authoring is starting.".to_string()
+    } else {
+        "Prepared the artifact brief and structural context. Execution is starting.".to_string()
+    }
+}
+
+fn author_artifact_blocked_event(
+    attempt_id: Option<String>,
+    detail: impl Into<String>,
+) -> StudioArtifactRuntimeNarrationEvent {
+    let event = StudioArtifactRuntimeNarrationEvent::new(
+        "author_artifact",
+        "author_artifact",
+        "Write artifact",
+        detail.into(),
+        "blocked",
+    );
+    if let Some(attempt_id) = attempt_id {
+        event.with_attempt_id(attempt_id)
+    } else {
+        event
+    }
+}
+
+fn replan_execution_event(
+    from: StudioExecutionStrategy,
+    to: StudioExecutionStrategy,
+) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "replan_execution",
+        "replan_execution",
+        "Switch execution strategy",
+        format!(
+            "Studio hit a concrete blocker under {} and is continuing with {} so the artifact route can still finish.",
+            execution_strategy_id(from).replace('_', " "),
+            execution_strategy_id(to).replace('_', " ")
+        ),
+        "complete",
+    )
+}
+
+fn present_artifact_blocked_event(error: &str) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "present_artifact",
+        "present_artifact",
+        "Open artifact",
+        format!("Studio could not present the artifact because {error}"),
+        "blocked",
+    )
+}
+
+fn present_artifact_complete_event() -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "present_artifact",
+        "present_artifact",
+        "Open artifact",
+        "Studio finished materializing the artifact and can now surface it.",
+        "complete",
+    )
+}
+
+fn latest_execution_live_preview(
+    execution_envelope: Option<&ExecutionEnvelope>,
+) -> Option<ExecutionLivePreview> {
+    execution_envelope
+        .and_then(|envelope| {
+            envelope
+                .live_previews
+                .iter()
+                .filter(|preview| !preview.content.trim().is_empty())
+                .max_by(|left, right| {
+                    left.updated_at
+                        .cmp(&right.updated_at)
+                        .then_with(|| left.id.cmp(&right.id))
+                })
+        })
+        .cloned()
+}
+
+fn terminal_preview_status_for_blocked_artifact(preview: &ExecutionLivePreview) -> &'static str {
+    match preview.kind {
+        ExecutionLivePreviewKind::TokenStream | ExecutionLivePreviewKind::CommandStream => {
+            "interrupted"
+        }
+        _ => "blocked",
+    }
+}
+
+fn finalize_blocked_execution_envelope(
+    execution_envelope: Option<ExecutionEnvelope>,
+) -> Option<ExecutionEnvelope> {
+    let mut execution_envelope = execution_envelope?;
+    if let Some(invariant) = execution_envelope.completion_invariant.as_mut() {
+        invariant.status = ExecutionCompletionInvariantStatus::Blocked;
+        if invariant.summary.trim().is_empty() {
+            invariant.summary =
+                "Execution blocked before Studio satisfied the artifact completion invariant."
+                    .to_string();
+        }
+    }
+
+    if let Some(latest_preview) =
+        execution_envelope
+            .live_previews
+            .iter_mut()
+            .max_by(|left, right| {
+                left.updated_at
+                    .cmp(&right.updated_at)
+                    .then_with(|| left.id.cmp(&right.id))
+            })
+    {
+        if !latest_preview.is_final || latest_preview.status.eq_ignore_ascii_case("streaming") {
+            latest_preview.status =
+                terminal_preview_status_for_blocked_artifact(latest_preview).to_string();
+            latest_preview.is_final = true;
+        }
+    }
+
+    Some(execution_envelope)
+}
+
+fn finalize_latest_execution_preview(
+    execution_envelope: Option<ExecutionEnvelope>,
+) -> Option<ExecutionEnvelope> {
+    let mut execution_envelope = execution_envelope?;
+    if let Some(latest_preview) =
+        execution_envelope
+            .live_previews
+            .iter_mut()
+            .max_by(|left, right| {
+                left.updated_at
+                    .cmp(&right.updated_at)
+                    .then_with(|| left.id.cmp(&right.id))
+            })
+    {
+        if !latest_preview.is_final || latest_preview.status.eq_ignore_ascii_case("streaming") {
+            latest_preview.status =
+                terminal_preview_status_for_blocked_artifact(latest_preview).to_string();
+            latest_preview.is_final = true;
+        }
+    }
+    Some(execution_envelope)
+}
+
+fn append_blocked_preview_runtime_event(
+    runtime_narration_events: &mut Vec<StudioArtifactRuntimeNarrationEvent>,
+    execution_envelope: Option<&ExecutionEnvelope>,
+) {
+    let Some(preview) = latest_execution_live_preview(execution_envelope) else {
+        return;
+    };
+    if runtime_narration_events
+        .iter()
+        .rev()
+        .filter_map(|event| event.preview.as_ref())
+        .next()
+        .is_some_and(|existing| {
+            existing.content == preview.content
+                && existing.status.eq_ignore_ascii_case(&preview.status)
+                && existing.is_final == preview.is_final
+        })
+    {
+        return;
+    }
+
+    let attempt_id = runtime_narration_events.iter().rev().find_map(|event| {
+        if event.step_id == "author_artifact" {
+            event.attempt_id.clone()
+        } else {
+            None
+        }
+    });
+    let detail = match preview.kind {
+        ExecutionLivePreviewKind::TokenStream | ExecutionLivePreviewKind::CommandStream => {
+            "Studio retained the latest streamed output after the artifact attempt blocked."
+        }
+        _ => "Studio retained the latest preview snapshot after the artifact attempt blocked.",
+    };
+    let event = StudioArtifactRuntimeNarrationEvent::new(
+        "author_preview_terminal",
+        "author_artifact",
+        "Write artifact",
+        detail,
+        "blocked",
+    )
+    .with_preview_snapshot(StudioArtifactRuntimePreviewSnapshot {
+        label: preview.label,
+        content: preview.content,
+        status: preview.status,
+        kind: Some(format!("{:?}", preview.kind).to_ascii_lowercase()),
+        language: preview.language,
+        is_final: preview.is_final,
+    });
+    runtime_narration_events.push(match attempt_id {
+        Some(attempt_id) => event.with_attempt_id(attempt_id),
+        None => event,
+    });
+}
+
+fn emit_prepared_context_generation_progress(
+    observer: Option<&StudioArtifactGenerationProgressObserver>,
+    prepared_context: &StudioArtifactPlanningContext,
+    execution_strategy: StudioExecutionStrategy,
+) {
+    let Some(observer) = observer else {
+        return;
+    };
+
+    observer(StudioArtifactGenerationProgress {
+        current_step: prepared_context_progress_message(execution_strategy),
+        artifact_brief: Some(prepared_context.brief.clone()),
+        preparation_needs: prepared_context.preparation_needs.clone(),
+        prepared_context_resolution: prepared_context.prepared_context_resolution.clone(),
+        skill_discovery_resolution: prepared_context.skill_discovery_resolution.clone(),
+        blueprint: prepared_context.blueprint.clone(),
+        artifact_ir: prepared_context.artifact_ir.clone(),
+        selected_skills: prepared_context.selected_skills.clone(),
+        retrieved_exemplars: prepared_context.retrieved_exemplars.clone(),
+        execution_envelope: None,
+        swarm_plan: None,
+        swarm_execution: None,
+        swarm_worker_receipts: Vec::new(),
+        swarm_change_receipts: Vec::new(),
+        swarm_merge_receipts: Vec::new(),
+        swarm_verification_receipts: Vec::new(),
+        render_evaluation: None,
+        judge: None,
+        runtime_narration_events: Vec::new(),
+    });
+}
 
 fn studio_proof_trace(message: impl AsRef<str>) {
     if std::env::var_os("IOI_STUDIO_PROOF_TRACE").is_some() {
@@ -90,6 +395,28 @@ pub(super) fn materialize_non_workspace_artifact_with_execution_strategy(
     refinement: Option<&StudioArtifactRefinementContext>,
     execution_strategy: StudioExecutionStrategy,
 ) -> Result<MaterializedContentArtifact, String> {
+    materialize_non_workspace_artifact_with_execution_strategy_and_progress_observer(
+        app,
+        thread_id,
+        title,
+        intent,
+        request,
+        refinement,
+        execution_strategy,
+        None,
+    )
+}
+
+pub(super) fn materialize_non_workspace_artifact_with_execution_strategy_and_progress_observer(
+    app: &AppHandle,
+    thread_id: &str,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    execution_strategy: StudioExecutionStrategy,
+    progress_observer: Option<StudioArtifactGenerationProgressObserver>,
+) -> Result<MaterializedContentArtifact, String> {
     let runtime_profile = configured_studio_runtime_profile();
     let (memory_runtime, inference_runtime, acceptance_inference_runtime) = {
         let app_state = app.state::<Mutex<AppState>>();
@@ -104,28 +431,81 @@ pub(super) fn materialize_non_workspace_artifact_with_execution_strategy(
             state.acceptance_inference_runtime.clone(),
         )
     };
-    let planning_context = inference_runtime.as_ref().and_then(|runtime| {
-        if execution_strategy == StudioExecutionStrategy::DirectAuthor {
-            return None;
-        }
-        let runtime_plan = resolve_studio_artifact_runtime_plan(
-            request,
-            runtime.clone(),
-            acceptance_inference_runtime.clone(),
-            runtime_profile,
-        );
-        super::skills::prepare_studio_artifact_planning_context(
-            app,
-            &memory_runtime,
-            runtime_plan.planning_runtime,
+    let Some(runtime) = inference_runtime.as_ref() else {
+        return Ok(blocked_materialized_artifact_from_error(
             title,
             intent,
             request,
             refinement,
-        )
-    });
+            "Inference runtime is unavailable for prepared artifact context synthesis.",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Vec::new(),
+            Vec::new(),
+            None,
+            Vec::new(),
+            None,
+            None,
+            None,
+            Vec::new(),
+            None,
+            acceptance_inference_runtime
+                .as_ref()
+                .map(|candidate| candidate.studio_runtime_provenance()),
+        ));
+    };
+    let runtime_plan = resolve_studio_artifact_runtime_plan(
+        request,
+        runtime.clone(),
+        acceptance_inference_runtime.clone(),
+        runtime_profile,
+    );
+    let planning_context = match super::skills::prepare_studio_artifact_planning_context(
+        app,
+        &memory_runtime,
+        runtime_plan.planning_runtime,
+        title,
+        intent,
+        request,
+        refinement,
+        execution_strategy,
+        progress_observer.clone(),
+    ) {
+        Ok(context) => context,
+        Err(message) => {
+            return Ok(blocked_materialized_artifact_from_error(
+                title,
+                intent,
+                request,
+                refinement,
+                &message,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                Vec::new(),
+                Vec::new(),
+                None,
+                Vec::new(),
+                None,
+                None,
+                None,
+                Vec::new(),
+                Some(runtime.studio_runtime_provenance()),
+                acceptance_inference_runtime
+                    .as_ref()
+                    .map(|candidate| candidate.studio_runtime_provenance()),
+            ));
+        }
+    };
 
-    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy(
+    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_optional_progress(
         &memory_runtime,
         inference_runtime,
         acceptance_inference_runtime,
@@ -134,8 +514,9 @@ pub(super) fn materialize_non_workspace_artifact_with_execution_strategy(
         intent,
         request,
         refinement,
-        planning_context,
+        Some(planning_context),
         execution_strategy,
+        progress_observer,
     )
 }
 
@@ -150,7 +531,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies(
     refinement: Option<&StudioArtifactRefinementContext>,
     planning_context: Option<StudioArtifactPlanningContext>,
 ) -> Result<MaterializedContentArtifact, String> {
-    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy(
+    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_optional_progress(
         memory_runtime,
         inference_runtime,
         acceptance_inference_runtime,
@@ -161,6 +542,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies(
         refinement,
         planning_context,
         execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(request)),
+        None,
     )
 }
 
@@ -188,6 +570,34 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution
         planning_context,
         execution_strategy,
         None,
+    )
+}
+
+fn materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_optional_progress(
+    memory_runtime: &Arc<MemoryRuntime>,
+    inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    thread_id: &str,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    planning_context: Option<StudioArtifactPlanningContext>,
+    execution_strategy: StudioExecutionStrategy,
+    progress_observer: Option<StudioArtifactGenerationProgressObserver>,
+) -> Result<MaterializedContentArtifact, String> {
+    materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+        memory_runtime,
+        inference_runtime,
+        acceptance_inference_runtime,
+        thread_id,
+        title,
+        intent,
+        request,
+        refinement,
+        planning_context,
+        execution_strategy,
+        progress_observer,
     )
 }
 
@@ -416,6 +826,38 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
     execution_strategy: StudioExecutionStrategy,
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
 ) -> Result<MaterializedContentArtifact, String> {
+    materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy_and_render_evaluator(
+        memory_runtime,
+        inference_runtime,
+        acceptance_inference_runtime,
+        thread_id,
+        title,
+        intent,
+        request,
+        refinement,
+        generation_timeout,
+        planning_context,
+        execution_strategy,
+        progress_observer,
+        None,
+    )
+}
+
+pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy_and_render_evaluator(
+    memory_runtime: &Arc<MemoryRuntime>,
+    inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    thread_id: &str,
+    title: &str,
+    intent: &str,
+    request: &StudioOutcomeArtifactRequest,
+    refinement: Option<&StudioArtifactRefinementContext>,
+    generation_timeout: Duration,
+    planning_context: Option<StudioArtifactPlanningContext>,
+    execution_strategy: StudioExecutionStrategy,
+    progress_observer: Option<StudioArtifactGenerationProgressObserver>,
+    render_evaluator_override: Option<&dyn StudioArtifactRenderEvaluator>,
+) -> Result<MaterializedContentArtifact, String> {
     studio_proof_trace(format!(
         "materialize_non_workspace:start renderer={} strategy={:?} title={}",
         renderer_kind_id(request.renderer),
@@ -423,6 +865,91 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         title
     ));
     let runtime_profile = configured_studio_runtime_profile();
+    let prepared_context = match planning_context {
+        Some(context) => context,
+        None => {
+            let Some(runtime) = inference_runtime.as_ref() else {
+                return Ok(blocked_materialized_artifact_from_error(
+                    title,
+                    intent,
+                    request,
+                    refinement,
+                    "Prepared artifact context is unavailable because no inference runtime is available for synthesis.",
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Vec::new(),
+                    Vec::new(),
+                    None,
+                    Vec::new(),
+                    None,
+                    None,
+                    None,
+                    Vec::new(),
+                    None,
+                    acceptance_inference_runtime
+                        .as_ref()
+                        .map(|candidate| candidate.studio_runtime_provenance()),
+                ));
+            };
+            let runtime_plan = resolve_studio_artifact_runtime_plan(
+                request,
+                runtime.clone(),
+                acceptance_inference_runtime.clone(),
+                runtime_profile,
+            );
+            match synthesize_prepared_context_with_runtime_plan(
+                &runtime_plan,
+                title,
+                intent,
+                request,
+                refinement,
+                execution_strategy,
+            ) {
+                Ok(context) => context,
+                Err(message) => {
+                    return Ok(blocked_materialized_artifact_from_error(
+                        title,
+                        intent,
+                        request,
+                        refinement,
+                        &message,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        refinement
+                            .map(|context| context.selected_skills.clone())
+                            .unwrap_or_default(),
+                        refinement
+                            .map(|context| context.retrieved_exemplars.clone())
+                            .unwrap_or_default(),
+                        None,
+                        Vec::new(),
+                        None,
+                        None,
+                        None,
+                        Vec::new(),
+                        Some(runtime.studio_runtime_provenance()),
+                        acceptance_inference_runtime
+                            .as_ref()
+                            .map(|candidate| candidate.studio_runtime_provenance()),
+                    ));
+                }
+            }
+        }
+    };
+    emit_prepared_context_generation_progress(
+        progress_observer.as_ref(),
+        &prepared_context,
+        execution_strategy,
+    );
+    let mut observed_runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>;
     let bundle = match inference_runtime {
         Some(runtime) => {
             let runtime_plan = resolve_studio_artifact_runtime_plan(
@@ -431,21 +958,50 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                 acceptance_inference_runtime.clone(),
                 runtime_profile,
             );
-            let render_evaluator = BrowserStudioArtifactRenderEvaluator::default();
+            let generation_runtime = runtime_plan.generation_runtime.clone();
+            let acceptance_runtime = runtime_plan.acceptance_runtime.clone();
+            let default_render_evaluator = BrowserStudioArtifactRenderEvaluator::default();
+            let render_evaluator =
+                render_evaluator_override.unwrap_or(&default_render_evaluator);
             let production_provenance = runtime_plan.generation_runtime.studio_runtime_provenance();
             let acceptance_provenance =
                 runtime_plan.acceptance_runtime.studio_runtime_provenance();
             let last_activity = Arc::new(Mutex::new(Instant::now()));
+            let last_progress_snapshot =
+                Arc::new(Mutex::new(None::<StudioArtifactGenerationProgress>));
+            let observed_runtime_narration_events_state = Arc::new(Mutex::new(
+                Vec::<StudioArtifactRuntimeNarrationEvent>::new(),
+            ));
             let observed_progress = progress_observer.as_ref().map(|observer| {
                 let observer = observer.clone();
                 let last_activity = last_activity.clone();
-                Arc::new(move |progress| {
+                let last_progress_snapshot = last_progress_snapshot.clone();
+                let observed_runtime_narration_events_state =
+                    observed_runtime_narration_events_state.clone();
+                Arc::new(move |progress: StudioArtifactGenerationProgress| {
                     if let Ok(mut activity) = last_activity.lock() {
                         *activity = Instant::now();
+                    }
+                    if let Ok(mut events) = observed_runtime_narration_events_state.lock() {
+                        merge_runtime_narration_events(
+                            &mut events,
+                            &progress.runtime_narration_events,
+                        );
+                    }
+                    if let Ok(mut snapshot) = last_progress_snapshot.lock() {
+                        *snapshot = Some(progress.clone());
                     }
                     observer(progress);
                 }) as StudioArtifactGenerationProgressObserver
             });
+            let activity_observer = {
+                let last_activity = last_activity.clone();
+                Arc::new(move || {
+                    if let Ok(mut activity) = last_activity.lock() {
+                        *activity = Instant::now();
+                    }
+                }) as StudioArtifactActivityObserver
+            };
             match tauri::async_runtime::block_on(async {
                 await_generation_with_activity_timeout(
                     generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
@@ -454,16 +1010,54 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         intent,
                         request,
                         refinement,
-                        planning_context.as_ref(),
+                        &prepared_context,
                         execution_strategy,
-                        Some(&render_evaluator),
+                        Some(render_evaluator),
                         observed_progress,
+                        Some(activity_observer),
                     ),
                     generation_timeout,
                     last_activity,
                 ).await
             }) {
                 Ok(Ok(bundle)) => {
+                    observed_runtime_narration_events = observed_runtime_narration_events_state
+                        .lock()
+                        .map(|events| events.clone())
+                        .unwrap_or_default();
+                    if !observed_runtime_narration_events.iter().any(|event| {
+                        event.step_id == "present_artifact"
+                            && event.status.eq_ignore_ascii_case("complete")
+                    }) {
+                        observed_runtime_narration_events.push(present_artifact_complete_event());
+                    }
+                    if let Some(observer) = progress_observer.as_ref() {
+                        observer(StudioArtifactGenerationProgress {
+                            current_step: "Artifact ready to present.".to_string(),
+                            artifact_brief: Some(prepared_context.brief.clone()),
+                            preparation_needs: prepared_context.preparation_needs.clone(),
+                            prepared_context_resolution: prepared_context
+                                .prepared_context_resolution
+                                .clone(),
+                            skill_discovery_resolution: prepared_context
+                                .skill_discovery_resolution
+                                .clone(),
+                            blueprint: bundle.blueprint.clone(),
+                            artifact_ir: bundle.artifact_ir.clone(),
+                            selected_skills: bundle.selected_skills.clone(),
+                            retrieved_exemplars: prepared_context.retrieved_exemplars.clone(),
+                            execution_envelope: bundle.execution_envelope.clone(),
+                            swarm_plan: bundle.swarm_plan.clone(),
+                            swarm_execution: bundle.swarm_execution.clone(),
+                            swarm_worker_receipts: bundle.swarm_worker_receipts.clone(),
+                            swarm_change_receipts: bundle.swarm_change_receipts.clone(),
+                            swarm_merge_receipts: bundle.swarm_merge_receipts.clone(),
+                            swarm_verification_receipts: bundle.swarm_verification_receipts.clone(),
+                            render_evaluation: bundle.render_evaluation.clone(),
+                            judge: Some(bundle.judge.clone()),
+                            runtime_narration_events: vec![present_artifact_complete_event()],
+                        });
+                    }
                     studio_proof_trace(format!(
                         "materialize_non_workspace:bundle_ready winner={} lifecycle={:?} fallback_used={}",
                         bundle
@@ -476,6 +1070,10 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                     bundle
                 }
                 Ok(Err(error)) => {
+                    let last_progress = last_progress_snapshot
+                        .lock()
+                        .ok()
+                        .and_then(|snapshot| snapshot.clone());
                     studio_proof_trace(format!(
                         "materialize_non_workspace:bundle_blocked {}",
                         error.message
@@ -487,11 +1085,26 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         refinement,
                         &error.message,
                         error.brief,
+                        prepared_context.preparation_needs.clone(),
+                        prepared_context.prepared_context_resolution.clone(),
+                        prepared_context.skill_discovery_resolution.clone(),
                         error.blueprint,
                         error.artifact_ir,
                         error.selected_skills,
+                        prepared_context.retrieved_exemplars.clone(),
                         error.edit_intent,
                         error.candidate_summaries,
+                        last_progress
+                            .as_ref()
+                            .and_then(|progress| progress.execution_envelope.clone()),
+                        last_progress
+                            .as_ref()
+                            .and_then(|progress| progress.render_evaluation.clone()),
+                        last_progress.as_ref().and_then(|progress| progress.judge.clone()),
+                        last_progress
+                            .as_ref()
+                            .map(|progress| progress.runtime_narration_events.clone())
+                            .unwrap_or_default(),
                         Some(production_provenance),
                         Some(acceptance_provenance),
                     ));
@@ -510,6 +1123,125 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         "materialize_non_workspace:bundle_timeout {}",
                         message
                     ));
+                    let last_progress = last_progress_snapshot
+                        .lock()
+                        .ok()
+                        .and_then(|snapshot| snapshot.clone());
+                    if execution_strategy == StudioExecutionStrategy::DirectAuthor {
+                        let terminalized_execution_envelope = finalize_latest_execution_preview(
+                            last_progress
+                                .as_ref()
+                                .and_then(|progress| progress.execution_envelope.clone()),
+                        );
+                        let stalled_attempt_id = last_progress.as_ref().and_then(|progress| {
+                            progress
+                                .runtime_narration_events
+                                .iter()
+                                .rev()
+                                .find(|event| {
+                                    event.step_id == "author_artifact"
+                                        && event.attempt_id.is_some()
+                                })
+                                .and_then(|event| event.attempt_id.clone())
+                        });
+                        let author_blocked_event = author_artifact_blocked_event(
+                            stalled_attempt_id,
+                            format!(
+                                "Direct author stalled after {} without producing enough activity to finish this attempt.",
+                                format_generation_timeout(idle_for)
+                            ),
+                        );
+                        let replan_event = replan_execution_event(
+                            StudioExecutionStrategy::DirectAuthor,
+                            StudioExecutionStrategy::PlanExecute,
+                        );
+                        let mut prior_runtime_narration_events = last_progress
+                            .as_ref()
+                            .map(|progress| progress.runtime_narration_events.clone())
+                            .unwrap_or_default();
+                        append_blocked_preview_runtime_event(
+                            &mut prior_runtime_narration_events,
+                            terminalized_execution_envelope.as_ref(),
+                        );
+                        merge_runtime_narration_events(
+                            &mut prior_runtime_narration_events,
+                            &[author_blocked_event.clone(), replan_event.clone()],
+                        );
+                        if let Some(observer) = progress_observer.as_ref() {
+                            observer(StudioArtifactGenerationProgress {
+                                current_step:
+                                    "Direct author stalled. Replanning artifact execution."
+                                        .to_string(),
+                                artifact_brief: Some(prepared_context.brief.clone()),
+                                preparation_needs: prepared_context.preparation_needs.clone(),
+                                prepared_context_resolution: prepared_context
+                                    .prepared_context_resolution
+                                    .clone(),
+                                skill_discovery_resolution: prepared_context
+                                    .skill_discovery_resolution
+                                    .clone(),
+                                blueprint: prepared_context.blueprint.clone(),
+                                artifact_ir: prepared_context.artifact_ir.clone(),
+                                selected_skills: prepared_context.selected_skills.clone(),
+                                retrieved_exemplars: prepared_context
+                                    .retrieved_exemplars
+                                    .clone(),
+                                execution_envelope: terminalized_execution_envelope,
+                                swarm_plan: last_progress
+                                    .as_ref()
+                                    .and_then(|progress| progress.swarm_plan.clone()),
+                                swarm_execution: last_progress
+                                    .as_ref()
+                                    .and_then(|progress| progress.swarm_execution.clone()),
+                                swarm_worker_receipts: last_progress
+                                    .as_ref()
+                                    .map(|progress| progress.swarm_worker_receipts.clone())
+                                    .unwrap_or_default(),
+                                swarm_change_receipts: last_progress
+                                    .as_ref()
+                                    .map(|progress| progress.swarm_change_receipts.clone())
+                                    .unwrap_or_default(),
+                                swarm_merge_receipts: last_progress
+                                    .as_ref()
+                                    .map(|progress| progress.swarm_merge_receipts.clone())
+                                    .unwrap_or_default(),
+                                swarm_verification_receipts: last_progress
+                                    .as_ref()
+                                    .map(|progress| progress.swarm_verification_receipts.clone())
+                                    .unwrap_or_default(),
+                                render_evaluation: last_progress
+                                    .as_ref()
+                                    .and_then(|progress| progress.render_evaluation.clone()),
+                                judge: last_progress
+                                    .as_ref()
+                                    .and_then(|progress| progress.judge.clone()),
+                                runtime_narration_events: vec![
+                                    author_blocked_event,
+                                    replan_event.clone(),
+                                ],
+                            });
+                        }
+                        let mut replanned =
+                            materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+                            memory_runtime,
+                            Some(generation_runtime),
+                            Some(acceptance_runtime),
+                            thread_id,
+                            title,
+                            intent,
+                            request,
+                            refinement,
+                            Some(prepared_context.clone()),
+                            StudioExecutionStrategy::PlanExecute,
+                            progress_observer.clone(),
+                        )?;
+                        merge_runtime_narration_events(
+                            &mut prior_runtime_narration_events,
+                            &replanned.runtime_narration_events,
+                        );
+                        replanned.runtime_narration_events = prior_runtime_narration_events;
+                        return Ok(replanned);
+                    }
                     return Ok(blocked_materialized_artifact_from_error(
                         title,
                         intent,
@@ -517,18 +1249,30 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         refinement,
                         &message,
                         None,
-                        planning_context
-                            .as_ref()
-                            .and_then(|context| context.blueprint.clone()),
-                        planning_context
-                            .as_ref()
-                            .and_then(|context| context.artifact_ir.clone()),
-                        planning_context
-                            .as_ref()
-                            .map(|context| context.selected_skills.clone())
-                            .unwrap_or_default(),
+                        prepared_context.preparation_needs.clone(),
+                        prepared_context.prepared_context_resolution.clone(),
+                        prepared_context.skill_discovery_resolution.clone(),
+                        prepared_context.blueprint.clone(),
+                        prepared_context.artifact_ir.clone(),
+                        prepared_context.selected_skills.clone(),
+                        prepared_context.retrieved_exemplars.clone(),
                         None,
                         Vec::new(),
+                        last_progress
+                            .as_ref()
+                            .and_then(|progress| progress.execution_envelope.clone()),
+                        last_progress
+                            .as_ref()
+                            .and_then(|progress| progress.render_evaluation.clone()),
+                        last_progress.as_ref().and_then(|progress| progress.judge.clone()),
+                        {
+                            let mut events = last_progress
+                                .as_ref()
+                                .map(|progress| progress.runtime_narration_events.clone())
+                                .unwrap_or_default();
+                            events.push(present_artifact_blocked_event(&message));
+                            events
+                        },
                         Some(production_provenance),
                         Some(acceptance_provenance),
                     ));
@@ -546,14 +1290,17 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                 refinement,
                 "Inference runtime is unavailable for Studio artifact materialization.",
                 None,
-                planning_context.as_ref().and_then(|context| context.blueprint.clone()),
-                planning_context
-                    .as_ref()
-                    .and_then(|context| context.artifact_ir.clone()),
-                planning_context
-                    .as_ref()
-                    .map(|context| context.selected_skills.clone())
-                    .unwrap_or_default(),
+                prepared_context.preparation_needs.clone(),
+                prepared_context.prepared_context_resolution.clone(),
+                prepared_context.skill_discovery_resolution.clone(),
+                prepared_context.blueprint.clone(),
+                prepared_context.artifact_ir.clone(),
+                prepared_context.selected_skills.clone(),
+                prepared_context.retrieved_exemplars.clone(),
+                None,
+                Vec::new(),
+                None,
+                None,
                 None,
                 Vec::new(),
                 None,
@@ -568,14 +1315,17 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                 refinement,
                 "Inference and acceptance runtimes are unavailable for Studio artifact materialization.",
                 None,
-                planning_context.as_ref().and_then(|context| context.blueprint.clone()),
-                planning_context
-                    .as_ref()
-                    .and_then(|context| context.artifact_ir.clone()),
-                planning_context
-                    .as_ref()
-                    .map(|context| context.selected_skills.clone())
-                    .unwrap_or_default(),
+                prepared_context.preparation_needs.clone(),
+                prepared_context.prepared_context_resolution.clone(),
+                prepared_context.skill_discovery_resolution.clone(),
+                prepared_context.blueprint.clone(),
+                prepared_context.artifact_ir.clone(),
+                prepared_context.selected_skills.clone(),
+                prepared_context.retrieved_exemplars.clone(),
+                None,
+                Vec::new(),
+                None,
+                None,
                 None,
                 Vec::new(),
                 None,
@@ -592,9 +1342,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         bundle_edit_intent.as_ref(),
         Some(&bundle.judge),
     );
-    let retrieved_exemplars = planning_context
-        .as_ref()
-        .map(|context| context.retrieved_exemplars.clone())
+    let retrieved_exemplars = Some(prepared_context.retrieved_exemplars.clone())
         .filter(|exemplars| !exemplars.is_empty())
         .or_else(|| refinement.map(|context| context.retrieved_exemplars.clone()))
         .unwrap_or_default();
@@ -712,6 +1460,9 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         file_writes,
         notes,
         brief: bundle.brief,
+        preparation_needs: prepared_context.preparation_needs.clone(),
+        prepared_context_resolution: prepared_context.prepared_context_resolution.clone(),
+        skill_discovery_resolution: prepared_context.skill_discovery_resolution.clone(),
         blueprint: bundle.blueprint,
         artifact_ir: bundle.artifact_ir,
         selected_skills: bundle.selected_skills,
@@ -748,6 +1499,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         selected_targets,
         lifecycle_state: quality_assessment.lifecycle_state,
         verification_summary: quality_assessment.summary,
+        runtime_narration_events: observed_runtime_narration_events,
     })
 }
 
@@ -758,11 +1510,19 @@ pub(super) fn blocked_materialized_artifact_from_error(
     refinement: Option<&StudioArtifactRefinementContext>,
     error: &str,
     artifact_brief: Option<StudioArtifactBrief>,
+    preparation_needs: Option<ioi_api::studio::StudioArtifactPreparationNeeds>,
+    prepared_context_resolution: Option<ioi_api::studio::StudioArtifactPreparedContextResolution>,
+    skill_discovery_resolution: Option<ioi_api::studio::StudioArtifactSkillDiscoveryResolution>,
     blueprint: Option<StudioArtifactBlueprint>,
     artifact_ir: Option<StudioArtifactIR>,
     selected_skills: Vec<StudioArtifactSelectedSkill>,
+    retrieved_exemplars: Vec<StudioArtifactExemplar>,
     edit_intent: Option<StudioArtifactEditIntent>,
     candidate_summaries: Vec<StudioArtifactCandidateSummary>,
+    execution_envelope: Option<ExecutionEnvelope>,
+    render_evaluation: Option<StudioArtifactRenderEvaluation>,
+    _last_judge: Option<StudioArtifactJudgeResult>,
+    mut runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
     production_runtime_provenance: Option<crate::models::StudioRuntimeProvenance>,
     acceptance_runtime_provenance: Option<crate::models::StudioRuntimeProvenance>,
 ) -> MaterializedContentArtifact {
@@ -830,6 +1590,16 @@ pub(super) fn blocked_materialized_artifact_from_error(
         strongest_contradiction: Some(error.to_string()),
         rationale: error.to_string(),
     };
+    let execution_envelope = finalize_blocked_execution_envelope(execution_envelope);
+    append_blocked_preview_runtime_event(
+        &mut runtime_narration_events,
+        execution_envelope.as_ref(),
+    );
+    if !runtime_narration_events.iter().any(|event| {
+        event.step_id == "present_artifact" && event.status.eq_ignore_ascii_case("blocked")
+    }) {
+        runtime_narration_events.push(present_artifact_blocked_event(error));
+    }
 
     MaterializedContentArtifact {
         artifacts: Vec::new(),
@@ -849,27 +1619,34 @@ pub(super) fn blocked_materialized_artifact_from_error(
                 refinement
                     .and_then(|context| context.taste_memory.as_ref())
                     .map(|memory| memory.directives.clone())
-                    .unwrap_or_default(),
+                .unwrap_or_default(),
             )
         }),
+        preparation_needs,
+        prepared_context_resolution,
+        skill_discovery_resolution,
         blueprint,
         artifact_ir,
         selected_skills,
-        retrieved_exemplars: refinement
-            .map(|context| context.retrieved_exemplars.clone())
-            .unwrap_or_default(),
+        retrieved_exemplars: if retrieved_exemplars.is_empty() {
+            refinement
+                .map(|context| context.retrieved_exemplars.clone())
+                .unwrap_or_default()
+        } else {
+            retrieved_exemplars
+        },
         edit_intent,
         candidate_summaries,
         winning_candidate_id: None,
         winning_candidate_rationale: None,
-        execution_envelope: None,
+        execution_envelope,
         swarm_plan: None,
         swarm_execution: None,
         swarm_worker_receipts: Vec::new(),
         swarm_change_receipts: Vec::new(),
         swarm_merge_receipts: Vec::new(),
         swarm_verification_receipts: Vec::new(),
-        render_evaluation: None,
+        render_evaluation,
         judge: Some(judge),
         output_origin: output_origin_from_runtime_provenance(&production_provenance),
         production_provenance: Some(production_provenance),
@@ -883,6 +1660,7 @@ pub(super) fn blocked_materialized_artifact_from_error(
             .unwrap_or_default(),
         lifecycle_state: StudioArtifactLifecycleState::Blocked,
         verification_summary: error.to_string(),
+        runtime_narration_events,
     }
 }
 

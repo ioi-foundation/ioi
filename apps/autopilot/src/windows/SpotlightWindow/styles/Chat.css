@@ -1072,6 +1072,12 @@
   max-width: min(100%, 760px);
 }
 
+.spot-message--studio-status {
+  align-self: flex-start;
+  width: min(100%, 760px);
+  max-width: min(100%, 760px);
+}
+
 .spot-message--pending-shell {
   display: flex;
   flex-direction: column;

@@ -84,8 +84,9 @@ use ioi_api::studio::pdf_artifact_bytes;
 use ioi_api::studio::{
     plan_studio_outcome_with_runtime, StudioArtifactBrief, StudioArtifactCandidateSummary,
     StudioArtifactEditIntent, StudioArtifactEditMode, StudioArtifactJudgeResult,
-    StudioArtifactOutputOrigin, StudioArtifactPlanningContext, StudioArtifactRefinementContext,
-    StudioArtifactSelectionTarget, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    StudioArtifactOutputOrigin, StudioArtifactRefinementContext,
+    StudioArtifactRuntimeNarrationEvent, StudioArtifactSelectionTarget, StudioArtifactTasteMemory,
+    StudioArtifactUxLifecycle,
 };
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_memory::MemoryRuntime;
@@ -116,6 +117,26 @@ const BUILD_LENSES_READY: &[&str] = &[
     "output",
     "ports",
 ];
+
+fn merge_runtime_narration_events(
+    existing: &mut Vec<StudioArtifactRuntimeNarrationEvent>,
+    incoming: &[StudioArtifactRuntimeNarrationEvent],
+) {
+    for event in incoming {
+        if existing
+            .iter()
+            .any(|candidate| candidate.event_id == event.event_id)
+        {
+            continue;
+        }
+        existing.push(event.clone());
+    }
+    existing.sort_by(|left, right| {
+        left.occurred_at_ms
+            .cmp(&right.occurred_at_ms)
+            .then_with(|| left.event_id.cmp(&right.event_id))
+    });
+}
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

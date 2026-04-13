@@ -606,7 +606,7 @@ pub(crate) fn build_studio_artifact_judge_prompt_with_render_eval_for_runtime(
     ]))
 }
 
-fn studio_artifact_judge_render_eval_focus(
+pub(crate) fn studio_artifact_judge_render_eval_focus(
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
 ) -> serde_json::Value {
     match render_evaluation {
@@ -626,6 +626,27 @@ fn studio_artifact_judge_render_eval_focus(
                     "code": finding.code,
                     "severity": finding.severity,
                     "summary": truncate_studio_judge_text(&finding.summary, 180),
+                })
+            }).collect::<Vec<_>>(),
+            "acceptanceObligations": render_evaluation.acceptance_obligations.iter().map(|obligation| {
+                json!({
+                    "id": obligation.obligation_id,
+                    "family": obligation.family,
+                    "required": obligation.required,
+                    "status": obligation.status,
+                    "summary": truncate_studio_judge_text(&obligation.summary, 180),
+                })
+            }).collect::<Vec<_>>(),
+            "executionWitnesses": render_evaluation.execution_witnesses.iter().map(|witness| {
+                json!({
+                    "witnessId": witness.witness_id,
+                    "obligationId": witness.obligation_id,
+                    "status": witness.status,
+                    "actionKind": witness.action_kind,
+                    "summary": truncate_studio_judge_text(&witness.summary, 180),
+                    "selector": witness.selector.as_ref().map(|selector| {
+                        truncate_studio_judge_text(selector, 120)
+                    }),
                 })
             }).collect::<Vec<_>>(),
             "captures": render_evaluation.captures.iter().map(|capture| {

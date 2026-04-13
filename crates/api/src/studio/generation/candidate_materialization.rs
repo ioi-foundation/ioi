@@ -21,6 +21,7 @@ pub(super) async fn materialize_and_locally_judge_candidate(
     origin: StudioArtifactOutputOrigin,
     model: &str,
     production_provenance: &StudioRuntimeProvenance,
+    activity_observer: Option<StudioArtifactActivityObserver>,
 ) -> Result<
     (
         StudioArtifactCandidateSummary,
@@ -48,6 +49,7 @@ pub(super) async fn materialize_and_locally_judge_candidate(
         candidate_id,
         seed,
         temperature,
+        activity_observer.clone(),
     )
     .await
     {
@@ -90,7 +92,7 @@ pub(super) async fn materialize_and_locally_judge_candidate(
         }
     };
 
-    let render_evaluation = evaluate_candidate_render_with_fallback(
+    let render_eval_future = evaluate_candidate_render_with_fallback(
         render_evaluator,
         request,
         brief,
@@ -99,8 +101,22 @@ pub(super) async fn materialize_and_locally_judge_candidate(
         edit_intent,
         &payload,
         production_provenance.kind,
+    );
+    let render_evaluation = if render_eval_timeout_for_runtime(
+        request.renderer,
+        production_provenance.kind,
     )
-    .await;
+    .is_some()
+    {
+        await_with_activity_heartbeat(
+            render_eval_future,
+            activity_observer.clone(),
+            Duration::from_millis(125),
+        )
+        .await
+    } else {
+        render_eval_future.await
+    };
 
     if production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
         && matches!(
@@ -149,14 +165,18 @@ pub(super) async fn materialize_and_locally_judge_candidate(
         "artifact_generation:candidate_judge:start id={}",
         candidate_id
     ));
-    let judge = match judge_candidate_with_runtime_and_render_eval(
-        production_runtime,
-        render_evaluation.as_ref(),
-        title,
-        request,
-        brief,
-        edit_intent,
-        &payload,
+    let judge = match await_with_activity_heartbeat(
+        judge_candidate_with_runtime_and_render_eval(
+            production_runtime,
+            render_evaluation.as_ref(),
+            title,
+            request,
+            brief,
+            edit_intent,
+            &payload,
+        ),
+        activity_observer,
+        Duration::from_millis(125),
     )
     .await
     {

@@ -1,15 +1,145 @@
 use super::*;
 
+fn author_artifact_active_event(
+    attempt_id: impl Into<String>,
+    detail: impl Into<String>,
+) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "author_artifact",
+        "author_artifact",
+        "Write artifact",
+        detail.into(),
+        "active",
+    )
+    .with_attempt_id(attempt_id)
+}
+
+fn author_artifact_complete_event(
+    attempt_id: impl Into<String>,
+) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "author_artifact",
+        "author_artifact",
+        "Write artifact",
+        "Studio finished authoring the current artifact draft and is handing it to verification.",
+        "complete",
+    )
+    .with_attempt_id(attempt_id)
+}
+
+fn author_artifact_blocked_event(
+    attempt_id: impl Into<String>,
+    detail: impl Into<String>,
+) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "author_artifact",
+        "author_artifact",
+        "Write artifact",
+        detail.into(),
+        "blocked",
+    )
+    .with_attempt_id(attempt_id)
+}
+
+fn author_preview_event(
+    attempt_id: impl Into<String>,
+    preview: &ExecutionLivePreview,
+) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "author_preview",
+        "author_artifact",
+        "Write artifact",
+        format!("Streaming {}.", preview.label),
+        "active",
+    )
+    .with_attempt_id(attempt_id)
+    .with_preview_snapshot(runtime_preview_snapshot_from_execution_preview(preview))
+}
+
+fn verify_artifact_active_event(
+    attempt_id: impl Into<String>,
+    detail: impl Into<String>,
+) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "verify_artifact",
+        "verify_artifact",
+        "Verify artifact",
+        detail.into(),
+        "active",
+    )
+    .with_attempt_id(attempt_id)
+}
+
+fn verify_artifact_result_event(
+    attempt_id: impl Into<String>,
+    judge: &StudioArtifactJudgeResult,
+) -> StudioArtifactRuntimeNarrationEvent {
+    StudioArtifactRuntimeNarrationEvent::new(
+        "verify_artifact",
+        "verify_artifact",
+        "Verify artifact",
+        format!(
+            "Studio verification classified the artifact as {}.",
+            judge_classification_id(judge.classification)
+        ),
+        if judge.classification == StudioArtifactJudgeClassification::Blocked {
+            "blocked"
+        } else {
+            "complete"
+        },
+    )
+    .with_attempt_id(attempt_id)
+}
+
+async fn ensure_candidate_render_evaluation_for_acceptance(
+    render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    blueprint: Option<&StudioArtifactBlueprint>,
+    artifact_ir: Option<&StudioArtifactIR>,
+    edit_intent: Option<&StudioArtifactEditIntent>,
+    candidate: &StudioGeneratedArtifactPayload,
+    runtime_kind: StudioRuntimeProvenanceKind,
+    summary: &mut StudioArtifactCandidateSummary,
+    activity_observer: Option<StudioArtifactActivityObserver>,
+) {
+    if summary.render_evaluation.is_some() || !render_evaluation_required(request) {
+        return;
+    }
+    let render_eval_future = evaluate_candidate_render_with_fallback(
+        render_evaluator,
+        request,
+        brief,
+        blueprint,
+        artifact_ir,
+        edit_intent,
+        candidate,
+        runtime_kind,
+    );
+    summary.render_evaluation =
+        if render_eval_timeout_for_runtime(request.renderer, runtime_kind).is_some() {
+            await_with_activity_heartbeat(
+                render_eval_future,
+                activity_observer,
+                Duration::from_millis(125),
+            )
+            .await
+        } else {
+            render_eval_future.await
+        };
+}
+
 pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator(
     runtime_plan: StudioArtifactResolvedRuntimePlan,
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
-    planning_context: Option<&StudioArtifactPlanningContext>,
+    planning_context: &StudioArtifactPlanningContext,
     execution_strategy: StudioExecutionStrategy,
     render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
+    activity_observer: Option<StudioArtifactActivityObserver>,
 ) -> Result<StudioArtifactGenerationBundle, StudioArtifactGenerationError> {
     let planning_runtime = runtime_plan.planning_runtime.clone();
     let production_runtime = runtime_plan.generation_runtime.clone();
@@ -32,36 +162,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
         refinement.is_some()
     ));
     let direct_author_mode = direct_authoring_enabled(execution_strategy, request, refinement);
-    let planning_context = match planning_context {
-        Some(existing) => existing.clone(),
-        None if direct_author_mode => StudioArtifactPlanningContext {
-            brief: direct_author_brief(title, intent),
-            blueprint: None,
-            artifact_ir: None,
-            selected_skills: Vec::new(),
-            retrieved_exemplars: Vec::new(),
-        },
-        None => {
-            let brief = plan_studio_artifact_brief_with_runtime(
-                planning_runtime.clone(),
-                title,
-                intent,
-                request,
-                refinement,
-            )
-            .await
-            .map_err(|message| StudioArtifactGenerationError {
-                message,
-                brief: None,
-                blueprint: None,
-                artifact_ir: None,
-                selected_skills: Vec::new(),
-                edit_intent: None,
-                candidate_summaries: Vec::new(),
-            })?;
-            derive_planning_context_for_request(request, &brief, None, None, Vec::new())
-        }
-    };
+    let planning_context = planning_context.clone();
     let brief = planning_context.brief.clone();
     studio_generation_trace("artifact_generation:brief_ready");
     let blueprint = planning_context.blueprint.clone();
@@ -125,6 +226,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
             execution_strategy,
             render_evaluator,
             progress_observer,
+            activity_observer,
         )
         .await;
     }
@@ -177,19 +279,6 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
         strategy
     ));
     let live_preview_state = Arc::new(Mutex::new(Vec::<ExecutionLivePreview>::new()));
-    if direct_author_mode {
-        emit_non_swarm_generation_progress(
-            progress_observer.as_ref(),
-            request,
-            execution_strategy,
-            &snapshot_execution_live_previews(&live_preview_state),
-            "Authoring artifact directly...",
-            None,
-            None,
-            ExecutionCompletionInvariantStatus::Pending,
-            Vec::new(),
-        );
-    }
     let mut candidate_rows = Vec::<(
         StudioArtifactCandidateSummary,
         StudioGeneratedArtifactPayload,
@@ -202,12 +291,45 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
         while next_candidate_index < target_candidate_count {
             let candidate_id = format!("candidate-{}", next_candidate_index + 1);
             let seed = candidate_seed_for(title, intent, next_candidate_index);
+            let author_detail = if direct_author_mode {
+                if selected_skills.is_empty() {
+                    "Studio started direct authoring from the prepared brief.".to_string()
+                } else {
+                    format!(
+                        "Studio attached {} selected guidance source(s) and started direct authoring.",
+                        selected_skills.len()
+                    )
+                }
+            } else {
+                "Studio started the current authoring attempt from the prepared artifact plan."
+                    .to_string()
+            };
+            emit_non_swarm_generation_progress(
+                progress_observer.as_ref(),
+                request,
+                execution_strategy,
+                &snapshot_execution_live_previews(&live_preview_state),
+                if direct_author_mode {
+                    "Writing the current artifact attempt..."
+                } else {
+                    "Working the current artifact attempt..."
+                },
+                None,
+                None,
+                ExecutionCompletionInvariantStatus::Pending,
+                Vec::new(),
+                vec![author_artifact_active_event(
+                    candidate_id.clone(),
+                    author_detail,
+                )],
+            );
             let candidate_result = if direct_author_mode {
                 let direct_live_preview_observer: Option<StudioArtifactLivePreviewObserver> =
                     progress_observer.as_ref().map(|_| {
                         let progress_observer = progress_observer.clone();
                         let direct_request = request.clone();
                         let live_preview_state = live_preview_state.clone();
+                        let preview_attempt_id = candidate_id.clone();
                         Arc::new(move |preview: ExecutionLivePreview| {
                             if let Ok(mut previews) = live_preview_state.lock() {
                                 upsert_execution_live_preview(&mut previews, preview.clone());
@@ -224,6 +346,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                 None,
                                 ExecutionCompletionInvariantStatus::Pending,
                                 Vec::new(),
+                                vec![author_preview_event(preview_attempt_id.clone(), &preview)],
                             );
                         }) as StudioArtifactLivePreviewObserver
                     });
@@ -235,11 +358,13 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                         intent,
                         request,
                         &brief,
+                        &selected_skills,
                         refinement,
                         &candidate_id,
                         seed,
                         temperature,
                         direct_live_preview_observer,
+                        activity_observer.clone(),
                     )
                     .await;
                 match payload {
@@ -261,6 +386,13 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                             None,
                             ExecutionCompletionInvariantStatus::Pending,
                             non_swarm_required_artifact_paths(&payload),
+                            vec![
+                                author_artifact_complete_event(candidate_id.clone()),
+                                verify_artifact_active_event(
+                                    candidate_id.clone(),
+                                    "Studio is evaluating the direct-authored draft before acceptance verification.",
+                                ),
+                            ],
                         );
                         let render_evaluation = if direct_author_should_defer_render_evaluation(
                             request,
@@ -268,7 +400,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                         ) {
                             None
                         } else {
-                            evaluate_candidate_render_with_fallback(
+                            let render_eval_future = evaluate_candidate_render_with_fallback(
                                 render_evaluator,
                                 request,
                                 &brief,
@@ -277,8 +409,22 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                 None,
                                 &payload,
                                 production_provenance.kind,
+                            );
+                            if render_eval_timeout_for_runtime(
+                                request.renderer,
+                                production_provenance.kind,
                             )
-                            .await
+                            .is_some()
+                            {
+                                await_with_activity_heartbeat(
+                                    render_eval_future,
+                                    activity_observer.clone(),
+                                    Duration::from_millis(125),
+                                )
+                                .await
+                            } else {
+                                render_eval_future.await
+                            }
                         };
                         emit_non_swarm_generation_progress(
                             progress_observer.as_ref(),
@@ -294,6 +440,14 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                             None,
                             ExecutionCompletionInvariantStatus::Pending,
                             non_swarm_required_artifact_paths(&payload),
+                            vec![verify_artifact_active_event(
+                                candidate_id.clone(),
+                                if render_evaluation.is_some() {
+                                    "Render evaluation is complete and acceptance verification is starting."
+                                } else {
+                                    "Acceptance verification is starting while render capture stays deferred."
+                                },
+                            )],
                         );
                         let judge = direct_author_provisional_candidate_judge(
                             &payload,
@@ -375,12 +529,30 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                     origin,
                     &model,
                     &production_provenance,
+                    activity_observer.clone(),
                 )
                 .await
             };
             match candidate_result {
                 Ok((summary, payload)) => candidate_rows.push((summary, payload)),
                 Err(summary) => {
+                    if let Some(failure) = summary.failure.clone() {
+                        emit_non_swarm_generation_progress(
+                            progress_observer.as_ref(),
+                            request,
+                            execution_strategy,
+                            &snapshot_execution_live_previews(&live_preview_state),
+                            "The current artifact attempt hit a blocker.",
+                            None,
+                            None,
+                            ExecutionCompletionInvariantStatus::Pending,
+                            Vec::new(),
+                            vec![author_artifact_blocked_event(
+                                summary.candidate_id.clone(),
+                                failure.clone(),
+                            )],
+                        );
+                    }
                     if let Some(failure) = summary.failure.clone() {
                         candidate_generation_errors
                             .push(format!("{}: {}", summary.candidate_id, failure));
@@ -543,13 +715,32 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                 None,
                 ExecutionCompletionInvariantStatus::Pending,
                 non_swarm_required_artifact_paths(&candidate_rows[candidate_index].1),
+                vec![verify_artifact_active_event(
+                    candidate_id.clone(),
+                    "Studio is running acceptance verification for the direct-authored draft.",
+                )],
             );
         }
         studio_generation_trace(format!(
             "artifact_generation:acceptance:start id={}",
             candidate_id
         ));
-        let acceptance_judge = match judge_candidate_with_runtime_and_render_eval_with_timeout(
+        if let Some(summary) = candidate_summaries.get_mut(candidate_index) {
+            ensure_candidate_render_evaluation_for_acceptance(
+                render_evaluator,
+                request,
+                &brief,
+                blueprint.as_ref(),
+                artifact_ir.as_ref(),
+                edit_intent.as_ref(),
+                &candidate_rows[candidate_index].1,
+                production_provenance.kind,
+                summary,
+                activity_observer.clone(),
+            )
+            .await;
+        }
+        let acceptance_judge_future = judge_candidate_with_runtime_and_render_eval_with_timeout(
             final_acceptance_runtime.clone(),
             acceptance_timeout,
             candidate_summaries
@@ -560,9 +751,17 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
             &brief,
             edit_intent.as_ref(),
             &candidate_rows[candidate_index].1,
-        )
-        .await
-        {
+        );
+        let acceptance_judge = match if acceptance_timeout.is_some() {
+            await_with_activity_heartbeat(
+                acceptance_judge_future,
+                activity_observer.clone(),
+                Duration::from_millis(125),
+            )
+            .await
+        } else {
+            acceptance_judge_future.await
+        } {
             Ok(judge) => judge,
             Err(message)
                 if acceptance_timeout.is_some()
@@ -680,6 +879,10 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                     ExecutionCompletionInvariantStatus::Blocked
                 },
                 non_swarm_required_artifact_paths(&candidate_rows[candidate_index].1),
+                vec![verify_artifact_result_event(
+                    candidate_id.clone(),
+                    &acceptance_judge,
+                )],
             );
         }
         evaluated_acceptance_indices.insert(candidate_index);
@@ -726,6 +929,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
             &mut refined_candidate_roots,
             best_acceptance_index,
             best_acceptance_score,
+            activity_observer.clone(),
         )
         .await?;
         best_acceptance_index = progress.best_acceptance_index;
@@ -755,13 +959,32 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                     None,
                     ExecutionCompletionInvariantStatus::Pending,
                     non_swarm_required_artifact_paths(&candidate_rows[candidate_index].1),
+                    vec![verify_artifact_active_event(
+                        candidate_id.clone(),
+                        "Studio is running fallback acceptance verification for the direct-authored draft.",
+                    )],
                 );
             }
             studio_generation_trace(format!(
                 "artifact_generation:acceptance_fallback:start id={}",
                 candidate_id
             ));
-            let acceptance_judge = match judge_candidate_with_runtime_and_render_eval_with_timeout(
+            if let Some(summary) = candidate_summaries.get_mut(candidate_index) {
+                ensure_candidate_render_evaluation_for_acceptance(
+                    render_evaluator,
+                    request,
+                    &brief,
+                    blueprint.as_ref(),
+                    artifact_ir.as_ref(),
+                    edit_intent.as_ref(),
+                    &candidate_rows[candidate_index].1,
+                    production_provenance.kind,
+                    summary,
+                    activity_observer.clone(),
+                )
+                .await;
+            }
+            let acceptance_judge_future = judge_candidate_with_runtime_and_render_eval_with_timeout(
                 final_acceptance_runtime.clone(),
                 acceptance_timeout,
                 candidate_summaries
@@ -772,9 +995,17 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                 &brief,
                 edit_intent.as_ref(),
                 &candidate_rows[candidate_index].1,
-            )
-            .await
-            {
+            );
+            let acceptance_judge = match if acceptance_timeout.is_some() {
+                await_with_activity_heartbeat(
+                    acceptance_judge_future,
+                    activity_observer.clone(),
+                    Duration::from_millis(125),
+                )
+                .await
+            } else {
+                acceptance_judge_future.await
+            } {
                 Ok(judge) => judge,
                 Err(message)
                     if acceptance_timeout.is_some()
@@ -898,6 +1129,10 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                         ExecutionCompletionInvariantStatus::Blocked
                     },
                     non_swarm_required_artifact_paths(&candidate_rows[candidate_index].1),
+                    vec![verify_artifact_result_event(
+                        candidate_id.clone(),
+                        &acceptance_judge,
+                    )],
                 );
             }
             evaluated_acceptance_indices.insert(candidate_index);
@@ -939,6 +1174,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                     &mut refined_candidate_roots,
                     best_acceptance_index,
                     best_acceptance_score,
+                    activity_observer.clone(),
                 )
                 .await?;
                 best_acceptance_index = progress.best_acceptance_index;

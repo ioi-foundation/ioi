@@ -45,9 +45,6 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
     mut judge: StudioArtifactJudgeResult,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
 ) -> StudioArtifactJudgeResult {
-    if request.renderer == StudioRendererKind::HtmlIframe && studio_modal_first_html_enabled() {
-        return judge;
-    }
     let Some(render_evaluation) = render_evaluation else {
         return judge;
     };
@@ -81,15 +78,94 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
         .iter()
         .filter(|finding| finding.severity == StudioArtifactRenderFindingSeverity::Warning)
         .count();
+    let failed_required_obligation =
+        render_evaluation
+            .acceptance_obligations
+            .iter()
+            .find(|obligation| {
+                obligation.required
+                    && matches!(
+                        obligation.status,
+                        StudioArtifactAcceptanceObligationStatus::Failed
+                            | StudioArtifactAcceptanceObligationStatus::Blocked
+                    )
+            });
     let render_clears_primary_view = render_evaluation.first_paint_captured
         && blocked_render_finding.is_none()
+        && !render_evaluation.has_failed_required_obligations()
         && render_evaluation.overall_score >= 18;
 
     if !render_clears_primary_view {
         judge.deserves_primary_artifact_view = false;
     }
 
-    if let Some(blocked) = blocked_render_finding {
+    if let Some(failed_obligation) = failed_required_obligation {
+        judge.classification = if render_evaluation.overall_score <= 9 {
+            StudioArtifactJudgeClassification::Blocked
+        } else {
+            StudioArtifactJudgeClassification::Repairable
+        };
+        judge.deserves_primary_artifact_view = false;
+        judge.recommended_next_pass = Some("structural_repair".to_string());
+        let contradiction = failed_obligation
+            .detail
+            .as_ref()
+            .map(|detail| format!("{} {}", failed_obligation.summary, detail))
+            .unwrap_or_else(|| failed_obligation.summary.clone());
+        judge.strongest_contradiction = Some(contradiction.clone());
+        if !judge
+            .issue_classes
+            .iter()
+            .any(|value| value == "execution_witness")
+        {
+            judge.issue_classes.push("execution_witness".to_string());
+        }
+        if !judge
+            .blocked_reasons
+            .iter()
+            .any(|value| value == &contradiction)
+        {
+            judge.blocked_reasons.push(contradiction.clone());
+        }
+        if !judge
+            .truthfulness_warnings
+            .iter()
+            .any(|value| value == &contradiction)
+        {
+            judge.truthfulness_warnings.push(contradiction.clone());
+        }
+        for witness in render_evaluation
+            .execution_witnesses
+            .iter()
+            .filter(|witness| {
+                matches!(
+                    witness.status,
+                    StudioArtifactExecutionWitnessStatus::Failed
+                        | StudioArtifactExecutionWitnessStatus::Blocked
+                )
+            })
+            .take(3)
+        {
+            if !judge
+                .repair_hints
+                .iter()
+                .any(|value| value == &witness.summary)
+            {
+                judge.repair_hints.push(witness.summary.clone());
+            }
+        }
+        if !judge
+            .file_findings
+            .iter()
+            .any(|value| value.contains("required obligations"))
+        {
+            judge.file_findings.push(format!(
+                "{}: {} failed required obligation(s) after execution-witness validation",
+                candidate_renderable_path(request),
+                render_evaluation.failed_required_obligation_count()
+            ));
+        }
+    } else if let Some(blocked) = blocked_render_finding {
         judge.classification = if render_evaluation.overall_score <= 9 {
             StudioArtifactJudgeClassification::Blocked
         } else {

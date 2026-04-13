@@ -522,6 +522,7 @@ pub(super) async fn repair_studio_swarm_patch_envelope(
     raw_output: &str,
     parse_error: &str,
     runtime_kind: StudioRuntimeProvenanceKind,
+    activity_observer: Option<StudioArtifactActivityObserver>,
 ) -> Result<StudioArtifactPatchEnvelope, String> {
     if let Some(envelope) = salvage_studio_swarm_patch_envelope(request, work_item, raw_output) {
         studio_generation_trace(format!(
@@ -543,7 +544,7 @@ pub(super) async fn repair_studio_swarm_patch_envelope(
         prompt_bytes.len(),
         max_tokens
     ));
-    let output = tokio::time::timeout(
+    let repair_future = tokio::time::timeout(
         Duration::from_secs(150),
         runtime.execute_inference(
             [0u8; 32],
@@ -555,15 +556,17 @@ pub(super) async fn repair_studio_swarm_patch_envelope(
                 ..Default::default()
             },
         ),
-    )
-    .await
-    .map_err(|_| {
-        format!(
-            "Studio swarm worker '{}' JSON repair timed out after 150s.",
-            work_item.id
-        )
-    })?
-    .map_err(|error| format!("Studio swarm worker JSON repair failed: {error}"))?;
+    );
+    let output =
+        await_with_activity_heartbeat(repair_future, activity_observer, Duration::from_millis(125))
+            .await
+            .map_err(|_| {
+                format!(
+                    "Studio swarm worker '{}' JSON repair timed out after 150s.",
+                    work_item.id
+                )
+            })?
+            .map_err(|error| format!("Studio swarm worker JSON repair failed: {error}"))?;
     let raw = String::from_utf8(output)
         .map_err(|error| format!("Studio swarm worker JSON repair utf8 decode failed: {error}"))?;
     let envelope = match parse_studio_artifact_patch_envelope(&raw) {
@@ -605,6 +608,7 @@ pub(super) async fn execute_studio_swarm_patch_worker(
     worker_context: serde_json::Value,
     candidate_seed: u64,
     live_preview_observer: Option<StudioArtifactLivePreviewObserver>,
+    activity_observer: Option<StudioArtifactActivityObserver>,
 ) -> Result<(StudioArtifactPatchEnvelope, StudioArtifactWorkerReceipt), String> {
     let started_at = studio_swarm_now_iso();
     let runtime_kind = runtime.studio_runtime_provenance().kind;
@@ -668,7 +672,13 @@ pub(super) async fn execute_studio_swarm_patch_worker(
         token_stream,
     );
     let output = match timeout {
-        Some(limit) => match tokio::time::timeout(limit, inference).await {
+        Some(limit) => match await_with_activity_heartbeat(
+            tokio::time::timeout(limit, inference),
+            activity_observer.clone(),
+            Duration::from_millis(125),
+        )
+        .await
+        {
             Ok(Ok(output)) => output,
             Ok(Err(error)) => {
                 studio_generation_trace(format!(
@@ -691,9 +701,13 @@ pub(super) async fn execute_studio_swarm_patch_worker(
                 ));
             }
         },
-        None => inference
-            .await
-            .map_err(|error| format!("Studio swarm worker inference failed: {error}"))?,
+        None => await_with_activity_heartbeat(
+            inference,
+            activity_observer.clone(),
+            Duration::from_millis(125),
+        )
+        .await
+        .map_err(|error| format!("Studio swarm worker inference failed: {error}"))?,
     };
     studio_generation_trace(format!(
         "artifact_generation:swarm_worker:ok id={} role={:?} elapsed_ms={} output_bytes={}",
@@ -747,6 +761,7 @@ pub(super) async fn execute_studio_swarm_patch_worker(
                     &raw,
                     &error,
                     runtime_kind,
+                    activity_observer,
                 )
                 .await?
             }
