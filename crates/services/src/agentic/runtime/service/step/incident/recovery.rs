@@ -578,6 +578,7 @@ mod tests {
                 command: "bash".to_string(),
                 args: vec!["-lc".to_string(), "echo session".to_string()],
                 stdin: None,
+                wait_ms_before_async: None,
             },
             [7u8; 32],
             101,

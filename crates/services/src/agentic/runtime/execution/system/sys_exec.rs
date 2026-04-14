@@ -5,8 +5,12 @@ use super::{
     SysExecInvocation, ToolExecutionResult, ToolExecutor,
 };
 use crate::agentic::runtime::types::CommandExecution;
-use ioi_drivers::terminal::{CommandExecutionOptions, ProcessStreamChunk, ProcessStreamObserver};
+use ioi_drivers::terminal::{
+    CommandExecutionOptions, CommandLaunchResult, ProcessStreamChunk, ProcessStreamObserver,
+    RetainedCommandSnapshot,
+};
 use ioi_types::app::{WorkloadActivityKind, WorkloadExecReceipt, WorkloadReceipt};
+use serde_json::json;
 use std::env;
 use std::path::Path;
 use std::sync::Arc;
@@ -22,6 +26,7 @@ pub(super) async fn handle_sys_exec(
     command: &str,
     args: &[String],
     stdin: Option<String>,
+    wait_ms_before_async: Option<u64>,
     detach: bool,
     cwd: &str,
     session_id: [u8; 32],
@@ -65,56 +70,161 @@ pub(super) async fn handle_sys_exec(
     let options = CommandExecutionOptions::default()
         .with_timeout(timeout)
         .with_stdin_data(normalize_stdin_data(stdin))
-        .with_stream_observer(observer);
+        .with_stream_observer(observer)
+        .with_wait_before_async(wait_ms_before_async.map(Duration::from_millis));
+
+    let mut retained_snapshot: Option<RetainedCommandSnapshot> = None;
 
     let result = if let Some(sleep_secs) =
         foreground_sleep_duration_seconds(&invocation.command, &invocation.args, detach)
     {
-        let mut result = ToolExecutionResult::failure(format!(
-            "ERROR_CLASS=TimeoutOrHang Foreground sleep command would block for {} second(s). Re-run with detach=true or use a scheduler command.",
-            sleep_secs
-        ));
-        result.history_entry = Some(result.error.clone().unwrap_or_default());
-        append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
-        result
+        if wait_ms_before_async.is_none() {
+            let mut result = ToolExecutionResult::failure(format!(
+                "ERROR_CLASS=TimeoutOrHang Foreground sleep command would block for {} second(s). Re-run with detach=true or use a scheduler command.",
+                sleep_secs
+            ));
+            result.history_entry = Some(result.error.clone().unwrap_or_default());
+            append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
+            result
+        } else {
+            match exec
+                .terminal
+                .execute_in_dir_with_async_boundary(
+                    Some(workload_id.clone()),
+                    &invocation.command,
+                    &invocation.args,
+                    detach,
+                    Some(&resolved_cwd),
+                    options,
+                )
+                .await
+            {
+                Ok(CommandLaunchResult::Completed(out)) => {
+                    let command_failed = command_output_indicates_failure(&out);
+                    let mut result = if command_failed {
+                        let mut failure = sys_exec_failure_result(command, &out);
+                        failure.history_entry = Some(out);
+                        failure
+                    } else {
+                        ToolExecutionResult::success(out)
+                    };
+                    append_sys_exec_command_history(
+                        &mut result,
+                        &raw_command_preview,
+                        step_index,
+                        if command_failed { 1 } else { 0 },
+                    );
+                    result
+                }
+                Ok(CommandLaunchResult::Retained(snapshot)) => {
+                    retained_snapshot = Some(snapshot.clone());
+                    ToolExecutionResult::success(retained_command_payload(&snapshot).to_string())
+                }
+                Err(e) => {
+                    let error = e.to_string();
+                    let mut result = sys_exec_failure_result(command, &error);
+                    result.history_entry = Some(error);
+                    append_sys_exec_command_history(
+                        &mut result,
+                        &raw_command_preview,
+                        step_index,
+                        1,
+                    );
+                    result
+                }
+            }
+        }
     } else {
-        match exec
-            .terminal
-            .execute_in_dir_with_options(
-                &invocation.command,
-                &invocation.args,
-                detach,
-                Some(&resolved_cwd),
-                options,
-            )
-            .await
-        {
-            Ok(out) => {
-                let command_failed = command_output_indicates_failure(&out);
-                let mut result = if command_failed {
-                    let mut failure = sys_exec_failure_result(command, &out);
+        match wait_ms_before_async {
+            Some(_) => match exec
+                .terminal
+                .execute_in_dir_with_async_boundary(
+                    Some(workload_id.clone()),
+                    &invocation.command,
+                    &invocation.args,
+                    detach,
+                    Some(&resolved_cwd),
+                    options,
+                )
+                .await
+            {
+                Ok(CommandLaunchResult::Completed(out)) => {
+                    let command_failed = command_output_indicates_failure(&out);
+                    let mut result = if command_failed {
+                        let mut failure = sys_exec_failure_result(command, &out);
+                        failure.history_entry = Some(out);
+                        failure
+                    } else {
+                        ToolExecutionResult::success(out)
+                    };
+                    append_sys_exec_command_history(
+                        &mut result,
+                        &raw_command_preview,
+                        step_index,
+                        if command_failed { 1 } else { 0 },
+                    );
+                    result
+                }
+                Ok(CommandLaunchResult::Retained(snapshot)) => {
+                    retained_snapshot = Some(snapshot.clone());
+                    ToolExecutionResult::success(retained_command_payload(&snapshot).to_string())
+                }
+                Err(e) => {
+                    let error = e.to_string();
+                    let mut result = sys_exec_failure_result(command, &error);
+                    result.history_entry = Some(error);
+                    append_sys_exec_command_history(
+                        &mut result,
+                        &raw_command_preview,
+                        step_index,
+                        1,
+                    );
+                    result
+                }
+            },
+            None => match exec
+                .terminal
+                .execute_in_dir_with_options(
+                    &invocation.command,
+                    &invocation.args,
+                    detach,
+                    Some(&resolved_cwd),
+                    options,
+                )
+                .await
+            {
+                Ok(out) => {
+                    let command_failed = command_output_indicates_failure(&out);
+                    let mut result = if command_failed {
+                        let mut failure = sys_exec_failure_result(command, &out);
+                        // Preserve raw output so command-history metadata can be derived without SCS reads.
+                        failure.history_entry = Some(out);
+                        failure
+                    } else {
+                        ToolExecutionResult::success(out)
+                    };
+                    append_sys_exec_command_history(
+                        &mut result,
+                        &raw_command_preview,
+                        step_index,
+                        if command_failed { 1 } else { 0 },
+                    );
+                    result
+                }
+                Err(e) => {
+                    let error = e.to_string();
+                    let mut result = sys_exec_failure_result(command, &error);
                     // Preserve raw output so command-history metadata can be derived without SCS reads.
-                    failure.history_entry = Some(out);
-                    failure
-                } else {
-                    ToolExecutionResult::success(out)
-                };
-                append_sys_exec_command_history(
-                    &mut result,
-                    &raw_command_preview,
-                    step_index,
-                    if command_failed { 1 } else { 0 },
-                );
-                result
-            }
-            Err(e) => {
-                let error = e.to_string();
-                let mut result = sys_exec_failure_result(command, &error);
-                // Preserve raw output so command-history metadata can be derived without SCS reads.
-                result.history_entry = Some(error);
-                append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
-                result
-            }
+                    result.history_entry = Some(error);
+                    append_sys_exec_command_history(
+                        &mut result,
+                        &raw_command_preview,
+                        step_index,
+                        1,
+                    );
+                    result
+                }
+            },
         }
     };
 
@@ -124,7 +234,9 @@ pub(super) async fn handle_sys_exec(
             .as_deref()
             .and_then(extract_exit_code)
             .or_else(|| result.error.as_deref().and_then(extract_exit_code));
-        let phase = if detach {
+        let phase = if retained_snapshot.is_some() {
+            "running"
+        } else if detach {
             "detached"
         } else if result.success {
             "completed"
@@ -169,6 +281,7 @@ pub(super) async fn handle_sys_exec_session(
     command: &str,
     args: &[String],
     stdin: Option<String>,
+    wait_ms_before_async: Option<u64>,
     cwd: &str,
     session_id: [u8; 32],
     step_index: u32,
@@ -198,9 +311,11 @@ pub(super) async fn handle_sys_exec_session(
     let options = CommandExecutionOptions::default()
         .with_timeout(timeout)
         .with_stdin_data(normalize_stdin_data(stdin))
-        .with_stream_observer(observer);
+        .with_stream_observer(observer)
+        .with_wait_before_async(wait_ms_before_async.map(Duration::from_millis));
 
     let session_key = hex::encode(session_id);
+    let mut retained_snapshot: Option<RetainedCommandSnapshot> = None;
 
     if let Some(tx) = exec.event_sender.as_ref() {
         emit_workload_activity(
@@ -215,41 +330,84 @@ pub(super) async fn handle_sys_exec_session(
         );
     }
 
-    let result = match exec
-        .terminal
-        .execute_session_in_dir_with_options(
-            &session_key,
-            trimmed,
-            args,
-            Some(&resolved_cwd),
-            options,
-        )
-        .await
-    {
-        Ok(out) => {
-            let command_failed = command_output_indicates_failure(&out);
-            let mut result = if command_failed {
-                let mut failure = sys_exec_failure_result(command, &out);
-                failure.history_entry = Some(out);
-                failure
-            } else {
-                ToolExecutionResult::success(out)
-            };
-            append_sys_exec_command_history(
-                &mut result,
-                &raw_command_preview,
-                step_index,
-                if command_failed { 1 } else { 0 },
-            );
-            result
-        }
-        Err(e) => {
-            let error = e.to_string();
-            let mut result = sys_exec_failure_result(command, &error);
-            result.history_entry = Some(error);
-            append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
-            result
-        }
+    let result = match wait_ms_before_async {
+        Some(_) => match exec
+            .terminal
+            .execute_session_in_dir_with_async_boundary(
+                Some(workload_id.clone()),
+                &session_key,
+                trimmed,
+                args,
+                Some(&resolved_cwd),
+                options,
+            )
+            .await
+        {
+            Ok(CommandLaunchResult::Completed(out)) => {
+                let command_failed = command_output_indicates_failure(&out);
+                let mut result = if command_failed {
+                    let mut failure = sys_exec_failure_result(command, &out);
+                    failure.history_entry = Some(out);
+                    failure
+                } else {
+                    ToolExecutionResult::success(out)
+                };
+                append_sys_exec_command_history(
+                    &mut result,
+                    &raw_command_preview,
+                    step_index,
+                    if command_failed { 1 } else { 0 },
+                );
+                result
+            }
+            Ok(CommandLaunchResult::Retained(snapshot)) => {
+                retained_snapshot = Some(snapshot.clone());
+                ToolExecutionResult::success(retained_command_payload(&snapshot).to_string())
+            }
+            Err(e) => {
+                let error = e.to_string();
+                let mut result = sys_exec_failure_result(command, &error);
+                result.history_entry = Some(error);
+                append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
+                result
+            }
+        },
+        None => match exec
+            .terminal
+            .execute_session_in_dir_with_options(
+                &session_key,
+                trimmed,
+                args,
+                Some(&resolved_cwd),
+                options,
+            )
+            .await
+        {
+            Ok(out) => {
+                let command_failed = command_output_indicates_failure(&out);
+                let mut result = if command_failed {
+                    let mut failure = sys_exec_failure_result(command, &out);
+                    failure.history_entry = Some(out);
+                    failure
+                } else {
+                    ToolExecutionResult::success(out)
+                };
+                append_sys_exec_command_history(
+                    &mut result,
+                    &raw_command_preview,
+                    step_index,
+                    if command_failed { 1 } else { 0 },
+                );
+                result
+            }
+            Err(e) => {
+                let error = e.to_string();
+                let mut result = sys_exec_failure_result(command, &error);
+                result.history_entry = Some(error);
+                append_sys_exec_command_history(&mut result, &raw_command_preview, step_index, 1);
+                result
+            }
+        },
     };
 
     if let Some(tx) = exec.event_sender.as_ref() {
@@ -258,7 +416,9 @@ pub(super) async fn handle_sys_exec_session(
             .as_deref()
             .and_then(extract_exit_code)
             .or_else(|| result.error.as_deref().and_then(extract_exit_code));
-        let phase = if result.success {
+        let phase = if retained_snapshot.is_some() {
+            "running"
+        } else if result.success {
             "completed"
         } else {
             "failed"
@@ -294,6 +454,56 @@ pub(super) async fn handle_sys_exec_session(
     }
 
     result
+}
+
+pub(super) async fn handle_sys_exec_status(
+    exec: &ToolExecutor,
+    command_id: &str,
+) -> ToolExecutionResult {
+    match exec.terminal.retained_command_status(command_id).await {
+        Ok(snapshot) => {
+            ToolExecutionResult::success(retained_command_payload(&snapshot).to_string())
+        }
+        Err(error) => ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=UnexpectedState Failed to inspect retained command '{}': {}",
+            command_id, error
+        )),
+    }
+}
+
+pub(super) async fn handle_sys_exec_input(
+    exec: &ToolExecutor,
+    command_id: &str,
+    stdin: &str,
+) -> ToolExecutionResult {
+    match exec
+        .terminal
+        .retained_command_input(command_id, stdin.as_bytes())
+        .await
+    {
+        Ok(snapshot) => {
+            ToolExecutionResult::success(retained_command_payload(&snapshot).to_string())
+        }
+        Err(error) => ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=UnexpectedState Failed to write stdin to retained command '{}': {}",
+            command_id, error
+        )),
+    }
+}
+
+pub(super) async fn handle_sys_exec_terminate(
+    exec: &ToolExecutor,
+    command_id: &str,
+) -> ToolExecutionResult {
+    match exec.terminal.retained_command_terminate(command_id).await {
+        Ok(snapshot) => {
+            ToolExecutionResult::success(retained_command_payload(&snapshot).to_string())
+        }
+        Err(error) => ToolExecutionResult::failure(format!(
+            "ERROR_CLASS=UnexpectedState Failed to terminate retained command '{}': {}",
+            command_id, error
+        )),
+    }
 }
 
 pub(super) async fn handle_sys_exec_session_reset(
@@ -387,6 +597,23 @@ pub(super) fn command_preview(command: &str, args: &[String]) -> String {
     } else {
         preview
     }
+}
+
+fn retained_command_payload(snapshot: &RetainedCommandSnapshot) -> serde_json::Value {
+    json!({
+        "command_id": snapshot.command_id,
+        "terminal_id": snapshot.terminal_id,
+        "command": snapshot.command,
+        "args": snapshot.args,
+        "cwd": snapshot.cwd,
+        "created_at_ms": snapshot.created_at_ms,
+        "completed_at_ms": snapshot.completed_at_ms,
+        "running": snapshot.running,
+        "status": if snapshot.running { "running" } else { "completed" },
+        "exit_code": snapshot.exit_code,
+        "output_tail": snapshot.output_tail,
+        "output_truncated": snapshot.output_truncated,
+    })
 }
 
 pub(super) fn append_sys_exec_command_history(

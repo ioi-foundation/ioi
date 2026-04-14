@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, State,
+    AppHandle, Manager, Runtime, State,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
@@ -154,7 +154,7 @@ mod tests {
     }
 }
 
-pub(crate) fn autopilot_data_dir_for(app: &AppHandle) -> PathBuf {
+pub(crate) fn autopilot_data_dir_for<R: Runtime>(app: &AppHandle<R>) -> PathBuf {
     if let Some(override_path) = env_text("AUTOPILOT_DATA_DIR") {
         return PathBuf::from(override_path);
     }
@@ -933,6 +933,7 @@ pub fn run() {
             kernel::knowledge::search_knowledge_collection,
             kernel::knowledge::add_knowledge_collection_source,
             kernel::knowledge::remove_knowledge_collection_source,
+            kernel::workspace_workflows::list_workspace_workflows,
             kernel::skill_sources::get_skill_sources,
             kernel::skill_sources::get_extension_manifests,
             kernel::plugins::get_session_plugin_snapshot,

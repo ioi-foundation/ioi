@@ -143,6 +143,39 @@
         parameters: fs_patch_params.to_string(),
     });
 
+    let fs_multi_patch_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Absolute path to the file to patch atomically." },
+            "edits": {
+                "type": "array",
+                "description": "Ordered exact-match edit legs. The runtime applies all of them or none of them.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "search": {
+                            "type": "string",
+                            "description": "Exact string block to replace. Must match exactly one occurrence at the time this edit leg runs."
+                        },
+                        "replace": {
+                            "type": "string",
+                            "description": "Replacement content for the matched block."
+                        }
+                    },
+                    "required": ["search", "replace"]
+                }
+            }
+        },
+        "required": ["path", "edits"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "file__multi_edit".to_string(),
+        description:
+            "Atomically apply multiple exact-match edits to one file. Every search block must match when applied in order or the whole call fails without writing anything."
+                .to_string(),
+        parameters: fs_multi_patch_params.to_string(),
+    });
+
     let fs_read_params = json!({
         "type": "object",
         "properties": {
@@ -154,6 +187,31 @@
         name: "file__read".to_string(),
         description: "Read exact text content from a file, preserving newlines so the result can be reused directly in file__edit search blocks.".to_string(),
         parameters: fs_read_params.to_string(),
+    });
+
+    let fs_view_params = json!({
+        "type": "object",
+        "properties": {
+            "path": { "type": "string", "description": "Absolute path to open." },
+            "start_line": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional 1-based starting line for text-like views."
+            },
+            "line_count": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Optional maximum number of text lines to return. The runtime clamps this to a safe window."
+            }
+        },
+        "required": ["path"]
+    });
+    tools.push(LlmToolDefinition {
+        name: "file__view".to_string(),
+        description:
+            "Open a local file through a MIME-aware viewer. Text files return a bounded line window, images return native visual evidence, PDFs return searchable text plus a preview when available, and videos return sampled-frame previews."
+                .to_string(),
+        parameters: fs_view_params.to_string(),
     });
 
     let fs_ls_params = json!({

@@ -42,6 +42,13 @@ where
         memory_runtime = s.memory_runtime.clone();
         if let Some(ref mut task) = s.current_task {
             f(task);
+            if let Some(runtime) = memory_runtime.as_ref() {
+                if let Err(error) =
+                    crate::kernel::runtime_parity::sync_planning_artifacts(app, runtime, task)
+                {
+                    eprintln!("[Autopilot] Failed to sync planning artifacts: {}", error);
+                }
+            }
             task.sync_runtime_views();
             task_clone = Some(task.clone());
         }

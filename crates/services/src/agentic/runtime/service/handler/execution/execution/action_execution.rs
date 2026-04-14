@@ -161,21 +161,25 @@ fn rewrite_exec_tool_to_goal_command(tool: &mut AgentTool, command_literal: Stri
             command,
             args,
             stdin,
+            wait_ms_before_async,
             detach,
         } => {
             *command = "bash".to_string();
             *args = vec!["-lc".to_string(), command_literal];
             *stdin = None;
+            *wait_ms_before_async = None;
             *detach = false;
         }
         AgentTool::SysExecSession {
             command,
             args,
             stdin,
+            wait_ms_before_async,
         } => {
             *command = "bash".to_string();
             *args = vec!["-lc".to_string(), command_literal];
             *stdin = None;
+            *wait_ms_before_async = None;
         }
         _ => {}
     }

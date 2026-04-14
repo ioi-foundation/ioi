@@ -6,6 +6,7 @@ fn runtime_target_for_dynamic_tool(value: &serde_json::Value) -> RuntimeTarget {
     match name {
         "model__responses" | "model__embeddings" | "model__rerank" => RuntimeTarget::Inference,
         name if name.starts_with("media__") => RuntimeTarget::Media,
+        "browser__subagent" => RuntimeTarget::Browser,
         name if name.starts_with("model_registry__")
             || name.starts_with("backend__")
             || name.starts_with("gallery__") =>
@@ -20,7 +21,9 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
     match tool {
         AgentTool::FsWrite { .. }
         | AgentTool::FsPatch { .. }
+        | AgentTool::FsMultiPatch { .. }
         | AgentTool::FsRead { .. }
+        | AgentTool::FsView { .. }
         | AgentTool::FsList { .. }
         | AgentTool::FsSearch { .. }
         | AgentTool::FsStat { .. }
@@ -31,6 +34,9 @@ fn runtime_target_for_tool(tool: &AgentTool) -> RuntimeTarget {
         | AgentTool::FsDelete { .. } => RuntimeTarget::Filesystem,
         AgentTool::SysExec { .. }
         | AgentTool::SysExecSession { .. }
+        | AgentTool::SysExecStatus { .. }
+        | AgentTool::SysExecInput { .. }
+        | AgentTool::SysExecTerminate { .. }
         | AgentTool::SysExecSessionReset {}
         | AgentTool::SysInstallPackage { .. }
         | AgentTool::SysChangeDir { .. }

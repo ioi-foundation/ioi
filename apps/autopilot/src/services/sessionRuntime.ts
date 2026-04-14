@@ -5,7 +5,7 @@ import {
   setSessionRuntime,
 } from "@ioi/agent-ide";
 import type { LocalEngineSnapshot } from "../types";
-import { TauriRuntime } from "./TauriRuntime";
+import { TauriRuntime, type WorkspaceWorkflowSummary } from "./TauriRuntime";
 
 export interface SessionOperatorRuntime extends AgentSessionRuntime {
   getLocalEngineSnapshot(): Promise<LocalEngineSnapshot>;
@@ -26,7 +26,10 @@ export interface SessionOperatorRuntime extends AgentSessionRuntime {
   promoteLocalEngineOperation(operationId: string): Promise<void>;
 }
 
-export type SessionWorkbenchRuntime = AgentRuntime & AgentSessionRuntime;
+export type SessionWorkbenchRuntime = AgentRuntime &
+  AgentSessionRuntime & {
+    listWorkspaceWorkflows?: () => Promise<WorkspaceWorkflowSummary[]>;
+  };
 
 const defaultSessionRuntime = new TauriRuntime();
 setDefaultSessionRuntime(defaultSessionRuntime);

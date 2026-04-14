@@ -41,6 +41,7 @@ async fn refusal_repair_synthesizes_targeted_exec_before_pause() {
             command,
             args,
             stdin,
+            ..
         } => {
             assert_eq!(command, "bash");
             assert_eq!(
@@ -122,6 +123,7 @@ async fn refusal_repair_bootstraps_targeted_exec_on_initial_empty_stop() {
             command,
             args,
             stdin,
+            ..
         } => {
             assert_eq!(command, "bash");
             assert_eq!(

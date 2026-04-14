@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -29,11 +30,34 @@ pub struct ProcessStreamChunk {
 
 pub type ProcessStreamObserver = Arc<dyn Fn(ProcessStreamChunk) + Send + Sync>;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RetainedCommandSnapshot {
+    pub command_id: String,
+    pub terminal_id: Option<String>,
+    pub command: String,
+    pub args: Vec<String>,
+    pub cwd: Option<String>,
+    pub created_at_ms: u64,
+    pub completed_at_ms: Option<u64>,
+    pub exit_code: Option<i32>,
+    pub running: bool,
+    pub output_tail: String,
+    pub output_truncated: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CommandLaunchResult {
+    Completed(String),
+    Retained(RetainedCommandSnapshot),
+}
+
 #[derive(Clone)]
 pub struct CommandExecutionOptions {
     pub timeout: Duration,
     pub stream_observer: Option<ProcessStreamObserver>,
     pub stdin_data: Option<Vec<u8>>,
+    pub wait_before_async: Option<Duration>,
+    pub stdin_bridge_path: Option<PathBuf>,
 }
 
 impl Default for CommandExecutionOptions {
@@ -42,6 +66,8 @@ impl Default for CommandExecutionOptions {
             timeout: Duration::from_secs(5),
             stream_observer: None,
             stdin_data: None,
+            wait_before_async: None,
+            stdin_bridge_path: None,
         }
     }
 }
@@ -59,6 +85,16 @@ impl CommandExecutionOptions {
 
     pub fn with_stdin_data(mut self, stdin_data: Option<Vec<u8>>) -> Self {
         self.stdin_data = stdin_data;
+        self
+    }
+
+    pub fn with_wait_before_async(mut self, wait_before_async: Option<Duration>) -> Self {
+        self.wait_before_async = wait_before_async;
+        self
+    }
+
+    pub fn with_stdin_bridge_path(mut self, stdin_bridge_path: Option<PathBuf>) -> Self {
+        self.stdin_bridge_path = stdin_bridge_path;
         self
     }
 }

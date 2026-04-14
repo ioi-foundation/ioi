@@ -353,6 +353,7 @@ mod tests {
                 "Timer".to_string(),
             ],
             stdin: None,
+            wait_ms_before_async: None,
             detach: true,
         };
         let history = CommandExecution {
@@ -375,6 +376,7 @@ mod tests {
             command: "date".to_string(),
             args: vec!["+%Y-%m-%dT%H:%M:%SZ".to_string()],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = CommandExecution {
@@ -397,6 +399,7 @@ mod tests {
             command: "echo".to_string(),
             args: vec!["$((247 * 38))".to_string()],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = CommandExecution {
@@ -418,6 +421,7 @@ mod tests {
             command: "date".to_string(),
             args: vec!["-u".to_string()],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = VecDeque::from(vec![
@@ -457,6 +461,7 @@ mod tests {
                 "-7".to_string(),
             ],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = CommandExecution {
@@ -486,6 +491,7 @@ mod tests {
                 "-delete".to_string(),
             ],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = CommandExecution {
@@ -513,6 +519,7 @@ mod tests {
                 "-7".to_string(),
             ],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = CommandExecution {
@@ -534,6 +541,7 @@ mod tests {
             command: "/tmp/demo/shutdown_schedule_probe".to_string(),
             args: vec!["--target-local".to_string(), "23:00".to_string()],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = CommandExecution {
@@ -557,6 +565,7 @@ mod tests {
             command: "/tmp/demo/top_memory_apps_probe".to_string(),
             args: vec!["5".to_string()],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = CommandExecution {
@@ -584,6 +593,7 @@ mod tests {
             command: "ls".to_string(),
             args: vec!["/home/user/Desktop".to_string()],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = VecDeque::from(vec![
@@ -616,6 +626,7 @@ mod tests {
             command: "ls".to_string(),
             args: vec!["/home/user/Desktop".to_string()],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = VecDeque::from(vec![CommandExecution {

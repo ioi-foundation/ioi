@@ -5,9 +5,28 @@ use super::{
     stat_path_deterministic, AgentTool, ToolExecutionResult, ToolExecutor,
 };
 use crate::agentic::runtime::execution::workload;
+use crate::agentic::web::sample_local_video_preview;
+use image::ImageFormat;
+use ioi_api::studio::extract_searchable_pdf_text;
 use ioi_types::app::{WorkloadActivityKind, WorkloadFsWriteReceipt, WorkloadReceipt};
 use std::fs;
+use std::io::Cursor;
 use std::path::Path;
+use std::time::Duration;
+use tokio::time::sleep;
+use url::Url;
+
+const FILE_VIEW_MAX_LINES: usize = 800;
+const FILE_VIEW_DEFAULT_LINES: usize = 200;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LocalViewKind {
+    Text,
+    Image,
+    Pdf,
+    Video,
+    Binary,
+}
 
 fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().to_string()
@@ -36,6 +55,121 @@ fn patch_apply_failure_message(path: &Path, error: &str) -> String {
     }
 
     format!("Patch failed for {}: {}", path.display(), normalized)
+}
+
+fn classify_local_view(path: &Path, bytes: &[u8]) -> LocalViewKind {
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase());
+
+    if bytes.starts_with(b"%PDF-") || extension.as_deref() == Some("pdf") {
+        return LocalViewKind::Pdf;
+    }
+
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A])
+        || bytes.starts_with(&[0xFF, 0xD8, 0xFF])
+        || bytes.starts_with(b"GIF8")
+        || bytes.starts_with(b"RIFF")
+            && bytes
+                .get(8..12)
+                .map(|value| value == b"WEBP")
+                .unwrap_or(false)
+        || matches!(
+            extension.as_deref(),
+            Some("png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp")
+        )
+    {
+        return LocalViewKind::Image;
+    }
+
+    if matches!(
+        extension.as_deref(),
+        Some("mp4" | "webm" | "mov" | "mkv" | "avi" | "m4v")
+    ) {
+        return LocalViewKind::Video;
+    }
+
+    if std::str::from_utf8(bytes).is_ok() {
+        return LocalViewKind::Text;
+    }
+
+    LocalViewKind::Binary
+}
+
+fn render_text_window(
+    path: &Path,
+    content: &str,
+    start_line: Option<u32>,
+    line_count: Option<u32>,
+    kind_label: &str,
+) -> String {
+    let requested_start = start_line.unwrap_or(1).max(1) as usize;
+    let requested_count = line_count
+        .map(|value| value.max(1) as usize)
+        .unwrap_or(FILE_VIEW_DEFAULT_LINES)
+        .min(FILE_VIEW_MAX_LINES);
+    let lines: Vec<&str> = content.lines().collect();
+    let total_lines = lines.len();
+    let start_index = requested_start.saturating_sub(1).min(total_lines);
+    let end_index = start_index.saturating_add(requested_count).min(total_lines);
+    let mut rendered = lines[start_index..end_index]
+        .iter()
+        .enumerate()
+        .map(|(offset, line)| format!("{:>4} | {}", start_index + offset + 1, line))
+        .collect::<Vec<_>>()
+        .join("\n");
+    if !rendered.is_empty() {
+        rendered.push('\n');
+    }
+    let truncated = end_index < total_lines;
+    format!(
+        "FILE_VIEW kind={} path={} lines={}..{} of {}\n{}{}",
+        kind_label,
+        path.display(),
+        if total_lines == 0 { 0 } else { start_index + 1 },
+        end_index,
+        total_lines,
+        rendered,
+        if truncated {
+            format!(
+                "[truncated] Use file__view with start_line={} to continue.",
+                end_index + 1
+            )
+        } else {
+            String::new()
+        }
+    )
+}
+
+fn normalize_image_bytes(bytes: &[u8]) -> Result<Vec<u8>, String> {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A])
+        || bytes.starts_with(&[0xFF, 0xD8, 0xFF])
+    {
+        return Ok(bytes.to_vec());
+    }
+
+    let image = image::load_from_memory(bytes)
+        .map_err(|error| format!("Failed to decode image payload: {}", error))?;
+    let mut cursor = Cursor::new(Vec::new());
+    image
+        .write_to(&mut cursor, ImageFormat::Png)
+        .map_err(|error| format!("Failed to encode image preview: {}", error))?;
+    Ok(cursor.into_inner())
+}
+
+async fn capture_pdf_preview(exec: &ToolExecutor, path: &Path) -> Result<Vec<u8>, String> {
+    let file_url = Url::from_file_path(path)
+        .map_err(|_| format!("Failed to build file:// URL for {}", path.display()))?;
+    exec.browser
+        .navigate(file_url.as_str())
+        .await
+        .map_err(|error| format!("Failed to open PDF preview in browser: {}", error))?;
+    sleep(Duration::from_millis(450)).await;
+    exec.browser
+        .capture_tab_screenshot(false)
+        .await
+        .map_err(|error| format!("Failed to capture PDF preview screenshot: {}", error))
 }
 
 async fn emit_fs_write_receipt(
@@ -135,6 +269,114 @@ pub async fn handle(
                     resolved_path.display(),
                     e
                 )),
+            }
+        }
+        AgentTool::FsView {
+            path,
+            start_line,
+            line_count,
+        } => {
+            let resolved_path = match resolve_tool_path(&path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!("Failed to view {}: {}", path, e))
+                }
+            };
+
+            let bytes = match fs::read(&resolved_path) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    return ToolExecutionResult::failure(format!(
+                        "Failed to view {}: {}",
+                        resolved_path.display(),
+                        e
+                    ))
+                }
+            };
+
+            match classify_local_view(&resolved_path, &bytes) {
+                LocalViewKind::Text => match String::from_utf8(bytes) {
+                    Ok(content) => ToolExecutionResult::success(render_text_window(
+                        &resolved_path,
+                        &content,
+                        start_line,
+                        line_count,
+                        "text",
+                    )),
+                    Err(error) => ToolExecutionResult::failure(format!(
+                        "Failed to decode text from {}: {}",
+                        resolved_path.display(),
+                        error
+                    )),
+                },
+                LocalViewKind::Image => match normalize_image_bytes(&bytes) {
+                    Ok(image_bytes) => ToolExecutionResult::success_with_visual_observation(
+                        format!(
+                            "FILE_VIEW kind=image path={} bytes={}",
+                            resolved_path.display(),
+                            image_bytes.len()
+                        ),
+                        image_bytes,
+                    ),
+                    Err(error) => ToolExecutionResult::failure(format!(
+                        "Failed to prepare image preview for {}: {}",
+                        resolved_path.display(),
+                        error
+                    )),
+                },
+                LocalViewKind::Pdf => {
+                    let searchable_text = extract_searchable_pdf_text(&bytes);
+                    let history_entry = if searchable_text.trim().is_empty() {
+                        format!(
+                            "FILE_VIEW kind=pdf path={} text_preview=[empty]",
+                            resolved_path.display()
+                        )
+                    } else {
+                        render_text_window(
+                            &resolved_path,
+                            &searchable_text,
+                            start_line,
+                            line_count,
+                            "pdf",
+                        )
+                    };
+
+                    match capture_pdf_preview(exec, &resolved_path).await {
+                        Ok(preview_png) => ToolExecutionResult::success_with_visual_observation(
+                            history_entry,
+                            preview_png,
+                        ),
+                        Err(_) => ToolExecutionResult::success(history_entry),
+                    }
+                }
+                LocalViewKind::Video => match sample_local_video_preview(&resolved_path, 6).await {
+                    Ok(preview) => ToolExecutionResult::success_with_visual_observation(
+                        format!(
+                            "FILE_VIEW kind=video path={} duration_seconds={} sampled_frames={}\n{}",
+                            resolved_path.display(),
+                            preview
+                                .duration_seconds
+                                .map(|value| value.to_string())
+                                .unwrap_or_else(|| "unknown".to_string()),
+                            preview.frame_count,
+                            preview.frame_summaries.join("\n")
+                        ),
+                        preview.preview_png,
+                    ),
+                    Err(error) => ToolExecutionResult::failure(format!(
+                        "Failed to prepare video preview for {}: {}",
+                        resolved_path.display(),
+                        error
+                    )),
+                },
+                LocalViewKind::Binary => {
+                    let metadata = fs::metadata(&resolved_path).ok();
+                    ToolExecutionResult::success(format!(
+                        "FILE_VIEW kind=binary path={} bytes={}",
+                        resolved_path.display(),
+                        metadata.map(|value| value.len()).unwrap_or(bytes.len() as u64)
+                    ))
+                }
             }
         }
         AgentTool::FsWrite {
@@ -378,6 +620,162 @@ pub async fn handle(
                 step_index,
                 "file__edit",
                 "patch",
+                target.as_str(),
+                None,
+                result.success.then_some(bytes_written),
+                result.success,
+                result.error.as_deref(),
+            )
+            .await;
+            result
+        }
+        AgentTool::FsMultiPatch { path, edits } => {
+            let resolved_path = match resolve_tool_path(&path, cwd) {
+                Ok(path) => path,
+                Err(e) => {
+                    let result = ToolExecutionResult::failure(format!(
+                        "Multi-edit failed for {}: {}",
+                        path, e
+                    ));
+                    emit_fs_write_receipt(
+                        exec,
+                        session_id,
+                        step_index,
+                        "file__multi_edit",
+                        "multi_patch",
+                        path.as_str(),
+                        None,
+                        None,
+                        false,
+                        result.error.as_deref(),
+                    )
+                    .await;
+                    return result;
+                }
+            };
+
+            if edits.is_empty() {
+                let result = ToolExecutionResult::failure(format!(
+                    "ERROR_CLASS=UnexpectedState Multi-edit failed for {}: edits must not be empty.",
+                    resolved_path.display()
+                ));
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__multi_edit",
+                    "multi_patch",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+
+            let existing = match fs::read_to_string(&resolved_path) {
+                Ok(content) => content,
+                Err(e) => {
+                    let result = ToolExecutionResult::failure(format!(
+                        "Failed to read {}: {}",
+                        resolved_path.display(),
+                        e
+                    ));
+                    let target = path_to_string(&resolved_path);
+                    emit_fs_write_receipt(
+                        exec,
+                        session_id,
+                        step_index,
+                        "file__multi_edit",
+                        "multi_patch",
+                        target.as_str(),
+                        None,
+                        None,
+                        false,
+                        result.error.as_deref(),
+                    )
+                    .await;
+                    return result;
+                }
+            };
+
+            let mut updated = existing.clone();
+            for (index, edit) in edits.iter().enumerate() {
+                updated = match apply_patch(&updated, &edit.search, &edit.replace) {
+                    Ok(next) => next,
+                    Err(error) => {
+                        let result = ToolExecutionResult::failure(format!(
+                            "{} [edit {} of {}]",
+                            patch_apply_failure_message(&resolved_path, &error),
+                            index + 1,
+                            edits.len()
+                        ));
+                        let target = path_to_string(&resolved_path);
+                        emit_fs_write_receipt(
+                            exec,
+                            session_id,
+                            step_index,
+                            "file__multi_edit",
+                            "multi_patch",
+                            target.as_str(),
+                            None,
+                            None,
+                            false,
+                            result.error.as_deref(),
+                        )
+                        .await;
+                        return result;
+                    }
+                };
+            }
+
+            if updated == existing {
+                let result = ToolExecutionResult::failure(format!(
+                    "ERROR_CLASS=NoEffectAfterAction Multi-edit for {} made no effective change.",
+                    resolved_path.display()
+                ));
+                let target = path_to_string(&resolved_path);
+                emit_fs_write_receipt(
+                    exec,
+                    session_id,
+                    step_index,
+                    "file__multi_edit",
+                    "multi_patch",
+                    target.as_str(),
+                    None,
+                    None,
+                    false,
+                    result.error.as_deref(),
+                )
+                .await;
+                return result;
+            }
+
+            let bytes_written = updated.as_bytes().len() as u64;
+            let result = match fs::write(&resolved_path, updated) {
+                Ok(_) => ToolExecutionResult::success(
+                    serde_json::json!({
+                        "path": resolved_path.display().to_string(),
+                        "applied_edit_count": edits.len(),
+                    })
+                    .to_string(),
+                ),
+                Err(e) => ToolExecutionResult::failure(format!(
+                    "Failed to write multi-edit to {}: {}",
+                    resolved_path.display(),
+                    e
+                )),
+            };
+            let target = path_to_string(&resolved_path);
+            emit_fs_write_receipt(
+                exec,
+                session_id,
+                step_index,
+                "file__multi_edit",
+                "multi_patch",
                 target.as_str(),
                 None,
                 result.success.then_some(bytes_written),
@@ -786,27 +1184,4 @@ pub async fn handle(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::patch_apply_failure_message;
-    use std::path::Path;
-
-    #[test]
-    fn patch_search_miss_maps_to_no_effect_after_action() {
-        let message = patch_apply_failure_message(
-            Path::new("/tmp/example.py"),
-            "search block not found in file",
-        );
-        assert!(message.starts_with("ERROR_CLASS=NoEffectAfterAction"));
-        assert!(message.contains("file__replace_line"));
-        assert!(message.contains("file__write"));
-    }
-
-    #[test]
-    fn malformed_patch_payload_maps_to_unexpected_state() {
-        let message = patch_apply_failure_message(
-            Path::new("/tmp/example.py"),
-            "search block must be non-empty",
-        );
-        assert!(message.starts_with("ERROR_CLASS=UnexpectedState"));
-    }
-}
+mod tests;

@@ -230,6 +230,7 @@ async fn patch_build_verify_invalid_tool_repair_synthesizes_targeted_exec_before
             command,
             args,
             stdin,
+            ..
         } => {
             assert_eq!(command, "bash");
             assert_eq!(
@@ -309,6 +310,7 @@ async fn patch_build_verify_invalid_tool_repair_synthesizes_targeted_exec_after_
             command,
             args,
             stdin,
+            ..
         } => {
             assert_eq!(command, "bash");
             assert_eq!(
@@ -499,6 +501,7 @@ async fn patch_build_verify_invalid_tool_repair_replays_targeted_exec_after_work
             command,
             args,
             stdin,
+            ..
         } => {
             assert_eq!(command, "bash");
             assert_eq!(
@@ -587,6 +590,7 @@ async fn patch_build_verify_invalid_tool_repair_replays_targeted_exec_after_post
             command,
             args,
             stdin,
+            ..
         } => {
             assert_eq!(command, "bash");
             assert_eq!(
@@ -676,6 +680,7 @@ async fn patch_build_verify_invalid_tool_repair_prioritizes_targeted_exec_for_po
             command,
             args,
             stdin,
+            ..
         } => {
             assert_eq!(command, "bash");
             assert_eq!(

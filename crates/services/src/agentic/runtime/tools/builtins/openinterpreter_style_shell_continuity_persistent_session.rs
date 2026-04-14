@@ -15,13 +15,18 @@
             "stdin": {
                 "type": "string",
                 "description": "Optional stdin payload sent to the process before waiting for output."
+            },
+            "wait_ms_before_async": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Optional wait threshold before returning a retained command handle. Commands that keep running past this threshold return a command_id while preserving the owning terminal_id."
             }
         },
         "required": ["command"]
     });
     tools.push(LlmToolDefinition {
         name: "shell__start".to_string(),
-        description: "Execute a command inside a persistent shell session scoped to this agent session. Use this when you need shell continuity across calls (exports, sourcing env, shell vars).".to_string(),
+        description: "Execute a command inside a persistent shell session scoped to this agent session. Use this when you need shell continuity across calls (exports, sourcing env, shell vars), and set wait_ms_before_async to retain a running command handle without losing the session.".to_string(),
         parameters: sys_session_params.to_string(),
     });
 

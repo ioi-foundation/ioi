@@ -72,10 +72,19 @@ pub async fn handle(
             command,
             args,
             stdin,
+            wait_ms_before_async,
             detach,
         } => {
             sys_exec::handle_sys_exec(
-                exec, &command, &args, stdin, detach, cwd, session_id, step_index,
+                exec,
+                &command,
+                &args,
+                stdin,
+                wait_ms_before_async,
+                detach,
+                cwd,
+                session_id,
+                step_index,
             )
             .await
         }
@@ -84,15 +93,35 @@ pub async fn handle(
             command,
             args,
             stdin,
+            wait_ms_before_async,
         } => {
             sys_exec::handle_sys_exec_session(
-                exec, &command, &args, stdin, cwd, session_id, step_index,
+                exec,
+                &command,
+                &args,
+                stdin,
+                wait_ms_before_async,
+                cwd,
+                session_id,
+                step_index,
             )
             .await
         }
 
         AgentTool::SysExecSessionReset {} => {
             sys_exec::handle_sys_exec_session_reset(exec, cwd, session_id, step_index).await
+        }
+
+        AgentTool::SysExecStatus { command_id } => {
+            sys_exec::handle_sys_exec_status(exec, &command_id).await
+        }
+
+        AgentTool::SysExecInput { command_id, stdin } => {
+            sys_exec::handle_sys_exec_input(exec, &command_id, &stdin).await
+        }
+
+        AgentTool::SysExecTerminate { command_id } => {
+            sys_exec::handle_sys_exec_terminate(exec, &command_id).await
         }
 
         AgentTool::SysChangeDir { path } => match paths::resolve_target_directory(cwd, &path) {

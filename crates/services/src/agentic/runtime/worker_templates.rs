@@ -575,6 +575,103 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
             }],
         },
         WorkerTemplateDefinition {
+            template_id: "browser_specialist".to_string(),
+            label: "Browser Specialist".to_string(),
+            role: "Browser Specialist".to_string(),
+            summary:
+                "Bounded browser-only child worker for one-call autonomous browser sessions that return a final semantic report to the parent."
+                    .to_string(),
+            default_budget: 144,
+            max_retries: 1,
+            allowed_tools: vec![
+                "browser__navigate".to_string(),
+                "browser__inspect".to_string(),
+                "browser__click".to_string(),
+                "browser__hover".to_string(),
+                "browser__click_at".to_string(),
+                "browser__scroll".to_string(),
+                "browser__type".to_string(),
+                "browser__select".to_string(),
+                "browser__press_key".to_string(),
+                "browser__copy".to_string(),
+                "browser__paste".to_string(),
+                "browser__find_text".to_string(),
+                "browser__wait".to_string(),
+                "browser__upload".to_string(),
+                "browser__list_options".to_string(),
+                "browser__select_option".to_string(),
+                "browser__back".to_string(),
+                "browser__list_tabs".to_string(),
+                "browser__switch_tab".to_string(),
+                "browser__close_tab".to_string(),
+                "browser__screenshot".to_string(),
+                "agent__complete".to_string(),
+            ],
+            completion_contract: WorkerCompletionContract {
+                success_criteria:
+                    "Return one semantic browser-specialist report that states the executed browser actions, the observed state, whether the requested browser goal was achieved, and any blocker or approval handoff."
+                        .to_string(),
+                expected_output:
+                    "Browser specialist report using markdown bullets for executed_steps, observed_state, goal_status, blocker_summary, approval_state, and notes."
+                        .to_string(),
+                merge_mode: WorkerMergeMode::AppendSummaryToParent,
+                verification_hint: Some(
+                    "Parent checks that the browser-specialist report names the observed state, distinguishes completion from blockage, and stays within browser-only execution."
+                        .to_string(),
+                ),
+            },
+            workflows: vec![WorkerTemplateWorkflowDefinition {
+                workflow_id: "browser_subagent_session".to_string(),
+                label: "Browser Subagent Session".to_string(),
+                summary:
+                    "One-call autonomous browser session that stays inside browser tools and returns a final semantic report to the parent."
+                        .to_string(),
+                goal_template:
+                    "Complete the browser task for {topic} using only browser tools, then return a final semantic report with executed_steps, observed_state, goal_status, blocker_summary, approval_state, and notes."
+                        .to_string(),
+                trigger_intents: vec!["delegation.task".to_string()],
+                default_budget: Some(96),
+                max_retries: Some(1),
+                allowed_tools: vec![
+                    "browser__navigate".to_string(),
+                    "browser__inspect".to_string(),
+                    "browser__click".to_string(),
+                    "browser__hover".to_string(),
+                    "browser__click_at".to_string(),
+                    "browser__scroll".to_string(),
+                    "browser__type".to_string(),
+                    "browser__select".to_string(),
+                    "browser__press_key".to_string(),
+                    "browser__copy".to_string(),
+                    "browser__paste".to_string(),
+                    "browser__find_text".to_string(),
+                    "browser__wait".to_string(),
+                    "browser__upload".to_string(),
+                    "browser__list_options".to_string(),
+                    "browser__select_option".to_string(),
+                    "browser__back".to_string(),
+                    "browser__list_tabs".to_string(),
+                    "browser__switch_tab".to_string(),
+                    "browser__close_tab".to_string(),
+                    "browser__screenshot".to_string(),
+                    "agent__complete".to_string(),
+                ],
+                completion_contract: Some(WorkerCompletionContract {
+                    success_criteria:
+                        "Return a deterministic final browser-session report with executed steps, observed state, goal status, approval state, and blocker summary."
+                            .to_string(),
+                    expected_output:
+                        "Browser specialist report using markdown bullets for executed_steps, observed_state, goal_status, blocker_summary, approval_state, and notes."
+                            .to_string(),
+                    merge_mode: WorkerMergeMode::AppendSummaryToParent,
+                    verification_hint: Some(
+                        "Parent checks that the report is browser-grounded, names the observed state, and clearly distinguishes completion from handoff."
+                            .to_string(),
+                    ),
+                }),
+            }],
+        },
+        WorkerTemplateDefinition {
             template_id: "browser_operator".to_string(),
             label: "Browser Operator".to_string(),
             role: "Browser Operator".to_string(),
@@ -753,6 +850,7 @@ pub fn default_worker_role_label(template_id: Option<&str>) -> &'static str {
         Some("verifier") => "Verification Worker",
         Some("coder") => "Coding Worker",
         Some("patch_synthesizer") => "Patch Synthesizer",
+        Some("browser_specialist") => "Browser Specialist",
         Some("browser_operator") => "Browser Operator",
         Some("artifact_builder") => "Artifact Builder",
         _ => "Sub-Worker",
@@ -844,7 +942,7 @@ mod tests {
     #[test]
     fn builtin_worker_catalog_contains_workload_specialists() {
         let templates = builtin_worker_templates();
-        assert_eq!(templates.len(), 8);
+        assert_eq!(templates.len(), 9);
         assert!(templates
             .iter()
             .any(|template| template.template_id == "context_worker"));
@@ -863,6 +961,9 @@ mod tests {
         assert!(templates
             .iter()
             .any(|template| template.template_id == "patch_synthesizer"));
+        assert!(templates
+            .iter()
+            .any(|template| template.template_id == "browser_specialist"));
         assert!(templates
             .iter()
             .any(|template| template.template_id == "browser_operator"));
@@ -1073,6 +1174,27 @@ mod tests {
             .allowed_tools
             .iter()
             .any(|tool| tool == "browser__click"));
+        let browser_specialist = templates
+            .iter()
+            .find(|template| template.template_id == "browser_specialist")
+            .expect("browser_specialist template should exist");
+        let browser_specialist_workflow = browser_specialist
+            .workflows
+            .iter()
+            .find(|workflow| workflow.workflow_id == "browser_subagent_session")
+            .expect("browser specialist workflow should exist");
+        assert!(browser_specialist_workflow
+            .allowed_tools
+            .iter()
+            .all(|tool| !tool.starts_with("screen__")));
+        assert!(browser_specialist_workflow
+            .allowed_tools
+            .iter()
+            .any(|tool| tool == "browser__navigate"));
+        assert!(browser_specialist_workflow
+            .allowed_tools
+            .iter()
+            .any(|tool| tool == "browser__screenshot"));
         let artifact_builder = templates
             .iter()
             .find(|template| template.template_id == "artifact_builder")

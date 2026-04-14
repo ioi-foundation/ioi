@@ -88,3 +88,167 @@ pub use api::{
     KernelMediaSpeechSynthesis, KernelMediaTranscription, KernelMediaVideoGeneration,
     KernelMediaVisionRead,
 };
+
+#[derive(Debug, Clone)]
+pub(crate) struct LocalVideoPreview {
+    pub preview_png: Vec<u8>,
+    pub duration_seconds: Option<u64>,
+    pub frame_count: usize,
+    pub frame_summaries: Vec<String>,
+}
+
+pub(crate) async fn sample_local_video_preview(
+    video_path: &Path,
+    frame_limit: u32,
+) -> Result<LocalVideoPreview> {
+    let tool_home = ensure_media_tool_home()?;
+    let ffmpeg = ensure_managed_ffmpeg_provider(&tool_home).await?;
+    let duration_seconds = probe_local_video_duration_seconds(&ffmpeg.ffprobe_path, video_path)
+        .await
+        .ok();
+    let effective_duration = duration_seconds.unwrap_or(3).max(1);
+    let preview_hash = sha256_hex(video_path.to_string_lossy().as_bytes());
+    let run_dir = tool_home.join("local_video_preview").join(preview_hash);
+    fs::create_dir_all(&run_dir).with_context(|| {
+        format!(
+            "ERROR_CLASS=ExecutionFailedTerminal failed to create local video preview dir {}",
+            run_dir.display()
+        )
+    })?;
+
+    let timestamps_ms = sample_visual_frame_timestamps(effective_duration, frame_limit as usize);
+    let frame_samples = extract_visual_frame_samples(&ffmpeg, video_path, &timestamps_ms, &run_dir)
+        .await
+        .with_context(|| {
+            format!(
+                "ERROR_CLASS=ExecutionFailedTerminal failed to sample local video frames from {}",
+                video_path.display()
+            )
+        })?;
+    if frame_samples.is_empty() {
+        return Err(anyhow!(
+            "ERROR_CLASS=VerificationMissing local video preview produced no frames for {}",
+            video_path.display()
+        ));
+    }
+
+    let preview_png = build_local_video_contact_sheet(&frame_samples)?;
+    let frame_summaries = frame_samples
+        .iter()
+        .map(|sample| {
+            format!(
+                "- {} | {}x{} | {}",
+                sample.timestamp_label, sample.width, sample.height, sample.mime_type
+            )
+        })
+        .collect::<Vec<_>>();
+
+    Ok(LocalVideoPreview {
+        preview_png,
+        duration_seconds,
+        frame_count: frame_samples.len(),
+        frame_summaries,
+    })
+}
+
+async fn probe_local_video_duration_seconds(ffprobe_path: &Path, video_path: &Path) -> Result<u64> {
+    let output = Command::new(ffprobe_path)
+        .arg("-v")
+        .arg("error")
+        .arg("-show_entries")
+        .arg("format=duration")
+        .arg("-of")
+        .arg("default=noprint_wrappers=1:nokey=1")
+        .arg(video_path)
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .output()
+        .await
+        .with_context(|| {
+            format!(
+                "ERROR_CLASS=ExecutionFailedTerminal failed to launch ffprobe for {}",
+                video_path.display()
+            )
+        })?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "ERROR_CLASS=ExecutionFailedTerminal ffprobe failed for {} status={} stderr={}",
+            video_path.display(),
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let seconds = raw
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .filter(|value| *value > 0.0)
+        .map(|value| value.ceil() as u64)
+        .ok_or_else(|| {
+            anyhow!(
+                "ERROR_CLASS=VerificationMissing ffprobe returned no duration for {}",
+                video_path.display()
+            )
+        })?;
+    Ok(seconds)
+}
+
+fn build_local_video_contact_sheet(frame_samples: &[VisualFrameSample]) -> Result<Vec<u8>> {
+    let decoded_frames = frame_samples
+        .iter()
+        .map(|sample| {
+            image::load_from_memory(&sample.bytes).with_context(|| {
+                format!(
+                    "ERROR_CLASS=VerificationMissing failed to decode sampled frame {}",
+                    sample.timestamp_label
+                )
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if decoded_frames.is_empty() {
+        return Err(anyhow!(
+            "ERROR_CLASS=VerificationMissing no decoded frames available for contact sheet"
+        ));
+    }
+
+    let cols = decoded_frames.len().min(3).max(1) as u32;
+    let rows = ((decoded_frames.len() as u32) + cols - 1) / cols;
+    let tile_width = decoded_frames
+        .iter()
+        .map(DynamicImage::width)
+        .max()
+        .unwrap_or(1);
+    let tile_height = decoded_frames
+        .iter()
+        .map(DynamicImage::height)
+        .max()
+        .unwrap_or(1);
+    let gutter = 12u32;
+    let canvas_width = cols * tile_width + (cols + 1) * gutter;
+    let canvas_height = rows * tile_height + (rows + 1) * gutter;
+    let mut canvas = RgbaImage::from_pixel(
+        canvas_width.max(1),
+        canvas_height.max(1),
+        Rgba([18, 20, 24, 255]),
+    );
+
+    for (index, frame) in decoded_frames.iter().enumerate() {
+        let index = index as u32;
+        let col = index % cols;
+        let row = index / cols;
+        let x = gutter + col * (tile_width + gutter);
+        let y = gutter + row * (tile_height + gutter);
+        let frame_rgba = frame.to_rgba8();
+        image::imageops::overlay(&mut canvas, &frame_rgba, i64::from(x), i64::from(y));
+    }
+
+    let mut cursor = Cursor::new(Vec::new());
+    DynamicImage::ImageRgba8(canvas)
+        .write_to(&mut cursor, ImageFormat::Png)
+        .context(
+            "ERROR_CLASS=ExecutionFailedTerminal failed to encode local video contact sheet",
+        )?;
+    Ok(cursor.into_inner())
+}

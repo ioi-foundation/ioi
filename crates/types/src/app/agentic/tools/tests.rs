@@ -17,7 +17,9 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         AgentTool::Screen(_)
         | AgentTool::FsWrite { .. }
         | AgentTool::FsPatch { .. }
+        | AgentTool::FsMultiPatch { .. }
         | AgentTool::FsRead { .. }
+        | AgentTool::FsView { .. }
         | AgentTool::FsList { .. }
         | AgentTool::FsSearch { .. }
         | AgentTool::FsStat { .. }
@@ -28,6 +30,9 @@ fn is_expected_egress_tool_exhaustive(tool: &AgentTool) -> bool {
         | AgentTool::FsCreateZip { .. }
         | AgentTool::SysExec { .. }
         | AgentTool::SysExecSession { .. }
+        | AgentTool::SysExecStatus { .. }
+        | AgentTool::SysExecInput { .. }
+        | AgentTool::SysExecTerminate { .. }
         | AgentTool::SysExecSessionReset {}
         | AgentTool::SysInstallPackage { .. }
         | AgentTool::SysChangeDir { .. }
@@ -163,6 +168,18 @@ fn filesystem_patch_target_maps_to_fs_write_scope() {
 }
 
 #[test]
+fn filesystem_multi_patch_target_maps_to_fs_write_scope() {
+    let tool = AgentTool::FsMultiPatch {
+        path: "/tmp/demo.txt".to_string(),
+        edits: vec![AgentFileEditOperation {
+            search: "hello".to_string(),
+            replace: "world".to_string(),
+        }],
+    };
+    assert_eq!(tool.target(), crate::app::ActionTarget::FsWrite);
+}
+
+#[test]
 fn filesystem_search_target_maps_to_fs_read_scope() {
     let tool = AgentTool::FsSearch {
         path: "/tmp".to_string(),
@@ -176,6 +193,16 @@ fn filesystem_search_target_maps_to_fs_read_scope() {
 fn filesystem_stat_target_maps_to_fs_read_scope() {
     let tool = AgentTool::FsStat {
         path: "/tmp/example.pdf".to_string(),
+    };
+    assert_eq!(tool.target(), crate::app::ActionTarget::FsRead);
+}
+
+#[test]
+fn filesystem_view_target_maps_to_fs_read_scope() {
+    let tool = AgentTool::FsView {
+        path: "/tmp/example.pdf".to_string(),
+        start_line: Some(1),
+        line_count: Some(80),
     };
     assert_eq!(tool.target(), crate::app::ActionTarget::FsRead);
 }

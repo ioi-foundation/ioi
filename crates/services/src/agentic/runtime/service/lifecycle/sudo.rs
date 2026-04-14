@@ -236,6 +236,7 @@ mod tests {
                     command: "echo".to_string(),
                     args: vec!["stale".to_string()],
                     stdin: None,
+                    wait_ms_before_async: None,
                     detach: false,
                 })
                 .expect("stale tool json"),
@@ -245,6 +246,7 @@ mod tests {
                     command: "echo".to_string(),
                     args: vec!["stale".to_string()],
                     stdin: None,
+                    wait_ms_before_async: None,
                     detach: false,
                 })
                 .expect("stale tool jcs"),

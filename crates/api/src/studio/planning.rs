@@ -20,6 +20,109 @@ fn truncate_planning_preview(raw: &str, max_chars: usize) -> String {
     preview
 }
 
+fn compact_local_outcome_router_refinement_context(
+    refinement: Option<&StudioArtifactRefinementContext>,
+) -> serde_json::Value {
+    let Some(refinement) = refinement else {
+        return serde_json::Value::Null;
+    };
+
+    json!({
+        "artifactId": refinement.artifact_id,
+        "revisionId": refinement.revision_id,
+        "title": truncate_planning_preview(&refinement.title, 120),
+        "summary": truncate_planning_preview(&refinement.summary, 220),
+        "renderer": refinement.renderer,
+        "files": refinement
+            .files
+            .iter()
+            .take(4)
+            .map(|file| {
+                json!({
+                    "path": file.path,
+                    "mime": file.mime,
+                    "role": file.role,
+                    "renderable": file.renderable,
+                    "downloadable": file.downloadable,
+                    "encoding": file.encoding,
+                    "bodyChars": file.body.chars().count(),
+                    "lineCount": file.body.lines().count(),
+                })
+            })
+            .collect::<Vec<_>>(),
+        "selectedTargets": refinement
+            .selected_targets
+            .iter()
+            .take(4)
+            .map(|target| {
+                json!({
+                    "sourceSurface": target.source_surface,
+                    "path": target.path,
+                    "label": truncate_planning_preview(&target.label, 80),
+                })
+            })
+            .collect::<Vec<_>>(),
+        "hasBlueprint": refinement.blueprint.is_some(),
+        "hasArtifactIr": refinement.artifact_ir.is_some(),
+        "selectedSkillCount": refinement.selected_skills.len(),
+        "retrievedExemplarCount": refinement.retrieved_exemplars.len(),
+    })
+}
+
+fn build_compact_local_outcome_router_prompt(
+    intent: &str,
+    active_artifact_id: Option<&str>,
+    active_artifact: Option<&StudioArtifactRefinementContext>,
+) -> serde_json::Value {
+    let active_artifact_context_json =
+        compact_local_outcome_router_refinement_context(active_artifact).to_string();
+    let user_content = format!(
+        "Request:\n{intent}\n\n\
+         Active artifact id: {artifact_id}\n\
+         Active artifact context summary JSON:\n{active_context}\n\n\
+         Return exactly one JSON object with this minimal camelCase schema:\n\
+         {{\n\
+           \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n\
+           \"executionStrategy\": \"single_pass\" | \"direct_author\" | \"plan_execute\" | \"micro_swarm\" | \"adaptive_work_graph\",\n\
+           \"confidence\": <0_to_1_float>,\n\
+           \"needsClarification\": <boolean>,\n\
+           \"clarificationQuestions\": [<string>],\n\
+           \"artifact\": null | {{\n\
+             \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n\
+             \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n\
+             \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n\
+             \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n\
+             \"scope\": {{ \"targetProject\": null | <string>, \"mutationBoundary\": [<string>] }},\n\
+             \"verification\": {{ \"requireExport\": <boolean> }}\n\
+           }}\n\
+         }}\n\
+         Defaults are derived from renderer when omitted: deliverableShape, presentationSurface, persistence, executionSubstrate, scope.createNewWorkspace, verification.requireBuild, verification.requirePreview, verification.requireDiffReview.\n\
+         Renderer meanings: markdown=.md document, html_iframe=self-contained .html document, jsx_sandbox=single .jsx source module, svg=.svg visual, mermaid=.mermaid diagram, pdf_embed=PDF artifact, download_card=file export surface, workspace_surface=real multi-file workspace.\n\
+         Rules:\n\
+         - artifact = persistent work product; conversation = plain reply; tool_widget = first-party widget; visualizer = ephemeral inline visual.\n\
+         - workspace_surface only when a real multi-file workspace and supervised preview runtime are required.\n\
+         - Explicit medium-plus-deliverable requests are sufficiently specified artifact work.\n\
+         - direct_author only for a fresh coherent single-file artifact; follow-up edits should continue the active artifact.\n\
+         - If required constraints are missing, set needsClarification true and ask concise questions.\n\
+         - Do not use lexical fallbacks or benchmark phrase maps.\n\
+         - JSON only.",
+        intent = intent,
+        artifact_id = active_artifact_id.unwrap_or("<none>"),
+        active_context = active_artifact_context_json,
+    );
+
+    json!([
+        {
+            "role": "system",
+            "content": "You are Studio's typed outcome router for local runtimes. Return exactly one JSON object, rely on renderer-derived defaults when fields are omitted, continue the active artifact for follow-up edits, and never use lexical fallbacks."
+        },
+        {
+            "role": "user",
+            "content": user_content
+        }
+    ])
+}
+
 pub fn studio_execution_strategy_for_outcome(
     outcome_kind: StudioOutcomeKind,
     artifact: Option<&StudioOutcomeArtifactRequest>,
@@ -81,12 +184,9 @@ pub async fn plan_studio_outcome_with_runtime(
     }
 
     let runtime_provenance = runtime.studio_runtime_provenance();
-    let router_max_tokens =
-        if runtime_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
-            384
-        } else {
-            768
-        };
+    let compact_local_contract =
+        runtime_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime;
+    let router_max_tokens = if compact_local_contract { 224 } else { 768 };
     let payload = build_studio_outcome_router_prompt_for_runtime(
         intent,
         active_artifact_id,
@@ -100,10 +200,11 @@ pub async fn plan_studio_outcome_with_runtime(
         )
     })?;
     studio_planning_trace(format!(
-        "outcome_route:start runtime_kind={:?} prompt_bytes={} max_tokens={}",
+        "outcome_route:start runtime_kind={:?} prompt_bytes={} max_tokens={} json_mode={}",
         runtime_provenance.kind,
         input.len(),
-        router_max_tokens
+        router_max_tokens,
+        !compact_local_contract
     ));
     let output = runtime
         .execute_inference(
@@ -111,7 +212,7 @@ pub async fn plan_studio_outcome_with_runtime(
             &input,
             InferenceOptions {
                 temperature: 0.0,
-                json_mode: true,
+                json_mode: !compact_local_contract,
                 max_tokens: router_max_tokens,
                 ..Default::default()
             },
@@ -159,29 +260,23 @@ pub(crate) fn build_studio_outcome_router_prompt_for_runtime(
     active_artifact: Option<&StudioArtifactRefinementContext>,
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> serde_json::Value {
+    if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
+        return build_compact_local_outcome_router_prompt(
+            intent,
+            active_artifact_id,
+            active_artifact,
+        );
+    }
+
     let active_artifact_context_json =
         studio_artifact_refinement_context_view(active_artifact).to_string();
-    let compact_local_contract = runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime;
-    let system_content = if compact_local_contract {
-        "You are Studio's typed outcome router. Return exactly one JSON object choosing conversation, tool_widget, visualizer, or artifact. Artifact means a persistent work product. If confidence is low, set needsClarification true. Continue the active artifact for follow-up edits when context is supplied. Output JSON only."
-    } else {
-        "You are Studio's typed outcome router. Route a user request to exactly one outcome kind: conversation, tool_widget, visualizer, or artifact. Do not guess. If confidence is low, set needsClarification true. Workspace is only one artifact renderer, not the default. Artifact output must be chosen when the request should become a persistent work product. When an active artifact context is supplied, continue that artifact by default for under-specified follow-up edits instead of switching renderer families. Output JSON only."
-    };
-    let user_content = if compact_local_contract {
-        format!(
-            "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"executionStrategy\": \"single_pass\" | \"direct_author\" | \"plan_execute\" | \"micro_swarm\" | \"adaptive_work_graph\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireExport\": <boolean>\n    }}\n  }}\n}}\nDerived automatically from renderer when omitted: deliverableShape, presentationSurface, persistence, executionSubstrate, createNewWorkspace, requireBuild, requirePreview, requireDiffReview.\nExecution strategy rules:\n- single_pass = one bounded draft with no candidate search.\n- direct_author = direct first-pass authoring for one coherent single-document artifact; preserve the raw request and skip planner scaffolding on the first generation.\n- plan_execute = default when one planned execution unit is sufficient.\n- micro_swarm = use when the work graph is small and known up front.\n- adaptive_work_graph = use only when the request clearly needs a mutable multi-node work graph.\nRenderer rules:\n- markdown = single renderable .md document.\n- html_iframe = single self-contained .html document.\n- jsx_sandbox = single .jsx source module with a default export.\n- svg = single .svg visual artifact.\n- mermaid = single .mermaid diagram source artifact.\n- pdf_embed = document artifact compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = the only multi-file workspace renderer.\nRules:\n1) artifact is for persistent work products.\n2) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n3) Build, preview, and diff review are only valid for workspace_surface.\n4) Explicit medium-plus-deliverable requests are sufficiently specified artifact work.\n5) Prefer direct_author for a fresh coherent single-file document ask that the model can author directly, such as markdown, html_iframe, svg, mermaid, or pdf_embed; otherwise prefer plan_execute unless the request is trivial enough for single_pass, small-graph enough for micro_swarm, or clearly mutable enough for adaptive_work_graph.\n6) If active artifact context exists and the request is a follow-up, continue that artifact by default instead of using direct_author.\n7) Do not use lexical fallbacks or benchmark phrase maps.\n8) If a required constraint is missing, keep confidence low and ask clarification.",
-            intent,
-            active_artifact_id.unwrap_or("<none>"),
-            active_artifact_context_json,
-        )
-    } else {
-        format!(
-            "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"executionStrategy\": \"single_pass\" | \"direct_author\" | \"plan_execute\" | \"micro_swarm\" | \"adaptive_work_graph\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"deliverableShape\": \"single_file\" | \"file_set\" | \"workspace_project\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"presentationSurface\": \"inline\" | \"side_panel\" | \"overlay\" | \"tabbed_panel\",\n    \"persistence\": \"ephemeral\" | \"artifact_scoped\" | \"shared_artifact_scoped\" | \"workspace_filesystem\",\n    \"executionSubstrate\": \"none\" | \"client_sandbox\" | \"binary_generator\" | \"workspace_runtime\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"createNewWorkspace\": <boolean>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireRender\": <boolean>,\n      \"requireBuild\": <boolean>,\n      \"requirePreview\": <boolean>,\n      \"requireExport\": <boolean>,\n      \"requireDiffReview\": <boolean>\n    }}\n  }}\n}}\nExecution strategy contracts:\n- single_pass = one bounded draft with no candidate search.\n- direct_author = direct first-pass authoring for one coherent single-document artifact; preserve the raw request and skip planner scaffolding on the first generation.\n- plan_execute = default when one planned execution unit is sufficient.\n- micro_swarm = use when the request implies a small known work graph.\n- adaptive_work_graph = use only when the request clearly needs a mutable multi-node work graph.\nRenderer contracts:\n- markdown = a single renderable .md document.\n- html_iframe = a single self-contained .html document for browser presentation. Choose this when the final artifact should be HTML itself, such as a landing page, explainer, launch page, editorial page, or browser-native interactive document.\n- jsx_sandbox = a single .jsx source module with a default export. Choose this only when the final artifact should be JSX/React source as the work product rather than a plain HTML document.\n- svg = a single .svg visual artifact.\n- mermaid = a single .mermaid diagram source artifact.\n- pdf_embed = a document artifact that will be compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = a real multi-file workspace with supervised build/preview.\nCoherence rules:\n- html_iframe and jsx_sandbox are interactive_single_file artifacts with single_file deliverableShape and client_sandbox executionSubstrate.\n- workspace_surface is the only renderer that may use workspace_project deliverableShape, workspace_runtime executionSubstrate, createNewWorkspace=true, requireBuild=true, or requirePreview=true.\n- Non-workspace artifact renderers should not request build or preview verification.\nRules:\n1) conversation is for plain reply only.\n2) tool_widget is for first-party tool display surfaces.\n3) visualizer is for ephemeral inline visuals.\n4) artifact is for persistent work products.\n5) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n6) Prefer direct_author for a fresh coherent single-file document ask that the model can author directly, such as markdown, html_iframe, svg, mermaid, or pdf_embed; otherwise prefer plan_execute unless the request is trivial enough for single_pass, small-graph enough for micro_swarm, or clearly mutable enough for adaptive_work_graph.\n7) Treat explicit medium-plus-deliverable requests as sufficiently specified artifact work. If the user already asked for an HTML artifact, landing page, launch page, editorial page, markdown document, SVG concept, Mermaid diagram, PDF artifact, downloadable bundle, or workspace project, do not ask clarification merely to restate that same deliverable form.\n8) For example, \"Create an interactive HTML artifact for an AI tools editorial launch page\" is already an artifact request for html_iframe, not a clarification request.\n9) When active artifact context JSON is not null and the request is a follow-up refinement, patch or branch the current artifact by default instead of switching renderer, artifactClass, or deliverableShape unless the user explicitly asks for a different deliverable form.\n10) Under-specified follow-up requests should continue the active artifact rather than restarting as a new artifact kind.\n11) Do not use lexical fallbacks or benchmark phrase maps.\n12) When uncertainty remains about a required missing constraint, keep confidence low and ask clarification.",
-            intent,
-            active_artifact_id.unwrap_or("<none>"),
-            active_artifact_context_json,
-        )
-    };
+    let system_content = "You are Studio's typed outcome router. Route a user request to exactly one outcome kind: conversation, tool_widget, visualizer, or artifact. Do not guess. If confidence is low, set needsClarification true. Workspace is only one artifact renderer, not the default. Artifact output must be chosen when the request should become a persistent work product. When an active artifact context is supplied, continue that artifact by default for under-specified follow-up edits instead of switching renderer families. Output JSON only.";
+    let user_content = format!(
+        "Request:\n{}\n\nActive artifact id: {}\n\nActive artifact context JSON:\n{}\n\nReturn exactly one JSON object with this camelCase schema:\n{{\n  \"outcomeKind\": \"conversation\" | \"tool_widget\" | \"visualizer\" | \"artifact\",\n  \"executionStrategy\": \"single_pass\" | \"direct_author\" | \"plan_execute\" | \"micro_swarm\" | \"adaptive_work_graph\",\n  \"confidence\": <0_to_1_float>,\n  \"needsClarification\": <boolean>,\n  \"clarificationQuestions\": [<string>],\n  \"artifact\": null | {{\n    \"artifactClass\": \"document\" | \"visual\" | \"interactive_single_file\" | \"downloadable_file\" | \"workspace_project\" | \"compound_bundle\" | \"code_patch\" | \"report_bundle\",\n    \"deliverableShape\": \"single_file\" | \"file_set\" | \"workspace_project\",\n    \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n    \"presentationSurface\": \"inline\" | \"side_panel\" | \"overlay\" | \"tabbed_panel\",\n    \"persistence\": \"ephemeral\" | \"artifact_scoped\" | \"shared_artifact_scoped\" | \"workspace_filesystem\",\n    \"executionSubstrate\": \"none\" | \"client_sandbox\" | \"binary_generator\" | \"workspace_runtime\",\n    \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n    \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n    \"scope\": {{\n      \"targetProject\": null | <string>,\n      \"createNewWorkspace\": <boolean>,\n      \"mutationBoundary\": [<string>]\n    }},\n    \"verification\": {{\n      \"requireRender\": <boolean>,\n      \"requireBuild\": <boolean>,\n      \"requirePreview\": <boolean>,\n      \"requireExport\": <boolean>,\n      \"requireDiffReview\": <boolean>\n    }}\n  }}\n}}\nExecution strategy contracts:\n- single_pass = one bounded draft with no candidate search.\n- direct_author = direct first-pass authoring for one coherent single-document artifact; preserve the raw request and skip planner scaffolding on the first generation.\n- plan_execute = default when one planned execution unit is sufficient.\n- micro_swarm = use when the request implies a small known work graph.\n- adaptive_work_graph = use only when the request clearly needs a mutable multi-node work graph.\nRenderer contracts:\n- markdown = a single renderable .md document.\n- html_iframe = a single self-contained .html document for browser presentation. Choose this when the final artifact should be HTML itself, such as a landing page, explainer, launch page, editorial page, or browser-native interactive document.\n- jsx_sandbox = a single .jsx source module with a default export. Choose this only when the final artifact should be JSX/React source as the work product rather than a plain HTML document.\n- svg = a single .svg visual artifact.\n- mermaid = a single .mermaid diagram source artifact.\n- pdf_embed = a document artifact that will be compiled into PDF bytes.\n- download_card = downloadable files or exports, not a primary inline document surface.\n- workspace_surface = a real multi-file workspace with supervised build/preview.\nCoherence rules:\n- html_iframe and jsx_sandbox are interactive_single_file artifacts with single_file deliverableShape and client_sandbox executionSubstrate.\n- workspace_surface is the only renderer that may use workspace_project deliverableShape, workspace_runtime executionSubstrate, createNewWorkspace=true, requireBuild=true, or requirePreview=true.\n- Non-workspace artifact renderers should not request build or preview verification.\nRules:\n1) conversation is for plain reply only.\n2) tool_widget is for first-party tool display surfaces.\n3) visualizer is for ephemeral inline visuals.\n4) artifact is for persistent work products.\n5) Use workspace_surface only when a real multi-file workspace and preview runtime are required.\n6) Prefer direct_author for a fresh coherent single-file document ask that the model can author directly, such as markdown, html_iframe, svg, mermaid, or pdf_embed; otherwise prefer plan_execute unless the request is trivial enough for single_pass, small-graph enough for micro_swarm, or clearly mutable enough for adaptive_work_graph.\n7) Treat explicit medium-plus-deliverable requests as sufficiently specified artifact work. If the user already asked for an HTML artifact, landing page, launch page, editorial page, markdown document, SVG concept, Mermaid diagram, PDF artifact, downloadable bundle, or workspace project, do not ask clarification merely to restate that same deliverable form.\n8) For example, \"Create an interactive HTML artifact for an AI tools editorial launch page\" is already an artifact request for html_iframe, not a clarification request.\n9) When active artifact context JSON is not null and the request is a follow-up refinement, patch or branch the current artifact by default instead of switching renderer, artifactClass, or deliverableShape unless the user explicitly asks for a different deliverable form.\n10) Under-specified follow-up requests should continue the active artifact rather than restarting as a new artifact kind.\n11) Do not use lexical fallbacks or benchmark phrase maps.\n12) When uncertainty remains about a required missing constraint, keep confidence low and ask clarification.",
+        intent,
+        active_artifact_id.unwrap_or("<none>"),
+        active_artifact_context_json,
+    );
     json!([
         {
             "role": "system",
@@ -616,6 +711,8 @@ pub async fn plan_studio_artifact_brief_with_runtime(
         validate_studio_artifact_brief_against_request(&brief, request, refinement)?;
         Ok(brief)
     };
+    let compact_local_brief_contract =
+        compact_local_html_brief_prompt(request.renderer, runtime_provenance.kind);
     let planner_max_tokens =
         brief_planner_max_tokens_for_runtime(request.renderer, runtime_provenance.kind);
     let payload = build_studio_artifact_brief_prompt_for_runtime(
@@ -628,12 +725,13 @@ pub async fn plan_studio_artifact_brief_with_runtime(
     let input = serde_json::to_vec(&payload)
         .map_err(|error| format!("Failed to encode Studio artifact brief prompt: {error}"))?;
     studio_planning_trace(format!(
-        "artifact_brief:start renderer={:?} runtime={} model={:?} prompt_bytes={} max_tokens={}",
+        "artifact_brief:start renderer={:?} runtime={} model={:?} prompt_bytes={} max_tokens={} json_mode={}",
         request.renderer,
         runtime_provenance.label,
         runtime_provenance.model,
         input.len(),
-        planner_max_tokens
+        planner_max_tokens,
+        !compact_local_brief_contract
     ));
     let output = runtime
         .execute_inference(
@@ -641,7 +739,7 @@ pub async fn plan_studio_artifact_brief_with_runtime(
             &input,
             InferenceOptions {
                 temperature: 0.0,
-                json_mode: true,
+                json_mode: !compact_local_brief_contract,
                 max_tokens: planner_max_tokens,
                 ..Default::default()
             },
@@ -679,12 +777,13 @@ pub async fn plan_studio_artifact_brief_with_runtime(
             let repair_max_tokens =
                 brief_repair_max_tokens_for_runtime(request.renderer, runtime_provenance.kind);
             studio_planning_trace(format!(
-                "artifact_brief:repair_start renderer={:?} runtime={} model={:?} prompt_bytes={} max_tokens={} failure={}",
+                "artifact_brief:repair_start renderer={:?} runtime={} model={:?} prompt_bytes={} max_tokens={} json_mode={} failure={}",
                 request.renderer,
                 runtime_provenance.label,
                 runtime_provenance.model,
                 repair_input.len(),
                 repair_max_tokens,
+                !compact_local_brief_contract,
                 truncate_planning_preview(&first_error, 240)
             ));
             let repair_output = runtime
@@ -693,7 +792,7 @@ pub async fn plan_studio_artifact_brief_with_runtime(
                     &repair_input,
                     InferenceOptions {
                         temperature: 0.0,
-                        json_mode: true,
+                        json_mode: !compact_local_brief_contract,
                         max_tokens: repair_max_tokens,
                         ..Default::default()
                     },
@@ -749,12 +848,13 @@ pub async fn plan_studio_artifact_brief_with_runtime(
                         runtime_provenance.kind,
                     );
                     studio_planning_trace(format!(
-                        "artifact_brief:field_repair_start renderer={:?} runtime={} model={:?} prompt_bytes={} max_tokens={} failure={}",
+                        "artifact_brief:field_repair_start renderer={:?} runtime={} model={:?} prompt_bytes={} max_tokens={} json_mode={} failure={}",
                         request.renderer,
                         runtime_provenance.label,
                         runtime_provenance.model,
                         field_repair_input.len(),
                         field_repair_max_tokens,
+                        !compact_local_brief_contract,
                         truncate_planning_preview(&repair_error, 240)
                     ));
                     let field_repair_output = runtime
@@ -763,7 +863,7 @@ pub async fn plan_studio_artifact_brief_with_runtime(
                             &field_repair_input,
                             InferenceOptions {
                                 temperature: 0.0,
-                                json_mode: true,
+                                json_mode: !compact_local_brief_contract,
                                 max_tokens: field_repair_max_tokens,
                                 ..Default::default()
                             },
@@ -3472,6 +3572,9 @@ pub async fn plan_studio_artifact_edit_intent_with_runtime(
     brief: &StudioArtifactBrief,
     refinement: &StudioArtifactRefinementContext,
 ) -> Result<StudioArtifactEditIntent, String> {
+    let runtime_provenance = runtime.studio_runtime_provenance();
+    let compact_local_contract =
+        runtime_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime;
     let payload = build_studio_artifact_edit_intent_prompt(intent, request, brief, refinement)?;
     let input = serde_json::to_vec(&payload)
         .map_err(|error| format!("Failed to encode Studio artifact edit-intent prompt: {error}"))?;
@@ -3481,7 +3584,7 @@ pub async fn plan_studio_artifact_edit_intent_with_runtime(
             &input,
             InferenceOptions {
                 temperature: 0.0,
-                json_mode: true,
+                json_mode: !compact_local_contract,
                 max_tokens: 384,
                 ..Default::default()
             },
@@ -3510,7 +3613,7 @@ pub async fn plan_studio_artifact_edit_intent_with_runtime(
                     &repair_input,
                     InferenceOptions {
                         temperature: 0.0,
-                        json_mode: true,
+                        json_mode: !compact_local_contract,
                         max_tokens: 384,
                         ..Default::default()
                     },
