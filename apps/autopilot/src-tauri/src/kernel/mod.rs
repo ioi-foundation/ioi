@@ -18,6 +18,7 @@ pub mod lsp;
 pub mod notifications;
 pub mod plugins;
 pub mod remote_env;
+pub mod runtime_parity;
 pub mod server_mode;
 pub mod session;
 pub mod skill_sources;
@@ -27,5 +28,6 @@ pub mod task;
 pub mod thresholds;
 pub mod voice;
 pub mod workflows;
+pub mod workspace_workflows;
 
 pub use events::monitor_kernel_events;

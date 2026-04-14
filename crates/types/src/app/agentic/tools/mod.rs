@@ -11,7 +11,7 @@ mod target;
 #[cfg(test)]
 mod tests;
 
-pub use agent_tool::{AgentTool, AgentToolCall};
+pub use agent_tool::{AgentFileEditOperation, AgentTool, AgentToolCall};
 pub use commerce::CommerceItem;
 pub use pii::{PiiEgressField, PiiEgressRiskSurface, PiiEgressSpec};
 pub use screen::ScreenAction;

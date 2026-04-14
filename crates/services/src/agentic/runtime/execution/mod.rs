@@ -367,8 +367,10 @@ impl ToolExecutor {
 
             // Filesystem Domain
             AgentTool::FsRead { .. }
+            | AgentTool::FsView { .. }
             | AgentTool::FsWrite { .. }
             | AgentTool::FsPatch { .. }
+            | AgentTool::FsMultiPatch { .. }
             | AgentTool::FsList { .. }
             | AgentTool::FsSearch { .. }
             | AgentTool::FsStat { .. }

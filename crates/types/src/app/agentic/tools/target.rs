@@ -4,10 +4,12 @@ use super::{AgentTool, ScreenAction};
 
 pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
     match tool {
-        AgentTool::FsWrite { .. } | AgentTool::FsPatch { .. } | AgentTool::FsDelete { .. } => {
-            ActionTarget::FsWrite
-        }
+        AgentTool::FsWrite { .. }
+        | AgentTool::FsPatch { .. }
+        | AgentTool::FsMultiPatch { .. }
+        | AgentTool::FsDelete { .. } => ActionTarget::FsWrite,
         AgentTool::FsRead { .. }
+        | AgentTool::FsView { .. }
         | AgentTool::FsList { .. }
         | AgentTool::FsSearch { .. }
         | AgentTool::FsStat { .. } => ActionTarget::FsRead,
@@ -18,6 +20,9 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
 
         AgentTool::SysExec { .. }
         | AgentTool::SysExecSession { .. }
+        | AgentTool::SysExecStatus { .. }
+        | AgentTool::SysExecInput { .. }
+        | AgentTool::SysExecTerminate { .. }
         | AgentTool::SysExecSessionReset {}
         | AgentTool::SysChangeDir { .. } => ActionTarget::SysExec,
         AgentTool::SysInstallPackage { .. } => ActionTarget::SysInstallPackage,
@@ -122,6 +127,7 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                     "media__extract_transcript" => ActionTarget::MediaExtractTranscript,
                     "media__extract_evidence" => ActionTarget::MediaExtractMultimodalEvidence,
                     "browser__inspect" => ActionTarget::BrowserInspect,
+                    "browser__subagent" => ActionTarget::BrowserInteract,
                     "browser__navigate"
                     | "browser__click"
                     | "browser__hover"
@@ -147,9 +153,8 @@ pub(super) fn target_for_tool(tool: &AgentTool) -> ActionTarget {
                     "browser__screenshot" | "browser__inspect_canvas" => {
                         ActionTarget::BrowserInspect
                     }
-                    "shell__run" | "shell__start" | "shell__reset" | "shell__cd" => {
-                        ActionTarget::SysExec
-                    }
+                    "shell__run" | "shell__start" | "shell__status" | "shell__input"
+                    | "shell__terminate" | "shell__reset" | "shell__cd" => ActionTarget::SysExec,
                     "app__launch" => ActionTarget::Custom("os::launch_app".to_string()),
                     "math__eval" => ActionTarget::Custom("math::eval".to_string()),
                     "monitor__create" => ActionTarget::Custom("monitor__create".to_string()),

@@ -39,6 +39,7 @@ import {
   buildModelSlashItems,
   buildRecentSessionItems,
   buildSharedSessionCommandItems,
+  buildWorkspaceWorkflowItems,
   buildWorkspaceSlashItems,
 } from "./spotlightInputCommandDefinitions";
 import {
@@ -55,6 +56,7 @@ import {
   workspaceRootFromTask,
   type SlashTokenContext,
 } from "./spotlightInputHelpers";
+import type { WorkspaceWorkflowSummary } from "../../../services/TauriRuntime";
 
 type SpotlightInputSectionProps = {
   inputRef: RefObject<HTMLTextAreaElement>;
@@ -162,6 +164,9 @@ export function SpotlightInputSection({
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
   const [runtimeCatalogEntries, setRuntimeCatalogEntries] = useState<RuntimeCatalogEntry[]>([]);
   const [runtimeCatalogStatus, setRuntimeCatalogStatus] = useState<LoadStatus>("idle");
+  const [workspaceWorkflows, setWorkspaceWorkflows] = useState<WorkspaceWorkflowSummary[]>([]);
+  const [workspaceWorkflowsStatus, setWorkspaceWorkflowsStatus] =
+    useState<LoadStatus>("idle");
   const [liveTools, setLiveTools] = useState<LiveToolRecord[]>([]);
   const [liveToolsStatus, setLiveToolsStatus] = useState<LoadStatus>("idle");
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
@@ -387,6 +392,47 @@ export function SpotlightInputSection({
   }, [commandsMenuOpen, liveToolsStatus]);
 
   useEffect(() => {
+    if (!commandsMenuOpen || workspaceWorkflowsStatus !== "idle") {
+      return;
+    }
+
+    const runtime = getSessionWorkbenchRuntime();
+    if (typeof runtime.listWorkspaceWorkflows !== "function") {
+      setWorkspaceWorkflowsStatus("ready");
+      return;
+    }
+
+    let cancelled = false;
+    setWorkspaceWorkflowsStatus("loading");
+
+    runtime
+      .listWorkspaceWorkflows()
+      .then((workflows) => {
+        if (cancelled) {
+          return;
+        }
+        setWorkspaceWorkflows(workflows);
+        setWorkspaceWorkflowsStatus("ready");
+      })
+      .catch((error) => {
+        console.error("Failed to load workspace workflows for slash menu:", error);
+        if (!cancelled) {
+          setWorkspaceWorkflowsStatus("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [commandsMenuOpen, workspaceWorkflowsStatus]);
+
+  useEffect(() => {
+    if (!commandsMenuOpen && workspaceWorkflowsStatus !== "idle") {
+      setWorkspaceWorkflowsStatus("idle");
+    }
+  }, [commandsMenuOpen, workspaceWorkflowsStatus]);
+
+  useEffect(() => {
     if (!commandsMenuOpen || commandPaletteMode) {
       return;
     }
@@ -480,6 +526,29 @@ export function SpotlightInputSection({
       commandPaletteMode,
       focusComposer,
       intent,
+      replaceSlashToken,
+      setActiveDropdown,
+      setIntent,
+    ],
+  );
+
+  const insertWorkflowSlashCommand = useCallback(
+    (slashCommand: string) => {
+      const replacement = `${slashCommand} `;
+      if (!commandPaletteMode) {
+        replaceSlashToken(replacement);
+        return;
+      }
+
+      setIntent(replacement);
+      setSlashContext(null);
+      setCommandPaletteQuery("");
+      setActiveDropdown(null);
+      focusComposer(replacement.length);
+    },
+    [
+      commandPaletteMode,
+      focusComposer,
       replaceSlashToken,
       setActiveDropdown,
       setIntent,
@@ -1109,6 +1178,33 @@ export function SpotlightInputSection({
       onSelectWorkspaceMode,
       dismissCommandSurface,
     });
+    const workflowItems: SlashMenuItem[] =
+      workspaceWorkflowsStatus === "loading"
+        ? [
+            {
+              id: "workflow-loading",
+              title: "Loading Workspace Workflows",
+              description: "Scanning .agents/.agent workflow roots in the active workspace...",
+              icon: icons.sparkles,
+              disabled: true,
+            },
+          ]
+        : workspaceWorkflowsStatus === "error"
+          ? [
+              {
+                id: "workflow-error",
+                title: "Workspace Workflows Unavailable",
+                description:
+                  "Workflow discovery failed. You can still type a slash workflow command manually.",
+                icon: icons.alert,
+                disabled: true,
+              },
+            ]
+          : buildWorkspaceWorkflowItems({
+              workflows: workspaceWorkflows,
+              commandQuery,
+              onSelectWorkflow: insertWorkflowSlashCommand,
+            });
 
     const sortedSkills = [...skillCatalog].sort((left, right) => {
       if (left.stale !== right.stale) {
@@ -1193,6 +1289,7 @@ export function SpotlightInputSection({
       { id: "sessions", title: "Recent Sessions", items: recentSessionItems },
       { id: "live-tools", title: "Live Tools", items: liveToolItems },
       { id: "runtime-catalog", title: "Runtime Catalog", items: runtimeCatalogItems },
+      { id: "workspace-workflows", title: "Workflows", items: workflowItems },
       { id: "models", title: "Model", items: modelItems },
       { id: "workspaces", title: "Workspace", items: workspaceItems },
       { id: "skills", title: "Skills", items: skillItems },
@@ -1233,6 +1330,7 @@ export function SpotlightInputSection({
     onToggleAutoContext,
     dismissCommandSurface,
     insertSkillGuidance,
+    insertWorkflowSlashCommand,
     permissionProfiles,
     currentPermissionProfile,
     currentPermissionProfileId,
@@ -1248,6 +1346,8 @@ export function SpotlightInputSection({
     toggleVimMode,
     vimModeSnapshot.enabled,
     workerCount,
+    workspaceWorkflows,
+    workspaceWorkflowsStatus,
     workspaceMode,
     workspaceOptions,
   ]);

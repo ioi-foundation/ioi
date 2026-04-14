@@ -187,6 +187,45 @@ impl ShellSession {
         Ok(())
     }
 
+    pub(crate) async fn send_input(self: &Arc<Self>, input: &[u8]) -> Result<()> {
+        if input.is_empty() {
+            return Ok(());
+        }
+
+        #[cfg(unix)]
+        {
+            let session = Arc::clone(self);
+            let payload = input.to_vec();
+            tokio::task::spawn_blocking(move || -> Result<()> {
+                let mut stdin = session
+                    .stdin
+                    .lock()
+                    .map_err(|_| anyhow!("PTY stdin mutex poisoned"))?;
+                stdin.write_all(&payload)?;
+                stdin.flush()?;
+                Ok(())
+            })
+            .await
+            .map_err(|e| anyhow!("PTY stdin write join failed: {}", e))??;
+            return Ok(());
+        }
+
+        #[cfg(windows)]
+        {
+            let mut stdin = self.stdin.lock().await;
+            stdin.write_all(input).await?;
+            stdin.flush().await?;
+            return Ok(());
+        }
+
+        #[allow(unreachable_code)]
+        Ok(())
+    }
+
+    pub(crate) async fn interrupt_current_command(self: &Arc<Self>) -> Result<()> {
+        self.send_input(&[3]).await
+    }
+
     pub(crate) async fn exec(
         self: &Arc<Self>,
         command: &str,
@@ -212,6 +251,7 @@ impl ShellSession {
                 cwd,
                 &cmd_line,
                 options.stdin_data.as_deref(),
+                options.stdin_bridge_path.as_deref(),
                 &rc_prefix,
                 &done_marker,
                 marker_id,

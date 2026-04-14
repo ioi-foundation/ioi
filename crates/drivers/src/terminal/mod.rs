@@ -10,5 +10,6 @@ mod types;
 
 pub use driver::TerminalDriver;
 pub use types::{
-    CommandExecutionOptions, ProcessStreamChannel, ProcessStreamChunk, ProcessStreamObserver,
+    CommandExecutionOptions, CommandLaunchResult, ProcessStreamChannel, ProcessStreamChunk,
+    ProcessStreamObserver, RetainedCommandSnapshot,
 };

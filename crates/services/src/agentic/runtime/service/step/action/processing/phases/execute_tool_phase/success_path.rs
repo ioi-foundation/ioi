@@ -6,6 +6,9 @@ use super::*;
 use crate::agentic::runtime::connectors::{
     connector_id_for_tool_name, connector_postcondition_verifier_bindings,
 };
+use crate::agentic::runtime::service::lifecycle::{
+    browser_subagent_request_from_dynamic, run_browser_subagent,
+};
 use crate::agentic::runtime::service::step::action::command_contract::contract_requires_postcondition_with_rules;
 use crate::agentic::runtime::service::step::cognition::build_browser_snapshot_pending_state_context_with_history;
 use ioi_types::app::agentic::{
@@ -1094,19 +1097,38 @@ fn workspace_edit_receipt_details(tool: &AgentTool, step_index: u32) -> Option<(
                 format!("step={step_index};tool=file__edit;path={path}"),
             ))
         }
+        AgentTool::FsMultiPatch { path, .. } => {
+            let path = path.trim();
+            if path.is_empty() {
+                return None;
+            }
+            Some((
+                "file__multi_edit".to_string(),
+                format!("step={step_index};tool=file__multi_edit;path={path}"),
+            ))
+        }
         _ => None,
     }
 }
 
 fn workspace_read_receipt_details(tool: &AgentTool, step_index: u32) -> Option<String> {
-    let AgentTool::FsRead { path } = tool else {
-        return None;
-    };
-    let path = path.trim();
-    if path.is_empty() {
-        return None;
+    match tool {
+        AgentTool::FsRead { path } => {
+            let path = path.trim();
+            if path.is_empty() {
+                return None;
+            }
+            Some(format!("step={step_index};tool=file__read;path={path}"))
+        }
+        AgentTool::FsView { path, .. } => {
+            let path = path.trim();
+            if path.is_empty() {
+                return None;
+            }
+            Some(format!("step={step_index};tool=file__view;path={path}"))
+        }
+        _ => None,
     }
-    Some(format!("step={step_index};tool=file__read;path={path}"))
 }
 
 fn record_workspace_read_receipt(agent_state: &mut AgentState, tool: &AgentTool, step_index: u32) {
@@ -2056,6 +2078,91 @@ pub(super) async fn handle_execution_success(
                     *history_entry = None;
                 }
             },
+            AgentTool::Dynamic(value) => {
+                match browser_subagent_request_from_dynamic(value).and_then(|request| {
+                    request.ok_or_else(|| {
+                        "ERROR_CLASS=UnsupportedTool browser__subagent request missing.".to_string()
+                    })
+                }) {
+                    Ok(request) => {
+                        let tool_jcs = match serde_jcs::to_vec(tool) {
+                            Ok(bytes) => bytes,
+                            Err(err) => {
+                                *success = false;
+                                *error_msg = Some(format!(
+                                    "ERROR_CLASS=UnexpectedState Failed to encode browser subagent tool: {}",
+                                    err
+                                ));
+                                *history_entry = None;
+                                Vec::new()
+                            }
+                        };
+
+                        if *success {
+                            match sha256(&tool_jcs) {
+                                Ok(tool_hash) => match run_browser_subagent(
+                                    service,
+                                    state,
+                                    agent_state,
+                                    tool_hash,
+                                    step_index,
+                                    block_height,
+                                    call_context,
+                                    &request,
+                                )
+                                .await
+                                {
+                                    Ok(browser_outcome) => {
+                                        *history_entry = Some(
+                                            json!({
+                                                "child_session_id_hex": browser_outcome.child_session_id_hex,
+                                                "status": browser_outcome.status,
+                                                "task_name": request.task_name,
+                                                "recording_name": request.recording_name,
+                                                "final_report": browser_outcome.final_report,
+                                            })
+                                            .to_string(),
+                                        );
+                                        *success = browser_outcome.success;
+                                        *error_msg = if browser_outcome.success {
+                                            None
+                                        } else {
+                                            Some(
+                                                "Browser subagent returned control to the parent."
+                                                    .to_string(),
+                                            )
+                                        };
+                                    }
+                                    Err(err) => {
+                                        *success = false;
+                                        *error_msg = Some(err);
+                                        *history_entry = None;
+                                    }
+                                },
+                                Err(err) => {
+                                    *success = false;
+                                    *error_msg = Some(format!(
+                                        "ERROR_CLASS=UnexpectedState Browser subagent hash failed: {}",
+                                        err
+                                    ));
+                                    *history_entry = None;
+                                }
+                            }
+                        }
+                    }
+                    Err(error)
+                        if value
+                            .get("name")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|name| name.eq_ignore_ascii_case("browser__subagent")) =>
+                    {
+                        *success = false;
+                        *error_msg = Some(error);
+                        *history_entry = None;
+                    }
+                    Err(_) => {}
+                }
+            }
             _ => {}
         }
     }

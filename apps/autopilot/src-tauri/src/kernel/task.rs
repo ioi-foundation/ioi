@@ -10,6 +10,7 @@ use crate::windows;
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{GetTransactionStatusRequest, SubmitTransactionRequest, TxStatus};
+use ioi_memory::MemoryRuntime;
 use ioi_services::agentic::runtime::keys::get_state_key;
 use ioi_services::agentic::runtime::{
     AgentMode, AgentState, AgentStatus, StartAgentParams, StepAgentParams,
@@ -22,7 +23,7 @@ use ioi_types::codec;
 use parity_scale_codec::{Decode, Encode};
 use serde_json::json;
 use std::collections::HashSet;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::time::{sleep, timeout, Duration, Instant};
 
@@ -70,6 +71,81 @@ fn task_should_continue_through_kernel(task: &AgentTask) -> bool {
     !crate::kernel::studio::task_is_studio_authoritative(task)
 }
 
+fn workspace_workflow_expansion(
+    input: &str,
+) -> Result<Option<crate::kernel::workspace_workflows::WorkspaceWorkflowExpansion>, String> {
+    crate::kernel::workspace_workflows::expand_workspace_workflow_intent(input)
+}
+
+fn app_runtime_resources(
+    state: &State<'_, Mutex<AppState>>,
+) -> Result<
+    (
+        Option<Arc<MemoryRuntime>>,
+        Option<Arc<dyn ioi_api::vm::inference::InferenceRuntime>>,
+    ),
+    String,
+> {
+    let guard = state
+        .lock()
+        .map_err(|_| "Failed to lock app state".to_string())?;
+    Ok((
+        guard.memory_runtime.clone(),
+        guard.inference_runtime.clone(),
+    ))
+}
+
+fn maybe_inject_ambient_knowledge_sync(
+    state: &State<'_, Mutex<AppState>>,
+    app: &AppHandle,
+    thread_id: &str,
+    intent: &str,
+) -> Result<Option<crate::kernel::runtime_parity::AmbientKnowledgeInjection>, String> {
+    let (memory_runtime, inference_runtime) = app_runtime_resources(state)?;
+    let Some(memory_runtime) = memory_runtime else {
+        return Ok(None);
+    };
+    let Some(inference_runtime) = inference_runtime else {
+        return Ok(None);
+    };
+    tauri::async_runtime::block_on(crate::kernel::runtime_parity::inject_ambient_knowledge(
+        app,
+        &memory_runtime,
+        &inference_runtime,
+        thread_id,
+        intent,
+    ))
+}
+
+fn replace_or_insert_task_artifact(task: &mut AgentTask, artifact: crate::models::Artifact) {
+    let target_path = artifact
+        .metadata
+        .get("path")
+        .and_then(|value| value.as_str())
+        .map(str::to_string);
+    if let Some(path) = target_path.as_deref() {
+        if let Some(existing) = task.artifacts.iter_mut().find(|candidate| {
+            candidate.artifact_type == artifact.artifact_type
+                && candidate
+                    .metadata
+                    .get("path")
+                    .and_then(|value| value.as_str())
+                    == Some(path)
+        }) {
+            *existing = artifact;
+            return;
+        }
+    }
+    if task
+        .artifacts
+        .iter()
+        .any(|candidate| candidate.artifact_id == artifact.artifact_id)
+    {
+        return;
+    }
+    task.artifacts.push(artifact);
+}
+
 fn update_task_if_current_matches<F>(app: &AppHandle, expected_task_id: &str, mut f: F)
 where
     F: FnMut(&mut AgentTask),
@@ -107,6 +183,15 @@ fn replace_current_task_snapshot(
         memory_runtime = app_state.memory_runtime.clone();
         if let Some(current_task) = app_state.current_task.as_mut() {
             if current_task.id == expected_task_id {
+                if let Some(runtime) = memory_runtime.as_ref() {
+                    if let Err(error) = crate::kernel::runtime_parity::sync_planning_artifacts(
+                        app,
+                        runtime,
+                        &mut next_task,
+                    ) {
+                        eprintln!("[Autopilot] Failed to sync planning artifacts: {}", error);
+                    }
+                }
                 *current_task = next_task;
                 task_clone = Some(current_task.clone());
             }
@@ -1439,13 +1524,36 @@ pub fn start_task(
     intent: String,
     origin_surface: Option<String>,
 ) -> Result<AgentTask, String> {
-    let history = vec![ChatMessage {
+    let task_id = generate_session_id_hex();
+    let workflow_expansion = workspace_workflow_expansion(&intent)?;
+    let knowledge_injection = maybe_inject_ambient_knowledge_sync(&state, &app, &task_id, &intent)?;
+    let base_bootstrap_intent = workflow_expansion
+        .as_ref()
+        .map(|workflow| workflow.expanded_intent.clone())
+        .unwrap_or_else(|| intent.clone());
+    let session_bootstrap_intent = knowledge_injection
+        .as_ref()
+        .map(|knowledge| format!("{}\n\n{}", knowledge.prompt_prefix, base_bootstrap_intent))
+        .unwrap_or(base_bootstrap_intent);
+    let mut history = vec![ChatMessage {
         role: "user".to_string(),
         text: intent.clone(),
         timestamp: crate::kernel::state::now(),
     }];
-
-    let task_id = generate_session_id_hex();
+    if let Some(workflow) = workflow_expansion.as_ref() {
+        history.push(ChatMessage {
+            role: "system".to_string(),
+            text: workflow.announcement.clone(),
+            timestamp: crate::kernel::state::now(),
+        });
+    }
+    if let Some(knowledge) = knowledge_injection.as_ref() {
+        history.push(ChatMessage {
+            role: "system".to_string(),
+            text: knowledge.announcement.clone(),
+            timestamp: crate::kernel::state::now(),
+        });
+    }
 
     let mut task = AgentTask {
         id: task_id.clone(),
@@ -1455,7 +1563,10 @@ pub fn start_task(
         phase: AgentPhase::Running,
         progress: 0,
         total_steps: 20,
-        current_step: "Initializing...".to_string(),
+        current_step: workflow_expansion
+            .as_ref()
+            .map(|workflow| workflow.announcement.clone())
+            .unwrap_or_else(|| "Initializing...".to_string()),
         gate_info: None,
         receipt: None,
         visual_hash: None,
@@ -1491,6 +1602,25 @@ pub fn start_task(
             crate::kernel::artifacts::create_run_bundle(memory_runtime, &task_id, &task_id, vec![]);
         task.run_bundle_id = Some(run_bundle.artifact_id.clone());
         task.artifacts.push(run_bundle.clone());
+        if let Some(workflow) = workflow_expansion.as_ref() {
+            let workflow_artifact = crate::kernel::artifacts::create_named_file_artifact(
+                memory_runtime,
+                &task_id,
+                &workflow.summary.file_path,
+                Some("text/markdown"),
+                None,
+                workflow.markdown.as_bytes(),
+            );
+            task.artifacts.push(workflow_artifact);
+        }
+        if let Some(knowledge) = knowledge_injection.as_ref() {
+            replace_or_insert_task_artifact(&mut task, knowledge.summary_artifact.clone());
+        }
+        if let Err(error) =
+            crate::kernel::runtime_parity::sync_planning_artifacts(&app, memory_runtime, &mut task)
+        {
+            eprintln!("[Autopilot] Failed to sync planning artifacts: {}", error);
+        }
         orchestrator::save_local_task_state(memory_runtime, &task);
     }
 
@@ -1521,7 +1651,7 @@ pub fn start_task(
     }
     let app_clone = app.clone();
     let task_id_for_prepare = task_id.clone();
-    let intent_for_prepare = intent.clone();
+    let intent_for_prepare = session_bootstrap_intent.clone();
     let task_for_prepare = task.clone();
 
     tauri::async_runtime::spawn(async move {
@@ -1551,7 +1681,7 @@ pub fn start_task(
                     bootstrap_kernel_session_after_studio_prepare(
                         app_clone.clone(),
                         task_id_for_prepare,
-                        intent,
+                        session_bootstrap_intent,
                     )
                     .await;
                 }
@@ -1576,21 +1706,68 @@ pub fn start_task(
 
 #[tauri::command]
 pub async fn continue_task(
-    _state: State<'_, Mutex<AppState>>,
+    state: State<'_, Mutex<AppState>>,
     app: AppHandle,
     session_id: String,
     user_input: String,
 ) -> Result<(), String> {
+    let workflow_expansion = workspace_workflow_expansion(&user_input)?;
+    let knowledge_injection = {
+        let (memory_runtime, inference_runtime) = app_runtime_resources(&state)?;
+        match (memory_runtime, inference_runtime) {
+            (Some(memory_runtime), Some(inference_runtime)) => {
+                crate::kernel::runtime_parity::inject_ambient_knowledge(
+                    &app,
+                    &memory_runtime,
+                    &inference_runtime,
+                    &session_id,
+                    &user_input,
+                )
+                .await?
+            }
+            _ => None,
+        }
+    };
+    let base_user_input_for_send = workflow_expansion
+        .as_ref()
+        .map(|workflow| workflow.expanded_intent.clone())
+        .unwrap_or_else(|| user_input.clone());
+    let user_input_for_send = knowledge_injection
+        .as_ref()
+        .map(|knowledge| {
+            format!(
+                "{}\n\n{}",
+                knowledge.prompt_prefix, base_user_input_for_send
+            )
+        })
+        .unwrap_or(base_user_input_for_send);
     let user_msg_ui = ChatMessage {
         role: "user".to_string(),
         text: user_input.clone(),
         timestamp: crate::kernel::state::now(),
     };
     let user_input_for_event = user_input.clone();
+    let knowledge_injection_for_update = knowledge_injection.clone();
 
     update_task_state(&app, move |t| {
         t.processed_steps.clear();
         t.history.push(user_msg_ui.clone());
+        if let Some(workflow) = workflow_expansion.as_ref() {
+            t.history.push(ChatMessage {
+                role: "system".to_string(),
+                text: workflow.announcement.clone(),
+                timestamp: crate::kernel::state::now(),
+            });
+            t.current_step = workflow.announcement.clone();
+        }
+        if let Some(knowledge) = knowledge_injection_for_update.as_ref() {
+            t.history.push(ChatMessage {
+                role: "system".to_string(),
+                text: knowledge.announcement.clone(),
+                timestamp: crate::kernel::state::now(),
+            });
+            replace_or_insert_task_artifact(t, knowledge.summary_artifact.clone());
+        }
         t.credential_request = None;
         t.clarification_request = None;
         let thread_id = t.session_id.clone().unwrap_or_else(|| t.id.clone());
@@ -1600,7 +1777,9 @@ pub async fn continue_task(
             step_index,
             &user_input_for_event,
         ));
-        t.current_step = "Sending message...".to_string();
+        if workflow_expansion.is_none() {
+            t.current_step = "Sending message...".to_string();
+        }
         t.phase = AgentPhase::Running;
     });
 
@@ -1614,8 +1793,6 @@ pub async fn continue_task(
         &app,
         &format!("clarification:{}:", normalized_session_id),
     );
-    let user_input_for_send = user_input.clone();
-
     let app_clone = app.clone();
     let session_for_status = normalized_session_id.clone();
     tauri::async_runtime::spawn(async move {

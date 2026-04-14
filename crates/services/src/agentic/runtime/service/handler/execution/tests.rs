@@ -400,6 +400,7 @@ fn runtime_secret_retry_is_approved_only_for_matching_pending_install() {
         command: "echo".to_string(),
         args: vec!["ok".to_string()],
         stdin: None,
+        wait_ms_before_async: None,
         detach: false,
     };
     assert!(!is_runtime_secret_install_retry_approved(
@@ -1058,6 +1059,7 @@ fn patch_build_verify_rewrites_initial_mismatched_exec_to_targeted_check() {
             "import sys; sys.path.append('/tmp/example'); import path_utils; path_utils.test_path_utils()".to_string(),
         ],
         stdin: None,
+        wait_ms_before_async: None,
     };
 
     let changed = super::normalize_patch_build_verify_targeted_exec_tool(
@@ -1116,6 +1118,7 @@ fn patch_build_verify_does_not_rewrite_after_targeted_command_history_exists() {
             "import sys; sys.path.append('/tmp/example'); import path_utils; path_utils.test_path_utils()".to_string(),
         ],
         stdin: None,
+        wait_ms_before_async: None,
     };
 
     let changed = super::normalize_patch_build_verify_targeted_exec_tool(

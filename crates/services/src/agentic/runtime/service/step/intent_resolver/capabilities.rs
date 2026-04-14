@@ -245,6 +245,11 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
             capabilities: vec![capability("filesystem.read")],
         },
         ToolCapabilityBinding {
+            tool_name: "file__view".to_string(),
+            action_target: ActionTarget::FsRead,
+            capabilities: vec![capability("filesystem.read")],
+        },
+        ToolCapabilityBinding {
             tool_name: "file__list".to_string(),
             action_target: ActionTarget::FsRead,
             capabilities: vec![capability("filesystem.read")],
@@ -274,6 +279,11 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
         },
         ToolCapabilityBinding {
             tool_name: "file__edit".to_string(),
+            action_target: ActionTarget::FsWrite,
+            capabilities: vec![capability("filesystem.write")],
+        },
+        ToolCapabilityBinding {
+            tool_name: "file__multi_edit".to_string(),
             action_target: ActionTarget::FsWrite,
             capabilities: vec![capability("filesystem.write")],
         },
@@ -473,6 +483,11 @@ pub(super) fn tool_capability_bindings() -> Vec<ToolCapabilityBinding> {
         },
         ToolCapabilityBinding {
             tool_name: "browser__navigate".to_string(),
+            action_target: ActionTarget::BrowserInteract,
+            capabilities: browser_interact_capabilities(),
+        },
+        ToolCapabilityBinding {
+            tool_name: "browser__subagent".to_string(),
             action_target: ActionTarget::BrowserInteract,
             capabilities: browser_interact_capabilities(),
         },
@@ -853,6 +868,10 @@ pub fn is_tool_allowed_for_resolution(
         return false;
     };
     let normalized = tool_name.trim().to_ascii_lowercase();
+    if normalized == "browser__subagent" {
+        return is_tool_allowed_for_resolution(Some(resolved), "browser__navigate")
+            && is_tool_allowed_for_resolution(Some(resolved), "agent__delegate");
+    }
     if is_unconditional_resolution_tool(&normalized) {
         return true;
     }

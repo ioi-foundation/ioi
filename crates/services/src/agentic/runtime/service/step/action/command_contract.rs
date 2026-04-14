@@ -310,12 +310,14 @@ pub fn synthesize_allowlisted_timer_notification_tool(tool: &AgentTool) -> Optio
             command: "systemd-run".to_string(),
             args,
             stdin: stdin.clone(),
+            wait_ms_before_async: None,
             detach: *detach,
         }),
         AgentTool::SysExecSession { stdin, .. } => Some(AgentTool::SysExecSession {
             command: "systemd-run".to_string(),
             args,
             stdin: stdin.clone(),
+            wait_ms_before_async: None,
         }),
         _ => None,
     }
@@ -1016,6 +1018,7 @@ mod tests {
             command: "sleep 900 && notify-send 'Timer' '15 minutes are up!'".to_string(),
             args: vec![],
             stdin: None,
+            wait_ms_before_async: None,
         };
 
         assert!(timer_payload_requires_allowlisted_scheduler(&tool));
@@ -1042,6 +1045,7 @@ mod tests {
                 "nohup sh -c 'sleep 900 && notify-send Timer Done' &".to_string(),
             ],
             stdin: None,
+            wait_ms_before_async: None,
             detach: true,
         };
 

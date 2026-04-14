@@ -16,6 +16,22 @@ impl BrowserDriver {
         self.active_page_url.lock().await.clone()
     }
 
+    pub async fn evaluate_on_new_document(
+        &self,
+        script: &str,
+    ) -> std::result::Result<(), BrowserError> {
+        self.require_runtime()?;
+        self.ensure_page().await?;
+
+        let page = { self.active_page.lock().await.clone() }.ok_or(BrowserError::NoActivePage)?;
+        self.check_connection_error(page.evaluate_on_new_document(script.to_string()).await)
+            .await
+            .map_err(|error| {
+                BrowserError::Internal(format!("Failed to register new-document script: {}", error))
+            })?;
+        Ok(())
+    }
+
     fn validate_upload_paths(paths: &[String]) -> std::result::Result<Vec<String>, BrowserError> {
         if paths.is_empty() {
             return Err(BrowserError::Internal(

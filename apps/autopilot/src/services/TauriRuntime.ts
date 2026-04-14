@@ -86,6 +86,18 @@ type LocalEnginePlaybook = LocalEngineSnapshot["agentPlaybooks"][number];
 type LocalEngineParentPlaybookRun = LocalEngineSnapshot["parentPlaybookRuns"][number];
 type LocalEngineGalleryCatalog = LocalEngineSnapshot["galleryCatalogs"][number];
 
+export type WorkspaceWorkflowSummary = {
+  workflowId: string;
+  slashCommand: string;
+  description: string;
+  filePath: string;
+  relativePath: string;
+  sourceRoot: string;
+  sourceRank: number;
+  stepCount: number;
+  turboAll: boolean;
+};
+
 const GRAPH_CAPABILITY_ALIASES: Record<string, string> = {
   responses: "reasoning",
   embeddings: "embedding",
@@ -1070,6 +1082,10 @@ export class TauriRuntime implements AgentRuntime, AgentSessionRuntime {
 
     async getRuntimeCatalogEntries(): Promise<RuntimeCatalogEntry[]> {
         return liveRuntimeCatalogEntriesFromSnapshot(await this.getLocalEngineSnapshot());
+    }
+
+    async listWorkspaceWorkflows(): Promise<WorkspaceWorkflowSummary[]> {
+        return invoke("list_workspace_workflows");
     }
 
     async stageRuntimeCatalogEntry(entryId: string, notes?: string): Promise<void> {

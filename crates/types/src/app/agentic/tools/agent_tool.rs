@@ -9,6 +9,15 @@ fn default_true() -> bool {
     true
 }
 
+/// One exact-match edit leg for a single-file atomic multi-edit.
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
+pub struct AgentFileEditOperation {
+    /// Exact string block to find and replace. Must occur exactly once.
+    pub search: String,
+    /// Replacement string block.
+    pub replace: String,
+}
+
 /// A typed nested tool invocation payload used by higher-level primitives.
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 pub struct AgentToolCall {
@@ -50,11 +59,33 @@ pub enum AgentTool {
         replace: String,
     },
 
+    /// Patches one file with multiple exact-match edit legs atomically.
+    #[serde(rename = "file__multi_edit")]
+    FsMultiPatch {
+        /// Path to the file.
+        path: String,
+        /// Ordered exact-match edit legs. The runtime applies all of them or none of them.
+        edits: Vec<AgentFileEditOperation>,
+    },
+
     /// Reads content from a file.
     #[serde(rename = "file__read")]
     FsRead {
         /// Path to the file.
         path: String,
+    },
+
+    /// Views a local file through a MIME-aware runtime surface.
+    #[serde(rename = "file__view")]
+    FsView {
+        /// Path to the file.
+        path: String,
+        /// Optional 1-based text line offset for large text-like files.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        start_line: Option<u32>,
+        /// Optional maximum number of text lines to return. Runtime clamps this to a safe window.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        line_count: Option<u32>,
     },
 
     /// Lists directory contents.
@@ -153,6 +184,13 @@ pub enum AgentTool {
         /// Optional stdin payload forwarded to the process.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         stdin: Option<String>,
+        /// Optional wait threshold before returning a retained command handle.
+        ///
+        /// When set, the runtime waits up to this many milliseconds for the command to finish.
+        /// If the command is still running after the threshold, the call returns a retained
+        /// command handle instead of blocking until completion.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        wait_ms_before_async: Option<u64>,
         /// Whether to detach the process.
         #[serde(default)]
         detach: bool,
@@ -173,11 +211,37 @@ pub enum AgentTool {
         /// Optional stdin payload forwarded to the process.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         stdin: Option<String>,
+        /// Optional wait threshold before returning a retained command handle.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        wait_ms_before_async: Option<u64>,
     },
 
     /// Resets the persistent shell session used by `shell__start`.
     #[serde(rename = "shell__reset")]
     SysExecSessionReset {},
+
+    /// Inspect a retained command launched by `shell__run` or `shell__start`.
+    #[serde(rename = "shell__status")]
+    SysExecStatus {
+        /// Stable retained command identifier.
+        command_id: String,
+    },
+
+    /// Send raw stdin to a retained running command.
+    #[serde(rename = "shell__input")]
+    SysExecInput {
+        /// Stable retained command identifier.
+        command_id: String,
+        /// Raw stdin payload to write to the running command.
+        stdin: String,
+    },
+
+    /// Terminate a retained running command.
+    #[serde(rename = "shell__terminate")]
+    SysExecTerminate {
+        /// Stable retained command identifier.
+        command_id: String,
+    },
 
     /// Installs a package using a deterministic package manager mapping.
     #[serde(rename = "package__install")]
@@ -844,7 +908,9 @@ impl AgentTool {
             "screen"
                 | "file__write"
                 | "file__edit"
+                | "file__multi_edit"
                 | "file__read"
+                | "file__view"
                 | "file__list"
                 | "file__search"
                 | "file__info"
@@ -859,6 +925,7 @@ impl AgentTool {
                 | "package__install"
                 | "shell__cd"
                 | "browser__navigate"
+                | "browser__subagent"
                 | "browser__inspect"
                 | "browser__click"
                 | "browser__hover"

@@ -29,6 +29,7 @@ use ioi_types::app::{
     ActionRequest, ContextSlice, KernelEvent, WorkloadActivityKind, WorkloadReceipt,
 };
 use ioi_types::error::VmError;
+use serde_json::Value;
 use std::sync::Arc;
 
 #[test]
@@ -654,6 +655,44 @@ fn build_tool_executor(
     )
 }
 
+fn retained_payload(result: &ToolExecutionResult) -> Value {
+    let payload = result
+        .history_entry
+        .as_ref()
+        .expect("retained command payload should be present");
+    serde_json::from_str(payload).expect("retained command payload should be valid json")
+}
+
+async fn wait_for_completed_status(
+    exec: &crate::agentic::runtime::execution::ToolExecutor,
+    command_id: &str,
+) -> Value {
+    for _ in 0..40 {
+        let result = super::handle(
+            exec,
+            AgentTool::SysExecStatus {
+                command_id: command_id.to_string(),
+            },
+            ".",
+            [0u8; 32],
+            0,
+        )
+        .await;
+        assert!(result.success, "status polling should succeed");
+        let payload = retained_payload(&result);
+        if !payload
+            .get("running")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            return payload;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+
+    panic!("retained command '{}' did not complete in time", command_id);
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn sys_exec_session_reset_emits_workload_receipt_and_activity() {
     let (tx, mut rx) = tokio::sync::broadcast::channel(16);
@@ -719,4 +758,191 @@ async fn sys_exec_session_reset_emits_workload_receipt_and_activity() {
     );
     assert!(saw_exec_receipt);
     assert_eq!(activity_workload_id, receipt_workload_id);
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "current_thread")]
+async fn shell_run_async_status_and_input_round_trip() {
+    let exec = build_tool_executor(None);
+    let session_id = [3u8; 32];
+    let result = super::handle(
+        &exec,
+        AgentTool::SysExec {
+            command: "bash".to_string(),
+            args: vec![
+                "-lc".to_string(),
+                "printf 'ready\\n'; read line; printf 'echo:%s\\n' \"$line\"".to_string(),
+            ],
+            stdin: None,
+            wait_ms_before_async: Some(50),
+            detach: false,
+        },
+        ".",
+        session_id,
+        1,
+    )
+    .await;
+
+    assert!(result.success);
+    let launch_payload = retained_payload(&result);
+    let command_id = launch_payload
+        .get("command_id")
+        .and_then(Value::as_str)
+        .expect("command id should be present")
+        .to_string();
+    assert_eq!(
+        launch_payload.get("status").and_then(Value::as_str),
+        Some("running")
+    );
+    assert_eq!(
+        launch_payload.get("terminal_id").and_then(Value::as_str),
+        None
+    );
+
+    let input_result = super::handle(
+        &exec,
+        AgentTool::SysExecInput {
+            command_id: command_id.clone(),
+            stdin: "hello\n".to_string(),
+        },
+        ".",
+        session_id,
+        2,
+    )
+    .await;
+    assert!(input_result.success);
+
+    let completed = wait_for_completed_status(&exec, &command_id).await;
+    assert_eq!(
+        completed.get("status").and_then(Value::as_str),
+        Some("completed")
+    );
+    assert_eq!(completed.get("exit_code").and_then(Value::as_i64), Some(0));
+    let output_tail = completed
+        .get("output_tail")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    assert!(output_tail.contains("ready"));
+    assert!(output_tail.contains("echo:hello"));
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "current_thread")]
+async fn shell_start_async_status_and_input_round_trip() {
+    let exec = build_tool_executor(None);
+    let session_id = [4u8; 32];
+    let expected_terminal_id = hex::encode(session_id);
+    let result = super::handle(
+        &exec,
+        AgentTool::SysExecSession {
+            command: "bash".to_string(),
+            args: vec![
+                "-lc".to_string(),
+                "printf 'session-ready\\n'; read line; printf 'session-echo:%s\\n' \"$line\""
+                    .to_string(),
+            ],
+            stdin: None,
+            wait_ms_before_async: Some(50),
+        },
+        ".",
+        session_id,
+        1,
+    )
+    .await;
+
+    assert!(result.success);
+    let launch_payload = retained_payload(&result);
+    let command_id = launch_payload
+        .get("command_id")
+        .and_then(Value::as_str)
+        .expect("command id should be present")
+        .to_string();
+    assert_eq!(
+        launch_payload.get("terminal_id").and_then(Value::as_str),
+        Some(expected_terminal_id.as_str())
+    );
+    assert_eq!(
+        launch_payload.get("status").and_then(Value::as_str),
+        Some("running")
+    );
+
+    let input_result = super::handle(
+        &exec,
+        AgentTool::SysExecInput {
+            command_id: command_id.clone(),
+            stdin: "workspace\n".to_string(),
+        },
+        ".",
+        session_id,
+        2,
+    )
+    .await;
+    assert!(input_result.success);
+
+    let completed = wait_for_completed_status(&exec, &command_id).await;
+    assert_eq!(
+        completed.get("status").and_then(Value::as_str),
+        Some("completed")
+    );
+    assert_eq!(
+        completed.get("terminal_id").and_then(Value::as_str),
+        Some(expected_terminal_id.as_str())
+    );
+    let output_tail = completed
+        .get("output_tail")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    assert!(output_tail.contains("session-ready"));
+    assert!(output_tail.contains("session-echo:workspace"));
+}
+
+#[cfg(unix)]
+#[tokio::test(flavor = "current_thread")]
+async fn shell_terminate_stops_retained_command() {
+    let exec = build_tool_executor(None);
+    let session_id = [5u8; 32];
+    let result = super::handle(
+        &exec,
+        AgentTool::SysExec {
+            command: "bash".to_string(),
+            args: vec!["-lc".to_string(), "sleep 30".to_string()],
+            stdin: None,
+            wait_ms_before_async: Some(25),
+            detach: false,
+        },
+        ".",
+        session_id,
+        1,
+    )
+    .await;
+
+    assert!(result.success);
+    let launch_payload = retained_payload(&result);
+    let command_id = launch_payload
+        .get("command_id")
+        .and_then(Value::as_str)
+        .expect("command id should be present")
+        .to_string();
+
+    let terminate_result = super::handle(
+        &exec,
+        AgentTool::SysExecTerminate {
+            command_id: command_id.clone(),
+        },
+        ".",
+        session_id,
+        2,
+    )
+    .await;
+    assert!(terminate_result.success);
+
+    let completed = wait_for_completed_status(&exec, &command_id).await;
+    assert_eq!(
+        completed.get("status").and_then(Value::as_str),
+        Some("completed")
+    );
+    assert_eq!(
+        completed.get("running").and_then(Value::as_bool),
+        Some(false)
+    );
 }

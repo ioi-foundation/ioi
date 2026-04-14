@@ -21,6 +21,7 @@ pub(crate) use contract::{
     normalize_web_retrieval_contract, query_matching_source_urls, WEB_SOURCE_ALIGNMENT_MAX_SOURCES,
 };
 pub(crate) use media::media_provider_candidate_receipt;
+pub(crate) use media::sample_local_video_preview;
 pub use media::{
     edge_media_extract_multimodal_evidence, edge_media_extract_transcript, kernel_media_edit_image,
     kernel_media_generate_image, kernel_media_generate_video, kernel_media_synthesize_speech,

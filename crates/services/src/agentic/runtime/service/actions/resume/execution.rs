@@ -1,5 +1,6 @@
 use crate::agentic::runtime::service::lifecycle::{
-    await_child_worker_result, spawn_delegated_child_session,
+    await_child_worker_result, browser_subagent_request_from_dynamic, run_browser_subagent,
+    spawn_delegated_child_session,
 };
 use crate::agentic::runtime::service::{RuntimeAgentService, ServiceCallContext};
 use crate::agentic::runtime::types::AgentState;
@@ -135,6 +136,61 @@ pub(super) async fn execute(
                     err = Some(error);
                 }
             },
+            AgentTool::Dynamic(value) => {
+                match browser_subagent_request_from_dynamic(value).and_then(|request| {
+                    request.ok_or_else(|| {
+                        "ERROR_CLASS=UnsupportedTool browser__subagent request missing.".to_string()
+                    })
+                }) {
+                    Ok(request) => match run_browser_subagent(
+                        service,
+                        state,
+                        agent_state,
+                        tool_hash,
+                        pre_state_step_index,
+                        block_height,
+                        call_context,
+                        &request,
+                    )
+                    .await
+                    {
+                        Ok(outcome) => {
+                            out = Some(
+                                json!({
+                                    "child_session_id_hex": outcome.child_session_id_hex,
+                                    "status": outcome.status,
+                                    "task_name": request.task_name,
+                                    "recording_name": request.recording_name,
+                                    "final_report": outcome.final_report,
+                                })
+                                .to_string(),
+                            );
+                            success = outcome.success;
+                            err = if outcome.success {
+                                None
+                            } else {
+                                Some("Browser subagent returned control to the parent.".to_string())
+                            };
+                        }
+                        Err(error) => {
+                            success = false;
+                            out = None;
+                            err = Some(error);
+                        }
+                    },
+                    Err(error)
+                        if value
+                            .get("name")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|name| name.eq_ignore_ascii_case("browser__subagent")) =>
+                    {
+                        success = false;
+                        out = None;
+                        err = Some(error);
+                    }
+                    Err(_) => {}
+                }
+            }
             _ => {}
         }
     }

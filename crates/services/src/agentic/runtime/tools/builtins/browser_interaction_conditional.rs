@@ -2,6 +2,50 @@
     // Browser Interaction (CONDITIONAL)
     // Follow-up browser tools are exposed in DOM headless flows and when a browser
     // window is active (including visual tiers) to prevent navigate-only loops.
+    if should_expose_headless_browser_followups(tier, allow_browser_navigation, is_browser_active)
+        && is_tool_allowed_for_resolution(resolved_intent, "browser__subagent")
+        && is_tool_allowed_for_resolution(resolved_intent, "agent__delegate")
+    {
+        let browser_subagent_params = json!({
+            "type": "object",
+            "properties": {
+                "task_name": {
+                    "type": "string",
+                    "description": "Short user-facing label for the delegated browser task."
+                },
+                "task_summary": {
+                    "type": "string",
+                    "description": "Concise summary of the browser objective."
+                },
+                "recording_name": {
+                    "type": "string",
+                    "description": "Recording or evidence label retained for the browser run."
+                },
+                "task": {
+                    "type": "string",
+                    "description": "Full semantic browser task contract. Describe the goal, success condition, and any constraints here."
+                },
+                "reused_subagent_id": {
+                    "type": "string",
+                    "description": "Optional prior browser subagent id to resume."
+                },
+                "media_paths": {
+                    "type": "array",
+                    "description": "Optional local media paths to keep in scope while the browser worker runs.",
+                    "items": { "type": "string" }
+                }
+            },
+            "required": ["task_name", "task_summary", "recording_name", "task"]
+        });
+        tools.push(LlmToolDefinition {
+            name: "browser__subagent".to_string(),
+            description:
+                "Run a packaged autonomous browser specialist as one blocking tool call. The parent waits for the final semantic report while the runtime streams delegated browser progress to the user."
+                    .to_string(),
+            parameters: browser_subagent_params.to_string(),
+        });
+    }
+
     let (browser_top_edge_jump_json, browser_bottom_edge_jump_json) = if cfg!(target_os = "macos")
     {
         (

@@ -6,7 +6,8 @@ use crate::agentic::runtime::service::handler::{
     build_pii_review_request_for_tool, emit_pii_review_requested, persist_pii_review_request,
 };
 use crate::agentic::runtime::service::lifecycle::{
-    await_child_worker_result, spawn_delegated_child_session,
+    await_child_worker_result, browser_subagent_request_from_dynamic, run_browser_subagent,
+    spawn_delegated_child_session,
 };
 use crate::agentic::runtime::service::step::action::command_contract::is_cec_terminal_error;
 use crate::agentic::runtime::service::step::action::{
@@ -215,14 +216,23 @@ fn queue_tool_timeout_policy(
 }
 
 fn queue_workspace_read_receipt(step_index: u32, tool: &AgentTool) -> Option<String> {
-    let AgentTool::FsRead { path } = tool else {
-        return None;
-    };
-    let path = path.trim();
-    if path.is_empty() {
-        return None;
+    match tool {
+        AgentTool::FsRead { path } => {
+            let path = path.trim();
+            if path.is_empty() {
+                return None;
+            }
+            Some(format!("step={step_index};tool=file__read;path={path}"))
+        }
+        AgentTool::FsView { path, .. } => {
+            let path = path.trim();
+            if path.is_empty() {
+                return None;
+            }
+            Some(format!("step={step_index};tool=file__view;path={path}"))
+        }
+        _ => None,
     }
-    Some(format!("step={step_index};tool=file__read;path={path}"))
 }
 
 fn queue_workspace_edit_receipt(step_index: u32, tool: &AgentTool) -> Option<(String, String)> {
@@ -252,6 +262,16 @@ fn queue_workspace_edit_receipt(step_index: u32, tool: &AgentTool) -> Option<(St
             Some((
                 "file__edit".to_string(),
                 format!("step={step_index};tool=file__edit;path={path}"),
+            ))
+        }
+        AgentTool::FsMultiPatch { path, .. } => {
+            let path = path.trim();
+            if path.is_empty() {
+                return None;
+            }
+            Some((
+                "file__multi_edit".to_string(),
+                format!("step={step_index};tool=file__multi_edit;path={path}"),
             ))
         }
         _ => None,
@@ -469,6 +489,61 @@ async fn execute_queue_tool_request(
                         outcome.1 = None;
                         outcome.2 = Some(error);
                     }
+                }
+            }
+            AgentTool::Dynamic(value) => {
+                match browser_subagent_request_from_dynamic(value).and_then(|request| {
+                    request.ok_or_else(|| {
+                        "ERROR_CLASS=UnsupportedTool browser__subagent request missing.".to_string()
+                    })
+                }) {
+                    Ok(request) => match run_browser_subagent(
+                        service,
+                        state,
+                        agent_state,
+                        tool_hash,
+                        agent_state.step_count,
+                        call_context.block_height,
+                        call_context,
+                        &request,
+                    )
+                    .await
+                    {
+                        Ok(browser_outcome) => {
+                            outcome.1 = Some(
+                                json!({
+                                    "child_session_id_hex": browser_outcome.child_session_id_hex,
+                                    "status": browser_outcome.status,
+                                    "task_name": request.task_name,
+                                    "recording_name": request.recording_name,
+                                    "final_report": browser_outcome.final_report,
+                                })
+                                .to_string(),
+                            );
+                            outcome.0 = browser_outcome.success;
+                            outcome.2 = if browser_outcome.success {
+                                None
+                            } else {
+                                Some("Browser subagent returned control to the parent.".to_string())
+                            };
+                        }
+                        Err(error) => {
+                            outcome.0 = false;
+                            outcome.1 = None;
+                            outcome.2 = Some(error);
+                        }
+                    },
+                    Err(error)
+                        if value
+                            .get("name")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|name| name.eq_ignore_ascii_case("browser__subagent")) =>
+                    {
+                        outcome.0 = false;
+                        outcome.1 = None;
+                        outcome.2 = Some(error);
+                    }
+                    Err(_) => {}
                 }
             }
             _ => {}

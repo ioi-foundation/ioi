@@ -134,6 +134,7 @@ pub(crate) fn build_session_script(
     cwd: Option<&Path>,
     cmd_line: &str,
     stdin_data: Option<&[u8]>,
+    stdin_bridge_path: Option<&Path>,
     rc_prefix: &str,
     done_marker: &str,
     marker_id: u64,
@@ -148,7 +149,14 @@ pub(crate) fn build_session_script(
         script.push_str("else\n");
     }
 
-    if let Some(bytes) = stdin_data {
+    if let Some(stdin_bridge_path) = stdin_bridge_path {
+        let path_str = stdin_bridge_path.to_string_lossy().to_string();
+        script.push_str(&format!(
+            "  {cmd_line} < {}\n",
+            quote_sh_argument(&path_str)
+        ));
+        script.push_str("  ioi_rc=$?\n");
+    } else if let Some(bytes) = stdin_data {
         let data = String::from_utf8_lossy(bytes).to_string();
         let delimiter = choose_heredoc_delimiter(marker_id, &data);
         script.push_str(&format!("  {cmd_line} <<'{delimiter}'\n"));

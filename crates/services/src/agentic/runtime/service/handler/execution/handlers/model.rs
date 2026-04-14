@@ -61,6 +61,7 @@ pub(crate) async fn handle_native_dynamic_tool(
         "media__generate_video" => Some(
             handle_media_video_generation_tool(service, dynamic_tool, session_id, step_index).await,
         ),
+        "browser__subagent" => Some(no_visual(true, None, None)),
         _ => match classify_registry_tool(tool_name) {
             Some(descriptor) => Some(
                 handle_registry_dynamic_tool(

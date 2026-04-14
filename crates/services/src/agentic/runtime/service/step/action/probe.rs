@@ -602,6 +602,7 @@ mod tests {
                 "if command -v gimp >/dev/null 2>&1; then echo \"FOUND: $(command -v gimp)\"; else echo \"NOT_FOUND_IN_PATH\"; fi".to_string(),
             ],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let summary = summarize_command_probe_output(&tool, "NOT_FOUND_IN_PATH")
@@ -618,6 +619,7 @@ mod tests {
                 "if command -v gimp >/dev/null 2>&1; then echo \"FOUND: $(command -v gimp)\"; else echo \"NOT_FOUND_IN_PATH\"; fi".to_string(),
             ],
             stdin: None,
+            wait_ms_before_async: None,
         };
         let summary = summarize_command_probe_output(&tool, "NOT_FOUND_IN_PATH")
             .expect("should produce summary");
@@ -633,6 +635,7 @@ mod tests {
                 "if command -v gimp >/dev/null 2>&1; then echo \"FOUND: $(command -v gimp)\"; gimp --version; fi".to_string(),
             ],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let output = "FOUND: /usr/bin/gimp\nGIMP 2.10.34";

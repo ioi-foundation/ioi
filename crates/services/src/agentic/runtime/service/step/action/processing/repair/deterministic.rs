@@ -108,6 +108,7 @@ pub(crate) fn synthesize_patch_build_verify_targeted_exec_bootstrap(
         command: "bash".to_string(),
         args: vec!["-lc".to_string(), command_literal],
         stdin: None,
+        wait_ms_before_async: None,
     })
 }
 
@@ -174,6 +175,7 @@ pub(crate) fn synthesize_patch_build_verify_targeted_exec_followup(
         command: "bash".to_string(),
         args: vec!["-lc".to_string(), command_literal],
         stdin: None,
+        wait_ms_before_async: None,
     })
 }
 

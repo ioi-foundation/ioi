@@ -9,6 +9,7 @@ import {
   workspaceRootFromTask,
 } from "./spotlightInputHelpers";
 import type { AgentTask, SessionSummary } from "../../../types";
+import type { WorkspaceWorkflowSummary } from "../../../services/TauriRuntime";
 
 export function buildSharedSessionCommandItems({
   commandQuery,
@@ -514,6 +515,48 @@ export function buildWorkspaceSlashItems({
       onSelect: () => {
         onSelectWorkspaceMode(option.value);
         dismissCommandSurface();
+      },
+    }));
+}
+
+export function buildWorkspaceWorkflowItems({
+  workflows,
+  commandQuery,
+  onSelectWorkflow,
+}: {
+  workflows: WorkspaceWorkflowSummary[];
+  commandQuery: string;
+  onSelectWorkflow: (slashCommand: string) => void;
+}): SlashMenuItem[] {
+  return [...workflows]
+    .sort((left, right) => {
+      if (left.sourceRank !== right.sourceRank) {
+        return left.sourceRank - right.sourceRank;
+      }
+      return left.workflowId.localeCompare(right.workflowId);
+    })
+    .filter((workflow) =>
+      matchesSlashQuery(
+        commandQuery,
+        workflow.slashCommand,
+        workflow.description,
+        workflow.relativePath,
+        workflow.sourceRoot,
+        workflow.filePath,
+        "workflow markdown turbo",
+      ),
+    )
+    .map<SlashMenuItem>((workflow) => ({
+      id: `workflow-${workflow.workflowId}`,
+      title: `Run ${workflow.slashCommand}`,
+      description: workflow.description,
+      icon: icons.sparkles,
+      meta:
+        workflow.stepCount > 0
+          ? `${workflow.stepCount} step${workflow.stepCount === 1 ? "" : "s"}`
+          : workflow.relativePath,
+      onSelect: () => {
+        onSelectWorkflow(workflow.slashCommand);
       },
     }));
 }

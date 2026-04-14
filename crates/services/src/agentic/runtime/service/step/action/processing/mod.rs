@@ -688,6 +688,7 @@ mod tests {
             command: "sleep".to_string(),
             args: vec!["900".to_string()],
             stdin: None,
+            wait_ms_before_async: None,
             detach: true,
         };
         let history = CommandExecution {
@@ -716,6 +717,7 @@ mod tests {
                 "nohup sh -c 'sleep 900 && notify-send Timer Done' &".to_string(),
             ],
             stdin: None,
+            wait_ms_before_async: None,
             detach: true,
         };
         let history = CommandExecution {
@@ -741,6 +743,7 @@ mod tests {
             command: "sleep".to_string(),
             args: vec!["900".to_string()],
             stdin: None,
+            wait_ms_before_async: None,
             detach: false,
         };
         let history = CommandExecution {

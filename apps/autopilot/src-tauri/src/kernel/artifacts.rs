@@ -125,6 +125,61 @@ pub fn create_named_file_artifact(
     persist_artifact(memory_runtime, &artifact, content)
 }
 
+pub fn upsert_named_file_artifact(
+    memory_runtime: &Arc<MemoryRuntime>,
+    thread_id: &str,
+    path: &str,
+    mime: Option<&str>,
+    revision: Option<String>,
+    content: &[u8],
+) -> Artifact {
+    let existing = orchestrator::load_artifacts(memory_runtime, thread_id)
+        .into_iter()
+        .filter(|artifact| artifact.artifact_type == ArtifactType::File)
+        .filter(|artifact| {
+            artifact
+                .metadata
+                .get("path")
+                .and_then(|value| value.as_str())
+                == Some(path)
+        })
+        .max_by_key(|artifact| artifact.version.unwrap_or(1));
+
+    if let Some(existing) = existing.as_ref() {
+        if let Some(previous) =
+            orchestrator::load_artifact_content(memory_runtime, &existing.artifact_id)
+        {
+            if previous == content {
+                return existing.clone();
+            }
+        }
+    }
+
+    let metadata = json!({
+        "path": path,
+        "revision": revision,
+        "mime": mime,
+    });
+    let artifact = build_artifact(
+        thread_id,
+        ArtifactType::File,
+        format!("File: {}", path),
+        "File snapshot".to_string(),
+        metadata,
+        Some(
+            existing
+                .as_ref()
+                .and_then(|artifact| artifact.version)
+                .unwrap_or(0)
+                + 1,
+        ),
+        existing
+            .as_ref()
+            .map(|artifact| artifact.artifact_id.clone()),
+    );
+    persist_artifact(memory_runtime, &artifact, content)
+}
+
 pub fn create_web_artifact(
     memory_runtime: &Arc<MemoryRuntime>,
     thread_id: &str,
