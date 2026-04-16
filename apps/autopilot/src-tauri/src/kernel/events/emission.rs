@@ -503,6 +503,8 @@ pub(super) fn emit_receipt_digest(
     gate_state: &str,
     resolution_action: &str,
     summary: &str,
+    extra_digest: Option<Value>,
+    extra_details: Option<Value>,
     report_ref: Option<ArtifactRef>,
     input_refs: Vec<String>,
 ) -> AgentEvent {
@@ -511,7 +513,7 @@ pub(super) fn emit_receipt_digest(
         artifact_refs.push(r);
     }
 
-    let digest = json!({
+    let mut digest = json!({
         "intent_class": intent_class,
         "incident_stage": incident_stage,
         "strategy_node": strategy_node,
@@ -522,9 +524,24 @@ pub(super) fn emit_receipt_digest(
         "decision": decision,
         "summary": snippet(summary),
     });
-    let details = json!({
+    if let (Some(extra), Some(target)) = (extra_digest, digest.as_object_mut()) {
+        if let Value::Object(extra_map) = extra {
+            for (key, value) in extra_map {
+                target.insert(key, value);
+            }
+        }
+    }
+
+    let mut details = json!({
         "receipt_summary": thresholds::trim_for_expanded_view(summary),
     });
+    if let (Some(extra), Some(target)) = (extra_details, details.as_object_mut()) {
+        if let Value::Object(extra_map) = extra {
+            for (key, value) in extra_map {
+                target.insert(key, value);
+            }
+        }
+    }
 
     build_event(
         thread_id,

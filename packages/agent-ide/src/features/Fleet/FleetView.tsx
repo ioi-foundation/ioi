@@ -1,11 +1,11 @@
 // packages/agent-ide/src/features/Fleet/FleetView.tsx
 import { useState, useEffect, useMemo } from "react";
-import { AgentRuntime, Zone, Container } from "../../runtime/agent-runtime";
+import { AgentWorkbenchRuntime, Zone, Container } from "../../runtime/agent-runtime";
 import { Icons } from "../../ui/icons";
 import "./FleetView.css";
 
 interface FleetViewProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
 }
 
 function detailRowsForContainer(

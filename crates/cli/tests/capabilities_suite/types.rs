@@ -97,6 +97,47 @@ pub struct VerificationFact {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct RouteDecisionObservation {
+    pub tool_name: String,
+    pub route_family: String,
+    pub output_intent: String,
+    pub direct_answer_allowed: bool,
+    pub direct_answer_blockers: Vec<String>,
+    pub currentness_override: bool,
+    pub connector_first_preference: bool,
+    pub narrow_tool_preference: bool,
+    pub selected_provider_family: Option<String>,
+    pub selected_provider_route_label: Option<String>,
+    pub projected_tools: Vec<String>,
+    pub primary_tools: Vec<String>,
+    pub broad_fallback_tools: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct ToolNormalizationObservation {
+    pub tool_name: String,
+    pub raw_name: Option<String>,
+    pub normalized_name: Option<String>,
+    pub changed: bool,
+    pub labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct ToolRecoveryObservation {
+    pub tool_name: String,
+    pub repair_attempted: bool,
+    pub repair_succeeded: Option<bool>,
+    pub retry_path: bool,
+    pub repair_runtime: Option<String>,
+    pub repair_tool: Option<String>,
+    pub repair_workflow: Option<String>,
+    pub recovery_strategy: Option<String>,
+    pub recovery_source: Option<String>,
+    pub boundary_events: Vec<String>,
+    pub labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct ParentPlaybookObservation {
     pub tool_name: String,
     pub phase: String,
@@ -106,7 +147,10 @@ pub struct ParentPlaybookObservation {
     pub success: bool,
     pub route_family: String,
     pub topology: String,
+    pub planner_authority: String,
     pub verifier_state: String,
+    pub verifier_role: String,
+    pub verifier_outcome: String,
     pub step_id: Option<String>,
     pub step_label: Option<String>,
     pub template_id: Option<String>,
@@ -283,6 +327,9 @@ pub struct RunObservation {
     pub routing_policy_decisions: Vec<String>,
     pub routing_failure_classes: Vec<String>,
     pub routing_stop_condition_hits: usize,
+    pub route_decisions: Vec<RouteDecisionObservation>,
+    pub tool_normalizations: Vec<ToolNormalizationObservation>,
+    pub tool_recoveries: Vec<ToolRecoveryObservation>,
     pub verification_checks: Vec<String>,
     pub verification_facts: Vec<VerificationFact>,
     pub approval_required_events: usize,
@@ -1012,6 +1059,9 @@ mod tests {
             routing_policy_decisions: Vec::new(),
             routing_failure_classes: Vec::new(),
             routing_stop_condition_hits: 0,
+            route_decisions: Vec::new(),
+            tool_normalizations: Vec::new(),
+            tool_recoveries: Vec::new(),
             verification_checks: Vec::new(),
             verification_facts: Vec::new(),
             approval_required_events: 0,

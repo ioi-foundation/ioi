@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
-  AgentRuntime,
   AssistantWorkbenchSession,
-  CalendarEventDetail,
-  GmailThreadDetail,
-} from "./agent-runtime";
+} from "./assistant-session-runtime-types";
+import type { AgentWorkbenchRuntime } from "./agent-workbench-runtime-types";
 import { createAssistantWorkbenchActivity } from "./assistant-workbench-activity";
+import {
+  buildMeetingBriefDraft,
+  buildMeetingPrepAutopilotIntent,
+  buildReplyAutopilotIntent,
+  buildReplyBody,
+  buildReplyReferences,
+  collectCalendarLinks,
+  ensureReplySubject,
+  extractEmailAddress,
+} from "./assistant-workbench-content";
 import { reportAssistantWorkbenchActivity } from "./session-runtime";
 import {
   buildConnectorApprovalMemoryRequest,
@@ -19,16 +27,18 @@ export type AssistantWorkbenchBusyAction =
   | "copy"
   | null;
 
-export interface UseAssistantWorkbenchControllerOptions {
+export interface UseAssistantWorkbenchActionsOptions {
   session: AssistantWorkbenchSession | null;
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
 }
 
 async function emitWorkbenchActivity(
   session: AssistantWorkbenchSession | null,
   params: Parameters<typeof createAssistantWorkbenchActivity>[1],
 ) {
-  if (!session) return;
+  if (!session) {
+    return;
+  }
   try {
     await reportAssistantWorkbenchActivity(
       createAssistantWorkbenchActivity(session, params),
@@ -38,184 +48,10 @@ async function emitWorkbenchActivity(
   }
 }
 
-function formatEventTime(raw?: string): string {
-  if (!raw) return "Unknown";
-  const value = new Date(raw);
-  if (Number.isNaN(value.getTime())) {
-    return raw;
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(value);
-}
-
-function extractEmailAddress(raw?: string): string {
-  if (!raw) return "";
-  const match = raw.match(/<([^>]+)>/);
-  if (match?.[1]) {
-    return match[1].trim();
-  }
-  const fallback = raw.trim();
-  return /\S+@\S+\.\S+/.test(fallback) ? fallback : "";
-}
-
-function extractDisplayName(raw?: string): string {
-  if (!raw) return "there";
-  const bracketIndex = raw.indexOf("<");
-  const base = (bracketIndex >= 0 ? raw.slice(0, bracketIndex) : raw).trim();
-  if (base) {
-    return base.replace(/^"|"$/g, "");
-  }
-  const email = extractEmailAddress(raw);
-  if (!email) return "there";
-  return email.split("@")[0]?.replace(/[._-]+/g, " ") || "there";
-}
-
-function ensureReplySubject(subject?: string): string {
-  if (!subject?.trim()) return "Re:";
-  return /^re:/i.test(subject) ? subject : `Re: ${subject}`;
-}
-
-function buildReplyReferences(
-  references?: string,
-  rfcMessageId?: string,
-): string | undefined {
-  const parts = [
-    ...(references
-      ? references
-          .split(/\s+/)
-          .map((value) => value.trim())
-          .filter(Boolean)
-      : []),
-    ...(rfcMessageId?.trim() ? [rfcMessageId.trim()] : []),
-  ];
-  const deduped = Array.from(new Set(parts));
-  return deduped.length > 0 ? deduped.join(" ") : undefined;
-}
-
-function buildReplyBody(thread: GmailThreadDetail): string {
-  const latest = thread.messages[thread.messages.length - 1];
-  const salutation = `Hi ${extractDisplayName(latest?.from)},`;
-  return `${salutation}\n\n\n\nBest,\n`;
-}
-
-function buildReplyPrompt(
-  thread: GmailThreadDetail,
-  to: string,
-  subject: string,
-  currentBody: string,
-): string {
-  const latest = thread.messages[thread.messages.length - 1];
-  const transcript = thread.messages
-    .slice(-3)
-    .map((message, index) => {
-      const lines = [
-        `Message ${index + 1}`,
-        message.from ? `From: ${message.from}` : null,
-        message.to ? `To: ${message.to}` : null,
-        message.subject ? `Subject: ${message.subject}` : null,
-        message.date ? `Date: ${message.date}` : null,
-        message.snippet ? `Snippet: ${message.snippet}` : null,
-      ].filter(Boolean);
-      return lines.join("\n");
-    })
-    .join("\n\n");
-
-  const draftNote = currentBody.trim()
-    ? `Current draft body:\n${currentBody.trim()}\n\n`
-    : "";
-
-  return [
-    "Draft a concise reply for this Gmail thread.",
-    `Recipient: ${to}`,
-    `Subject: ${subject}`,
-    latest?.from ? `Latest sender: ${latest.from}` : null,
-    draftNote.trim() ? draftNote.trim() : null,
-    "Thread context:",
-    transcript,
-    "Return plain text email body only. Preserve the thread context and stay concrete.",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
-
-function collectLinks(event: CalendarEventDetail): string[] {
-  const seen = new Set<string>();
-  const links: string[] = [];
-  const record = (value?: string) => {
-    if (!value || seen.has(value)) return;
-    seen.add(value);
-    links.push(value);
-  };
-
-  if (event.htmlLink) {
-    record(event.htmlLink);
-  }
-
-  const matches = event.description?.match(/https?:\/\/[^\s)]+/g) ?? [];
-  matches.forEach((match) => record(match));
-  return links;
-}
-
-function buildMeetingBrief(event: CalendarEventDetail): string {
-  const attendees = event.attendees
-    .map((attendee) => attendee.displayName || attendee.email)
-    .filter(Boolean)
-    .join(", ");
-  const links = collectLinks(event);
-  const linkSection =
-    links.length > 0 ? links.map((link) => `- ${link}`).join("\n") : "- None";
-
-  return [
-    `Meeting: ${event.summary || "Untitled event"}`,
-    `When: ${formatEventTime(event.start)} to ${formatEventTime(event.end)}`,
-    event.location ? `Where: ${event.location}` : "Where: TBD",
-    attendees ? `Attendees: ${attendees}` : "Attendees: TBD",
-    "",
-    "Prep goals",
-    "- Clarify the desired outcome",
-    "- Review open questions before joining",
-    "- Capture a short post-meeting follow-up plan",
-    "",
-    "Source notes",
-    event.description?.trim() || "No additional event description.",
-    "",
-    "Linked context",
-    linkSection,
-  ].join("\n");
-}
-
-function buildMeetingPrepPrompt(
-  event: CalendarEventDetail,
-  briefDraft: string,
-): string {
-  const attendees = event.attendees
-    .map((attendee) => attendee.displayName || attendee.email)
-    .filter(Boolean)
-    .join(", ");
-
-  return [
-    "Prepare a focused meeting brief from this calendar event.",
-    `Title: ${event.summary || "Untitled event"}`,
-    `Start: ${formatEventTime(event.start)}`,
-    `End: ${formatEventTime(event.end)}`,
-    event.location ? `Location: ${event.location}` : null,
-    attendees ? `Attendees: ${attendees}` : null,
-    event.description?.trim() ? `Description:\n${event.description.trim()}` : null,
-    briefDraft.trim() ? `Current brief draft:\n${briefDraft.trim()}` : null,
-    "Return a polished prep brief with objectives, attendee context, questions to resolve, and follow-up risks.",
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
-
-export function useAssistantWorkbenchController({
+export function useAssistantWorkbenchActions({
   session,
   runtime,
-}: UseAssistantWorkbenchControllerOptions) {
+}: UseAssistantWorkbenchActionsOptions) {
   const [replyTo, setReplyTo] = useState("");
   const [replySubject, setReplySubject] = useState("");
   const [replyBody, setReplyBody] = useState("");
@@ -231,13 +67,17 @@ export function useAssistantWorkbenchController({
     } | null>(null);
 
   const latestMessage = useMemo(() => {
-    if (!session || session.kind !== "gmail_reply") return null;
+    if (!session || session.kind !== "gmail_reply") {
+      return null;
+    }
     return session.thread.messages[session.thread.messages.length - 1] ?? null;
   }, [session]);
 
   const meetingLinks = useMemo(() => {
-    if (!session || session.kind !== "meeting_prep") return [];
-    return collectLinks(session.event);
+    if (!session || session.kind !== "meeting_prep") {
+      return [];
+    }
+    return collectCalendarLinks(session.event);
   }, [session]);
 
   useEffect(() => {
@@ -266,14 +106,16 @@ export function useAssistantWorkbenchController({
     setReplyTo("");
     setReplySubject("");
     setReplyBody("");
-    setMeetingBrief(buildMeetingBrief(session.event));
+    setMeetingBrief(buildMeetingBriefDraft(session.event));
   }, [session]);
 
   const runReplyAction = async (
     actionId: "gmail.draft_email" | "gmail.send_email",
     options?: { shieldApproved?: boolean },
   ) => {
-    if (!session || session.kind !== "gmail_reply") return;
+    if (!session || session.kind !== "gmail_reply") {
+      return;
+    }
     if (!runtime.runConnectorAction) {
       setActionError("Connector action runtime is unavailable in this shell.");
       return;
@@ -282,9 +124,11 @@ export function useAssistantWorkbenchController({
       setActionError("Recipient, subject, and body are required.");
       return;
     }
+
     setBusyAction(actionId === "gmail.draft_email" ? "draft" : "send");
     setActionError(null);
     setPendingShieldApproval(null);
+
     await emitWorkbenchActivity(session, {
       action: actionId === "gmail.draft_email" ? "draft" : "send",
       status: "started",
@@ -293,6 +137,7 @@ export function useAssistantWorkbenchController({
           ? "Saving Gmail draft from Gate/Studio workbench."
           : "Sending Gmail reply from Gate/Studio workbench.",
     });
+
     try {
       const latest = session.thread.messages[session.thread.messages.length - 1];
       const result = await runtime.runConnectorAction({
@@ -345,7 +190,9 @@ export function useAssistantWorkbenchController({
   };
 
   const approvePendingShieldAction = async () => {
-    if (!pendingShieldApproval) return;
+    if (!pendingShieldApproval) {
+      return;
+    }
     if (runtime.rememberConnectorApproval) {
       const input = buildConnectorApprovalMemoryRequest(
         pendingShieldApproval.request,
@@ -369,13 +216,16 @@ export function useAssistantWorkbenchController({
       setActionError("Nothing to copy yet.");
       return;
     }
+
     setBusyAction("copy");
     setActionError(null);
+
     await emitWorkbenchActivity(session, {
       action: "copy",
       status: "started",
       message: "Copying meeting brief to clipboard.",
     });
+
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(meetingBrief);
@@ -401,6 +251,22 @@ export function useAssistantWorkbenchController({
     }
   };
 
+  const reportAutopilotHandoff = async (intent: string) => {
+    if (!session) {
+      return;
+    }
+
+    await emitWorkbenchActivity(session, {
+      action: "autopilot_handoff",
+      status: "started",
+      message:
+        session.kind === "gmail_reply"
+          ? "Handing the reply draft to Autopilot."
+          : "Handing the meeting prep brief to Autopilot.",
+      detail: intent,
+    });
+  };
+
   return {
     replyTo,
     setReplyTo,
@@ -418,15 +284,21 @@ export function useAssistantWorkbenchController({
     meetingLinks,
     replyAutopilotIntent:
       session && session.kind === "gmail_reply"
-        ? buildReplyPrompt(session.thread, replyTo, replySubject, replyBody)
+        ? buildReplyAutopilotIntent(session.thread, replyTo, replySubject, replyBody)
         : null,
     meetingPrepAutopilotIntent:
       session && session.kind === "meeting_prep"
-        ? buildMeetingPrepPrompt(session.event, meetingBrief)
+        ? buildMeetingPrepAutopilotIntent(session.event, meetingBrief)
         : null,
     runReplyAction,
     approvePendingShieldAction,
     dismissPendingShieldApproval: () => setPendingShieldApproval(null),
     copyMeetingBrief,
+    reportAutopilotHandoff,
   };
 }
+
+export type UseAssistantWorkbenchControllerOptions =
+  UseAssistantWorkbenchActionsOptions;
+
+export const useAssistantWorkbenchController = useAssistantWorkbenchActions;

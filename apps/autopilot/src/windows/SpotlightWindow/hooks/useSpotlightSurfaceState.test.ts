@@ -36,4 +36,10 @@ assert.match(
   "code preview should be suppressed when it would duplicate the selected live preview",
 );
 
+assert.match(
+  hookSource,
+  /case "skill_discovery":\s*return event\.title \|\| "Check for guidance";/,
+  "artifact guidance labels should prefer explicit narration titles when runtime guidance is unavailable or not needed",
+);
+
 console.log("useSpotlightSurfaceState.test.ts: ok");

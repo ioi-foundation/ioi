@@ -488,6 +488,7 @@ fn routing_receipt_contract_for_right_click_element_includes_pre_state() {
         policy_binding_hash: "binding-hash".to_string(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(receipt.pre_state.agent_status, "Running");
@@ -570,6 +571,7 @@ fn routing_receipt_contract_for_coordinate_right_click_som_fallback_includes_pre
         policy_binding_hash: "binding-hash".to_string(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(receipt.pre_state.agent_status, "Running");
@@ -653,6 +655,7 @@ fn routing_receipt_contract_for_coordinate_double_click_includes_pre_state() {
         policy_binding_hash: "binding-hash".to_string(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(receipt.pre_state.agent_status, "Running");

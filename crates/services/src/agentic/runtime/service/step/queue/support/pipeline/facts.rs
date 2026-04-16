@@ -253,6 +253,8 @@ fn rendered_briefing_shape_facts(
     let single_snapshot_heading_present = lines.first().is_some_and(|line| {
         let lower = line.to_ascii_lowercase();
         lower.starts_with("right now")
+            || lower.starts_with("current snapshot")
+            || lower.starts_with("current answer")
             || (lower.contains("current")
                 && (lower.ends_with(':')
                     || lower.contains(" as of ")
@@ -275,11 +277,18 @@ fn rendered_briefing_shape_facts(
                 return false;
             }
             let lower = metric_candidate.to_ascii_lowercase();
-            (trimmed.starts_with("- ")
+            ((trimmed.starts_with("- ")
                 || lower.starts_with("current conditions:")
+                || lower.starts_with("current conditions from ")
+                || lower.starts_with("current pricing:")
+                || lower.starts_with("current pricing from ")
                 || lower.starts_with("available observed details")
                 || lower.starts_with("the current "))
-                && has_quantitative_metric_payload(metric_candidate, false)
+                && has_quantitative_metric_payload(metric_candidate, false))
+                || ((lower.starts_with("current answer:")
+                    || lower.starts_with("current answer from ")
+                    || lower.starts_with("current status from "))
+                    && single_snapshot_has_direct_fact_line(metric_candidate))
         })
         .count();
     let single_snapshot_support_url_count = rendered_summary
@@ -733,7 +742,7 @@ fn rendered_briefing_contract_facts(
     let primary_authority_source_count = successful_citation_sources
         .iter()
         .filter(|(_, source)| {
-            source_has_document_authority(
+            source_counts_as_primary_authority(
                 query_contract,
                 &source.url,
                 source.title.as_deref().unwrap_or_default(),
@@ -1098,14 +1107,21 @@ pub(crate) fn final_web_completion_facts(
     let selected_primary_authority_source_count = if rendered_selected_citations.is_empty() {
         selected_sources
             .iter()
-            .filter(|source| is_document_authority_source(&query_contract, source))
+            .filter(|source| {
+                source_counts_as_primary_authority(
+                    &query_contract,
+                    &source.url,
+                    source.title.as_deref().unwrap_or_default(),
+                    &source.excerpt,
+                )
+            })
             .count()
     } else {
         rendered_selected_citations
             .iter()
             .filter(|citation| citation.from_successful_read)
             .filter(|citation| {
-                source_has_document_authority(
+                source_counts_as_primary_authority(
                     &query_contract,
                     &citation.url,
                     &citation.source_label,
@@ -1197,7 +1213,7 @@ pub(crate) fn final_web_completion_facts(
         .into_iter()
         .filter(|url| {
             let hint = hint_for_url(pending, url);
-            source_has_document_authority(
+            source_counts_as_primary_authority(
                 &query_contract,
                 url,
                 hint.and_then(|value| value.title.as_deref())
@@ -1208,14 +1224,21 @@ pub(crate) fn final_web_completion_facts(
         .count();
     let available_primary_authority_source_count = merged_story_sources(pending)
         .iter()
-        .filter(|source| is_document_authority_source(&query_contract, source))
+        .filter(|source| {
+            source_counts_as_primary_authority(
+                &query_contract,
+                &source.url,
+                source.title.as_deref().unwrap_or_default(),
+                &source.excerpt,
+            )
+        })
         .count();
-    let briefing_primary_authority_source_floor_applicable = briefing_document_layout_met
-        && !comparison_required
+    let briefing_primary_authority_source_floor_applicable = !comparison_required
         && query_facets.grounded_external_required
-        && retrieval_contract
-            .map(|contract| contract.currentness_required || contract.source_independence_min > 1)
-            .unwrap_or(false);
+        && retrieval_contract_requires_primary_authority_source(
+            retrieval_contract,
+            &query_contract,
+        );
     let briefing_required_primary_authority_source_count =
         if briefing_primary_authority_source_floor_applicable {
             available_primary_authority_source_count.min(
@@ -1239,9 +1262,22 @@ pub(crate) fn final_web_completion_facts(
     let briefing_postamble_floor_met = briefing_temporal_anchor_floor_met
         && !final_draft.completion_reason.trim().is_empty()
         && matches!(overall_confidence.as_str(), "high" | "medium" | "low");
+    let single_snapshot_metric_required =
+        single_snapshot_requires_current_metric_observation_contract(pending);
     let single_snapshot_metric_grounding =
         retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query_contract)
-            && single_snapshot_has_metric_grounding(pending);
+            && if single_snapshot_metric_required {
+                single_snapshot_has_metric_grounding(pending)
+            } else {
+                pending.successful_reads.iter().any(|source| {
+                    single_snapshot_fact_grounding_signal_with_contract(
+                        retrieval_contract,
+                        &query_contract,
+                        pending.min_sources as usize,
+                        source,
+                    )
+                })
+            };
 
     FinalWebCompletionFacts {
         selected_source_urls,
@@ -1512,11 +1548,12 @@ pub(crate) fn final_web_completion_facts_with_rendered_summary(
         && rendered_contract_facts.narrative_aggregation_floor_met;
     facts.briefing_evidence_block_floor_met =
         facts.briefing_document_layout_met && rendered_contract_facts.evidence_block_floor_met;
-    facts.briefing_primary_authority_source_floor_met = if facts.briefing_document_layout_met {
-        rendered_contract_facts.primary_authority_source_floor_met
-    } else {
-        facts.briefing_primary_authority_source_floor_met
-    };
+    facts.briefing_primary_authority_source_floor_met =
+        if !rendered_contract_facts.citation_urls.is_empty() {
+            rendered_contract_facts.primary_authority_source_floor_met
+        } else {
+            facts.briefing_primary_authority_source_floor_met
+        };
     facts.briefing_citation_read_backing_floor_met = facts.briefing_document_layout_met
         && rendered_contract_facts.citation_read_backing_floor_met;
     facts.briefing_temporal_anchor_floor_met = rendered_contract_facts.temporal_anchor_floor_met;
@@ -1553,6 +1590,7 @@ pub(crate) fn final_web_completion_contract_ready(facts: &FinalWebCompletionFact
             && facts.single_snapshot_rendered_support_url_floor_met
             && facts.single_snapshot_rendered_read_backed_url_floor_met
             && facts.single_snapshot_rendered_temporal_signal_present
+            && facts.briefing_primary_authority_source_floor_met
             && facts.briefing_story_headers_absent
             && facts.briefing_comparison_absent
             && !facts.selected_source_urls.is_empty()

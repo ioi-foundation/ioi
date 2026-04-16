@@ -39,6 +39,7 @@ fn pipeline_steps_for_ready_markdown_artifact_are_complete() {
     materialization.skill_discovery_resolution =
         Some(ioi_api::studio::StudioArtifactSkillDiscoveryResolution {
             status: "resolved".to_string(),
+            guidance_status: "not_needed".to_string(),
             guidance_evaluated: true,
             guidance_recommended: false,
             guidance_found: false,
@@ -63,6 +64,13 @@ fn pipeline_steps_for_ready_markdown_artifact_are_complete() {
 
     assert_eq!(steps.len(), 10);
     assert!(steps.iter().all(|step| step.status == "complete"));
+    assert!(steps
+        .iter()
+        .find(|step| step.id == "skill_discovery")
+        .is_some_and(|step| step
+            .outputs
+            .iter()
+            .any(|output| output == "guidance_status:not_needed")));
     assert!(!steps.iter().any(|step| step.id == "execution"));
     assert!(!steps.iter().any(|step| step.id == "repair"));
 }

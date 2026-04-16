@@ -1,0 +1,3141 @@
+{
+  "captured_at": "2026-04-16T15:46:45.905272+00:00",
+  "prompt": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now.",
+  "screenshot": "docs/evidence/route-hierarchy/live-final-gap-desktop-rerun-2/2026-04-16T15-43-11Z/03-compare-the-lakers-and-celtics-this-season-and-tell-me-which-tea/final.png",
+  "window_id": 18874380,
+  "window_capture_error": null,
+  "task": {
+    "id": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+    "intent": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now.",
+    "agent": "Autopilot",
+    "phase": "Complete",
+    "progress": 20,
+    "total_steps": 20,
+    "current_step": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- Hahn: LeBron, Redick are keys to Lakers defeating Rockets\n- Luka, Reaves and the 48 hours that changed the Lakers' season\n- 2026 NBA playoffs: Schedule, scores, news and highlights",
+    "gate_info": null,
+    "receipt": null,
+    "visual_hash": null,
+    "pending_request_hash": null,
+    "session_id": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+    "credential_request": null,
+    "clarification_request": null,
+    "session_checklist": [
+      {
+        "itemId": "request",
+        "label": "Request captured",
+        "status": "completed",
+        "detail": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now.",
+        "updatedAtMs": 1776354402569
+      },
+      {
+        "itemId": "execution",
+        "label": "Execution complete",
+        "status": "completed",
+        "detail": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 aw...",
+        "updatedAtMs": 1776354402569
+      },
+      {
+        "itemId": "review",
+        "label": "Review latest output",
+        "status": "completed",
+        "detail": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 aw...",
+        "updatedAtMs": 1776354402569
+      }
+    ],
+    "background_tasks": [
+      {
+        "taskId": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+        "sessionId": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+        "label": "Compare the Lakers and Celtics this season and tell me which team looks ...",
+        "status": "completed",
+        "detail": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 aw...",
+        "latestOutput": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 aw...",
+        "canStop": false,
+        "updatedAtMs": 1776354402569
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "text": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now.",
+        "timestamp": 1776354381299
+      },
+      {
+        "role": "system",
+        "text": "Planning artifacts ready: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33/planning/implementation_plan.md, /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33/planning/task.md, /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33/planning/walkthrough.md",
+        "timestamp": 1776354381389
+      },
+      {
+        "role": "agent",
+        "text": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- Hahn: LeBron, Redick are keys to Lakers defeating Rockets\n- Luka, Reaves and the 48 hours that changed the Lakers' season\n- 2026 NBA playoffs: Schedule, scores, news and highlights",
+        "timestamp": 1776354402541
+      }
+    ],
+    "events": [
+      {
+        "event_id": "12002790-48b6-4315-bf24-8c8c3491514a",
+        "timestamp": "2026-04-16T15:46:21.299585795+00:00",
+        "thread_id": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now."
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now."
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "b013e711-3112-4485-9aed-b3768b3209f9",
+        "timestamp": "2026-04-16T15:46:42.029259887+00:00",
+        "thread_id": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+        "step_index": 1,
+        "event_type": "RECEIPT",
+        "title": "Studio route decision",
+        "digest": {
+          "domain_policy_bundle": {
+            "clarificationPolicy": {
+              "assumedBindings": [
+                "sports.league",
+                "sports.target"
+              ],
+              "blockingSlots": [],
+              "mode": "assume_from_retained_state",
+              "rationale": "Sports routes clarify only when league or target cannot be recovered from the active context."
+            },
+            "fallbackPolicy": {
+              "fallbackLanes": [
+                "tool_widget",
+                "conversation"
+              ],
+              "mode": "stay_in_specialized_lane",
+              "primaryLane": "research",
+              "rationale": "Specialized lanes stay primary unless execution is blocked or an explicit ranked fallback is required.",
+              "triggerSignals": [
+                "narrow_surface_preferred"
+              ]
+            },
+            "policyContract": {
+              "bindings": [
+                "lane_frame",
+                "request_frame",
+                "source_selection",
+                "route_decision.effective_tool_surface",
+                "domain_policy_bundle"
+              ],
+              "hiddenInstructionDependency": false,
+              "rationale": "Lane choice, fallback posture, source ranking, presentation, and verification are retained as typed runtime receipts."
+            },
+            "presentationPolicy": {
+              "primarySurface": "sports_widget",
+              "rationale": "Studio prefers a route-shaped parity surface so the desktop shell shows the active lane instead of collapsing to a generic summary.",
+              "renderer": "html_iframe",
+              "tabPriority": [
+                "render",
+                "evidence"
+              ],
+              "widgetFamily": "sports"
+            },
+            "retainedWidgetState": {
+              "bindings": [
+                {
+                  "key": "sports.league",
+                  "source": "request_frame",
+                  "value": "nba"
+                },
+                {
+                  "key": "sports.target",
+                  "source": "request_frame",
+                  "value": "Los Angeles Lakers"
+                }
+              ],
+              "lastUpdatedAt": null,
+              "widgetFamily": "sports"
+            },
+            "riskProfile": {
+              "approvalRequired": false,
+              "reasons": [],
+              "sensitivity": "low",
+              "userVisibleGuardrails": [
+                "Show the selected lane and source before answering."
+              ]
+            },
+            "sourceRanking": [
+              {
+                "rank": 1,
+                "rationale": "Selected as the active source for this turn.",
+                "source": "specialized_tool"
+              },
+              {
+                "rank": 2,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "conversation_context"
+              },
+              {
+                "rank": 3,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "web_search"
+              }
+            ],
+            "transformationPolicy": {
+              "orderedSteps": [
+                "resolve_target",
+                "fetch_latest_data",
+                "summarize_team_state",
+                "retain_widget_state"
+              ],
+              "outputShape": "sports_status_card",
+              "rationale": "Sports turns normalize team or league data into a compact status surface."
+            },
+            "verificationContract": {
+              "completionGate": "surface_and_route_verified",
+              "requiredChecks": [
+                "sports_target_resolved",
+                "latest_team_data_available",
+                "sports_surface_rendered"
+              ],
+              "strategy": "sports_target_and_recency"
+            }
+          },
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9700000286102295,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the sports target and return the requested current sports context.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "sports",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame:sports"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a sports-specific lane with team and league semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "Compare the Lakers and Celtics this season and tell me which team looks stronger\u2026"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the sports target",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "clarificationRequiredSlots": [],
+            "dataScope": null,
+            "kind": "sports",
+            "league": "nba",
+            "missingSlots": [],
+            "teamOrTarget": "Los Angeles Lakers"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "research",
+            "activeToolWidgetFamily": "sports",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "specialized_tool",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:sports",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "fetch_sports_data"
+              ],
+              "projected_tools": [
+                "fetch_sports_data"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_sports",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "specialized_tool",
+              "web_search"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": null,
+            "selectedSource": "specialized_tool"
+          },
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "details": {
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9700000286102295,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the sports target and return the requested current sports context.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "sports",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame:sports"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a sports-specific lane with team and league semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "Compare the Lakers and Celtics this season and tell me which team looks stronger\u2026"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the sports target",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "clarificationRequiredSlots": [],
+            "dataScope": null,
+            "kind": "sports",
+            "league": "nba",
+            "missingSlots": [],
+            "teamOrTarget": "Los Angeles Lakers"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "research",
+            "activeToolWidgetFamily": "sports",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "specialized_tool",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:sports",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "fetch_sports_data"
+              ],
+              "projected_tools": [
+                "fetch_sports_data"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_sports",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "specialized_tool",
+              "web_search"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": null,
+            "selectedSource": "specialized_tool"
+          },
+          "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the sports tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "12002790-48b6-4315-bf24-8c8c3491514a"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "41056026-5f7a-4887-85b1-194bb62915a3",
+        "timestamp": "2026-04-16T15:46:42.542594987+00:00",
+        "thread_id": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+        "step_index": 2,
+        "event_type": "RECEIPT",
+        "title": "Studio reply completed",
+        "digest": {
+          "domain_policy_bundle": {
+            "clarificationPolicy": {
+              "assumedBindings": [
+                "sports.league",
+                "sports.target"
+              ],
+              "blockingSlots": [],
+              "mode": "assume_from_retained_state",
+              "rationale": "Sports routes clarify only when league or target cannot be recovered from the active context."
+            },
+            "fallbackPolicy": {
+              "fallbackLanes": [
+                "tool_widget",
+                "conversation"
+              ],
+              "mode": "stay_in_specialized_lane",
+              "primaryLane": "research",
+              "rationale": "Specialized lanes stay primary unless execution is blocked or an explicit ranked fallback is required.",
+              "triggerSignals": [
+                "narrow_surface_preferred"
+              ]
+            },
+            "policyContract": {
+              "bindings": [
+                "lane_frame",
+                "request_frame",
+                "source_selection",
+                "route_decision.effective_tool_surface",
+                "domain_policy_bundle"
+              ],
+              "hiddenInstructionDependency": false,
+              "rationale": "Lane choice, fallback posture, source ranking, presentation, and verification are retained as typed runtime receipts."
+            },
+            "presentationPolicy": {
+              "primarySurface": "sports_widget",
+              "rationale": "Studio prefers a route-shaped parity surface so the desktop shell shows the active lane instead of collapsing to a generic summary.",
+              "renderer": "html_iframe",
+              "tabPriority": [
+                "render",
+                "evidence"
+              ],
+              "widgetFamily": "sports"
+            },
+            "retainedWidgetState": {
+              "bindings": [
+                {
+                  "key": "sports.league",
+                  "source": "request_frame",
+                  "value": "nba"
+                },
+                {
+                  "key": "sports.target",
+                  "source": "request_frame",
+                  "value": "Los Angeles Lakers"
+                }
+              ],
+              "lastUpdatedAt": null,
+              "widgetFamily": "sports"
+            },
+            "riskProfile": {
+              "approvalRequired": false,
+              "reasons": [],
+              "sensitivity": "low",
+              "userVisibleGuardrails": [
+                "Show the selected lane and source before answering."
+              ]
+            },
+            "sourceRanking": [
+              {
+                "rank": 1,
+                "rationale": "Selected as the active source for this turn.",
+                "source": "specialized_tool"
+              },
+              {
+                "rank": 2,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "conversation_context"
+              },
+              {
+                "rank": 3,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "web_search"
+              }
+            ],
+            "transformationPolicy": {
+              "orderedSteps": [
+                "resolve_target",
+                "fetch_latest_data",
+                "summarize_team_state",
+                "retain_widget_state"
+              ],
+              "outputShape": "sports_status_card",
+              "rationale": "Sports turns normalize team or league data into a compact status surface."
+            },
+            "verificationContract": {
+              "completionGate": "surface_and_route_verified",
+              "requiredChecks": [
+                "sports_target_resolved",
+                "latest_team_data_available",
+                "sports_surface_rendered"
+              ],
+              "strategy": "sports_target_and_recency"
+            }
+          },
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9700000286102295,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the sports target and return the requested current sports context.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "sports",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame:sports"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a sports-specific lane with team and league semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "Compare the Lakers and Celtics this season and tell me which team looks stronger\u2026"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the sports target",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "clarificationRequiredSlots": [],
+            "dataScope": null,
+            "kind": "sports",
+            "league": "nba",
+            "missingSlots": [],
+            "teamOrTarget": "Los Angeles Lakers"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "research",
+            "activeToolWidgetFamily": "sports",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "specialized_tool",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:sports",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "fetch_sports_data"
+              ],
+              "projected_tools": [
+                "fetch_sports_data"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_sports",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "specialized_tool",
+              "web_search"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": null,
+            "selectedSource": "specialized_tool"
+          },
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "details": {
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9700000286102295,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the sports target and return the requested current sports context.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "sports",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame:sports"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a sports-specific lane with team and league semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "Compare the Lakers and Celtics this season and tell me which team looks stronger\u2026"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the sports target",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "clarificationRequiredSlots": [],
+            "dataScope": null,
+            "kind": "sports",
+            "league": "nba",
+            "missingSlots": [],
+            "teamOrTarget": "Los Angeles Lakers"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "research",
+            "activeToolWidgetFamily": "sports",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "specialized_tool",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:sports",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "fetch_sports_data"
+              ],
+              "projected_tools": [
+                "fetch_sports_data"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_sports",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "specialized_tool",
+              "web_search"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": null,
+            "selectedSource": "specialized_tool"
+          },
+          "summary": "Studio completed the sports tool-widget route directly and preserved the final route contract.",
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "b013e711-3112-4485-9aed-b3768b3209f9"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "674dcde1-4f8a-4af5-828e-81ad659935b2",
+        "created_at": "2026-04-16T15:46:21.299659582+00:00",
+        "thread_id": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/674dcde1-4f8a-4af5-828e-81ad659935b2",
+        "metadata": {
+          "refs": [],
+          "run_id": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "d38ab659-a9e5-480b-bbab-b70b18282a13",
+        "created_at": "2026-04-16T15:46:42.570628646+00:00",
+        "thread_id": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+        "artifact_type": "FILE",
+        "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33/planning/implementation_plan.md",
+        "description": "File snapshot",
+        "content_ref": "ioi-memory://artifact/d38ab659-a9e5-480b-bbab-b70b18282a13",
+        "metadata": {
+          "mime": "text/markdown",
+          "path": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33/planning/implementation_plan.md",
+          "revision": null
+        },
+        "version": 2,
+        "parent_artifact_id": "e74e19c4-e44e-41b3-ad02-422dd08abfe8"
+      },
+      {
+        "artifact_id": "5a4cee20-e722-4be1-8b02-3bf8ff340d92",
+        "created_at": "2026-04-16T15:46:42.591930330+00:00",
+        "thread_id": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+        "artifact_type": "FILE",
+        "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33/planning/task.md",
+        "description": "File snapshot",
+        "content_ref": "ioi-memory://artifact/5a4cee20-e722-4be1-8b02-3bf8ff340d92",
+        "metadata": {
+          "mime": "text/markdown",
+          "path": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33/planning/task.md",
+          "revision": null
+        },
+        "version": 2,
+        "parent_artifact_id": "08d1c4b5-83c7-4a59-b4bb-47d685312bf0"
+      },
+      {
+        "artifact_id": "8c59f0eb-492c-4baf-9d95-149e5233bb51",
+        "created_at": "2026-04-16T15:46:42.620019157+00:00",
+        "thread_id": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+        "artifact_type": "FILE",
+        "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33/planning/walkthrough.md",
+        "description": "File snapshot",
+        "content_ref": "ioi-memory://artifact/8c59f0eb-492c-4baf-9d95-149e5233bb51",
+        "metadata": {
+          "mime": "text/markdown",
+          "path": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33/planning/walkthrough.md",
+          "revision": null
+        },
+        "version": 2,
+        "parent_artifact_id": "d8d8403c-e2ba-48f1-951b-63d2bf9804d6"
+      }
+    ],
+    "studio_session": {
+      "sessionId": "b31a8cfe-298d-449a-ab0f-993d7cb6f475",
+      "threadId": "29ad310059884b46aad2609f147be990d1beb4152bd94930aff086bd50ea8c33",
+      "artifactId": "e2566b43-47a9-4067-9da8-98ba25281140",
+      "title": "Tool widget route \u00b7 Compare the Lakers and Celtics this season and tell me which team...",
+      "summary": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- Hahn: LeBron, Redick are keys to Lakers defeating Rockets\n- Luka, Reaves and the 48 hours that changed the Lakers' season\n- 2026 NBA playoffs: Schedule, scores, news and highlights",
+      "currentLens": "render",
+      "navigatorBackingMode": "logical",
+      "navigatorNodes": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "description": "Interact with the artifact through its renderer-specific presentation.",
+          "badge": null,
+          "status": null,
+          "lens": "render",
+          "path": "surface/index.html",
+          "children": []
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": "surface/route.md",
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "attachedArtifactIds": [],
+      "availableLenses": [
+        "render",
+        "source",
+        "evidence"
+      ],
+      "materialization": {
+        "version": 7,
+        "requestKind": "tool_widget",
+        "normalizedIntent": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now.",
+        "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the sports tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+        "artifactBrief": null,
+        "preparationNeeds": null,
+        "preparedContextResolution": null,
+        "skillDiscoveryResolution": null,
+        "blueprint": null,
+        "artifactIr": null,
+        "selectedSkills": [],
+        "retrievedExemplars": [],
+        "editIntent": null,
+        "candidateSummaries": [],
+        "winningCandidateId": null,
+        "winningCandidateRationale": null,
+        "executionEnvelope": {
+          "version": 1,
+          "strategy": "plan_execute",
+          "modeDecision": {
+            "requestedStrategy": "plan_execute",
+            "resolvedStrategy": "plan_execute",
+            "modeConfidence": 0.98050004,
+            "oneShotSufficiency": 0.86249995,
+            "ambiguity": 0.029999971,
+            "workGraphSizeEstimate": 1,
+            "hiddenDependencyLikelihood": 0.25,
+            "verificationPressure": 0.2,
+            "revisionCost": 0.2,
+            "evidenceBreadth": 0.15,
+            "mergeBurden": 0.15,
+            "decompositionPayoff": 0.13250001,
+            "workGraphRequired": false,
+            "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            }
+          },
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          },
+          "executionDomain": "studio_tool_widget",
+          "domainKind": "tool_widget",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "satisfiedVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": false
+          },
+          "plan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "executionSummary": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "workerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-16T15:46:42.028390127+00:00",
+              "finishedAt": "2026-04-16T15:46:42.028390127+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-16T15:46:42.028390127+00:00",
+              "finishedAt": "2026-04-16T15:46:42.028390127+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:sports \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "changeReceipts": [],
+          "mergeReceipts": [],
+          "verificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "graphMutationReceipts": [],
+          "dispatchBatches": [],
+          "repairReceipts": [],
+          "replanReceipts": [],
+          "budgetSummary": {
+            "plannedWorkerCount": 2,
+            "dispatchedWorkerCount": 2,
+            "tokenBudget": null,
+            "tokenUsage": null,
+            "wallClockMs": null,
+            "coordinationOverheadMs": null,
+            "status": "completed"
+          },
+          "livePreviews": []
+        },
+        "swarmPlan": {
+          "version": 1,
+          "strategy": "plan_execute",
+          "executionDomain": "studio_tool_widget",
+          "adapterLabel": "tool_widget_plan_execute_v1",
+          "parallelismMode": "sequential_by_default",
+          "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+          "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+          "decompositionType": "small_graph_functional_decomposition",
+          "firstFrontierIds": [
+            "handoff"
+          ],
+          "spawnConditions": [
+            "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+          ],
+          "pruneConditions": [
+            "Prune clarification work once the reply handoff is already unblocked."
+          ],
+          "mergeStrategy": "deterministic_reply_surface_projection",
+          "verificationStrategy": "route_truth_before_reply",
+          "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_truth"
+            ],
+            "satisfiedVerificationIds": [
+              "route_truth"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": true
+          },
+          "workItems": [
+            {
+              "id": "planner",
+              "title": "Outcome planner",
+              "role": "planner",
+              "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Outcome route is explicit.",
+                "Execution strategy is explicit."
+              ],
+              "dependencyIds": [],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            },
+            {
+              "id": "handoff",
+              "title": "Tool-widget handoff",
+              "role": "responder",
+              "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Studio reply remains truthful about the chosen surface.",
+                "No artifact renderer is implied when none was invoked."
+              ],
+              "dependencyIds": [
+                "planner"
+              ],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            }
+          ]
+        },
+        "swarmExecution": {
+          "enabled": true,
+          "currentStage": "reply",
+          "executionStage": "finalize",
+          "activeWorkerRole": null,
+          "totalWorkItems": 2,
+          "completedWorkItems": 2,
+          "failedWorkItems": 0,
+          "verificationStatus": "ready",
+          "strategy": "plan_execute",
+          "executionDomain": "studio_tool_widget",
+          "adapterLabel": "tool_widget_plan_execute_v1",
+          "parallelismMode": "sequential_by_default"
+        },
+        "swarmWorkerReceipts": [
+          {
+            "workItemId": "planner",
+            "role": "planner",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Selected the tool_widget route with the plan_execute strategy.",
+            "startedAt": "2026-04-16T15:46:42.028390127+00:00",
+            "finishedAt": "2026-04-16T15:46:42.028390127+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "route_context"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "No artifact files were requested on this route.",
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "failure": null
+          },
+          {
+            "workItemId": "handoff",
+            "role": "responder",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+            "startedAt": "2026-04-16T15:46:42.028390127+00:00",
+            "finishedAt": "2026-04-16T15:46:42.028390127+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "execution_plan"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+              "tool_widget:sports \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+            ],
+            "failure": null
+          }
+        ],
+        "swarmChangeReceipts": [],
+        "swarmMergeReceipts": [],
+        "swarmVerificationReceipts": [
+          {
+            "id": "route_verification",
+            "kind": "route_verification",
+            "status": "ready",
+            "summary": "Studio verified that this request belongs on the tool-widget surface.",
+            "details": [
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ]
+          },
+          {
+            "id": "reply_surface",
+            "kind": "reply_surface",
+            "status": "ready",
+            "summary": "The shared reply lane remains available and no artifact renderer is required.",
+            "details": [
+              "strategy:plan_execute",
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ]
+          }
+        ],
+        "renderEvaluation": null,
+        "judge": null,
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "fallbackUsed": false,
+        "uxLifecycle": "judged",
+        "failure": null,
+        "navigatorNodes": [
+          {
+            "id": "render",
+            "label": "Render",
+            "kind": "render",
+            "description": "Interact with the artifact through its renderer-specific presentation.",
+            "badge": null,
+            "status": null,
+            "lens": "render",
+            "path": "surface/index.html",
+            "children": []
+          },
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "description": "Inspect the source form of the artifact.",
+            "badge": null,
+            "status": null,
+            "lens": "source",
+            "path": "surface/route.md",
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "fileWrites": [],
+        "commandIntents": [],
+        "previewIntent": null,
+        "verificationSteps": [
+          {
+            "id": "route",
+            "label": "Verify route",
+            "kind": "route",
+            "status": "success"
+          },
+          {
+            "id": "reply_surface",
+            "label": "Verify reply surface",
+            "kind": "reply_surface",
+            "status": "success"
+          }
+        ],
+        "pipelineSteps": [
+          {
+            "id": "intake",
+            "stage": "plan",
+            "label": "Intake",
+            "status": "complete",
+            "summary": "Studio captured the request and preserved it as a typed outcome turn.",
+            "outputs": [
+              "Compare the Lakers and Celtics this season and tell me which team looks stronger right n\u2026"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "routing",
+            "stage": "dispatch",
+            "label": "Outcome routing",
+            "status": "complete",
+            "summary": "The typed router intentionally kept this request on the tool widget surface.",
+            "outputs": [
+              "tool_widget",
+              "tool_widget",
+              "strategy:plan_execute",
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "planner",
+            "stage": "plan",
+            "label": "Planner",
+            "status": "complete",
+            "summary": "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+            "outputs": [
+              "plan_execute",
+              "work_items:2",
+              "sequential_by_default"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "swarm_execution",
+            "stage": "work",
+            "label": "Shared execution",
+            "status": "complete",
+            "summary": "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+            "outputs": [
+              "worker_receipts:2",
+              "progress:2/2",
+              "adapter:tool_widget_plan_execute_v1"
+            ],
+            "verificationGate": "Shared execution receipts must remain truthful about the active outcome surface."
+          },
+          {
+            "id": "verification",
+            "stage": "verify",
+            "label": "Verification",
+            "status": "complete",
+            "summary": "Studio verified the selected non-artifact route before composing the reply state.",
+            "outputs": [
+              "route_verification (ready)",
+              "reply_surface (ready)"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          },
+          {
+            "id": "reply",
+            "stage": "finalize",
+            "label": "Reply",
+            "status": "complete",
+            "summary": "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+            "outputs": [
+              "Studio routed this request to a tool-widget surface. The request maps cleanly to the sports tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          }
+        ],
+        "runtimeNarrationEvents": [],
+        "notes": [
+          "Studio intentionally kept this request off the artifact materialization path.",
+          "The shared execution envelope still records plan, worker, and verification state.",
+          "No renderer-specific fallback artifact was injected for this route.",
+          "routing_hints:tool_widget:sports | narrow_surface_preferred | no_persistent_artifact_requested",
+          "Route family: research",
+          "Output intent: tool_execution",
+          "Projected surface: fetch_sports_data"
+        ]
+      },
+      "outcomeRequest": {
+        "requestId": "2d75caf8-fe21-4ef0-9590-1804b39a7cef",
+        "rawPrompt": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now.",
+        "activeArtifactId": null,
+        "outcomeKind": "tool_widget",
+        "executionStrategy": "plan_execute",
+        "executionModeDecision": {
+          "requestedStrategy": "plan_execute",
+          "resolvedStrategy": "plan_execute",
+          "modeConfidence": 0.98050004,
+          "oneShotSufficiency": 0.86249995,
+          "ambiguity": 0.029999971,
+          "workGraphSizeEstimate": 1,
+          "hiddenDependencyLikelihood": 0.25,
+          "verificationPressure": 0.2,
+          "revisionCost": 0.2,
+          "evidenceBreadth": 0.15,
+          "mergeBurden": 0.15,
+          "decompositionPayoff": 0.13250001,
+          "workGraphRequired": false,
+          "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          }
+        },
+        "confidence": 0.97,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": [
+          "tool_widget:sports",
+          "narrow_surface_preferred",
+          "no_persistent_artifact_requested"
+        ],
+        "laneFrame": {
+          "primaryLane": "research",
+          "secondaryLanes": [
+            "tool_widget",
+            "conversation"
+          ],
+          "primaryGoal": "Resolve the sports target and return the requested current sports context.",
+          "toolWidgetFamily": "sports",
+          "currentnessPressure": true,
+          "workspaceGroundingRequired": false,
+          "persistentDeliverableRequested": false,
+          "activeArtifactFollowUp": false,
+          "laneConfidence": 0.97
+        },
+        "requestFrame": {
+          "kind": "sports",
+          "league": "nba",
+          "teamOrTarget": "Los Angeles Lakers",
+          "dataScope": null,
+          "missingSlots": [],
+          "clarificationRequiredSlots": []
+        },
+        "sourceSelection": {
+          "candidateSources": [
+            "conversation_context",
+            "specialized_tool",
+            "web_search"
+          ],
+          "selectedSource": "specialized_tool",
+          "explicitUserSource": true,
+          "fallbackReason": null
+        },
+        "retainedLaneState": {
+          "activeLane": "research",
+          "activeToolWidgetFamily": "sports",
+          "activeArtifactId": null,
+          "unresolvedClarificationQuestion": null,
+          "selectedProviderFamily": null,
+          "selectedProviderRouteLabel": null,
+          "selectedSourceFamily": "specialized_tool"
+        },
+        "laneTransitions": [
+          {
+            "transitionKind": "planned",
+            "fromLane": null,
+            "toLane": "research",
+            "reason": "The prompt maps to a sports-specific lane with team and league semantics.",
+            "evidence": [
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested",
+              "request_frame:sports"
+            ]
+          },
+          {
+            "transitionKind": "planned",
+            "fromLane": "research",
+            "toLane": "tool_widget",
+            "reason": "The research lane can land through a specialized tool-widget surface.",
+            "evidence": [
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested",
+              "secondary_lane:research->toolwidget"
+            ]
+          },
+          {
+            "transitionKind": "planned",
+            "fromLane": "research",
+            "toLane": "conversation",
+            "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+            "evidence": [
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested",
+              "secondary_lane:research->conversation"
+            ]
+          }
+        ],
+        "orchestrationState": {
+          "objective": {
+            "objectiveId": "studio_objective",
+            "title": "Compare the Lakers and Celtics this season and tell me which team looks stronger\u2026",
+            "status": "in_progress",
+            "successCriteria": [
+              "Resolve the required scope for the research lane.",
+              "Return a grounded answer rather than a speculative reply."
+            ]
+          },
+          "tasks": [
+            {
+              "taskId": "lane_inputs",
+              "label": "Resolve the sports target",
+              "status": "in_progress",
+              "laneFamily": "research",
+              "dependsOn": [],
+              "summary": "Studio should make the lane contract explicit before execution."
+            },
+            {
+              "taskId": "lane_execute",
+              "label": "Execute the selected lane",
+              "status": "pending",
+              "laneFamily": "research",
+              "dependsOn": [
+                "lane_inputs"
+              ],
+              "summary": null
+            },
+            {
+              "taskId": "lane_finish",
+              "label": "Finish the response truthfully",
+              "status": "pending",
+              "laneFamily": "conversation",
+              "dependsOn": [
+                "lane_execute"
+              ],
+              "summary": null
+            }
+          ],
+          "checkpoints": [
+            {
+              "checkpointId": "route_contract",
+              "label": "Route contract recorded",
+              "status": "complete",
+              "summary": "Studio captured a typed route, source, and lane contract."
+            },
+            {
+              "checkpointId": "lane_readiness",
+              "label": "Lane readiness",
+              "status": "pending",
+              "summary": "Studio can continue into lane execution."
+            }
+          ],
+          "completionInvariant": {
+            "summary": "The answer is grounded in the selected fresh-information lane.",
+            "satisfied": false,
+            "outstandingRequirements": [
+              "execute_lane",
+              "deliver_response"
+            ]
+          }
+        },
+        "artifact": null
+      },
+      "artifactManifest": {
+        "artifactId": "e2566b43-47a9-4067-9da8-98ba25281140",
+        "title": "Tool widget route \u00b7 Compare the Lakers and Celtics this season and tell me which team...",
+        "artifactClass": "interactive_single_file",
+        "renderer": "html_iframe",
+        "primaryTab": "render",
+        "tabs": [
+          {
+            "id": "render",
+            "label": "Render",
+            "kind": "render",
+            "renderer": "html_iframe",
+            "filePath": "surface/index.html",
+            "lens": "render"
+          },
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "renderer": null,
+            "filePath": "surface/route.md",
+            "lens": "source"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [
+          {
+            "path": "surface/index.html",
+            "mime": "text/html",
+            "role": "primary",
+            "renderable": true,
+            "downloadable": false,
+            "artifactId": null,
+            "externalUrl": "data:text/html;base64,PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KICA8aGVhZD4KICAgIDxtZXRhIGNoYXJzZXQ9InV0Zi04IiAvPgogICAgPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xIiAvPgogICAgPHRpdGxlPlRvb2wgd2lkZ2V0IHJvdXRlIMK3IENvbXBhcmUgdGhlIExha2VycyBhbmQgQ2VsdGljcyB0aGlzIHNlYXNvbiBhbmQgdGVsbCBtZSB3aGljaCB0ZWFtLi4uPC90aXRsZT4KICAgIDxzdHlsZT4KICAgICAgOnJvb3QgewogICAgICAgIGNvbG9yLXNjaGVtZTogZGFyazsKICAgICAgICAtLWJnOiAjMGQxMTE3OwogICAgICAgIC0tcGFuZWw6ICMxMTE4MjE7CiAgICAgICAgLS1tdXRlZDogIzhiOTlhZDsKICAgICAgICAtLXRleHQ6ICNlY2YxZjc7CiAgICAgICAgLS1saW5lOiByZ2JhKDI1NSwyNTUsMjU1LDAuMDgpOwogICAgICAgIC0tYWNjZW50OiAjNTliM2ZmOwogICAgICB9CiAgICAgIGJvZHkgewogICAgICAgIG1hcmdpbjogMDsKICAgICAgICBwYWRkaW5nOiAyNHB4OwogICAgICAgIGZvbnQtZmFtaWx5OiB1aS1zYW5zLXNlcmlmLCBzeXN0ZW0tdWksIHNhbnMtc2VyaWY7CiAgICAgICAgYmFja2dyb3VuZDogcmFkaWFsLWdyYWRpZW50KGNpcmNsZSBhdCB0b3AsICMxODIzMzQgMCUsIHZhcigtLWJnKSA2MCUpOwogICAgICAgIGNvbG9yOiB2YXIoLS10ZXh0KTsKICAgICAgfQogICAgICAuc2hlbGwgewogICAgICAgIG1heC13aWR0aDogOTIwcHg7CiAgICAgICAgbWFyZ2luOiAwIGF1dG87CiAgICAgICAgYmFja2dyb3VuZDogcmdiYSgxMCwgMTQsIDIwLCAwLjgpOwogICAgICAgIGJvcmRlcjogMXB4IHNvbGlkIHZhcigtLWxpbmUpOwogICAgICAgIGJvcmRlci1yYWRpdXM6IDIwcHg7CiAgICAgICAgcGFkZGluZzogMjRweDsKICAgICAgICBib3gtc2hhZG93OiAwIDI0cHggNjBweCByZ2JhKDAsIDAsIDAsIDAuMjgpOwogICAgICB9CiAgICAgIC5leWVicm93IHsKICAgICAgICBmb250LXNpemU6IDEycHg7CiAgICAgICAgdGV4dC10cmFuc2Zvcm06IHVwcGVyY2FzZTsKICAgICAgICBsZXR0ZXItc3BhY2luZzogMC4xMmVtOwogICAgICAgIGNvbG9yOiB2YXIoLS1tdXRlZCk7CiAgICAgIH0KICAgICAgaDEgewogICAgICAgIG1hcmdpbjogOHB4IDAgMDsKICAgICAgICBmb250LXNpemU6IDI4cHg7CiAgICAgIH0KICAgICAgLmNoaXBzIHsKICAgICAgICBkaXNwbGF5OiBmbGV4OwogICAgICAgIGZsZXgtd3JhcDogd3JhcDsKICAgICAgICBnYXA6IDhweDsKICAgICAgICBtYXJnaW46IDE4cHggMCAyMHB4OwogICAgICB9CiAgICAgIC5jaGlwIHsKICAgICAgICBmb250LXNpemU6IDEycHg7CiAgICAgICAgcGFkZGluZzogNnB4IDEwcHg7CiAgICAgICAgYm9yZGVyLXJhZGl1czogOTk5cHg7CiAgICAgICAgYm9yZGVyOiAxcHggc29saWQgdmFyKC0tbGluZSk7CiAgICAgICAgYmFja2dyb3VuZDogcmdiYSgyNTUsMjU1LDI1NSwwLjA0KTsKICAgICAgfQogICAgICBzZWN0aW9uIHsKICAgICAgICBtYXJnaW4tdG9wOiAyMnB4OwogICAgICAgIHBhZGRpbmctdG9wOiAxOHB4OwogICAgICAgIGJvcmRlci10b3A6IDFweCBzb2xpZCB2YXIoLS1saW5lKTsKICAgICAgfQogICAgICBoMyB7CiAgICAgICAgbWFyZ2luOiAwIDAgMTBweDsKICAgICAgICBmb250LXNpemU6IDE0cHg7CiAgICAgICAgbGV0dGVyLXNwYWNpbmc6IDAuMDRlbTsKICAgICAgICB0ZXh0LXRyYW5zZm9ybTogdXBwZXJjYXNlOwogICAgICAgIGNvbG9yOiB2YXIoLS1tdXRlZCk7CiAgICAgIH0KICAgICAgcCwgbGkgewogICAgICAgIGxpbmUtaGVpZ2h0OiAxLjU1OwogICAgICB9CiAgICAgIGNvZGUgewogICAgICAgIGNvbG9yOiB2YXIoLS1hY2NlbnQpOwogICAgICB9CiAgICA8L3N0eWxlPgogIDwvaGVhZD4KICA8Ym9keT4KICAgIDxtYWluIGNsYXNzPSJzaGVsbCI+CiAgICAgIDxkaXYgY2xhc3M9ImV5ZWJyb3ciPlN0dWRpbyBwYXJpdHkgc3VyZmFjZTwvZGl2PgogICAgICA8aDE+VG9vbCB3aWRnZXQgcm91dGUgwrcgQ29tcGFyZSB0aGUgTGFrZXJzIGFuZCBDZWx0aWNzIHRoaXMgc2Vhc29uIGFuZCB0ZWxsIG1lIHdoaWNoIHRlYW0uLi48L2gxPgogICAgICA8ZGl2IGNsYXNzPSJjaGlwcyI+PHNwYW4gY2xhc3M9ImNoaXAiPlJvdXRlOiByZXNlYXJjaDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+T3V0cHV0OiB0b29sX2V4ZWN1dGlvbjwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+U3VyZmFjZTogc3BvcnRzX3dpZGdldDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+cmlzazogbG93PC9zcGFuPjwvZGl2PgogICAgICA8c2VjdGlvbj4KICAgICAgICA8aDM+T3V0Y29tZTwvaDM+CiAgICAgICAgPHA+TG9zIEFuZ2VsZXMgTGFrZXJzIGFyZSA1My0yOSBhbmQgRVNQTiBjdXJyZW50bHkgbGlzdHMgdGhlbSBhcyAxc3QgaW4gUGFjaWZpYyBEaXZpc2lvbi48L3A+PHA+U3BsaXQ6IDI4LTEzIGF0IGhvbWUgYW5kIDI1LTE2IGF3YXkuPC9wPjxwPk5leHQgbGlzdGVkIGdhbWU6IEhvdXN0b24gUm9ja2V0cyBhdCBMb3MgQW5nZWxlcyBMYWtlcnMuPC9wPjxwPlJlY2VudCBoZWFkbGluZXM6PC9wPjxwPi0gSGFobjogTGVCcm9uLCBSZWRpY2sgYXJlIGtleXMgdG8gTGFrZXJzIGRlZmVhdGluZyBSb2NrZXRzPC9wPjxwPi0gTHVrYSwgUmVhdmVzIGFuZCB0aGUgNDggaG91cnMgdGhhdCBjaGFuZ2VkIHRoZSBMYWtlcnMmIzM5OyBzZWFzb248L3A+PHA+LSAyMDI2IE5CQSBwbGF5b2ZmczogU2NoZWR1bGUsIHNjb3JlcywgbmV3cyBhbmQgaGlnaGxpZ2h0czwvcD4KICAgICAgPC9zZWN0aW9uPgogICAgICA8c2VjdGlvbj48aDM+U291cmNlIHJhbmtpbmc8L2gzPjxvbD48bGk+PHN0cm9uZz5TcGVjaWFsaXplZFRvb2w8L3N0cm9uZz4gwrcgU2VsZWN0ZWQgYXMgdGhlIGFjdGl2ZSBzb3VyY2UgZm9yIHRoaXMgdHVybi48L2xpPjxsaT48c3Ryb25nPkNvbnZlcnNhdGlvbkNvbnRleHQ8L3N0cm9uZz4gwrcgUmV0YWluZWQgYXMgYW4gb3JkZXJlZCBmYWxsYmFjayBvciBzdXBwb3J0aW5nIHNvdXJjZS48L2xpPjxsaT48c3Ryb25nPldlYlNlYXJjaDwvc3Ryb25nPiDCtyBSZXRhaW5lZCBhcyBhbiBvcmRlcmVkIGZhbGxiYWNrIG9yIHN1cHBvcnRpbmcgc291cmNlLjwvbGk+PC9vbD48L3NlY3Rpb24+CiAgICAgIAogICAgPC9tYWluPgogICAgPHNjcmlwdD4KICAgICAgY29uc3Qgd2lkZ2V0U3RhdGUgPSB7IndpZGdldEZhbWlseSI6InNwb3J0cyIsImJpbmRpbmdzIjpbeyJrZXkiOiJzcG9ydHMubGVhZ3VlIiwidmFsdWUiOiJuYmEiLCJzb3VyY2UiOiJyZXF1ZXN0X2ZyYW1lIn0seyJrZXkiOiJzcG9ydHMudGFyZ2V0IiwidmFsdWUiOiJMb3MgQW5nZWxlcyBMYWtlcnMiLCJzb3VyY2UiOiJyZXF1ZXN0X2ZyYW1lIn1dLCJsYXN0VXBkYXRlZEF0IjpudWxsfTsKICAgICAgaWYgKHdpZGdldFN0YXRlKSB7CiAgICAgICAgd2luZG93LnBhcmVudC5wb3N0TWVzc2FnZSh7CiAgICAgICAgICBfX3N0dWRpb1dpZGdldFN0YXRlOiB0cnVlLAogICAgICAgICAgd2lkZ2V0U3RhdGUsCiAgICAgICAgfSwgIioiKTsKICAgICAgfQogICAgPC9zY3JpcHQ+CiAgPC9ib2R5Pgo8L2h0bWw+"
+          },
+          {
+            "path": "surface/route.md",
+            "mime": "text/markdown",
+            "role": "source",
+            "renderable": false,
+            "downloadable": false,
+            "artifactId": null,
+            "externalUrl": "data:text/markdown;base64,IyBUb29sIHdpZGdldCByb3V0ZSDCtyBDb21wYXJlIHRoZSBMYWtlcnMgYW5kIENlbHRpY3MgdGhpcyBzZWFzb24gYW5kIHRlbGwgbWUgd2hpY2ggdGVhbS4uLgoKTG9zIEFuZ2VsZXMgTGFrZXJzIGFyZSA1My0yOSBhbmQgRVNQTiBjdXJyZW50bHkgbGlzdHMgdGhlbSBhcyAxc3QgaW4gUGFjaWZpYyBEaXZpc2lvbi4KU3BsaXQ6IDI4LTEzIGF0IGhvbWUgYW5kIDI1LTE2IGF3YXkuCk5leHQgbGlzdGVkIGdhbWU6IEhvdXN0b24gUm9ja2V0cyBhdCBMb3MgQW5nZWxlcyBMYWtlcnMuClJlY2VudCBoZWFkbGluZXM6Ci0gSGFobjogTGVCcm9uLCBSZWRpY2sgYXJlIGtleXMgdG8gTGFrZXJzIGRlZmVhdGluZyBSb2NrZXRzCi0gTHVrYSwgUmVhdmVzIGFuZCB0aGUgNDggaG91cnMgdGhhdCBjaGFuZ2VkIHRoZSBMYWtlcnMnIHNlYXNvbgotIDIwMjYgTkJBIHBsYXlvZmZzOiBTY2hlZHVsZSwgc2NvcmVzLCBuZXdzIGFuZCBoaWdobGlnaHRzCgojIyBSb3V0ZSBjb250cmFjdAotIHJvdXRlIGZhbWlseTogcmVzZWFyY2gKLSBvdXRwdXQgaW50ZW50OiB0b29sX2V4ZWN1dGlvbgotIGRpcmVjdCBhbnN3ZXIgYWxsb3dlZDogZmFsc2UKLSBwcmVzZW50YXRpb24gc3VyZmFjZTogc3BvcnRzX3dpZGdldAoKIyMgU291cmNlIHJhbmtpbmcKLSAxLiBTcGVjaWFsaXplZFRvb2w6IFNlbGVjdGVkIGFzIHRoZSBhY3RpdmUgc291cmNlIGZvciB0aGlzIHR1cm4uCi0gMi4gQ29udmVyc2F0aW9uQ29udGV4dDogUmV0YWluZWQgYXMgYW4gb3JkZXJlZCBmYWxsYmFjayBvciBzdXBwb3J0aW5nIHNvdXJjZS4KLSAzLiBXZWJTZWFyY2g6IFJldGFpbmVkIGFzIGFuIG9yZGVyZWQgZmFsbGJhY2sgb3Igc3VwcG9ydGluZyBzb3VyY2UuCgojIyBSZXRhaW5lZCB3aWRnZXQgc3RhdGUKLSBzcG9ydHMubGVhZ3VlID0gbmJhIChyZXF1ZXN0X2ZyYW1lKQotIHNwb3J0cy50YXJnZXQgPSBMb3MgQW5nZWxlcyBMYWtlcnMgKHJlcXVlc3RfZnJhbWUp"
+          }
+        ],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- Hahn: LeBron, Redick are keys to Lakers defeating Rockets\n- Luka, Reaves and the 48 hours that changed the Lakers' season\n- 2026 NBA playoffs: Schedule, scores, news and highlights",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null
+        },
+        "storage": null
+      },
+      "verifiedReply": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "title": "Tool widget route \u00b7 Compare the Lakers and Celtics this season and tell me which team...",
+        "summary": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- Hahn: LeBron, Redick are keys to Lakers defeating Rockets\n- Luka, Reaves and the 48 hours that changed the Lakers' season\n- 2026 NBA playoffs: Schedule, scores, news and highlights",
+        "evidence": [
+          "outcome:tool_widget",
+          "strategy:plan_execute",
+          "provenance:openai-compatible",
+          "route_hint:tool_widget:sports",
+          "route_hint:narrow_surface_preferred",
+          "route_hint:no_persistent_artifact_requested",
+          "route_execution:studio_tool_widget_sports"
+        ],
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "failure": null,
+        "updatedAt": "2026-04-16T15:46:42.541903490+00:00"
+      },
+      "lifecycleState": "ready",
+      "status": "ready",
+      "activeRevisionId": "f2ca5836-73ca-4b3d-bb90-ae353fe20324",
+      "revisions": [
+        {
+          "revisionId": "f2ca5836-73ca-4b3d-bb90-ae353fe20324",
+          "parentRevisionId": null,
+          "branchId": "main",
+          "branchLabel": "Main",
+          "prompt": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now.",
+          "createdAt": "2026-04-16T15:46:42.028844361+00:00",
+          "uxLifecycle": "judged",
+          "artifactManifest": {
+            "artifactId": "e2566b43-47a9-4067-9da8-98ba25281140",
+            "title": "Tool widget route \u00b7 Compare the Lakers and Celtics this season and tell me which team...",
+            "artifactClass": "interactive_single_file",
+            "renderer": "html_iframe",
+            "primaryTab": "render",
+            "tabs": [
+              {
+                "id": "render",
+                "label": "Render",
+                "kind": "render",
+                "renderer": "html_iframe",
+                "filePath": "surface/index.html",
+                "lens": "render"
+              },
+              {
+                "id": "source",
+                "label": "Source",
+                "kind": "source",
+                "renderer": null,
+                "filePath": "surface/route.md",
+                "lens": "source"
+              },
+              {
+                "id": "evidence",
+                "label": "Evidence",
+                "kind": "evidence",
+                "renderer": null,
+                "filePath": null,
+                "lens": "evidence"
+              }
+            ],
+            "files": [
+              {
+                "path": "surface/index.html",
+                "mime": "text/html",
+                "role": "primary",
+                "renderable": true,
+                "downloadable": false,
+                "artifactId": null,
+                "externalUrl": "data:text/html;base64,PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KICA8aGVhZD4KICAgIDxtZXRhIGNoYXJzZXQ9InV0Zi04IiAvPgogICAgPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xIiAvPgogICAgPHRpdGxlPlRvb2wgd2lkZ2V0IHJvdXRlIMK3IENvbXBhcmUgdGhlIExha2VycyBhbmQgQ2VsdGljcyB0aGlzIHNlYXNvbiBhbmQgdGVsbCBtZSB3aGljaCB0ZWFtLi4uPC90aXRsZT4KICAgIDxzdHlsZT4KICAgICAgOnJvb3QgewogICAgICAgIGNvbG9yLXNjaGVtZTogZGFyazsKICAgICAgICAtLWJnOiAjMGQxMTE3OwogICAgICAgIC0tcGFuZWw6ICMxMTE4MjE7CiAgICAgICAgLS1tdXRlZDogIzhiOTlhZDsKICAgICAgICAtLXRleHQ6ICNlY2YxZjc7CiAgICAgICAgLS1saW5lOiByZ2JhKDI1NSwyNTUsMjU1LDAuMDgpOwogICAgICAgIC0tYWNjZW50OiAjNTliM2ZmOwogICAgICB9CiAgICAgIGJvZHkgewogICAgICAgIG1hcmdpbjogMDsKICAgICAgICBwYWRkaW5nOiAyNHB4OwogICAgICAgIGZvbnQtZmFtaWx5OiB1aS1zYW5zLXNlcmlmLCBzeXN0ZW0tdWksIHNhbnMtc2VyaWY7CiAgICAgICAgYmFja2dyb3VuZDogcmFkaWFsLWdyYWRpZW50KGNpcmNsZSBhdCB0b3AsICMxODIzMzQgMCUsIHZhcigtLWJnKSA2MCUpOwogICAgICAgIGNvbG9yOiB2YXIoLS10ZXh0KTsKICAgICAgfQogICAgICAuc2hlbGwgewogICAgICAgIG1heC13aWR0aDogOTIwcHg7CiAgICAgICAgbWFyZ2luOiAwIGF1dG87CiAgICAgICAgYmFja2dyb3VuZDogcmdiYSgxMCwgMTQsIDIwLCAwLjgpOwogICAgICAgIGJvcmRlcjogMXB4IHNvbGlkIHZhcigtLWxpbmUpOwogICAgICAgIGJvcmRlci1yYWRpdXM6IDIwcHg7CiAgICAgICAgcGFkZGluZzogMjRweDsKICAgICAgICBib3gtc2hhZG93OiAwIDI0cHggNjBweCByZ2JhKDAsIDAsIDAsIDAuMjgpOwogICAgICB9CiAgICAgIC5leWVicm93IHsKICAgICAgICBmb250LXNpemU6IDEycHg7CiAgICAgICAgdGV4dC10cmFuc2Zvcm06IHVwcGVyY2FzZTsKICAgICAgICBsZXR0ZXItc3BhY2luZzogMC4xMmVtOwogICAgICAgIGNvbG9yOiB2YXIoLS1tdXRlZCk7CiAgICAgIH0KICAgICAgaDEgewogICAgICAgIG1hcmdpbjogOHB4IDAgMDsKICAgICAgICBmb250LXNpemU6IDI4cHg7CiAgICAgIH0KICAgICAgLmNoaXBzIHsKICAgICAgICBkaXNwbGF5OiBmbGV4OwogICAgICAgIGZsZXgtd3JhcDogd3JhcDsKICAgICAgICBnYXA6IDhweDsKICAgICAgICBtYXJnaW46IDE4cHggMCAyMHB4OwogICAgICB9CiAgICAgIC5jaGlwIHsKICAgICAgICBmb250LXNpemU6IDEycHg7CiAgICAgICAgcGFkZGluZzogNnB4IDEwcHg7CiAgICAgICAgYm9yZGVyLXJhZGl1czogOTk5cHg7CiAgICAgICAgYm9yZGVyOiAxcHggc29saWQgdmFyKC0tbGluZSk7CiAgICAgICAgYmFja2dyb3VuZDogcmdiYSgyNTUsMjU1LDI1NSwwLjA0KTsKICAgICAgfQogICAgICBzZWN0aW9uIHsKICAgICAgICBtYXJnaW4tdG9wOiAyMnB4OwogICAgICAgIHBhZGRpbmctdG9wOiAxOHB4OwogICAgICAgIGJvcmRlci10b3A6IDFweCBzb2xpZCB2YXIoLS1saW5lKTsKICAgICAgfQogICAgICBoMyB7CiAgICAgICAgbWFyZ2luOiAwIDAgMTBweDsKICAgICAgICBmb250LXNpemU6IDE0cHg7CiAgICAgICAgbGV0dGVyLXNwYWNpbmc6IDAuMDRlbTsKICAgICAgICB0ZXh0LXRyYW5zZm9ybTogdXBwZXJjYXNlOwogICAgICAgIGNvbG9yOiB2YXIoLS1tdXRlZCk7CiAgICAgIH0KICAgICAgcCwgbGkgewogICAgICAgIGxpbmUtaGVpZ2h0OiAxLjU1OwogICAgICB9CiAgICAgIGNvZGUgewogICAgICAgIGNvbG9yOiB2YXIoLS1hY2NlbnQpOwogICAgICB9CiAgICA8L3N0eWxlPgogIDwvaGVhZD4KICA8Ym9keT4KICAgIDxtYWluIGNsYXNzPSJzaGVsbCI+CiAgICAgIDxkaXYgY2xhc3M9ImV5ZWJyb3ciPlN0dWRpbyBwYXJpdHkgc3VyZmFjZTwvZGl2PgogICAgICA8aDE+VG9vbCB3aWRnZXQgcm91dGUgwrcgQ29tcGFyZSB0aGUgTGFrZXJzIGFuZCBDZWx0aWNzIHRoaXMgc2Vhc29uIGFuZCB0ZWxsIG1lIHdoaWNoIHRlYW0uLi48L2gxPgogICAgICA8ZGl2IGNsYXNzPSJjaGlwcyI+PHNwYW4gY2xhc3M9ImNoaXAiPlJvdXRlOiByZXNlYXJjaDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+T3V0cHV0OiB0b29sX2V4ZWN1dGlvbjwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+U3VyZmFjZTogc3BvcnRzX3dpZGdldDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+cmlzazogbG93PC9zcGFuPjwvZGl2PgogICAgICA8c2VjdGlvbj4KICAgICAgICA8aDM+T3V0Y29tZTwvaDM+CiAgICAgICAgPHA+U3R1ZGlvIHJvdXRlZCB0aGlzIHJlcXVlc3QgdG8gYSB0b29sLXdpZGdldCBzdXJmYWNlLiBUaGUgcmVxdWVzdCBtYXBzIGNsZWFubHkgdG8gdGhlIHNwb3J0cyB0b29sLXdpZGdldCBmYW1pbHkuIEEgbmFycm93IGZpcnN0LXBhcnR5IHN1cmZhY2UgYmVhdHMgYSBicm9hZCBmYWxsYmFjayBoZXJlLiBUaGUgcHJvbXB0IGRvZXMgbm90IGFzayBmb3IgYSBwZXJzaXN0ZW50IGFydGlmYWN0LiBTdHVkaW8ga2VwdCB0aGUgYXJ0aWZhY3QgbGFuZSBjbG9zZWQgYW5kIHByZXNlcnZlZCByb3V0ZSByZWNlaXB0cyBmb3IgZG93bnN0cmVhbSBleGVjdXRpb24uPC9wPgogICAgICA8L3NlY3Rpb24+CiAgICAgIDxzZWN0aW9uPjxoMz5Tb3VyY2UgcmFua2luZzwvaDM+PG9sPjxsaT48c3Ryb25nPlNwZWNpYWxpemVkVG9vbDwvc3Ryb25nPiDCtyBTZWxlY3RlZCBhcyB0aGUgYWN0aXZlIHNvdXJjZSBmb3IgdGhpcyB0dXJuLjwvbGk+PGxpPjxzdHJvbmc+Q29udmVyc2F0aW9uQ29udGV4dDwvc3Ryb25nPiDCtyBSZXRhaW5lZCBhcyBhbiBvcmRlcmVkIGZhbGxiYWNrIG9yIHN1cHBvcnRpbmcgc291cmNlLjwvbGk+PGxpPjxzdHJvbmc+V2ViU2VhcmNoPC9zdHJvbmc+IMK3IFJldGFpbmVkIGFzIGFuIG9yZGVyZWQgZmFsbGJhY2sgb3Igc3VwcG9ydGluZyBzb3VyY2UuPC9saT48L29sPjwvc2VjdGlvbj4KICAgICAgCiAgICA8L21haW4+CiAgICA8c2NyaXB0PgogICAgICBjb25zdCB3aWRnZXRTdGF0ZSA9IHsid2lkZ2V0RmFtaWx5Ijoic3BvcnRzIiwiYmluZGluZ3MiOlt7ImtleSI6InNwb3J0cy5sZWFndWUiLCJ2YWx1ZSI6Im5iYSIsInNvdXJjZSI6InJlcXVlc3RfZnJhbWUifSx7ImtleSI6InNwb3J0cy50YXJnZXQiLCJ2YWx1ZSI6IkxvcyBBbmdlbGVzIExha2VycyIsInNvdXJjZSI6InJlcXVlc3RfZnJhbWUifV0sImxhc3RVcGRhdGVkQXQiOm51bGx9OwogICAgICBpZiAod2lkZ2V0U3RhdGUpIHsKICAgICAgICB3aW5kb3cucGFyZW50LnBvc3RNZXNzYWdlKHsKICAgICAgICAgIF9fc3R1ZGlvV2lkZ2V0U3RhdGU6IHRydWUsCiAgICAgICAgICB3aWRnZXRTdGF0ZSwKICAgICAgICB9LCAiKiIpOwogICAgICB9CiAgICA8L3NjcmlwdD4KICA8L2JvZHk+CjwvaHRtbD4="
+              },
+              {
+                "path": "surface/route.md",
+                "mime": "text/markdown",
+                "role": "source",
+                "renderable": false,
+                "downloadable": false,
+                "artifactId": null,
+                "externalUrl": "data:text/markdown;base64,IyBUb29sIHdpZGdldCByb3V0ZSDCtyBDb21wYXJlIHRoZSBMYWtlcnMgYW5kIENlbHRpY3MgdGhpcyBzZWFzb24gYW5kIHRlbGwgbWUgd2hpY2ggdGVhbS4uLgoKU3R1ZGlvIHJvdXRlZCB0aGlzIHJlcXVlc3QgdG8gYSB0b29sLXdpZGdldCBzdXJmYWNlLiBUaGUgcmVxdWVzdCBtYXBzIGNsZWFubHkgdG8gdGhlIHNwb3J0cyB0b29sLXdpZGdldCBmYW1pbHkuIEEgbmFycm93IGZpcnN0LXBhcnR5IHN1cmZhY2UgYmVhdHMgYSBicm9hZCBmYWxsYmFjayBoZXJlLiBUaGUgcHJvbXB0IGRvZXMgbm90IGFzayBmb3IgYSBwZXJzaXN0ZW50IGFydGlmYWN0LiBTdHVkaW8ga2VwdCB0aGUgYXJ0aWZhY3QgbGFuZSBjbG9zZWQgYW5kIHByZXNlcnZlZCByb3V0ZSByZWNlaXB0cyBmb3IgZG93bnN0cmVhbSBleGVjdXRpb24uCgojIyBSb3V0ZSBjb250cmFjdAotIHJvdXRlIGZhbWlseTogcmVzZWFyY2gKLSBvdXRwdXQgaW50ZW50OiB0b29sX2V4ZWN1dGlvbgotIGRpcmVjdCBhbnN3ZXIgYWxsb3dlZDogZmFsc2UKLSBwcmVzZW50YXRpb24gc3VyZmFjZTogc3BvcnRzX3dpZGdldAoKIyMgU291cmNlIHJhbmtpbmcKLSAxLiBTcGVjaWFsaXplZFRvb2w6IFNlbGVjdGVkIGFzIHRoZSBhY3RpdmUgc291cmNlIGZvciB0aGlzIHR1cm4uCi0gMi4gQ29udmVyc2F0aW9uQ29udGV4dDogUmV0YWluZWQgYXMgYW4gb3JkZXJlZCBmYWxsYmFjayBvciBzdXBwb3J0aW5nIHNvdXJjZS4KLSAzLiBXZWJTZWFyY2g6IFJldGFpbmVkIGFzIGFuIG9yZGVyZWQgZmFsbGJhY2sgb3Igc3VwcG9ydGluZyBzb3VyY2UuCgojIyBSZXRhaW5lZCB3aWRnZXQgc3RhdGUKLSBzcG9ydHMubGVhZ3VlID0gbmJhIChyZXF1ZXN0X2ZyYW1lKQotIHNwb3J0cy50YXJnZXQgPSBMb3MgQW5nZWxlcyBMYWtlcnMgKHJlcXVlc3RfZnJhbWUp"
+              }
+            ],
+            "verification": {
+              "status": "ready",
+              "lifecycleState": "ready",
+              "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the sports tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "productionProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "acceptanceProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "failure": null
+            },
+            "storage": null
+          },
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "modeDecision": {
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "plan_execute",
+              "modeConfidence": 0.98050004,
+              "oneShotSufficiency": 0.86249995,
+              "ambiguity": 0.029999971,
+              "workGraphSizeEstimate": 1,
+              "hiddenDependencyLikelihood": 0.25,
+              "verificationPressure": 0.2,
+              "revisionCost": 0.2,
+              "evidenceBreadth": 0.15,
+              "mergeBurden": 0.15,
+              "decompositionPayoff": 0.13250001,
+              "workGraphRequired": false,
+              "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 180000,
+                "maxTokens": 8192,
+                "maxToolCalls": 4,
+                "maxRepairs": 1,
+                "expansionPolicy": "fixed"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            },
+            "executionDomain": "studio_tool_widget",
+            "domainKind": "tool_widget",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "satisfiedVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": false
+            },
+            "plan": {
+              "version": 1,
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Tool-widget handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "executionSummary": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "workerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the tool_widget route with the plan_execute strategy.",
+                "startedAt": "2026-04-16T15:46:42.028390127+00:00",
+                "finishedAt": "2026-04-16T15:46:42.028390127+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "tool_widget:sports",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-16T15:46:42.028390127+00:00",
+                "finishedAt": "2026-04-16T15:46:42.028390127+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "tool_widget:sports \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+                ],
+                "failure": null
+              }
+            ],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the tool-widget surface.",
+                "details": [
+                  "tool_widget:sports",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:plan_execute",
+                  "tool_widget:sports",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              }
+            ],
+            "graphMutationReceipts": [],
+            "dispatchBatches": [],
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "budgetSummary": {
+              "plannedWorkerCount": 2,
+              "dispatchedWorkerCount": 2,
+              "tokenBudget": null,
+              "tokenUsage": null,
+              "wallClockMs": null,
+              "coordinationOverheadMs": null,
+              "status": "completed"
+            },
+            "livePreviews": []
+          },
+          "swarmPlan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "swarmExecution": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "swarmWorkerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-16T15:46:42.028390127+00:00",
+              "finishedAt": "2026-04-16T15:46:42.028390127+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-16T15:46:42.028390127+00:00",
+              "finishedAt": "2026-04-16T15:46:42.028390127+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:sports \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null,
+          "fileWrites": [],
+          "tasteMemory": null,
+          "selectedTargets": []
+        }
+      ],
+      "tasteMemory": null,
+      "retrievedExemplars": [],
+      "selectedTargets": [],
+      "widgetState": {
+        "widgetFamily": "sports",
+        "bindings": [
+          {
+            "key": "sports.league",
+            "value": "nba",
+            "source": "request_frame"
+          },
+          {
+            "key": "sports.target",
+            "value": "Los Angeles Lakers",
+            "source": "request_frame"
+          }
+        ],
+        "lastUpdatedAt": null
+      },
+      "uxLifecycle": "judged",
+      "createdAt": "2026-04-16T15:46:42.028702661+00:00",
+      "updatedAt": "2026-04-16T15:46:42.541903490+00:00",
+      "buildSessionId": null,
+      "workspaceRoot": null,
+      "rendererSessionId": null
+    },
+    "studio_outcome": {
+      "requestId": "2d75caf8-fe21-4ef0-9590-1804b39a7cef",
+      "rawPrompt": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now.",
+      "activeArtifactId": null,
+      "outcomeKind": "tool_widget",
+      "executionStrategy": "plan_execute",
+      "executionModeDecision": {
+        "requestedStrategy": "plan_execute",
+        "resolvedStrategy": "plan_execute",
+        "modeConfidence": 0.98050004,
+        "oneShotSufficiency": 0.86249995,
+        "ambiguity": 0.029999971,
+        "workGraphSizeEstimate": 1,
+        "hiddenDependencyLikelihood": 0.25,
+        "verificationPressure": 0.2,
+        "revisionCost": 0.2,
+        "evidenceBreadth": 0.15,
+        "mergeBurden": 0.15,
+        "decompositionPayoff": 0.13250001,
+        "workGraphRequired": false,
+        "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+        "budgetEnvelope": {
+          "maxWorkers": 1,
+          "maxParallelDepth": 1,
+          "maxReplans": 0,
+          "maxWallClockMs": 180000,
+          "maxTokens": 8192,
+          "maxToolCalls": 4,
+          "maxRepairs": 1,
+          "expansionPolicy": "fixed"
+        }
+      },
+      "confidence": 0.97,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "routingHints": [
+        "tool_widget:sports",
+        "narrow_surface_preferred",
+        "no_persistent_artifact_requested"
+      ],
+      "laneFrame": {
+        "primaryLane": "research",
+        "secondaryLanes": [
+          "tool_widget",
+          "conversation"
+        ],
+        "primaryGoal": "Resolve the sports target and return the requested current sports context.",
+        "toolWidgetFamily": "sports",
+        "currentnessPressure": true,
+        "workspaceGroundingRequired": false,
+        "persistentDeliverableRequested": false,
+        "activeArtifactFollowUp": false,
+        "laneConfidence": 0.97
+      },
+      "requestFrame": {
+        "kind": "sports",
+        "league": "nba",
+        "teamOrTarget": "Los Angeles Lakers",
+        "dataScope": null,
+        "missingSlots": [],
+        "clarificationRequiredSlots": []
+      },
+      "sourceSelection": {
+        "candidateSources": [
+          "conversation_context",
+          "specialized_tool",
+          "web_search"
+        ],
+        "selectedSource": "specialized_tool",
+        "explicitUserSource": true,
+        "fallbackReason": null
+      },
+      "retainedLaneState": {
+        "activeLane": "research",
+        "activeToolWidgetFamily": "sports",
+        "activeArtifactId": null,
+        "unresolvedClarificationQuestion": null,
+        "selectedProviderFamily": null,
+        "selectedProviderRouteLabel": null,
+        "selectedSourceFamily": "specialized_tool"
+      },
+      "laneTransitions": [
+        {
+          "transitionKind": "planned",
+          "fromLane": null,
+          "toLane": "research",
+          "reason": "The prompt maps to a sports-specific lane with team and league semantics.",
+          "evidence": [
+            "tool_widget:sports",
+            "narrow_surface_preferred",
+            "no_persistent_artifact_requested",
+            "request_frame:sports"
+          ]
+        },
+        {
+          "transitionKind": "planned",
+          "fromLane": "research",
+          "toLane": "tool_widget",
+          "reason": "The research lane can land through a specialized tool-widget surface.",
+          "evidence": [
+            "tool_widget:sports",
+            "narrow_surface_preferred",
+            "no_persistent_artifact_requested",
+            "secondary_lane:research->toolwidget"
+          ]
+        },
+        {
+          "transitionKind": "planned",
+          "fromLane": "research",
+          "toLane": "conversation",
+          "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+          "evidence": [
+            "tool_widget:sports",
+            "narrow_surface_preferred",
+            "no_persistent_artifact_requested",
+            "secondary_lane:research->conversation"
+          ]
+        }
+      ],
+      "orchestrationState": {
+        "objective": {
+          "objectiveId": "studio_objective",
+          "title": "Compare the Lakers and Celtics this season and tell me which team looks stronger\u2026",
+          "status": "in_progress",
+          "successCriteria": [
+            "Resolve the required scope for the research lane.",
+            "Return a grounded answer rather than a speculative reply."
+          ]
+        },
+        "tasks": [
+          {
+            "taskId": "lane_inputs",
+            "label": "Resolve the sports target",
+            "status": "in_progress",
+            "laneFamily": "research",
+            "dependsOn": [],
+            "summary": "Studio should make the lane contract explicit before execution."
+          },
+          {
+            "taskId": "lane_execute",
+            "label": "Execute the selected lane",
+            "status": "pending",
+            "laneFamily": "research",
+            "dependsOn": [
+              "lane_inputs"
+            ],
+            "summary": null
+          },
+          {
+            "taskId": "lane_finish",
+            "label": "Finish the response truthfully",
+            "status": "pending",
+            "laneFamily": "conversation",
+            "dependsOn": [
+              "lane_execute"
+            ],
+            "summary": null
+          }
+        ],
+        "checkpoints": [
+          {
+            "checkpointId": "route_contract",
+            "label": "Route contract recorded",
+            "status": "complete",
+            "summary": "Studio captured a typed route, source, and lane contract."
+          },
+          {
+            "checkpointId": "lane_readiness",
+            "label": "Lane readiness",
+            "status": "pending",
+            "summary": "Studio can continue into lane execution."
+          }
+        ],
+        "completionInvariant": {
+          "summary": "The answer is grounded in the selected fresh-information lane.",
+          "satisfied": false,
+          "outstandingRequirements": [
+            "execute_lane",
+            "deliver_response"
+          ]
+        }
+      },
+      "artifact": null
+    },
+    "renderer_session": null,
+    "build_session": null,
+    "run_bundle_id": "674dcde1-4f8a-4af5-828e-81ad659935b2",
+    "swarm_tree": [],
+    "generation": 0,
+    "lineage_id": "genesis",
+    "fitness_score": 0.0
+  },
+  "route_receipt_summary": {
+    "title": "Studio route decision",
+    "selected_route": "tool_widget_sports",
+    "route_family": "research",
+    "planner_authority": "kernel",
+    "verifier_state": "passed",
+    "artifact_class": null,
+    "route_decision": {
+      "artifact_output_intent": false,
+      "connector_candidate_count": 0,
+      "connector_first_preference": false,
+      "currentness_override": false,
+      "direct_answer_allowed": false,
+      "direct_answer_blockers": [
+        "tool_widget_surface_selected"
+      ],
+      "effective_tool_surface": {
+        "broad_fallback_tools": [
+          "web_search"
+        ],
+        "diagnostic_tools": [
+          "route_hint:tool_widget:sports",
+          "route_hint:narrow_surface_preferred",
+          "route_hint:no_persistent_artifact_requested"
+        ],
+        "primary_tools": [
+          "fetch_sports_data"
+        ],
+        "projected_tools": [
+          "fetch_sports_data"
+        ]
+      },
+      "file_output_intent": false,
+      "inline_visual_intent": false,
+      "narrow_tool_preference": true,
+      "output_intent": "tool_execution",
+      "route_family": "research",
+      "selected_provider_family": null,
+      "selected_provider_route_label": null,
+      "skill_prep_required": false
+    },
+    "artifact_manifest_summary": {
+      "title": "Tool widget route \u00b7 Compare the Lakers and Celtics this season and tell me which team...",
+      "renderer": "html_iframe",
+      "primary_tab": "render",
+      "tabs": [
+        "render",
+        "source",
+        "evidence"
+      ],
+      "lifecycle_state": "ready",
+      "verification_status": "ready",
+      "verification_summary": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- Hahn: LeBron, Redick are keys to Lakers defeating Rockets\n- Luka, Reaves and the 48 hours that changed the Lakers' season\n- 2026 NBA playoffs: Schedule, scores, news and highlights"
+    }
+  },
+  "latest_agent_message": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- Hahn: LeBron, Redick are keys to Lakers defeating Rockets\n- Luka, Reaves and the 48 hours that changed the Lakers' season\n- 2026 NBA playoffs: Schedule, scores, news and highlights",
+  "log_tail": [
+    "[Autopilot] Block #444 committed (Tx: 0)",
+    "[Autopilot] Block #445 committed (Tx: 0)",
+    "[Autopilot] Block #446 committed (Tx: 0)",
+    "[Autopilot] Block #447 committed (Tx: 0)",
+    "[Autopilot] Block #448 committed (Tx: 0)",
+    "[Autopilot] Block #449 committed (Tx: 0)",
+    "[Autopilot] Block #450 committed (Tx: 0)",
+    "[Autopilot] Block #451 committed (Tx: 0)",
+    "[Autopilot] Block #452 committed (Tx: 0)",
+    "[Autopilot] Block #453 committed (Tx: 0)",
+    "[Autopilot] Block #454 committed (Tx: 0)",
+    "[Autopilot] Block #455 committed (Tx: 0)",
+    "[Autopilot] Block #456 committed (Tx: 0)",
+    "[Autopilot] Block #457 committed (Tx: 0)",
+    "[Autopilot] Block #458 committed (Tx: 0)",
+    "[Autopilot] Block #459 committed (Tx: 0)",
+    "[Autopilot] Block #460 committed (Tx: 0)",
+    "[Autopilot] Block #461 committed (Tx: 0)",
+    "[Autopilot] Block #462 committed (Tx: 0)",
+    "[Autopilot] Block #463 committed (Tx: 0)",
+    "[Autopilot] Block #464 committed (Tx: 0)",
+    "[Autopilot] Block #465 committed (Tx: 0)",
+    "[Autopilot] Block #466 committed (Tx: 0)",
+    "[Autopilot] Block #467 committed (Tx: 0)",
+    "[Autopilot] Block #468 committed (Tx: 0)",
+    "[Autopilot] Block #469 committed (Tx: 0)",
+    "[Autopilot] Block #470 committed (Tx: 0)",
+    "[Autopilot] Block #471 committed (Tx: 0)",
+    "[Autopilot] Block #472 committed (Tx: 0)",
+    "[Autopilot] Block #473 committed (Tx: 0)",
+    "[studio-proof-trace] outcome_route:raw bytes=391 preview={",
+    "\"outcomeKind\": \"conversation\",",
+    "\"executionStrategy\": \"single_pass\",",
+    "\"confidence\": 0.0,",
+    "\"needsClarification\": true,",
+    "\"clarificationQuestions\": [",
+    "  \"Which NBA season are you asking about? (e.g., 2023-2024, 2024-2025)\",",
+    "  \"Are you looking for ...",
+    "[studio-proof-trace] outcome_route:contract_override from=Conversation to=ToolWidget strategy=PlanExecute",
+    "[studio-proof-trace] outcome_route:parsed outcome=ToolWidget strategy=PlanExecute confidence=0.97 needs_clarification=false artifact_present=false",
+    "[Autopilot] Block #474 committed (Tx: 0)",
+    "[Autopilot] Block #475 committed (Tx: 0)",
+    "[Autopilot] Block #476 committed (Tx: 0)",
+    "[Autopilot] Block #477 committed (Tx: 0)",
+    "[Autopilot] Block #478 committed (Tx: 0)",
+    "[Autopilot] Block #479 committed (Tx: 0)",
+    "[Autopilot] Block #480 committed (Tx: 0)",
+    "[Autopilot] Block #481 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#481 (1 sessions)",
+    "[Autopilot] Block #482 committed (Tx: 0)",
+    "[Autopilot] Block #483 committed (Tx: 0)",
+    "[Autopilot] Block #484 committed (Tx: 0)",
+    "[Autopilot] Block #485 committed (Tx: 0)",
+    "[Autopilot] Block #486 committed (Tx: 0)",
+    "[Autopilot] Block #487 committed (Tx: 0)",
+    "[Autopilot] Block #488 committed (Tx: 0)",
+    "[Autopilot] Block #489 committed (Tx: 0)",
+    "[Autopilot] Block #490 committed (Tx: 0)",
+    "[Autopilot] Block #491 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#491 (1 sessions)",
+    "[Autopilot] Block #492 committed (Tx: 0)",
+    "[Autopilot] Block #493 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#492 (1 sessions)",
+    "[Autopilot] Block #494 committed (Tx: 0)",
+    "[Autopilot] Block #495 committed (Tx: 0)",
+    "[Autopilot] Block #496 committed (Tx: 0)",
+    "[Autopilot] Block #497 committed (Tx: 0)",
+    "[Autopilot] Block #498 committed (Tx: 0)",
+    "[Autopilot] Block #499 committed (Tx: 0)",
+    "[Autopilot] Block #500 committed (Tx: 0)",
+    "[Autopilot] Block #501 committed (Tx: 0)",
+    "[Autopilot] Block #502 committed (Tx: 0)",
+    "[Autopilot] Block #503 committed (Tx: 0)",
+    "[Autopilot] Block #504 committed (Tx: 0)",
+    "[Autopilot] Block #505 committed (Tx: 0)",
+    "[Autopilot] Block #506 committed (Tx: 0)",
+    "[Autopilot] Block #507 committed (Tx: 0)",
+    "[Autopilot] Block #508 committed (Tx: 0)",
+    "[Autopilot] Block #509 committed (Tx: 0)",
+    "[Autopilot] Block #510 committed (Tx: 0)",
+    "[Autopilot] Block #511 committed (Tx: 0)",
+    "[Autopilot] Block #512 committed (Tx: 0)",
+    "[Autopilot] Block #513 committed (Tx: 0)",
+    "[Autopilot] Block #514 committed (Tx: 0)",
+    "[Autopilot] Block #515 committed (Tx: 0)",
+    "[Autopilot] Block #516 committed (Tx: 0)",
+    "[Autopilot] Block #517 committed (Tx: 0)",
+    "[Autopilot] Block #518 committed (Tx: 0)",
+    "[Autopilot] Block #519 committed (Tx: 0)",
+    "[Autopilot] Block #520 committed (Tx: 0)",
+    "[Autopilot] Block #521 committed (Tx: 0)",
+    "[Autopilot] Block #522 committed (Tx: 0)",
+    "[Autopilot] Block #523 committed (Tx: 0)",
+    "[Autopilot] Block #524 committed (Tx: 0)",
+    "[Autopilot] Block #525 committed (Tx: 0)",
+    "[Autopilot] Block #526 committed (Tx: 0)",
+    "[Autopilot] Block #527 committed (Tx: 0)",
+    "[Autopilot] Block #528 committed (Tx: 0)",
+    "[Autopilot] Block #529 committed (Tx: 0)",
+    "[Autopilot] Block #530 committed (Tx: 0)",
+    "[Autopilot] Block #531 committed (Tx: 0)",
+    "[Autopilot] Block #532 committed (Tx: 0)",
+    "[Autopilot] Block #533 committed (Tx: 0)",
+    "[Autopilot] Block #534 committed (Tx: 0)",
+    "[Autopilot] Block #535 committed (Tx: 0)",
+    "[Autopilot] Block #536 committed (Tx: 0)",
+    "[Autopilot] Block #537 committed (Tx: 0)",
+    "[Autopilot] Block #538 committed (Tx: 0)",
+    "[Autopilot] Block #539 committed (Tx: 0)",
+    "[Autopilot] Block #540 committed (Tx: 0)",
+    "[Autopilot] Block #541 committed (Tx: 0)",
+    "[Autopilot] Block #542 committed (Tx: 0)",
+    "[Autopilot] Block #543 committed (Tx: 0)",
+    "[Autopilot] Block #544 committed (Tx: 0)",
+    "[Autopilot] Block #545 committed (Tx: 0)",
+    "[Autopilot] Block #546 committed (Tx: 0)",
+    "[Autopilot] Block #547 committed (Tx: 0)",
+    "[Autopilot] Block #548 committed (Tx: 0)",
+    "[Autopilot] Block #549 committed (Tx: 0)",
+    "[Autopilot] Block #550 committed (Tx: 0)"
+  ],
+  "probe_error": null
+}

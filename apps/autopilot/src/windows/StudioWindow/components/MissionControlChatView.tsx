@@ -1,8 +1,8 @@
-import { AssistantWorkbenchView, type AgentRuntime, type AgentSessionRuntime } from "@ioi/agent-ide";
+import { AssistantWorkbenchView, type AgentWorkbenchRuntime, type AssistantSessionRuntime } from "@ioi/agent-ide";
 import { StudioCopilotView } from "./StudioCopilot";
 import type { AssistantWorkbenchSession } from "../../../types";
 
-type SessionCapableRuntime = AgentRuntime & AgentSessionRuntime;
+type SessionCapableRuntime = AgentWorkbenchRuntime & AssistantSessionRuntime;
 
 interface MissionControlChatViewProps {
   surface: "chat" | "reply-composer" | "meeting-prep";

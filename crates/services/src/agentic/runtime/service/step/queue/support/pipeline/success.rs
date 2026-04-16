@@ -73,6 +73,15 @@ pub(crate) fn push_pending_web_success(
     let retrieval_contract = pending.retrieval_contract.as_ref();
     let single_snapshot_contract =
         retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query_contract);
+    let host_anchored_primary_authority_alignment =
+        source_has_host_anchored_primary_authority_snapshot_alignment(
+            retrieval_contract,
+            &query_contract,
+            pending.min_sources as usize,
+            trimmed,
+            resolved_title.as_deref().unwrap_or_default(),
+            &resolved_excerpt,
+        );
     let projection = build_query_constraint_projection(
         &query_contract,
         pending.min_sources,
@@ -169,7 +178,9 @@ pub(crate) fn push_pending_web_success(
             &resolved_excerpt,
         );
         let mut compatibility_passes = compatibility_passes_projection(&projection, &compatibility);
-        if !compatibility_passes && menu_inventory_grounded_excerpt {
+        if !compatibility_passes
+            && (menu_inventory_grounded_excerpt || host_anchored_primary_authority_alignment)
+        {
             compatibility_passes = true;
         }
         if !compatibility_passes {
@@ -265,6 +276,9 @@ pub(crate) fn push_pending_web_success(
                 resolved_title.as_deref().unwrap_or_default(),
                 &resolved_excerpt,
             );
+            if !resolved_payload && host_anchored_primary_authority_alignment {
+                resolved_payload = true;
+            }
             if !resolved_payload {
                 if let Some(hint_entry) = hint {
                     let hint_title = hint_entry.title.as_deref().unwrap_or_default().trim();
@@ -344,6 +358,19 @@ pub(crate) fn push_pending_web_success(
                     return;
                 }
             }
+        }
+    }
+
+    if single_snapshot_contract || time_sensitive {
+        let focused_excerpt = prioritized_success_excerpt_for_query(
+            pending,
+            trimmed,
+            resolved_title.as_deref().unwrap_or_default(),
+            &resolved_excerpt,
+            WEB_PIPELINE_EXCERPT_CHARS,
+        );
+        if !focused_excerpt.is_empty() {
+            resolved_excerpt = focused_excerpt;
         }
     }
 
@@ -716,6 +743,56 @@ fn prioritized_success_excerpt_for_query(
     prioritized_signal_excerpt(input, max_chars)
 }
 
+fn prioritized_document_quote_excerpt_for_query(
+    pending: &PendingSearchCompletion,
+    doc: &WebDocument,
+    title: &str,
+    max_chars: usize,
+) -> String {
+    let joined_quotes = doc
+        .quote_spans
+        .iter()
+        .map(|span| span.quote.trim())
+        .filter(|quote| !quote.is_empty())
+        .take(12)
+        .collect::<Vec<_>>()
+        .join(" ");
+    if !joined_quotes.is_empty() {
+        let joined_excerpt = prioritized_success_excerpt_for_query(
+            pending,
+            doc.url.as_str(),
+            title,
+            &joined_quotes,
+            max_chars,
+        );
+        if !joined_excerpt.is_empty() {
+            return joined_excerpt;
+        }
+    }
+
+    let query_contract = synthesis_query_contract(pending);
+    let mut excerpt = String::new();
+    for span in &doc.quote_spans {
+        let quote = span.quote.trim();
+        if quote.is_empty() {
+            continue;
+        }
+        let candidate = prioritized_success_excerpt_for_query(
+            pending,
+            doc.url.as_str(),
+            title,
+            quote,
+            max_chars,
+        );
+        if candidate.is_empty() {
+            continue;
+        }
+        excerpt = prefer_excerpt_for_query(&query_contract, excerpt, candidate);
+    }
+
+    excerpt
+}
+
 fn supporting_bundle_success_excerpt(
     pending: &PendingSearchCompletion,
     bundle: &WebEvidenceBundle,
@@ -913,6 +990,12 @@ pub(crate) fn append_pending_web_success_from_bundle(
                     .and_then(|source| source.title.clone())
             })
             .filter(|value| !value.trim().is_empty());
+        let quote_excerpt = prioritized_document_quote_excerpt_for_query(
+            pending,
+            doc,
+            title.as_deref().unwrap_or_default(),
+            WEB_PIPELINE_EXCERPT_CHARS,
+        );
         let doc_excerpt = prioritized_success_excerpt_for_query(
             pending,
             doc.url.as_str(),
@@ -922,7 +1005,8 @@ pub(crate) fn append_pending_web_success_from_bundle(
         );
         let supporting_excerpt =
             supporting_bundle_success_excerpt(pending, bundle, Some(&doc.source_id), &doc.url);
-        let excerpt = prefer_excerpt_for_query(&query_contract, doc_excerpt, supporting_excerpt);
+        let excerpt = prefer_excerpt_for_query(&query_contract, quote_excerpt, doc_excerpt);
+        let excerpt = prefer_excerpt_for_query(&query_contract, excerpt, supporting_excerpt);
         let before = pending.successful_reads.len();
         push_pending_web_success(pending, &doc.url, title.clone(), excerpt.clone());
         if pending.successful_reads.len() > before {
@@ -1109,7 +1193,7 @@ fn headline_read_success_url_allowed(url: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebSource};
+    use ioi_types::app::agentic::{WebDocument, WebEvidenceBundle, WebQuoteSpan, WebSource};
 
     #[test]
     fn headline_read_success_url_rejects_root_homepages() {
@@ -1298,6 +1382,160 @@ mod tests {
                 && pending.successful_reads[0].excerpt.contains("FIPS 205"),
             "expected hint-backed identifier coverage to be preserved, got: {:?}",
             pending.successful_reads[0]
+        );
+    }
+
+    #[test]
+    fn push_pending_web_success_prefers_metric_excerpt_for_current_pricing_queries() {
+        let requested_url = "https://openai.com/api/pricing/";
+        let mut pending = PendingSearchCompletion {
+            query: "What is the latest OpenAI API pricing?".to_string(),
+            query_contract: "What is the latest OpenAI API pricing?".to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(
+                    "What is the latest OpenAI API pricing?",
+                    None,
+                )
+                .expect("retrieval contract"),
+            ),
+            url: "https://search.brave.com/search?q=openai+api+pricing".to_string(),
+            started_step: 1,
+            started_at_ms: 1_776_229_080_000,
+            deadline_ms: 1_776_229_200_000,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("OpenAI API Pricing | OpenAI".to_string()),
+                excerpt: "Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools. Compare token costs, realtime, image, and video pricing, plus service tiers.".to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 1,
+        };
+
+        push_pending_web_success(
+            &mut pending,
+            requested_url,
+            Some("OpenAI API Pricing | OpenAI".to_string()),
+            "Our frontier models are designed to spend more time thinking before producing a response, making them ideal for complex, multi-step problems.\n\nPricing above reflects standard processing rates for context lengths under 270K.\n\nNow: 1 GB for $0.03 / 64GB for $1.92 per container Starting March 31, 2026: 1 GB for $0.03 / 64GB for $1.92 per 20-minute session pass.\n\nAudio: $32.00 for inputs $0.40 for cached inputs $64.00 for outputs Text: $4.00 for inputs $0.40 for cached inputs $16.00 for outputs Image: $5.00 for inputs $0.50 for cached inputs\n\nState-of-the-art image generation model.\n\nImage: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs".to_string(),
+        );
+
+        assert_eq!(pending.successful_reads.len(), 1);
+        let excerpt = pending.successful_reads[0].excerpt.as_str();
+        assert!(
+            excerpt.contains("$32.00") || excerpt.contains("$8.00"),
+            "expected stored excerpt to preserve pricing metrics, got: {excerpt}"
+        );
+        assert!(
+            contains_current_condition_metric_signal(excerpt),
+            "expected stored excerpt to preserve current metric grounding, got: {excerpt}"
+        );
+        assert!(
+            !excerpt.contains("1 GB for $0.03") && !excerpt.contains("per container"),
+            "expected stored excerpt to avoid unrelated container pricing, got: {excerpt}"
+        );
+    }
+
+    #[test]
+    fn append_pending_web_success_from_bundle_prefers_query_aligned_quote_span_for_latest_openai_pricing(
+    ) {
+        let requested_url = "https://openai.com/api/pricing/";
+        let query = "What is the latest OpenAI API pricing?";
+        let mut pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(query, None)
+                    .expect("retrieval contract"),
+            ),
+            url: "https://search.brave.com/search?q=openai+api+pricing".to_string(),
+            started_step: 1,
+            started_at_ms: 1_776_229_080_000,
+            deadline_ms: 1_776_229_200_000,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("OpenAI API Pricing | OpenAI".to_string()),
+                excerpt: "Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools."
+                    .to_string(),
+            }],
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: Vec::new(),
+            min_sources: 1,
+        };
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 1_776_229_081_000,
+            tool: "web__read".to_string(),
+            backend: "edge:read:http".to_string(),
+            query: None,
+            url: Some(requested_url.to_string()),
+            sources: vec![WebSource {
+                source_id: "openai-pricing".to_string(),
+                rank: Some(1),
+                url: requested_url.to_string(),
+                title: Some("OpenAI API Pricing | OpenAI".to_string()),
+                snippet: Some(
+                    "Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools."
+                        .to_string(),
+                ),
+                domain: Some("openai.com".to_string()),
+            }],
+            source_observations: vec![],
+            documents: vec![WebDocument {
+                source_id: "openai-pricing".to_string(),
+                url: requested_url.to_string(),
+                title: Some("OpenAI API Pricing | OpenAI".to_string()),
+                content_text: concat!(
+                    "Our frontier models are designed to spend more time thinking before producing a response, ",
+                    "making them ideal for complex, multi-step problems.\n\n",
+                    "Our cheapest GPT-5.4-class model for simple high-volume tasks.\n\n",
+                    "Pricing above reflects standard processing rates for context lengths under 270K.\n\n",
+                    "Now: 1 GB for $0.03 / 64GB for $1.92 per container. ",
+                    "Starting March 31, 2026: 1 GB for $0.03 / 64GB for $1.92 per 20-minute session pass.\n\n",
+                    "State-of-the-art image generation model.\n\n",
+                    "Image: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs ",
+                    "Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs"
+                )
+                .to_string(),
+                content_hash: "openai-pricing-doc".to_string(),
+                quote_spans: vec![
+                    WebQuoteSpan {
+                        start_byte: 0,
+                        end_byte: 128,
+                        quote: "Our frontier models are designed to spend more time thinking before producing a response, making them ideal for complex, multi-step problems.".to_string(),
+                    },
+                    WebQuoteSpan {
+                        start_byte: 220,
+                        end_byte: 370,
+                        quote: "Now: 1 GB for $0.03 / 64GB for $1.92 per container. Starting March 31, 2026: 1 GB for $0.03 / 64GB for $1.92 per 20-minute session pass.".to_string(),
+                    },
+                    WebQuoteSpan {
+                        start_byte: 420,
+                        end_byte: 568,
+                        quote: "Image: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs".to_string(),
+                    },
+                ],
+            }],
+            provider_candidates: vec![],
+            retrieval_contract: None,
+        };
+
+        append_pending_web_success_from_bundle(&mut pending, &bundle, requested_url);
+
+        assert_eq!(pending.successful_reads.len(), 1);
+        let excerpt = pending.successful_reads[0].excerpt.as_str();
+        assert!(
+            excerpt.contains("Image: $8.00")
+                && excerpt.contains("Text: $5.00")
+                && excerpt.contains("$32.00"),
+            "expected pricing quote-span excerpt, got: {excerpt}"
+        );
+        assert!(
+            !excerpt.contains("1 GB for $0.03") && !excerpt.contains("per container"),
+            "expected unrelated storage/session quote to be rejected, got: {excerpt}"
         );
     }
 

@@ -23,8 +23,8 @@ pub use ioi_types::app::{
     StudioArtifactTabKind, StudioArtifactVerificationStatus, StudioExecutionSubstrate,
     StudioOutcomeArtifactRequest, StudioOutcomeArtifactScope,
     StudioOutcomeArtifactVerificationRequest, StudioOutcomeKind, StudioOutcomeRequest,
-    StudioPresentationSurface, StudioRendererKind, StudioRuntimeProvenance,
-    StudioRuntimeProvenanceKind, StudioVerifiedReply,
+    StudioPresentationSurface, StudioRendererKind, StudioRetainedWidgetState,
+    StudioRuntimeProvenance, StudioRuntimeProvenanceKind, StudioVerifiedReply,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -1770,6 +1770,8 @@ pub struct StudioArtifactSession {
     pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
     #[serde(default)]
     pub selected_targets: Vec<StudioArtifactSelectionTarget>,
+    #[serde(default)]
+    pub widget_state: Option<StudioRetainedWidgetState>,
     #[serde(default)]
     pub ux_lifecycle: Option<StudioArtifactUxLifecycle>,
     pub created_at: String,

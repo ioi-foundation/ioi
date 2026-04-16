@@ -1,7 +1,7 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { safelyDisposeTauriListener } from "../../../services/tauriListeners";
-import { AutopilotIcon } from "./ActivityBarIcons";
+import { AutopilotIcon, StudioLogoIcon } from "./ActivityBarIcons";
 import type { PrimaryView } from "../studioWindowModel";
 
 interface ProjectScope {
@@ -238,45 +238,50 @@ export function StudioIdeHeader({
   return (
     <header className="studio-ide-header" onDoubleClick={handleHeaderDoubleClick}>
       <div
-        className="studio-ide-menu-bar"
-        aria-label="Studio menu"
+        className="studio-ide-leading"
         data-tauri-drag-region
       >
-        {MENU_ITEMS.map((item) => (
-          <span key={item} className="studio-ide-menu-item">
-            {item}
-          </span>
-        ))}
-        {shellTerminalAllowed ? (
-          <div className="studio-ide-menu-group">
-            <button
-              type="button"
-              className={`studio-ide-menu-item studio-ide-menu-button ${
-                terminalMenuOpen ? "is-active" : ""
-              }`}
-              aria-haspopup="menu"
-              aria-expanded={terminalMenuOpen}
-              onClick={() => setTerminalMenuOpen((open) => !open)}
-            >
-              Terminal
-            </button>
-            {terminalMenuOpen ? (
-              <div className="studio-ide-menu-popover" role="menu" aria-label="Terminal menu">
-                <button
-                  type="button"
-                  className="studio-ide-menu-popover-item"
-                  role="menuitem"
-                  onClick={() => {
-                    setTerminalMenuOpen(false);
-                    onOpenNewTerminal();
-                  }}
-                >
-                  New Terminal
-                </button>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        <span className="studio-ide-brand" aria-hidden="true">
+          <StudioLogoIcon />
+        </span>
+
+        <div className="studio-ide-menu-bar" aria-label="Studio menu">
+          {MENU_ITEMS.map((item) => (
+            <span key={item} className="studio-ide-menu-item">
+              {item}
+            </span>
+          ))}
+          {shellTerminalAllowed ? (
+            <div className="studio-ide-menu-group">
+              <button
+                type="button"
+                className={`studio-ide-menu-item studio-ide-menu-button ${
+                  terminalMenuOpen ? "is-active" : ""
+                }`}
+                aria-haspopup="menu"
+                aria-expanded={terminalMenuOpen}
+                onClick={() => setTerminalMenuOpen((open) => !open)}
+              >
+                Terminal
+              </button>
+              {terminalMenuOpen ? (
+                <div className="studio-ide-menu-popover" role="menu" aria-label="Terminal menu">
+                  <button
+                    type="button"
+                    className="studio-ide-menu-popover-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setTerminalMenuOpen(false);
+                      onOpenNewTerminal();
+                    }}
+                  >
+                    New Terminal
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="studio-ide-command-cluster">

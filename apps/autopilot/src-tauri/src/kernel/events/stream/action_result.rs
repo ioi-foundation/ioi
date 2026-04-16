@@ -336,7 +336,11 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 });
 
                 let studio_verified_reply =
-                    crate::kernel::studio::verified_reply_summary_for_task(t);
+                    if crate::kernel::studio::task_requires_studio_primary_execution(t) {
+                        crate::kernel::studio::verified_reply_summary_for_task(t)
+                    } else {
+                        None
+                    };
 
                 if !is_chat_reply_tool(&res.tool_name) {
                     if let Some(msg) = studio_verified_reply
@@ -365,7 +369,11 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 t.credential_request = None;
                 t.clarification_request = None;
                 let studio_failure_summary =
-                    crate::kernel::studio::verified_reply_summary_for_task(t);
+                    if crate::kernel::studio::task_requires_studio_primary_execution(t) {
+                        crate::kernel::studio::verified_reply_summary_for_task(t)
+                    } else {
+                        None
+                    };
 
                 if let Some(agent) = t.swarm_tree.iter_mut().find(|a| a.id == res.session_id) {
                     agent.status = "failed".to_string();
@@ -414,8 +422,12 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
                 t.current_step = "Ready for input".to_string();
             }
 
-            let reply_text = crate::kernel::studio::verified_reply_summary_for_task(t)
-                .unwrap_or_else(|| res.output.clone());
+            let reply_text = if crate::kernel::studio::task_requires_studio_primary_execution(t) {
+                crate::kernel::studio::verified_reply_summary_for_task(t)
+                    .unwrap_or_else(|| res.output.clone())
+            } else {
+                res.output.clone()
+            };
             let duplicate = t
                 .history
                 .iter()
@@ -477,6 +489,9 @@ pub(super) async fn handle_action_result(app: &tauri::AppHandle, res: AgentActio
         let state_handle = app.state::<Mutex<AppState>>();
         let completion = match state_handle.lock() {
             Ok(guard) => guard.current_task.as_ref().and_then(|task| {
+                if !crate::kernel::studio::task_requires_studio_primary_execution(task) {
+                    return None;
+                }
                 crate::kernel::studio::verified_reply_summary_for_task(task).map(|summary| {
                     (
                         crate::kernel::studio::verified_reply_title_for_task(task)

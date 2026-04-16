@@ -1,28 +1,16 @@
-import type { AgentRuntime, AssistantWorkbenchSession } from "../../runtime/agent-runtime";
-import { createAssistantWorkbenchActivity } from "../../runtime/assistant-workbench-activity";
-import { reportAssistantWorkbenchActivity } from "../../runtime/session-runtime";
-import { useAssistantWorkbenchController } from "../../runtime/use-assistant-workbench-controller";
+import type {
+  AgentWorkbenchRuntime,
+  AssistantWorkbenchSession,
+} from "../../runtime/agent-runtime";
+import { formatWorkbenchEventTime } from "../../runtime/assistant-workbench-content";
+import { useAssistantWorkbenchActions } from "../../runtime/use-assistant-workbench-controller";
 
 interface AssistantWorkbenchViewProps {
   session: AssistantWorkbenchSession | null;
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   onBack: () => void;
   onOpenNotifications: () => void;
   onOpenAutopilot: (intent: string) => void;
-}
-
-function formatEventTime(raw?: string): string {
-  if (!raw) return "Unknown";
-  const value = new Date(raw);
-  if (Number.isNaN(value.getTime())) {
-    return raw;
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(value);
 }
 
 export function AssistantWorkbenchView({
@@ -53,7 +41,8 @@ export function AssistantWorkbenchView({
     approvePendingShieldAction,
     dismissPendingShieldApproval,
     copyMeetingBrief,
-  } = useAssistantWorkbenchController({
+    reportAutopilotHandoff,
+  } = useAssistantWorkbenchActions({
     session,
     runtime,
   });
@@ -74,25 +63,6 @@ export function AssistantWorkbenchView({
       </div>
     );
   }
-
-  const reportAutopilotHandoff = async (intent: string) => {
-    if (!session) return;
-    try {
-      await reportAssistantWorkbenchActivity(
-        createAssistantWorkbenchActivity(session, {
-          action: "autopilot_handoff",
-          status: "started",
-          message:
-            session.kind === "gmail_reply"
-              ? "Handing the reply draft to Autopilot."
-              : "Handing the meeting prep brief to Autopilot.",
-          detail: intent,
-        }),
-      );
-    } catch (error) {
-      console.error("Failed to report Autopilot handoff:", error);
-    }
-  };
 
   return (
     <div className="assistant-workbench">
@@ -259,8 +229,8 @@ export function AssistantWorkbenchView({
             </div>
             <div className="assistant-workbench-meta">
               <span>{session.event.summary || "Untitled event"}</span>
-              <span>{formatEventTime(session.event.start)}</span>
-              <span>{formatEventTime(session.event.end)}</span>
+              <span>{formatWorkbenchEventTime(session.event.start)}</span>
+              <span>{formatWorkbenchEventTime(session.event.end)}</span>
               {session.event.location ? <span>{session.event.location}</span> : null}
             </div>
             {session.event.description ? (

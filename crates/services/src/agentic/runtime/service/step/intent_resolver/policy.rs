@@ -1,4 +1,5 @@
 use super::*;
+use crate::agentic::runtime::service::step::signals::analyze_query_facets;
 use serde::Deserialize;
 
 pub(super) fn preferred_tier_from_label(label: &str, scope: IntentScopeProfile) -> ExecutionTier {
@@ -169,6 +170,30 @@ fn parse_query_binding_profile(raw: &str) -> Result<QueryBindingProfile, Transac
     })
 }
 
+fn apply_query_facet_overrides(
+    query: &str,
+    mut profile: QueryBindingProfile,
+) -> QueryBindingProfile {
+    let facets = analyze_query_facets(query);
+    let remote_public_fact_backstop = !facets.workspace_constrained
+        && (facets.time_sensitive_public_fact
+            || facets.locality_sensitive_public_fact
+            || facets.grounded_external_required)
+        && !profile.host_local_clock_targeted
+        && !profile.command_directed
+        && !profile.durable_automation_requested
+        && !profile.model_registry_control_requested
+        && !profile.app_launch_directed
+        && !profile.direct_ui_input
+        && !profile.desktop_screenshot_requested
+        && !profile.temporal_filesystem_filter;
+    if remote_public_fact_backstop {
+        profile.available = true;
+        profile.remote_public_fact_required = true;
+    }
+    profile
+}
+
 pub(super) async fn infer_query_binding_profile(
     service: &RuntimeAgentService,
     runtime: &Arc<dyn InferenceRuntime>,
@@ -236,7 +261,7 @@ pub(super) async fn infer_query_binding_profile(
                 "IntentResolver query binding inference failed error={}",
                 vm_error_to_tx(err)
             );
-            return QueryBindingProfile::default();
+            return apply_query_facet_overrides(query, QueryBindingProfile::default());
         }
     };
     let raw = match String::from_utf8(output) {
@@ -246,11 +271,12 @@ pub(super) async fn infer_query_binding_profile(
                 "IntentResolver query binding utf8 decode failed error={}",
                 err
             );
-            return QueryBindingProfile::default();
+            return apply_query_facet_overrides(query, QueryBindingProfile::default());
         }
     };
     match parse_query_binding_profile(&raw) {
-        Ok(profile) => {
+        Ok(parsed) => {
+            let profile = apply_query_facet_overrides(query, parsed);
             log::info!(
                 "IntentResolver query binding classified model_id={} model_version={} schema_id={}",
                 INTENT_QUERY_BINDING_MODEL_ID,
@@ -274,7 +300,7 @@ pub(super) async fn infer_query_binding_profile(
         }
         Err(err) => {
             log::warn!("IntentResolver query binding parse failed error={}", err);
-            QueryBindingProfile::default()
+            apply_query_facet_overrides(query, QueryBindingProfile::default())
         }
     }
 }

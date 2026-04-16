@@ -3,7 +3,7 @@ import type {
   AssistantWorkbenchActivityAction,
   AssistantWorkbenchActivityStatus,
   AssistantWorkbenchSession,
-} from "./agent-runtime";
+} from "./assistant-session-runtime-types";
 
 export type AssistantWorkbenchSurface = "reply-composer" | "meeting-prep";
 

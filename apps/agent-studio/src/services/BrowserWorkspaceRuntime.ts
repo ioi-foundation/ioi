@@ -1,7 +1,7 @@
 // apps/agent-studio/src/services/BrowserWorkspaceRuntime.ts
 
 import type {
-  AgentRuntime,
+  AgentWorkbenchRuntime,
   AgentSummary,
   CacheResult,
   ConnectorActionDefinition,
@@ -306,7 +306,7 @@ function catalogEntryToAgent(entry: RuntimeCatalogEntry): AgentSummary {
   };
 }
 
-export class BrowserWorkspaceRuntime implements AgentRuntime {
+export class BrowserWorkspaceRuntime implements AgentWorkbenchRuntime {
   private eventCallback: ((event: GraphEvent) => void) | null = null;
 
   async runGraph(payload: GraphPayload): Promise<void> {

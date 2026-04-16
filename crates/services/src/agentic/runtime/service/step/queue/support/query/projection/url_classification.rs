@@ -168,6 +168,24 @@ mod url_classification_tests {
             "https://csrc.nist.gov/pubs/fips/203/final"
         ));
     }
+
+    #[test]
+    fn time_sensitive_resolvable_payload_rejects_generic_role_definition_page() {
+        assert!(!candidate_time_sensitive_resolvable_payload(
+            "https://en.wikipedia.org/wiki/Secretary-General_of_the_United_Nations",
+            "Secretary-General of the United Nations - Wikipedia",
+            "The secretary-general of the United Nations is the Head of the United Nations Secretariat."
+        ));
+    }
+
+    #[test]
+    fn time_sensitive_resolvable_payload_accepts_named_current_role_holder() {
+        assert!(candidate_time_sensitive_resolvable_payload(
+            "https://ask.un.org/faq/14625",
+            "Who is and has been Secretary-General of the United Nations? - Ask DAG!",
+            "António Guterres is the current Secretary-General of the United Nations."
+        ));
+    }
 }
 
 pub(crate) fn is_citable_web_url(url: &str) -> bool {
@@ -217,10 +235,27 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(
     let source_text = format!("{} {}", title, excerpt);
     let source_schema = analyze_metric_schema(&source_text);
     let source_price_axis = source_schema.axis_hits.contains(&MetricAxis::Price);
+    let title_lower = title.to_ascii_lowercase();
+    let excerpt_lower = excerpt.to_ascii_lowercase();
+    let title_pricing_context = source_price_axis
+        || title_lower.contains("pricing")
+        || title_lower.contains("billing")
+        || title_lower.contains("rate card")
+        || title_lower.contains("token cost");
+    let excerpt_currency_dense = excerpt.chars().any(|ch| ch.is_ascii_digit())
+        && (excerpt.contains('$') || excerpt_lower.contains("usd"))
+        && (excerpt_lower.contains(" input")
+            || excerpt_lower.contains(" output")
+            || excerpt_lower.contains(" cached"));
     if source_price_axis {
         if has_price_quote_payload(&source_text) {
             return true;
         }
+    }
+    if title_pricing_context && excerpt_currency_dense {
+        return true;
+    } else if has_subject_currentness_payload(&source_text) {
+        return true;
     } else if source_schema.has_current_observation_payload()
         || (source_schema.numeric_token_hits > 0 && source_schema.unit_hits > 0)
     {
@@ -233,6 +268,8 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(
         if has_price_quote_payload(excerpt) {
             return true;
         }
+    } else if has_subject_currentness_payload(excerpt) {
+        return true;
     } else if observation_surface_signal(&excerpt_schema) && !excerpt_has_price_without_quote {
         return true;
     }
@@ -244,6 +281,9 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(
     let title_schema = analyze_metric_schema(title);
     if title_schema.axis_hits.contains(&MetricAxis::Price) {
         return has_price_quote_payload(title);
+    }
+    if has_subject_currentness_payload(title) {
+        return true;
     }
     observation_surface_signal(&title_schema)
         && !schema_has_price_without_quote(&title_schema, title)

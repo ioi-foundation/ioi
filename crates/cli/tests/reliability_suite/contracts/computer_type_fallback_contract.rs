@@ -277,6 +277,7 @@ fn routing_receipt_contract_for_gui_type_fallback_includes_pre_state_and_binding
         policy_binding_hash: binding_hash.clone(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(receipt.intent_hash, intent_hash);

@@ -1,0 +1,1785 @@
+[
+  {
+    "captured_at": "2026-04-15T03:47:09.240558+00:00",
+    "prompt": "What is the latest OpenAI API pricing?",
+    "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-dev-start-intent/2026-04-15T03-46-08Z/01-what-is-the-latest-openai-api-pricing/final.png",
+    "window_id": 20971532,
+    "window_capture_error": null,
+    "task": {
+      "id": "625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+      "intent": "What is the latest OpenAI API pricing?",
+      "agent": "Autopilot",
+      "phase": "Complete",
+      "progress": 0,
+      "total_steps": 20,
+      "current_step": "Waiting for intent clarification",
+      "gate_info": null,
+      "receipt": null,
+      "visual_hash": null,
+      "pending_request_hash": null,
+      "session_id": "625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+      "credential_request": null,
+      "clarification_request": null,
+      "session_checklist": [
+        {
+          "itemId": "request",
+          "label": "Request captured",
+          "status": "completed",
+          "detail": "What is the latest OpenAI API pricing?",
+          "updatedAtMs": 1776224827937
+        },
+        {
+          "itemId": "execution",
+          "label": "Execution complete",
+          "status": "completed",
+          "detail": "Waiting for intent clarification",
+          "updatedAtMs": 1776224827937
+        },
+        {
+          "itemId": "review",
+          "label": "Review latest output",
+          "status": "completed",
+          "detail": "\u2699\ufe0f IntentResolver: intent_id=resolver.unclassified band=Low score=0.000 constrained=false hash=44fabea1650187c9bc041b32f...",
+          "updatedAtMs": 1776224827937
+        }
+      ],
+      "background_tasks": [
+        {
+          "taskId": "625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+          "sessionId": "625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+          "label": "What is the latest OpenAI API pricing?",
+          "status": "completed",
+          "detail": "Waiting for intent clarification",
+          "latestOutput": "\u2699\ufe0f IntentResolver: intent_id=resolver.unclassified band=Low score=0.000 constrained=false hash=44fabea1650187c9bc041b32f...",
+          "canStop": false,
+          "updatedAtMs": 1776224827937
+        }
+      ],
+      "history": [
+        {
+          "role": "user",
+          "text": "What is the latest OpenAI API pricing?",
+          "timestamp": 1776224798184
+        },
+        {
+          "role": "system",
+          "text": "\u2699\ufe0f IntentResolver: intent_id=resolver.unclassified band=Low score=0.000 constrained=false hash=44fabea1650187c9bc041b32f5dfb4a54b035868c989e2ffc03efead8d8b25d0",
+          "timestamp": 1776224826835
+        }
+      ],
+      "events": [
+        {
+          "event_id": "9f98c11d-e2e2-410e-a0ac-e68b73a0f8f5",
+          "timestamp": "2026-04-15T03:46:38.184505760+00:00",
+          "thread_id": "625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+          "step_index": 0,
+          "event_type": "INFO_NOTE",
+          "title": "User request",
+          "digest": {
+            "query": "What is the latest OpenAI API pricing?"
+          },
+          "details": {
+            "kind": "user_input",
+            "text": "What is the latest OpenAI API pricing?"
+          },
+          "artifact_refs": [],
+          "receipt_ref": null,
+          "input_refs": [],
+          "status": "SUCCESS",
+          "duration_ms": null
+        },
+        {
+          "event_id": "af90b7c9-725d-483e-9f31-57ed6fa1014a",
+          "timestamp": "2026-04-15T03:46:38.254922705+00:00",
+          "thread_id": "625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+          "step_index": 1,
+          "event_type": "RECEIPT",
+          "title": "Studio route decision",
+          "digest": {
+            "planner_authority": "kernel",
+            "route_decision": {
+              "artifact_output_intent": false,
+              "connector_candidate_count": 0,
+              "connector_first_preference": false,
+              "currentness_override": true,
+              "direct_answer_allowed": false,
+              "direct_answer_blockers": [
+                "currentness_override"
+              ],
+              "effective_tool_surface": {
+                "broad_fallback_tools": [],
+                "diagnostic_tools": [
+                  "route_hint:currentness_override",
+                  "route_hint:no_persistent_artifact_requested",
+                  "route_hint:shared_answer_surface"
+                ],
+                "primary_tools": [],
+                "projected_tools": []
+              },
+              "file_output_intent": false,
+              "inline_visual_intent": false,
+              "narrow_tool_preference": false,
+              "output_intent": "tool_execution",
+              "route_family": "research",
+              "selected_provider_family": null,
+              "selected_provider_route_label": null,
+              "skill_prep_required": false
+            },
+            "route_family": "research",
+            "selected_route": "conversation_single_pass",
+            "topology": "single_agent",
+            "verifier_outcome": null,
+            "verifier_state": "not_engaged"
+          },
+          "details": {
+            "planner_authority": "kernel",
+            "route_decision": {
+              "artifact_output_intent": false,
+              "connector_candidate_count": 0,
+              "connector_first_preference": false,
+              "currentness_override": true,
+              "direct_answer_allowed": false,
+              "direct_answer_blockers": [
+                "currentness_override"
+              ],
+              "effective_tool_surface": {
+                "broad_fallback_tools": [],
+                "diagnostic_tools": [
+                  "route_hint:currentness_override",
+                  "route_hint:no_persistent_artifact_requested",
+                  "route_hint:shared_answer_surface"
+                ],
+                "primary_tools": [],
+                "projected_tools": []
+              },
+              "file_output_intent": false,
+              "inline_visual_intent": false,
+              "narrow_tool_preference": false,
+              "output_intent": "tool_execution",
+              "route_family": "research",
+              "selected_provider_family": null,
+              "selected_provider_route_label": null,
+              "skill_prep_required": false
+            },
+            "route_family": "research",
+            "selected_route": "conversation_single_pass",
+            "summary": "Studio routed this request to conversation. Currentness pressure makes a shared answer lane safer than precommitting to a persistent artifact. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+            "topology": "single_agent",
+            "verifier_outcome": null,
+            "verifier_state": "not_engaged"
+          },
+          "artifact_refs": [],
+          "receipt_ref": null,
+          "input_refs": [
+            "9f98c11d-e2e2-410e-a0ac-e68b73a0f8f5"
+          ],
+          "status": "SUCCESS",
+          "duration_ms": null
+        },
+        {
+          "event_id": "7d38c003-a2ec-45e4-a7a7-d026dec6c22d",
+          "timestamp": "2026-04-15T03:47:06.857880448+00:00",
+          "thread_id": "625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+          "step_index": 0,
+          "event_type": "INFO_NOTE",
+          "title": "System update: IntentResolver",
+          "digest": {
+            "component": "IntentResolver",
+            "status": "intent_id=resolver.unclassified band=Low score=0.000 constrained=false hash=44fabea1650187c9bc041b32f5dfb4a54b035868c989e2ffc03efead8d8b25d0"
+          },
+          "details": {},
+          "artifact_refs": [],
+          "receipt_ref": null,
+          "input_refs": [],
+          "status": "SUCCESS",
+          "duration_ms": null
+        }
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "c754fa48-328d-4426-8478-71a5d18437bc",
+          "created_at": "2026-04-15T03:46:38.184608639+00:00",
+          "thread_id": "625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+          "artifact_type": "RUN_BUNDLE",
+          "title": "Run Bundle 625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+          "description": "Execution receipts and artifact references",
+          "content_ref": "ioi-memory://artifact/c754fa48-328d-4426-8478-71a5d18437bc",
+          "metadata": {
+            "refs": [],
+            "run_id": "625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4"
+          },
+          "version": 1,
+          "parent_artifact_id": null
+        }
+      ],
+      "studio_session": {
+        "sessionId": "5c48446b-8669-45d6-9e99-5f7c800f14e2",
+        "threadId": "625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+        "artifactId": "2df4c8d6-9654-49e4-915f-a6a7c4e01ff4",
+        "title": "Conversation route \u00b7 What is the latest OpenAI API pricing?",
+        "summary": "Studio routed this request to conversation. Currentness pressure makes a shared answer lane safer than precommitting to a persistent artifact. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+        "currentLens": "source",
+        "navigatorBackingMode": "logical",
+        "navigatorNodes": [
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "description": "Inspect the source form of the artifact.",
+            "badge": null,
+            "status": null,
+            "lens": "source",
+            "path": null,
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "attachedArtifactIds": [],
+        "availableLenses": [
+          "source",
+          "evidence"
+        ],
+        "materialization": {
+          "version": 7,
+          "requestKind": "conversation",
+          "normalizedIntent": "What is the latest OpenAI API pricing?",
+          "summary": "Studio routed this request to conversation. Currentness pressure makes a shared answer lane safer than precommitting to a persistent artifact. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "winningCandidateRationale": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "single_pass",
+            "modeDecision": {
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "single_pass",
+              "modeConfidence": 0.7415,
+              "oneShotSufficiency": 0.945,
+              "ambiguity": 0.089999974,
+              "workGraphSizeEstimate": 1,
+              "hiddenDependencyLikelihood": 0.1,
+              "verificationPressure": 0.1,
+              "revisionCost": 0.1,
+              "evidenceBreadth": 0.1,
+              "mergeBurden": 0.0,
+              "decompositionPayoff": 0.045,
+              "workGraphRequired": false,
+              "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 60000,
+                "maxTokens": 2048,
+                "maxToolCalls": 1,
+                "maxRepairs": 0,
+                "expansionPolicy": "fixed"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 60000,
+              "maxTokens": 2048,
+              "maxToolCalls": 1,
+              "maxRepairs": 0,
+              "expansionPolicy": "fixed"
+            },
+            "executionDomain": "studio_conversation",
+            "domainKind": "conversation",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "satisfiedVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": false
+            },
+            "plan": {
+              "version": 1,
+              "strategy": "single_pass",
+              "executionDomain": "studio_conversation",
+              "adapterLabel": "conversation_single_pass_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Conversation handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "executionSummary": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "single_pass",
+              "executionDomain": "studio_conversation",
+              "adapterLabel": "conversation_single_pass_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "workerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the conversation route with the single_pass strategy.",
+                "startedAt": "2026-04-15T03:46:38.254567916+00:00",
+                "finishedAt": "2026-04-15T03:46:38.254567916+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "currentness_override",
+                  "no_persistent_artifact_requested",
+                  "shared_answer_surface"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Conversation stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-15T03:46:38.254567916+00:00",
+                "finishedAt": "2026-04-15T03:46:38.254567916+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "currentness_override \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface"
+                ],
+                "failure": null
+              }
+            ],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the conversation surface.",
+                "details": [
+                  "currentness_override",
+                  "no_persistent_artifact_requested",
+                  "shared_answer_surface"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:single_pass",
+                  "currentness_override",
+                  "no_persistent_artifact_requested",
+                  "shared_answer_surface"
+                ]
+              }
+            ],
+            "graphMutationReceipts": [],
+            "dispatchBatches": [],
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "budgetSummary": {
+              "plannedWorkerCount": 2,
+              "dispatchedWorkerCount": 2,
+              "tokenBudget": null,
+              "tokenUsage": null,
+              "wallClockMs": null,
+              "coordinationOverheadMs": null,
+              "status": "completed"
+            },
+            "livePreviews": []
+          },
+          "swarmPlan": {
+            "version": 1,
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Conversation handoff",
+                "role": "responder",
+                "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "swarmExecution": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "swarmWorkerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the conversation route with the single_pass strategy.",
+              "startedAt": "2026-04-15T03:46:38.254567916+00:00",
+              "finishedAt": "2026-04-15T03:46:38.254567916+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "currentness_override",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Conversation stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-15T03:46:38.254567916+00:00",
+              "finishedAt": "2026-04-15T03:46:38.254567916+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "currentness_override \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface"
+              ],
+              "failure": null
+            }
+          ],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the conversation surface.",
+              "details": [
+                "currentness_override",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:single_pass",
+                "currentness_override",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ]
+            }
+          ],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "fallbackUsed": false,
+          "uxLifecycle": "judged",
+          "failure": null,
+          "navigatorNodes": [
+            {
+              "id": "source",
+              "label": "Source",
+              "kind": "source",
+              "description": "Inspect the source form of the artifact.",
+              "badge": null,
+              "status": null,
+              "lens": "source",
+              "path": null,
+              "children": []
+            },
+            {
+              "id": "evidence",
+              "label": "Evidence",
+              "kind": "evidence",
+              "description": "Inspect verification state, receipts, and evidence.",
+              "badge": null,
+              "status": null,
+              "lens": "evidence",
+              "path": null,
+              "children": []
+            }
+          ],
+          "fileWrites": [],
+          "commandIntents": [],
+          "previewIntent": null,
+          "verificationSteps": [
+            {
+              "id": "route",
+              "label": "Verify route",
+              "kind": "route",
+              "status": "success"
+            },
+            {
+              "id": "reply_surface",
+              "label": "Verify reply surface",
+              "kind": "reply_surface",
+              "status": "success"
+            }
+          ],
+          "pipelineSteps": [
+            {
+              "id": "intake",
+              "stage": "plan",
+              "label": "Intake",
+              "status": "complete",
+              "summary": "Studio captured the request and preserved it as a typed outcome turn.",
+              "outputs": [
+                "What is the latest OpenAI API pricing?"
+              ],
+              "verificationGate": null
+            },
+            {
+              "id": "routing",
+              "stage": "dispatch",
+              "label": "Outcome routing",
+              "status": "complete",
+              "summary": "The typed router intentionally kept this request on the conversation surface.",
+              "outputs": [
+                "conversation",
+                "conversation",
+                "strategy:single_pass",
+                "currentness_override",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ],
+              "verificationGate": null
+            },
+            {
+              "id": "planner",
+              "stage": "plan",
+              "label": "Planner",
+              "status": "complete",
+              "summary": "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+              "outputs": [
+                "single_pass",
+                "work_items:2",
+                "sequential_by_default"
+              ],
+              "verificationGate": null
+            },
+            {
+              "id": "swarm_execution",
+              "stage": "work",
+              "label": "Shared execution",
+              "status": "complete",
+              "summary": "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+              "outputs": [
+                "worker_receipts:2",
+                "progress:2/2",
+                "adapter:conversation_single_pass_v1"
+              ],
+              "verificationGate": "Shared execution receipts must remain truthful about the active outcome surface."
+            },
+            {
+              "id": "verification",
+              "stage": "verify",
+              "label": "Verification",
+              "status": "complete",
+              "summary": "Studio verified the selected non-artifact route before composing the reply state.",
+              "outputs": [
+                "route_verification (ready)",
+                "reply_surface (ready)"
+              ],
+              "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+            },
+            {
+              "id": "reply",
+              "stage": "finalize",
+              "label": "Reply",
+              "status": "complete",
+              "summary": "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+              "outputs": [
+                "Studio routed this request to conversation. Currentness pressure makes a shared answer lane safer than precommitting to a persistent artifact. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+                "currentness_override",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ],
+              "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+            }
+          ],
+          "runtimeNarrationEvents": [],
+          "notes": [
+            "Studio intentionally kept this request off the artifact materialization path.",
+            "The shared execution envelope still records plan, worker, and verification state.",
+            "No renderer-specific fallback artifact was injected for this route.",
+            "routing_hints:currentness_override | no_persistent_artifact_requested | shared_answer_surface",
+            "Route family: research",
+            "Output intent: tool_execution"
+          ]
+        },
+        "outcomeRequest": {
+          "requestId": "b8127747-e77a-4b43-b8e0-7522bd73e3ba",
+          "rawPrompt": "What is the latest OpenAI API pricing?",
+          "activeArtifactId": null,
+          "outcomeKind": "conversation",
+          "executionStrategy": "single_pass",
+          "executionModeDecision": {
+            "requestedStrategy": "plan_execute",
+            "resolvedStrategy": "single_pass",
+            "modeConfidence": 0.7415,
+            "oneShotSufficiency": 0.945,
+            "ambiguity": 0.089999974,
+            "workGraphSizeEstimate": 1,
+            "hiddenDependencyLikelihood": 0.1,
+            "verificationPressure": 0.1,
+            "revisionCost": 0.1,
+            "evidenceBreadth": 0.1,
+            "mergeBurden": 0.0,
+            "decompositionPayoff": 0.045,
+            "workGraphRequired": false,
+            "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 60000,
+              "maxTokens": 2048,
+              "maxToolCalls": 1,
+              "maxRepairs": 0,
+              "expansionPolicy": "fixed"
+            }
+          },
+          "confidence": 0.91,
+          "needsClarification": false,
+          "clarificationQuestions": [],
+          "routingHints": [
+            "currentness_override",
+            "no_persistent_artifact_requested",
+            "shared_answer_surface"
+          ],
+          "artifact": null
+        },
+        "artifactManifest": {
+          "artifactId": "2df4c8d6-9654-49e4-915f-a6a7c4e01ff4",
+          "title": "Conversation route \u00b7 What is the latest OpenAI API pricing?",
+          "artifactClass": "report_bundle",
+          "renderer": "bundle_manifest",
+          "primaryTab": "source",
+          "tabs": [
+            {
+              "id": "source",
+              "label": "Source",
+              "kind": "source",
+              "renderer": null,
+              "filePath": null,
+              "lens": "source"
+            },
+            {
+              "id": "evidence",
+              "label": "Evidence",
+              "kind": "evidence",
+              "renderer": null,
+              "filePath": null,
+              "lens": "evidence"
+            }
+          ],
+          "files": [],
+          "verification": {
+            "status": "ready",
+            "lifecycleState": "ready",
+            "summary": "Studio routed this request to conversation. Currentness pressure makes a shared answer lane safer than precommitting to a persistent artifact. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+            "productionProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "acceptanceProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "failure": null
+          },
+          "storage": null
+        },
+        "verifiedReply": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "title": "Conversation route \u00b7 What is the latest OpenAI API pricing?",
+          "summary": "Studio routed this request to conversation. Currentness pressure makes a shared answer lane safer than precommitting to a persistent artifact. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "evidence": [
+            "outcome:conversation",
+            "strategy:single_pass",
+            "provenance:openai-compatible",
+            "route_hint:currentness_override",
+            "route_hint:no_persistent_artifact_requested",
+            "route_hint:shared_answer_surface"
+          ],
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null,
+          "updatedAt": "2026-04-15T03:46:38.254745622+00:00"
+        },
+        "lifecycleState": "ready",
+        "status": "ready",
+        "activeRevisionId": "35d56a20-d612-4e6b-8363-261fe50a74be",
+        "revisions": [
+          {
+            "revisionId": "35d56a20-d612-4e6b-8363-261fe50a74be",
+            "parentRevisionId": null,
+            "branchId": "main",
+            "branchLabel": "Main",
+            "prompt": "What is the latest OpenAI API pricing?",
+            "createdAt": "2026-04-15T03:46:38.254792850+00:00",
+            "uxLifecycle": "judged",
+            "artifactManifest": {
+              "artifactId": "2df4c8d6-9654-49e4-915f-a6a7c4e01ff4",
+              "title": "Conversation route \u00b7 What is the latest OpenAI API pricing?",
+              "artifactClass": "report_bundle",
+              "renderer": "bundle_manifest",
+              "primaryTab": "source",
+              "tabs": [
+                {
+                  "id": "source",
+                  "label": "Source",
+                  "kind": "source",
+                  "renderer": null,
+                  "filePath": null,
+                  "lens": "source"
+                },
+                {
+                  "id": "evidence",
+                  "label": "Evidence",
+                  "kind": "evidence",
+                  "renderer": null,
+                  "filePath": null,
+                  "lens": "evidence"
+                }
+              ],
+              "files": [],
+              "verification": {
+                "status": "ready",
+                "lifecycleState": "ready",
+                "summary": "Studio routed this request to conversation. Currentness pressure makes a shared answer lane safer than precommitting to a persistent artifact. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+                "productionProvenance": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "acceptanceProvenance": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "failure": null
+              },
+              "storage": null
+            },
+            "artifactBrief": null,
+            "preparationNeeds": null,
+            "preparedContextResolution": null,
+            "skillDiscoveryResolution": null,
+            "blueprint": null,
+            "artifactIr": null,
+            "selectedSkills": [],
+            "retrievedExemplars": [],
+            "editIntent": null,
+            "candidateSummaries": [],
+            "winningCandidateId": null,
+            "executionEnvelope": {
+              "version": 1,
+              "strategy": "single_pass",
+              "modeDecision": {
+                "requestedStrategy": "plan_execute",
+                "resolvedStrategy": "single_pass",
+                "modeConfidence": 0.7415,
+                "oneShotSufficiency": 0.945,
+                "ambiguity": 0.089999974,
+                "workGraphSizeEstimate": 1,
+                "hiddenDependencyLikelihood": 0.1,
+                "verificationPressure": 0.1,
+                "revisionCost": 0.1,
+                "evidenceBreadth": 0.1,
+                "mergeBurden": 0.0,
+                "decompositionPayoff": 0.045,
+                "workGraphRequired": false,
+                "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+                "budgetEnvelope": {
+                  "maxWorkers": 1,
+                  "maxParallelDepth": 1,
+                  "maxReplans": 0,
+                  "maxWallClockMs": 60000,
+                  "maxTokens": 2048,
+                  "maxToolCalls": 1,
+                  "maxRepairs": 0,
+                  "expansionPolicy": "fixed"
+                }
+              },
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 60000,
+                "maxTokens": 2048,
+                "maxToolCalls": 1,
+                "maxRepairs": 0,
+                "expansionPolicy": "fixed"
+              },
+              "executionDomain": "studio_conversation",
+              "domainKind": "conversation",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_verification",
+                  "reply_surface"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_verification",
+                  "reply_surface"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": false
+              },
+              "plan": {
+                "version": 1,
+                "strategy": "single_pass",
+                "executionDomain": "studio_conversation",
+                "adapterLabel": "conversation_single_pass_v1",
+                "parallelismMode": "sequential_by_default",
+                "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+                "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+                "decompositionType": "small_graph_functional_decomposition",
+                "firstFrontierIds": [
+                  "handoff"
+                ],
+                "spawnConditions": [
+                  "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+                ],
+                "pruneConditions": [
+                  "Prune clarification work once the reply handoff is already unblocked."
+                ],
+                "mergeStrategy": "deterministic_reply_surface_projection",
+                "verificationStrategy": "route_truth_before_reply",
+                "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+                "completionInvariant": {
+                  "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                  "status": "satisfied",
+                  "requiredWorkItemIds": [
+                    "planner",
+                    "handoff"
+                  ],
+                  "satisfiedWorkItemIds": [
+                    "planner",
+                    "handoff"
+                  ],
+                  "speculativeWorkItemIds": [],
+                  "prunedWorkItemIds": [],
+                  "requiredVerificationIds": [
+                    "route_truth"
+                  ],
+                  "satisfiedVerificationIds": [
+                    "route_truth"
+                  ],
+                  "requiredArtifactPaths": [],
+                  "remainingObligations": [],
+                  "allowsEarlyExit": true
+                },
+                "workItems": [
+                  {
+                    "id": "planner",
+                    "title": "Outcome planner",
+                    "role": "planner",
+                    "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                    "spawnedFromId": null,
+                    "readPaths": [
+                      "request",
+                      "route_context"
+                    ],
+                    "writePaths": [],
+                    "writeRegions": [],
+                    "leaseRequirements": [],
+                    "acceptanceCriteria": [
+                      "Outcome route is explicit.",
+                      "Execution strategy is explicit."
+                    ],
+                    "dependencyIds": [],
+                    "blockedOnIds": [],
+                    "verificationPolicy": null,
+                    "retryBudget": null,
+                    "status": "succeeded"
+                  },
+                  {
+                    "id": "handoff",
+                    "title": "Conversation handoff",
+                    "role": "responder",
+                    "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                    "spawnedFromId": null,
+                    "readPaths": [
+                      "request",
+                      "execution_plan"
+                    ],
+                    "writePaths": [],
+                    "writeRegions": [],
+                    "leaseRequirements": [],
+                    "acceptanceCriteria": [
+                      "Studio reply remains truthful about the chosen surface.",
+                      "No artifact renderer is implied when none was invoked."
+                    ],
+                    "dependencyIds": [
+                      "planner"
+                    ],
+                    "blockedOnIds": [],
+                    "verificationPolicy": null,
+                    "retryBudget": null,
+                    "status": "succeeded"
+                  }
+                ]
+              },
+              "executionSummary": {
+                "enabled": true,
+                "currentStage": "reply",
+                "executionStage": "finalize",
+                "activeWorkerRole": null,
+                "totalWorkItems": 2,
+                "completedWorkItems": 2,
+                "failedWorkItems": 0,
+                "verificationStatus": "ready",
+                "strategy": "single_pass",
+                "executionDomain": "studio_conversation",
+                "adapterLabel": "conversation_single_pass_v1",
+                "parallelismMode": "sequential_by_default"
+              },
+              "workerReceipts": [
+                {
+                  "workItemId": "planner",
+                  "role": "planner",
+                  "status": "succeeded",
+                  "resultKind": "completed",
+                  "summary": "Selected the conversation route with the single_pass strategy.",
+                  "startedAt": "2026-04-15T03:46:38.254567916+00:00",
+                  "finishedAt": "2026-04-15T03:46:38.254567916+00:00",
+                  "runtime": {
+                    "kind": "real_local_runtime",
+                    "label": "openai-compatible",
+                    "model": "qwen3.5:9b",
+                    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                  },
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "spawnedWorkItemIds": [],
+                  "blockedOnIds": [],
+                  "promptBytes": null,
+                  "outputBytes": null,
+                  "outputPreview": null,
+                  "previewLanguage": null,
+                  "notes": [
+                    "No artifact files were requested on this route.",
+                    "currentness_override",
+                    "no_persistent_artifact_requested",
+                    "shared_answer_surface"
+                  ],
+                  "failure": null
+                },
+                {
+                  "workItemId": "handoff",
+                  "role": "responder",
+                  "status": "succeeded",
+                  "resultKind": "completed",
+                  "summary": "Conversation stayed primary and no artifact renderer was launched.",
+                  "startedAt": "2026-04-15T03:46:38.254567916+00:00",
+                  "finishedAt": "2026-04-15T03:46:38.254567916+00:00",
+                  "runtime": {
+                    "kind": "real_local_runtime",
+                    "label": "openai-compatible",
+                    "model": "qwen3.5:9b",
+                    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                  },
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "spawnedWorkItemIds": [],
+                  "blockedOnIds": [],
+                  "promptBytes": null,
+                  "outputBytes": null,
+                  "outputPreview": null,
+                  "previewLanguage": null,
+                  "notes": [
+                    "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                    "currentness_override \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface"
+                  ],
+                  "failure": null
+                }
+              ],
+              "changeReceipts": [],
+              "mergeReceipts": [],
+              "verificationReceipts": [
+                {
+                  "id": "route_verification",
+                  "kind": "route_verification",
+                  "status": "ready",
+                  "summary": "Studio verified that this request belongs on the conversation surface.",
+                  "details": [
+                    "currentness_override",
+                    "no_persistent_artifact_requested",
+                    "shared_answer_surface"
+                  ]
+                },
+                {
+                  "id": "reply_surface",
+                  "kind": "reply_surface",
+                  "status": "ready",
+                  "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                  "details": [
+                    "strategy:single_pass",
+                    "currentness_override",
+                    "no_persistent_artifact_requested",
+                    "shared_answer_surface"
+                  ]
+                }
+              ],
+              "graphMutationReceipts": [],
+              "dispatchBatches": [],
+              "repairReceipts": [],
+              "replanReceipts": [],
+              "budgetSummary": {
+                "plannedWorkerCount": 2,
+                "dispatchedWorkerCount": 2,
+                "tokenBudget": null,
+                "tokenUsage": null,
+                "wallClockMs": null,
+                "coordinationOverheadMs": null,
+                "status": "completed"
+              },
+              "livePreviews": []
+            },
+            "swarmPlan": {
+              "version": 1,
+              "strategy": "single_pass",
+              "executionDomain": "studio_conversation",
+              "adapterLabel": "conversation_single_pass_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Conversation handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "swarmExecution": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "single_pass",
+              "executionDomain": "studio_conversation",
+              "adapterLabel": "conversation_single_pass_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "swarmWorkerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the conversation route with the single_pass strategy.",
+                "startedAt": "2026-04-15T03:46:38.254567916+00:00",
+                "finishedAt": "2026-04-15T03:46:38.254567916+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "currentness_override",
+                  "no_persistent_artifact_requested",
+                  "shared_answer_surface"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Conversation stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-15T03:46:38.254567916+00:00",
+                "finishedAt": "2026-04-15T03:46:38.254567916+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "currentness_override \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface"
+                ],
+                "failure": null
+              }
+            ],
+            "swarmChangeReceipts": [],
+            "swarmMergeReceipts": [],
+            "swarmVerificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the conversation surface.",
+                "details": [
+                  "currentness_override",
+                  "no_persistent_artifact_requested",
+                  "shared_answer_surface"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:single_pass",
+                  "currentness_override",
+                  "no_persistent_artifact_requested",
+                  "shared_answer_surface"
+                ]
+              }
+            ],
+            "renderEvaluation": null,
+            "judge": null,
+            "outputOrigin": "live_inference",
+            "productionProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "acceptanceProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "failure": null,
+            "fileWrites": [],
+            "tasteMemory": null,
+            "selectedTargets": []
+          }
+        ],
+        "tasteMemory": null,
+        "retrievedExemplars": [],
+        "selectedTargets": [],
+        "uxLifecycle": "judged",
+        "createdAt": "2026-04-15T03:46:38.254731152+00:00",
+        "updatedAt": "2026-04-15T03:46:38.254731152+00:00",
+        "buildSessionId": null,
+        "workspaceRoot": null,
+        "rendererSessionId": null
+      },
+      "studio_outcome": {
+        "requestId": "b8127747-e77a-4b43-b8e0-7522bd73e3ba",
+        "rawPrompt": "What is the latest OpenAI API pricing?",
+        "activeArtifactId": null,
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "executionModeDecision": {
+          "requestedStrategy": "plan_execute",
+          "resolvedStrategy": "single_pass",
+          "modeConfidence": 0.7415,
+          "oneShotSufficiency": 0.945,
+          "ambiguity": 0.089999974,
+          "workGraphSizeEstimate": 1,
+          "hiddenDependencyLikelihood": 0.1,
+          "verificationPressure": 0.1,
+          "revisionCost": 0.1,
+          "evidenceBreadth": 0.1,
+          "mergeBurden": 0.0,
+          "decompositionPayoff": 0.045,
+          "workGraphRequired": false,
+          "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 60000,
+            "maxTokens": 2048,
+            "maxToolCalls": 1,
+            "maxRepairs": 0,
+            "expansionPolicy": "fixed"
+          }
+        },
+        "confidence": 0.91,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": [
+          "currentness_override",
+          "no_persistent_artifact_requested",
+          "shared_answer_surface"
+        ],
+        "artifact": null
+      },
+      "renderer_session": null,
+      "build_session": null,
+      "run_bundle_id": "c754fa48-328d-4426-8478-71a5d18437bc",
+      "swarm_tree": [],
+      "generation": 0,
+      "lineage_id": "genesis",
+      "fitness_score": 0.0
+    },
+    "latest_agent_message": null,
+    "log_tail": [
+      "[Autopilot] Display env: XDG_SESSION_TYPE='x11' WAYLAND_DISPLAY='' GDK_BACKEND='x11' WINIT_UNIX_BACKEND='x11'",
+      "[Autopilot] Initializing...",
+      "[Studio] Using Autopilot data profile 'desktop-localgpu' at /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu",
+      "--- Encrypting New Secure Key ---",
+      "[Studio] Initialized memory runtime.",
+      "[Studio] Skipping wallet-backed connector bootstrap for this local dev profile.",
+      "[Studio] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety.",
+      "[Studio] Set IOI_STUDIO_MCP_PROFILE=dev_filesystem to opt in.",
+      "[Autopilot] Setup complete.",
+      "[Autopilot] Connected to Kernel Event Stream at http://127.0.0.1:9000",
+      "[Autopilot] Event Stream Active \u2705",
+      "[Autopilot] Block #416 committed (Tx: 0)",
+      "[Autopilot] Block #417 committed (Tx: 0)",
+      "[Autopilot] Block #418 committed (Tx: 0)",
+      "[Autopilot] Block #419 committed (Tx: 0)",
+      "[Autopilot] Block #420 committed (Tx: 0)",
+      "[Autopilot] Block #421 committed (Tx: 0)",
+      "[Autopilot] Block #422 committed (Tx: 0)",
+      "[Autopilot] Block #423 committed (Tx: 0)",
+      "[Autopilot] Block #424 committed (Tx: 0)",
+      "[Autopilot] Block #425 committed (Tx: 0)",
+      "[Autopilot] Block #426 committed (Tx: 0)",
+      "[Autopilot] Block #427 committed (Tx: 0)",
+      "[Autopilot] Block #428 committed (Tx: 0)",
+      "[Autopilot] Block #429 committed (Tx: 0)",
+      "[Autopilot] Block #430 committed (Tx: 0)",
+      "[Autopilot] Block #431 committed (Tx: 0)",
+      "[Autopilot] Block #432 committed (Tx: 0)",
+      "[Autopilot] Block #433 committed (Tx: 0)",
+      "[Autopilot] Block #434 committed (Tx: 0)",
+      "[Autopilot] Block #435 committed (Tx: 0)",
+      "[Autopilot] Block #436 committed (Tx: 0)",
+      "[Autopilot] Block #437 committed (Tx: 0)",
+      "[Autopilot] Block #438 committed (Tx: 0)",
+      "[Autopilot] Block #439 committed (Tx: 0)",
+      "[Autopilot] Block #440 committed (Tx: 0)",
+      "[Autopilot] Block #441 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+      "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+      "[Autopilot] Block #442 committed (Tx: 0)",
+      "[Autopilot] Block #443 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+      "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+      "[Autopilot] Block #444 committed (Tx: 0)",
+      "[Autopilot] Block #445 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=queued detail={\"launch\":{\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\",\"request\":{\"intent\":\"What is the latest OpenAI API pricing?\",\"kind\":\"autopilot-intent\"}}}",
+      "[Autopilot][StudioLaunch] stage=show_target_requested detail={\"launch\":{\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\",\"request\":{\"intent\":\"What is the latest OpenAI API pricing?\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+      "[Autopilot][StudioLaunch] stage=show_requested detail={\"maximizedBefore\":false,\"minimizedBefore\":false,\"visibleBefore\":false,\"windowExistedBefore\":true,\"windowLabel\":\"studio\"}",
+      "[Autopilot] Surfacing 'studio' (task_switcher=true, visible=Ok(true), minimized=Ok(false))",
+      "[Autopilot][StudioLaunch] stage=show_surfaced detail={\"maximizedAfter\":false,\"minimizedAfter\":false,\"recreatedWindow\":false,\"visibleAfter\":true,\"windowLabel\":\"studio\"}",
+      "[Autopilot][StudioLaunch] stage=show_target_emitted detail={\"launch\":{\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\",\"request\":{\"intent\":\"What is the latest OpenAI API pricing?\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+      "[Autopilot][StudioLaunch] stage=studio_launch_event_received detail={\"kind\":\"autopilot-intent\",\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\",\"request\":{\"intent\":\"What is the latest OpenAI API pricing?\",\"kind\":\"autopilot-intent\"}}",
+      "[Autopilot][StudioLaunch] stage=studio_pending_launch_applying detail={\"kind\":\"autopilot-intent\",\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\",\"request\":{\"intent\":\"What is the latest OpenAI API pricing?\",\"kind\":\"autopilot-intent\"},\"source\":\"event\"}",
+      "[Autopilot][StudioLaunch] stage=studio_pending_launch_applied detail={\"intent\":\"What is the latest OpenAI API pricing?\",\"kind\":\"autopilot-intent\",\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\",\"source\":\"event\"}",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_requested detail={\"intentLength\":38}",
+      "[Autopilot][StudioLaunch] stage=acked detail={\"hadPendingRequest\":true,\"launch\":{\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\",\"request\":{\"intent\":\"What is the latest OpenAI API pricing?\",\"kind\":\"autopilot-intent\"}},\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\"}",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_dispatching detail={\"intentLength\":38}",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_called detail={\"intentLength\":38}",
+      "[Autopilot] Block #446 committed (Tx: 0)",
+      "[Autopilot] Block #447 committed (Tx: 0)",
+      "[Autopilot] Block #448 committed (Tx: 0)",
+      "[Autopilot] Block #449 committed (Tx: 0)",
+      "[Autopilot] start_task invoked origin_surface=studio intent_len=38",
+      "[Autopilot] start_task workflow expansion ready for 625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4",
+      "[Autopilot] start_task knowledge injection ready for 625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4 attached=false",
+      "[Autopilot] start_task initial task saved 625266ee62a8429c919ea4c694b94df6908dbb5b0e464b8aadcc08941747c1d4 phase=Running",
+      "[Autopilot] Block #450 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=studio_launch_event_received detail={\"kind\":\"autopilot-intent\",\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\",\"request\":{\"intent\":\"What is the latest OpenAI API pricing?\",\"kind\":\"autopilot-intent\"}}",
+      "[Autopilot][StudioLaunch] stage=studio_pending_launch_applying detail={\"kind\":\"autopilot-intent\",\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\",\"request\":{\"intent\":\"What is the latest OpenAI API pricing?\",\"kind\":\"autopilot-intent\"},\"source\":\"event\"}",
+      "[Kernel] Session projection refreshed via block#450 (1 sessions)",
+      "[Autopilot] Block #451 committed (Tx: 0)",
+      "[Kernel] Session projection refreshed via block#451 (1 sessions)",
+      "[Autopilot] Block #452 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_resolved detail={\"intentLength\":38}",
+      "[Autopilot] Block #453 committed (Tx: 0)",
+      "[Kernel] Session projection refreshed via block#452 (1 sessions)",
+      "[Autopilot] Block #454 committed (Tx: 0)",
+      "[Kernel] Session projection refreshed via block#454 (1 sessions)",
+      "[Autopilot] Block #455 committed (Tx: 0)",
+      "[Autopilot] Block #456 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=studio_pending_launch_applied detail={\"intent\":\"What is the latest OpenAI API pricing?\",\"kind\":\"autopilot-intent\",\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\",\"source\":\"event\"}",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_requested detail={\"intentLength\":38}",
+      "[Autopilot] Block #457 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=ack_ignored detail={\"hadPendingRequest\":false,\"launch\":null,\"launchId\":\"3d6c801c-5c48-4b90-9309-213f94d73f12\"}",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_dispatching detail={\"intentLength\":38}",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_called detail={\"intentLength\":38}",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_resolved detail={\"intentLength\":38}",
+      "[Autopilot] Block #458 committed (Tx: 0)",
+      "[Autopilot] Block #459 committed (Tx: 0)",
+      "[Autopilot] Block #460 committed (Tx: 0)",
+      "[Autopilot] Block #461 committed (Tx: 0)",
+      "[Autopilot] Block #462 committed (Tx: 0)",
+      "[Autopilot] Block #463 committed (Tx: 0)",
+      "[Autopilot] Block #464 committed (Tx: 0)",
+      "[Autopilot] Block #465 committed (Tx: 0)",
+      "[Autopilot] Block #466 committed (Tx: 0)",
+      "[Autopilot] Block #467 committed (Tx: 0)",
+      "[Autopilot] Block #468 committed (Tx: 0)",
+      "[Autopilot] Block #469 committed (Tx: 0)",
+      "[Autopilot] Block #470 committed (Tx: 0)",
+      "[Autopilot] Agent start submitted successfully (Nonce: 0, TxHash: fd4568bcf765e2d90675189b0c703049e160bb96faeab12921d835097ab4c914)",
+      "[Autopilot] Block #471 committed (Tx: 0)",
+      "[Kernel] Session projection refreshed via block#471 (1 sessions)",
+      "[Autopilot] Block #472 committed (Tx: 0)",
+      "[Kernel] Session projection refreshed via block#472 (1 sessions)",
+      "[Autopilot] Block #473 committed (Tx: 0)",
+      "[Autopilot] Block #474 committed (Tx: 0)",
+      "[Autopilot] Block #475 committed (Tx: 0)",
+      "[Autopilot] Block #476 committed (Tx: 0)",
+      "[Autopilot] Block #477 committed (Tx: 0)",
+      "[Kernel] Session projection refreshed via block#477 (1 sessions)",
+      "[Autopilot] Block #478 committed (Tx: 0)",
+      "[Autopilot] Block #479 committed (Tx: 0)",
+      "[Autopilot] Block #480 committed (Tx: 0)",
+      "[Autopilot] Block #481 committed (Tx: 0)",
+      "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: b4592a50580b781bf45c8364fcd89015cef32816da86b7d3731bf708eaea270d)",
+      "[Autopilot] step@v1 exact-nonce tx b4592a50580b781bf45c8364fcd89015cef32816da86b7d3731bf708eaea270d at nonce 1 did not commit in time. Falling back to retry path: Tx b4592a50580b781bf45c8364fcd89015cef32816da86b7d3731bf708eaea270d did not commit within 15000ms (last tx status: InMempool).",
+      "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: b4592a50580b781bf45c8364fcd89015cef32816da86b7d3731bf708eaea270d)",
+      "[Autopilot] step@v1 authenticated submit did not converge. Falling back to ephemeral step flow: Triggered session step but the authenticated tx b4592a50580b781bf45c8364fcd89015cef32816da86b7d3731bf708eaea270d did not commit: Tx b4592a50580b781bf45c8364fcd89015cef32816da86b7d3731bf708eaea270d was rejected by the kernel: Rejected during block production: Execution client transport error: status: Internal, message: \"Transaction processing error: tx_index=0: Invalid transaction: Agent not running: Paused(\\\"Waiting for intent clarification\\\")\", details: [], metadata: MetadataMap { headers: {\"content-type\": \"application/grpc\", \"date\": \"Wed, 15 Apr 2026 03:47:06 GMT\", \"content-length\": \"0\"} }",
+      "[Kernel] Session projection refreshed via monitor (1 sessions)"
+    ]
+  }
+]

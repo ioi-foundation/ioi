@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  loadSessionThreadArtifacts,
-  loadSessionThreadEvents,
+  loadAssistantSessionArtifacts,
+  loadAssistantSessionEvents,
   type AssistantWorkbenchActivity,
 } from "@ioi/agent-ide";
 import type { AgentEvent, Artifact } from "../types";
@@ -51,8 +51,8 @@ export function useRetainedWorkbenchTrace(
     }));
 
     void Promise.all([
-      loadSessionThreadEvents<AgentEvent>(evidenceThreadId),
-      loadSessionThreadArtifacts<Artifact>(evidenceThreadId),
+      loadAssistantSessionEvents<AgentEvent>(evidenceThreadId),
+      loadAssistantSessionArtifacts<Artifact>(evidenceThreadId),
     ])
       .then(([events, artifacts]) => {
         if (!active) return;

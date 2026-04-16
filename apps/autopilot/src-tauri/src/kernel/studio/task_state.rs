@@ -1,5 +1,44 @@
 use super::*;
 
+pub(super) fn non_artifact_single_pass_reply_stays_studio_primary(
+    outcome_request: &StudioOutcomeRequest,
+) -> bool {
+    outcome_request.outcome_kind == StudioOutcomeKind::Conversation
+        && outcome_request.execution_strategy == ioi_types::app::StudioExecutionStrategy::SinglePass
+        && !outcome_request.needs_clarification
+        && !outcome_request
+            .routing_hints
+            .iter()
+            .any(|hint| hint == "workspace_grounding_required")
+        && !outcome_request
+            .routing_hints
+            .iter()
+            .any(|hint| hint == "currentness_override")
+}
+
+pub(super) fn tool_widget_route_stays_studio_primary(
+    outcome_request: &StudioOutcomeRequest,
+) -> bool {
+    outcome_request.outcome_kind == StudioOutcomeKind::ToolWidget
+        && !outcome_request.needs_clarification
+        && outcome_request.routing_hints.iter().any(|hint| {
+            matches!(
+                hint.as_str(),
+                "tool_widget:weather"
+                    | "tool_widget:recipe"
+                    | "tool_widget:sports"
+                    | "tool_widget:places"
+            )
+        })
+}
+
+pub(super) fn visualizer_route_stays_studio_primary(
+    outcome_request: &StudioOutcomeRequest,
+) -> bool {
+    outcome_request.outcome_kind == StudioOutcomeKind::Visualizer
+        && !outcome_request.needs_clarification
+}
+
 fn studio_repair_pass_count(studio_session: &StudioArtifactSession) -> usize {
     studio_session
         .materialization
@@ -45,6 +84,14 @@ fn studio_authoritative_step_hint(
     studio_session: &StudioArtifactSession,
 ) -> Option<String> {
     if studio_session.outcome_request.outcome_kind != StudioOutcomeKind::Artifact {
+        if studio_session.lifecycle_state == StudioArtifactLifecycleState::Blocked
+            && task.clarification_request.is_some()
+        {
+            return Some(
+                "Studio is waiting for clarification before it can choose the right outcome surface."
+                    .to_string(),
+            );
+        }
         return Some(
             if studio_session.lifecycle_state == StudioArtifactLifecycleState::Blocked {
                 studio_session
@@ -223,6 +270,22 @@ pub fn verified_reply_title_for_task(task: &AgentTask) -> Option<String> {
         .map(|session| session.verified_reply.title.clone())
 }
 
+pub fn task_requires_studio_primary_execution(task: &AgentTask) -> bool {
+    let Some(studio_session) = task.studio_session.as_ref() else {
+        return false;
+    };
+    if task.studio_outcome.is_none() {
+        return false;
+    }
+
+    studio_session.outcome_request.needs_clarification
+        || studio_session.outcome_request.outcome_kind == StudioOutcomeKind::Artifact
+        || non_artifact_single_pass_reply_stays_studio_primary(&studio_session.outcome_request)
+        || tool_widget_route_stays_studio_primary(&studio_session.outcome_request)
+        || visualizer_route_stays_studio_primary(&studio_session.outcome_request)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn task_is_studio_authoritative(task: &AgentTask) -> bool {
     task.studio_outcome.is_some() && task.studio_session.is_some()
 }
@@ -232,7 +295,26 @@ pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Opt
         return;
     };
 
+    if non_artifact_single_pass_reply_stays_studio_primary(&studio_session.outcome_request)
+        && task.phase == AgentPhase::Complete
+        && task.current_step.eq_ignore_ascii_case("ready for input")
+        && task
+            .history
+            .iter()
+            .rev()
+            .any(|entry| entry.role == "agent" && !entry.text.trim().is_empty())
+    {
+        return;
+    }
+
     let fallback_step = current_step.clone().unwrap_or_else(|| {
+        if task.gate_info.is_some() || task.pending_request_hash.is_some() {
+            let existing_step = task.current_step.trim();
+            if !existing_step.is_empty() {
+                return existing_step.to_string();
+            }
+            return "Waiting for approval".to_string();
+        }
         if let Some(step) = studio_authoritative_step_hint(task, studio_session) {
             return step;
         }
@@ -355,6 +437,12 @@ pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Opt
         return;
     }
 
+    if task.gate_info.is_some() || task.pending_request_hash.is_some() {
+        task.phase = AgentPhase::Gate;
+        task.current_step = fallback_step;
+        return;
+    }
+
     match studio_session.lifecycle_state {
         StudioArtifactLifecycleState::Ready => {
             task.phase = AgentPhase::Complete;
@@ -366,7 +454,7 @@ pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Opt
         }
         StudioArtifactLifecycleState::Blocked => {
             task.phase = if task.clarification_request.is_some() {
-                AgentPhase::Running
+                AgentPhase::Gate
             } else {
                 AgentPhase::Failed
             };

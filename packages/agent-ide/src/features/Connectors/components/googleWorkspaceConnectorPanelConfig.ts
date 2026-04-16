@@ -1,12 +1,12 @@
 import type {
-  AgentRuntime,
+  AgentWorkbenchRuntime,
   ConnectorActionDefinition,
   ConnectorConfigureResult,
   ConnectorSummary,
 } from "../../../runtime/agent-runtime";
 
 export interface GoogleWorkspaceConnectorPanelProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   connector: ConnectorSummary;
   initialTab?: WorkspaceTabId;
   onConfigured?: (result: ConnectorConfigureResult) => void;

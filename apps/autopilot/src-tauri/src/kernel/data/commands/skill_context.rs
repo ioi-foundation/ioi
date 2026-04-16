@@ -80,6 +80,11 @@ async fn query_raw_state(
     }
 }
 
+fn desktop_agent_runtime_key(local_key: Vec<u8>) -> Vec<u8> {
+    let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
+    [ns_prefix.as_slice(), local_key.as_slice()].concat()
+}
+
 async fn load_skill_bundle(
     client: &mut PublicApiClient<Channel>,
     skill_hash: [u8; 32],
@@ -542,7 +547,7 @@ async fn load_active_context_snapshot(
         match load_agent_state_checkpoint(memory_runtime.as_ref(), parsed_session_id) {
             Ok(Some(agent_state)) => agent_state,
             Ok(None) => {
-                let session_key = get_state_key(&parsed_session_id);
+                let session_key = desktop_agent_runtime_key(get_state_key(&parsed_session_id));
                 let Some(agent_state_bytes) = query_raw_state(client, session_key).await? else {
                     return Err(format!(
                         "No agent state found for session {}",
@@ -560,7 +565,7 @@ async fn load_active_context_snapshot(
             }
         }
     } else {
-        let session_key = get_state_key(&parsed_session_id);
+        let session_key = desktop_agent_runtime_key(get_state_key(&parsed_session_id));
         let Some(agent_state_bytes) = query_raw_state(client, session_key).await? else {
             return Err(format!(
                 "No agent state found for session {}",
@@ -573,8 +578,9 @@ async fn load_active_context_snapshot(
 
     let mut trace_hashes = BTreeSet::new();
     for step_index in 0..=agent_state.step_count {
-        let Some(trace_bytes) =
-            query_raw_state(client, get_trace_key(&agent_state.session_id, step_index)).await?
+        let trace_key =
+            desktop_agent_runtime_key(get_trace_key(&agent_state.session_id, step_index));
+        let Some(trace_bytes) = query_raw_state(client, trace_key).await?
         else {
             continue;
         };

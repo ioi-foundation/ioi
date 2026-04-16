@@ -1,0 +1,1920 @@
+{
+  "captured_at": "2026-04-15T08:33:29.943415+00:00",
+  "prompt": "How do I make carbonara for 3 people?",
+  "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-dev-start-intent/2026-04-15T08-31-59Z/01-how-do-i-make-carbonara-for-3-people/final.png",
+  "window_id": 20971532,
+  "window_capture_error": null,
+  "task": {
+    "id": "97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f",
+    "intent": "How do I make carbonara for 3 people?",
+    "agent": "Autopilot",
+    "phase": "Complete",
+    "progress": 20,
+    "total_steps": 20,
+    "current_step": "**Pasta alla Carbonara (Serves 3)**\n\n**Ingredients:**\n*   250g spaghetti or rigatoni\n*   4 large eggs (3 yolks + 1 whole)\n*   50g pecorino romano (or half parmesan/pecorino mix), finely grated\n*   50g guanciale or pancetta, diced\n*   Freshly cracked black pepper\n*   Salt (for pasta water)\n\n**Steps:**\n1.  Bring a pot of water to a boil with plenty of salt. While waiting, cook the guanciale in a cold pan over medium heat until crispy and fatty; reserve the rendered fat. Turn off the heat once cooked.\n2.  Beat the eggs, grated cheese, and a generous amount of black pepper in a bowl until smooth.\n3.  Cook the pasta until al dente. Reserve 1/2 cup of pasta water before draining.\n4.  Immediately toss the hot pasta into the pan with the guanciale. Remove from heat.\n5.  Quickly mix in the egg/cheese mixture, adding splashes of hot pasta water as needed to create a creamy sauce without scrambling the eggs.\n6.  Serve immediately, topped with extra pepper and cheese.",
+    "gate_info": null,
+    "receipt": null,
+    "visual_hash": null,
+    "pending_request_hash": null,
+    "session_id": "97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f",
+    "credential_request": null,
+    "clarification_request": null,
+    "session_checklist": [
+      {
+        "itemId": "request",
+        "label": "Request captured",
+        "status": "completed",
+        "detail": "How do I make carbonara for 3 people?",
+        "updatedAtMs": 1776242009175
+      },
+      {
+        "itemId": "execution",
+        "label": "Execution complete",
+        "status": "completed",
+        "detail": "**Pasta alla Carbonara (Serves 3)**\n\n**Ingredients:**\n*   250g spaghetti or rigatoni\n*   4 large eggs (3 yolks + 1 whole...",
+        "updatedAtMs": 1776242009175
+      },
+      {
+        "itemId": "review",
+        "label": "Review latest output",
+        "status": "completed",
+        "detail": "**Pasta alla Carbonara (Serves 3)**\n\n**Ingredients:**\n*   250g spaghetti or rigatoni\n*   4 large eggs (3 yolks + 1 whole...",
+        "updatedAtMs": 1776242009175
+      }
+    ],
+    "background_tasks": [
+      {
+        "taskId": "97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f",
+        "sessionId": "97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f",
+        "label": "How do I make carbonara for 3 people?",
+        "status": "completed",
+        "detail": "**Pasta alla Carbonara (Serves 3)**\n\n**Ingredients:**\n*   250g spaghetti or rigatoni\n*   4 large eggs (3 yolks + 1 whole...",
+        "latestOutput": "**Pasta alla Carbonara (Serves 3)**\n\n**Ingredients:**\n*   250g spaghetti or rigatoni\n*   4 large eggs (3 yolks + 1 whole...",
+        "canStop": false,
+        "updatedAtMs": 1776242009175
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "text": "How do I make carbonara for 3 people?",
+        "timestamp": 1776241991736
+      },
+      {
+        "role": "agent",
+        "text": "**Pasta alla Carbonara (Serves 3)**\n\n**Ingredients:**\n*   250g spaghetti or rigatoni\n*   4 large eggs (3 yolks + 1 whole)\n*   50g pecorino romano (or half parmesan/pecorino mix), finely grated\n*   50g guanciale or pancetta, diced\n*   Freshly cracked black pepper\n*   Salt (for pasta water)\n\n**Steps:**\n1.  Bring a pot of water to a boil with plenty of salt. While waiting, cook the guanciale in a cold pan over medium heat until crispy and fatty; reserve the rendered fat. Turn off the heat once cooked.\n2.  Beat the eggs, grated cheese, and a generous amount of black pepper in a bowl until smooth.\n3.  Cook the pasta until al dente. Reserve 1/2 cup of pasta water before draining.\n4.  Immediately toss the hot pasta into the pan with the guanciale. Remove from heat.\n5.  Quickly mix in the egg/cheese mixture, adding splashes of hot pasta water as needed to create a creamy sauce without scrambling the eggs.\n6.  Serve immediately, topped with extra pepper and cheese.",
+        "timestamp": 1776242009139
+      }
+    ],
+    "events": [
+      {
+        "event_id": "23e40561-cf95-4b3e-a416-612e8c1179d7",
+        "timestamp": "2026-04-15T08:33:11.736911855+00:00",
+        "thread_id": "97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "How do I make carbonara for 3 people?"
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "How do I make carbonara for 3 people?"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "8c36b22b-1962-40c1-b8dc-9113bc521b28",
+        "timestamp": "2026-04-15T08:33:11.809416219+00:00",
+        "thread_id": "97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f",
+        "step_index": 1,
+        "event_type": "RECEIPT",
+        "title": "Studio route decision",
+        "digest": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:recipe",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "recipe_display_v0"
+              ],
+              "projected_tools": [
+                "recipe_display_v0"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "general",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "general",
+          "selected_route": "tool_widget_recipe",
+          "topology": "planner_specialist",
+          "verifier_outcome": null,
+          "verifier_state": "active"
+        },
+        "details": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:recipe",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "recipe_display_v0"
+              ],
+              "projected_tools": [
+                "recipe_display_v0"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "general",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "general",
+          "selected_route": "tool_widget_recipe",
+          "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the recipe tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "topology": "planner_specialist",
+          "verifier_outcome": null,
+          "verifier_state": "active"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "23e40561-cf95-4b3e-a416-612e8c1179d7"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "f255876c-40af-4c15-b9fa-ad8a87e2b1b1",
+        "timestamp": "2026-04-15T08:33:29.140073744+00:00",
+        "thread_id": "97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f",
+        "step_index": 2,
+        "event_type": "RECEIPT",
+        "title": "Studio reply completed",
+        "digest": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:recipe",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "recipe_display_v0"
+              ],
+              "projected_tools": [
+                "recipe_display_v0"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "general",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "general",
+          "selected_route": "tool_widget_recipe",
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "details": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:recipe",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "recipe_display_v0"
+              ],
+              "projected_tools": [
+                "recipe_display_v0"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "general",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "general",
+          "selected_route": "tool_widget_recipe",
+          "summary": "Studio completed the recipe tool-widget route directly and preserved the final route contract.",
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "8c36b22b-1962-40c1-b8dc-9113bc521b28"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "6ffaafbb-83d3-4240-aa66-b586fa546b56",
+        "created_at": "2026-04-15T08:33:11.737003179+00:00",
+        "thread_id": "97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/6ffaafbb-83d3-4240-aa66-b586fa546b56",
+        "metadata": {
+          "refs": [],
+          "run_id": "97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      }
+    ],
+    "studio_session": {
+      "sessionId": "4a69c757-e285-4e60-aa4e-0435798d4d40",
+      "threadId": "97839b0735774be7a26043206d74070d587dd979d8ab4be096a9e4096f8bb76f",
+      "artifactId": "f63b9b29-61e3-4cab-a7bd-8d901fa417c7",
+      "title": "Tool widget route \u00b7 How do I make carbonara for 3 people?",
+      "summary": "**Pasta alla Carbonara (Serves 3)**\n\n**Ingredients:**\n*   250g spaghetti or rigatoni\n*   4 large eggs (3 yolks + 1 whole)\n*   50g pecorino romano (or half parmesan/pecorino mix), finely grated\n*   50g guanciale or pancetta, diced\n*   Freshly cracked black pepper\n*   Salt (for pasta water)\n\n**Steps:**\n1.  Bring a pot of water to a boil with plenty of salt. While waiting, cook the guanciale in a cold pan over medium heat until crispy and fatty; reserve the rendered fat. Turn off the heat once cooked.\n2.  Beat the eggs, grated cheese, and a generous amount of black pepper in a bowl until smooth.\n3.  Cook the pasta until al dente. Reserve 1/2 cup of pasta water before draining.\n4.  Immediately toss the hot pasta into the pan with the guanciale. Remove from heat.\n5.  Quickly mix in the egg/cheese mixture, adding splashes of hot pasta water as needed to create a creamy sauce without scrambling the eggs.\n6.  Serve immediately, topped with extra pepper and cheese.",
+      "currentLens": "source",
+      "navigatorBackingMode": "logical",
+      "navigatorNodes": [
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "attachedArtifactIds": [],
+      "availableLenses": [
+        "source",
+        "evidence"
+      ],
+      "materialization": {
+        "version": 7,
+        "requestKind": "tool_widget",
+        "normalizedIntent": "How do I make carbonara for 3 people?",
+        "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the recipe tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+        "artifactBrief": null,
+        "preparationNeeds": null,
+        "preparedContextResolution": null,
+        "skillDiscoveryResolution": null,
+        "blueprint": null,
+        "artifactIr": null,
+        "selectedSkills": [],
+        "retrievedExemplars": [],
+        "editIntent": null,
+        "candidateSummaries": [],
+        "winningCandidateId": null,
+        "winningCandidateRationale": null,
+        "executionEnvelope": {
+          "version": 1,
+          "strategy": "plan_execute",
+          "modeDecision": {
+            "requestedStrategy": "plan_execute",
+            "resolvedStrategy": "plan_execute",
+            "modeConfidence": 0.98050004,
+            "oneShotSufficiency": 0.86249995,
+            "ambiguity": 0.029999971,
+            "workGraphSizeEstimate": 1,
+            "hiddenDependencyLikelihood": 0.25,
+            "verificationPressure": 0.2,
+            "revisionCost": 0.2,
+            "evidenceBreadth": 0.15,
+            "mergeBurden": 0.15,
+            "decompositionPayoff": 0.13250001,
+            "workGraphRequired": false,
+            "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            }
+          },
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          },
+          "executionDomain": "studio_tool_widget",
+          "domainKind": "tool_widget",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "satisfiedVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": false
+          },
+          "plan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "executionSummary": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "workerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-15T08:33:11.809017444+00:00",
+              "finishedAt": "2026-04-15T08:33:11.809017444+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:recipe",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-15T08:33:11.809017444+00:00",
+              "finishedAt": "2026-04-15T08:33:11.809017444+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:recipe \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "changeReceipts": [],
+          "mergeReceipts": [],
+          "verificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:recipe",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:recipe",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "graphMutationReceipts": [],
+          "dispatchBatches": [],
+          "repairReceipts": [],
+          "replanReceipts": [],
+          "budgetSummary": {
+            "plannedWorkerCount": 2,
+            "dispatchedWorkerCount": 2,
+            "tokenBudget": null,
+            "tokenUsage": null,
+            "wallClockMs": null,
+            "coordinationOverheadMs": null,
+            "status": "completed"
+          },
+          "livePreviews": []
+        },
+        "swarmPlan": {
+          "version": 1,
+          "strategy": "plan_execute",
+          "executionDomain": "studio_tool_widget",
+          "adapterLabel": "tool_widget_plan_execute_v1",
+          "parallelismMode": "sequential_by_default",
+          "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+          "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+          "decompositionType": "small_graph_functional_decomposition",
+          "firstFrontierIds": [
+            "handoff"
+          ],
+          "spawnConditions": [
+            "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+          ],
+          "pruneConditions": [
+            "Prune clarification work once the reply handoff is already unblocked."
+          ],
+          "mergeStrategy": "deterministic_reply_surface_projection",
+          "verificationStrategy": "route_truth_before_reply",
+          "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_truth"
+            ],
+            "satisfiedVerificationIds": [
+              "route_truth"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": true
+          },
+          "workItems": [
+            {
+              "id": "planner",
+              "title": "Outcome planner",
+              "role": "planner",
+              "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Outcome route is explicit.",
+                "Execution strategy is explicit."
+              ],
+              "dependencyIds": [],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            },
+            {
+              "id": "handoff",
+              "title": "Tool-widget handoff",
+              "role": "responder",
+              "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Studio reply remains truthful about the chosen surface.",
+                "No artifact renderer is implied when none was invoked."
+              ],
+              "dependencyIds": [
+                "planner"
+              ],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            }
+          ]
+        },
+        "swarmExecution": {
+          "enabled": true,
+          "currentStage": "reply",
+          "executionStage": "finalize",
+          "activeWorkerRole": null,
+          "totalWorkItems": 2,
+          "completedWorkItems": 2,
+          "failedWorkItems": 0,
+          "verificationStatus": "ready",
+          "strategy": "plan_execute",
+          "executionDomain": "studio_tool_widget",
+          "adapterLabel": "tool_widget_plan_execute_v1",
+          "parallelismMode": "sequential_by_default"
+        },
+        "swarmWorkerReceipts": [
+          {
+            "workItemId": "planner",
+            "role": "planner",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Selected the tool_widget route with the plan_execute strategy.",
+            "startedAt": "2026-04-15T08:33:11.809017444+00:00",
+            "finishedAt": "2026-04-15T08:33:11.809017444+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "route_context"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "No artifact files were requested on this route.",
+              "tool_widget:recipe",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "failure": null
+          },
+          {
+            "workItemId": "handoff",
+            "role": "responder",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+            "startedAt": "2026-04-15T08:33:11.809017444+00:00",
+            "finishedAt": "2026-04-15T08:33:11.809017444+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "execution_plan"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+              "tool_widget:recipe \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+            ],
+            "failure": null
+          }
+        ],
+        "swarmChangeReceipts": [],
+        "swarmMergeReceipts": [],
+        "swarmVerificationReceipts": [
+          {
+            "id": "route_verification",
+            "kind": "route_verification",
+            "status": "ready",
+            "summary": "Studio verified that this request belongs on the tool-widget surface.",
+            "details": [
+              "tool_widget:recipe",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ]
+          },
+          {
+            "id": "reply_surface",
+            "kind": "reply_surface",
+            "status": "ready",
+            "summary": "The shared reply lane remains available and no artifact renderer is required.",
+            "details": [
+              "strategy:plan_execute",
+              "tool_widget:recipe",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ]
+          }
+        ],
+        "renderEvaluation": null,
+        "judge": null,
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "fallbackUsed": false,
+        "uxLifecycle": "judged",
+        "failure": null,
+        "navigatorNodes": [
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "description": "Inspect the source form of the artifact.",
+            "badge": null,
+            "status": null,
+            "lens": "source",
+            "path": null,
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "fileWrites": [],
+        "commandIntents": [],
+        "previewIntent": null,
+        "verificationSteps": [
+          {
+            "id": "route",
+            "label": "Verify route",
+            "kind": "route",
+            "status": "success"
+          },
+          {
+            "id": "reply_surface",
+            "label": "Verify reply surface",
+            "kind": "reply_surface",
+            "status": "success"
+          }
+        ],
+        "pipelineSteps": [
+          {
+            "id": "intake",
+            "stage": "plan",
+            "label": "Intake",
+            "status": "complete",
+            "summary": "Studio captured the request and preserved it as a typed outcome turn.",
+            "outputs": [
+              "How do I make carbonara for 3 people?"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "routing",
+            "stage": "dispatch",
+            "label": "Outcome routing",
+            "status": "complete",
+            "summary": "The typed router intentionally kept this request on the tool widget surface.",
+            "outputs": [
+              "tool_widget",
+              "tool_widget",
+              "strategy:plan_execute",
+              "tool_widget:recipe",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "planner",
+            "stage": "plan",
+            "label": "Planner",
+            "status": "complete",
+            "summary": "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+            "outputs": [
+              "plan_execute",
+              "work_items:2",
+              "sequential_by_default"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "swarm_execution",
+            "stage": "work",
+            "label": "Shared execution",
+            "status": "complete",
+            "summary": "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+            "outputs": [
+              "worker_receipts:2",
+              "progress:2/2",
+              "adapter:tool_widget_plan_execute_v1"
+            ],
+            "verificationGate": "Shared execution receipts must remain truthful about the active outcome surface."
+          },
+          {
+            "id": "verification",
+            "stage": "verify",
+            "label": "Verification",
+            "status": "complete",
+            "summary": "Studio verified the selected non-artifact route before composing the reply state.",
+            "outputs": [
+              "route_verification (ready)",
+              "reply_surface (ready)"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          },
+          {
+            "id": "reply",
+            "stage": "finalize",
+            "label": "Reply",
+            "status": "complete",
+            "summary": "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+            "outputs": [
+              "Studio routed this request to a tool-widget surface. The request maps cleanly to the recipe tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "tool_widget:recipe",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          }
+        ],
+        "runtimeNarrationEvents": [],
+        "notes": [
+          "Studio intentionally kept this request off the artifact materialization path.",
+          "The shared execution envelope still records plan, worker, and verification state.",
+          "No renderer-specific fallback artifact was injected for this route.",
+          "routing_hints:tool_widget:recipe | narrow_surface_preferred | no_persistent_artifact_requested",
+          "Route family: general",
+          "Output intent: tool_execution",
+          "Projected surface: recipe_display_v0"
+        ]
+      },
+      "outcomeRequest": {
+        "requestId": "619b7008-7aae-4778-84fb-3c009795fc3f",
+        "rawPrompt": "How do I make carbonara for 3 people?",
+        "activeArtifactId": null,
+        "outcomeKind": "tool_widget",
+        "executionStrategy": "plan_execute",
+        "executionModeDecision": {
+          "requestedStrategy": "plan_execute",
+          "resolvedStrategy": "plan_execute",
+          "modeConfidence": 0.98050004,
+          "oneShotSufficiency": 0.86249995,
+          "ambiguity": 0.029999971,
+          "workGraphSizeEstimate": 1,
+          "hiddenDependencyLikelihood": 0.25,
+          "verificationPressure": 0.2,
+          "revisionCost": 0.2,
+          "evidenceBreadth": 0.15,
+          "mergeBurden": 0.15,
+          "decompositionPayoff": 0.13250001,
+          "workGraphRequired": false,
+          "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          }
+        },
+        "confidence": 0.97,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": [
+          "tool_widget:recipe",
+          "narrow_surface_preferred",
+          "no_persistent_artifact_requested"
+        ],
+        "artifact": null
+      },
+      "artifactManifest": {
+        "artifactId": "f63b9b29-61e3-4cab-a7bd-8d901fa417c7",
+        "title": "Tool widget route \u00b7 How do I make carbonara for 3 people?",
+        "artifactClass": "report_bundle",
+        "renderer": "bundle_manifest",
+        "primaryTab": "source",
+        "tabs": [
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "renderer": null,
+            "filePath": null,
+            "lens": "source"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the recipe tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null
+        },
+        "storage": null
+      },
+      "verifiedReply": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "title": "Tool widget route \u00b7 How do I make carbonara for 3 people?",
+        "summary": "**Pasta alla Carbonara (Serves 3)**\n\n**Ingredients:**\n*   250g spaghetti or rigatoni\n*   4 large eggs (3 yolks + 1 whole)\n*   50g pecorino romano (or half parmesan/pecorino mix), finely grated\n*   50g guanciale or pancetta, diced\n*   Freshly cracked black pepper\n*   Salt (for pasta water)\n\n**Steps:**\n1.  Bring a pot of water to a boil with plenty of salt. While waiting, cook the guanciale in a cold pan over medium heat until crispy and fatty; reserve the rendered fat. Turn off the heat once cooked.\n2.  Beat the eggs, grated cheese, and a generous amount of black pepper in a bowl until smooth.\n3.  Cook the pasta until al dente. Reserve 1/2 cup of pasta water before draining.\n4.  Immediately toss the hot pasta into the pan with the guanciale. Remove from heat.\n5.  Quickly mix in the egg/cheese mixture, adding splashes of hot pasta water as needed to create a creamy sauce without scrambling the eggs.\n6.  Serve immediately, topped with extra pepper and cheese.",
+        "evidence": [
+          "outcome:tool_widget",
+          "strategy:plan_execute",
+          "provenance:openai-compatible",
+          "route_hint:tool_widget:recipe",
+          "route_hint:narrow_surface_preferred",
+          "route_hint:no_persistent_artifact_requested",
+          "route_execution:studio_tool_widget_recipe"
+        ],
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "failure": null,
+        "updatedAt": "2026-04-15T08:33:29.139061189+00:00"
+      },
+      "lifecycleState": "ready",
+      "status": "ready",
+      "activeRevisionId": "6356994d-d957-4671-ac65-3e9dba9f0875",
+      "revisions": [
+        {
+          "revisionId": "6356994d-d957-4671-ac65-3e9dba9f0875",
+          "parentRevisionId": null,
+          "branchId": "main",
+          "branchLabel": "Main",
+          "prompt": "How do I make carbonara for 3 people?",
+          "createdAt": "2026-04-15T08:33:11.809284795+00:00",
+          "uxLifecycle": "judged",
+          "artifactManifest": {
+            "artifactId": "f63b9b29-61e3-4cab-a7bd-8d901fa417c7",
+            "title": "Tool widget route \u00b7 How do I make carbonara for 3 people?",
+            "artifactClass": "report_bundle",
+            "renderer": "bundle_manifest",
+            "primaryTab": "source",
+            "tabs": [
+              {
+                "id": "source",
+                "label": "Source",
+                "kind": "source",
+                "renderer": null,
+                "filePath": null,
+                "lens": "source"
+              },
+              {
+                "id": "evidence",
+                "label": "Evidence",
+                "kind": "evidence",
+                "renderer": null,
+                "filePath": null,
+                "lens": "evidence"
+              }
+            ],
+            "files": [],
+            "verification": {
+              "status": "ready",
+              "lifecycleState": "ready",
+              "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the recipe tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "productionProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "acceptanceProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "failure": null
+            },
+            "storage": null
+          },
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "modeDecision": {
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "plan_execute",
+              "modeConfidence": 0.98050004,
+              "oneShotSufficiency": 0.86249995,
+              "ambiguity": 0.029999971,
+              "workGraphSizeEstimate": 1,
+              "hiddenDependencyLikelihood": 0.25,
+              "verificationPressure": 0.2,
+              "revisionCost": 0.2,
+              "evidenceBreadth": 0.15,
+              "mergeBurden": 0.15,
+              "decompositionPayoff": 0.13250001,
+              "workGraphRequired": false,
+              "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 180000,
+                "maxTokens": 8192,
+                "maxToolCalls": 4,
+                "maxRepairs": 1,
+                "expansionPolicy": "fixed"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            },
+            "executionDomain": "studio_tool_widget",
+            "domainKind": "tool_widget",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "satisfiedVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": false
+            },
+            "plan": {
+              "version": 1,
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Tool-widget handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "executionSummary": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "workerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the tool_widget route with the plan_execute strategy.",
+                "startedAt": "2026-04-15T08:33:11.809017444+00:00",
+                "finishedAt": "2026-04-15T08:33:11.809017444+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "tool_widget:recipe",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-15T08:33:11.809017444+00:00",
+                "finishedAt": "2026-04-15T08:33:11.809017444+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "tool_widget:recipe \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+                ],
+                "failure": null
+              }
+            ],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the tool-widget surface.",
+                "details": [
+                  "tool_widget:recipe",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:plan_execute",
+                  "tool_widget:recipe",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              }
+            ],
+            "graphMutationReceipts": [],
+            "dispatchBatches": [],
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "budgetSummary": {
+              "plannedWorkerCount": 2,
+              "dispatchedWorkerCount": 2,
+              "tokenBudget": null,
+              "tokenUsage": null,
+              "wallClockMs": null,
+              "coordinationOverheadMs": null,
+              "status": "completed"
+            },
+            "livePreviews": []
+          },
+          "swarmPlan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "swarmExecution": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "swarmWorkerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-15T08:33:11.809017444+00:00",
+              "finishedAt": "2026-04-15T08:33:11.809017444+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:recipe",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-15T08:33:11.809017444+00:00",
+              "finishedAt": "2026-04-15T08:33:11.809017444+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:recipe \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:recipe",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:recipe",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null,
+          "fileWrites": [],
+          "tasteMemory": null,
+          "selectedTargets": []
+        }
+      ],
+      "tasteMemory": null,
+      "retrievedExemplars": [],
+      "selectedTargets": [],
+      "uxLifecycle": "judged",
+      "createdAt": "2026-04-15T08:33:11.809216130+00:00",
+      "updatedAt": "2026-04-15T08:33:29.139061189+00:00",
+      "buildSessionId": null,
+      "workspaceRoot": null,
+      "rendererSessionId": null
+    },
+    "studio_outcome": {
+      "requestId": "619b7008-7aae-4778-84fb-3c009795fc3f",
+      "rawPrompt": "How do I make carbonara for 3 people?",
+      "activeArtifactId": null,
+      "outcomeKind": "tool_widget",
+      "executionStrategy": "plan_execute",
+      "executionModeDecision": {
+        "requestedStrategy": "plan_execute",
+        "resolvedStrategy": "plan_execute",
+        "modeConfidence": 0.98050004,
+        "oneShotSufficiency": 0.86249995,
+        "ambiguity": 0.029999971,
+        "workGraphSizeEstimate": 1,
+        "hiddenDependencyLikelihood": 0.25,
+        "verificationPressure": 0.2,
+        "revisionCost": 0.2,
+        "evidenceBreadth": 0.15,
+        "mergeBurden": 0.15,
+        "decompositionPayoff": 0.13250001,
+        "workGraphRequired": false,
+        "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+        "budgetEnvelope": {
+          "maxWorkers": 1,
+          "maxParallelDepth": 1,
+          "maxReplans": 0,
+          "maxWallClockMs": 180000,
+          "maxTokens": 8192,
+          "maxToolCalls": 4,
+          "maxRepairs": 1,
+          "expansionPolicy": "fixed"
+        }
+      },
+      "confidence": 0.97,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "routingHints": [
+        "tool_widget:recipe",
+        "narrow_surface_preferred",
+        "no_persistent_artifact_requested"
+      ],
+      "artifact": null
+    },
+    "renderer_session": null,
+    "build_session": null,
+    "run_bundle_id": "6ffaafbb-83d3-4240-aa66-b586fa546b56",
+    "swarm_tree": [],
+    "generation": 0,
+    "lineage_id": "genesis",
+    "fitness_score": 0.0
+  },
+  "route_receipt_summary": {
+    "title": "Studio reply completed",
+    "selected_route": "tool_widget_recipe",
+    "route_family": "general",
+    "planner_authority": "kernel",
+    "verifier_state": "passed",
+    "artifact_class": null,
+    "route_decision": {
+      "artifact_output_intent": false,
+      "connector_candidate_count": 0,
+      "connector_first_preference": false,
+      "currentness_override": false,
+      "direct_answer_allowed": false,
+      "direct_answer_blockers": [
+        "tool_widget_surface_selected"
+      ],
+      "effective_tool_surface": {
+        "broad_fallback_tools": [],
+        "diagnostic_tools": [
+          "route_hint:tool_widget:recipe",
+          "route_hint:narrow_surface_preferred",
+          "route_hint:no_persistent_artifact_requested"
+        ],
+        "primary_tools": [
+          "recipe_display_v0"
+        ],
+        "projected_tools": [
+          "recipe_display_v0"
+        ]
+      },
+      "file_output_intent": false,
+      "inline_visual_intent": false,
+      "narrow_tool_preference": true,
+      "output_intent": "tool_execution",
+      "route_family": "general",
+      "selected_provider_family": null,
+      "selected_provider_route_label": null,
+      "skill_prep_required": false
+    },
+    "artifact_manifest_summary": {
+      "title": null,
+      "renderer": null,
+      "primary_tab": null,
+      "tabs": [],
+      "lifecycle_state": null,
+      "verification_status": null,
+      "verification_summary": null
+    }
+  },
+  "latest_agent_message": "**Pasta alla Carbonara (Serves 3)**\n\n**Ingredients:**\n*   250g spaghetti or rigatoni\n*   4 large eggs (3 yolks + 1 whole)\n*   50g pecorino romano (or half parmesan/pecorino mix), finely grated\n*   50g guanciale or pancetta, diced\n*   Freshly cracked black pepper\n*   Salt (for pasta water)\n\n**Steps:**\n1.  Bring a pot of water to a boil with plenty of salt. While waiting, cook the guanciale in a cold pan over medium heat until crispy and fatty; reserve the rendered fat. Turn off the heat once cooked.\n2.  Beat the eggs, grated cheese, and a generous amount of black pepper in a bowl until smooth.\n3.  Cook the pasta until al dente. Reserve 1/2 cup of pasta water before draining.\n4.  Immediately toss the hot pasta into the pan with the guanciale. Remove from heat.\n5.  Quickly mix in the egg/cheese mixture, adding splashes of hot pasta water as needed to create a creamy sauce without scrambling the eggs.\n6.  Serve immediately, topped with extra pepper and cheese.",
+  "log_tail": [
+    "[Autopilot] Block #1060 committed (Tx: 0)",
+    "[Autopilot] Block #1061 committed (Tx: 0)",
+    "[Autopilot] Block #1062 committed (Tx: 0)",
+    "[Autopilot] Block #1063 committed (Tx: 0)",
+    "[Autopilot] Block #1064 committed (Tx: 0)",
+    "[Autopilot] Block #1065 committed (Tx: 0)",
+    "[Autopilot] Block #1066 committed (Tx: 0)",
+    "[Autopilot] Block #1067 committed (Tx: 0)",
+    "[Autopilot] Block #1068 committed (Tx: 0)",
+    "[Autopilot] Block #1069 committed (Tx: 0)",
+    "[Autopilot] Block #1070 committed (Tx: 0)",
+    "[Autopilot] Block #1071 committed (Tx: 0)",
+    "[Autopilot] Block #1072 committed (Tx: 0)",
+    "[Autopilot] Block #1073 committed (Tx: 0)",
+    "[Autopilot] Block #1074 committed (Tx: 0)",
+    "[Autopilot] Block #1075 committed (Tx: 0)",
+    "[Autopilot] Block #1076 committed (Tx: 0)",
+    "[Autopilot] Block #1077 committed (Tx: 0)",
+    "[Autopilot] Block #1078 committed (Tx: 0)",
+    "[Autopilot] Block #1079 committed (Tx: 0)",
+    "[Autopilot] Block #1080 committed (Tx: 0)",
+    "[Autopilot] Block #1081 committed (Tx: 0)",
+    "[Autopilot] Block #1082 committed (Tx: 0)",
+    "[Autopilot] Block #1083 committed (Tx: 0)",
+    "[Autopilot] Block #1084 committed (Tx: 0)",
+    "[Autopilot] Block #1085 committed (Tx: 0)",
+    "[Autopilot] Block #1086 committed (Tx: 0)",
+    "[Autopilot] Block #1087 committed (Tx: 0)",
+    "[Autopilot] Block #1088 committed (Tx: 0)",
+    "[Autopilot] Block #1089 committed (Tx: 0)",
+    "[Autopilot] Block #1090 committed (Tx: 0)",
+    "[Autopilot] Block #1091 committed (Tx: 0)",
+    "[Autopilot] Block #1092 committed (Tx: 0)",
+    "[Autopilot] Block #1093 committed (Tx: 0)",
+    "[Autopilot] Block #1094 committed (Tx: 0)",
+    "[Autopilot] Block #1095 committed (Tx: 0)",
+    "[Autopilot] Block #1096 committed (Tx: 0)",
+    "[Autopilot] Block #1097 committed (Tx: 0)",
+    "[Autopilot] Block #1098 committed (Tx: 0)",
+    "[Autopilot] Block #1099 committed (Tx: 0)",
+    "[Autopilot] Block #1100 committed (Tx: 0)",
+    "[Autopilot] Block #1101 committed (Tx: 0)",
+    "[Autopilot] Block #1102 committed (Tx: 0)",
+    "[Autopilot] Block #1103 committed (Tx: 0)",
+    "[Autopilot] Block #1104 committed (Tx: 0)",
+    "[Autopilot] Block #1105 committed (Tx: 0)",
+    "[Autopilot] Block #1106 committed (Tx: 0)",
+    "[Autopilot] Block #1107 committed (Tx: 0)",
+    "[Autopilot] Block #1108 committed (Tx: 0)",
+    "[Autopilot] Block #1109 committed (Tx: 0)",
+    "[Autopilot] Block #1110 committed (Tx: 0)",
+    "[Autopilot] Block #1111 committed (Tx: 0)",
+    "[Autopilot] Block #1112 committed (Tx: 0)",
+    "[Autopilot] Block #1113 committed (Tx: 0)",
+    "[Autopilot] Block #1114 committed (Tx: 0)",
+    "[Autopilot] Block #1115 committed (Tx: 0)",
+    "[Autopilot] Block #1116 committed (Tx: 0)",
+    "[Autopilot] Block #1117 committed (Tx: 0)",
+    "[Autopilot] Block #1118 committed (Tx: 0)",
+    "[Autopilot] Block #1119 committed (Tx: 0)",
+    "[Autopilot] Block #1120 committed (Tx: 0)",
+    "[Autopilot] Block #1121 committed (Tx: 0)",
+    "[Autopilot] Block #1122 committed (Tx: 0)",
+    "[Autopilot] Block #1123 committed (Tx: 0)",
+    "[Autopilot] Block #1124 committed (Tx: 0)",
+    "[Autopilot] Block #1125 committed (Tx: 0)",
+    "[Autopilot] Block #1126 committed (Tx: 0)",
+    "[Autopilot] Block #1127 committed (Tx: 0)",
+    "[Autopilot] Block #1128 committed (Tx: 0)",
+    "[Autopilot] Block #1129 committed (Tx: 0)",
+    "[Autopilot] Block #1130 committed (Tx: 0)",
+    "[Autopilot] Block #1131 committed (Tx: 0)",
+    "[Autopilot] Block #1132 committed (Tx: 0)",
+    "[Autopilot] Block #1133 committed (Tx: 0)",
+    "[Autopilot] Block #1134 committed (Tx: 0)",
+    "[Autopilot] Block #1135 committed (Tx: 0)",
+    "[Autopilot] Block #1136 committed (Tx: 0)",
+    "[Autopilot] Block #1137 committed (Tx: 0)",
+    "[Autopilot] Block #1138 committed (Tx: 0)",
+    "[Autopilot] Block #1139 committed (Tx: 0)",
+    "[Autopilot] Block #1140 committed (Tx: 0)",
+    "[Autopilot] Block #1141 committed (Tx: 0)",
+    "[Autopilot] Block #1142 committed (Tx: 0)",
+    "[Autopilot] Block #1143 committed (Tx: 0)",
+    "[Autopilot] Block #1144 committed (Tx: 0)",
+    "[Autopilot] Block #1145 committed (Tx: 0)",
+    "[Autopilot] Block #1146 committed (Tx: 0)",
+    "[Autopilot] Block #1147 committed (Tx: 0)",
+    "[Autopilot] Block #1148 committed (Tx: 0)",
+    "[Autopilot] Block #1149 committed (Tx: 0)",
+    "[Autopilot] Block #1150 committed (Tx: 0)",
+    "[Autopilot] Block #1151 committed (Tx: 0)",
+    "[Autopilot] Block #1152 committed (Tx: 0)",
+    "[Autopilot] Block #1153 committed (Tx: 0)",
+    "[Autopilot] Block #1154 committed (Tx: 0)",
+    "[Autopilot] Block #1155 committed (Tx: 0)",
+    "[Autopilot] Block #1156 committed (Tx: 0)",
+    "[Autopilot] Block #1157 committed (Tx: 0)",
+    "[Autopilot] Block #1158 committed (Tx: 0)",
+    "[Autopilot] Block #1159 committed (Tx: 0)",
+    "[Autopilot] Block #1160 committed (Tx: 0)",
+    "[Autopilot] Block #1161 committed (Tx: 0)",
+    "[Autopilot] Block #1162 committed (Tx: 0)",
+    "[Autopilot] Block #1163 committed (Tx: 0)",
+    "[Autopilot] Block #1164 committed (Tx: 0)",
+    "[Autopilot] Block #1165 committed (Tx: 0)",
+    "[Autopilot] Block #1166 committed (Tx: 0)",
+    "[Autopilot] Block #1167 committed (Tx: 0)",
+    "[Autopilot] Block #1168 committed (Tx: 0)",
+    "[Autopilot] Block #1169 committed (Tx: 0)",
+    "[Autopilot] Block #1170 committed (Tx: 0)",
+    "[Autopilot] Block #1171 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#1171 (1 sessions)",
+    "[Autopilot] Block #1172 committed (Tx: 0)",
+    "[Autopilot] Block #1173 committed (Tx: 0)",
+    "[Autopilot] Block #1174 committed (Tx: 0)",
+    "[Autopilot] Block #1175 committed (Tx: 0)",
+    "[Autopilot] Block #1176 committed (Tx: 0)",
+    "[Autopilot] Block #1177 committed (Tx: 0)",
+    "[Autopilot] Block #1178 committed (Tx: 0)"
+  ]
+}

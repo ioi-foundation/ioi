@@ -64,6 +64,8 @@ type RuntimeCatalogStageEntry = {
   image: string;
 };
 
+const appliedStudioLaunchIds = new Set<string>();
+
 function normalizeRuntimeCatalogStageEntry(
   agent: RuntimeCatalogEntry,
 ): RuntimeCatalogStageEntry {
@@ -354,6 +356,16 @@ export function useStudioWindowController() {
     }
 
     const { launchId, request: pendingRequest } = pendingLaunch;
+    if (appliedStudioLaunchIds.has(launchId)) {
+      await recordStudioLaunchReceipt("studio_pending_launch_duplicate", {
+        source,
+        launchId,
+        kind: pendingRequest.kind,
+        request: summarizePendingStudioLaunchRequest(pendingRequest),
+      });
+      await ackPendingStudioLaunchRequest(launchId);
+      return;
+    }
     if (lastAppliedStudioLaunchIdRef.current === launchId) {
       await recordStudioLaunchReceipt("studio_pending_launch_duplicate", {
         source,
@@ -365,6 +377,19 @@ export function useStudioWindowController() {
       return;
     }
 
+    const claimedLaunch = await ackPendingStudioLaunchRequest(launchId);
+    if (!claimedLaunch) {
+      await recordStudioLaunchReceipt("studio_pending_launch_duplicate", {
+        source,
+        launchId,
+        kind: pendingRequest.kind,
+        request: summarizePendingStudioLaunchRequest(pendingRequest),
+        reason: "launch_already_claimed",
+      });
+      return;
+    }
+
+    appliedStudioLaunchIds.add(launchId);
     lastAppliedStudioLaunchIdRef.current = launchId;
     await recordStudioLaunchReceipt("studio_pending_launch_applying", {
       source,
@@ -383,7 +408,6 @@ export function useStudioWindowController() {
             kind: pendingRequest.kind,
             view: pendingRequest.view,
           });
-          await ackPendingStudioLaunchRequest(launchId);
           return;
         case "session-target":
           await openSessionTarget(pendingRequest.sessionId);
@@ -393,7 +417,6 @@ export function useStudioWindowController() {
             kind: pendingRequest.kind,
             sessionId: pendingRequest.sessionId,
           });
-          await ackPendingStudioLaunchRequest(launchId);
           return;
         case "capability":
           openCapabilityTarget(
@@ -407,7 +430,6 @@ export function useStudioWindowController() {
             connectorId: pendingRequest.connectorId ?? null,
             detailSection: pendingRequest.detailSection ?? null,
           });
-          await ackPendingStudioLaunchRequest(launchId);
           return;
         case "policy":
           openPolicyCenter(pendingRequest.connectorId ?? null);
@@ -417,17 +439,19 @@ export function useStudioWindowController() {
             kind: pendingRequest.kind,
             connectorId: pendingRequest.connectorId ?? null,
           });
-          await ackPendingStudioLaunchRequest(launchId);
           return;
         case "autopilot-intent":
+          if (pendingRequest.sessionId) {
+            await openSessionTarget(pendingRequest.sessionId);
+          }
           openAutopilotWithIntent(pendingRequest.intent);
           await recordStudioLaunchReceipt("studio_pending_launch_applied", {
             source,
             launchId,
             kind: pendingRequest.kind,
             intent: pendingRequest.intent,
+            sessionId: pendingRequest.sessionId ?? null,
           });
-          await ackPendingStudioLaunchRequest(launchId);
           return;
         case "assistant-workbench":
           activateWorkbenchSession(pendingRequest.session);
@@ -437,12 +461,12 @@ export function useStudioWindowController() {
             kind: pendingRequest.kind,
             session: summarizeAssistantWorkbenchSession(pendingRequest.session),
           });
-          await ackPendingStudioLaunchRequest(launchId);
           return;
         default:
           return;
       }
     } catch (error) {
+      appliedStudioLaunchIds.delete(launchId);
       lastAppliedStudioLaunchIdRef.current = null;
       await recordStudioLaunchReceipt("studio_pending_launch_failed", {
         source,

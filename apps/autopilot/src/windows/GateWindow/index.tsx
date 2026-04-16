@@ -9,7 +9,7 @@ import {
   openStudioShellView,
   showSpotlightShell,
   useAssistantWorkbenchState,
-  useSessionGateState,
+  useSessionApprovalState,
   useSessionInterruptionActions,
 } from "@ioi/agent-ide";
 import { OperatorInboxQueueColumns } from "../../components/OperatorInboxQueueColumns";
@@ -101,7 +101,7 @@ export function GateWindow() {
     handleApprove,
     handleDeny,
     handleGrantScopedException,
-  } = useSessionGateState({
+  } = useSessionApprovalState({
     task,
   });
 

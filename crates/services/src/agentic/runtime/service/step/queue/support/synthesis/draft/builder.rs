@@ -101,6 +101,21 @@ pub(crate) fn build_deterministic_story_draft(
             merged_sources.clone()
         };
         ranked.sort_by(|left, right| {
+            let left_surface = format!(
+                "{} {}",
+                left.title.as_deref().unwrap_or_default(),
+                left.excerpt
+            );
+            let right_surface = format!(
+                "{} {}",
+                right.title.as_deref().unwrap_or_default(),
+                right.excerpt
+            );
+            let left_current_holder = first_current_role_holder_sentence(&left_surface).is_some();
+            let right_current_holder = first_current_role_holder_sentence(&right_surface).is_some();
+            let left_subject_identity = first_subject_currentness_sentence(&left_surface).is_some();
+            let right_subject_identity =
+                first_subject_currentness_sentence(&right_surface).is_some();
             let left_current_signal = contains_current_condition_metric_signal(&format!(
                 "{} {}",
                 left.title.as_deref().unwrap_or_default(),
@@ -111,8 +126,10 @@ pub(crate) fn build_deterministic_story_draft(
                 right.title.as_deref().unwrap_or_default(),
                 right.excerpt
             ));
-            right_current_signal
-                .cmp(&left_current_signal)
+            right_current_holder
+                .cmp(&left_current_holder)
+                .then_with(|| right_subject_identity.cmp(&left_subject_identity))
+                .then_with(|| right_current_signal.cmp(&left_current_signal))
                 .then_with(|| {
                     let left_partial_signal = has_quantitative_metric_payload(
                         &format!(
@@ -407,6 +424,15 @@ pub(crate) fn build_deterministic_story_draft(
             selected_source_target,
         );
     }
+    if single_snapshot_mode {
+        finalize_single_snapshot_selected_sources(
+            retrieval_contract,
+            &query,
+            &source_pool,
+            &mut selected_sources,
+            selected_source_target,
+        );
+    }
     if single_snapshot_mode && selected_sources.is_empty() {
         if let Some(source) = source_pool.first() {
             selected_sources.push(source.clone());
@@ -429,8 +455,35 @@ pub(crate) fn build_deterministic_story_draft(
         } else {
             local_business_display_title(source, locality_scope.as_deref())
         };
+        let single_snapshot_source = if single_snapshot_mode {
+            let focused_excerpt = prioritized_query_grounding_excerpt_with_contract(
+                retrieval_contract,
+                &query,
+                pending.min_sources as usize,
+                &source.url,
+                source.title.as_deref().unwrap_or_default(),
+                &source.excerpt,
+                WEB_PIPELINE_EXCERPT_CHARS,
+            );
+            if focused_excerpt.is_empty() {
+                source.clone()
+            } else {
+                PendingSearchReadSummary {
+                    url: source.url.clone(),
+                    title: source.title.clone(),
+                    excerpt: focused_excerpt,
+                }
+            }
+        } else {
+            source.clone()
+        };
         let what_happened = if single_snapshot_mode {
-            single_snapshot_summary_line(source)
+            single_snapshot_summary_line_with_contract(
+                retrieval_contract,
+                &query,
+                pending.min_sources as usize,
+                &single_snapshot_source,
+            )
         } else {
             source_bullet_for_query(&query, pending.min_sources as usize, source)
         };
@@ -537,9 +590,34 @@ pub(crate) fn build_deterministic_story_draft(
             fallback_ids.len(),
             citations_per_story,
         );
+        let fallback_single_snapshot_source = {
+            let focused_excerpt = prioritized_query_grounding_excerpt_with_contract(
+                retrieval_contract,
+                &query,
+                pending.min_sources as usize,
+                &fallback_source.url,
+                fallback_source.title.as_deref().unwrap_or_default(),
+                &fallback_source.excerpt,
+                WEB_PIPELINE_EXCERPT_CHARS,
+            );
+            if focused_excerpt.is_empty() {
+                fallback_source.clone()
+            } else {
+                PendingSearchReadSummary {
+                    url: fallback_source.url.clone(),
+                    title: fallback_source.title.clone(),
+                    excerpt: focused_excerpt,
+                }
+            }
+        };
         stories.push(StoryDraft {
             title: canonical_source_title(&fallback_source),
-            what_happened: single_snapshot_summary_line(&fallback_source),
+            what_happened: single_snapshot_summary_line_with_contract(
+                retrieval_contract,
+                &query,
+                pending.min_sources as usize,
+                &fallback_single_snapshot_source,
+            ),
             changed_last_hour: changed_last_hour_line(&fallback_source, &run_timestamp_iso_utc),
             why_it_matters: why_it_matters_from_story(&fallback_source),
             user_impact: user_impact_from_story(&fallback_source),
@@ -1525,6 +1603,199 @@ fn finalize_document_briefing_selected_sources(
     *selected_sources = finalized;
 }
 
+fn finalize_single_snapshot_selected_sources(
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+    query: &str,
+    source_pool: &[PendingSearchReadSummary],
+    selected_sources: &mut Vec<PendingSearchReadSummary>,
+    selected_source_target: usize,
+) {
+    if selected_source_target == 0 {
+        selected_sources.clear();
+        return;
+    }
+
+    let subject_identity_required = query_requires_subject_currentness_identity(query);
+    let primary_authority_required =
+        crate::agentic::runtime::service::step::queue::support::retrieval_contract_requires_primary_authority_source(
+            retrieval_contract,
+            query,
+        );
+
+    if !primary_authority_required && !subject_identity_required {
+        if selected_sources.len() > selected_source_target {
+            selected_sources.truncate(selected_source_target);
+        }
+        return;
+    }
+
+    if subject_identity_required {
+        let mut identity_pool = selected_sources
+            .iter()
+            .chain(source_pool.iter())
+            .filter(|source| draft_source_is_selectable(source))
+            .filter(|source| {
+                let surface = format!(
+                    "{} {}",
+                    source.title.as_deref().unwrap_or_default(),
+                    source.excerpt
+                );
+                first_subject_currentness_sentence(&surface).is_some()
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        identity_pool.dedup_by(|left, right| {
+            left.url.eq_ignore_ascii_case(&right.url)
+                || url_structurally_equivalent(&left.url, &right.url)
+        });
+
+        identity_pool.sort_by(|left, right| {
+            let left_surface = format!(
+                "{} {}",
+                left.title.as_deref().unwrap_or_default(),
+                left.excerpt
+            );
+            let right_surface = format!(
+                "{} {}",
+                right.title.as_deref().unwrap_or_default(),
+                right.excerpt
+            );
+            let left_key = (
+                first_current_role_holder_sentence(&left_surface).is_some(),
+                source_counts_as_primary_authority(
+                    query,
+                    &left.url,
+                    left.title.as_deref().unwrap_or_default(),
+                    &left.excerpt,
+                ),
+                source_document_authority_score(
+                    query,
+                    &left.url,
+                    left.title.as_deref().unwrap_or_default(),
+                    &left.excerpt,
+                ),
+                !is_low_signal_excerpt(left.excerpt.as_str()),
+            );
+            let right_key = (
+                first_current_role_holder_sentence(&right_surface).is_some(),
+                source_counts_as_primary_authority(
+                    query,
+                    &right.url,
+                    right.title.as_deref().unwrap_or_default(),
+                    &right.excerpt,
+                ),
+                source_document_authority_score(
+                    query,
+                    &right.url,
+                    right.title.as_deref().unwrap_or_default(),
+                    &right.excerpt,
+                ),
+                !is_low_signal_excerpt(right.excerpt.as_str()),
+            );
+            right_key
+                .cmp(&left_key)
+                .then_with(|| left.url.cmp(&right.url))
+        });
+
+        if let Some(best_identity_source) = identity_pool.into_iter().next() {
+            let mut finalized = vec![best_identity_source];
+            for source in selected_sources.iter() {
+                if finalized.len() >= selected_source_target {
+                    break;
+                }
+                if finalized.iter().any(|existing| {
+                    existing.url.eq_ignore_ascii_case(&source.url)
+                        || url_structurally_equivalent(&existing.url, &source.url)
+                }) {
+                    continue;
+                }
+                finalized.push(source.clone());
+            }
+            *selected_sources = finalized;
+            return;
+        }
+    }
+
+    let mut authority_pool = selected_sources
+        .iter()
+        .chain(source_pool.iter())
+        .filter(|source| draft_source_is_selectable(source))
+        .filter(|source| {
+            source_counts_as_primary_authority(
+                query,
+                &source.url,
+                source.title.as_deref().unwrap_or_default(),
+                &source.excerpt,
+            )
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    authority_pool.dedup_by(|left, right| {
+        left.url.eq_ignore_ascii_case(&right.url)
+            || url_structurally_equivalent(&left.url, &right.url)
+    });
+
+    authority_pool.sort_by(|left, right| {
+        let left_surface = format!(
+            "{} {}",
+            left.title.as_deref().unwrap_or_default(),
+            left.excerpt
+        );
+        let right_surface = format!(
+            "{} {}",
+            right.title.as_deref().unwrap_or_default(),
+            right.excerpt
+        );
+        let left_key = (
+            contains_current_condition_metric_signal(&left_surface),
+            has_quantitative_metric_payload(&left_surface, false),
+            source_document_authority_score(
+                query,
+                &left.url,
+                left.title.as_deref().unwrap_or_default(),
+                &left.excerpt,
+            ),
+            !is_low_signal_excerpt(left.excerpt.as_str()),
+        );
+        let right_key = (
+            contains_current_condition_metric_signal(&right_surface),
+            has_quantitative_metric_payload(&right_surface, false),
+            source_document_authority_score(
+                query,
+                &right.url,
+                right.title.as_deref().unwrap_or_default(),
+                &right.excerpt,
+            ),
+            !is_low_signal_excerpt(right.excerpt.as_str()),
+        );
+        right_key
+            .cmp(&left_key)
+            .then_with(|| left.url.cmp(&right.url))
+    });
+
+    let Some(best_authority_source) = authority_pool.into_iter().next() else {
+        if selected_sources.len() > selected_source_target {
+            selected_sources.truncate(selected_source_target);
+        }
+        return;
+    };
+
+    let mut finalized = vec![best_authority_source];
+    for source in selected_sources.iter() {
+        if finalized.len() >= selected_source_target {
+            break;
+        }
+        if finalized.iter().any(|existing| {
+            existing.url.eq_ignore_ascii_case(&source.url)
+                || url_structurally_equivalent(&existing.url, &source.url)
+        }) {
+            continue;
+        }
+        finalized.push(source.clone());
+    }
+    *selected_sources = finalized;
+}
+
 fn document_briefing_candidate_required_identifier_labels(
     query: &str,
     candidate: &CitationCandidate,
@@ -2034,6 +2305,156 @@ mod tests {
         assert_eq!(read_backed_urls.len(), selected_source_target);
         assert!(read_backed_urls.contains("https://www.worldcoinindex.com/coin/bitcoin"));
         assert!(read_backed_urls.contains("https://crypto.com/us/price/bitcoin"));
+    }
+
+    #[test]
+    fn single_snapshot_source_selection_preserves_primary_authority_for_latest_pricing_queries() {
+        let query = "What is the latest OpenAI API pricing?";
+        let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+        let pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(retrieval_contract),
+            url: "https://duckduckgo.com/html/?q=openai+api+pricing".to_string(),
+            started_step: 1,
+            started_at_ms: 1_776_227_441_000,
+            deadline_ms: 1_776_227_561_000,
+            candidate_urls: vec![
+                "https://openai.com/api/pricing/".to_string(),
+                "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services"
+                    .to_string(),
+            ],
+            candidate_source_hints: Vec::new(),
+            attempted_urls: Vec::new(),
+            blocked_urls: Vec::new(),
+            successful_reads: vec![
+                PendingSearchReadSummary {
+                    url: "https://openai.com/api/pricing/".to_string(),
+                    title: Some("OpenAI API Pricing | OpenAI".to_string()),
+                    excerpt: "Image: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs".to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services".to_string(),
+                    title: Some("OpenAI API Pricing & Services - A Comprehensive Guide".to_string()),
+                    excerpt: "Price: Input: $1".to_string(),
+                },
+            ],
+            min_sources: 1,
+        };
+
+        let draft = build_deterministic_story_draft(
+            &pending,
+            WebPipelineCompletionReason::MinSourcesReached,
+        );
+        assert_eq!(draft.stories.len(), 1);
+        let cited_urls = draft
+            .stories
+            .iter()
+            .flat_map(|story| story.citation_ids.iter())
+            .filter_map(|citation_id| draft.citations_by_id.get(citation_id))
+            .map(|citation| citation.url.as_str())
+            .collect::<Vec<_>>();
+        assert!(cited_urls
+            .iter()
+            .any(|url| { url.eq_ignore_ascii_case("https://openai.com/api/pricing/") }));
+        assert!(!cited_urls.iter().any(|url| {
+            url.eq_ignore_ascii_case(
+                "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services",
+            )
+        }));
+    }
+
+    #[test]
+    fn single_snapshot_source_selection_prefers_explicit_current_role_holder_surface() {
+        let query = "Who is the current Secretary-General of the UN?";
+        let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+        let pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(retrieval_contract),
+            url: "https://search.brave.com/search?q=who+secretary+general".to_string(),
+            started_step: 1,
+            started_at_ms: 1_776_236_380_000,
+            deadline_ms: 1_776_236_500_000,
+            candidate_urls: vec![
+                "https://ask.un.org/faq/14625".to_string(),
+                "https://en.wikipedia.org/wiki/Ant%C3%B3nio_Guterres".to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://ask.un.org/faq/14625".to_string(),
+                    title: Some(
+                        "UN Ask DAG ask.un.org faq 14625 Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://en.wikipedia.org/wiki/Ant%C3%B3nio_Guterres".to_string(),
+                    title: Some(
+                        "Wikipedia en.wikipedia.org wiki Ant\u{f3}nio_Guterres Ant\u{f3}nio Guterres - Wikipedia"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "17 hours ago - Guterres was elected secretary-general in October 2016, succeeding Ban Ki-moon at the beginning of the following year."
+                            .to_string(),
+                },
+            ],
+            attempted_urls: vec![
+                "https://ask.un.org/faq/14625".to_string(),
+                "https://en.wikipedia.org/wiki/Ant%C3%B3nio_Guterres".to_string(),
+            ],
+            blocked_urls: vec![],
+            successful_reads: vec![
+                PendingSearchReadSummary {
+                    url: "https://ask.un.org/faq/14625".to_string(),
+                    title: Some(
+                        "Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://en.wikipedia.org/wiki/Ant%C3%B3nio_Guterres".to_string(),
+                    title: Some("Ant\u{f3}nio Guterres - Wikipedia".to_string()),
+                    excerpt:
+                        "17 hours ago - Guterres was elected secretary-general in October 2016, succeeding Ban Ki-moon at the beginning of the following year."
+                            .to_string(),
+                },
+            ],
+            min_sources: 1,
+        };
+
+        let draft = build_deterministic_story_draft(
+            &pending,
+            WebPipelineCompletionReason::MinSourcesReached,
+        );
+
+        assert_eq!(draft.stories.len(), 1, "{draft:#?}");
+        assert!(
+            draft.stories[0].what_happened.contains(
+                "Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+            ),
+            "{draft:#?}"
+        );
+        let cited_urls = draft.stories[0]
+            .citation_ids
+            .iter()
+            .filter_map(|citation_id| draft.citations_by_id.get(citation_id))
+            .map(|citation| citation.url.as_str())
+            .collect::<Vec<_>>();
+        assert!(
+            cited_urls
+                .iter()
+                .any(|url| url.eq_ignore_ascii_case("https://ask.un.org/faq/14625")),
+            "{draft:#?}"
+        );
     }
 
     #[test]

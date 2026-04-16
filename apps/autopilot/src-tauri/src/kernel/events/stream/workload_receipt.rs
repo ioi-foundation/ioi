@@ -11,6 +11,166 @@ use serde_json::json;
 use std::sync::Mutex;
 use tauri::Manager;
 
+fn domain_from_url(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let without_scheme = trimmed
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(trimmed);
+    let host = without_scheme.split('/').next()?.trim();
+    if host.is_empty() {
+        None
+    } else {
+        Some(host.to_string())
+    }
+}
+
+fn humanize_workload_token(value: &str) -> String {
+    let normalized = value
+        .trim()
+        .replace(['_', '-'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if normalized.is_empty() {
+        return String::new();
+    }
+
+    normalized
+        .split(' ')
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => {
+                    let mut out = first.to_uppercase().collect::<String>();
+                    out.push_str(chars.as_str());
+                    out
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn workload_progress_label(receipt: &WorkloadReceipt) -> Option<String> {
+    match receipt.receipt.as_ref()? {
+        WorkloadReceiptKind::Exec(exec) => {
+            let tool_name = exec.tool_name.trim().to_ascii_lowercase();
+            let command_preview = exec.command_preview.trim().to_ascii_lowercase();
+            if tool_name.starts_with("shell__run") {
+                if command_preview.starts_with("pip install")
+                    || command_preview.starts_with("uv pip install")
+                    || command_preview.contains(" npm install")
+                    || command_preview.contains(" pnpm install")
+                {
+                    return Some("Preparing the runtime".to_string());
+                }
+                return Some("Processing the request".to_string());
+            }
+            Some("Processing the request".to_string())
+        }
+        WorkloadReceiptKind::FsWrite(fs) => {
+            let operation = fs.operation.trim().to_ascii_lowercase();
+            if operation.contains("copy") || operation.contains("move") {
+                Some("Saving your file".to_string())
+            } else if operation.contains("replace") || operation.contains("edit") {
+                Some("Updating your file".to_string())
+            } else {
+                Some("Writing your file".to_string())
+            }
+        }
+        WorkloadReceiptKind::NetFetch(net) => {
+            let target = if net.has_final_url {
+                Some(net.final_url.as_str())
+            } else {
+                Some(net.requested_url.as_str())
+            }
+            .and_then(domain_from_url);
+            Some(match target {
+                Some(domain) => format!("Reading {}", domain),
+                None => "Reading a source".to_string(),
+            })
+        }
+        WorkloadReceiptKind::WebRetrieve(web) => {
+            if web.has_url {
+                let domain = domain_from_url(&web.url);
+                return Some(match domain {
+                    Some(domain) => format!("Reading {}", domain),
+                    None => "Reading a source".to_string(),
+                });
+            }
+            if web.has_query {
+                return Some("Searching the web".to_string());
+            }
+            Some("Gathering current evidence".to_string())
+        }
+        WorkloadReceiptKind::MemoryRetrieve(_) => Some("Checking memory".to_string()),
+        WorkloadReceiptKind::Inference(inference) => {
+            let operation = inference.operation.trim().to_ascii_lowercase();
+            if operation.contains("embed") || operation.contains("retrieve") {
+                Some("Preparing the next step".to_string())
+            } else {
+                Some("Preparing the reply".to_string())
+            }
+        }
+        WorkloadReceiptKind::Media(media) => {
+            let tool_name = media.tool_name.trim().to_ascii_lowercase();
+            if tool_name.starts_with("visualize__") {
+                Some("Preparing the visual".to_string())
+            } else {
+                Some("Generating media".to_string())
+            }
+        }
+        WorkloadReceiptKind::ModelLifecycle(model) => match model.operation.trim() {
+            "" => Some("Preparing the local model".to_string()),
+            operation => Some(format!(
+                "{} the local model",
+                humanize_workload_token(operation)
+            )),
+        },
+        WorkloadReceiptKind::Worker(worker) => {
+            let role = humanize_workload_token(&worker.role);
+            if !role.is_empty() {
+                Some(format!("Running {}", role))
+            } else if !worker.summary.trim().is_empty() {
+                Some(worker.summary.trim().to_string())
+            } else {
+                Some("Running the worker".to_string())
+            }
+        }
+        WorkloadReceiptKind::ParentPlaybook(playbook) => {
+            if !playbook.summary.trim().is_empty() {
+                Some(playbook.summary.trim().to_string())
+            } else {
+                Some(
+                    match playbook.route_family.trim().to_ascii_lowercase().as_str() {
+                        "research" => "Gathering current evidence".to_string(),
+                        "coding" => "Working in the workspace".to_string(),
+                        "computer_use" => "Working on the current window".to_string(),
+                        "artifacts" => "Preparing the artifact".to_string(),
+                        _ => "Planning the route".to_string(),
+                    },
+                )
+            }
+        }
+        WorkloadReceiptKind::Adapter(adapter) => {
+            let kind = adapter.adapter_kind.trim().to_ascii_lowercase();
+            if kind.contains("mail") {
+                Some("Checking your email".to_string())
+            } else if kind.contains("calendar") {
+                Some("Checking your calendar".to_string())
+            } else {
+                Some("Processing the adapter result".to_string())
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 struct WorkloadReceiptSummary {
     kind: &'static str,
@@ -556,6 +716,21 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
             } else {
                 None
             };
+            let planner_authority = if playbook.planner_authority.trim().is_empty() {
+                None
+            } else {
+                Some(playbook.planner_authority.clone())
+            };
+            let verifier_role = if playbook.verifier_role.trim().is_empty() {
+                None
+            } else {
+                Some(playbook.verifier_role.clone())
+            };
+            let verifier_outcome = if playbook.verifier_outcome.trim().is_empty() {
+                None
+            } else {
+                Some(playbook.verifier_outcome.clone())
+            };
             let prep_summary = if playbook.has_prep_summary {
                 Some(playbook.prep_summary.clone())
             } else {
@@ -758,7 +933,10 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
                     "playbook_label": playbook.playbook_label,
                     "route_family": playbook.route_family,
                     "topology": playbook.topology,
+                    "planner_authority": planner_authority,
                     "verifier_state": playbook.verifier_state,
+                    "verifier_role": verifier_role,
+                    "verifier_outcome": verifier_outcome,
                     "selected_skills": playbook.selected_skills,
                     "prep_summary": prep_summary,
                     "artifact_generation": artifact_generation,
@@ -783,7 +961,10 @@ fn summarize_workload_receipt(receipt: &WorkloadReceipt) -> Option<WorkloadRecei
                     "workflow_id": workflow_id,
                     "route_family": playbook.route_family,
                     "topology": playbook.topology,
+                    "planner_authority": planner_authority,
                     "verifier_state": playbook.verifier_state,
+                    "verifier_role": verifier_role,
+                    "verifier_outcome": verifier_outcome,
                     "selected_skills": playbook.selected_skills,
                     "prep_summary": prep_summary,
                     "artifact_generation": artifact_generation,
@@ -1020,7 +1201,8 @@ pub(super) async fn handle_workload_receipt(app: &tauri::AppHandle, receipt: Wor
         accepted_for_processing = true;
 
         bind_task_session(task, &receipt.session_id);
-        task.current_step = format!("Workload receipt: {} ({})", summary.tool_name, summary.kind);
+        task.current_step = workload_progress_label(&receipt)
+            .unwrap_or_else(|| format!("Processing {}", summary.tool_name));
 
         if task
             .history
@@ -1054,7 +1236,9 @@ pub(super) async fn handle_workload_receipt(app: &tauri::AppHandle, receipt: Wor
         &thread_id,
         receipt.step_index,
         EventType::Receipt,
-        format!("Workload receipt: {} ({})", summary.tool_name, summary.kind),
+        workload_progress_label(&receipt).unwrap_or_else(|| {
+            format!("Workload receipt: {} ({})", summary.tool_name, summary.kind)
+        }),
         summary.digest,
         json!({
             "summary": summary.summary,
@@ -1069,4 +1253,48 @@ pub(super) async fn handle_workload_receipt(app: &tauri::AppHandle, receipt: Wor
         None,
     );
     register_event(app, event);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{summarize_workload_receipt, WorkloadReceiptKind};
+    use ioi_ipc::public::{WorkloadParentPlaybookReceipt, WorkloadReceipt};
+
+    #[test]
+    fn parent_playbook_summary_preserves_explicit_route_contract_fields() {
+        let receipt = WorkloadReceipt {
+            session_id: "session-1".to_string(),
+            workload_id: "workload-1".to_string(),
+            step_index: 7,
+            timestamp_ms: 1_763_000_000_000,
+            receipt: Some(WorkloadReceiptKind::ParentPlaybook(
+                WorkloadParentPlaybookReceipt {
+                    tool_name: "agent__await".to_string(),
+                    phase: "completed".to_string(),
+                    parent_session_id: "parent-1".to_string(),
+                    playbook_id: "citation_grounded_brief".to_string(),
+                    playbook_label: "Citation Grounded Brief".to_string(),
+                    status: "completed".to_string(),
+                    success: true,
+                    route_family: "research".to_string(),
+                    topology: "planner_specialist_verifier".to_string(),
+                    planner_authority: "kernel".to_string(),
+                    verifier_state: "passed".to_string(),
+                    verifier_role: "citation_verifier".to_string(),
+                    verifier_outcome: "pass".to_string(),
+                    summary: "Parent playbook completed.".to_string(),
+                    ..WorkloadParentPlaybookReceipt::default()
+                },
+            )),
+        };
+
+        let summary = summarize_workload_receipt(&receipt).expect("summary");
+        assert_eq!(summary.kind, "parent_playbook");
+        assert_eq!(summary.digest["planner_authority"], "kernel");
+        assert_eq!(summary.digest["verifier_role"], "citation_verifier");
+        assert_eq!(summary.digest["verifier_outcome"], "pass");
+        assert_eq!(summary.details["planner_authority"], "kernel");
+        assert_eq!(summary.details["verifier_role"], "citation_verifier");
+        assert_eq!(summary.details["verifier_outcome"], "pass");
+    }
 }

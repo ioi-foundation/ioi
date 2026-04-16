@@ -7239,6 +7239,7 @@ dependencies = [
  "tokio",
  "ts-rs",
  "zeroize",
+ "zip",
 ]
 
 [[package]]

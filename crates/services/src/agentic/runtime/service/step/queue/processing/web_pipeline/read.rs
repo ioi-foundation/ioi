@@ -331,6 +331,8 @@ pub(in super::super) async fn maybe_handle_web_read(
     let floor_unmet = pending.successful_reads.len() < min_sources_required;
     let source_floor_met = !floor_unmet;
     let completion_contract_ready = story_completion_contract_ready(&pending, required_story_floor);
+    let completion_facts =
+        final_web_completion_facts(&pending, WebPipelineCompletionReason::MinSourcesReached);
     let quality_floor_unmet = floor_unmet
         || !story_floor_met
         || !local_business_entity_floor_met
@@ -519,6 +521,40 @@ pub(in super::super) async fn maybe_handle_web_read(
         "web_completion_contract_ready={}",
         completion_contract_ready
     ));
+    if completion_facts.briefing_layout_profile == "single_snapshot" {
+        verification_checks.push(format!(
+            "web_single_snapshot_metric_grounding={}",
+            completion_facts.single_snapshot_metric_grounding
+        ));
+        verification_checks.push(format!(
+            "web_single_snapshot_story_slot_floor_met={}",
+            completion_facts.story_slot_floor_met
+        ));
+        verification_checks.push(format!(
+            "web_single_snapshot_story_citation_floor_met={}",
+            completion_facts.story_citation_floor_met
+        ));
+        verification_checks.push(format!(
+            "web_single_snapshot_primary_authority_floor_met={}",
+            completion_facts.briefing_primary_authority_source_floor_met
+        ));
+        verification_checks.push(format!(
+            "web_single_snapshot_citation_read_backing_floor_met={}",
+            completion_facts.briefing_citation_read_backing_floor_met
+        ));
+        verification_checks.push(format!(
+            "web_single_snapshot_selected_primary_authority_source_count={}",
+            completion_facts.selected_primary_authority_source_count
+        ));
+        verification_checks.push(format!(
+            "web_single_snapshot_available_primary_authority_source_count={}",
+            completion_facts.available_primary_authority_source_count
+        ));
+        verification_checks.push(format!(
+            "web_single_snapshot_required_primary_authority_source_count={}",
+            completion_facts.briefing_required_primary_authority_source_count
+        ));
+    }
     if !selected_source_low_priority_urls.is_empty() {
         verification_checks.push(format!(
             "web_selected_sources_low_priority_urls={}",

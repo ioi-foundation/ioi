@@ -1,0 +1,37 @@
+[
+  {
+    "prompt": "What's the weather in Boston this weekend?",
+    "covers_questions": [50, 57, 60],
+    "expectations": {
+      "phase": "Complete",
+      "route_family": "research",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "narrow_tool_preference": true,
+      "selected_route_contains": "weather",
+      "primary_tools_include": ["weather_fetch"],
+      "presentation_surface": "weather_widget",
+      "widget_family": "weather",
+      "policy_hidden_instruction_dependency": false,
+      "verification_required_checks_include": ["weather_surface_rendered"]
+    }
+  },
+  {
+    "prompt": "How about tomorrow instead?",
+    "covers_questions": [50, 57, 60],
+    "expectations": {
+      "phase": "Complete",
+      "route_family": "research",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "narrow_tool_preference": true,
+      "selected_route_contains": "weather",
+      "primary_tools_include": ["weather_fetch"],
+      "presentation_surface": "weather_widget",
+      "widget_family": "weather",
+      "policy_hidden_instruction_dependency": false,
+      "clarification_question_absent": true,
+      "verification_required_checks_include": ["weather_surface_rendered"]
+    }
+  }
+]

@@ -15,6 +15,10 @@ pub(crate) fn merged_story_sources(
         && !retrieval_contract_requests_comparison(retrieval_contract, &query_contract);
     let local_business_entity_diversity_required =
         retrieval_contract_entity_diversity_required(retrieval_contract, &query_contract);
+    let host_anchored_primary_authority_required =
+        retrieval_contract_requires_primary_authority_source(retrieval_contract, &query_contract)
+            && query_requires_host_anchored_primary_authority(&query_contract);
+    let subject_identity_required = query_requires_subject_currentness_identity(&query_contract);
     let projection = build_query_constraint_projection(
         &query_contract,
         pending.min_sources,
@@ -41,7 +45,9 @@ pub(crate) fn merged_story_sources(
     let successful_urls = successful_source_url_set(pending);
     let blocked_unverified_urls = blocked_unverified_url_set(pending, &successful_urls);
     let preserve_successful_reads = (document_briefing_layout && !headline_lookup_mode)
-        || local_business_entity_diversity_required;
+        || local_business_entity_diversity_required
+        || host_anchored_primary_authority_required
+        || subject_identity_required;
 
     let mut merged: Vec<PendingSearchReadSummary> = Vec::new();
     let mut seen = BTreeSet::new();

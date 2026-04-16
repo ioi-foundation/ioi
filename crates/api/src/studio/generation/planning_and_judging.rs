@@ -164,47 +164,57 @@ pub fn derive_studio_artifact_prepared_context(
     let derive_skill_discovery_resolution =
         |preparation_needs: &StudioArtifactPreparationNeeds,
          selected_skills: &[StudioArtifactSelectedSkill],
-         status: &str| StudioArtifactSkillDiscoveryResolution {
-            status: status.to_string(),
-            guidance_evaluated: true,
-            guidance_recommended: !preparation_needs.skill_needs.is_empty(),
-            guidance_found: !selected_skills.is_empty(),
-            guidance_attached: !selected_skills.is_empty(),
-            skill_need_count: preparation_needs.skill_needs.len() as u32,
-            selected_skill_count: selected_skills.len() as u32,
-            selected_skill_names: selected_skills
-                .iter()
-                .map(|skill| skill.name.clone())
-                .collect(),
-            search_scope: "published_runtime_skills".to_string(),
-            rationale: if let Some(first_skill) = selected_skills.first() {
-                if selected_skills.len() == 1 {
-                    format!(
-                        "The request benefits from {} guidance before authoring.",
-                        first_skill.name
+         status: &str| {
+            let guidance_status = if preparation_needs.skill_needs.is_empty() {
+                "not_needed"
+            } else if !selected_skills.is_empty() {
+                "attached"
+            } else {
+                "unavailable"
+            };
+            StudioArtifactSkillDiscoveryResolution {
+                status: status.to_string(),
+                guidance_status: guidance_status.to_string(),
+                guidance_evaluated: true,
+                guidance_recommended: !preparation_needs.skill_needs.is_empty(),
+                guidance_found: !selected_skills.is_empty(),
+                guidance_attached: !selected_skills.is_empty(),
+                skill_need_count: preparation_needs.skill_needs.len() as u32,
+                selected_skill_count: selected_skills.len() as u32,
+                selected_skill_names: selected_skills
+                    .iter()
+                    .map(|skill| skill.name.clone())
+                    .collect(),
+                search_scope: "published_runtime_skills".to_string(),
+                rationale: if let Some(first_skill) = selected_skills.first() {
+                    if selected_skills.len() == 1 {
+                        format!(
+                            "The request benefits from {} guidance before authoring.",
+                            first_skill.name
+                        )
+                    } else {
+                        format!(
+                            "The request benefits from {} selected skill guides before authoring.",
+                            selected_skills.len()
+                        )
+                    }
+                } else if preparation_needs.skill_needs.is_empty() {
+                    "The request can be authored directly without extra skill guidance.".to_string()
+                } else {
+                    "Studio checked the published runtime guidance corpus for this request but did not find a qualifying skill to attach before authoring."
+                        .to_string()
+                },
+                failure_reason: if selected_skills.is_empty()
+                    && !preparation_needs.skill_needs.is_empty()
+                {
+                    Some(
+                        "No qualifying published runtime guidance matched the request's current skill needs."
+                            .to_string(),
                     )
                 } else {
-                    format!(
-                        "The request benefits from {} selected skill guides before authoring.",
-                        selected_skills.len()
-                    )
-                }
-            } else if preparation_needs.skill_needs.is_empty() {
-                "The request can be authored directly without extra skill guidance.".to_string()
-            } else {
-                "Studio checked the published runtime guidance corpus for this request but did not find a qualifying skill to attach before authoring."
-                    .to_string()
-            },
-            failure_reason: if selected_skills.is_empty()
-                && !preparation_needs.skill_needs.is_empty()
-            {
-                Some(
-                    "No qualifying published runtime guidance matched the request's current skill needs."
-                        .to_string(),
-                )
-            } else {
-                None
-            },
+                    None
+                },
+            }
         };
     let derive_preparation_needs =
         |resolved_blueprint: Option<&StudioArtifactBlueprint>,

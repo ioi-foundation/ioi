@@ -54,8 +54,8 @@ mod web_pipeline;
 
 use self::completion::{
     maybe_complete_agent_complete, maybe_complete_browser_snapshot_interaction,
-    maybe_complete_command_probe, maybe_complete_mail_reply, maybe_complete_open_app,
-    maybe_complete_screenshot_capture, normalize_output_only_success,
+    maybe_complete_chat_reply, maybe_complete_command_probe, maybe_complete_mail_reply,
+    maybe_complete_open_app, maybe_complete_screenshot_capture, normalize_output_only_success,
 };
 use self::failure::{apply_queue_failure_policies, QueueFailureHandlingOutcome};
 use self::routing::{is_web_research_scope, resolve_queue_routing_context as resolve_routing};
@@ -1215,6 +1215,18 @@ pub async fn process_queue_item(
         &mut completion_summary,
         p.session_id,
     );
+    maybe_complete_chat_reply(
+        agent_state,
+        &tool_wrapper,
+        is_gated,
+        &mut success,
+        &mut out,
+        &mut err,
+        &mut completion_summary,
+        &mut verification_checks,
+        &rules,
+        p.session_id,
+    );
 
     let output_str = out.clone().unwrap_or_default();
     let error_str = err.clone();
@@ -1522,6 +1534,15 @@ pub async fn process_queue_item(
     let failure_class_name = failure_class
         .map(|class| class.as_str().to_string())
         .unwrap_or_default();
+    let route_decision =
+        crate::agentic::runtime::service::step::route_projection::project_route_decision(
+            service,
+            state,
+            agent_state,
+            &tool_name,
+            agent_state.current_tier,
+        )
+        .await;
     let receipt = RoutingReceiptEvent {
         session_id: p.session_id,
         step_index: pre_state_summary.step_index,
@@ -1549,6 +1570,7 @@ pub async fn process_queue_item(
         policy_binding_hash: policy_binding,
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision,
     };
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 

@@ -1,0 +1,2738 @@
+{
+  "captured_at": "2026-04-15T02:01:38.706860+00:00",
+  "prompt": "What is the weather in Boston today?",
+  "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-dev-start-intent/2026-04-15T02-00-01Z/01-what-is-the-weather-in-boston-today/final.png",
+  "window_id": 20971532,
+  "window_capture_error": null,
+  "task": {
+    "id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+    "intent": "What is the weather in Boston today?",
+    "agent": "Autopilot",
+    "phase": "Failed",
+    "progress": 1,
+    "total_steps": 20,
+    "current_step": "Task failed: ERROR_CLASS=SynthesisFailed pre-read selection timed out after 4000ms; fallback failed: deterministic pre-read selection could not satisfy 1 typed source(s)",
+    "gate_info": null,
+    "receipt": null,
+    "visual_hash": null,
+    "pending_request_hash": null,
+    "session_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+    "credential_request": null,
+    "clarification_request": null,
+    "session_checklist": [
+      {
+        "itemId": "request",
+        "label": "Request captured",
+        "status": "completed",
+        "detail": "What is the weather in Boston today?",
+        "updatedAtMs": 1776218498299
+      },
+      {
+        "itemId": "execution",
+        "label": "Execution failed",
+        "status": "failed",
+        "detail": "Task failed: ERROR_CLASS=SynthesisFailed pre-read selection timed out after 4000ms; fallback failed: deterministic pre-r...",
+        "updatedAtMs": 1776218498299
+      },
+      {
+        "itemId": "review",
+        "label": "Decide next step",
+        "status": "blocked",
+        "detail": "Retry the run or start a new session once the blocker is addressed.",
+        "updatedAtMs": 1776218498299
+      }
+    ],
+    "background_tasks": [
+      {
+        "taskId": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "sessionId": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "label": "What is the weather in Boston today?",
+        "status": "failed",
+        "detail": "Task failed: ERROR_CLASS=SynthesisFailed pre-read selection timed out after 4000ms; fallback failed: deterministic pre-r...",
+        "latestOutput": "Task failed: ERROR_CLASS=SynthesisFailed pre-read selection timed out after 4000ms; fallback failed: deterministic pre-r...",
+        "canStop": false,
+        "updatedAtMs": 1776218498299
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "text": "What is the weather in Boston today?",
+        "timestamp": 1776218411221
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f IntentResolver: intent_id=web.research band=Medium score=0.741 constrained=false hash=23e245af2c207a76abd6450f22e2b7b2f4ac27c24d9872d8cffb26c46e8ca574",
+        "timestamp": 1776218468932
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=service_prepare_tool satisfied=true evidence_commit_hash=sha256:4986518ebd7da03b4569c7e2e0e6e92e50cc0036ebdd96d412beff10bed4f17b",
+        "timestamp": 1776218483135
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=service_determinism_context satisfied=true evidence_commit_hash=sha256:39e9cdfda13b2a51c686b356f32cde380f744298ac0220dde1e13dc17c4dbd7d",
+        "timestamp": 1776218483211
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=policy_hash_binding satisfied=true evidence_commit_hash=sha256:c53c5d88f5de6e2b077b7af8215cee68673a7e44ea6fe8319fa72201ba3815b9",
+        "timestamp": 1776218483271
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=capability_lease satisfied=true evidence_commit_hash=sha256:865962936ad613667fd4b1853c2cda0416f41109fe79acf621f2fad44a0f0a8c",
+        "timestamp": 1776218483324
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=firewall_decision_receipt satisfied=true evidence_commit_hash=sha256:ae975114b7d5aa682e5b70a3baad5603e821c1e674cf5b76065f91f186c636a4",
+        "timestamp": 1776218483380
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=determinism_commit satisfied=true evidence_commit_hash=sha256:09908bc8a4e7e84119dc2ef4fdfa77e2bcdb379376f0256f484cd1e94a576c7e",
+        "timestamp": 1776218483434
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=service_policy_gate satisfied=true evidence_commit_hash=sha256:87392ec7a2218672d22958e10aecfa444e23b2da6f7b6c62df5fdcfb329f613d",
+        "timestamp": 1776218483486
+      },
+      {
+        "role": "system",
+        "text": "WorkloadReceipt(WebRetrieve) tool=web__search backend=edge:weather-gov:detail success=true sources=1 docs=0",
+        "timestamp": 1776218485824
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=service_executor_dispatch satisfied=true evidence_commit_hash=sha256:4552b8b7cf77dc24086bf3d15d67fa33d5aa082e8b1d30f12db6cb6ce6702a24",
+        "timestamp": 1776218485895
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=service_finalize_executor_result satisfied=true evidence_commit_hash=sha256:0be4e89544add3a9ba3276c778c825bf985249b912fed76bb0b11a4faf669ba9",
+        "timestamp": 1776218485948
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=service_action_complete satisfied=true evidence_commit_hash=sha256:9b1199174df706702346e34e6e728db2a662d0d18bae8b3e10a2ac5bcd857664",
+        "timestamp": 1776218486004
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=execution satisfied=true evidence_commit_hash=sha256:014a3adfc7526067e316d7f2d280587fb021a95ca8ecaa0924e454937a48fb5f",
+        "timestamp": 1776218486076
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=verification key=verification satisfied=true evidence_commit_hash=sha256:fc407febacc8a00b29d9c7c7892a66752b1bac2a02e34a48495f6455b6fa3f2d",
+        "timestamp": 1776218486129
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=query_contract satisfied=true evidence_commit_hash=sha256:3634b0dc3a08ca8bc23b11cb3e0b4625720322e098835cbdbe186b710bf04bb4",
+        "timestamp": 1776218486183
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=query_value satisfied=true evidence_commit_hash=sha256:e96d0f5234dcfbc378c8b9fac9dfcbf9776823add30d3e6098e4ee69adc17566",
+        "timestamp": 1776218486238
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=runtime_locality_required satisfied=true evidence_commit_hash=sha256:ed824ed97c2c6eb5dbc605917d9d1b94018977175d002f451f00463bc1f95c6a",
+        "timestamp": 1776218486294
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=retrieval_contract satisfied=true evidence_commit_hash=sha256:8f0e7acd71a46163c30ec9039499e8fe4e8203b5dc6552c6e33691cc16dac756",
+        "timestamp": 1776218486348
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=runtime_locality_scope satisfied=true evidence_commit_hash=sha256:640ddfeee9c9d519a71a8e1fdbcbb47c372655c43783b628f06bd80b3937b024",
+        "timestamp": 1776218486432
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=query_contract_locality_alignment satisfied=true evidence_commit_hash=sha256:23bb58cbf5ab0520538f5c1c5c7a23364f1a9c0a5d5b17a54eec998328a5e236",
+        "timestamp": 1776218486498
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=currentness_required satisfied=true evidence_commit_hash=sha256:755576355cfc01286de13f6090aac45c3fd8c5c56e9ebd5bd663b1b7dcd29dab",
+        "timestamp": 1776218486559
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=min_sources_required satisfied=true evidence_commit_hash=sha256:71293088f4a2c6281d1488f79dbdb3b54977694e07e664bffadb88ed4a498f92",
+        "timestamp": 1776218486618
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=provider_candidate satisfied=true evidence_commit_hash=sha256:046d2563e9370cbef1cdd7a0a4b6a49b6ed987fd7cba6fe8cbe47040c53968bd",
+        "timestamp": 1776218486694
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=provider_candidate satisfied=true evidence_commit_hash=sha256:9c35e972582e97c579a80c4fc3a70b148218866c7b3b8a6e197a7b3577a875bc",
+        "timestamp": 1776218486765
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=provider_candidate satisfied=false evidence_commit_hash=sha256:aeed7ca6c4884321971c8d130f336623595f26d7f9e713528eb4ef16b7c546c7",
+        "timestamp": 1776218486860
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=provider_candidate satisfied=true evidence_commit_hash=sha256:a159c42d361ccbcf0f1563f58765a7d717863514fcf6d31ee5cfe693773173e1",
+        "timestamp": 1776218486926
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=provider_candidate satisfied=false evidence_commit_hash=sha256:1e0a52509c17cc41b016102b9dc4bc4e30d3eafcd7769fb107cf5b19e4c3f451",
+        "timestamp": 1776218486996
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=provider_candidate satisfied=true evidence_commit_hash=sha256:f1e1fe46cbcb3215c9032ef3c589d2c1200022da426523f89795b7fdc1fa32bc",
+        "timestamp": 1776218487068
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=provider_candidate satisfied=false evidence_commit_hash=sha256:778eb019ecef39ea0b96929bc9326a495fcdae48ed803794b3382f1b379f53d9",
+        "timestamp": 1776218487136
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=provider_selection key=provider_selected satisfied=true evidence_commit_hash=sha256:473f89b1a7209833c9ef318170fd6c34c238f22f5f971fc63a715f0c7f92f7fe",
+        "timestamp": 1776218487196
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=discovery key=semantic_subject_alignment_required satisfied=true evidence_commit_hash=sha256:ffb60d64058bb3909197347db9d667843662db96263b950fd2d0e591ce022c8d",
+        "timestamp": 1776218487257
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=rrsa_request_binding satisfied=true evidence_commit_hash=sha256:7172ab072fb2d8ddc7e0c8c22f04e7251e91cf35e156e10188c777421e9147d1",
+        "timestamp": 1776218497884
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=rrsa_firewall_decision satisfied=true evidence_commit_hash=sha256:ec215bec1609533d8f8ee94e74a44b3021aab3c45240dbeda5dcfde88ad9eb22",
+        "timestamp": 1776218497985
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=rrsa_domain satisfied=true evidence_commit_hash=sha256:b1eeaf4d95a19ccb032c544a9b091f2ca296556276658e722c6a23dcb76464a5",
+        "timestamp": 1776218498050
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=rrsa_domain_binding satisfied=true evidence_commit_hash=sha256:9074f6db246eb6c2156e81a1e8f42843c489669a6662529b754899240a690397",
+        "timestamp": 1776218498106
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=web.research stage=execution key=rrsa_output_commitment satisfied=true evidence_commit_hash=sha256:380d337666e3c29c3c8d90bd247f430337f6898b0c8fdd35f6dfca6e221f744e",
+        "timestamp": 1776218498163
+      },
+      {
+        "role": "system",
+        "text": "Task Failed: ERROR_CLASS=SynthesisFailed pre-read selection timed out after 4000ms; fallback failed: deterministic pre-read selection could not satisfy 1 typed source(s)",
+        "timestamp": 1776218498274
+      },
+      {
+        "role": "agent",
+        "text": "Task failed: ERROR_CLASS=SynthesisFailed pre-read selection timed out after 4000ms; fallback failed: deterministic pre-read selection could not satisfy 1 typed source(s)",
+        "timestamp": 1776218498274
+      }
+    ],
+    "events": [
+      {
+        "event_id": "4fafeb04-d8cb-4556-a14f-015a20df8a70",
+        "timestamp": "2026-04-15T02:00:11.221634079+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "What is the weather in Boston today?"
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "What is the weather in Boston today?"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "0f955d27-2b17-4ead-8c3a-2f9ae3e6379c",
+        "timestamp": "2026-04-15T02:00:11.295562072+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 1,
+        "event_type": "RECEIPT",
+        "title": "Studio route decision",
+        "digest": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:weather",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "weather_fetch"
+              ],
+              "projected_tools": [
+                "weather_fetch"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_weather",
+          "topology": "planner_specialist",
+          "verifier_outcome": null,
+          "verifier_state": "active"
+        },
+        "details": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:weather",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "weather_fetch"
+              ],
+              "projected_tools": [
+                "weather_fetch"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_weather",
+          "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "topology": "planner_specialist",
+          "verifier_outcome": null,
+          "verifier_state": "active"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "4fafeb04-d8cb-4556-a14f-015a20df8a70"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "c354c047-313f-4a53-b865-e4fd3d17d3bb",
+        "timestamp": "2026-04-15T02:01:08.959278253+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: IntentResolver",
+        "digest": {
+          "component": "IntentResolver",
+          "status": "intent_id=web.research band=Medium score=0.741 constrained=false hash=23e245af2c207a76abd6450f22e2b7b2f4ac27c24d9872d8cffb26c46e8ca574"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "ca62442c-ab7b-41ee-898c-42f4ab94ce12",
+        "timestamp": "2026-04-15T02:01:23.164465960+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=service_prepare_tool satisfied=true evidence_commit_hash=sha256:4986518ebd7da03b4569c7e2e0e6e92e50cc0036ebdd96d412beff10bed4f17b"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "c354c047-313f-4a53-b865-e4fd3d17d3bb"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "3a75d722-4776-403a-a9c6-1cdbfa59fae6",
+        "timestamp": "2026-04-15T02:01:23.240416374+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=service_determinism_context satisfied=true evidence_commit_hash=sha256:39e9cdfda13b2a51c686b356f32cde380f744298ac0220dde1e13dc17c4dbd7d"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "ca62442c-ab7b-41ee-898c-42f4ab94ce12"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "c9b76d54-8955-4efd-b79a-c776f3f088a0",
+        "timestamp": "2026-04-15T02:01:23.293640176+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=policy_hash_binding satisfied=true evidence_commit_hash=sha256:c53c5d88f5de6e2b077b7af8215cee68673a7e44ea6fe8319fa72201ba3815b9"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "3a75d722-4776-403a-a9c6-1cdbfa59fae6"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "01294e4a-b1ea-4178-88a8-8863fbd9ce37",
+        "timestamp": "2026-04-15T02:01:23.347048409+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=capability_lease satisfied=true evidence_commit_hash=sha256:865962936ad613667fd4b1853c2cda0416f41109fe79acf621f2fad44a0f0a8c"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "c9b76d54-8955-4efd-b79a-c776f3f088a0"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "bac002a7-b037-437f-a8b7-466f58d365df",
+        "timestamp": "2026-04-15T02:01:23.403107597+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=firewall_decision_receipt satisfied=true evidence_commit_hash=sha256:ae975114b7d5aa682e5b70a3baad5603e821c1e674cf5b76065f91f186c636a4"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "01294e4a-b1ea-4178-88a8-8863fbd9ce37"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "3a5f16ed-ee3e-4f71-9c1f-1aabe3fe2438",
+        "timestamp": "2026-04-15T02:01:23.456212315+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=determinism_commit satisfied=true evidence_commit_hash=sha256:09908bc8a4e7e84119dc2ef4fdfa77e2bcdb379376f0256f484cd1e94a576c7e"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "bac002a7-b037-437f-a8b7-466f58d365df"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "5332f400-bf24-4713-b205-661ada5c9aac",
+        "timestamp": "2026-04-15T02:01:23.508478273+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=service_policy_gate satisfied=true evidence_commit_hash=sha256:87392ec7a2218672d22958e10aecfa444e23b2da6f7b6c62df5fdcfb329f613d"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "3a5f16ed-ee3e-4f71-9c1f-1aabe3fe2438"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "44c896ec-55e8-43fa-aefc-859ec7ccfdc6",
+        "timestamp": "2026-04-15T02:01:25.864935481+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "RECEIPT",
+        "title": "Searching the web",
+        "digest": {
+          "backend": "edge:weather-gov:detail",
+          "documents_count": 0,
+          "error_class": null,
+          "kind": "web_retrieve",
+          "sources_count": 1,
+          "success": true,
+          "tool_name": "web__search"
+        },
+        "details": {
+          "payload": {
+            "limit": 10,
+            "max_chars": null,
+            "query": "weather in Boston today",
+            "url": null
+          },
+          "summary": "WorkloadReceipt(WebRetrieve) tool=web__search backend=edge:weather-gov:detail success=true sources=1 docs=0",
+          "timestamp_ms": 1776218485767,
+          "workload_id": "1038659a1c453a16ea50f44fed227ba0242464943e5b46e3bca456a3bbfb77da"
+        },
+        "artifact_refs": [],
+        "receipt_ref": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8:0:1038659a1c453a16ea50f44fed227ba0242464943e5b46e3bca456a3bbfb77da:web_retrieve",
+        "input_refs": [
+          "5332f400-bf24-4713-b205-661ada5c9aac"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "eb1e987b-456d-4d14-a206-e49376c25653",
+        "timestamp": "2026-04-15T02:01:25.917725664+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=service_executor_dispatch satisfied=true evidence_commit_hash=sha256:4552b8b7cf77dc24086bf3d15d67fa33d5aa082e8b1d30f12db6cb6ce6702a24"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "44c896ec-55e8-43fa-aefc-859ec7ccfdc6"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "f8494e59-722d-4a17-ba92-9b04b7094753",
+        "timestamp": "2026-04-15T02:01:25.970869726+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=service_finalize_executor_result satisfied=true evidence_commit_hash=sha256:0be4e89544add3a9ba3276c778c825bf985249b912fed76bb0b11a4faf669ba9"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "eb1e987b-456d-4d14-a206-e49376c25653"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "b628128f-23fd-431a-bf28-93eaab83ebdd",
+        "timestamp": "2026-04-15T02:01:26.039760430+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=service_action_complete satisfied=true evidence_commit_hash=sha256:9b1199174df706702346e34e6e728db2a662d0d18bae8b3e10a2ac5bcd857664"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "f8494e59-722d-4a17-ba92-9b04b7094753"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "8f04cd8c-32f8-446c-9c31-5578755e35ca",
+        "timestamp": "2026-04-15T02:01:26.098360750+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=execution satisfied=true evidence_commit_hash=sha256:014a3adfc7526067e316d7f2d280587fb021a95ca8ecaa0924e454937a48fb5f"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "b628128f-23fd-431a-bf28-93eaab83ebdd"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "6a08dd9e-679d-46e2-b0f0-fac0847d7a44",
+        "timestamp": "2026-04-15T02:01:26.151767857+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=verification key=verification satisfied=true evidence_commit_hash=sha256:fc407febacc8a00b29d9c7c7892a66752b1bac2a02e34a48495f6455b6fa3f2d"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "8f04cd8c-32f8-446c-9c31-5578755e35ca"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "1ccebcbe-a0ae-40d9-b918-ce243cfc93c1",
+        "timestamp": "2026-04-15T02:01:26.205495142+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=query_contract satisfied=true evidence_commit_hash=sha256:3634b0dc3a08ca8bc23b11cb3e0b4625720322e098835cbdbe186b710bf04bb4"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "6a08dd9e-679d-46e2-b0f0-fac0847d7a44"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "9a6df34e-81d9-4593-be61-872c59981cd7",
+        "timestamp": "2026-04-15T02:01:26.263303814+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=query_value satisfied=true evidence_commit_hash=sha256:e96d0f5234dcfbc378c8b9fac9dfcbf9776823add30d3e6098e4ee69adc17566"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "1ccebcbe-a0ae-40d9-b918-ce243cfc93c1"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "97989679-2f9d-49a9-a24f-ed0cf87c7f49",
+        "timestamp": "2026-04-15T02:01:26.317194922+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=runtime_locality_required satisfied=true evidence_commit_hash=sha256:ed824ed97c2c6eb5dbc605917d9d1b94018977175d002f451f00463bc1f95c6a"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "9a6df34e-81d9-4593-be61-872c59981cd7"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "eca3781b-54f6-451b-8bd7-e071b3111aaf",
+        "timestamp": "2026-04-15T02:01:26.392360338+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=retrieval_contract satisfied=true evidence_commit_hash=sha256:8f0e7acd71a46163c30ec9039499e8fe4e8203b5dc6552c6e33691cc16dac756"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "97989679-2f9d-49a9-a24f-ed0cf87c7f49"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "5691787c-b548-400e-b59a-486148d24508",
+        "timestamp": "2026-04-15T02:01:26.461115220+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=runtime_locality_scope satisfied=true evidence_commit_hash=sha256:640ddfeee9c9d519a71a8e1fdbcbb47c372655c43783b628f06bd80b3937b024"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "eca3781b-54f6-451b-8bd7-e071b3111aaf"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "59c593bc-6689-496c-834e-e48b22edc815",
+        "timestamp": "2026-04-15T02:01:26.525647302+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=query_contract_locality_alignment satisfied=true evidence_commit_hash=sha256:23bb58cbf5ab0520538f5c1c5c7a23364f1a9c0a5d5b17a54eec998328a5e236"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "5691787c-b548-400e-b59a-486148d24508"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "891aa31c-88d1-4f99-b2e5-590aa4f46b55",
+        "timestamp": "2026-04-15T02:01:26.582980934+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=currentness_required satisfied=true evidence_commit_hash=sha256:755576355cfc01286de13f6090aac45c3fd8c5c56e9ebd5bd663b1b7dcd29dab"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "59c593bc-6689-496c-834e-e48b22edc815"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "c974f728-7de2-41a3-ae48-772187ac2546",
+        "timestamp": "2026-04-15T02:01:26.645136248+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=min_sources_required satisfied=true evidence_commit_hash=sha256:71293088f4a2c6281d1488f79dbdb3b54977694e07e664bffadb88ed4a498f92"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "891aa31c-88d1-4f99-b2e5-590aa4f46b55"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "cd11bc67-608e-4b44-82a1-9f89c69a992d",
+        "timestamp": "2026-04-15T02:01:26.726952036+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=provider_candidate satisfied=true evidence_commit_hash=sha256:046d2563e9370cbef1cdd7a0a4b6a49b6ed987fd7cba6fe8cbe47040c53968bd"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "c974f728-7de2-41a3-ae48-772187ac2546"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "a0cd3a13-f978-428b-8e04-c16aac46326b",
+        "timestamp": "2026-04-15T02:01:26.802920241+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=provider_candidate satisfied=true evidence_commit_hash=sha256:9c35e972582e97c579a80c4fc3a70b148218866c7b3b8a6e197a7b3577a875bc"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "cd11bc67-608e-4b44-82a1-9f89c69a992d"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "d392cf72-7691-4f88-9cc9-4f777f3d5abc",
+        "timestamp": "2026-04-15T02:01:26.890628927+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=provider_candidate satisfied=false evidence_commit_hash=sha256:aeed7ca6c4884321971c8d130f336623595f26d7f9e713528eb4ef16b7c546c7"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "a0cd3a13-f978-428b-8e04-c16aac46326b"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "d3fc060f-16f0-4ca3-8d2e-b6cdcabe8c11",
+        "timestamp": "2026-04-15T02:01:26.957237071+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=provider_candidate satisfied=true evidence_commit_hash=sha256:a159c42d361ccbcf0f1563f58765a7d717863514fcf6d31ee5cfe693773173e1"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "d392cf72-7691-4f88-9cc9-4f777f3d5abc"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "5fa10c07-c98d-4194-8dc7-a05be5c08833",
+        "timestamp": "2026-04-15T02:01:27.027263350+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=provider_candidate satisfied=false evidence_commit_hash=sha256:1e0a52509c17cc41b016102b9dc4bc4e30d3eafcd7769fb107cf5b19e4c3f451"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "d3fc060f-16f0-4ca3-8d2e-b6cdcabe8c11"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "6b63779a-b6eb-4848-adac-4415e1d36463",
+        "timestamp": "2026-04-15T02:01:27.101956718+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=provider_candidate satisfied=true evidence_commit_hash=sha256:f1e1fe46cbcb3215c9032ef3c589d2c1200022da426523f89795b7fdc1fa32bc"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "5fa10c07-c98d-4194-8dc7-a05be5c08833"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "5609a26b-8cbd-4804-87b4-88c7c7e117af",
+        "timestamp": "2026-04-15T02:01:27.161646173+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=provider_candidate satisfied=false evidence_commit_hash=sha256:778eb019ecef39ea0b96929bc9326a495fcdae48ed803794b3382f1b379f53d9"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "6b63779a-b6eb-4848-adac-4415e1d36463"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "ee5498b3-1548-4e70-8e17-5d6554df43fa",
+        "timestamp": "2026-04-15T02:01:27.221284133+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=provider_selection key=provider_selected satisfied=true evidence_commit_hash=sha256:473f89b1a7209833c9ef318170fd6c34c238f22f5f971fc63a715f0c7f92f7fe"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "5609a26b-8cbd-4804-87b4-88c7c7e117af"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "d955be8f-e95b-4000-b9b7-8e377ddbc4b8",
+        "timestamp": "2026-04-15T02:01:27.283346189+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=discovery key=semantic_subject_alignment_required satisfied=true evidence_commit_hash=sha256:ffb60d64058bb3909197347db9d667843662db96263b950fd2d0e591ce022c8d"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "ee5498b3-1548-4e70-8e17-5d6554df43fa"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "d3f2bb7b-0508-410a-8941-1cb313c4fbec",
+        "timestamp": "2026-04-15T02:01:37.939355454+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=rrsa_request_binding satisfied=true evidence_commit_hash=sha256:7172ab072fb2d8ddc7e0c8c22f04e7251e91cf35e156e10188c777421e9147d1"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "d955be8f-e95b-4000-b9b7-8e377ddbc4b8"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "6d0a9af3-15d0-43ac-94b1-3b01dd1b7b07",
+        "timestamp": "2026-04-15T02:01:38.017319541+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=rrsa_firewall_decision satisfied=true evidence_commit_hash=sha256:ec215bec1609533d8f8ee94e74a44b3021aab3c45240dbeda5dcfde88ad9eb22"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "d3f2bb7b-0508-410a-8941-1cb313c4fbec"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "723c6fd8-e371-4b24-bb2b-bfe31de6b7dc",
+        "timestamp": "2026-04-15T02:01:38.074112677+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=rrsa_domain satisfied=true evidence_commit_hash=sha256:b1eeaf4d95a19ccb032c544a9b091f2ca296556276658e722c6a23dcb76464a5"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "6d0a9af3-15d0-43ac-94b1-3b01dd1b7b07"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "95ab5333-d2b2-4fa7-b162-a52eac7c3765",
+        "timestamp": "2026-04-15T02:01:38.130736947+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=rrsa_domain_binding satisfied=true evidence_commit_hash=sha256:9074f6db246eb6c2156e81a1e8f42843c489669a6662529b754899240a690397"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "723c6fd8-e371-4b24-bb2b-bfe31de6b7dc"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "74451ce8-687e-4450-b7ba-f956e5c3790f",
+        "timestamp": "2026-04-15T02:01:38.187798729+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=web.research stage=execution key=rrsa_output_commitment satisfied=true evidence_commit_hash=sha256:380d337666e3c29c3c8d90bd247f430337f6898b0c8fdd35f6dfca6e221f744e"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "95ab5333-d2b2-4fa7-b162-a52eac7c3765"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "372659b0-41ae-4397-9699-36689d6b2b80",
+        "timestamp": "2026-04-15T02:01:38.243087226+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "Captured reasoning step",
+        "digest": {
+          "session_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+          "token_count": 70,
+          "visual_hash": null
+        },
+        "details": {
+          "content": "{\"arguments\":{\"query\":\"weather in Boston today\"},\"name\":\"web__search\"}"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "74451ce8-687e-4450-b7ba-f956e5c3790f"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "26dec865-2a41-413a-9d6e-0380c2375f7c",
+        "timestamp": "2026-04-15T02:01:38.299128286+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "step_index": 0,
+        "event_type": "CODE_SEARCH",
+        "title": "Searched code with web__search",
+        "digest": {
+          "query": "web__search",
+          "result_lines": 1,
+          "snippet": "ERROR_CLASS=SynthesisFailed pre-read selection timed out after 4000ms; fallback failed: deterministic pre-read selection could not satisfy 1 typed source(s)"
+        },
+        "details": {
+          "results": "ERROR_CLASS=SynthesisFailed pre-read selection timed out after 4000ms; fallback failed: deterministic pre-read selection could not satisfy 1 typed source(s)"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "372659b0-41ae-4397-9699-36689d6b2b80"
+        ],
+        "status": "FAILURE",
+        "duration_ms": null
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "4aa81bf2-63e5-406f-9632-26228c47c445",
+        "created_at": "2026-04-15T02:00:11.221701753+00:00",
+        "thread_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/4aa81bf2-63e5-406f-9632-26228c47c445",
+        "metadata": {
+          "refs": [],
+          "run_id": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      }
+    ],
+    "studio_session": {
+      "sessionId": "37b27bb9-cef3-45a1-b057-bd638cd37a1a",
+      "threadId": "e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+      "artifactId": "8fced46f-0f39-4adf-b0e0-9560674495ce",
+      "title": "Tool widget route \u00b7 What is the weather in Boston today?",
+      "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+      "currentLens": "source",
+      "navigatorBackingMode": "logical",
+      "navigatorNodes": [
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "attachedArtifactIds": [],
+      "availableLenses": [
+        "source",
+        "evidence"
+      ],
+      "materialization": {
+        "version": 7,
+        "requestKind": "tool_widget",
+        "normalizedIntent": "What is the weather in Boston today?",
+        "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+        "artifactBrief": null,
+        "preparationNeeds": null,
+        "preparedContextResolution": null,
+        "skillDiscoveryResolution": null,
+        "blueprint": null,
+        "artifactIr": null,
+        "selectedSkills": [],
+        "retrievedExemplars": [],
+        "editIntent": null,
+        "candidateSummaries": [],
+        "winningCandidateId": null,
+        "winningCandidateRationale": null,
+        "executionEnvelope": {
+          "version": 1,
+          "strategy": "plan_execute",
+          "modeDecision": {
+            "requestedStrategy": "plan_execute",
+            "resolvedStrategy": "plan_execute",
+            "modeConfidence": 0.98050004,
+            "oneShotSufficiency": 0.86249995,
+            "ambiguity": 0.029999971,
+            "workGraphSizeEstimate": 1,
+            "hiddenDependencyLikelihood": 0.25,
+            "verificationPressure": 0.2,
+            "revisionCost": 0.2,
+            "evidenceBreadth": 0.15,
+            "mergeBurden": 0.15,
+            "decompositionPayoff": 0.13250001,
+            "workGraphRequired": false,
+            "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            }
+          },
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          },
+          "executionDomain": "studio_tool_widget",
+          "domainKind": "tool_widget",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "satisfiedVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": false
+          },
+          "plan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "executionSummary": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "workerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-15T02:00:11.295271363+00:00",
+              "finishedAt": "2026-04-15T02:00:11.295271363+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-15T02:00:11.295271363+00:00",
+              "finishedAt": "2026-04-15T02:00:11.295271363+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:weather \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "changeReceipts": [],
+          "mergeReceipts": [],
+          "verificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "graphMutationReceipts": [],
+          "dispatchBatches": [],
+          "repairReceipts": [],
+          "replanReceipts": [],
+          "budgetSummary": {
+            "plannedWorkerCount": 2,
+            "dispatchedWorkerCount": 2,
+            "tokenBudget": null,
+            "tokenUsage": null,
+            "wallClockMs": null,
+            "coordinationOverheadMs": null,
+            "status": "completed"
+          },
+          "livePreviews": []
+        },
+        "swarmPlan": {
+          "version": 1,
+          "strategy": "plan_execute",
+          "executionDomain": "studio_tool_widget",
+          "adapterLabel": "tool_widget_plan_execute_v1",
+          "parallelismMode": "sequential_by_default",
+          "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+          "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+          "decompositionType": "small_graph_functional_decomposition",
+          "firstFrontierIds": [
+            "handoff"
+          ],
+          "spawnConditions": [
+            "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+          ],
+          "pruneConditions": [
+            "Prune clarification work once the reply handoff is already unblocked."
+          ],
+          "mergeStrategy": "deterministic_reply_surface_projection",
+          "verificationStrategy": "route_truth_before_reply",
+          "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_truth"
+            ],
+            "satisfiedVerificationIds": [
+              "route_truth"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": true
+          },
+          "workItems": [
+            {
+              "id": "planner",
+              "title": "Outcome planner",
+              "role": "planner",
+              "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Outcome route is explicit.",
+                "Execution strategy is explicit."
+              ],
+              "dependencyIds": [],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            },
+            {
+              "id": "handoff",
+              "title": "Tool-widget handoff",
+              "role": "responder",
+              "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Studio reply remains truthful about the chosen surface.",
+                "No artifact renderer is implied when none was invoked."
+              ],
+              "dependencyIds": [
+                "planner"
+              ],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            }
+          ]
+        },
+        "swarmExecution": {
+          "enabled": true,
+          "currentStage": "reply",
+          "executionStage": "finalize",
+          "activeWorkerRole": null,
+          "totalWorkItems": 2,
+          "completedWorkItems": 2,
+          "failedWorkItems": 0,
+          "verificationStatus": "ready",
+          "strategy": "plan_execute",
+          "executionDomain": "studio_tool_widget",
+          "adapterLabel": "tool_widget_plan_execute_v1",
+          "parallelismMode": "sequential_by_default"
+        },
+        "swarmWorkerReceipts": [
+          {
+            "workItemId": "planner",
+            "role": "planner",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Selected the tool_widget route with the plan_execute strategy.",
+            "startedAt": "2026-04-15T02:00:11.295271363+00:00",
+            "finishedAt": "2026-04-15T02:00:11.295271363+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "route_context"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "No artifact files were requested on this route.",
+              "tool_widget:weather",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "failure": null
+          },
+          {
+            "workItemId": "handoff",
+            "role": "responder",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+            "startedAt": "2026-04-15T02:00:11.295271363+00:00",
+            "finishedAt": "2026-04-15T02:00:11.295271363+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "execution_plan"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+              "tool_widget:weather \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+            ],
+            "failure": null
+          }
+        ],
+        "swarmChangeReceipts": [],
+        "swarmMergeReceipts": [],
+        "swarmVerificationReceipts": [
+          {
+            "id": "route_verification",
+            "kind": "route_verification",
+            "status": "ready",
+            "summary": "Studio verified that this request belongs on the tool-widget surface.",
+            "details": [
+              "tool_widget:weather",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ]
+          },
+          {
+            "id": "reply_surface",
+            "kind": "reply_surface",
+            "status": "ready",
+            "summary": "The shared reply lane remains available and no artifact renderer is required.",
+            "details": [
+              "strategy:plan_execute",
+              "tool_widget:weather",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ]
+          }
+        ],
+        "renderEvaluation": null,
+        "judge": null,
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "fallbackUsed": false,
+        "uxLifecycle": "judged",
+        "failure": null,
+        "navigatorNodes": [
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "description": "Inspect the source form of the artifact.",
+            "badge": null,
+            "status": null,
+            "lens": "source",
+            "path": null,
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "fileWrites": [],
+        "commandIntents": [],
+        "previewIntent": null,
+        "verificationSteps": [
+          {
+            "id": "route",
+            "label": "Verify route",
+            "kind": "route",
+            "status": "success"
+          },
+          {
+            "id": "reply_surface",
+            "label": "Verify reply surface",
+            "kind": "reply_surface",
+            "status": "success"
+          }
+        ],
+        "pipelineSteps": [
+          {
+            "id": "intake",
+            "stage": "plan",
+            "label": "Intake",
+            "status": "complete",
+            "summary": "Studio captured the request and preserved it as a typed outcome turn.",
+            "outputs": [
+              "What is the weather in Boston today?"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "routing",
+            "stage": "dispatch",
+            "label": "Outcome routing",
+            "status": "complete",
+            "summary": "The typed router intentionally kept this request on the tool widget surface.",
+            "outputs": [
+              "tool_widget",
+              "tool_widget",
+              "strategy:plan_execute",
+              "tool_widget:weather",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "planner",
+            "stage": "plan",
+            "label": "Planner",
+            "status": "complete",
+            "summary": "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+            "outputs": [
+              "plan_execute",
+              "work_items:2",
+              "sequential_by_default"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "swarm_execution",
+            "stage": "work",
+            "label": "Shared execution",
+            "status": "complete",
+            "summary": "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+            "outputs": [
+              "worker_receipts:2",
+              "progress:2/2",
+              "adapter:tool_widget_plan_execute_v1"
+            ],
+            "verificationGate": "Shared execution receipts must remain truthful about the active outcome surface."
+          },
+          {
+            "id": "verification",
+            "stage": "verify",
+            "label": "Verification",
+            "status": "complete",
+            "summary": "Studio verified the selected non-artifact route before composing the reply state.",
+            "outputs": [
+              "route_verification (ready)",
+              "reply_surface (ready)"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          },
+          {
+            "id": "reply",
+            "stage": "finalize",
+            "label": "Reply",
+            "status": "complete",
+            "summary": "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+            "outputs": [
+              "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "tool_widget:weather",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          }
+        ],
+        "runtimeNarrationEvents": [],
+        "notes": [
+          "Studio intentionally kept this request off the artifact materialization path.",
+          "The shared execution envelope still records plan, worker, and verification state.",
+          "No renderer-specific fallback artifact was injected for this route.",
+          "routing_hints:tool_widget:weather | narrow_surface_preferred | no_persistent_artifact_requested",
+          "Route family: research",
+          "Output intent: tool_execution",
+          "Projected surface: weather_fetch"
+        ]
+      },
+      "outcomeRequest": {
+        "requestId": "ac2d4b4a-f11e-4e5f-9464-28a4a81b793c",
+        "rawPrompt": "What is the weather in Boston today?",
+        "activeArtifactId": null,
+        "outcomeKind": "tool_widget",
+        "executionStrategy": "plan_execute",
+        "executionModeDecision": {
+          "requestedStrategy": "plan_execute",
+          "resolvedStrategy": "plan_execute",
+          "modeConfidence": 0.98050004,
+          "oneShotSufficiency": 0.86249995,
+          "ambiguity": 0.029999971,
+          "workGraphSizeEstimate": 1,
+          "hiddenDependencyLikelihood": 0.25,
+          "verificationPressure": 0.2,
+          "revisionCost": 0.2,
+          "evidenceBreadth": 0.15,
+          "mergeBurden": 0.15,
+          "decompositionPayoff": 0.13250001,
+          "workGraphRequired": false,
+          "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          }
+        },
+        "confidence": 0.97,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": [
+          "tool_widget:weather",
+          "narrow_surface_preferred",
+          "no_persistent_artifact_requested"
+        ],
+        "artifact": null
+      },
+      "artifactManifest": {
+        "artifactId": "8fced46f-0f39-4adf-b0e0-9560674495ce",
+        "title": "Tool widget route \u00b7 What is the weather in Boston today?",
+        "artifactClass": "report_bundle",
+        "renderer": "bundle_manifest",
+        "primaryTab": "source",
+        "tabs": [
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "renderer": null,
+            "filePath": null,
+            "lens": "source"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null
+        },
+        "storage": null
+      },
+      "verifiedReply": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "title": "Tool widget route \u00b7 What is the weather in Boston today?",
+        "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+        "evidence": [
+          "outcome:tool_widget",
+          "strategy:plan_execute",
+          "provenance:openai-compatible",
+          "route_hint:tool_widget:weather",
+          "route_hint:narrow_surface_preferred",
+          "route_hint:no_persistent_artifact_requested"
+        ],
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "failure": null,
+        "updatedAt": "2026-04-15T02:00:11.295415695+00:00"
+      },
+      "lifecycleState": "ready",
+      "status": "ready",
+      "activeRevisionId": "0379f5bb-2485-4f89-ba11-207fbe21ea9e",
+      "revisions": [
+        {
+          "revisionId": "0379f5bb-2485-4f89-ba11-207fbe21ea9e",
+          "parentRevisionId": null,
+          "branchId": "main",
+          "branchLabel": "Main",
+          "prompt": "What is the weather in Boston today?",
+          "createdAt": "2026-04-15T02:00:11.295456491+00:00",
+          "uxLifecycle": "judged",
+          "artifactManifest": {
+            "artifactId": "8fced46f-0f39-4adf-b0e0-9560674495ce",
+            "title": "Tool widget route \u00b7 What is the weather in Boston today?",
+            "artifactClass": "report_bundle",
+            "renderer": "bundle_manifest",
+            "primaryTab": "source",
+            "tabs": [
+              {
+                "id": "source",
+                "label": "Source",
+                "kind": "source",
+                "renderer": null,
+                "filePath": null,
+                "lens": "source"
+              },
+              {
+                "id": "evidence",
+                "label": "Evidence",
+                "kind": "evidence",
+                "renderer": null,
+                "filePath": null,
+                "lens": "evidence"
+              }
+            ],
+            "files": [],
+            "verification": {
+              "status": "ready",
+              "lifecycleState": "ready",
+              "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "productionProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "acceptanceProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "failure": null
+            },
+            "storage": null
+          },
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "modeDecision": {
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "plan_execute",
+              "modeConfidence": 0.98050004,
+              "oneShotSufficiency": 0.86249995,
+              "ambiguity": 0.029999971,
+              "workGraphSizeEstimate": 1,
+              "hiddenDependencyLikelihood": 0.25,
+              "verificationPressure": 0.2,
+              "revisionCost": 0.2,
+              "evidenceBreadth": 0.15,
+              "mergeBurden": 0.15,
+              "decompositionPayoff": 0.13250001,
+              "workGraphRequired": false,
+              "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 180000,
+                "maxTokens": 8192,
+                "maxToolCalls": 4,
+                "maxRepairs": 1,
+                "expansionPolicy": "fixed"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            },
+            "executionDomain": "studio_tool_widget",
+            "domainKind": "tool_widget",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "satisfiedVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": false
+            },
+            "plan": {
+              "version": 1,
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Tool-widget handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "executionSummary": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "workerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the tool_widget route with the plan_execute strategy.",
+                "startedAt": "2026-04-15T02:00:11.295271363+00:00",
+                "finishedAt": "2026-04-15T02:00:11.295271363+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "tool_widget:weather",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-15T02:00:11.295271363+00:00",
+                "finishedAt": "2026-04-15T02:00:11.295271363+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "tool_widget:weather \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+                ],
+                "failure": null
+              }
+            ],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the tool-widget surface.",
+                "details": [
+                  "tool_widget:weather",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:plan_execute",
+                  "tool_widget:weather",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              }
+            ],
+            "graphMutationReceipts": [],
+            "dispatchBatches": [],
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "budgetSummary": {
+              "plannedWorkerCount": 2,
+              "dispatchedWorkerCount": 2,
+              "tokenBudget": null,
+              "tokenUsage": null,
+              "wallClockMs": null,
+              "coordinationOverheadMs": null,
+              "status": "completed"
+            },
+            "livePreviews": []
+          },
+          "swarmPlan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "swarmExecution": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "swarmWorkerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-15T02:00:11.295271363+00:00",
+              "finishedAt": "2026-04-15T02:00:11.295271363+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-15T02:00:11.295271363+00:00",
+              "finishedAt": "2026-04-15T02:00:11.295271363+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:weather \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null,
+          "fileWrites": [],
+          "tasteMemory": null,
+          "selectedTargets": []
+        }
+      ],
+      "tasteMemory": null,
+      "retrievedExemplars": [],
+      "selectedTargets": [],
+      "uxLifecycle": "judged",
+      "createdAt": "2026-04-15T02:00:11.295404161+00:00",
+      "updatedAt": "2026-04-15T02:00:11.295404161+00:00",
+      "buildSessionId": null,
+      "workspaceRoot": null,
+      "rendererSessionId": null
+    },
+    "studio_outcome": {
+      "requestId": "ac2d4b4a-f11e-4e5f-9464-28a4a81b793c",
+      "rawPrompt": "What is the weather in Boston today?",
+      "activeArtifactId": null,
+      "outcomeKind": "tool_widget",
+      "executionStrategy": "plan_execute",
+      "executionModeDecision": {
+        "requestedStrategy": "plan_execute",
+        "resolvedStrategy": "plan_execute",
+        "modeConfidence": 0.98050004,
+        "oneShotSufficiency": 0.86249995,
+        "ambiguity": 0.029999971,
+        "workGraphSizeEstimate": 1,
+        "hiddenDependencyLikelihood": 0.25,
+        "verificationPressure": 0.2,
+        "revisionCost": 0.2,
+        "evidenceBreadth": 0.15,
+        "mergeBurden": 0.15,
+        "decompositionPayoff": 0.13250001,
+        "workGraphRequired": false,
+        "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+        "budgetEnvelope": {
+          "maxWorkers": 1,
+          "maxParallelDepth": 1,
+          "maxReplans": 0,
+          "maxWallClockMs": 180000,
+          "maxTokens": 8192,
+          "maxToolCalls": 4,
+          "maxRepairs": 1,
+          "expansionPolicy": "fixed"
+        }
+      },
+      "confidence": 0.97,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "routingHints": [
+        "tool_widget:weather",
+        "narrow_surface_preferred",
+        "no_persistent_artifact_requested"
+      ],
+      "artifact": null
+    },
+    "renderer_session": null,
+    "build_session": null,
+    "run_bundle_id": "4aa81bf2-63e5-406f-9632-26228c47c445",
+    "swarm_tree": [],
+    "generation": 0,
+    "lineage_id": "genesis",
+    "fitness_score": 0.0
+  },
+  "latest_agent_message": "Task failed: ERROR_CLASS=SynthesisFailed pre-read selection timed out after 4000ms; fallback failed: deterministic pre-read selection could not satisfy 1 typed source(s)",
+  "log_tail": [
+    "    \u001b[1m\u001b[94m|\u001b[0m                   \u001b[1m\u001b[33m^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m: `autopilot` (lib) generated 17 warnings",
+    "\u001b[1m\u001b[92m    Finished\u001b[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.50s",
+    "\u001b[1m\u001b[33mwarning\u001b[0m: the following packages contain code that will be rejected by a future version of Rust: imap-proto v0.10.2, xcap v0.0.14",
+    "\u001b[1m\u001b[92mnote\u001b[0m: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`",
+    "\u001b[1m\u001b[92m     Running\u001b[0m `/home/heathledger/Documents/ioi/repos/ioi/target/debug/autopilot`",
+    "[Autopilot] X11 threading initialized",
+    "[Autopilot] Display env: XDG_SESSION_TYPE='x11' WAYLAND_DISPLAY='' GDK_BACKEND='x11' WINIT_UNIX_BACKEND='x11'",
+    "[Autopilot] Initializing...",
+    "[Studio] Using Autopilot data profile 'desktop-localgpu' at /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu",
+    "--- Encrypting New Secure Key ---",
+    "[Studio] Initialized memory runtime.",
+    "[Studio] Skipping wallet-backed connector bootstrap for this local dev profile.",
+    "[Studio] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety.",
+    "[Studio] Set IOI_STUDIO_MCP_PROFILE=dev_filesystem to opt in.",
+    "[Autopilot] Setup complete.",
+    "[Autopilot] Connected to Kernel Event Stream at http://127.0.0.1:9000",
+    "[Autopilot] Event Stream Active \u2705",
+    "[Autopilot] Block #52 committed (Tx: 0)",
+    "[Autopilot] Block #53 committed (Tx: 0)",
+    "[Autopilot] Block #54 committed (Tx: 0)",
+    "[Autopilot] Block #55 committed (Tx: 0)",
+    "[Autopilot] Block #56 committed (Tx: 0)",
+    "[Autopilot] Block #57 committed (Tx: 0)",
+    "[Autopilot] Block #58 committed (Tx: 0)",
+    "[Autopilot] Block #59 committed (Tx: 0)",
+    "[Autopilot] Block #60 committed (Tx: 0)",
+    "[Autopilot] Block #61 committed (Tx: 0)",
+    "[Autopilot] Block #62 committed (Tx: 0)",
+    "[Autopilot] Block #63 committed (Tx: 0)",
+    "[Autopilot] Block #64 committed (Tx: 0)",
+    "[Autopilot] Block #65 committed (Tx: 0)",
+    "[Autopilot] Block #66 committed (Tx: 0)",
+    "[Autopilot] Block #67 committed (Tx: 0)",
+    "[Autopilot] Block #68 committed (Tx: 0)",
+    "[Autopilot] Block #69 committed (Tx: 0)",
+    "[Autopilot] Block #70 committed (Tx: 0)",
+    "[Autopilot] Block #71 committed (Tx: 0)",
+    "[Autopilot] Block #72 committed (Tx: 0)",
+    "[Autopilot] Block #73 committed (Tx: 0)",
+    "[Autopilot] Block #74 committed (Tx: 0)",
+    "[Autopilot] Block #75 committed (Tx: 0)",
+    "[Autopilot] Block #76 committed (Tx: 0)",
+    "[Autopilot] Block #77 committed (Tx: 0)",
+    "[Autopilot] Block #78 committed (Tx: 0)",
+    "[Autopilot] Block #79 committed (Tx: 0)",
+    "[Autopilot] Block #80 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+    "[Autopilot][StudioLaunch] stage=queued detail={\"launch\":{\"launchId\":\"1ef561aa-0b19-4ce5-a316-ce4706002508\",\"request\":{\"intent\":\"What is the weather in Boston today?\",\"kind\":\"autopilot-intent\"}}}",
+    "[Autopilot][StudioLaunch] stage=show_target_requested detail={\"launch\":{\"launchId\":\"1ef561aa-0b19-4ce5-a316-ce4706002508\",\"request\":{\"intent\":\"What is the weather in Boston today?\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=show_requested detail={\"maximizedBefore\":false,\"minimizedBefore\":false,\"visibleBefore\":false,\"windowExistedBefore\":true,\"windowLabel\":\"studio\"}",
+    "[Autopilot] Block #81 committed (Tx: 0)",
+    "[Autopilot] Surfacing 'studio' (task_switcher=true, visible=Ok(true), minimized=Ok(false))",
+    "[Autopilot][StudioLaunch] stage=show_surfaced detail={\"maximizedAfter\":false,\"minimizedAfter\":false,\"recreatedWindow\":false,\"visibleAfter\":true,\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=show_target_emitted detail={\"launch\":{\"launchId\":\"1ef561aa-0b19-4ce5-a316-ce4706002508\",\"request\":{\"intent\":\"What is the weather in Boston today?\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=studio_launch_event_received detail={\"kind\":\"autopilot-intent\",\"launchId\":\"1ef561aa-0b19-4ce5-a316-ce4706002508\",\"request\":{\"intent\":\"What is the weather in Boston today?\",\"kind\":\"autopilot-intent\"}}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_applying detail={\"kind\":\"autopilot-intent\",\"launchId\":\"1ef561aa-0b19-4ce5-a316-ce4706002508\",\"request\":{\"intent\":\"What is the weather in Boston today?\",\"kind\":\"autopilot-intent\"},\"source\":\"event\"}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_applied detail={\"intent\":\"What is the weather in Boston today?\",\"kind\":\"autopilot-intent\",\"launchId\":\"1ef561aa-0b19-4ce5-a316-ce4706002508\",\"source\":\"event\"}",
+    "[Autopilot][StudioLaunch] stage=acked detail={\"hadPendingRequest\":true,\"launch\":{\"launchId\":\"1ef561aa-0b19-4ce5-a316-ce4706002508\",\"request\":{\"intent\":\"What is the weather in Boston today?\",\"kind\":\"autopilot-intent\"}},\"launchId\":\"1ef561aa-0b19-4ce5-a316-ce4706002508\"}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_requested detail={\"intentLength\":36}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_dispatching detail={\"intentLength\":36}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_called detail={\"intentLength\":36}",
+    "[Autopilot] Block #82 committed (Tx: 0)",
+    "[Autopilot] Block #83 committed (Tx: 0)",
+    "[Autopilot] Block #84 committed (Tx: 0)",
+    "[Autopilot] start_task invoked origin_surface=studio intent_len=36",
+    "[Autopilot] start_task workflow expansion ready for e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8",
+    "[Autopilot] start_task knowledge injection ready for e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8 attached=false",
+    "[Autopilot] Block #85 committed (Tx: 0)",
+    "[Autopilot] start_task initial task saved e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8 phase=Running",
+    "[Autopilot] Block #86 committed (Tx: 0)",
+    "[Autopilot] Block #87 committed (Tx: 0)",
+    "[Autopilot] Block #88 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_resolved detail={\"intentLength\":36}",
+    "[Kernel] Session projection refreshed via block#86 (1 sessions)",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+    "[Autopilot] Block #89 committed (Tx: 0)",
+    "[Autopilot] Block #90 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#89 (1 sessions)",
+    "[Autopilot] Block #91 committed (Tx: 0)",
+    "[Autopilot] Block #92 committed (Tx: 0)",
+    "[Autopilot] Block #93 committed (Tx: 0)",
+    "[Autopilot] Block #94 committed (Tx: 0)",
+    "[Autopilot] Block #95 committed (Tx: 0)",
+    "[Autopilot] Block #96 committed (Tx: 0)",
+    "[Autopilot] Block #97 committed (Tx: 0)",
+    "[Autopilot] Block #98 committed (Tx: 0)",
+    "[Autopilot] Block #99 committed (Tx: 0)",
+    "[Autopilot] Block #100 committed (Tx: 0)",
+    "[Autopilot] Block #101 committed (Tx: 0)",
+    "[Autopilot] Block #102 committed (Tx: 0)",
+    "[Autopilot] Block #103 committed (Tx: 0)",
+    "[Autopilot] Block #104 committed (Tx: 0)",
+    "[Autopilot] Block #105 committed (Tx: 0)",
+    "[Autopilot] Agent start submitted successfully (Nonce: 0, TxHash: ca15a28da0099a510a54bb59162b0475d7f225941b9e995befab5dc919c911d7)",
+    "[Autopilot] Block #106 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#106 (1 sessions)",
+    "[Autopilot] Block #107 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#107 (1 sessions)",
+    "[Autopilot] Block #108 committed (Tx: 0)",
+    "[Autopilot] Block #109 committed (Tx: 0)",
+    "[Autopilot] Block #110 committed (Tx: 0)",
+    "[Autopilot] Block #111 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#111 (1 sessions)",
+    "[Autopilot] Block #112 committed (Tx: 0)",
+    "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: 70c82e47b0bc641b921d8345b0d278d1c0430e163dc52d722530f3c557a09354)",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)",
+    "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: 70c82e47b0bc641b921d8345b0d278d1c0430e163dc52d722530f3c557a09354)",
+    "[Autopilot] Re-submitted first step heartbeat for session e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8 (attempt 1 nonce 1).",
+    "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: 70c82e47b0bc641b921d8345b0d278d1c0430e163dc52d722530f3c557a09354)",
+    "[Autopilot] Re-submitted first step heartbeat for session e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8 (attempt 2 nonce 1).",
+    "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: 70c82e47b0bc641b921d8345b0d278d1c0430e163dc52d722530f3c557a09354)",
+    "[Autopilot] Re-submitted first step heartbeat for session e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8 (attempt 3 nonce 1).",
+    "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: 70c82e47b0bc641b921d8345b0d278d1c0430e163dc52d722530f3c557a09354)",
+    "[Autopilot] Re-submitted first step heartbeat for session e3b77996110e4eb28ab47c46b2d19255fb6691c5d7184cf0b9cc17bc6e5eb1b8 (attempt 4 nonce 1).",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)"
+  ]
+}

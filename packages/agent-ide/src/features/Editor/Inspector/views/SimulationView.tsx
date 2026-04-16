@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { GraphGlobalConfig, Node } from "../../../../types/graph";
-import { AgentRuntime } from "../../../../runtime/agent-runtime";
+import { AgentWorkbenchRuntime } from "../../../../runtime/agent-runtime";
 
 interface SimulationResult {
   status?: string;
@@ -20,7 +20,7 @@ interface SimulationResult {
 interface SimulationViewProps {
   node: Node;
   globalConfig?: GraphGlobalConfig;
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   onRunComplete?: (result: SimulationResult) => void;
   upstreamContext?: unknown;
 }

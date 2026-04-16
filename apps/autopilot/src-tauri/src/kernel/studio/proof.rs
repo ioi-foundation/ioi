@@ -48,6 +48,10 @@ pub(crate) fn run_studio_current_task_turn_for_proof_with_route_timeout(
         .studio_session
         .as_ref()
         .map(|session| studio_refinement_context_for_session(&memory_runtime, session));
+    let active_widget_state = task
+        .studio_session
+        .as_ref()
+        .and_then(|session| session.widget_state.as_ref());
     let runtime_provenance = inference_runtime.studio_runtime_provenance();
     if runtime_provenance.kind == crate::models::StudioRuntimeProvenanceKind::InferenceUnavailable {
         attach_blocked_studio_failure_session(
@@ -72,6 +76,7 @@ pub(crate) fn run_studio_current_task_turn_for_proof_with_route_timeout(
         intent,
         active_artifact_id.clone(),
         active_refinement.as_ref(),
+        active_widget_state,
         route_timeout,
     ) {
         Ok(outcome_request) => outcome_request,
@@ -521,6 +526,7 @@ fn prepare_task_for_studio_with_request_for_proof(
         taste_memory,
         retrieved_exemplars,
         selected_targets,
+        widget_state: None,
         ux_lifecycle,
         created_at: created_at.clone(),
         updated_at: created_at,

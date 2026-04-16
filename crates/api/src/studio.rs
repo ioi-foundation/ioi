@@ -1,10 +1,8 @@
 use crate::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{
-    StudioArtifactClass, StudioArtifactDeliverableShape, StudioArtifactFailure,
-    StudioArtifactFileRole, StudioArtifactPersistenceMode, StudioExecutionStrategy,
-    StudioExecutionSubstrate, StudioOutcomeArtifactRequest, StudioOutcomeArtifactScope,
-    StudioOutcomeArtifactVerificationRequest, StudioOutcomeKind, StudioOutcomePlanningPayload,
+    StudioArtifactClass, StudioArtifactFailure, StudioArtifactFileRole, StudioExecutionStrategy,
+    StudioExecutionSubstrate, StudioOutcomeArtifactRequest, StudioOutcomeKind,
     StudioPresentationSurface, StudioRendererKind, StudioRuntimeProvenance,
     StudioRuntimeProvenanceKind,
 };
@@ -15,14 +13,18 @@ use std::collections::HashSet;
 use std::future::Future;
 use std::sync::Arc;
 
+mod domain_topology;
 mod generation;
 mod html;
 mod html_registry;
+mod intent_signals;
 mod judging;
 mod payload;
 mod pdf;
 mod planning;
 mod render_eval;
+mod runtime_locality;
+mod specialized_policy;
 mod types;
 
 tokio::task_local! {
@@ -86,8 +88,18 @@ pub fn studio_modal_first_html_enabled_for_tests_and_runtime() -> bool {
     studio_modal_first_html_enabled()
 }
 
+pub use domain_topology::{
+    derive_studio_domain_policy_bundle, derive_studio_topology_projection, StudioTopologyProjection,
+};
 use html::*;
 use html_registry::*;
+pub use intent_signals::StudioIntentContext;
+pub use specialized_policy::{
+    studio_request_frame_clarification_slots, studio_request_frame_missing_slots,
+    studio_specialized_domain_kind, studio_specialized_domain_kind_for_frame,
+    studio_specialized_domain_policy, StudioSpecializedDomainKind,
+    StudioSpecializedDomainPolicySpec,
+};
 
 pub use generation::{
     build_studio_artifact_candidate_refinement_prompt,
@@ -134,6 +146,10 @@ pub use planning::{
 pub use render_eval::{
     build_studio_artifact_render_acceptance_policy, evaluate_studio_artifact_render_if_configured,
     merge_studio_artifact_render_evaluation_into_judge, StudioArtifactRenderEvaluator,
+};
+pub use runtime_locality::{
+    resolve_runtime_locality_placeholder, studio_runtime_locality_scope_hint,
+    with_studio_runtime_locality_scope_hint_override,
 };
 pub use types::*;
 

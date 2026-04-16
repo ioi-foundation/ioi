@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { AgentRuntime } from "./runtime/agent-runtime";
+import { AgentWorkbenchRuntime } from "./runtime/agent-runtime";
 import { useGraphState } from "./hooks/useGraphState";
 import { useGraphExecution } from "./hooks/useGraphExecution";
 import { GraphGlobalConfig, Node, ProjectFile } from "./types/graph";
@@ -15,7 +15,7 @@ import "./AgentEditor.css";
 import "./styles/theme.css";
 
 export interface AgentEditorProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   initialFile?: ProjectFile | null;
   onInitialFileLoaded?: () => void;
   onOpenSystemSettings?: () => void;

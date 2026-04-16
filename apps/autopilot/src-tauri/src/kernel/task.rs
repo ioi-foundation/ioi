@@ -23,8 +23,9 @@ use ioi_types::codec;
 use parity_scale_codec::{Decode, Encode};
 use serde_json::json;
 use std::collections::HashSet;
+use std::future::Future;
 use std::sync::{Arc, Mutex, OnceLock};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use tokio::time::{sleep, timeout, Duration, Instant};
 
 const TX_SUBMIT_TIMEOUT_MS: u64 = 8_000;
@@ -36,6 +37,7 @@ const SESSION_STATE_RECONCILE_POLL_MS: u64 = 750;
 const SESSION_BOOTSTRAP_STEP_RETRY_GRACE_MS: u64 = 2_000;
 const SESSION_BOOTSTRAP_STEP_RETRY_INTERVAL_MS: u64 = 2_000;
 const SESSION_BOOTSTRAP_STEP_MAX_RETRIES: usize = 4;
+const AMBIENT_KNOWLEDGE_TIMEOUT_MS: u64 = 1_500;
 
 static ACTIVE_SESSION_RECONCILERS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 
@@ -68,7 +70,25 @@ fn session_hex_matches_task(task: &AgentTask, session_id_hex: &str) -> bool {
 }
 
 fn task_should_continue_through_kernel(task: &AgentTask) -> bool {
-    !crate::kernel::studio::task_is_studio_authoritative(task)
+    !crate::kernel::studio::task_requires_studio_primary_execution(task)
+}
+
+fn apply_studio_route_handoff_to_runtime_input(task: &AgentTask, input: &str) -> String {
+    crate::kernel::studio::runtime_handoff_prompt_prefix_for_task(task)
+        .map(|prefix| format!("{prefix}\nUSER REQUEST:\n{input}"))
+        .unwrap_or_else(|| input.to_string())
+}
+
+fn session_bootstrap_commit_delay_should_reconcile(error: &str) -> bool {
+    let normalized = error.to_ascii_lowercase();
+    normalized.contains("did not commit")
+        || normalized.contains("already exists")
+        || normalized.contains("inmempool")
+        || normalized.contains("too low")
+}
+
+fn bootstrap_step_commit_delay_should_reconcile(error: &str) -> bool {
+    session_bootstrap_commit_delay_should_reconcile(error)
 }
 
 fn workspace_workflow_expansion(
@@ -108,13 +128,58 @@ fn maybe_inject_ambient_knowledge_sync(
     let Some(inference_runtime) = inference_runtime else {
         return Ok(None);
     };
-    tauri::async_runtime::block_on(crate::kernel::runtime_parity::inject_ambient_knowledge(
-        app,
-        &memory_runtime,
-        &inference_runtime,
-        thread_id,
-        intent,
+    Ok(tauri::async_runtime::block_on(
+        maybe_inject_ambient_knowledge_best_effort(
+            app,
+            &memory_runtime,
+            &inference_runtime,
+            thread_id,
+            intent,
+        ),
     ))
+}
+
+async fn run_best_effort_optional_future<T, F>(label: &str, future: F) -> Option<T>
+where
+    F: Future<Output = Result<Option<T>, String>>,
+{
+    match timeout(Duration::from_millis(AMBIENT_KNOWLEDGE_TIMEOUT_MS), future).await {
+        Ok(Ok(value)) => value,
+        Ok(Err(error)) => {
+            eprintln!(
+                "[Autopilot] {} skipped after recoverable failure: {}",
+                label, error
+            );
+            None
+        }
+        Err(_) => {
+            eprintln!(
+                "[Autopilot] {} skipped after {}ms timeout",
+                label, AMBIENT_KNOWLEDGE_TIMEOUT_MS
+            );
+            None
+        }
+    }
+}
+
+async fn maybe_inject_ambient_knowledge_best_effort<R: Runtime>(
+    app: &AppHandle<R>,
+    memory_runtime: &Arc<MemoryRuntime>,
+    inference_runtime: &Arc<dyn ioi_api::vm::inference::InferenceRuntime>,
+    thread_id: &str,
+    intent: &str,
+) -> Option<crate::kernel::runtime_parity::AmbientKnowledgeInjection> {
+    run_best_effort_optional_future(
+        "Ambient knowledge injection",
+        crate::kernel::runtime_parity::inject_ambient_knowledge(
+            app,
+            memory_runtime,
+            inference_runtime,
+            thread_id,
+            intent,
+        ),
+    )
+    .await
 }
 
 fn replace_or_insert_task_artifact(task: &mut AgentTask, artifact: crate::models::Artifact) {
@@ -236,8 +301,28 @@ fn should_replace_with_reconciled_running_step(current_step: &str) -> bool {
         || normalized == "scheduling first step..."
         || normalized == "agent session started. running first step..."
         || normalized == "sending message..."
+        || normalized.contains("session state is reconciling")
+        || normalized.contains("session state is still reconciling")
+        || normalized.contains("session start commit is delayed")
+        || normalized.contains("bootstrap is continuing in the background")
+        || normalized.contains("recovering first step")
+        || normalized.contains("bootstrap first-step recovery")
         || normalized.contains("waiting for first step")
         || normalized.contains("session queued")
+}
+
+fn bootstrap_state_still_needs_recovery(app: &AppHandle, session_id_hex: &str) -> bool {
+    let state = app.state::<Mutex<AppState>>();
+    let Ok(app_state) = state.lock() else {
+        return true;
+    };
+    let Some(task) = app_state.current_task.as_ref() else {
+        return true;
+    };
+    if !session_hex_matches_task(task, session_id_hex) {
+        return false;
+    }
+    should_replace_with_reconciled_running_step(&task.current_step)
 }
 
 fn task_has_live_session_activity(task: &AgentTask) -> bool {
@@ -249,6 +334,124 @@ fn submit_error_indicates_bootstrap_step_already_pending(error: &str) -> bool {
     normalized.contains("already exists")
         || normalized.contains("duplicate")
         || normalized.contains("too low")
+}
+
+fn bootstrap_step_retry_interval_elapsed(last_bootstrap_retry_at: Option<Instant>) -> bool {
+    last_bootstrap_retry_at
+        .map(|ts| ts.elapsed() >= Duration::from_millis(SESSION_BOOTSTRAP_STEP_RETRY_INTERVAL_MS))
+        .unwrap_or(true)
+}
+
+fn bootstrap_step_is_stalled(bootstrap_step_nonce: Option<u64>, agent_state: &AgentState) -> bool {
+    bootstrap_step_nonce.is_some()
+        && matches!(agent_state.status, AgentStatus::Idle | AgentStatus::Running)
+        && agent_state.step_count == 0
+}
+
+fn bootstrap_step_should_escalate_pending_recovery(
+    bootstrap_step_stalled: bool,
+    bootstrap_retry_attempts: usize,
+    bootstrap_fallback_attempted: bool,
+    bootstrap_retry_window_open: bool,
+    bootstrap_retry_interval_elapsed: bool,
+) -> bool {
+    bootstrap_step_stalled
+        && bootstrap_retry_attempts >= SESSION_BOOTSTRAP_STEP_MAX_RETRIES
+        && !bootstrap_fallback_attempted
+        && bootstrap_retry_window_open
+        && bootstrap_retry_interval_elapsed
+}
+
+async fn maybe_retry_or_escalate_bootstrap_step(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    app: &AppHandle,
+    session_id: [u8; 32],
+    session_id_hex: &str,
+    bootstrap_step_nonce: Option<u64>,
+    bootstrap_step_stalled: bool,
+    bootstrap_retry_window_open: bool,
+    bootstrap_retry_attempts: &mut usize,
+    bootstrap_fallback_attempted: &mut bool,
+    last_bootstrap_retry_at: &mut Option<Instant>,
+) {
+    if !bootstrap_step_stalled {
+        return;
+    }
+
+    if bootstrap_step_nonce.is_some()
+        && *bootstrap_retry_attempts < SESSION_BOOTSTRAP_STEP_MAX_RETRIES
+        && bootstrap_retry_window_open
+        && bootstrap_step_retry_interval_elapsed(*last_bootstrap_retry_at)
+    {
+        let nonce = bootstrap_step_nonce.expect("checked is_some");
+        *bootstrap_retry_attempts += 1;
+        *last_bootstrap_retry_at = Some(Instant::now());
+
+        let step_params = match encode_step_agent_params(session_id) {
+            Ok(params) => params,
+            Err(error) => {
+                eprintln!(
+                    "[Autopilot] Bootstrap first-step retry encoding failed for {}: {}",
+                    session_id_hex, error
+                );
+                Vec::new()
+            }
+        };
+
+        if !step_params.is_empty() {
+            match submit_step_authenticated_at_nonce(client, app, step_params, nonce).await {
+                Ok(_tx_hash) => {
+                    println!(
+                        "[Autopilot] Re-submitted first step heartbeat for session {} (attempt {} nonce {}).",
+                        session_id_hex, *bootstrap_retry_attempts, nonce
+                    );
+                }
+                Err(error) if submit_error_indicates_bootstrap_step_already_pending(&error) => {
+                    println!(
+                        "[Autopilot] First step heartbeat for session {} already pending or consumed (attempt {} nonce {}).",
+                        session_id_hex, *bootstrap_retry_attempts, nonce
+                    );
+                }
+                Err(error) => {
+                    eprintln!(
+                        "[Autopilot] First step heartbeat retry failed for {} at nonce {} (attempt {}): {}",
+                        session_id_hex, nonce, *bootstrap_retry_attempts, error
+                    );
+                }
+            }
+        }
+    }
+
+    if bootstrap_step_should_escalate_pending_recovery(
+        bootstrap_step_stalled,
+        *bootstrap_retry_attempts,
+        *bootstrap_fallback_attempted,
+        bootstrap_retry_window_open,
+        bootstrap_step_retry_interval_elapsed(*last_bootstrap_retry_at),
+    ) {
+        *bootstrap_fallback_attempted = true;
+        update_task_state(app, |task| {
+            if session_hex_matches_task(task, session_id_hex) {
+                task.phase = AgentPhase::Running;
+                task.current_step =
+                    "Recovering first step after bootstrap pending stall...".to_string();
+            }
+        });
+        match trigger_agent_step_via_ephemeral_fallback(client, session_id).await {
+            Ok(()) => {
+                println!(
+                    "[Autopilot] Escalated first-step recovery for session {} after {} pending bootstrap retries via ephemeral fallback.",
+                    session_id_hex, *bootstrap_retry_attempts
+                );
+            }
+            Err(error) => {
+                eprintln!(
+                    "[Autopilot] Escalated first-step recovery failed for {} after {} pending bootstrap retries: {}",
+                    session_id_hex, *bootstrap_retry_attempts, error
+                );
+            }
+        }
+    }
 }
 
 fn build_user_input_event(thread_id: &str, step_index: u32, text: &str) -> AgentEvent {
@@ -413,7 +616,9 @@ fn build_step_agent_tx_bytes(
 }
 
 fn session_state_key(session_id: [u8; 32]) -> Vec<u8> {
-    get_state_key(&session_id)
+    let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
+    let local_key = get_state_key(&session_id);
+    [ns_prefix.as_slice(), local_key.as_slice()].concat()
 }
 
 async fn submit_transaction_with_timeout(
@@ -658,7 +863,7 @@ async fn submit_start_via_ephemeral_start_agent(
 async fn submit_step_via_ephemeral_agent_step(
     client: &mut PublicApiClient<tonic::transport::Channel>,
     params_bytes: Vec<u8>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let keypair = libp2p::identity::Keypair::generate_ed25519();
     let public_key = keypair.public().encode_protobuf();
     let account_id = AccountId(
@@ -668,9 +873,31 @@ async fn submit_step_via_ephemeral_agent_step(
 
     let tx_bytes = build_step_agent_tx_bytes(account_id, 0, public_key, &keypair, params_bytes)?;
 
-    let _ = submit_transaction_with_timeout(client, tx_bytes).await?;
+    let response = submit_transaction_with_timeout(client, tx_bytes).await?;
 
-    Ok(())
+    Ok(response.tx_hash)
+}
+
+async fn trigger_agent_step_via_ephemeral_fallback(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+    session_id: [u8; 32],
+) -> Result<(), String> {
+    let step_params = encode_step_agent_params(session_id)?;
+    let tx_hash = submit_step_via_ephemeral_agent_step(client, step_params).await?;
+    match wait_for_tx_commit(client, &tx_hash, SESSION_START_CONVERGENCE_TIMEOUT_MS).await {
+        Ok(()) => Ok(()),
+        Err(error) if bootstrap_step_commit_delay_should_reconcile(&error) => {
+            println!(
+                "[Autopilot] step@v1 ephemeral tx {} is still pending. Deferring commit confirmation to the reconciler: {}",
+                tx_hash, error
+            );
+            Ok(())
+        }
+        Err(error) => Err(format!(
+            "Triggered session step via ephemeral fallback but tx {} did not commit: {}",
+            tx_hash, error
+        )),
+    }
 }
 
 async fn submit_continue_authenticated(
@@ -709,7 +936,7 @@ async fn submit_step_authenticated(
     client: &mut PublicApiClient<tonic::transport::Channel>,
     app: &AppHandle,
     params_bytes: Vec<u8>,
-) -> Result<u64, String> {
+) -> Result<(u64, String), String> {
     let keypair = identity::load_identity_keypair_for_app(app)?;
     let public_key = keypair.public().encode_protobuf();
     let account_id = AccountId(
@@ -717,9 +944,7 @@ async fn submit_step_authenticated(
             .map_err(|e| e.to_string())?,
     );
 
-    submit_step_with_nonce_retry(client, &keypair, account_id, public_key, params_bytes)
-        .await
-        .map(|(nonce, _)| nonce)
+    submit_step_with_nonce_retry(client, &keypair, account_id, public_key, params_bytes).await
 }
 
 async fn submit_step_authenticated_at_nonce(
@@ -727,7 +952,7 @@ async fn submit_step_authenticated_at_nonce(
     app: &AppHandle,
     params_bytes: Vec<u8>,
     nonce: u64,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let keypair = identity::load_identity_keypair_for_app(app)?;
     let public_key = keypair.public().encode_protobuf();
     let account_id = AccountId(
@@ -744,7 +969,7 @@ async fn submit_step_authenticated_at_nonce(
         "[Autopilot] Agent step submitted successfully (Nonce: {}, TxHash: {})",
         nonce, response.tx_hash
     );
-    Ok(())
+    Ok(response.tx_hash)
 }
 
 async fn wait_for_tx_commit(
@@ -925,6 +1150,50 @@ async fn continue_session_bootstrap_after_visibility_timeout(
             );
         }
         Err(error) => {
+            if next_step_nonce.is_some() {
+                match trigger_agent_step_for_session(&mut client, &app, session_id, next_step_nonce)
+                    .await
+                {
+                    Ok(()) => {
+                        update_task_state(&app, |t| {
+                            if session_hex_matches_task(t, &session_id_hex) {
+                                t.phase = AgentPhase::Running;
+                                t.current_step = "Session state is reconciling, but the first step was queued using the bootstrap nonce.".to_string();
+                            }
+                        });
+                        spawn_session_state_reconciler_with_bootstrap_nonce(
+                            app.clone(),
+                            session_id,
+                            next_step_nonce,
+                        );
+                        return;
+                    }
+                    Err(step_error)
+                        if bootstrap_step_commit_delay_should_reconcile(&step_error)
+                            || submit_error_indicates_bootstrap_step_already_pending(
+                                &step_error,
+                            ) =>
+                    {
+                        update_task_state(&app, |t| {
+                            if session_hex_matches_task(t, &session_id_hex) {
+                                t.phase = AgentPhase::Running;
+                                t.current_step = format!(
+                                    "Session state is still reconciling, and the optimistic first-step submit could not complete yet. Continuing bootstrap in the background: {} | {}",
+                                    error, step_error
+                                );
+                            }
+                        });
+                        spawn_session_state_reconciler_with_bootstrap_nonce(
+                            app.clone(),
+                            session_id,
+                            next_step_nonce,
+                        );
+                        return;
+                    }
+                    Err(_) => {}
+                }
+            }
+
             let mut keep_running = false;
             update_task_state(&app, |t| {
                 if session_hex_matches_task(t, &session_id_hex) {
@@ -1040,6 +1309,21 @@ async fn bootstrap_kernel_session_after_studio_prepare(
         )
         .await
         {
+            if session_bootstrap_commit_delay_should_reconcile(&error) {
+                update_task_if_current_matches(&app, &task_id, |task| {
+                    task.phase = AgentPhase::Running;
+                    task.current_step = format!(
+                        "Session start commit is delayed, but bootstrap is continuing in the background: {}",
+                        error
+                    );
+                });
+                tauri::async_runtime::spawn(continue_session_bootstrap_after_visibility_timeout(
+                    app.clone(),
+                    session_id,
+                    next_step_nonce,
+                ));
+                return;
+            }
             update_task_if_current_matches(&app, &task_id, |task| {
                 if task.phase == AgentPhase::Running
                     && matches!(
@@ -1073,12 +1357,37 @@ async fn bootstrap_kernel_session_after_studio_prepare(
                 error
             );
         });
-        tauri::async_runtime::spawn(continue_session_bootstrap_after_visibility_timeout(
-            app.clone(),
-            session_id,
-            next_step_nonce,
-        ));
-        return;
+
+        match trigger_agent_step_for_session(&mut client, &app, session_id, next_step_nonce).await {
+            Ok(()) => {
+                update_task_if_current_matches(&app, &task_id, |task| {
+                    task.phase = AgentPhase::Running;
+                    task.current_step =
+                        "Session state is reconciling, but the first step was queued using the committed bootstrap nonce.".to_string();
+                });
+                spawn_session_state_reconciler_with_bootstrap_nonce(
+                    app.clone(),
+                    session_id,
+                    next_step_nonce,
+                );
+                return;
+            }
+            Err(step_error) => {
+                update_task_if_current_matches(&app, &task_id, |task| {
+                    task.phase = AgentPhase::Running;
+                    task.current_step = format!(
+                        "Session state is still reconciling, and the optimistic first-step submit could not complete yet. Continuing bootstrap in the background: {} | {}",
+                        error, step_error
+                    );
+                });
+                tauri::async_runtime::spawn(continue_session_bootstrap_after_visibility_timeout(
+                    app.clone(),
+                    session_id,
+                    next_step_nonce,
+                ));
+                return;
+            }
+        }
     }
 
     update_task_if_current_matches(&app, &task_id, |task| {
@@ -1088,6 +1397,21 @@ async fn bootstrap_kernel_session_after_studio_prepare(
     if let Err(step_error) =
         trigger_agent_step_for_session(&mut client, &app, session_id, next_step_nonce).await
     {
+        if bootstrap_step_commit_delay_should_reconcile(&step_error) {
+            update_task_if_current_matches(&app, &task_id, |task| {
+                task.phase = AgentPhase::Running;
+                task.current_step = format!(
+                    "First step commit is delayed, but bootstrap is continuing in the background: {}",
+                    step_error
+                );
+            });
+            spawn_session_state_reconciler_with_bootstrap_nonce(
+                app.clone(),
+                session_id,
+                next_step_nonce,
+            );
+            return;
+        }
         update_task_if_current_matches(&app, &task_id, |task| {
             task.phase = AgentPhase::Failed;
             task.current_step = format!(
@@ -1277,6 +1601,7 @@ fn spawn_session_state_reconciler_with_bootstrap_nonce(
         let bootstrap_retry_window_opens_at =
             Instant::now() + Duration::from_millis(SESSION_BOOTSTRAP_STEP_RETRY_GRACE_MS);
         let mut bootstrap_retry_attempts = 0usize;
+        let mut bootstrap_fallback_attempted = false;
         let mut last_bootstrap_retry_at: Option<Instant> = None;
 
         let mut client = match crate::kernel::state::connect_public_api().await {
@@ -1294,6 +1619,7 @@ fn spawn_session_state_reconciler_with_bootstrap_nonce(
         };
 
         loop {
+            let bootstrap_retry_window_open = Instant::now() >= bootstrap_retry_window_opens_at;
             match query_agent_state(&mut client, session_id).await {
                 Ok(Some(agent_state)) => {
                     let terminal =
@@ -1311,78 +1637,49 @@ fn spawn_session_state_reconciler_with_bootstrap_nonce(
                         break;
                     }
 
-                    if bootstrap_step_nonce.is_some()
-                        && matches!(agent_state.status, AgentStatus::Idle | AgentStatus::Running)
-                        && agent_state.step_count == 0
-                        && bootstrap_retry_attempts < SESSION_BOOTSTRAP_STEP_MAX_RETRIES
-                        && Instant::now() >= bootstrap_retry_window_opens_at
-                        && last_bootstrap_retry_at
-                            .map(|ts| {
-                                ts.elapsed()
-                                    >= Duration::from_millis(
-                                        SESSION_BOOTSTRAP_STEP_RETRY_INTERVAL_MS,
-                                    )
-                            })
-                            .unwrap_or(true)
-                    {
-                        let nonce = bootstrap_step_nonce.expect("checked is_some");
-                        bootstrap_retry_attempts += 1;
-                        last_bootstrap_retry_at = Some(Instant::now());
-
-                        let step_params = match encode_step_agent_params(session_id) {
-                            Ok(params) => params,
-                            Err(error) => {
-                                eprintln!(
-                                    "[Autopilot] Bootstrap first-step retry encoding failed for {}: {}",
-                                    session_id_hex, error
-                                );
-                                Vec::new()
-                            }
-                        };
-
-                        if !step_params.is_empty() {
-                            match submit_step_authenticated_at_nonce(
-                                &mut client,
-                                &app,
-                                step_params,
-                                nonce,
-                            )
-                            .await
-                            {
-                                Ok(()) => {
-                                    println!(
-                                        "[Autopilot] Re-submitted first step heartbeat for session {} (attempt {} nonce {}).",
-                                        session_id_hex,
-                                        bootstrap_retry_attempts,
-                                        nonce
-                                    );
-                                }
-                                Err(error)
-                                    if submit_error_indicates_bootstrap_step_already_pending(
-                                        &error,
-                                    ) =>
-                                {
-                                    println!(
-                                        "[Autopilot] First step heartbeat for session {} already pending or consumed (attempt {} nonce {}).",
-                                        session_id_hex,
-                                        bootstrap_retry_attempts,
-                                        nonce
-                                    );
-                                }
-                                Err(error) => {
-                                    eprintln!(
-                                        "[Autopilot] First step heartbeat retry failed for {} at nonce {} (attempt {}): {}",
-                                        session_id_hex,
-                                        nonce,
-                                        bootstrap_retry_attempts,
-                                        error
-                                    );
-                                }
-                            }
-                        }
-                    }
+                    maybe_retry_or_escalate_bootstrap_step(
+                        &mut client,
+                        &app,
+                        session_id,
+                        &session_id_hex,
+                        bootstrap_step_nonce,
+                        bootstrap_step_is_stalled(bootstrap_step_nonce, &agent_state),
+                        bootstrap_retry_window_open,
+                        &mut bootstrap_retry_attempts,
+                        &mut bootstrap_fallback_attempted,
+                        &mut last_bootstrap_retry_at,
+                    )
+                    .await;
                 }
-                Ok(None) => {}
+                Ok(None) => {
+                    let bootstrap_step_invisible_stalled = bootstrap_step_nonce.is_some()
+                        && bootstrap_state_still_needs_recovery(&app, &session_id_hex);
+
+                    if bootstrap_step_invisible_stalled {
+                        update_task_state(&app, |task| {
+                            if session_hex_matches_task(task, &session_id_hex)
+                                && should_replace_with_reconciled_running_step(&task.current_step)
+                            {
+                                task.phase = AgentPhase::Running;
+                                task.current_step = "Session state is still reconciling, but bootstrap recovery is continuing in the background.".to_string();
+                            }
+                        });
+                    }
+
+                    maybe_retry_or_escalate_bootstrap_step(
+                        &mut client,
+                        &app,
+                        session_id,
+                        &session_id_hex,
+                        bootstrap_step_nonce,
+                        bootstrap_step_invisible_stalled,
+                        bootstrap_retry_window_open,
+                        &mut bootstrap_retry_attempts,
+                        &mut bootstrap_fallback_attempted,
+                        &mut last_bootstrap_retry_at,
+                    )
+                    .await;
+                }
                 Err(error) => {
                     eprintln!(
                         "[Autopilot] Session reconciler query failed for {}: {}",
@@ -1415,8 +1712,34 @@ pub(crate) async fn trigger_agent_step_for_session(
 
     if let Some(nonce) = preferred_nonce {
         match submit_step_authenticated_at_nonce(client, app, step_params.clone(), nonce).await {
-            Ok(()) => return Ok(()),
+            Ok(tx_hash) => {
+                match wait_for_tx_commit(client, &tx_hash, SESSION_START_CONVERGENCE_TIMEOUT_MS)
+                    .await
+                {
+                    Ok(()) => return Ok(()),
+                    Err(error) => {
+                        if bootstrap_step_commit_delay_should_reconcile(&error) {
+                            println!(
+                                "[Autopilot] step@v1 exact-nonce tx {} at nonce {} is still pending. Deferring commit confirmation to the reconciler: {}",
+                                tx_hash, nonce, error
+                            );
+                            return Ok(());
+                        }
+                        eprintln!(
+                            "[Autopilot] step@v1 exact-nonce tx {} at nonce {} did not commit in time. Falling back to retry path: {}",
+                            tx_hash, nonce, error
+                        );
+                    }
+                }
+            }
             Err(error) => {
+                if submit_error_indicates_bootstrap_step_already_pending(&error) {
+                    println!(
+                        "[Autopilot] step@v1 exact-nonce submit at nonce {} appears already pending or consumed. Deferring confirmation to the reconciler: {}",
+                        nonce, error
+                    );
+                    return Ok(());
+                }
                 eprintln!(
                     "[Autopilot] step@v1 exact-nonce submit failed at nonce {}. Falling back to retry path: {}",
                     nonce, error
@@ -1425,12 +1748,31 @@ pub(crate) async fn trigger_agent_step_for_session(
         }
     }
 
-    if let Err(base_err) = submit_step_authenticated(client, app, step_params).await {
+    let authenticated_submit = submit_step_authenticated(client, app, step_params).await;
+    if let Err(base_err) = match authenticated_submit {
+        Ok((_, tx_hash)) => {
+            match wait_for_tx_commit(client, &tx_hash, SESSION_START_CONVERGENCE_TIMEOUT_MS).await {
+                Ok(()) => Ok(()),
+                Err(error) if bootstrap_step_commit_delay_should_reconcile(&error) => {
+                    println!(
+                        "[Autopilot] step@v1 authenticated tx {} is still pending. Deferring commit confirmation to the reconciler: {}",
+                        tx_hash, error
+                    );
+                    Ok(())
+                }
+                Err(error) => Err(format!(
+                    "Triggered session step but the authenticated tx {} did not commit: {}",
+                    tx_hash, error
+                )),
+            }
+        }
+        Err(base_err) => Err(base_err),
+    } {
         eprintln!(
             "[Autopilot] step@v1 authenticated submit did not converge. Falling back to ephemeral step flow: {}",
             base_err
         );
-        submit_step_via_ephemeral_agent_step(client, fallback_step_params)
+        let fallback_tx_hash = submit_step_via_ephemeral_agent_step(client, fallback_step_params)
             .await
             .map_err(|fallback_err| {
                 format!(
@@ -1438,6 +1780,18 @@ pub(crate) async fn trigger_agent_step_for_session(
                     base_err, fallback_err
                 )
             })?;
+        wait_for_tx_commit(
+            client,
+            &fallback_tx_hash,
+            SESSION_START_CONVERGENCE_TIMEOUT_MS,
+        )
+        .await
+        .map_err(|error| {
+            format!(
+                "Failed to trigger session step: {} | fallback tx {} did not commit: {}",
+                base_err, fallback_tx_hash, error
+            )
+        })?;
     }
 
     Ok(())
@@ -1449,7 +1803,7 @@ pub(crate) async fn send_message_to_session(
     user_input: String,
 ) -> Result<(), String> {
     crate::kernel::studio::maybe_prepare_current_task_for_studio_turn(app, &user_input)?;
-    if let Some(task) = app
+    let routed_user_input = if let Some(task) = app
         .state::<Mutex<AppState>>()
         .lock()
         .ok()
@@ -1458,10 +1812,13 @@ pub(crate) async fn send_message_to_session(
         if !task_should_continue_through_kernel(&task) {
             return Ok(());
         }
-    }
+        apply_studio_route_handoff_to_runtime_input(&task, &user_input)
+    } else {
+        user_input.clone()
+    };
 
     let session_arr = normalize_session_id(session_id)?;
-    let params_bytes = encode_post_message_params(session_arr, user_input.clone())?;
+    let params_bytes = encode_post_message_params(session_arr, routed_user_input)?;
     let fallback_params_bytes = params_bytes.clone();
     let mut client = crate::kernel::state::connect_public_api()
         .await
@@ -1517,6 +1874,16 @@ pub(crate) async fn send_message_to_session(
     Ok(())
 }
 
+fn should_reuse_running_studio_task_for_duplicate_submit(
+    current_task: &AgentTask,
+    intent: &str,
+    origin_surface: Option<&str>,
+) -> bool {
+    origin_surface == Some("studio")
+        && current_task.phase == AgentPhase::Running
+        && current_task.intent.trim() == intent.trim()
+}
+
 #[tauri::command]
 pub fn start_task(
     state: State<Mutex<AppState>>,
@@ -1524,9 +1891,39 @@ pub fn start_task(
     intent: String,
     origin_surface: Option<String>,
 ) -> Result<AgentTask, String> {
+    eprintln!(
+        "[Autopilot] start_task invoked origin_surface={} intent_len={}",
+        origin_surface.as_deref().unwrap_or("overlay"),
+        intent.trim().len()
+    );
+    {
+        let app_state = state.lock().map_err(|_| "Failed to lock state")?;
+        if let Some(existing_task) = app_state.current_task.as_ref().filter(|task| {
+            should_reuse_running_studio_task_for_duplicate_submit(
+                task,
+                &intent,
+                origin_surface.as_deref(),
+            )
+        }) {
+            eprintln!(
+                "[Autopilot] start_task reusing running studio task {} for duplicate seed submit",
+                existing_task.id
+            );
+            return Ok(existing_task.clone());
+        }
+    }
     let task_id = generate_session_id_hex();
     let workflow_expansion = workspace_workflow_expansion(&intent)?;
+    eprintln!(
+        "[Autopilot] start_task workflow expansion ready for {}",
+        task_id
+    );
     let knowledge_injection = maybe_inject_ambient_knowledge_sync(&state, &app, &task_id, &intent)?;
+    eprintln!(
+        "[Autopilot] start_task knowledge injection ready for {} attached={}",
+        task_id,
+        knowledge_injection.is_some()
+    );
     let base_bootstrap_intent = workflow_expansion
         .as_ref()
         .map(|workflow| workflow.expanded_intent.clone())
@@ -1629,6 +2026,10 @@ pub fn start_task(
         app_state.current_task = Some(task.clone());
         app_state.gate_response = None;
     }
+    eprintln!(
+        "[Autopilot] start_task initial task saved {} phase={:?}",
+        task_id, task.phase
+    );
 
     let _ = app.emit("task-started", &task);
     let app_for_projection = app.clone();
@@ -1664,24 +2065,36 @@ pub fn start_task(
                 &intent_for_prepare,
             )?;
 
-            let studio_authoritative =
-                crate::kernel::studio::task_is_studio_authoritative(&prepared_task);
-            if studio_authoritative {
+            let studio_primary =
+                crate::kernel::studio::task_requires_studio_primary_execution(&prepared_task);
+            if studio_primary {
                 crate::kernel::studio::apply_studio_authoritative_status(&mut prepared_task, None);
             }
 
-            Ok::<(AgentTask, bool), String>((prepared_task, studio_authoritative))
+            Ok::<(AgentTask, bool), String>((prepared_task, studio_primary))
         })
         .await;
 
         match prepare_outcome {
-            Ok(Ok((prepared_task, studio_authoritative))) => {
+            Ok(Ok((prepared_task, studio_primary))) => {
                 replace_current_task_snapshot(&app_clone, &task_id_for_prepare, prepared_task);
-                if !studio_authoritative {
+                if !studio_primary {
+                    let bootstrap_intent = app_clone
+                        .state::<Mutex<AppState>>()
+                        .lock()
+                        .ok()
+                        .and_then(|state| state.current_task.clone())
+                        .map(|task| {
+                            apply_studio_route_handoff_to_runtime_input(
+                                &task,
+                                &session_bootstrap_intent,
+                            )
+                        })
+                        .unwrap_or_else(|| session_bootstrap_intent.clone());
                     bootstrap_kernel_session_after_studio_prepare(
                         app_clone.clone(),
                         task_id_for_prepare,
-                        session_bootstrap_intent,
+                        bootstrap_intent,
                     )
                     .await;
                 }
@@ -1716,14 +2129,14 @@ pub async fn continue_task(
         let (memory_runtime, inference_runtime) = app_runtime_resources(&state)?;
         match (memory_runtime, inference_runtime) {
             (Some(memory_runtime), Some(inference_runtime)) => {
-                crate::kernel::runtime_parity::inject_ambient_knowledge(
+                maybe_inject_ambient_knowledge_best_effort(
                     &app,
                     &memory_runtime,
                     &inference_runtime,
                     &session_id,
                     &user_input,
                 )
-                .await?
+                .await
             }
             _ => None,
         }
@@ -1782,6 +2195,61 @@ pub async fn continue_task(
         }
         t.phase = AgentPhase::Running;
     });
+
+    let should_continue_via_studio_primary = app
+        .state::<Mutex<AppState>>()
+        .lock()
+        .ok()
+        .and_then(|state| state.current_task.clone())
+        .map(|task| {
+            let studio_backed = task.studio_session.is_some() && task.studio_outcome.is_some();
+            println!(
+                "[Autopilot][StudioContinue] session={} studio_backed={} phase={:?} current_step={}",
+                session_id,
+                studio_backed,
+                task.phase,
+                task.current_step
+            );
+            studio_backed
+        })
+        .unwrap_or(false);
+
+    if should_continue_via_studio_primary {
+        println!(
+            "[Autopilot][StudioContinue] preparing studio follow-up for session={} input={}",
+            session_id, user_input
+        );
+        let app_for_prepare = app.clone();
+        let user_input_for_prepare = user_input.clone();
+        let preparation_result = tauri::async_runtime::spawn_blocking(move || {
+            crate::kernel::studio::maybe_prepare_current_task_for_studio_turn(
+                &app_for_prepare,
+                &user_input_for_prepare,
+            )
+        })
+        .await
+        .map_err(|error| format!("Studio follow-up worker failed: {error}"))
+        .and_then(|result| result);
+
+        if let Err(error) = preparation_result {
+            let failure_message = format!("Studio follow-up failed: {error}");
+            update_task_state(&app, |task| {
+                task.phase = AgentPhase::Failed;
+                task.current_step = failure_message.clone();
+                task.history.push(ChatMessage {
+                    role: "system".to_string(),
+                    text: failure_message.clone(),
+                    timestamp: crate::kernel::state::now(),
+                });
+            });
+        } else {
+            println!(
+                "[Autopilot][StudioContinue] studio follow-up prepared for session={}",
+                session_id
+            );
+        }
+        return Ok(());
+    }
 
     let session_arr = normalize_session_id(&session_id)?;
     let normalized_session_id = hex::encode(session_arr);
@@ -2013,9 +2481,30 @@ mod tests {
         assert!(should_replace_with_reconciled_running_step(
             "Waiting for message to commit..."
         ));
+        assert!(should_replace_with_reconciled_running_step(
+            "Session state is reconciling, but the first step was queued using the committed bootstrap nonce."
+        ));
+        assert!(should_replace_with_reconciled_running_step(
+            "Session state is still reconciling, and the optimistic first-step submit could not complete yet. Continuing bootstrap in the background: visibility timeout | already exists"
+        ));
+        assert!(should_replace_with_reconciled_running_step(
+            "Session start commit is delayed, but bootstrap is continuing in the background: Tx abc did not commit within 15000ms."
+        ));
+        assert!(should_replace_with_reconciled_running_step(
+            "Recovering first step after bootstrap pending stall..."
+        ));
         assert!(!should_replace_with_reconciled_running_step(
             "Streaming browser::inspect (stdout)"
         ));
+    }
+
+    #[test]
+    fn session_state_key_targets_desktop_agent_namespace() {
+        let session_id = [7u8; 32];
+        let key = session_state_key(session_id);
+        let ns_prefix = ioi_api::state::service_namespace_prefix("desktop_agent");
+        let local_key = get_state_key(&session_id);
+        assert_eq!(key, [ns_prefix.as_slice(), local_key.as_slice()].concat());
     }
 
     #[test]
@@ -2056,6 +2545,198 @@ mod tests {
         task.events
             .push(build_user_input_event("thread-a", 0, "hello"));
         assert!(task_has_live_session_activity(&task));
+    }
+
+    #[test]
+    fn bootstrap_step_commit_delay_reconciles_instead_of_failing() {
+        assert!(bootstrap_step_commit_delay_should_reconcile(
+            "Triggered session step at nonce 1 but it did not commit: Tx abc did not commit within 15000ms (last tx status: InMempool).",
+        ));
+        assert!(bootstrap_step_commit_delay_should_reconcile(
+            "step submit already exists for nonce 1",
+        ));
+        assert!(!bootstrap_step_commit_delay_should_reconcile(
+            "permission denied",
+        ));
+    }
+
+    #[test]
+    fn session_start_commit_delay_reconciles_instead_of_failing() {
+        assert!(session_bootstrap_commit_delay_should_reconcile(
+            "Tx abc did not commit within 15000ms (last tx status: InMempool).",
+        ));
+        assert!(session_bootstrap_commit_delay_should_reconcile(
+            "Submission already exists for nonce 0",
+        ));
+        assert!(!session_bootstrap_commit_delay_should_reconcile(
+            "permission denied",
+        ));
+    }
+
+    #[test]
+    fn bootstrap_step_duplicate_submit_is_treated_as_pending() {
+        assert!(submit_error_indicates_bootstrap_step_already_pending(
+            "step submit already exists for nonce 1",
+        ));
+        assert!(submit_error_indicates_bootstrap_step_already_pending(
+            "nonce too low for account",
+        ));
+        assert!(!submit_error_indicates_bootstrap_step_already_pending(
+            "permission denied",
+        ));
+    }
+
+    #[test]
+    fn bootstrap_pending_step_escalates_after_retry_budget_is_exhausted() {
+        assert!(bootstrap_step_should_escalate_pending_recovery(
+            true,
+            SESSION_BOOTSTRAP_STEP_MAX_RETRIES,
+            false,
+            true,
+            true,
+        ));
+        assert!(!bootstrap_step_should_escalate_pending_recovery(
+            true,
+            SESSION_BOOTSTRAP_STEP_MAX_RETRIES - 1,
+            false,
+            true,
+            true,
+        ));
+        assert!(!bootstrap_step_should_escalate_pending_recovery(
+            true,
+            SESSION_BOOTSTRAP_STEP_MAX_RETRIES,
+            true,
+            true,
+            true,
+        ));
+        assert!(!bootstrap_step_should_escalate_pending_recovery(
+            false,
+            SESSION_BOOTSTRAP_STEP_MAX_RETRIES,
+            false,
+            true,
+            true,
+        ));
+    }
+
+    #[test]
+    fn bootstrap_recovery_stays_enabled_for_delayed_start_placeholders() {
+        let task = AgentTask {
+            id: "task-1".to_string(),
+            intent: "chat".to_string(),
+            agent: "autopilot".to_string(),
+            phase: AgentPhase::Running,
+            progress: 0,
+            total_steps: 0,
+            current_step: "Session start commit is delayed, but bootstrap is continuing in the background: Tx abc did not commit within 15000ms.".to_string(),
+            gate_info: None,
+            receipt: None,
+            visual_hash: None,
+            pending_request_hash: None,
+            session_id: Some("task-1".to_string()),
+            credential_request: None,
+            clarification_request: None,
+            session_checklist: Vec::new(),
+            background_tasks: Vec::new(),
+            history: Vec::new(),
+            events: Vec::new(),
+            artifacts: Vec::new(),
+            studio_session: None,
+            studio_outcome: None,
+            renderer_session: None,
+            build_session: None,
+            run_bundle_id: None,
+            processed_steps: HashSet::new(),
+            swarm_tree: Vec::new(),
+            generation: 0,
+            lineage_id: "genesis".to_string(),
+            fitness_score: 0.0,
+        };
+
+        assert!(should_replace_with_reconciled_running_step(
+            &task.current_step
+        ));
+    }
+
+    #[test]
+    fn duplicate_studio_seed_submit_reuses_running_task() {
+        let running_task = AgentTask {
+            id: "task-1".to_string(),
+            intent: "Make me a report.".to_string(),
+            agent: "autopilot".to_string(),
+            phase: AgentPhase::Running,
+            progress: 0,
+            total_steps: 0,
+            current_step: "Initializing...".to_string(),
+            gate_info: None,
+            receipt: None,
+            visual_hash: None,
+            pending_request_hash: None,
+            session_id: Some("task-1".to_string()),
+            credential_request: None,
+            clarification_request: None,
+            session_checklist: Vec::new(),
+            background_tasks: Vec::new(),
+            history: Vec::new(),
+            events: Vec::new(),
+            artifacts: Vec::new(),
+            studio_session: None,
+            studio_outcome: None,
+            renderer_session: None,
+            build_session: None,
+            run_bundle_id: None,
+            processed_steps: HashSet::new(),
+            swarm_tree: Vec::new(),
+            generation: 0,
+            lineage_id: "genesis".to_string(),
+            fitness_score: 0.0,
+        };
+
+        assert!(should_reuse_running_studio_task_for_duplicate_submit(
+            &running_task,
+            "Make me a report.",
+            Some("studio"),
+        ));
+        assert!(!should_reuse_running_studio_task_for_duplicate_submit(
+            &running_task,
+            "Make me a report.",
+            Some("overlay"),
+        ));
+        assert!(!should_reuse_running_studio_task_for_duplicate_submit(
+            &running_task,
+            "Make me a deck.",
+            Some("studio"),
+        ));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn best_effort_optional_future_returns_successful_value() {
+        let value = run_best_effort_optional_future("test future", async {
+            Ok::<_, String>(Some("ready"))
+        })
+        .await;
+
+        assert_eq!(value, Some("ready"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn best_effort_optional_future_drops_recoverable_failure() {
+        let value = run_best_effort_optional_future::<&'static str, _>("test future", async {
+            Err::<Option<&'static str>, _>("boom".to_string())
+        })
+        .await;
+
+        assert_eq!(value, None);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn best_effort_optional_future_times_out_without_blocking_startup() {
+        let value = run_best_effort_optional_future::<&'static str, _>("test future", async {
+            sleep(Duration::from_millis(AMBIENT_KNOWLEDGE_TIMEOUT_MS + 50)).await;
+            Ok::<_, String>(Some("late"))
+        })
+        .await;
+
+        assert_eq!(value, None);
     }
 
     #[tokio::test(flavor = "multi_thread")]

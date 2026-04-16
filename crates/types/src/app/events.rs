@@ -70,6 +70,56 @@ pub struct RoutingPostStateSummary {
     pub verification_checks: Vec<String>,
 }
 
+/// Auditable per-turn tool surface projection used by routing receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct RoutingEffectiveToolSurface {
+    /// Ordered union of the projected tools surfaced to the model/runtime for this turn.
+    pub projected_tools: Vec<String>,
+    /// Route-shaped tools preferred for the current turn.
+    pub primary_tools: Vec<String>,
+    /// Broad fallback tools that remained available after projection.
+    pub broad_fallback_tools: Vec<String>,
+    /// Additional discovered tools retained for audit/diagnostic truth.
+    pub diagnostic_tools: Vec<String>,
+}
+
+/// Typed route-decision contract emitted alongside routing receipts.
+#[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct RoutingRouteDecision {
+    /// High-level runtime family selected for this step.
+    pub route_family: String,
+    /// Whether a direct inline answer remained viable for this turn.
+    pub direct_answer_allowed: bool,
+    /// Named blockers explaining why direct inline answering was not selected.
+    pub direct_answer_blockers: Vec<String>,
+    /// Whether fresh/current data requirements overrode direct answering.
+    pub currentness_override: bool,
+    /// Number of provider candidates synthesized for this turn.
+    pub connector_candidate_count: u32,
+    /// Provider family selected by provider selection, when any.
+    pub selected_provider_family: Option<String>,
+    /// Provider route label selected by provider selection, when any.
+    pub selected_provider_route_label: Option<String>,
+    /// Whether connector/provider-aligned tools were preferred over built-in fallbacks.
+    pub connector_first_preference: bool,
+    /// Whether narrow route-shaped tools outranked broad fallback tools.
+    pub narrow_tool_preference: bool,
+    /// Whether the route points toward filesystem/file-backed output.
+    pub file_output_intent: bool,
+    /// Whether the route points toward generated artifact output.
+    pub artifact_output_intent: bool,
+    /// Whether the route points toward inline visual/browser/UI output.
+    pub inline_visual_intent: bool,
+    /// Whether conditional skill/guidance preparation was required.
+    pub skill_prep_required: bool,
+    /// High-level output intent for the selected route.
+    pub output_intent: String,
+    /// Auditable projected tool surface for the turn.
+    pub effective_tool_surface: RoutingEffectiveToolSurface,
+}
+
 /// Receipted parity router decision emitted for each impactful action.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq)]
 pub struct RoutingReceiptEvent {
@@ -125,6 +175,9 @@ pub struct RoutingReceiptEvent {
     pub policy_binding_sig: Option<String>,
     /// Optional signer public key (hex-encoded protobuf bytes).
     pub policy_binding_signer: Option<String>,
+    /// Typed route-decision contract derived from the runtime's effective surface.
+    #[serde(default)]
+    pub route_decision: RoutingRouteDecision,
 }
 
 /// PII decision receipt emitted by the local-only PII firewall pipeline.

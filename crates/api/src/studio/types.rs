@@ -1097,6 +1097,8 @@ pub struct StudioArtifactPreparedContextResolution {
 #[serde(rename_all = "camelCase")]
 pub struct StudioArtifactSkillDiscoveryResolution {
     pub status: String,
+    #[serde(default = "default_studio_guidance_status")]
+    pub guidance_status: String,
     #[serde(default)]
     pub guidance_evaluated: bool,
     #[serde(default)]
@@ -1117,6 +1119,10 @@ pub struct StudioArtifactSkillDiscoveryResolution {
     pub rationale: String,
     #[serde(default)]
     pub failure_reason: Option<String>,
+}
+
+fn default_studio_guidance_status() -> String {
+    "pending".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

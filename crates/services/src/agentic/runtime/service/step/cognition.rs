@@ -432,7 +432,7 @@ fn should_prefer_browser_semantics(is_browser: bool, tools: &[LlmToolDefinition]
     is_browser && tools.iter().any(|tool| tool.name.starts_with("browser__"))
 }
 
-fn reply_safe_browser_semantics_enabled(
+pub(crate) fn reply_safe_browser_semantics_enabled(
     is_browser: bool,
     tools: &[LlmToolDefinition],
     resolved_intent: Option<&ResolvedIntentState>,
@@ -753,7 +753,7 @@ fn pending_state_has_visible_start_gate(pending_browser_state_context: &str) -> 
         .contains("visible start gate")
 }
 
-fn filter_cognition_tools(
+pub(crate) fn filter_cognition_tools(
     tools: &[LlmToolDefinition],
     resolved_intent: Option<&ResolvedIntentState>,
     prefer_browser_semantics: bool,

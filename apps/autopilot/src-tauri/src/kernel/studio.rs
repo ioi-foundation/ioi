@@ -13,6 +13,7 @@ mod skills;
 mod task_state;
 mod workspace_build;
 mod workspace_scaffold;
+pub(crate) use self::content_session::runtime_handoff_prompt_prefix_for_task;
 use self::content_session::{
     artifact_class_id_for_request, attach_blocked_studio_failure_session, lifecycle_state_label,
     materialization_contract_for_request, maybe_refine_current_non_workspace_artifact_turn,
@@ -44,15 +45,17 @@ use self::revisions::{
     initial_revision_for_session, restore_artifact_revision, revision_branch_identity,
     revision_for_session, studio_refinement_context_for_session,
 };
-use self::selection::attach_artifact_selection;
+use self::selection::{attach_artifact_selection, attach_widget_state};
 use self::task_state::{
     app_acceptance_inference_runtime, app_inference_runtime, app_studio_routing_inference_runtime,
     build_session_to_renderer_session, current_task_and_memory_runtime,
     persist_current_task_update, update_studio_session_from_build_session,
 };
+#[allow(unused_imports)]
 pub use self::task_state::{
     apply_studio_authoritative_status, task_is_studio_authoritative,
-    verified_reply_summary_for_task, verified_reply_title_for_task,
+    task_requires_studio_primary_execution, verified_reply_summary_for_task,
+    verified_reply_title_for_task,
 };
 #[cfg(test)]
 use self::workspace_build::preview_launch_command;
@@ -75,6 +78,7 @@ use crate::models::{
     StudioExecutionSubstrate, StudioOutcomeArtifactRequest, StudioOutcomeArtifactScope,
     StudioOutcomeArtifactVerificationRequest, StudioOutcomeKind, StudioOutcomeRequest,
     StudioPresentationSurface, StudioRendererKind, StudioRendererSession,
+    StudioRetainedWidgetState,
 };
 use crate::orchestrator;
 #[cfg(test)]
@@ -191,6 +195,15 @@ pub fn studio_attach_artifact_selection(
     selection: StudioArtifactSelectionTarget,
 ) -> Result<(), String> {
     attach_artifact_selection(state, app, selection)
+}
+
+#[tauri::command]
+pub fn studio_attach_widget_state(
+    state: State<'_, Mutex<AppState>>,
+    app: AppHandle,
+    widget_state: StudioRetainedWidgetState,
+) -> Result<(), String> {
+    attach_widget_state(state, app, widget_state)
 }
 
 #[tauri::command]

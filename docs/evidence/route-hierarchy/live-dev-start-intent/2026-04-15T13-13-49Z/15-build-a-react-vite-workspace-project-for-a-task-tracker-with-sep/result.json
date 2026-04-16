@@ -1,0 +1,3295 @@
+{
+  "captured_at": "2026-04-15T13:24:02.072304+00:00",
+  "prompt": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+  "screenshot": "docs/evidence/route-hierarchy/live-dev-start-intent/2026-04-15T13-13-49Z/15-build-a-react-vite-workspace-project-for-a-task-tracker-with-sep/final.png",
+  "window_id": 20971532,
+  "window_capture_error": null,
+  "task": {
+    "id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+    "intent": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+    "agent": "Autopilot",
+    "phase": "Complete",
+    "progress": 0,
+    "total_steps": 20,
+    "current_step": "Preview verified and ready",
+    "gate_info": null,
+    "receipt": null,
+    "visual_hash": null,
+    "pending_request_hash": null,
+    "session_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+    "credential_request": null,
+    "clarification_request": null,
+    "session_checklist": [
+      {
+        "itemId": "request",
+        "label": "Request captured",
+        "status": "completed",
+        "detail": "Build a React + Vite workspace project for a task tracker with separate components, filters, and...",
+        "updatedAtMs": 1776259439168
+      },
+      {
+        "itemId": "execution",
+        "label": "Execution complete",
+        "status": "completed",
+        "detail": "Preview verified and ready",
+        "updatedAtMs": 1776259439168
+      },
+      {
+        "itemId": "review",
+        "label": "Review latest output",
+        "status": "completed",
+        "detail": "Planning artifacts ready: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifac...",
+        "updatedAtMs": 1776259439168
+      }
+    ],
+    "background_tasks": [
+      {
+        "taskId": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "sessionId": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "label": "Build a React + Vite workspace project for a task tracker with separate ...",
+        "status": "completed",
+        "detail": "Preview verified and ready",
+        "latestOutput": "Planning artifacts ready: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifac...",
+        "canStop": false,
+        "updatedAtMs": 1776259439168
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "text": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+        "timestamp": 1776259429481
+      },
+      {
+        "role": "system",
+        "text": "Planning artifacts ready: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465/planning/implementation_plan.md, /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465/planning/task.md, /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465/planning/walkthrough.md",
+        "timestamp": 1776259429550
+      }
+    ],
+    "events": [
+      {
+        "event_id": "5c271cea-6ebc-4031-be43-ecfe9cf2254a",
+        "timestamp": "2026-04-15T13:23:49.481453755+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state"
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "84698450-a8b4-40c7-964f-f621271d9f5d",
+        "timestamp": "2026-04-15T13:23:50.093899012+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "step_index": 0,
+        "event_type": "RECEIPT",
+        "title": "Studio created Build a React + Vite workspace project for a task tracker with se...",
+        "digest": {
+          "artifact_class": "workspace_project",
+          "build_session_id": "4d0109c2-3d40-4ae7-a695-07f05f04aecc",
+          "navigator_backing_mode": "workspace",
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": true,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "persistent_artifact_requested"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:persistent_artifact_requested",
+                "route_hint:explicit_workspace_project_deliverable",
+                "route_hint:workspace_runtime_required",
+                "route_hint:workspace_recipe:react-vite"
+              ],
+              "primary_tools": [
+                "studio_renderer:workspace_surface"
+              ],
+              "projected_tools": [
+                "studio_renderer:workspace_surface"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": false,
+            "output_intent": "artifact",
+            "route_family": "coding",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": true
+          },
+          "route_family": "coding",
+          "selected_route": "artifact_workspace_surface",
+          "topology": "planner_specialist_verifier",
+          "verifier_state": "active"
+        },
+        "details": {
+          "activeRevisionId": "56488a53-4afb-4ad8-bdc3-879747f11d1c",
+          "artifactId": "ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+          "artifactManifest": {
+            "artifactClass": "workspace_project",
+            "artifactId": "ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+            "files": [
+              {
+                "artifactId": null,
+                "downloadable": true,
+                "externalUrl": null,
+                "mime": "text/jsx",
+                "path": "src/App.tsx",
+                "renderable": true,
+                "role": "primary"
+              },
+              {
+                "artifactId": null,
+                "downloadable": true,
+                "externalUrl": null,
+                "mime": "application/json",
+                "path": "artifact-manifest.json",
+                "renderable": false,
+                "role": "supporting"
+              }
+            ],
+            "primaryTab": "workspace",
+            "renderer": "workspace_surface",
+            "storage": null,
+            "tabs": [
+              {
+                "filePath": null,
+                "id": "preview",
+                "kind": "render",
+                "label": "Preview",
+                "lens": "preview",
+                "renderer": "html_iframe"
+              },
+              {
+                "filePath": "src/App.tsx",
+                "id": "workspace",
+                "kind": "workspace",
+                "label": "Workspace",
+                "lens": "code",
+                "renderer": "workspace_surface"
+              },
+              {
+                "filePath": null,
+                "id": "evidence",
+                "kind": "evidence",
+                "label": "Evidence",
+                "lens": "evidence",
+                "renderer": null
+              }
+            ],
+            "title": "Build a React + Vite workspace project for a task tracker with se...",
+            "verification": {
+              "acceptanceProvenance": null,
+              "failure": null,
+              "lifecycleState": "materializing",
+              "productionProvenance": null,
+              "status": "pending",
+              "summary": "Studio is materializing the workspace renderer and running verification."
+            }
+          },
+          "attachedArtifactIds": [
+            "ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+            "9faa69b3-f416-4b25-8fcd-a94b8d5e3e26"
+          ],
+          "availableLenses": [
+            "preview",
+            "workspace",
+            "evidence"
+          ],
+          "buildSessionId": "4d0109c2-3d40-4ae7-a695-07f05f04aecc",
+          "createdAt": "2026-04-15T13:23:49.999663934+00:00",
+          "currentLens": "workspace",
+          "lifecycleState": "materializing",
+          "materialization": {
+            "acceptanceProvenance": {
+              "endpoint": null,
+              "kind": "inference_unavailable",
+              "label": "inference unavailable",
+              "model": null
+            },
+            "artifactBrief": null,
+            "artifactIr": null,
+            "blueprint": null,
+            "candidateSummaries": [],
+            "commandIntents": [
+              {
+                "command": "npm install --no-audit --no-fund",
+                "id": "install",
+                "kind": "install",
+                "label": "Install dependencies"
+              },
+              {
+                "command": "npm run build",
+                "id": "build",
+                "kind": "build",
+                "label": "Validate build"
+              },
+              {
+                "command": "npm run preview -- --host 127.0.0.1 --port <assigned>",
+                "id": "preview",
+                "kind": "preview",
+                "label": "Launch preview"
+              }
+            ],
+            "editIntent": null,
+            "executionEnvelope": {
+              "budgetEnvelope": {
+                "expansionPolicy": "frontier_adaptive",
+                "maxParallelDepth": 4,
+                "maxRepairs": 2,
+                "maxReplans": 4,
+                "maxTokens": 24000,
+                "maxToolCalls": 12,
+                "maxWallClockMs": 600000,
+                "maxWorkers": 8
+              },
+              "budgetSummary": null,
+              "changeReceipts": [],
+              "completionInvariant": {
+                "allowsEarlyExit": false,
+                "prunedWorkItemIds": [],
+                "remainingObligations": [
+                  "verification:verify"
+                ],
+                "requiredArtifactPaths": [],
+                "requiredVerificationIds": [
+                  "verify"
+                ],
+                "requiredWorkItemIds": [],
+                "satisfiedVerificationIds": [],
+                "satisfiedWorkItemIds": [],
+                "speculativeWorkItemIds": [],
+                "status": "pending",
+                "summary": "adaptive_work_graph completes when the primary artifact exists and verification passes."
+              },
+              "dispatchBatches": [],
+              "domainKind": "artifact",
+              "executionDomain": "studio_artifact",
+              "executionSummary": null,
+              "graphMutationReceipts": [],
+              "livePreviews": [],
+              "mergeReceipts": [],
+              "modeDecision": {
+                "ambiguity": 0.019999980926513672,
+                "budgetEnvelope": {
+                  "expansionPolicy": "frontier_adaptive",
+                  "maxParallelDepth": 4,
+                  "maxRepairs": 2,
+                  "maxReplans": 4,
+                  "maxTokens": 24000,
+                  "maxToolCalls": 12,
+                  "maxWallClockMs": 600000,
+                  "maxWorkers": 8
+                },
+                "decompositionPayoff": 0.9599999785423279,
+                "decompositionReason": "The request implies multiple obligations or hidden dependencies, so a mutable work graph is justified.",
+                "evidenceBreadth": 0.6800000071525574,
+                "hiddenDependencyLikelihood": 0.9999999403953552,
+                "mergeBurden": 1.0,
+                "modeConfidence": 0.7870000004768372,
+                "oneShotSufficiency": 0.06499999761581421,
+                "requestedStrategy": "plan_execute",
+                "resolvedStrategy": "adaptive_work_graph",
+                "revisionCost": 0.75,
+                "verificationPressure": 0.800000011920929,
+                "workGraphRequired": true,
+                "workGraphSizeEstimate": 7
+              },
+              "plan": null,
+              "repairReceipts": [],
+              "replanReceipts": [],
+              "strategy": "adaptive_work_graph",
+              "verificationReceipts": [],
+              "version": 1,
+              "workerReceipts": []
+            },
+            "failure": null,
+            "fallbackUsed": false,
+            "fileWrites": [
+              {
+                "contentPreview": "{   \"name\": \"build-a-react-vite-workspace-project-for-a-task-tracker-with-se\",   \"private\": true,",
+                "kind": "write",
+                "path": "package.json"
+              },
+              {
+                "contentPreview": "{   \"files\": [],   \"references\": [",
+                "kind": "write",
+                "path": "tsconfig.json"
+              },
+              {
+                "contentPreview": "{   \"compilerOptions\": {     \"target\": \"ES2020\",",
+                "kind": "write",
+                "path": "tsconfig.app.json"
+              },
+              {
+                "contentPreview": "{   \"compilerOptions\": {     \"composite\": true,",
+                "kind": "write",
+                "path": "tsconfig.node.json"
+              },
+              {
+                "contentPreview": "import { defineConfig } from 'vite' import react from '@vitejs/plugin-react' ",
+                "kind": "write",
+                "path": "vite.config.ts"
+              },
+              {
+                "contentPreview": "<!doctype html> <html lang=\"en\">   <head>",
+                "kind": "write",
+                "path": "index.html"
+              },
+              {
+                "contentPreview": "import React from 'react' import ReactDOM from 'react-dom/client' import App from './App'",
+                "kind": "write",
+                "path": "src/main.tsx"
+              },
+              {
+                "contentPreview": "import './App.css'  export default function App() {",
+                "kind": "write",
+                "path": "src/App.tsx"
+              },
+              {
+                "contentPreview": ".shell {   min-height: 100vh;   padding: 4rem clamp(1.5rem, 4vw, 4rem);",
+                "kind": "write",
+                "path": "src/App.css"
+              },
+              {
+                "contentPreview": ":root {   color-scheme: dark;   font-family: Inter, system-ui, sans-serif;",
+                "kind": "write",
+                "path": "src/index.css"
+              }
+            ],
+            "judge": null,
+            "navigatorNodes": [
+              {
+                "badge": null,
+                "children": [],
+                "description": "Interact with the artifact through its renderer-specific presentation.",
+                "id": "preview",
+                "kind": "render",
+                "label": "Preview",
+                "lens": "preview",
+                "path": null,
+                "status": null
+              },
+              {
+                "badge": null,
+                "children": [],
+                "description": "Open the workspace renderer for implementation and verification.",
+                "id": "workspace",
+                "kind": "workspace",
+                "label": "Workspace",
+                "lens": "workspace",
+                "path": "src/App.tsx",
+                "status": null
+              },
+              {
+                "badge": null,
+                "children": [],
+                "description": "Inspect verification state, receipts, and evidence.",
+                "id": "evidence",
+                "kind": "evidence",
+                "label": "Evidence",
+                "lens": "evidence",
+                "path": null,
+                "status": null
+              }
+            ],
+            "normalizedIntent": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+            "notes": [
+              "Conversation remains the control plane; this artifact is the work product.",
+              "Renderer choice is explicit in the typed outcome request.",
+              "Verification state, not worker prose, authorizes the final Studio summary."
+            ],
+            "outputOrigin": "live_inference",
+            "pipelineSteps": [
+              {
+                "id": "intake",
+                "label": "Intake",
+                "outputs": [
+                  "Build a React + Vite workspace project for a task tracker with separate components, filt\u2026"
+                ],
+                "stage": "plan",
+                "status": "complete",
+                "summary": "Studio captured the request and established the active artifact context.",
+                "verificationGate": null
+              },
+              {
+                "id": "routing",
+                "label": "Outcome routing",
+                "outputs": [
+                  "artifact",
+                  "workspace_project",
+                  "workspace_surface",
+                  "strategy:adaptive_work_graph",
+                  "requested:plan_execute"
+                ],
+                "stage": "dispatch",
+                "status": "complete",
+                "summary": "The typed router chose the artifact branch intentionally.",
+                "verificationGate": null
+              },
+              {
+                "id": "requirements",
+                "label": "Requirements",
+                "outputs": [
+                  "workspace",
+                  "require_render"
+                ],
+                "stage": "plan",
+                "status": "complete",
+                "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+                "verificationGate": null
+              },
+              {
+                "id": "specification",
+                "label": "Artifact spec",
+                "outputs": [
+                  "workspace_project",
+                  "workspace_surface",
+                  "tabbed_panel",
+                  "workspace_filesystem"
+                ],
+                "stage": "plan",
+                "status": "complete",
+                "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+                "verificationGate": null
+              },
+              {
+                "id": "brief",
+                "label": "Artifact brief",
+                "outputs": [
+                  "brief:pending"
+                ],
+                "stage": "plan",
+                "status": "active",
+                "summary": "Studio is grounding the request into a typed artifact brief before authoring can begin.",
+                "verificationGate": null
+              },
+              {
+                "id": "skill_discovery",
+                "label": "Skill discovery",
+                "outputs": [
+                  "guidance_evaluated:pending"
+                ],
+                "stage": "plan",
+                "status": "pending",
+                "summary": "Studio is deciding whether this request should attach runtime guidance before authoring.",
+                "verificationGate": null
+              },
+              {
+                "id": "planner",
+                "label": "Planner",
+                "outputs": [
+                  "planner_pending"
+                ],
+                "stage": "plan",
+                "status": "complete",
+                "summary": "Studio locked one canonical artifact plan and explicit worker scopes before authoring.",
+                "verificationGate": null
+              },
+              {
+                "id": "swarm_execution",
+                "label": "Adaptive work graph",
+                "outputs": [
+                  "worker_receipts:0",
+                  "invariant:pending",
+                  "remaining:1"
+                ],
+                "stage": "work",
+                "status": "active",
+                "summary": "Scoped workers patched the same canonical artifact instead of drafting competing full candidates.",
+                "verificationGate": "Worker receipts must retain bounded ownership and status."
+              },
+              {
+                "id": "merge",
+                "label": "Merge",
+                "outputs": [],
+                "stage": "merge",
+                "status": "active",
+                "summary": "Deterministic patch gating and merge receipts reconciled worker output onto one artifact state.",
+                "verificationGate": "Out-of-scope patches must be rejected before the artifact can advance."
+              },
+              {
+                "id": "materialization",
+                "label": "Materialization",
+                "outputs": [
+                  "origin:liveinference",
+                  "package.json",
+                  "tsconfig.json",
+                  "tsconfig.app.json",
+                  "files:10"
+                ],
+                "stage": "mutate",
+                "status": "active",
+                "summary": "Studio is creating the files or workspace required by the manifest.",
+                "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+              },
+              {
+                "id": "execution",
+                "label": "Execution",
+                "outputs": [
+                  "Scaffolded react-vite workspace (success)"
+                ],
+                "stage": "mutate",
+                "status": "pending",
+                "summary": "Workspace commands and retries stay bounded under kernel authority.",
+                "verificationGate": "Execution receipts must exist for every command-backed step."
+              },
+              {
+                "id": "verification",
+                "label": "Verification",
+                "outputs": [
+                  "Scaffold workspace (success)",
+                  "Install dependencies (pending)",
+                  "Validate build (pending)",
+                  "Verify preview (pending)",
+                  "completion:pending",
+                  "remaining:verification:verify"
+                ],
+                "stage": "verify",
+                "status": "pending",
+                "summary": "Studio is materializing the workspace renderer and running verification.",
+                "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+              },
+              {
+                "id": "repair",
+                "label": "Repair",
+                "outputs": [],
+                "stage": "mutate",
+                "status": "pending",
+                "summary": "Repair stays bounded to cited judge or verification failures on the merged artifact.",
+                "verificationGate": "Repair may patch only cited failures, not restart the artifact wholesale."
+              },
+              {
+                "id": "presentation",
+                "label": "Presentation",
+                "outputs": [
+                  "workspace",
+                  "2 file(s)"
+                ],
+                "stage": "finalize",
+                "status": "pending",
+                "summary": "Studio is presenting only the artifact surfaces that currently exist.",
+                "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+              },
+              {
+                "id": "reply",
+                "label": "Verified reply",
+                "outputs": [
+                  "Studio is materializing the workspace renderer and running verification."
+                ],
+                "stage": "finalize",
+                "status": "pending",
+                "summary": "Studio composes the user-facing summary from artifact state and verification.",
+                "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+              }
+            ],
+            "preparationNeeds": null,
+            "preparedContextResolution": null,
+            "previewIntent": {
+              "label": "Preview lane",
+              "status": "pending",
+              "url": null
+            },
+            "productionProvenance": {
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b"
+            },
+            "renderEvaluation": null,
+            "requestKind": "workspace_project",
+            "retrievedExemplars": [],
+            "runtimeNarrationEvents": [],
+            "selectedSkills": [],
+            "skillDiscoveryResolution": null,
+            "summary": "Studio provisioned 'Build a React + Vite workspace project for a task tracker with se...' as an artifact backed by the workspace_surface renderer and is supervising scaffold, verification, and preview under kernel authority.",
+            "swarmChangeReceipts": [],
+            "swarmExecution": null,
+            "swarmMergeReceipts": [],
+            "swarmPlan": null,
+            "swarmVerificationReceipts": [],
+            "swarmWorkerReceipts": [],
+            "uxLifecycle": null,
+            "verificationSteps": [
+              {
+                "id": "scaffold",
+                "kind": "scaffold",
+                "label": "Scaffold workspace",
+                "status": "success"
+              },
+              {
+                "id": "install",
+                "kind": "install",
+                "label": "Install dependencies",
+                "status": "pending"
+              },
+              {
+                "id": "validation",
+                "kind": "validation",
+                "label": "Validate build",
+                "status": "pending"
+              },
+              {
+                "id": "preview",
+                "kind": "preview",
+                "label": "Verify preview",
+                "status": "pending"
+              }
+            ],
+            "version": 7,
+            "winningCandidateId": null,
+            "winningCandidateRationale": null
+          },
+          "navigatorBackingMode": "workspace",
+          "navigatorNodes": [
+            {
+              "badge": null,
+              "children": [],
+              "description": "Interact with the artifact through its renderer-specific presentation.",
+              "id": "preview",
+              "kind": "render",
+              "label": "Preview",
+              "lens": "preview",
+              "path": null,
+              "status": null
+            },
+            {
+              "badge": null,
+              "children": [],
+              "description": "Open the workspace renderer for implementation and verification.",
+              "id": "workspace",
+              "kind": "workspace",
+              "label": "Workspace",
+              "lens": "workspace",
+              "path": "src/App.tsx",
+              "status": null
+            },
+            {
+              "badge": null,
+              "children": [],
+              "description": "Inspect verification state, receipts, and evidence.",
+              "id": "evidence",
+              "kind": "evidence",
+              "label": "Evidence",
+              "lens": "evidence",
+              "path": null,
+              "status": null
+            }
+          ],
+          "outcomeRequest": {
+            "activeArtifactId": null,
+            "artifact": {
+              "artifactClass": "workspace_project",
+              "deliverableShape": "workspace_project",
+              "executionSubstrate": "workspace_runtime",
+              "persistence": "workspace_filesystem",
+              "presentationSurface": "tabbed_panel",
+              "presentationVariantId": null,
+              "renderer": "workspace_surface",
+              "scope": {
+                "createNewWorkspace": true,
+                "mutationBoundary": [
+                  "workspace"
+                ],
+                "targetProject": null
+              },
+              "verification": {
+                "requireBuild": true,
+                "requireDiffReview": true,
+                "requireExport": false,
+                "requirePreview": true,
+                "requireRender": true
+              },
+              "workspaceRecipeId": "react-vite"
+            },
+            "clarificationQuestions": [],
+            "confidence": 0.9800000190734863,
+            "executionModeDecision": {
+              "ambiguity": 0.019999980926513672,
+              "budgetEnvelope": {
+                "expansionPolicy": "frontier_adaptive",
+                "maxParallelDepth": 4,
+                "maxRepairs": 2,
+                "maxReplans": 4,
+                "maxTokens": 24000,
+                "maxToolCalls": 12,
+                "maxWallClockMs": 600000,
+                "maxWorkers": 8
+              },
+              "decompositionPayoff": 0.9599999785423279,
+              "decompositionReason": "The request implies multiple obligations or hidden dependencies, so a mutable work graph is justified.",
+              "evidenceBreadth": 0.6800000071525574,
+              "hiddenDependencyLikelihood": 0.9999999403953552,
+              "mergeBurden": 1.0,
+              "modeConfidence": 0.7870000004768372,
+              "oneShotSufficiency": 0.06499999761581421,
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "adaptive_work_graph",
+              "revisionCost": 0.75,
+              "verificationPressure": 0.800000011920929,
+              "workGraphRequired": true,
+              "workGraphSizeEstimate": 7
+            },
+            "executionStrategy": "adaptive_work_graph",
+            "needsClarification": false,
+            "outcomeKind": "artifact",
+            "rawPrompt": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+            "requestId": "89cf4150-02a1-4f87-85df-2f2973354b16",
+            "routingHints": [
+              "persistent_artifact_requested",
+              "explicit_workspace_project_deliverable",
+              "workspace_runtime_required",
+              "workspace_recipe:react-vite"
+            ]
+          },
+          "planner_authority": "kernel",
+          "rendererSessionId": "4d0109c2-3d40-4ae7-a695-07f05f04aecc",
+          "retrievedExemplars": [],
+          "revisions": [
+            {
+              "acceptanceProvenance": {
+                "endpoint": null,
+                "kind": "inference_unavailable",
+                "label": "inference unavailable",
+                "model": null
+              },
+              "artifactBrief": null,
+              "artifactIr": null,
+              "artifactManifest": {
+                "artifactClass": "workspace_project",
+                "artifactId": "ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+                "files": [
+                  {
+                    "artifactId": null,
+                    "downloadable": true,
+                    "externalUrl": null,
+                    "mime": "text/jsx",
+                    "path": "src/App.tsx",
+                    "renderable": true,
+                    "role": "primary"
+                  },
+                  {
+                    "artifactId": null,
+                    "downloadable": true,
+                    "externalUrl": null,
+                    "mime": "application/json",
+                    "path": "artifact-manifest.json",
+                    "renderable": false,
+                    "role": "supporting"
+                  }
+                ],
+                "primaryTab": "workspace",
+                "renderer": "workspace_surface",
+                "storage": null,
+                "tabs": [
+                  {
+                    "filePath": null,
+                    "id": "preview",
+                    "kind": "render",
+                    "label": "Preview",
+                    "lens": "preview",
+                    "renderer": "html_iframe"
+                  },
+                  {
+                    "filePath": "src/App.tsx",
+                    "id": "workspace",
+                    "kind": "workspace",
+                    "label": "Workspace",
+                    "lens": "code",
+                    "renderer": "workspace_surface"
+                  },
+                  {
+                    "filePath": null,
+                    "id": "evidence",
+                    "kind": "evidence",
+                    "label": "Evidence",
+                    "lens": "evidence",
+                    "renderer": null
+                  }
+                ],
+                "title": "Build a React + Vite workspace project for a task tracker with se...",
+                "verification": {
+                  "acceptanceProvenance": null,
+                  "failure": null,
+                  "lifecycleState": "materializing",
+                  "productionProvenance": null,
+                  "status": "pending",
+                  "summary": "Studio is materializing the workspace renderer and running verification."
+                }
+              },
+              "blueprint": null,
+              "branchId": "main",
+              "branchLabel": "Main",
+              "candidateSummaries": [],
+              "createdAt": "2026-04-15T13:23:50.092827992+00:00",
+              "editIntent": null,
+              "executionEnvelope": {
+                "budgetEnvelope": {
+                  "expansionPolicy": "frontier_adaptive",
+                  "maxParallelDepth": 4,
+                  "maxRepairs": 2,
+                  "maxReplans": 4,
+                  "maxTokens": 24000,
+                  "maxToolCalls": 12,
+                  "maxWallClockMs": 600000,
+                  "maxWorkers": 8
+                },
+                "budgetSummary": null,
+                "changeReceipts": [],
+                "completionInvariant": {
+                  "allowsEarlyExit": false,
+                  "prunedWorkItemIds": [],
+                  "remainingObligations": [
+                    "verification:verify"
+                  ],
+                  "requiredArtifactPaths": [],
+                  "requiredVerificationIds": [
+                    "verify"
+                  ],
+                  "requiredWorkItemIds": [],
+                  "satisfiedVerificationIds": [],
+                  "satisfiedWorkItemIds": [],
+                  "speculativeWorkItemIds": [],
+                  "status": "pending",
+                  "summary": "adaptive_work_graph completes when the primary artifact exists and verification passes."
+                },
+                "dispatchBatches": [],
+                "domainKind": "artifact",
+                "executionDomain": "studio_artifact",
+                "executionSummary": null,
+                "graphMutationReceipts": [],
+                "livePreviews": [],
+                "mergeReceipts": [],
+                "modeDecision": {
+                  "ambiguity": 0.019999980926513672,
+                  "budgetEnvelope": {
+                    "expansionPolicy": "frontier_adaptive",
+                    "maxParallelDepth": 4,
+                    "maxRepairs": 2,
+                    "maxReplans": 4,
+                    "maxTokens": 24000,
+                    "maxToolCalls": 12,
+                    "maxWallClockMs": 600000,
+                    "maxWorkers": 8
+                  },
+                  "decompositionPayoff": 0.9599999785423279,
+                  "decompositionReason": "The request implies multiple obligations or hidden dependencies, so a mutable work graph is justified.",
+                  "evidenceBreadth": 0.6800000071525574,
+                  "hiddenDependencyLikelihood": 0.9999999403953552,
+                  "mergeBurden": 1.0,
+                  "modeConfidence": 0.7870000004768372,
+                  "oneShotSufficiency": 0.06499999761581421,
+                  "requestedStrategy": "plan_execute",
+                  "resolvedStrategy": "adaptive_work_graph",
+                  "revisionCost": 0.75,
+                  "verificationPressure": 0.800000011920929,
+                  "workGraphRequired": true,
+                  "workGraphSizeEstimate": 7
+                },
+                "plan": null,
+                "repairReceipts": [],
+                "replanReceipts": [],
+                "strategy": "adaptive_work_graph",
+                "verificationReceipts": [],
+                "version": 1,
+                "workerReceipts": []
+              },
+              "failure": null,
+              "fileWrites": [
+                {
+                  "contentPreview": "{   \"name\": \"build-a-react-vite-workspace-project-for-a-task-tracker-with-se\",   \"private\": true,",
+                  "kind": "write",
+                  "path": "package.json"
+                },
+                {
+                  "contentPreview": "{   \"files\": [],   \"references\": [",
+                  "kind": "write",
+                  "path": "tsconfig.json"
+                },
+                {
+                  "contentPreview": "{   \"compilerOptions\": {     \"target\": \"ES2020\",",
+                  "kind": "write",
+                  "path": "tsconfig.app.json"
+                },
+                {
+                  "contentPreview": "{   \"compilerOptions\": {     \"composite\": true,",
+                  "kind": "write",
+                  "path": "tsconfig.node.json"
+                },
+                {
+                  "contentPreview": "import { defineConfig } from 'vite' import react from '@vitejs/plugin-react' ",
+                  "kind": "write",
+                  "path": "vite.config.ts"
+                },
+                {
+                  "contentPreview": "<!doctype html> <html lang=\"en\">   <head>",
+                  "kind": "write",
+                  "path": "index.html"
+                },
+                {
+                  "contentPreview": "import React from 'react' import ReactDOM from 'react-dom/client' import App from './App'",
+                  "kind": "write",
+                  "path": "src/main.tsx"
+                },
+                {
+                  "contentPreview": "import './App.css'  export default function App() {",
+                  "kind": "write",
+                  "path": "src/App.tsx"
+                },
+                {
+                  "contentPreview": ".shell {   min-height: 100vh;   padding: 4rem clamp(1.5rem, 4vw, 4rem);",
+                  "kind": "write",
+                  "path": "src/App.css"
+                },
+                {
+                  "contentPreview": ":root {   color-scheme: dark;   font-family: Inter, system-ui, sans-serif;",
+                  "kind": "write",
+                  "path": "src/index.css"
+                }
+              ],
+              "judge": null,
+              "outputOrigin": "live_inference",
+              "parentRevisionId": null,
+              "preparationNeeds": null,
+              "preparedContextResolution": null,
+              "productionProvenance": {
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b"
+              },
+              "prompt": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+              "renderEvaluation": null,
+              "retrievedExemplars": [],
+              "revisionId": "56488a53-4afb-4ad8-bdc3-879747f11d1c",
+              "selectedSkills": [],
+              "selectedTargets": [],
+              "skillDiscoveryResolution": null,
+              "swarmChangeReceipts": [],
+              "swarmExecution": null,
+              "swarmMergeReceipts": [],
+              "swarmPlan": null,
+              "swarmVerificationReceipts": [],
+              "swarmWorkerReceipts": [],
+              "tasteMemory": null,
+              "uxLifecycle": "judged",
+              "winningCandidateId": null
+            }
+          ],
+          "route_decision": {
+            "artifact_output_intent": true,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "persistent_artifact_requested"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:persistent_artifact_requested",
+                "route_hint:explicit_workspace_project_deliverable",
+                "route_hint:workspace_runtime_required",
+                "route_hint:workspace_recipe:react-vite"
+              ],
+              "primary_tools": [
+                "studio_renderer:workspace_surface"
+              ],
+              "projected_tools": [
+                "studio_renderer:workspace_surface"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": false,
+            "output_intent": "artifact",
+            "route_family": "coding",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": true
+          },
+          "route_family": "coding",
+          "selectedTargets": [],
+          "selected_route": "artifact_workspace_surface",
+          "sessionId": "a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d",
+          "status": "materializing",
+          "summary": "Studio provisioned 'Build a React + Vite workspace project for a task tracker with se...' as an artifact backed by the workspace_surface renderer and is supervising scaffold, verification, and preview under kernel authority.",
+          "tasteMemory": null,
+          "threadId": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+          "title": "Build a React + Vite workspace project for a task tracker with se...",
+          "topology": "planner_specialist_verifier",
+          "updatedAt": "2026-04-15T13:23:49.999663934+00:00",
+          "uxLifecycle": null,
+          "verifiedReply": {
+            "acceptanceProvenance": null,
+            "evidence": [
+              "src/App.tsx",
+              "artifact-manifest.json"
+            ],
+            "failure": null,
+            "lifecycleState": "materializing",
+            "productionProvenance": null,
+            "status": "pending",
+            "summary": "Build a React + Vite workspace project for a task tracker with se... Studio is materializing the workspace renderer and running verification.",
+            "title": "Studio outcome: Build a React + Vite workspace project for a task tracker with se...",
+            "updatedAt": "2026-04-15T13:23:50.092630165+00:00"
+          },
+          "verifier_outcome": null,
+          "verifier_state": "active",
+          "workspaceRoot": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace"
+        },
+        "artifact_refs": [
+          {
+            "artifact_id": "20fe82e6-00ca-4a2a-af7f-9f641de08b19",
+            "artifact_type": "RUN_BUNDLE"
+          },
+          {
+            "artifact_id": "cbad10d7-ead4-4bf2-8109-71e4af7ff453",
+            "artifact_type": "FILE"
+          },
+          {
+            "artifact_id": "d6b1658c-96bf-4387-84aa-b98a53a3e4e1",
+            "artifact_type": "FILE"
+          },
+          {
+            "artifact_id": "082dab99-ba5b-4ca7-81e1-6c7570e7d5c6",
+            "artifact_type": "FILE"
+          },
+          {
+            "artifact_id": "ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+            "artifact_type": "REPORT"
+          },
+          {
+            "artifact_id": "9faa69b3-f416-4b25-8fcd-a94b8d5e3e26",
+            "artifact_type": "REPORT"
+          }
+        ],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": 0
+      },
+      {
+        "event_id": "cf0123f5-5fe9-4f85-ba39-8066312c6f72",
+        "timestamp": "2026-04-15T13:23:55.404176621+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "step_index": 2,
+        "event_type": "RECEIPT",
+        "title": "Install dependencies",
+        "digest": {
+          "kind": "install",
+          "status": "success"
+        },
+        "details": {
+          "artifactIds": [
+            "61c66a64-d7d3-4621-9f41-103a0f122fe6",
+            "1b14fecc-a5ca-4e87-9db4-21038842f4df"
+          ],
+          "command": "npm install --no-audit --no-fund",
+          "durationMs": 4734,
+          "exitCode": 0,
+          "failureClass": null,
+          "finishedAt": "2026-04-15T13:23:55.081080464+00:00",
+          "kind": "install",
+          "receiptId": "9fa8a2ff-dba7-40c7-9d17-f3121671c7fa",
+          "replayClassification": "replay_safe",
+          "startedAt": "2026-04-15T13:23:55.081062838+00:00",
+          "status": "success",
+          "summary": "Install dependencies completed successfully in 4734 ms.",
+          "title": "Install dependencies"
+        },
+        "artifact_refs": [
+          {
+            "artifact_id": "61c66a64-d7d3-4621-9f41-103a0f122fe6",
+            "artifact_type": "REPORT"
+          },
+          {
+            "artifact_id": "1b14fecc-a5ca-4e87-9db4-21038842f4df",
+            "artifact_type": "REPORT"
+          }
+        ],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": 4734
+      },
+      {
+        "event_id": "7164832f-42c1-447b-8ac3-59ac85aab462",
+        "timestamp": "2026-04-15T13:23:58.252980588+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "step_index": 3,
+        "event_type": "RECEIPT",
+        "title": "Validate build",
+        "digest": {
+          "kind": "validation",
+          "status": "success"
+        },
+        "details": {
+          "artifactIds": [
+            "80689858-81a6-483c-92c3-6154436cf7b2",
+            "9208f834-ac4f-405e-af81-d36f573d8718"
+          ],
+          "command": "npm run build",
+          "durationMs": 2430,
+          "exitCode": 0,
+          "failureClass": null,
+          "finishedAt": "2026-04-15T13:23:57.969666552+00:00",
+          "kind": "validation",
+          "receiptId": "27d87a25-7b56-4970-a96d-af0c4b4f95b5",
+          "replayClassification": "replay_safe",
+          "startedAt": "2026-04-15T13:23:57.969650366+00:00",
+          "status": "success",
+          "summary": "Validate build completed successfully in 2430 ms.",
+          "title": "Validate build"
+        },
+        "artifact_refs": [
+          {
+            "artifact_id": "80689858-81a6-483c-92c3-6154436cf7b2",
+            "artifact_type": "REPORT"
+          },
+          {
+            "artifact_id": "9208f834-ac4f-405e-af81-d36f573d8718",
+            "artifact_type": "REPORT"
+          }
+        ],
+        "receipt_ref": null,
+        "input_refs": [
+          "cf0123f5-5fe9-4f85-ba39-8066312c6f72"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": 2430
+      },
+      {
+        "event_id": "6c07685f-30d7-4665-a2c9-617c1faae0f8",
+        "timestamp": "2026-04-15T13:23:59.005641831+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "step_index": 4,
+        "event_type": "RECEIPT",
+        "title": "Preview verified",
+        "digest": {
+          "kind": "preview",
+          "status": "success"
+        },
+        "details": {
+          "artifactIds": [
+            "6976a0c1-9206-493d-8844-952eb8cc147f"
+          ],
+          "command": "node /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace/node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 45671",
+          "durationMs": 433,
+          "exitCode": 0,
+          "failureClass": null,
+          "finishedAt": "2026-04-15T13:23:58.805479499+00:00",
+          "kind": "preview",
+          "receiptId": "966b05c4-9d5f-4318-b07b-ffe7af905a5a",
+          "replayClassification": "replay_safe",
+          "startedAt": "2026-04-15T13:23:58.371846420+00:00",
+          "status": "success",
+          "summary": "Preview verified at http://127.0.0.1:45671.",
+          "title": "Preview verified"
+        },
+        "artifact_refs": [
+          {
+            "artifact_id": "6976a0c1-9206-493d-8844-952eb8cc147f",
+            "artifact_type": "REPORT"
+          }
+        ],
+        "receipt_ref": null,
+        "input_refs": [
+          "7164832f-42c1-447b-8ac3-59ac85aab462"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": 433
+      },
+      {
+        "event_id": "28f6f979-f2c2-4649-be12-54b4bb1a2996",
+        "timestamp": "2026-04-15T13:23:59.135809917+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "step_index": 4,
+        "event_type": "RECEIPT",
+        "title": "Studio workspace renderer verified",
+        "digest": {
+          "preview_url": "http://127.0.0.1:45671",
+          "renderer_session_id": "4d0109c2-3d40-4ae7-a695-07f05f04aecc",
+          "scaffold_recipe_id": "react-vite"
+        },
+        "details": {
+          "availableLenses": [
+            "preview",
+            "code",
+            "files",
+            "search",
+            "source-control",
+            "terminal",
+            "problems",
+            "output",
+            "ports"
+          ],
+          "buildStatus": "preview-ready",
+          "currentLens": "preview",
+          "currentWorkerExecution": {
+            "allowedCommandClasses": [
+              "install",
+              "build",
+              "preview",
+              "repair"
+            ],
+            "allowedMutationScope": [
+              "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace",
+              "package.json",
+              "src",
+              "vite.config.ts",
+              "index.html"
+            ],
+            "backend": "hosted-fallback",
+            "executionState": "complete",
+            "lastSummary": "Kernel owns routing. Studio materialized a react-vite workspace so the artifact can open real code and preview lenses under bounded supervision.",
+            "plannerAuthority": "kernel",
+            "retryClassification": "retry_required"
+          },
+          "entryDocument": "src/App.tsx",
+          "lastFailureSummary": null,
+          "packageManager": "npm",
+          "presentationVariantId": null,
+          "previewProcessId": 1845461,
+          "previewUrl": "http://127.0.0.1:45671",
+          "readyLenses": [
+            "preview",
+            "code",
+            "files",
+            "search",
+            "source-control",
+            "terminal",
+            "problems",
+            "output",
+            "ports"
+          ],
+          "receipts": [
+            {
+              "artifactIds": [
+                "ffc58fb8-d192-4f7f-afd8-12758e5a8573"
+              ],
+              "command": null,
+              "durationMs": 0,
+              "exitCode": 0,
+              "failureClass": null,
+              "finishedAt": "2026-04-15T13:23:50.011485545+00:00",
+              "kind": "scaffold",
+              "receiptId": "e1d6636c-1826-4f43-80a6-cd354cff9d91",
+              "replayClassification": "replay_safe",
+              "startedAt": "2026-04-15T13:23:49.999663934+00:00",
+              "status": "success",
+              "summary": "Materialized 10 starter files in /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace using the react-vite recipe.",
+              "title": "Scaffolded react-vite workspace"
+            },
+            {
+              "artifactIds": [
+                "61c66a64-d7d3-4621-9f41-103a0f122fe6",
+                "1b14fecc-a5ca-4e87-9db4-21038842f4df"
+              ],
+              "command": "npm install --no-audit --no-fund",
+              "durationMs": 4734,
+              "exitCode": 0,
+              "failureClass": null,
+              "finishedAt": "2026-04-15T13:23:55.081080464+00:00",
+              "kind": "install",
+              "receiptId": "9fa8a2ff-dba7-40c7-9d17-f3121671c7fa",
+              "replayClassification": "replay_safe",
+              "startedAt": "2026-04-15T13:23:55.081062838+00:00",
+              "status": "success",
+              "summary": "Install dependencies completed successfully in 4734 ms.",
+              "title": "Install dependencies"
+            },
+            {
+              "artifactIds": [
+                "80689858-81a6-483c-92c3-6154436cf7b2",
+                "9208f834-ac4f-405e-af81-d36f573d8718"
+              ],
+              "command": "npm run build",
+              "durationMs": 2430,
+              "exitCode": 0,
+              "failureClass": null,
+              "finishedAt": "2026-04-15T13:23:57.969666552+00:00",
+              "kind": "validation",
+              "receiptId": "27d87a25-7b56-4970-a96d-af0c4b4f95b5",
+              "replayClassification": "replay_safe",
+              "startedAt": "2026-04-15T13:23:57.969650366+00:00",
+              "status": "success",
+              "summary": "Validate build completed successfully in 2430 ms.",
+              "title": "Validate build"
+            },
+            {
+              "artifactIds": [
+                "6976a0c1-9206-493d-8844-952eb8cc147f"
+              ],
+              "command": "node /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace/node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 45671",
+              "durationMs": 433,
+              "exitCode": 0,
+              "failureClass": null,
+              "finishedAt": "2026-04-15T13:23:58.805479499+00:00",
+              "kind": "preview",
+              "receiptId": "966b05c4-9d5f-4318-b07b-ffe7af905a5a",
+              "replayClassification": "replay_safe",
+              "startedAt": "2026-04-15T13:23:58.371846420+00:00",
+              "status": "success",
+              "summary": "Preview verified at http://127.0.0.1:45671.",
+              "title": "Preview verified"
+            }
+          ],
+          "retryCount": 0,
+          "scaffoldRecipeId": "react-vite",
+          "sessionId": "4d0109c2-3d40-4ae7-a695-07f05f04aecc",
+          "studioSessionId": "a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d",
+          "verificationStatus": "passed",
+          "workspaceRoot": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "6c07685f-30d7-4665-a2c9-617c1faae0f8"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": 0
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "20fe82e6-00ca-4a2a-af7f-9f641de08b19",
+        "created_at": "2026-04-15T13:23:49.481552404+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/20fe82e6-00ca-4a2a-af7f-9f641de08b19",
+        "metadata": {
+          "refs": [],
+          "run_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "1d8e0814-84fb-41de-b559-96b0e2ed634d",
+        "created_at": "2026-04-15T13:23:59.069174304+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "FILE",
+        "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465/planning/implementation_plan.md",
+        "description": "File snapshot",
+        "content_ref": "ioi-memory://artifact/1d8e0814-84fb-41de-b559-96b0e2ed634d",
+        "metadata": {
+          "mime": "text/markdown",
+          "path": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465/planning/implementation_plan.md",
+          "revision": null
+        },
+        "version": 7,
+        "parent_artifact_id": "aea9c00b-4b87-4009-b069-acfe2b711b2c"
+      },
+      {
+        "artifact_id": "9a26e297-5989-4ceb-9a91-5c5c37c3478b",
+        "created_at": "2026-04-15T13:23:59.138678876+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "FILE",
+        "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465/planning/task.md",
+        "description": "File snapshot",
+        "content_ref": "ioi-memory://artifact/9a26e297-5989-4ceb-9a91-5c5c37c3478b",
+        "metadata": {
+          "mime": "text/markdown",
+          "path": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465/planning/task.md",
+          "revision": null
+        },
+        "version": 18,
+        "parent_artifact_id": "375bf6e0-8b21-461e-b35c-ad778345a158"
+      },
+      {
+        "artifact_id": "4ac26c7f-b71e-43b4-8934-27320f88c1c1",
+        "created_at": "2026-04-15T13:23:59.152962749+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "FILE",
+        "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465/planning/walkthrough.md",
+        "description": "File snapshot",
+        "content_ref": "ioi-memory://artifact/4ac26c7f-b71e-43b4-8934-27320f88c1c1",
+        "metadata": {
+          "mime": "text/markdown",
+          "path": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465/planning/walkthrough.md",
+          "revision": null
+        },
+        "version": 21,
+        "parent_artifact_id": "9d908f17-f3ee-4323-ad1d-29dcc2f3b3ec"
+      },
+      {
+        "artifact_id": "ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+        "created_at": "2026-04-15T13:23:50.051123694+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "REPORT",
+        "title": "Build a React + Vite workspace project for a task tracker with se... \u00b7 Scaffolded react-vite workspace",
+        "description": "Studio build receipt",
+        "content_ref": "ioi-memory://artifact/ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+        "metadata": {
+          "artifactIds": [],
+          "command": null,
+          "durationMs": 0,
+          "exitCode": 0,
+          "failureClass": null,
+          "finishedAt": "2026-04-15T13:23:50.011485545+00:00",
+          "kind": "scaffold",
+          "receiptId": "e1d6636c-1826-4f43-80a6-cd354cff9d91",
+          "replayClassification": "replay_safe",
+          "startedAt": "2026-04-15T13:23:49.999663934+00:00",
+          "status": "success",
+          "summary": "Materialized 10 starter files in /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace using the react-vite recipe.",
+          "title": "Scaffolded react-vite workspace"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "9faa69b3-f416-4b25-8fcd-a94b8d5e3e26",
+        "created_at": "2026-04-15T13:23:50.078671999+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "REPORT",
+        "title": "Studio artifact: Build a React + Vite workspace project for a task tracker with se...",
+        "description": "Machine-routable Studio artifact materialization contract",
+        "content_ref": "ioi-memory://artifact/9faa69b3-f416-4b25-8fcd-a94b8d5e3e26",
+        "metadata": {
+          "acceptanceProvenance": {
+            "endpoint": null,
+            "kind": "inference_unavailable",
+            "label": "inference unavailable",
+            "model": null
+          },
+          "artifactBrief": null,
+          "artifactIr": null,
+          "blueprint": null,
+          "candidateSummaries": [],
+          "commandIntents": [
+            {
+              "command": "npm install --no-audit --no-fund",
+              "id": "install",
+              "kind": "install",
+              "label": "Install dependencies"
+            },
+            {
+              "command": "npm run build",
+              "id": "build",
+              "kind": "build",
+              "label": "Validate build"
+            },
+            {
+              "command": "npm run preview -- --host 127.0.0.1 --port <assigned>",
+              "id": "preview",
+              "kind": "preview",
+              "label": "Launch preview"
+            }
+          ],
+          "editIntent": null,
+          "executionEnvelope": {
+            "budgetEnvelope": {
+              "expansionPolicy": "frontier_adaptive",
+              "maxParallelDepth": 4,
+              "maxRepairs": 2,
+              "maxReplans": 4,
+              "maxTokens": 24000,
+              "maxToolCalls": 12,
+              "maxWallClockMs": 600000,
+              "maxWorkers": 8
+            },
+            "budgetSummary": null,
+            "changeReceipts": [],
+            "completionInvariant": {
+              "allowsEarlyExit": false,
+              "prunedWorkItemIds": [],
+              "remainingObligations": [
+                "verification:verify"
+              ],
+              "requiredArtifactPaths": [],
+              "requiredVerificationIds": [
+                "verify"
+              ],
+              "requiredWorkItemIds": [],
+              "satisfiedVerificationIds": [],
+              "satisfiedWorkItemIds": [],
+              "speculativeWorkItemIds": [],
+              "status": "pending",
+              "summary": "adaptive_work_graph completes when the primary artifact exists and verification passes."
+            },
+            "dispatchBatches": [],
+            "domainKind": "artifact",
+            "executionDomain": "studio_artifact",
+            "executionSummary": null,
+            "graphMutationReceipts": [],
+            "livePreviews": [],
+            "mergeReceipts": [],
+            "modeDecision": {
+              "ambiguity": 0.019999980926513672,
+              "budgetEnvelope": {
+                "expansionPolicy": "frontier_adaptive",
+                "maxParallelDepth": 4,
+                "maxRepairs": 2,
+                "maxReplans": 4,
+                "maxTokens": 24000,
+                "maxToolCalls": 12,
+                "maxWallClockMs": 600000,
+                "maxWorkers": 8
+              },
+              "decompositionPayoff": 0.9599999785423279,
+              "decompositionReason": "The request implies multiple obligations or hidden dependencies, so a mutable work graph is justified.",
+              "evidenceBreadth": 0.6800000071525574,
+              "hiddenDependencyLikelihood": 0.9999999403953552,
+              "mergeBurden": 1.0,
+              "modeConfidence": 0.7870000004768372,
+              "oneShotSufficiency": 0.06499999761581421,
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "adaptive_work_graph",
+              "revisionCost": 0.75,
+              "verificationPressure": 0.800000011920929,
+              "workGraphRequired": true,
+              "workGraphSizeEstimate": 7
+            },
+            "plan": null,
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "strategy": "adaptive_work_graph",
+            "verificationReceipts": [],
+            "version": 1,
+            "workerReceipts": []
+          },
+          "failure": null,
+          "fallbackUsed": false,
+          "fileWrites": [
+            {
+              "contentPreview": "{   \"name\": \"build-a-react-vite-workspace-project-for-a-task-tracker-with-se\",   \"private\": true,",
+              "kind": "write",
+              "path": "package.json"
+            },
+            {
+              "contentPreview": "{   \"files\": [],   \"references\": [",
+              "kind": "write",
+              "path": "tsconfig.json"
+            },
+            {
+              "contentPreview": "{   \"compilerOptions\": {     \"target\": \"ES2020\",",
+              "kind": "write",
+              "path": "tsconfig.app.json"
+            },
+            {
+              "contentPreview": "{   \"compilerOptions\": {     \"composite\": true,",
+              "kind": "write",
+              "path": "tsconfig.node.json"
+            },
+            {
+              "contentPreview": "import { defineConfig } from 'vite' import react from '@vitejs/plugin-react' ",
+              "kind": "write",
+              "path": "vite.config.ts"
+            },
+            {
+              "contentPreview": "<!doctype html> <html lang=\"en\">   <head>",
+              "kind": "write",
+              "path": "index.html"
+            },
+            {
+              "contentPreview": "import React from 'react' import ReactDOM from 'react-dom/client' import App from './App'",
+              "kind": "write",
+              "path": "src/main.tsx"
+            },
+            {
+              "contentPreview": "import './App.css'  export default function App() {",
+              "kind": "write",
+              "path": "src/App.tsx"
+            },
+            {
+              "contentPreview": ".shell {   min-height: 100vh;   padding: 4rem clamp(1.5rem, 4vw, 4rem);",
+              "kind": "write",
+              "path": "src/App.css"
+            },
+            {
+              "contentPreview": ":root {   color-scheme: dark;   font-family: Inter, system-ui, sans-serif;",
+              "kind": "write",
+              "path": "src/index.css"
+            }
+          ],
+          "judge": null,
+          "navigatorNodes": [],
+          "normalizedIntent": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+          "notes": [
+            "Conversation remains the control plane; this artifact is the work product.",
+            "Renderer choice is explicit in the typed outcome request.",
+            "Verification state, not worker prose, authorizes the final Studio summary."
+          ],
+          "outputOrigin": "live_inference",
+          "pipelineSteps": [],
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "previewIntent": {
+            "label": "Preview lane",
+            "status": "pending",
+            "url": null
+          },
+          "productionProvenance": {
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b"
+          },
+          "renderEvaluation": null,
+          "requestKind": "workspace_project",
+          "retrievedExemplars": [],
+          "runtimeNarrationEvents": [],
+          "selectedSkills": [],
+          "skillDiscoveryResolution": null,
+          "summary": "Studio provisioned 'Build a React + Vite workspace project for a task tracker with se...' as an artifact backed by the workspace_surface renderer and is supervising scaffold, verification, and preview under kernel authority.",
+          "swarmChangeReceipts": [],
+          "swarmExecution": null,
+          "swarmMergeReceipts": [],
+          "swarmPlan": null,
+          "swarmVerificationReceipts": [],
+          "swarmWorkerReceipts": [],
+          "uxLifecycle": null,
+          "verificationSteps": [
+            {
+              "id": "scaffold",
+              "kind": "scaffold",
+              "label": "Scaffold workspace",
+              "status": "success"
+            },
+            {
+              "id": "install",
+              "kind": "install",
+              "label": "Install dependencies",
+              "status": "pending"
+            },
+            {
+              "id": "validation",
+              "kind": "validation",
+              "label": "Validate build",
+              "status": "pending"
+            },
+            {
+              "id": "preview",
+              "kind": "preview",
+              "label": "Verify preview",
+              "status": "pending"
+            }
+          ],
+          "version": 7,
+          "winningCandidateId": null,
+          "winningCandidateRationale": null
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "61c66a64-d7d3-4621-9f41-103a0f122fe6",
+        "created_at": "2026-04-15T13:23:55.081160305+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "LOG",
+        "title": "Install dependencies log",
+        "description": "Studio supervised command output",
+        "content_ref": "ioi-memory://artifact/61c66a64-d7d3-4621-9f41-103a0f122fe6",
+        "metadata": {
+          "receipt_title": "Install dependencies",
+          "surface": "studio"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "352a6ed5-0343-456b-aa4b-640a0da55c6d",
+        "created_at": "2026-04-15T13:23:55.169955091+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/352a6ed5-0343-456b-aa4b-640a0da55c6d",
+        "metadata": {
+          "refs": [
+            "61c66a64-d7d3-4621-9f41-103a0f122fe6"
+          ],
+          "run_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465"
+        },
+        "version": 2,
+        "parent_artifact_id": "20fe82e6-00ca-4a2a-af7f-9f641de08b19"
+      },
+      {
+        "artifact_id": "1b14fecc-a5ca-4e87-9db4-21038842f4df",
+        "created_at": "2026-04-15T13:23:55.249513721+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "REPORT",
+        "title": "Build a React + Vite workspace project for a task tracker with se... \u00b7 Install dependencies",
+        "description": "Studio build receipt",
+        "content_ref": "ioi-memory://artifact/1b14fecc-a5ca-4e87-9db4-21038842f4df",
+        "metadata": {
+          "artifactIds": [
+            "61c66a64-d7d3-4621-9f41-103a0f122fe6"
+          ],
+          "command": "npm install --no-audit --no-fund",
+          "durationMs": 4734,
+          "exitCode": 0,
+          "failureClass": null,
+          "finishedAt": "2026-04-15T13:23:55.081080464+00:00",
+          "kind": "install",
+          "receiptId": "9fa8a2ff-dba7-40c7-9d17-f3121671c7fa",
+          "replayClassification": "replay_safe",
+          "startedAt": "2026-04-15T13:23:55.081062838+00:00",
+          "status": "success",
+          "summary": "Install dependencies completed successfully in 4734 ms.",
+          "title": "Install dependencies"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "1c8b6820-5712-4a16-be0e-c96c5f253c99",
+        "created_at": "2026-04-15T13:23:55.322975049+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/1c8b6820-5712-4a16-be0e-c96c5f253c99",
+        "metadata": {
+          "refs": [
+            "1b14fecc-a5ca-4e87-9db4-21038842f4df"
+          ],
+          "run_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465"
+        },
+        "version": 2,
+        "parent_artifact_id": "20fe82e6-00ca-4a2a-af7f-9f641de08b19"
+      },
+      {
+        "artifact_id": "80689858-81a6-483c-92c3-6154436cf7b2",
+        "created_at": "2026-04-15T13:23:57.969721772+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "LOG",
+        "title": "Validate build log",
+        "description": "Studio supervised command output",
+        "content_ref": "ioi-memory://artifact/80689858-81a6-483c-92c3-6154436cf7b2",
+        "metadata": {
+          "receipt_title": "Validate build",
+          "surface": "studio"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "2f57c148-260d-48ed-913f-462a9b9d871b",
+        "created_at": "2026-04-15T13:23:58.036424405+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/2f57c148-260d-48ed-913f-462a9b9d871b",
+        "metadata": {
+          "refs": [
+            "80689858-81a6-483c-92c3-6154436cf7b2"
+          ],
+          "run_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465"
+        },
+        "version": 2,
+        "parent_artifact_id": "20fe82e6-00ca-4a2a-af7f-9f641de08b19"
+      },
+      {
+        "artifact_id": "9208f834-ac4f-405e-af81-d36f573d8718",
+        "created_at": "2026-04-15T13:23:58.105681222+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "REPORT",
+        "title": "Build a React + Vite workspace project for a task tracker with se... \u00b7 Validate build",
+        "description": "Studio build receipt",
+        "content_ref": "ioi-memory://artifact/9208f834-ac4f-405e-af81-d36f573d8718",
+        "metadata": {
+          "artifactIds": [
+            "80689858-81a6-483c-92c3-6154436cf7b2"
+          ],
+          "command": "npm run build",
+          "durationMs": 2430,
+          "exitCode": 0,
+          "failureClass": null,
+          "finishedAt": "2026-04-15T13:23:57.969666552+00:00",
+          "kind": "validation",
+          "receiptId": "27d87a25-7b56-4970-a96d-af0c4b4f95b5",
+          "replayClassification": "replay_safe",
+          "startedAt": "2026-04-15T13:23:57.969650366+00:00",
+          "status": "success",
+          "summary": "Validate build completed successfully in 2430 ms.",
+          "title": "Validate build"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "7829e7b4-790c-4522-abc1-55832f50325d",
+        "created_at": "2026-04-15T13:23:58.178153984+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/7829e7b4-790c-4522-abc1-55832f50325d",
+        "metadata": {
+          "refs": [
+            "9208f834-ac4f-405e-af81-d36f573d8718"
+          ],
+          "run_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465"
+        },
+        "version": 2,
+        "parent_artifact_id": "20fe82e6-00ca-4a2a-af7f-9f641de08b19"
+      },
+      {
+        "artifact_id": "6976a0c1-9206-493d-8844-952eb8cc147f",
+        "created_at": "2026-04-15T13:23:58.805627866+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "REPORT",
+        "title": "Build a React + Vite workspace project for a task tracker with se... \u00b7 Preview verified",
+        "description": "Studio build receipt",
+        "content_ref": "ioi-memory://artifact/6976a0c1-9206-493d-8844-952eb8cc147f",
+        "metadata": {
+          "artifactIds": [],
+          "command": "node /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace/node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 45671",
+          "durationMs": 433,
+          "exitCode": 0,
+          "failureClass": null,
+          "finishedAt": "2026-04-15T13:23:58.805479499+00:00",
+          "kind": "preview",
+          "receiptId": "966b05c4-9d5f-4318-b07b-ffe7af905a5a",
+          "replayClassification": "replay_safe",
+          "startedAt": "2026-04-15T13:23:58.371846420+00:00",
+          "status": "success",
+          "summary": "Preview verified at http://127.0.0.1:45671.",
+          "title": "Preview verified"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "6152eeeb-afbe-4d32-9c08-9207f921206f",
+        "created_at": "2026-04-15T13:23:58.896886817+00:00",
+        "thread_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/6152eeeb-afbe-4d32-9c08-9207f921206f",
+        "metadata": {
+          "refs": [
+            "6976a0c1-9206-493d-8844-952eb8cc147f"
+          ],
+          "run_id": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465"
+        },
+        "version": 2,
+        "parent_artifact_id": "20fe82e6-00ca-4a2a-af7f-9f641de08b19"
+      }
+    ],
+    "studio_session": {
+      "sessionId": "a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d",
+      "threadId": "2c035f08afa94001b95e91374d016bc45a6dbe04084a4b0aa8dc501368538465",
+      "artifactId": "ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+      "title": "Build a React + Vite workspace project for a task tracker with se...",
+      "summary": "Studio provisioned 'Build a React + Vite workspace project for a task tracker with se...' as an artifact backed by the workspace_surface renderer and is supervising scaffold, verification, and preview under kernel authority.",
+      "currentLens": "preview",
+      "navigatorBackingMode": "workspace",
+      "navigatorNodes": [
+        {
+          "id": "preview",
+          "label": "Preview",
+          "kind": "render",
+          "description": "Interact with the artifact through its renderer-specific presentation.",
+          "badge": null,
+          "status": null,
+          "lens": "preview",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "workspace",
+          "label": "Workspace",
+          "kind": "workspace",
+          "description": "Open the workspace renderer for implementation and verification.",
+          "badge": null,
+          "status": null,
+          "lens": "workspace",
+          "path": "src/App.tsx",
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "attachedArtifactIds": [
+        "ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+        "9faa69b3-f416-4b25-8fcd-a94b8d5e3e26"
+      ],
+      "availableLenses": [
+        "preview",
+        "workspace",
+        "evidence"
+      ],
+      "materialization": {
+        "version": 7,
+        "requestKind": "workspace_project",
+        "normalizedIntent": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+        "summary": "Studio provisioned 'Build a React + Vite workspace project for a task tracker with se...' as an artifact backed by the workspace_surface renderer and is supervising scaffold, verification, and preview under kernel authority.",
+        "artifactBrief": null,
+        "preparationNeeds": null,
+        "preparedContextResolution": null,
+        "skillDiscoveryResolution": null,
+        "blueprint": null,
+        "artifactIr": null,
+        "selectedSkills": [],
+        "retrievedExemplars": [],
+        "editIntent": null,
+        "candidateSummaries": [],
+        "winningCandidateId": null,
+        "winningCandidateRationale": null,
+        "executionEnvelope": {
+          "version": 1,
+          "strategy": "adaptive_work_graph",
+          "modeDecision": {
+            "requestedStrategy": "plan_execute",
+            "resolvedStrategy": "adaptive_work_graph",
+            "modeConfidence": 0.787,
+            "oneShotSufficiency": 0.065,
+            "ambiguity": 0.01999998,
+            "workGraphSizeEstimate": 7,
+            "hiddenDependencyLikelihood": 0.99999994,
+            "verificationPressure": 0.8,
+            "revisionCost": 0.75,
+            "evidenceBreadth": 0.68,
+            "mergeBurden": 1.0,
+            "decompositionPayoff": 0.96,
+            "workGraphRequired": true,
+            "decompositionReason": "The request implies multiple obligations or hidden dependencies, so a mutable work graph is justified.",
+            "budgetEnvelope": {
+              "maxWorkers": 8,
+              "maxParallelDepth": 4,
+              "maxReplans": 4,
+              "maxWallClockMs": 600000,
+              "maxTokens": 24000,
+              "maxToolCalls": 12,
+              "maxRepairs": 2,
+              "expansionPolicy": "frontier_adaptive"
+            }
+          },
+          "budgetEnvelope": {
+            "maxWorkers": 8,
+            "maxParallelDepth": 4,
+            "maxReplans": 4,
+            "maxWallClockMs": 600000,
+            "maxTokens": 24000,
+            "maxToolCalls": 12,
+            "maxRepairs": 2,
+            "expansionPolicy": "frontier_adaptive"
+          },
+          "executionDomain": "studio_artifact",
+          "domainKind": "artifact",
+          "completionInvariant": {
+            "summary": "adaptive_work_graph completes when the primary artifact exists and verification passes.",
+            "status": "pending",
+            "requiredWorkItemIds": [],
+            "satisfiedWorkItemIds": [],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "verify"
+            ],
+            "satisfiedVerificationIds": [],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [
+              "verification:verify"
+            ],
+            "allowsEarlyExit": false
+          },
+          "plan": null,
+          "executionSummary": null,
+          "workerReceipts": [],
+          "changeReceipts": [],
+          "mergeReceipts": [],
+          "verificationReceipts": [],
+          "graphMutationReceipts": [],
+          "dispatchBatches": [],
+          "repairReceipts": [],
+          "replanReceipts": [],
+          "budgetSummary": null,
+          "livePreviews": []
+        },
+        "swarmPlan": null,
+        "swarmExecution": null,
+        "swarmWorkerReceipts": [],
+        "swarmChangeReceipts": [],
+        "swarmMergeReceipts": [],
+        "swarmVerificationReceipts": [],
+        "renderEvaluation": null,
+        "judge": null,
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "inference_unavailable",
+          "label": "inference unavailable",
+          "model": null,
+          "endpoint": null
+        },
+        "fallbackUsed": false,
+        "uxLifecycle": null,
+        "failure": null,
+        "navigatorNodes": [
+          {
+            "id": "preview",
+            "label": "Preview",
+            "kind": "render",
+            "description": "Interact with the artifact through its renderer-specific presentation.",
+            "badge": null,
+            "status": null,
+            "lens": "preview",
+            "path": null,
+            "children": []
+          },
+          {
+            "id": "workspace",
+            "label": "Workspace",
+            "kind": "workspace",
+            "description": "Open the workspace renderer for implementation and verification.",
+            "badge": null,
+            "status": null,
+            "lens": "workspace",
+            "path": "src/App.tsx",
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "fileWrites": [
+          {
+            "path": "package.json",
+            "kind": "write",
+            "contentPreview": "{   \"name\": \"build-a-react-vite-workspace-project-for-a-task-tracker-with-se\",   \"private\": true,"
+          },
+          {
+            "path": "tsconfig.json",
+            "kind": "write",
+            "contentPreview": "{   \"files\": [],   \"references\": ["
+          },
+          {
+            "path": "tsconfig.app.json",
+            "kind": "write",
+            "contentPreview": "{   \"compilerOptions\": {     \"target\": \"ES2020\","
+          },
+          {
+            "path": "tsconfig.node.json",
+            "kind": "write",
+            "contentPreview": "{   \"compilerOptions\": {     \"composite\": true,"
+          },
+          {
+            "path": "vite.config.ts",
+            "kind": "write",
+            "contentPreview": "import { defineConfig } from 'vite' import react from '@vitejs/plugin-react' "
+          },
+          {
+            "path": "index.html",
+            "kind": "write",
+            "contentPreview": "<!doctype html> <html lang=\"en\">   <head>"
+          },
+          {
+            "path": "src/main.tsx",
+            "kind": "write",
+            "contentPreview": "import React from 'react' import ReactDOM from 'react-dom/client' import App from './App'"
+          },
+          {
+            "path": "src/App.tsx",
+            "kind": "write",
+            "contentPreview": "import './App.css'  export default function App() {"
+          },
+          {
+            "path": "src/App.css",
+            "kind": "write",
+            "contentPreview": ".shell {   min-height: 100vh;   padding: 4rem clamp(1.5rem, 4vw, 4rem);"
+          },
+          {
+            "path": "src/index.css",
+            "kind": "write",
+            "contentPreview": ":root {   color-scheme: dark;   font-family: Inter, system-ui, sans-serif;"
+          }
+        ],
+        "commandIntents": [
+          {
+            "id": "install",
+            "kind": "install",
+            "label": "Install dependencies",
+            "command": "npm install --no-audit --no-fund"
+          },
+          {
+            "id": "build",
+            "kind": "build",
+            "label": "Validate build",
+            "command": "npm run build"
+          },
+          {
+            "id": "preview",
+            "kind": "preview",
+            "label": "Launch preview",
+            "command": "npm run preview -- --host 127.0.0.1 --port <assigned>"
+          }
+        ],
+        "previewIntent": {
+          "label": "Preview lane",
+          "url": "http://127.0.0.1:45671",
+          "status": "ready"
+        },
+        "verificationSteps": [
+          {
+            "id": "scaffold",
+            "label": "Scaffold workspace",
+            "kind": "scaffold",
+            "status": "success"
+          },
+          {
+            "id": "install",
+            "label": "Install dependencies",
+            "kind": "install",
+            "status": "success"
+          },
+          {
+            "id": "validation",
+            "label": "Validate build",
+            "kind": "validation",
+            "status": "success"
+          },
+          {
+            "id": "preview",
+            "label": "Verify preview",
+            "kind": "preview",
+            "status": "success"
+          }
+        ],
+        "pipelineSteps": [
+          {
+            "id": "intake",
+            "stage": "plan",
+            "label": "Intake",
+            "status": "complete",
+            "summary": "Studio captured the request and established the active artifact context.",
+            "outputs": [
+              "Build a React + Vite workspace project for a task tracker with separate components, filt\u2026"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "routing",
+            "stage": "dispatch",
+            "label": "Outcome routing",
+            "status": "complete",
+            "summary": "The typed router chose the artifact branch intentionally.",
+            "outputs": [
+              "artifact",
+              "workspace_project",
+              "workspace_surface",
+              "strategy:adaptive_work_graph",
+              "requested:plan_execute"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "requirements",
+            "stage": "plan",
+            "label": "Requirements",
+            "status": "complete",
+            "summary": "Studio captured the requested scope, mutation boundary, and persistence contract.",
+            "outputs": [
+              "workspace",
+              "require_render"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "specification",
+            "stage": "plan",
+            "label": "Artifact spec",
+            "status": "complete",
+            "summary": "Artifact class, renderer, presentation surface, and substrate are explicit.",
+            "outputs": [
+              "workspace_project",
+              "workspace_surface",
+              "tabbed_panel",
+              "workspace_filesystem"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "brief",
+            "stage": "plan",
+            "label": "Artifact brief",
+            "status": "active",
+            "summary": "Studio is grounding the request into a typed artifact brief before authoring can begin.",
+            "outputs": [
+              "brief:pending"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "skill_discovery",
+            "stage": "plan",
+            "label": "Skill discovery",
+            "status": "pending",
+            "summary": "Studio is deciding whether this request should attach runtime guidance before authoring.",
+            "outputs": [
+              "guidance_evaluated:pending"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "planner",
+            "stage": "plan",
+            "label": "Planner",
+            "status": "complete",
+            "summary": "Studio locked one canonical artifact plan and explicit worker scopes before authoring.",
+            "outputs": [
+              "planner_pending"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "swarm_execution",
+            "stage": "work",
+            "label": "Adaptive work graph",
+            "status": "complete",
+            "summary": "Scoped workers patched the same canonical artifact instead of drafting competing full candidates.",
+            "outputs": [
+              "worker_receipts:0",
+              "invariant:pending",
+              "remaining:1"
+            ],
+            "verificationGate": "Worker receipts must retain bounded ownership and status."
+          },
+          {
+            "id": "merge",
+            "stage": "merge",
+            "label": "Merge",
+            "status": "complete",
+            "summary": "Deterministic patch gating and merge receipts reconciled worker output onto one artifact state.",
+            "outputs": [],
+            "verificationGate": "Out-of-scope patches must be rejected before the artifact can advance."
+          },
+          {
+            "id": "materialization",
+            "stage": "mutate",
+            "label": "Materialization",
+            "status": "complete",
+            "summary": "Studio is creating the files or workspace required by the manifest.",
+            "outputs": [
+              "origin:liveinference",
+              "package.json",
+              "tsconfig.json",
+              "tsconfig.app.json",
+              "files:10"
+            ],
+            "verificationGate": "Files or scaffold receipts must exist before the artifact can present."
+          },
+          {
+            "id": "execution",
+            "stage": "mutate",
+            "label": "Execution",
+            "status": "complete",
+            "summary": "Workspace commands and retries stay bounded under kernel authority.",
+            "outputs": [
+              "Scaffolded react-vite workspace (success)",
+              "Install dependencies (success)",
+              "Validate build (success)",
+              "Preview verified (success)"
+            ],
+            "verificationGate": "Execution receipts must exist for every command-backed step."
+          },
+          {
+            "id": "verification",
+            "stage": "verify",
+            "label": "Verification",
+            "status": "complete",
+            "summary": "Preview verified and workspace lenses are ready.",
+            "outputs": [
+              "Scaffold workspace (success)",
+              "Install dependencies (success)",
+              "Validate build (success)",
+              "Verify preview (success)",
+              "completion:pending",
+              "remaining:verification:verify"
+            ],
+            "verificationGate": "Render, build, preview, or export checks must pass before Studio can claim success."
+          },
+          {
+            "id": "repair",
+            "stage": "mutate",
+            "label": "Repair",
+            "status": "complete",
+            "summary": "Repair stays bounded to cited judge or verification failures on the merged artifact.",
+            "outputs": [],
+            "verificationGate": "Repair may patch only cited failures, not restart the artifact wholesale."
+          },
+          {
+            "id": "presentation",
+            "stage": "finalize",
+            "label": "Presentation",
+            "status": "complete",
+            "summary": "Studio is leading with verified preview because the preview contract passed.",
+            "outputs": [
+              "preview",
+              "http://127.0.0.1:45671"
+            ],
+            "verificationGate": "Preview becomes primary only after verified render or preview health exists."
+          },
+          {
+            "id": "reply",
+            "stage": "finalize",
+            "label": "Verified reply",
+            "status": "complete",
+            "summary": "Studio composes the user-facing summary from artifact state and verification.",
+            "outputs": [
+              "Preview verified and workspace lenses are ready."
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          }
+        ],
+        "runtimeNarrationEvents": [],
+        "notes": [
+          "Conversation remains the control plane; this artifact is the work product.",
+          "Renderer choice is explicit in the typed outcome request.",
+          "Verification state, not worker prose, authorizes the final Studio summary."
+        ]
+      },
+      "outcomeRequest": {
+        "requestId": "89cf4150-02a1-4f87-85df-2f2973354b16",
+        "rawPrompt": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+        "activeArtifactId": null,
+        "outcomeKind": "artifact",
+        "executionStrategy": "adaptive_work_graph",
+        "executionModeDecision": {
+          "requestedStrategy": "plan_execute",
+          "resolvedStrategy": "adaptive_work_graph",
+          "modeConfidence": 0.787,
+          "oneShotSufficiency": 0.065,
+          "ambiguity": 0.01999998,
+          "workGraphSizeEstimate": 7,
+          "hiddenDependencyLikelihood": 0.99999994,
+          "verificationPressure": 0.8,
+          "revisionCost": 0.75,
+          "evidenceBreadth": 0.68,
+          "mergeBurden": 1.0,
+          "decompositionPayoff": 0.96,
+          "workGraphRequired": true,
+          "decompositionReason": "The request implies multiple obligations or hidden dependencies, so a mutable work graph is justified.",
+          "budgetEnvelope": {
+            "maxWorkers": 8,
+            "maxParallelDepth": 4,
+            "maxReplans": 4,
+            "maxWallClockMs": 600000,
+            "maxTokens": 24000,
+            "maxToolCalls": 12,
+            "maxRepairs": 2,
+            "expansionPolicy": "frontier_adaptive"
+          }
+        },
+        "confidence": 0.98,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": [
+          "persistent_artifact_requested",
+          "explicit_workspace_project_deliverable",
+          "workspace_runtime_required",
+          "workspace_recipe:react-vite"
+        ],
+        "artifact": {
+          "artifactClass": "workspace_project",
+          "deliverableShape": "workspace_project",
+          "renderer": "workspace_surface",
+          "presentationSurface": "tabbed_panel",
+          "persistence": "workspace_filesystem",
+          "executionSubstrate": "workspace_runtime",
+          "workspaceRecipeId": "react-vite",
+          "presentationVariantId": null,
+          "scope": {
+            "targetProject": null,
+            "createNewWorkspace": true,
+            "mutationBoundary": [
+              "workspace"
+            ]
+          },
+          "verification": {
+            "requireRender": true,
+            "requireBuild": true,
+            "requirePreview": true,
+            "requireExport": false,
+            "requireDiffReview": true
+          }
+        }
+      },
+      "artifactManifest": {
+        "artifactId": "ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+        "title": "Build a React + Vite workspace project for a task tracker with se...",
+        "artifactClass": "workspace_project",
+        "renderer": "workspace_surface",
+        "primaryTab": "preview",
+        "tabs": [
+          {
+            "id": "preview",
+            "label": "Preview",
+            "kind": "render",
+            "renderer": "html_iframe",
+            "filePath": null,
+            "lens": "preview"
+          },
+          {
+            "id": "workspace",
+            "label": "Workspace",
+            "kind": "workspace",
+            "renderer": "workspace_surface",
+            "filePath": "src/App.tsx",
+            "lens": "code"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [
+          {
+            "path": "src/App.tsx",
+            "mime": "text/jsx",
+            "role": "primary",
+            "renderable": true,
+            "downloadable": true,
+            "artifactId": null,
+            "externalUrl": null
+          },
+          {
+            "path": "artifact-manifest.json",
+            "mime": "application/json",
+            "role": "supporting",
+            "renderable": false,
+            "downloadable": true,
+            "artifactId": null,
+            "externalUrl": null
+          }
+        ],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "Preview verified and workspace lenses are ready.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "inference_unavailable",
+            "label": "inference unavailable",
+            "model": null,
+            "endpoint": null
+          },
+          "failure": null
+        },
+        "storage": null
+      },
+      "verifiedReply": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "title": "Studio outcome: Build a React + Vite workspace project for a task tracker with se...",
+        "summary": "Build a React + Vite workspace project for a task tracker with se... Preview verified and workspace lenses are ready.",
+        "evidence": [
+          "src/App.tsx",
+          "artifact-manifest.json",
+          "production provenance: openai-compatible (qwen3.5:9b)",
+          "acceptance provenance: inference unavailable"
+        ],
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "inference_unavailable",
+          "label": "inference unavailable",
+          "model": null,
+          "endpoint": null
+        },
+        "failure": null,
+        "updatedAt": "2026-04-15T13:23:59.067278258+00:00"
+      },
+      "lifecycleState": "ready",
+      "status": "ready",
+      "activeRevisionId": "56488a53-4afb-4ad8-bdc3-879747f11d1c",
+      "revisions": [
+        {
+          "revisionId": "56488a53-4afb-4ad8-bdc3-879747f11d1c",
+          "parentRevisionId": null,
+          "branchId": "main",
+          "branchLabel": "Main",
+          "prompt": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+          "createdAt": "2026-04-15T13:23:50.092827992+00:00",
+          "uxLifecycle": "judged",
+          "artifactManifest": {
+            "artifactId": "ffc58fb8-d192-4f7f-afd8-12758e5a8573",
+            "title": "Build a React + Vite workspace project for a task tracker with se...",
+            "artifactClass": "workspace_project",
+            "renderer": "workspace_surface",
+            "primaryTab": "workspace",
+            "tabs": [
+              {
+                "id": "preview",
+                "label": "Preview",
+                "kind": "render",
+                "renderer": "html_iframe",
+                "filePath": null,
+                "lens": "preview"
+              },
+              {
+                "id": "workspace",
+                "label": "Workspace",
+                "kind": "workspace",
+                "renderer": "workspace_surface",
+                "filePath": "src/App.tsx",
+                "lens": "code"
+              },
+              {
+                "id": "evidence",
+                "label": "Evidence",
+                "kind": "evidence",
+                "renderer": null,
+                "filePath": null,
+                "lens": "evidence"
+              }
+            ],
+            "files": [
+              {
+                "path": "src/App.tsx",
+                "mime": "text/jsx",
+                "role": "primary",
+                "renderable": true,
+                "downloadable": true,
+                "artifactId": null,
+                "externalUrl": null
+              },
+              {
+                "path": "artifact-manifest.json",
+                "mime": "application/json",
+                "role": "supporting",
+                "renderable": false,
+                "downloadable": true,
+                "artifactId": null,
+                "externalUrl": null
+              }
+            ],
+            "verification": {
+              "status": "pending",
+              "lifecycleState": "materializing",
+              "summary": "Studio is materializing the workspace renderer and running verification.",
+              "productionProvenance": null,
+              "acceptanceProvenance": null,
+              "failure": null
+            },
+            "storage": null
+          },
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "adaptive_work_graph",
+            "modeDecision": {
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "adaptive_work_graph",
+              "modeConfidence": 0.787,
+              "oneShotSufficiency": 0.065,
+              "ambiguity": 0.01999998,
+              "workGraphSizeEstimate": 7,
+              "hiddenDependencyLikelihood": 0.99999994,
+              "verificationPressure": 0.8,
+              "revisionCost": 0.75,
+              "evidenceBreadth": 0.68,
+              "mergeBurden": 1.0,
+              "decompositionPayoff": 0.96,
+              "workGraphRequired": true,
+              "decompositionReason": "The request implies multiple obligations or hidden dependencies, so a mutable work graph is justified.",
+              "budgetEnvelope": {
+                "maxWorkers": 8,
+                "maxParallelDepth": 4,
+                "maxReplans": 4,
+                "maxWallClockMs": 600000,
+                "maxTokens": 24000,
+                "maxToolCalls": 12,
+                "maxRepairs": 2,
+                "expansionPolicy": "frontier_adaptive"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 8,
+              "maxParallelDepth": 4,
+              "maxReplans": 4,
+              "maxWallClockMs": 600000,
+              "maxTokens": 24000,
+              "maxToolCalls": 12,
+              "maxRepairs": 2,
+              "expansionPolicy": "frontier_adaptive"
+            },
+            "executionDomain": "studio_artifact",
+            "domainKind": "artifact",
+            "completionInvariant": {
+              "summary": "adaptive_work_graph completes when the primary artifact exists and verification passes.",
+              "status": "pending",
+              "requiredWorkItemIds": [],
+              "satisfiedWorkItemIds": [],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "verify"
+              ],
+              "satisfiedVerificationIds": [],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [
+                "verification:verify"
+              ],
+              "allowsEarlyExit": false
+            },
+            "plan": null,
+            "executionSummary": null,
+            "workerReceipts": [],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [],
+            "graphMutationReceipts": [],
+            "dispatchBatches": [],
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "budgetSummary": null,
+            "livePreviews": []
+          },
+          "swarmPlan": null,
+          "swarmExecution": null,
+          "swarmWorkerReceipts": [],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "inference_unavailable",
+            "label": "inference unavailable",
+            "model": null,
+            "endpoint": null
+          },
+          "failure": null,
+          "fileWrites": [
+            {
+              "path": "package.json",
+              "kind": "write",
+              "contentPreview": "{   \"name\": \"build-a-react-vite-workspace-project-for-a-task-tracker-with-se\",   \"private\": true,"
+            },
+            {
+              "path": "tsconfig.json",
+              "kind": "write",
+              "contentPreview": "{   \"files\": [],   \"references\": ["
+            },
+            {
+              "path": "tsconfig.app.json",
+              "kind": "write",
+              "contentPreview": "{   \"compilerOptions\": {     \"target\": \"ES2020\","
+            },
+            {
+              "path": "tsconfig.node.json",
+              "kind": "write",
+              "contentPreview": "{   \"compilerOptions\": {     \"composite\": true,"
+            },
+            {
+              "path": "vite.config.ts",
+              "kind": "write",
+              "contentPreview": "import { defineConfig } from 'vite' import react from '@vitejs/plugin-react' "
+            },
+            {
+              "path": "index.html",
+              "kind": "write",
+              "contentPreview": "<!doctype html> <html lang=\"en\">   <head>"
+            },
+            {
+              "path": "src/main.tsx",
+              "kind": "write",
+              "contentPreview": "import React from 'react' import ReactDOM from 'react-dom/client' import App from './App'"
+            },
+            {
+              "path": "src/App.tsx",
+              "kind": "write",
+              "contentPreview": "import './App.css'  export default function App() {"
+            },
+            {
+              "path": "src/App.css",
+              "kind": "write",
+              "contentPreview": ".shell {   min-height: 100vh;   padding: 4rem clamp(1.5rem, 4vw, 4rem);"
+            },
+            {
+              "path": "src/index.css",
+              "kind": "write",
+              "contentPreview": ":root {   color-scheme: dark;   font-family: Inter, system-ui, sans-serif;"
+            }
+          ],
+          "tasteMemory": null,
+          "selectedTargets": []
+        }
+      ],
+      "tasteMemory": null,
+      "retrievedExemplars": [],
+      "selectedTargets": [],
+      "uxLifecycle": null,
+      "createdAt": "2026-04-15T13:23:49.999663934+00:00",
+      "updatedAt": "2026-04-15T13:23:59.067280854+00:00",
+      "buildSessionId": "4d0109c2-3d40-4ae7-a695-07f05f04aecc",
+      "workspaceRoot": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace",
+      "rendererSessionId": "4d0109c2-3d40-4ae7-a695-07f05f04aecc"
+    },
+    "studio_outcome": {
+      "requestId": "89cf4150-02a1-4f87-85df-2f2973354b16",
+      "rawPrompt": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+      "activeArtifactId": null,
+      "outcomeKind": "artifact",
+      "executionStrategy": "adaptive_work_graph",
+      "executionModeDecision": {
+        "requestedStrategy": "plan_execute",
+        "resolvedStrategy": "adaptive_work_graph",
+        "modeConfidence": 0.787,
+        "oneShotSufficiency": 0.065,
+        "ambiguity": 0.01999998,
+        "workGraphSizeEstimate": 7,
+        "hiddenDependencyLikelihood": 0.99999994,
+        "verificationPressure": 0.8,
+        "revisionCost": 0.75,
+        "evidenceBreadth": 0.68,
+        "mergeBurden": 1.0,
+        "decompositionPayoff": 0.96,
+        "workGraphRequired": true,
+        "decompositionReason": "The request implies multiple obligations or hidden dependencies, so a mutable work graph is justified.",
+        "budgetEnvelope": {
+          "maxWorkers": 8,
+          "maxParallelDepth": 4,
+          "maxReplans": 4,
+          "maxWallClockMs": 600000,
+          "maxTokens": 24000,
+          "maxToolCalls": 12,
+          "maxRepairs": 2,
+          "expansionPolicy": "frontier_adaptive"
+        }
+      },
+      "confidence": 0.98,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "routingHints": [
+        "persistent_artifact_requested",
+        "explicit_workspace_project_deliverable",
+        "workspace_runtime_required",
+        "workspace_recipe:react-vite"
+      ],
+      "artifact": {
+        "artifactClass": "workspace_project",
+        "deliverableShape": "workspace_project",
+        "renderer": "workspace_surface",
+        "presentationSurface": "tabbed_panel",
+        "persistence": "workspace_filesystem",
+        "executionSubstrate": "workspace_runtime",
+        "workspaceRecipeId": "react-vite",
+        "presentationVariantId": null,
+        "scope": {
+          "targetProject": null,
+          "createNewWorkspace": true,
+          "mutationBoundary": [
+            "workspace"
+          ]
+        },
+        "verification": {
+          "requireRender": true,
+          "requireBuild": true,
+          "requirePreview": true,
+          "requireExport": false,
+          "requireDiffReview": true
+        }
+      }
+    },
+    "renderer_session": {
+      "sessionId": "4d0109c2-3d40-4ae7-a695-07f05f04aecc",
+      "studioSessionId": "a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d",
+      "renderer": "workspace_surface",
+      "workspaceRoot": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace",
+      "entryDocument": "src/App.tsx",
+      "previewUrl": "http://127.0.0.1:45671",
+      "previewProcessId": 1845461,
+      "scaffoldRecipeId": "react-vite",
+      "presentationVariantId": null,
+      "packageManager": "npm",
+      "status": "preview-ready",
+      "verificationStatus": "passed",
+      "receipts": [
+        {
+          "receiptId": "e1d6636c-1826-4f43-80a6-cd354cff9d91",
+          "kind": "scaffold",
+          "title": "Scaffolded react-vite workspace",
+          "status": "success",
+          "summary": "Materialized 10 starter files in /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace using the react-vite recipe.",
+          "startedAt": "2026-04-15T13:23:49.999663934+00:00",
+          "finishedAt": "2026-04-15T13:23:50.011485545+00:00",
+          "artifactIds": [
+            "ffc58fb8-d192-4f7f-afd8-12758e5a8573"
+          ],
+          "command": null,
+          "exitCode": 0,
+          "durationMs": 0,
+          "failureClass": null,
+          "replayClassification": "replay_safe"
+        },
+        {
+          "receiptId": "9fa8a2ff-dba7-40c7-9d17-f3121671c7fa",
+          "kind": "install",
+          "title": "Install dependencies",
+          "status": "success",
+          "summary": "Install dependencies completed successfully in 4734 ms.",
+          "startedAt": "2026-04-15T13:23:55.081062838+00:00",
+          "finishedAt": "2026-04-15T13:23:55.081080464+00:00",
+          "artifactIds": [
+            "61c66a64-d7d3-4621-9f41-103a0f122fe6",
+            "1b14fecc-a5ca-4e87-9db4-21038842f4df"
+          ],
+          "command": "npm install --no-audit --no-fund",
+          "exitCode": 0,
+          "durationMs": 4734,
+          "failureClass": null,
+          "replayClassification": "replay_safe"
+        },
+        {
+          "receiptId": "27d87a25-7b56-4970-a96d-af0c4b4f95b5",
+          "kind": "validation",
+          "title": "Validate build",
+          "status": "success",
+          "summary": "Validate build completed successfully in 2430 ms.",
+          "startedAt": "2026-04-15T13:23:57.969650366+00:00",
+          "finishedAt": "2026-04-15T13:23:57.969666552+00:00",
+          "artifactIds": [
+            "80689858-81a6-483c-92c3-6154436cf7b2",
+            "9208f834-ac4f-405e-af81-d36f573d8718"
+          ],
+          "command": "npm run build",
+          "exitCode": 0,
+          "durationMs": 2430,
+          "failureClass": null,
+          "replayClassification": "replay_safe"
+        },
+        {
+          "receiptId": "966b05c4-9d5f-4318-b07b-ffe7af905a5a",
+          "kind": "preview",
+          "title": "Preview verified",
+          "status": "success",
+          "summary": "Preview verified at http://127.0.0.1:45671.",
+          "startedAt": "2026-04-15T13:23:58.371846420+00:00",
+          "finishedAt": "2026-04-15T13:23:58.805479499+00:00",
+          "artifactIds": [
+            "6976a0c1-9206-493d-8844-952eb8cc147f"
+          ],
+          "command": "node /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace/node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 45671",
+          "exitCode": 0,
+          "durationMs": 433,
+          "failureClass": null,
+          "replayClassification": "replay_safe"
+        }
+      ],
+      "currentWorkerExecution": {
+        "backend": "hosted-fallback",
+        "plannerAuthority": "kernel",
+        "allowedMutationScope": [
+          "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace",
+          "package.json",
+          "src",
+          "vite.config.ts",
+          "index.html"
+        ],
+        "allowedCommandClasses": [
+          "install",
+          "build",
+          "preview",
+          "repair"
+        ],
+        "executionState": "complete",
+        "retryClassification": "retry_required",
+        "lastSummary": "Kernel owns routing. Studio materialized a react-vite workspace so the artifact can open real code and preview lenses under bounded supervision."
+      },
+      "currentTab": "preview",
+      "availableTabs": [
+        "preview",
+        "workspace",
+        "evidence"
+      ],
+      "readyTabs": [
+        "preview",
+        "workspace",
+        "evidence"
+      ],
+      "retryCount": 0,
+      "lastFailureSummary": null
+    },
+    "build_session": {
+      "sessionId": "4d0109c2-3d40-4ae7-a695-07f05f04aecc",
+      "studioSessionId": "a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d",
+      "workspaceRoot": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace",
+      "entryDocument": "src/App.tsx",
+      "previewUrl": "http://127.0.0.1:45671",
+      "previewProcessId": 1845461,
+      "scaffoldRecipeId": "react-vite",
+      "presentationVariantId": null,
+      "packageManager": "npm",
+      "buildStatus": "preview-ready",
+      "verificationStatus": "passed",
+      "receipts": [
+        {
+          "receiptId": "e1d6636c-1826-4f43-80a6-cd354cff9d91",
+          "kind": "scaffold",
+          "title": "Scaffolded react-vite workspace",
+          "status": "success",
+          "summary": "Materialized 10 starter files in /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace using the react-vite recipe.",
+          "startedAt": "2026-04-15T13:23:49.999663934+00:00",
+          "finishedAt": "2026-04-15T13:23:50.011485545+00:00",
+          "artifactIds": [
+            "ffc58fb8-d192-4f7f-afd8-12758e5a8573"
+          ],
+          "command": null,
+          "exitCode": 0,
+          "durationMs": 0,
+          "failureClass": null,
+          "replayClassification": "replay_safe"
+        },
+        {
+          "receiptId": "9fa8a2ff-dba7-40c7-9d17-f3121671c7fa",
+          "kind": "install",
+          "title": "Install dependencies",
+          "status": "success",
+          "summary": "Install dependencies completed successfully in 4734 ms.",
+          "startedAt": "2026-04-15T13:23:55.081062838+00:00",
+          "finishedAt": "2026-04-15T13:23:55.081080464+00:00",
+          "artifactIds": [
+            "61c66a64-d7d3-4621-9f41-103a0f122fe6",
+            "1b14fecc-a5ca-4e87-9db4-21038842f4df"
+          ],
+          "command": "npm install --no-audit --no-fund",
+          "exitCode": 0,
+          "durationMs": 4734,
+          "failureClass": null,
+          "replayClassification": "replay_safe"
+        },
+        {
+          "receiptId": "27d87a25-7b56-4970-a96d-af0c4b4f95b5",
+          "kind": "validation",
+          "title": "Validate build",
+          "status": "success",
+          "summary": "Validate build completed successfully in 2430 ms.",
+          "startedAt": "2026-04-15T13:23:57.969650366+00:00",
+          "finishedAt": "2026-04-15T13:23:57.969666552+00:00",
+          "artifactIds": [
+            "80689858-81a6-483c-92c3-6154436cf7b2",
+            "9208f834-ac4f-405e-af81-d36f573d8718"
+          ],
+          "command": "npm run build",
+          "exitCode": 0,
+          "durationMs": 2430,
+          "failureClass": null,
+          "replayClassification": "replay_safe"
+        },
+        {
+          "receiptId": "966b05c4-9d5f-4318-b07b-ffe7af905a5a",
+          "kind": "preview",
+          "title": "Preview verified",
+          "status": "success",
+          "summary": "Preview verified at http://127.0.0.1:45671.",
+          "startedAt": "2026-04-15T13:23:58.371846420+00:00",
+          "finishedAt": "2026-04-15T13:23:58.805479499+00:00",
+          "artifactIds": [
+            "6976a0c1-9206-493d-8844-952eb8cc147f"
+          ],
+          "command": "node /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace/node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port 45671",
+          "exitCode": 0,
+          "durationMs": 433,
+          "failureClass": null,
+          "replayClassification": "replay_safe"
+        }
+      ],
+      "currentWorkerExecution": {
+        "backend": "hosted-fallback",
+        "plannerAuthority": "kernel",
+        "allowedMutationScope": [
+          "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/studio-artifacts/a4cf353c-3b4a-4192-bfe0-4ce16cd6ea4d/workspace",
+          "package.json",
+          "src",
+          "vite.config.ts",
+          "index.html"
+        ],
+        "allowedCommandClasses": [
+          "install",
+          "build",
+          "preview",
+          "repair"
+        ],
+        "executionState": "complete",
+        "retryClassification": "retry_required",
+        "lastSummary": "Kernel owns routing. Studio materialized a react-vite workspace so the artifact can open real code and preview lenses under bounded supervision."
+      },
+      "currentLens": "preview",
+      "availableLenses": [
+        "preview",
+        "code",
+        "files",
+        "search",
+        "source-control",
+        "terminal",
+        "problems",
+        "output",
+        "ports"
+      ],
+      "readyLenses": [
+        "preview",
+        "code",
+        "files",
+        "search",
+        "source-control",
+        "terminal",
+        "problems",
+        "output",
+        "ports"
+      ],
+      "retryCount": 0,
+      "lastFailureSummary": null
+    },
+    "run_bundle_id": "20fe82e6-00ca-4a2a-af7f-9f641de08b19",
+    "swarm_tree": [],
+    "generation": 0,
+    "lineage_id": "genesis",
+    "fitness_score": 0.0
+  },
+  "route_receipt_summary": {
+    "title": "Studio created Build a React + Vite workspace project for a task tracker with se...",
+    "selected_route": "artifact_workspace_surface",
+    "route_family": "coding",
+    "planner_authority": "kernel",
+    "verifier_state": "active",
+    "artifact_class": "workspace_project",
+    "route_decision": {
+      "artifact_output_intent": true,
+      "connector_candidate_count": 0,
+      "connector_first_preference": false,
+      "currentness_override": false,
+      "direct_answer_allowed": false,
+      "direct_answer_blockers": [
+        "persistent_artifact_requested"
+      ],
+      "effective_tool_surface": {
+        "broad_fallback_tools": [],
+        "diagnostic_tools": [
+          "route_hint:persistent_artifact_requested",
+          "route_hint:explicit_workspace_project_deliverable",
+          "route_hint:workspace_runtime_required",
+          "route_hint:workspace_recipe:react-vite"
+        ],
+        "primary_tools": [
+          "studio_renderer:workspace_surface"
+        ],
+        "projected_tools": [
+          "studio_renderer:workspace_surface"
+        ]
+      },
+      "file_output_intent": false,
+      "inline_visual_intent": false,
+      "narrow_tool_preference": false,
+      "output_intent": "artifact",
+      "route_family": "coding",
+      "selected_provider_family": null,
+      "selected_provider_route_label": null,
+      "skill_prep_required": true
+    },
+    "artifact_manifest_summary": {
+      "title": "Build a React + Vite workspace project for a task tracker with se...",
+      "renderer": "workspace_surface",
+      "primary_tab": "preview",
+      "tabs": [
+        "preview",
+        "workspace",
+        "evidence"
+      ],
+      "lifecycle_state": "ready",
+      "verification_status": "ready",
+      "verification_summary": "Preview verified and workspace lenses are ready."
+    }
+  },
+  "latest_agent_message": null,
+  "log_tail": [
+    "[Autopilot] Block #196 committed (Tx: 0)",
+    "[Autopilot] Block #197 committed (Tx: 0)",
+    "[Autopilot] Block #198 committed (Tx: 0)",
+    "[Autopilot] Block #199 committed (Tx: 0)",
+    "[Autopilot] Block #200 committed (Tx: 0)",
+    "[Autopilot] Block #201 committed (Tx: 0)",
+    "[Autopilot] Block #202 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#202 (1 sessions)",
+    "[Autopilot] Block #203 committed (Tx: 0)",
+    "[Autopilot] Block #204 committed (Tx: 0)",
+    "[Autopilot] Block #205 committed (Tx: 0)",
+    "[Autopilot] Block #206 committed (Tx: 0)",
+    "[Autopilot] Block #207 committed (Tx: 0)",
+    "[Autopilot] Block #208 committed (Tx: 0)",
+    "[Autopilot] Block #209 committed (Tx: 0)",
+    "[Autopilot] Block #210 committed (Tx: 0)",
+    "[Autopilot] Block #211 committed (Tx: 0)",
+    "[Autopilot] Block #212 committed (Tx: 0)",
+    "[Autopilot] Block #213 committed (Tx: 0)",
+    "[Autopilot] Block #214 committed (Tx: 0)",
+    "[Autopilot] Block #215 committed (Tx: 0)",
+    "[Autopilot] Block #216 committed (Tx: 0)",
+    "[Autopilot] Block #217 committed (Tx: 0)",
+    "[Autopilot] Block #218 committed (Tx: 0)",
+    "[Autopilot] Block #219 committed (Tx: 0)",
+    "[Autopilot] Block #220 committed (Tx: 0)",
+    "[Autopilot] Block #221 committed (Tx: 0)",
+    "[Autopilot] Block #222 committed (Tx: 0)",
+    "[Autopilot] Block #223 committed (Tx: 0)",
+    "[Autopilot] Block #224 committed (Tx: 0)",
+    "[Autopilot] Block #225 committed (Tx: 0)",
+    "[Autopilot] Block #226 committed (Tx: 0)",
+    "[Autopilot] Block #227 committed (Tx: 0)",
+    "[Autopilot] Block #228 committed (Tx: 0)",
+    "[Autopilot] Block #229 committed (Tx: 0)",
+    "[Autopilot] Block #230 committed (Tx: 0)",
+    "[Autopilot] Block #231 committed (Tx: 0)",
+    "[Autopilot] Block #232 committed (Tx: 0)",
+    "[Autopilot] Block #233 committed (Tx: 0)",
+    "[Autopilot] Block #234 committed (Tx: 0)",
+    "[Autopilot] Block #235 committed (Tx: 0)",
+    "[Autopilot] Block #236 committed (Tx: 0)",
+    "[Autopilot] Block #237 committed (Tx: 0)",
+    "[Autopilot] Block #238 committed (Tx: 0)",
+    "[Autopilot] Block #239 committed (Tx: 0)",
+    "[Autopilot] Block #240 committed (Tx: 0)",
+    "[Autopilot] Block #241 committed (Tx: 0)",
+    "[Autopilot] Block #242 committed (Tx: 0)",
+    "[Autopilot] Block #243 committed (Tx: 0)",
+    "[Autopilot] Block #244 committed (Tx: 0)",
+    "[Autopilot] Block #245 committed (Tx: 0)",
+    "[Autopilot] Block #246 committed (Tx: 0)",
+    "[Autopilot] Block #247 committed (Tx: 0)",
+    "[Autopilot] Block #248 committed (Tx: 0)",
+    "[Autopilot] Block #249 committed (Tx: 0)",
+    "[Autopilot] Block #250 committed (Tx: 0)",
+    "[Autopilot] Block #251 committed (Tx: 0)",
+    "[Autopilot] Block #252 committed (Tx: 0)",
+    "[Autopilot] Block #253 committed (Tx: 0)",
+    "[Autopilot] Block #254 committed (Tx: 0)",
+    "[Autopilot] Block #255 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#255 (1 sessions)",
+    "[Autopilot] Block #256 committed (Tx: 0)",
+    "[Autopilot] Block #257 committed (Tx: 0)",
+    "[Autopilot] Block #258 committed (Tx: 0)",
+    "[Autopilot] Block #259 committed (Tx: 0)",
+    "[Autopilot] Block #260 committed (Tx: 0)",
+    "[Autopilot] Block #261 committed (Tx: 0)",
+    "[Autopilot] Block #262 committed (Tx: 0)",
+    "[Autopilot] Block #263 committed (Tx: 0)",
+    "[Autopilot] Block #264 committed (Tx: 0)",
+    "[Autopilot] Block #265 committed (Tx: 0)",
+    "[Autopilot] Block #266 committed (Tx: 0)",
+    "[Autopilot] Block #267 committed (Tx: 0)",
+    "[Autopilot] Block #268 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#267 (1 sessions)",
+    "[Autopilot] Block #269 committed (Tx: 0)",
+    "[Autopilot] Block #270 committed (Tx: 0)",
+    "[Autopilot] Block #271 committed (Tx: 0)",
+    "[Autopilot] Block #272 committed (Tx: 0)",
+    "[Autopilot] Block #273 committed (Tx: 0)",
+    "[Autopilot] Block #274 committed (Tx: 0)",
+    "[Autopilot] Block #275 committed (Tx: 0)",
+    "[Autopilot] Block #276 committed (Tx: 0)",
+    "[Autopilot] Block #277 committed (Tx: 0)",
+    "[Autopilot] Block #278 committed (Tx: 0)",
+    "[Autopilot] Block #279 committed (Tx: 0)",
+    "[Autopilot] Block #280 committed (Tx: 0)",
+    "[Autopilot] Block #281 committed (Tx: 0)",
+    "[Autopilot] Block #282 committed (Tx: 0)",
+    "[Autopilot] Block #283 committed (Tx: 0)",
+    "[Autopilot] Block #284 committed (Tx: 0)",
+    "[Autopilot] Block #285 committed (Tx: 0)",
+    "[Autopilot] Block #286 committed (Tx: 0)",
+    "[Autopilot] Block #287 committed (Tx: 0)",
+    "[Autopilot] Block #288 committed (Tx: 0)",
+    "[Autopilot] Block #289 committed (Tx: 0)",
+    "[Autopilot] Block #290 committed (Tx: 0)",
+    "[Autopilot] Block #291 committed (Tx: 0)",
+    "[Autopilot] Block #292 committed (Tx: 0)",
+    "[Autopilot] Block #293 committed (Tx: 0)",
+    "[Autopilot] Block #294 committed (Tx: 0)",
+    "[Autopilot] Block #295 committed (Tx: 0)",
+    "[Autopilot] Block #296 committed (Tx: 0)",
+    "[Autopilot] Block #297 committed (Tx: 0)",
+    "[Autopilot] Block #298 committed (Tx: 0)",
+    "[Autopilot] Block #299 committed (Tx: 0)",
+    "[Autopilot] Block #300 committed (Tx: 0)",
+    "[Autopilot] Block #301 committed (Tx: 0)",
+    "[Autopilot] Block #302 committed (Tx: 0)",
+    "[Autopilot] Block #303 committed (Tx: 0)",
+    "[Autopilot] Block #304 committed (Tx: 0)",
+    "[Autopilot] Block #305 committed (Tx: 0)",
+    "[Autopilot] Block #306 committed (Tx: 0)",
+    "[Autopilot] Block #307 committed (Tx: 0)",
+    "[Autopilot] Block #308 committed (Tx: 0)",
+    "[Autopilot] Block #309 committed (Tx: 0)",
+    "[Autopilot] Block #310 committed (Tx: 0)",
+    "[Autopilot] Block #311 committed (Tx: 0)",
+    "[Autopilot] Block #312 committed (Tx: 0)"
+  ],
+  "probe_error": null
+}

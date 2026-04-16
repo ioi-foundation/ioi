@@ -27,6 +27,7 @@ parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 zeroize = { workspace = true, features = ["alloc"] }
 anyhow = { workspace = true }
 base64 = { workspace = true } # [FIX] Added base64 dependency
+zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 
 # [FIX] Removed ibc-primitives to break dependency on IBC stack for local mode.
 # ibc-primitives = { workspace = true }

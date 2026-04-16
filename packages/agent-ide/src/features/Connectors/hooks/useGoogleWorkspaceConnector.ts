@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
-  AgentRuntime,
+  AgentWorkbenchRuntime,
   ConnectorActionDefinition,
   ConnectorActionResult,
   ConnectorConfigureResult,
@@ -45,7 +45,7 @@ export type {
 } from "./googleWorkspaceConnectorState";
 
 export function useGoogleWorkspaceConnector(
-  runtime: AgentRuntime,
+  runtime: AgentWorkbenchRuntime,
   connector: ConnectorSummary,
   options?: UseGoogleWorkspaceConnectorOptions
 ): GoogleWorkspaceConnectorState {

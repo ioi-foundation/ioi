@@ -72,6 +72,54 @@ pub(super) fn normalize_install_package_arguments(arguments: &Value) -> Result<V
     }))
 }
 
+pub(super) fn normalize_file_search_arguments(arguments: &Value) -> Result<Value> {
+    let args_obj = arguments.as_object().ok_or_else(|| {
+        anyhow!("Schema Validation Error: file__search arguments must be a JSON object.")
+    })?;
+
+    let path = args_obj
+        .get("path")
+        .or_else(|| args_obj.get("root"))
+        .or_else(|| args_obj.get("directory"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .unwrap_or(".");
+
+    let regex = args_obj
+        .get("regex")
+        .or_else(|| args_obj.get("pattern"))
+        .or_else(|| args_obj.get("query"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| {
+            anyhow!(
+                "Schema Validation Error: file__search requires a non-empty 'regex' field (aliases: pattern, query)."
+            )
+        })?;
+
+    let file_pattern = args_obj
+        .get("file_pattern")
+        .or_else(|| args_obj.get("glob"))
+        .or_else(|| args_obj.get("filter"))
+        .or_else(|| args_obj.get("filename_pattern"))
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(str::to_string);
+
+    let mut normalized = serde_json::Map::from_iter([
+        ("path".to_string(), json!(path)),
+        ("regex".to_string(), json!(regex)),
+    ]);
+    if let Some(file_pattern) = file_pattern {
+        normalized.insert("file_pattern".to_string(), json!(file_pattern));
+    }
+
+    Ok(Value::Object(normalized))
+}
+
 pub(super) fn lower_edit_line_to_fs_write(arguments: &Value) -> Result<Value> {
     let args_obj = arguments
         .as_object()

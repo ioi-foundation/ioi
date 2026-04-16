@@ -1,4 +1,7 @@
-use super::filesystem::{required_filesystem_path_keys, validate_allow_paths_condition};
+use super::filesystem::{
+    augment_workspace_filesystem_policy, required_filesystem_path_keys,
+    validate_allow_paths_condition,
+};
 use super::targets::policy_target_aliases;
 use super::PolicyEngine;
 
@@ -101,6 +104,7 @@ fn allow_paths_blocks_copy_when_destination_outside_allowed_roots() {
         &allowed,
         &ActionTarget::Custom("file__copy".into()),
         &params,
+        None,
     );
     assert!(!allowed_by_policy);
 }
@@ -118,6 +122,7 @@ fn allow_paths_accepts_copy_when_all_paths_are_within_allowed_roots() {
         &allowed,
         &ActionTarget::Custom("file__copy".into()),
         &params,
+        None,
     );
     assert!(allowed_by_policy);
 }
@@ -131,7 +136,7 @@ fn allow_paths_blocks_prefix_collision_path() {
     let params = serde_json::to_vec(&params).expect("params should serialize");
 
     let allowed_by_policy =
-        validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
+        validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params, None);
     assert!(!allowed_by_policy);
 }
 
@@ -144,7 +149,7 @@ fn allow_paths_blocks_parent_traversal_segments() {
     let params = serde_json::to_vec(&params).expect("params should serialize");
 
     let allowed_by_policy =
-        validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
+        validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params, None);
     assert!(!allowed_by_policy);
 }
 
@@ -157,8 +162,77 @@ fn allow_paths_accepts_normalized_path_within_allowed_root() {
     let params = serde_json::to_vec(&params).expect("params should serialize");
 
     let allowed_by_policy =
-        validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params);
+        validate_allow_paths_condition(&allowed, &ActionTarget::FsRead, &params, None);
     assert!(allowed_by_policy);
+}
+
+#[test]
+fn allow_paths_accepts_relative_request_against_working_directory() {
+    let allowed = vec!["/workspace/repo".to_string()];
+    let params = serde_json::json!({
+        "path": "./src/main.rs"
+    });
+    let params = serde_json::to_vec(&params).expect("params should serialize");
+
+    let allowed_by_policy = validate_allow_paths_condition(
+        &allowed,
+        &ActionTarget::FsRead,
+        &params,
+        Some("/workspace/repo"),
+    );
+    assert!(allowed_by_policy);
+}
+
+#[test]
+fn allow_paths_blocks_relative_escape_against_working_directory() {
+    let allowed = vec!["/workspace/repo".to_string()];
+    let params = serde_json::json!({
+        "path": "../secrets.txt"
+    });
+    let params = serde_json::to_vec(&params).expect("params should serialize");
+
+    let allowed_by_policy = validate_allow_paths_condition(
+        &allowed,
+        &ActionTarget::FsRead,
+        &params,
+        Some("/workspace/repo"),
+    );
+    assert!(!allowed_by_policy);
+}
+
+#[test]
+fn workspace_filesystem_policy_adds_repo_scoped_read_and_write_rules() {
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::RequireApproval,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![],
+    };
+
+    let effective = augment_workspace_filesystem_policy(&rules, Some("/workspace/repo"));
+
+    let read_rule = effective
+        .rules
+        .iter()
+        .find(|rule| rule.rule_id.as_deref() == Some("allow-workspace-fs-read"))
+        .expect("workspace read rule should be present");
+    assert_eq!(read_rule.target, "fs::read");
+    assert_eq!(
+        read_rule.conditions.allow_paths.as_ref(),
+        Some(&vec!["/workspace/repo".to_string()])
+    );
+
+    let write_rule = effective
+        .rules
+        .iter()
+        .find(|rule| rule.rule_id.as_deref() == Some("allow-workspace-fs-write"))
+        .expect("workspace write rule should be present");
+    assert_eq!(write_rule.target, "fs::write");
+    assert_eq!(
+        write_rule.conditions.allow_paths.as_ref(),
+        Some(&vec!["/workspace/repo".to_string()])
+    );
 }
 
 #[test]
@@ -266,6 +340,63 @@ fn allow_domains_blocks_substring_bypass_host() {
 
     let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
     assert_eq!(verdict, Verdict::Block);
+}
+
+#[test]
+fn evaluate_with_working_directory_allows_relative_repo_read() {
+    let graph = EvidenceGraph {
+        version: 1,
+        source_hash: [0u8; 32],
+        ambiguous: false,
+        spans: vec![],
+    };
+
+    let rules = ActionRules {
+        policy_id: "policy".to_string(),
+        defaults: DefaultPolicy::RequireApproval,
+        ontology_policy: Default::default(),
+        pii_controls: PiiControls::default(),
+        rules: vec![Rule {
+            rule_id: Some("allow-repo-read".to_string()),
+            target: "fs::read".to_string(),
+            conditions: RuleConditions {
+                allow_paths: Some(vec!["/workspace/repo".to_string()]),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        }],
+    };
+
+    let safety = Arc::new(DummySafety { graph }) as Arc<dyn LocalSafetyModel>;
+    let os = Arc::new(DummyOs) as Arc<dyn OsDriver>;
+
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+
+    let params = serde_json::json!({ "path": "./src/main.rs" });
+    let params = serde_json::to_vec(&params).expect("params should serialize");
+    let request = ActionRequest {
+        target: ActionTarget::FsRead,
+        params,
+        context: ActionContext {
+            agent_id: "agent".to_string(),
+            session_id: None,
+            window_id: None,
+        },
+        nonce: 1,
+    };
+
+    let verdict = rt.block_on(PolicyEngine::evaluate_with_working_directory(
+        &rules,
+        &request,
+        Some("/workspace/repo"),
+        &safety,
+        &os,
+        None,
+    ));
+    assert_eq!(verdict, Verdict::Allow);
 }
 
 #[test]

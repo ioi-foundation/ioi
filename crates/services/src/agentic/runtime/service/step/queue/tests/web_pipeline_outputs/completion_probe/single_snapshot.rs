@@ -595,6 +595,137 @@ fn web_pipeline_single_snapshot_completes_price_queries_when_explicit_quote_is_p
 }
 
 #[test]
+fn web_pipeline_single_snapshot_completes_current_office_holder_queries_without_metric_probe() {
+    let retrieval_contract = WebRetrievalContract {
+        entity_cardinality_min: 1,
+        comparison_required: false,
+        currentness_required: true,
+        runtime_locality_required: false,
+        source_independence_min: 1,
+        citation_count_min: 1,
+        structured_record_preferred: true,
+        ordered_collection_preferred: false,
+        link_collection_preferred: false,
+        canonical_link_out_preferred: false,
+        geo_scoped_detail_required: false,
+        discovery_surface_required: false,
+        entity_diversity_required: false,
+        scalar_measure_required: false,
+        browser_fallback_allowed: true,
+        ..WebRetrievalContract::default()
+    };
+    let pending = PendingSearchCompletion {
+        query: "Who is the current Secretary-General of the UN?".to_string(),
+        query_contract: "Who is the current Secretary-General of the UN?".to_string(),
+        retrieval_contract: Some(retrieval_contract),
+        url: "https://search.brave.com/search?q=current+Secretary-General+of+the+United+Nations"
+            .to_string(),
+        started_step: 1,
+        started_at_ms: 1_776_200_894_000,
+        deadline_ms: 1_776_200_954_000,
+        candidate_urls: vec!["https://ask.un.org/faq/14625".to_string()],
+        candidate_source_hints: vec![PendingSearchReadSummary {
+            url: "https://ask.un.org/faq/14625".to_string(),
+            title: Some(
+                "UN Ask DAG ask.un.org faq 14625 Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                    .to_string(),
+            ),
+            excerpt: "Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+                .to_string(),
+        }],
+        attempted_urls: vec!["https://ask.un.org/faq/14625".to_string()],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://ask.un.org/faq/14625".to_string(),
+            title: Some(
+                "UN Ask DAG ask.un.org faq 14625 Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                    .to_string(),
+            ),
+            excerpt: "Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+                .to_string(),
+        }],
+        min_sources: 1,
+    };
+
+    let reason = web_pipeline_completion_reason(&pending, 1_776_200_910_000)
+        .expect("current office-holder grounding should allow completion");
+    assert_eq!(reason, WebPipelineCompletionReason::MinSourcesReached);
+}
+
+#[test]
+fn web_pipeline_single_snapshot_keeps_running_for_generic_role_definition_when_identity_is_unresolved()
+{
+    let retrieval_contract = WebRetrievalContract {
+        entity_cardinality_min: 1,
+        comparison_required: false,
+        currentness_required: true,
+        runtime_locality_required: false,
+        source_independence_min: 1,
+        citation_count_min: 1,
+        structured_record_preferred: true,
+        ordered_collection_preferred: false,
+        link_collection_preferred: false,
+        canonical_link_out_preferred: false,
+        geo_scoped_detail_required: false,
+        discovery_surface_required: false,
+        entity_diversity_required: false,
+        scalar_measure_required: false,
+        browser_fallback_allowed: true,
+        ..WebRetrievalContract::default()
+    };
+    let pending = PendingSearchCompletion {
+        query: "Who is the current Secretary-General of the UN?".to_string(),
+        query_contract: "Who is the current Secretary-General of the UN?".to_string(),
+        retrieval_contract: Some(retrieval_contract),
+        url: "https://search.brave.com/search?q=current+Secretary-General+of+the+United+Nations"
+            .to_string(),
+        started_step: 1,
+        started_at_ms: 1_776_200_894_000,
+        deadline_ms: 1_776_200_954_000,
+        candidate_urls: vec![
+            "https://en.wikipedia.org/wiki/Secretary-General_of_the_United_Nations".to_string(),
+            "https://ask.un.org/faq/14625".to_string(),
+        ],
+        candidate_source_hints: vec![
+            PendingSearchReadSummary {
+                url: "https://en.wikipedia.org/wiki/Secretary-General_of_the_United_Nations"
+                    .to_string(),
+                title: Some("Secretary-General of the United Nations - Wikipedia".to_string()),
+                excerpt: "The secretary-general of the United Nations is the Head of the United Nations Secretariat."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://ask.un.org/faq/14625".to_string(),
+                title: Some(
+                    "Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                        .to_string(),
+                ),
+                excerpt: "António Guterres is the current Secretary-General of the United Nations."
+                    .to_string(),
+            },
+        ],
+        attempted_urls: vec!["https://en.wikipedia.org/wiki/Secretary-General_of_the_United_Nations"
+            .to_string()],
+        blocked_urls: vec![],
+        successful_reads: vec![PendingSearchReadSummary {
+            url: "https://en.wikipedia.org/wiki/Secretary-General_of_the_United_Nations"
+                .to_string(),
+            title: Some("Secretary-General of the United Nations - Wikipedia".to_string()),
+            excerpt: "The secretary-general of the United Nations is the Head of the United Nations Secretariat."
+                .to_string(),
+        }],
+        min_sources: 1,
+    };
+
+    let reason = web_pipeline_completion_reason(&pending, 1_776_200_910_000);
+    assert!(
+        reason.is_none(),
+        "generic role-definition reads should not complete identity queries while a viable follow-up remains: {:?}",
+        reason
+    );
+}
+
+#[test]
 fn web_pipeline_single_snapshot_keeps_running_when_citation_floor_requires_another_read() {
     let retrieval_contract = WebRetrievalContract {
         entity_cardinality_min: 1,

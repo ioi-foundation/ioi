@@ -1,11 +1,12 @@
 use super::*;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ioi_api::execution::{
     execution_budget_envelope_for_strategy, execution_strategy_for_outcome,
     ExecutionCompletionInvariantStatus, ExecutionEnvelope, ExecutionLivePreview,
     ExecutionLivePreviewKind,
 };
 use ioi_api::studio::{
-    derive_studio_artifact_prepared_context,
+    derive_request_grounded_studio_artifact_brief, derive_studio_artifact_prepared_context,
     generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator,
     pdf_artifact_bytes, render_eval_timeout_for_runtime, resolve_studio_artifact_runtime_plan,
     synthesize_studio_artifact_brief_for_execution_strategy_with_runtime,
@@ -15,6 +16,7 @@ use ioi_api::studio::{
     StudioArtifactRuntimeEventStatus, StudioArtifactRuntimeEventType,
     StudioArtifactRuntimeNarrationEvent, StudioArtifactRuntimePolicyProfile,
     StudioArtifactRuntimePreviewSnapshot, StudioArtifactRuntimeStepId, StudioArtifactSelectedSkill,
+    StudioGeneratedArtifactEncoding, StudioGeneratedArtifactFile,
 };
 use ioi_drivers::studio_render::BrowserStudioArtifactRenderEvaluator;
 use ioi_types::app::StudioExecutionStrategy;
@@ -27,6 +29,50 @@ use ioi_api::studio::StudioGeneratedArtifactPayload;
 
 const LOCAL_HTML_GENERATION_TIMEOUT_SECS: u64 = 420;
 const LOCAL_HTML_SPLIT_ACCEPTANCE_TIMEOUT_SECS: u64 = 1200;
+
+fn generated_file_is_binary(file: &StudioGeneratedArtifactFile) -> bool {
+    matches!(file.encoding, Some(StudioGeneratedArtifactEncoding::Base64))
+}
+
+fn generated_file_text_content(file: &StudioGeneratedArtifactFile) -> Option<String> {
+    (!generated_file_is_binary(file)).then(|| file.body.clone())
+}
+
+fn generated_file_preview(file: &StudioGeneratedArtifactFile) -> Option<String> {
+    if generated_file_is_binary(file) {
+        Some(format!(
+            "Binary {} artifact stored for download/open.",
+            file.mime
+        ))
+    } else {
+        Some(truncate_preview(&file.body))
+    }
+}
+
+fn generated_file_bytes(
+    title: &str,
+    request: &StudioOutcomeArtifactRequest,
+    file: &StudioGeneratedArtifactFile,
+) -> Result<Vec<u8>, String> {
+    if request.renderer == StudioRendererKind::PdfEmbed && file.path.ends_with(".pdf") {
+        return Ok(pdf_artifact_bytes(title, &file.body));
+    }
+
+    match file
+        .encoding
+        .unwrap_or(StudioGeneratedArtifactEncoding::Utf8)
+    {
+        StudioGeneratedArtifactEncoding::Utf8 => Ok(file.body.as_bytes().to_vec()),
+        StudioGeneratedArtifactEncoding::Base64 => {
+            STANDARD.decode(file.body.trim()).map_err(|error| {
+                format!(
+                    "Failed to decode binary Studio artifact {} as base64: {}",
+                    file.path, error
+                )
+            })
+        }
+    }
+}
 
 fn execution_strategy_id(strategy: StudioExecutionStrategy) -> &'static str {
     match strategy {
@@ -46,7 +92,7 @@ fn synthesize_prepared_context_with_runtime_plan(
     refinement: Option<&StudioArtifactRefinementContext>,
     execution_strategy: StudioExecutionStrategy,
 ) -> Result<StudioArtifactPlanningContext, String> {
-    let planning_timeout = Duration::from_secs(30).min(studio_generation_timeout_for_runtime(
+    let planning_timeout = Duration::from_secs(90).min(studio_generation_timeout_for_runtime(
         &runtime_plan.planning_runtime,
     ));
     let brief = match tauri::async_runtime::block_on(async {
@@ -65,16 +111,18 @@ fn synthesize_prepared_context_with_runtime_plan(
     }) {
         Ok(Ok(brief)) => brief,
         Ok(Err(error)) => {
-            return Err(format!(
-                "Prepared artifact context failed during brief synthesis: {}",
-                error
+            studio_proof_trace(format!(
+                "materialize_non_workspace:brief_fallback reason={} renderer={:?}",
+                error, request.renderer
             ));
+            derive_request_grounded_studio_artifact_brief(title, intent, request, refinement)
         }
         Err(_) => {
-            return Err(
-                "Prepared artifact context timed out while synthesizing the artifact brief."
-                    .to_string(),
-            );
+            studio_proof_trace(format!(
+                "materialize_non_workspace:brief_fallback reason=timeout renderer={:?}",
+                request.renderer
+            ));
+            derive_request_grounded_studio_artifact_brief(title, intent, request, refinement)
         }
     };
 
@@ -133,6 +181,13 @@ fn replan_execution_event(
         ),
         StudioArtifactRuntimeEventStatus::Complete,
     )
+}
+
+fn direct_author_error_requires_replan(message: &str) -> bool {
+    let lowered = message.to_ascii_lowercase();
+    lowered.contains("direct-author artifact inference timed out")
+        || lowered.contains("direct-author continuation timed out")
+        || lowered.contains("direct-author repair timed out")
 }
 
 fn present_artifact_blocked_event(error: &str) -> StudioArtifactRuntimeNarrationEvent {
@@ -1077,6 +1132,120 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         "materialize_non_workspace:bundle_blocked {}",
                         error.message
                     ));
+                    if execution_strategy == StudioExecutionStrategy::DirectAuthor
+                        && direct_author_error_requires_replan(&error.message)
+                    {
+                        let terminalized_execution_envelope = finalize_latest_execution_preview(
+                            last_progress
+                                .as_ref()
+                                .and_then(|progress| progress.execution_envelope.clone()),
+                        );
+                        let stalled_attempt_id = last_progress.as_ref().and_then(|progress| {
+                            progress
+                                .runtime_narration_events
+                                .iter()
+                                .rev()
+                                .find(|event| {
+                                    event.step_id == "author_artifact"
+                                        && event.attempt_id.is_some()
+                                })
+                                .and_then(|event| event.attempt_id.clone())
+                        });
+                        let author_blocked_event = author_artifact_blocked_event(
+                            stalled_attempt_id,
+                            "Direct author hit a bounded model timeout. Replanning artifact execution.",
+                        );
+                        let replan_event = replan_execution_event(
+                            StudioExecutionStrategy::DirectAuthor,
+                            StudioExecutionStrategy::PlanExecute,
+                        );
+                        let mut prior_runtime_narration_events = last_progress
+                            .as_ref()
+                            .map(|progress| progress.runtime_narration_events.clone())
+                            .unwrap_or_default();
+                        append_blocked_preview_runtime_event(
+                            &mut prior_runtime_narration_events,
+                            terminalized_execution_envelope.as_ref(),
+                        );
+                        merge_runtime_narration_events(
+                            &mut prior_runtime_narration_events,
+                            &[author_blocked_event.clone(), replan_event.clone()],
+                        );
+                        if let Some(observer) = progress_observer.as_ref() {
+                            observer(StudioArtifactGenerationProgress {
+                                current_step:
+                                    "Direct author timed out. Replanning artifact execution."
+                                        .to_string(),
+                                artifact_brief: Some(prepared_context.brief.clone()),
+                                preparation_needs: prepared_context.preparation_needs.clone(),
+                                prepared_context_resolution: prepared_context
+                                    .prepared_context_resolution
+                                    .clone(),
+                                skill_discovery_resolution: prepared_context
+                                    .skill_discovery_resolution
+                                    .clone(),
+                                blueprint: prepared_context.blueprint.clone(),
+                                artifact_ir: prepared_context.artifact_ir.clone(),
+                                selected_skills: prepared_context.selected_skills.clone(),
+                                retrieved_exemplars: prepared_context
+                                    .retrieved_exemplars
+                                    .clone(),
+                                execution_envelope: terminalized_execution_envelope,
+                                swarm_plan: last_progress
+                                    .as_ref()
+                                    .and_then(|progress| progress.swarm_plan.clone()),
+                                swarm_execution: last_progress
+                                    .as_ref()
+                                    .and_then(|progress| progress.swarm_execution.clone()),
+                                swarm_worker_receipts: last_progress
+                                    .as_ref()
+                                    .map(|progress| progress.swarm_worker_receipts.clone())
+                                    .unwrap_or_default(),
+                                swarm_change_receipts: last_progress
+                                    .as_ref()
+                                    .map(|progress| progress.swarm_change_receipts.clone())
+                                    .unwrap_or_default(),
+                                swarm_merge_receipts: last_progress
+                                    .as_ref()
+                                    .map(|progress| progress.swarm_merge_receipts.clone())
+                                    .unwrap_or_default(),
+                                swarm_verification_receipts: last_progress
+                                    .as_ref()
+                                    .map(|progress| progress.swarm_verification_receipts.clone())
+                                    .unwrap_or_default(),
+                                render_evaluation: last_progress
+                                    .as_ref()
+                                    .and_then(|progress| progress.render_evaluation.clone()),
+                                judge: last_progress
+                                    .as_ref()
+                                    .and_then(|progress| progress.judge.clone()),
+                                runtime_narration_events: vec![
+                                    author_blocked_event,
+                                    replan_event.clone(),
+                                ],
+                            });
+                        }
+                        let mut replanned =
+                            materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_and_progress_observer(
+                            memory_runtime,
+                            Some(generation_runtime),
+                            Some(acceptance_runtime),
+                            thread_id,
+                            title,
+                            intent,
+                            request,
+                            refinement,
+                            Some(prepared_context.clone()),
+                            StudioExecutionStrategy::PlanExecute,
+                            progress_observer.clone(),
+                        )?;
+                        merge_runtime_narration_events(
+                            &mut prior_runtime_narration_events,
+                            &replanned.runtime_narration_events,
+                        );
+                        replanned.runtime_narration_events = prior_runtime_narration_events;
+                        return Ok(replanned);
+                    }
                     return Ok(blocked_materialized_artifact_from_error(
                         title,
                         intent,
@@ -1373,15 +1542,9 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
             mime: generated_file.mime.clone(),
             renderable: generated_file.renderable,
             downloadable: generated_file.downloadable,
-            text_content: Some(generated_file.body.clone()),
+            text_content: generated_file_text_content(&generated_file),
         });
-        let bytes = if request.renderer == StudioRendererKind::PdfEmbed
-            && generated_file.path.ends_with(".pdf")
-        {
-            pdf_artifact_bytes(title, &generated_file.body)
-        } else {
-            generated_file.body.as_bytes().to_vec()
-        };
+        let bytes = generated_file_bytes(title, request, &generated_file)?;
         let artifact = artifact_store::create_named_file_artifact(
             memory_runtime,
             thread_id,
@@ -1393,7 +1556,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         file_writes.push(StudioArtifactMaterializationFileWrite {
             path: generated_file.path.clone(),
             kind: format!("{:?}", generated_file.role).to_lowercase(),
-            content_preview: Some(truncate_preview(&generated_file.body)),
+            content_preview: generated_file_preview(&generated_file),
         });
         files.push(StudioArtifactManifestFile {
             path: generated_file.path.clone(),
@@ -1738,7 +1901,7 @@ pub(super) fn generated_quality_files(
             mime: file.mime.clone(),
             renderable: file.renderable,
             downloadable: file.downloadable,
-            text_content: Some(file.body.clone()),
+            text_content: generated_file_text_content(file),
         })
         .collect()
 }

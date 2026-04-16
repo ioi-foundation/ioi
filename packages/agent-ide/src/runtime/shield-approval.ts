@@ -1,4 +1,4 @@
-import type { ConnectorApprovalMemoryRequest } from "./agent-runtime";
+import type { ConnectorApprovalMemoryRequest } from "./connector-runtime-types";
 
 const SHIELD_APPROVAL_PREFIX = "SHIELD_APPROVAL_REQUIRED:";
 

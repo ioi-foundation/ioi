@@ -1,4 +1,8 @@
 use super::*;
+use crate::studio::payload::{
+    synthesize_bundle_manifest_payload, synthesize_download_bundle_payload,
+};
+use ioi_types::error::VmError;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -80,6 +84,339 @@ fn emit_direct_author_live_preview(
     }
 }
 
+fn configured_direct_author_stream_timeout() -> Option<Duration> {
+    [
+        "AUTOPILOT_STUDIO_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
+        "IOI_STUDIO_DIRECT_AUTHOR_STREAM_TIMEOUT_MS",
+    ]
+    .iter()
+    .find_map(|key| {
+        std::env::var(key)
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .filter(|millis| *millis > 0)
+            .map(Duration::from_millis)
+    })
+}
+
+fn direct_author_stream_timeout_for_request(
+    request: &StudioOutcomeArtifactRequest,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> Option<Duration> {
+    if let Some(timeout) = configured_direct_author_stream_timeout() {
+        return Some(timeout);
+    }
+
+    if runtime_kind != StudioRuntimeProvenanceKind::RealLocalRuntime {
+        return None;
+    }
+
+    match request.renderer {
+        StudioRendererKind::HtmlIframe => Some(Duration::from_secs(150)),
+        StudioRendererKind::Markdown
+        | StudioRendererKind::Mermaid
+        | StudioRendererKind::Svg
+        | StudioRendererKind::PdfEmbed => Some(Duration::from_secs(30)),
+        _ => None,
+    }
+}
+
+fn configured_direct_author_follow_up_timeout() -> Option<Duration> {
+    [
+        "AUTOPILOT_STUDIO_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
+        "IOI_STUDIO_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS",
+    ]
+    .iter()
+    .find_map(|key| {
+        std::env::var(key)
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .filter(|millis| *millis > 0)
+            .map(Duration::from_millis)
+    })
+}
+
+fn direct_author_follow_up_timeout_for_request(
+    request: &StudioOutcomeArtifactRequest,
+    runtime_kind: StudioRuntimeProvenanceKind,
+) -> Option<Duration> {
+    if let Some(timeout) = configured_direct_author_follow_up_timeout() {
+        return Some(timeout);
+    }
+
+    let local_runtime = runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime;
+    match request.renderer {
+        StudioRendererKind::HtmlIframe => Some(if local_runtime {
+            Duration::from_secs(60)
+        } else {
+            Duration::from_secs(90)
+        }),
+        StudioRendererKind::Markdown
+        | StudioRendererKind::Mermaid
+        | StudioRendererKind::Svg
+        | StudioRendererKind::PdfEmbed => Some(if local_runtime {
+            Duration::from_secs(15)
+        } else {
+            Duration::from_secs(30)
+        }),
+        _ => Some(if local_runtime {
+            Duration::from_secs(20)
+        } else {
+            Duration::from_secs(40)
+        }),
+    }
+}
+
+fn configured_materialization_timeout() -> Option<Duration> {
+    [
+        "AUTOPILOT_STUDIO_MATERIALIZATION_TIMEOUT_MS",
+        "IOI_STUDIO_MATERIALIZATION_TIMEOUT_MS",
+    ]
+    .iter()
+    .find_map(|key| {
+        std::env::var(key)
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .filter(|millis| *millis > 0)
+            .map(Duration::from_millis)
+    })
+}
+
+fn configured_materialization_follow_up_timeout() -> Option<Duration> {
+    [
+        "AUTOPILOT_STUDIO_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS",
+        "IOI_STUDIO_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS",
+    ]
+    .iter()
+    .find_map(|key| {
+        std::env::var(key)
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .filter(|millis| *millis > 0)
+            .map(Duration::from_millis)
+    })
+}
+
+fn materialization_timeout_for_request(
+    request: &StudioOutcomeArtifactRequest,
+    runtime_kind: StudioRuntimeProvenanceKind,
+    follow_up: bool,
+) -> Option<Duration> {
+    if follow_up {
+        if let Some(timeout) = configured_materialization_follow_up_timeout() {
+            return Some(timeout);
+        }
+    } else if let Some(timeout) = configured_materialization_timeout() {
+        return Some(timeout);
+    }
+
+    if runtime_kind != StudioRuntimeProvenanceKind::RealLocalRuntime {
+        return None;
+    }
+
+    match (request.renderer, follow_up) {
+        (StudioRendererKind::HtmlIframe, true) => Some(Duration::from_secs(45)),
+        (StudioRendererKind::HtmlIframe, false) => Some(Duration::from_secs(90)),
+        (
+            StudioRendererKind::Markdown
+            | StudioRendererKind::Mermaid
+            | StudioRendererKind::Svg
+            | StudioRendererKind::PdfEmbed,
+            true,
+        ) => Some(Duration::from_secs(15)),
+        (
+            StudioRendererKind::Markdown
+            | StudioRendererKind::Mermaid
+            | StudioRendererKind::Svg
+            | StudioRendererKind::PdfEmbed,
+            false,
+        ) => Some(Duration::from_secs(25)),
+        (_, true) => Some(Duration::from_secs(20)),
+        (_, false) => Some(Duration::from_secs(45)),
+    }
+}
+
+async fn execute_materialization_inference(
+    runtime: Arc<dyn InferenceRuntime>,
+    request: &StudioOutcomeArtifactRequest,
+    runtime_kind: StudioRuntimeProvenanceKind,
+    input: &[u8],
+    options: InferenceOptions,
+    activity_observer: Option<StudioArtifactActivityObserver>,
+    trace_label: &str,
+    follow_up: bool,
+) -> Result<Vec<u8>, String> {
+    let inference = runtime.execute_inference([0u8; 32], input, options);
+    match materialization_timeout_for_request(request, runtime_kind, follow_up) {
+        Some(limit) => {
+            match await_with_activity_heartbeat(
+                tokio::time::timeout(limit, inference),
+                activity_observer,
+                Duration::from_millis(125),
+            )
+            .await
+            {
+                Ok(Ok(output)) => Ok(output),
+                Ok(Err(error)) => Err(error.to_string()),
+                Err(_) => {
+                    studio_generation_trace(format!(
+                        "artifact_generation:{trace_label}:timeout renderer={:?} timeout_ms={}",
+                        request.renderer,
+                        limit.as_millis()
+                    ));
+                    Err(format!(
+                        "Studio artifact {trace_label} timed out after {}ms",
+                        limit.as_millis()
+                    ))
+                }
+            }
+        }
+        None => {
+            await_with_activity_heartbeat(inference, activity_observer, Duration::from_millis(125))
+                .await
+                .map_err(|error| error.to_string())
+        }
+    }
+}
+
+fn direct_author_follow_up_max_tokens(
+    request: &StudioOutcomeArtifactRequest,
+    runtime_kind: StudioRuntimeProvenanceKind,
+    trace_label: &str,
+) -> u32 {
+    let local_runtime = runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime;
+    match (request.renderer, trace_label) {
+        (StudioRendererKind::HtmlIframe, "continuation") => {
+            if local_runtime {
+                1800
+            } else {
+                2400
+            }
+        }
+        (StudioRendererKind::HtmlIframe, _) => {
+            if local_runtime {
+                3200
+            } else {
+                3800
+            }
+        }
+        (
+            StudioRendererKind::Markdown
+            | StudioRendererKind::Mermaid
+            | StudioRendererKind::Svg
+            | StudioRendererKind::PdfEmbed,
+            "continuation",
+        ) => {
+            if local_runtime {
+                900
+            } else {
+                1400
+            }
+        }
+        _ => {
+            if local_runtime {
+                1800
+            } else {
+                2400
+            }
+        }
+    }
+}
+
+fn salvage_interrupted_direct_author_document(
+    request: &StudioOutcomeArtifactRequest,
+    raw: &str,
+) -> String {
+    let trimmed = raw.trim_end();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let candidate = match trimmed.rfind('>') {
+        Some(last_gt) if !trimmed[last_gt + 1..].trim().is_empty() => &trimmed[..=last_gt],
+        _ => trimmed,
+    };
+
+    match request.renderer {
+        StudioRendererKind::HtmlIframe => normalize_html_terminal_closure(candidate),
+        StudioRendererKind::Svg => {
+            let lower = candidate.to_ascii_lowercase();
+            if lower.contains("<svg") && !lower.contains("</svg>") {
+                format!("{candidate}</svg>")
+            } else {
+                candidate.to_string()
+            }
+        }
+        _ => candidate.to_string(),
+    }
+}
+
+async fn execute_direct_author_follow_up_inference(
+    runtime: Arc<dyn InferenceRuntime>,
+    request: &StudioOutcomeArtifactRequest,
+    runtime_kind: StudioRuntimeProvenanceKind,
+    input: &[u8],
+    options: InferenceOptions,
+    activity_observer: Option<StudioArtifactActivityObserver>,
+    trace_label: &str,
+) -> Result<Vec<u8>, String> {
+    let prompt_bytes = input.len();
+    let max_tokens = options.max_tokens;
+    studio_generation_trace(format!(
+        "artifact_generation:direct_author_{}:start renderer={:?} prompt_bytes={} max_tokens={}",
+        trace_label, request.renderer, prompt_bytes, max_tokens
+    ));
+    let inference = runtime.execute_inference([0u8; 32], input, options);
+    match direct_author_follow_up_timeout_for_request(request, runtime_kind) {
+        Some(limit) => {
+            match await_with_activity_heartbeat(
+                tokio::time::timeout(limit, inference),
+                activity_observer,
+                Duration::from_millis(125),
+            )
+            .await
+            {
+                Ok(Ok(output)) => {
+                    studio_generation_trace(format!(
+                        "artifact_generation:direct_author_{}:ok renderer={:?} bytes={}",
+                        trace_label,
+                        request.renderer,
+                        output.len()
+                    ));
+                    Ok(output)
+                }
+                Ok(Err(error)) => Err(error.to_string()),
+                Err(_) => {
+                    studio_generation_trace(format!(
+                        "artifact_generation:direct_author_{}:timeout renderer={:?} timeout_ms={}",
+                        trace_label,
+                        request.renderer,
+                        limit.as_millis()
+                    ));
+                    Err(format!(
+                        "Studio direct-author {trace_label} timed out after {}ms",
+                        limit.as_millis()
+                    ))
+                }
+            }
+        }
+        None => {
+            await_with_activity_heartbeat(inference, activity_observer, Duration::from_millis(125))
+                .await
+                .map(|output| {
+                    studio_generation_trace(format!(
+                        "artifact_generation:direct_author_{}:ok renderer={:?} bytes={}",
+                        trace_label,
+                        request.renderer,
+                        output.len()
+                    ));
+                    output
+                })
+                .map_err(|error| error.to_string())
+        }
+    }
+}
+
 fn parse_direct_author_generated_candidate(
     raw: &str,
     request: &StudioOutcomeArtifactRequest,
@@ -146,23 +483,23 @@ pub(crate) async fn repair_direct_author_generated_candidate_with_runtime_error(
     );
     let repair_input = serde_json::to_vec(&repair_payload)
         .map_err(|error| format!("Failed to encode Studio direct-author repair prompt: {error}"))?;
-    let repair_output = await_with_activity_heartbeat(
-        repair_runtime.execute_inference(
-            [0u8; 32],
-            &repair_input,
-            InferenceOptions {
-                temperature: 0.0,
-                json_mode: true,
-                max_tokens: materialization_max_tokens_for_execution_strategy(
-                    request.renderer,
-                    StudioExecutionStrategy::DirectAuthor,
-                    repair_runtime_kind,
-                ),
-                ..Default::default()
-            },
-        ),
+    let repair_output = execute_direct_author_follow_up_inference(
+        repair_runtime,
+        request,
+        repair_runtime_kind,
+        &repair_input,
+        InferenceOptions {
+            temperature: 0.0,
+            json_mode: true,
+            max_tokens: direct_author_follow_up_max_tokens(
+                request,
+                repair_runtime_kind,
+                "runtime_repair",
+            ),
+            ..Default::default()
+        },
         activity_observer,
-        Duration::from_millis(125),
+        "runtime_repair",
     )
     .await
     .map_err(|error| format!("Studio direct-author runtime repair inference failed: {error}"))?;
@@ -228,7 +565,7 @@ pub async fn materialize_studio_artifact_with_runtime(
     .await
 }
 
-pub(super) async fn materialize_studio_artifact_candidate_with_runtime_detailed(
+pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_detailed(
     runtime: Arc<dyn InferenceRuntime>,
     repair_runtime: Option<Arc<dyn InferenceRuntime>>,
     title: &str,
@@ -247,6 +584,29 @@ pub(super) async fn materialize_studio_artifact_candidate_with_runtime_detailed(
     activity_observer: Option<StudioArtifactActivityObserver>,
 ) -> Result<StudioGeneratedArtifactPayload, StudioCandidateMaterializationError> {
     let runtime_kind = runtime.studio_runtime_provenance().kind;
+    let deterministic_download_bundle_fallback =
+        |reason: &str| -> Option<StudioGeneratedArtifactPayload> {
+            if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
+                match request.renderer {
+                    StudioRendererKind::DownloadCard => {
+                        studio_generation_trace(format!(
+                            "artifact_generation:materialization_download_bundle_fallback id={} reason={reason}",
+                            candidate_id
+                        ));
+                        return Some(synthesize_download_bundle_payload(intent, brief));
+                    }
+                    StudioRendererKind::BundleManifest => {
+                        studio_generation_trace(format!(
+                            "artifact_generation:materialization_bundle_manifest_fallback id={} reason={reason}",
+                            candidate_id
+                        ));
+                        return Some(synthesize_bundle_manifest_payload(intent, brief));
+                    }
+                    _ => {}
+                }
+            }
+            None
+        };
     let parse_candidate = |raw: &str| -> Result<
         StudioGeneratedArtifactPayload,
         StudioCandidateMaterializationError,
@@ -308,28 +668,38 @@ pub(super) async fn materialize_studio_artifact_candidate_with_runtime_detailed(
         temperature,
         materialization_max_tokens_for_runtime(request.renderer, runtime_kind)
     ));
-    let output = await_with_activity_heartbeat(
-        runtime.clone().execute_inference(
-            [0u8; 32],
-            &input,
-            InferenceOptions {
-                temperature,
-                json_mode: true,
-                max_tokens: materialization_max_tokens_for_runtime(request.renderer, runtime_kind),
-                ..Default::default()
-            },
-        ),
+    let output = match execute_materialization_inference(
+        runtime.clone(),
+        request,
+        runtime_kind,
+        &input,
+        InferenceOptions {
+            temperature,
+            json_mode: true,
+            max_tokens: materialization_max_tokens_for_runtime(request.renderer, runtime_kind),
+            ..Default::default()
+        },
         activity_observer.clone(),
-        Duration::from_millis(125),
+        "materialization_inference",
+        false,
     )
     .await
-    .map_err(|error| StudioCandidateMaterializationError {
-        message: format!(
-            "Studio artifact materialization inference failed: {}",
-            error
-        ),
-        raw_output_preview: None,
-    })?;
+    {
+        Ok(output) => output,
+        Err(error) => {
+            let message = format!(
+                "Studio artifact materialization inference failed: {}",
+                error
+            );
+            if let Some(payload) = deterministic_download_bundle_fallback(&message) {
+                return Ok(payload);
+            }
+            return Err(StudioCandidateMaterializationError {
+                message,
+                raw_output_preview: None,
+            });
+        }
+    };
     studio_generation_trace(format!(
         "artifact_generation:materialization_inference:ok id={} bytes={}",
         candidate_id,
@@ -411,22 +781,23 @@ pub(super) async fn materialize_studio_artifact_candidate_with_runtime_detailed(
                         repair_runtime_kind,
                     )
                 ));
-                let repair_output = await_with_activity_heartbeat(
-                    repair_runtime.execute_inference(
-                        [0u8; 32],
-                        &repair_input,
-                        InferenceOptions {
-                            temperature: 0.0,
-                            json_mode: true,
-                            max_tokens: materialization_max_tokens_for_runtime(
-                                request.renderer,
-                                repair_runtime_kind,
-                            ),
-                            ..Default::default()
-                        },
-                    ),
+                let repair_output = execute_materialization_inference(
+                    repair_runtime.clone(),
+                    request,
+                    repair_runtime_kind,
+                    &repair_input,
+                    InferenceOptions {
+                        temperature: 0.0,
+                        json_mode: true,
+                        max_tokens: materialization_max_tokens_for_runtime(
+                            request.renderer,
+                            repair_runtime_kind,
+                        ),
+                        ..Default::default()
+                    },
                     activity_observer.clone(),
-                    Duration::from_millis(125),
+                    "materialization_repair",
+                    true,
                 )
                 .await
                 .map_err(|error| StudioCandidateMaterializationError {
@@ -470,6 +841,10 @@ pub(super) async fn materialize_studio_artifact_candidate_with_runtime_detailed(
                         );
                     }
                 }
+            }
+
+            if let Some(payload) = deterministic_download_bundle_fallback(&latest_error) {
+                return Ok(payload);
             }
 
             Err(StudioCandidateMaterializationError {
@@ -549,21 +924,36 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
     );
     let token_stream = Some(token_tx);
     let stream_collector = Some(collector);
-    let output_result = runtime
-        .clone()
-        .execute_inference_streaming(
-            [0u8; 32],
-            &input,
-            InferenceOptions {
-                temperature,
-                json_mode: !returns_raw_document,
-                max_tokens,
-                stop_sequences: direct_author_stop_sequences(request),
-                ..Default::default()
-            },
-            token_stream,
-        )
-        .await;
+    let streaming_runtime = runtime.clone();
+    let inference = streaming_runtime.execute_inference_streaming(
+        [0u8; 32],
+        &input,
+        InferenceOptions {
+            temperature,
+            json_mode: !returns_raw_document,
+            max_tokens,
+            stop_sequences: direct_author_stop_sequences(request),
+            ..Default::default()
+        },
+        token_stream,
+    );
+    let output_result = match direct_author_stream_timeout_for_request(request, runtime_kind) {
+        Some(limit) => match tokio::time::timeout(limit, inference).await {
+            Ok(output) => output,
+            Err(_) => {
+                studio_generation_trace(format!(
+                    "artifact_generation:direct_author_inference:timeout id={} timeout_ms={}",
+                    candidate_id,
+                    limit.as_millis()
+                ));
+                Err(VmError::HostError(format!(
+                    "Studio direct-author artifact inference timed out after {}s",
+                    limit.as_secs()
+                )))
+            }
+        },
+        None => inference.await,
+    };
     let streamed_preview = finish_token_stream_preview_collector(stream_collector).await;
     let inference_error_message = output_result
         .as_ref()
@@ -603,7 +993,16 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                 &streamed_preview,
                 false,
             );
-            streamed_preview.clone()
+            let salvaged = salvage_interrupted_direct_author_document(request, &streamed_preview);
+            if salvaged != streamed_preview {
+                studio_generation_trace(format!(
+                    "artifact_generation:direct_author_inference:interrupted_salvage_normalized id={} original_bytes={} salvaged_bytes={}",
+                    candidate_id,
+                    streamed_preview.len(),
+                    salvaged.len()
+                ));
+            }
+            salvaged
         }
     };
     match parse_candidate(&raw) {
@@ -692,67 +1091,43 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                                 ),
                             }
                         })?;
-                    let continuation_output = await_with_activity_heartbeat(
-                        runtime.clone().execute_inference(
-                            [0u8; 32],
-                            &continuation_input,
-                            InferenceOptions {
-                                temperature: 0.0,
-                                json_mode: true,
-                                max_tokens,
-                                ..Default::default()
-                            },
-                        ),
+                    let continuation_output = execute_direct_author_follow_up_inference(
+                        runtime.clone(),
+                        request,
+                        runtime_kind,
+                        &continuation_input,
+                        InferenceOptions {
+                            temperature: 0.0,
+                            json_mode: true,
+                            max_tokens: direct_author_follow_up_max_tokens(
+                                request,
+                                runtime_kind,
+                                "continuation",
+                            ),
+                            ..Default::default()
+                        },
                         activity_observer.clone(),
-                        Duration::from_millis(125),
+                        "continuation",
                     )
                     .await;
                     let continuation_output = match continuation_output {
                         Ok(output) => output,
                         Err(error) => {
-                            emit_direct_author_live_preview(
-                                live_preview_observer.as_ref(),
-                                &preview_id,
-                                &preview_label,
-                                &preview_language,
-                                "failed",
-                                &latest_raw,
-                                true,
+                            latest_error = format!(
+                                "{latest_error}; continuation attempt {} inference failed: {error}",
+                                continuation_attempt + 1
                             );
-                            return Err(StudioCandidateMaterializationError {
-                                message: format!(
-                                    "{latest_error}; continuation attempt {} inference failed: {error}",
-                                    continuation_attempt + 1
-                                ),
-                                raw_output_preview: truncate_candidate_failure_preview(
-                                    &latest_raw,
-                                    2000,
-                                ),
-                            });
+                            break;
                         }
                     };
                     let continuation_raw = match String::from_utf8(continuation_output) {
                         Ok(raw) => raw,
                         Err(error) => {
-                            emit_direct_author_live_preview(
-                                live_preview_observer.as_ref(),
-                                &preview_id,
-                                &preview_label,
-                                &preview_language,
-                                "failed",
-                                &latest_raw,
-                                true,
+                            latest_error = format!(
+                                "{latest_error}; continuation attempt {} utf8 decode failed: {error}",
+                                continuation_attempt + 1
                             );
-                            return Err(StudioCandidateMaterializationError {
-                                message: format!(
-                                    "{latest_error}; continuation attempt {} utf8 decode failed: {error}",
-                                    continuation_attempt + 1
-                                ),
-                                raw_output_preview: truncate_candidate_failure_preview(
-                                    &latest_raw,
-                                    2000,
-                                ),
-                            });
+                            break;
                         }
                     };
                     match parse_studio_direct_author_recovery_payload(&continuation_raw) {
@@ -840,71 +1215,43 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                             ),
                         }
                     })?;
-                    let repair_output = await_with_activity_heartbeat(
-                        repair_runtime.execute_inference(
-                            [0u8; 32],
-                            &repair_input,
-                            InferenceOptions {
-                                temperature: 0.0,
-                                json_mode: true,
-                                max_tokens: materialization_max_tokens_for_execution_strategy(
-                                    request.renderer,
-                                    StudioExecutionStrategy::DirectAuthor,
-                                    repair_runtime_kind,
-                                ),
-                                ..Default::default()
-                            },
-                        ),
+                    let repair_output = execute_direct_author_follow_up_inference(
+                        repair_runtime.clone(),
+                        request,
+                        repair_runtime_kind,
+                        &repair_input,
+                        InferenceOptions {
+                            temperature: 0.0,
+                            json_mode: true,
+                            max_tokens: direct_author_follow_up_max_tokens(
+                                request,
+                                repair_runtime_kind,
+                                "repair",
+                            ),
+                            ..Default::default()
+                        },
                         activity_observer.clone(),
-                        Duration::from_millis(125),
+                        "repair",
                     )
                     .await;
                     let repair_output = match repair_output {
                         Ok(output) => output,
                         Err(error) => {
-                            emit_direct_author_live_preview(
-                                live_preview_observer.as_ref(),
-                                &preview_id,
-                                &preview_label,
-                                &preview_language,
-                                "failed",
-                                &latest_raw,
-                                true,
+                            latest_error = format!(
+                                "{latest_error}; repair attempt {} inference failed: {error}",
+                                repair_attempt + 1
                             );
-                            return Err(StudioCandidateMaterializationError {
-                                message: format!(
-                                    "{latest_error}; repair attempt {} inference failed: {error}",
-                                    repair_attempt + 1
-                                ),
-                                raw_output_preview: truncate_candidate_failure_preview(
-                                    &latest_raw,
-                                    2000,
-                                ),
-                            });
+                            continue;
                         }
                     };
                     let repair_raw = match String::from_utf8(repair_output) {
                         Ok(raw) => raw,
                         Err(error) => {
-                            emit_direct_author_live_preview(
-                                live_preview_observer.as_ref(),
-                                &preview_id,
-                                &preview_label,
-                                &preview_language,
-                                "failed",
-                                &latest_raw,
-                                true,
+                            latest_error = format!(
+                                "{latest_error}; repair attempt {} utf8 decode failed: {error}",
+                                repair_attempt + 1
                             );
-                            return Err(StudioCandidateMaterializationError {
-                                message: format!(
-                                    "{latest_error}; repair attempt {} utf8 decode failed: {error}",
-                                    repair_attempt + 1
-                                ),
-                                raw_output_preview: truncate_candidate_failure_preview(
-                                    &latest_raw,
-                                    2000,
-                                ),
-                            });
+                            continue;
                         }
                     };
                     match parse_studio_direct_author_recovery_payload(&repair_raw) {
@@ -1012,71 +1359,43 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                             ),
                         }
                     })?;
-                    let repair_output = await_with_activity_heartbeat(
-                        repair_runtime.execute_inference(
-                            [0u8; 32],
-                            &repair_input,
-                            InferenceOptions {
-                                temperature: 0.0,
-                                json_mode: true,
-                                max_tokens: materialization_max_tokens_for_execution_strategy(
-                                    request.renderer,
-                                    StudioExecutionStrategy::DirectAuthor,
-                                    repair_runtime_kind,
-                                ),
-                                ..Default::default()
-                            },
-                        ),
+                    let repair_output = execute_direct_author_follow_up_inference(
+                        repair_runtime.clone(),
+                        request,
+                        repair_runtime_kind,
+                        &repair_input,
+                        InferenceOptions {
+                            temperature: 0.0,
+                            json_mode: true,
+                            max_tokens: direct_author_follow_up_max_tokens(
+                                request,
+                                repair_runtime_kind,
+                                "repair",
+                            ),
+                            ..Default::default()
+                        },
                         activity_observer.clone(),
-                        Duration::from_millis(125),
+                        "repair",
                     )
                     .await;
                     let repair_output = match repair_output {
                         Ok(output) => output,
                         Err(error) => {
-                            emit_direct_author_live_preview(
-                                live_preview_observer.as_ref(),
-                                &preview_id,
-                                &preview_label,
-                                &preview_language,
-                                "failed",
-                                &latest_raw,
-                                true,
+                            latest_error = format!(
+                                "{latest_error}; repair attempt {} inference failed: {error}",
+                                repair_attempt + 1
                             );
-                            return Err(StudioCandidateMaterializationError {
-                                message: format!(
-                                    "{latest_error}; repair attempt {} inference failed: {error}",
-                                    repair_attempt + 1
-                                ),
-                                raw_output_preview: truncate_candidate_failure_preview(
-                                    &latest_raw,
-                                    2000,
-                                ),
-                            });
+                            continue;
                         }
                     };
                     let repair_raw = match String::from_utf8(repair_output) {
                         Ok(raw) => raw,
                         Err(error) => {
-                            emit_direct_author_live_preview(
-                                live_preview_observer.as_ref(),
-                                &preview_id,
-                                &preview_label,
-                                &preview_language,
-                                "failed",
-                                &latest_raw,
-                                true,
+                            latest_error = format!(
+                                "{latest_error}; repair attempt {} utf8 decode failed: {error}",
+                                repair_attempt + 1
                             );
-                            return Err(StudioCandidateMaterializationError {
-                                message: format!(
-                                    "{latest_error}; repair attempt {} utf8 decode failed: {error}",
-                                    repair_attempt + 1
-                                ),
-                                raw_output_preview: truncate_candidate_failure_preview(
-                                    &latest_raw,
-                                    2000,
-                                ),
-                            });
+                            continue;
                         }
                     };
                     match parse_candidate(&repair_raw) {
@@ -1228,19 +1547,20 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
         refinement_temperature,
         materialization_max_tokens_for_runtime(request.renderer, runtime_kind)
     ));
-    let output = await_with_activity_heartbeat(
-        runtime.execute_inference(
-            [0u8; 32],
-            &input,
-            InferenceOptions {
-                temperature: refinement_temperature,
-                json_mode: true,
-                max_tokens: materialization_max_tokens_for_runtime(request.renderer, runtime_kind),
-                ..Default::default()
-            },
-        ),
+    let output = execute_materialization_inference(
+        runtime.clone(),
+        request,
+        runtime_kind,
+        &input,
+        InferenceOptions {
+            temperature: refinement_temperature,
+            json_mode: true,
+            max_tokens: materialization_max_tokens_for_runtime(request.renderer, runtime_kind),
+            ..Default::default()
+        },
         activity_observer.clone(),
-        Duration::from_millis(125),
+        "refine_inference",
+        false,
     )
     .await
     .map_err(|error| format!("Studio artifact refinement inference failed: {error}"))?;
@@ -1296,22 +1616,23 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
                     repair_attempt + 1,
                     repair_input.len()
                 ));
-                let repair_output = await_with_activity_heartbeat(
-                    runtime.execute_inference(
-                        [0u8; 32],
-                        &repair_input,
-                        InferenceOptions {
-                            temperature: 0.0,
-                            json_mode: true,
-                            max_tokens: materialization_max_tokens_for_runtime(
-                                request.renderer,
-                                runtime_kind,
-                            ),
-                            ..Default::default()
-                        },
-                    ),
+                let repair_output = execute_materialization_inference(
+                    runtime.clone(),
+                    request,
+                    runtime_kind,
+                    &repair_input,
+                    InferenceOptions {
+                        temperature: 0.0,
+                        json_mode: true,
+                        max_tokens: materialization_max_tokens_for_runtime(
+                            request.renderer,
+                            runtime_kind,
+                        ),
+                        ..Default::default()
+                    },
                     activity_observer.clone(),
-                    Duration::from_millis(125),
+                    "refine_repair",
+                    true,
                 )
                 .await
                 .map_err(|error| {

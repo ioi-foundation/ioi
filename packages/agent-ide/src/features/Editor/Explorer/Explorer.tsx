@@ -1,7 +1,7 @@
 // packages/agent-ide/src/features/Editor/Explorer/Explorer.tsx
 import React, { useState, useEffect } from "react";
 import {
-  AgentRuntime,
+  AgentWorkbenchRuntime,
   InstalledWorkflowSummary,
   WorkflowRunReceipt,
 } from "../../../runtime/agent-runtime";
@@ -10,7 +10,7 @@ import { Icons } from "../../../ui/icons";
 import "./Explorer.css";
 
 interface ExplorerProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   onDragStart: (e: React.DragEvent, type: string, name: string, schema?: string) => void;
   onLoadProject?: (project: ProjectFile, workflow?: InstalledWorkflowSummary) => void;
 }

@@ -497,6 +497,10 @@ pub(super) fn non_swarm_canonical_preview(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_types::app::{
+        StudioArtifactDeliverableShape, StudioArtifactPersistenceMode, StudioOutcomeArtifactScope,
+        StudioOutcomeArtifactVerificationRequest,
+    };
 
     fn sample_request(renderer: StudioRendererKind) -> StudioOutcomeArtifactRequest {
         StudioOutcomeArtifactRequest {

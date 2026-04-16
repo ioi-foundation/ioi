@@ -161,6 +161,7 @@ fn queue_routing_receipt_uses_visual_last_tier_for_pre_state_and_intent_hash() {
         policy_binding_hash: binding.clone(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(receipt.pre_state.tier, "VisualLast");
@@ -268,6 +269,7 @@ fn queue_browser_target_feeds_routing_receipt_intent_hash() {
         policy_binding_hash: policy_binding_hash(&intent_hash, "allowed"),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(

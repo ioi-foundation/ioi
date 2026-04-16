@@ -957,6 +957,60 @@ pub(crate) fn prioritized_query_grounding_excerpt_with_contract(
     input: &str,
     max_chars: usize,
 ) -> String {
+    fn host_anchored_pricing_metric_segment_score(segment: &str) -> i32 {
+        let lowered = format!(" {} ", compact_whitespace(segment).to_ascii_lowercase());
+        let mut score = metric_segment_signal_score(segment) as i32;
+        let api_pricing_markers = [
+            " input",
+            " output",
+            " cached",
+            " token",
+            " tokens",
+            " prompt",
+            " completion",
+            " image",
+            " text",
+            " audio",
+            " video",
+            " realtime",
+            " model",
+            " models",
+            " gpt",
+        ];
+        let api_marker_hits = api_pricing_markers
+            .iter()
+            .filter(|marker| lowered.contains(**marker))
+            .count() as i32;
+        score += api_marker_hits.min(4) * 8;
+
+        let storage_markers = [
+            " gb ",
+            " container",
+            " containers",
+            " session",
+            " sessions",
+            " minute",
+            " minutes",
+            " duration",
+            " storage",
+        ];
+        let storage_marker_hits = storage_markers
+            .iter()
+            .filter(|marker| lowered.contains(**marker))
+            .count() as i32;
+        if storage_marker_hits > 0 {
+            if api_marker_hits == 0 {
+                score -= storage_marker_hits.min(3) * 10;
+            } else {
+                score -= storage_marker_hits.min(3) * 4;
+            }
+        }
+        if lowered.contains(" now: ") && api_marker_hits == 0 {
+            score -= 10;
+        }
+        score
+    }
+
     let locality_hint = explicit_query_scope_hint(query_contract);
     if local_business_menu_surface_url(url)
         && query_requires_local_business_menu_surface(
@@ -967,6 +1021,64 @@ pub(crate) fn prioritized_query_grounding_excerpt_with_contract(
     {
         if let Some(inventory_excerpt) = local_business_menu_inventory_excerpt(input, max_chars) {
             return inventory_excerpt;
+        }
+    }
+
+    let current_metric_surface_required = retrieval_contract
+        .map(|contract| contract.currentness_required)
+        .unwrap_or(false)
+        || analyze_query_facets(query_contract).time_sensitive_public_fact;
+    if current_metric_surface_required {
+        let metric_excerpt = if query_requires_host_anchored_primary_authority(query_contract) {
+            metric_sentence_like_segments(input)
+                .into_iter()
+                .filter(|segment| analyze_metric_schema(segment).has_metric_payload())
+                .filter(|segment| candidate_time_sensitive_resolvable_payload(url, title, segment))
+                .max_by_key(|segment| {
+                    let mut score = host_anchored_pricing_metric_segment_score(segment);
+                    if contains_current_condition_metric_signal(segment) {
+                        score += 12;
+                    }
+                    if excerpt_has_query_grounding_signal_with_contract(
+                        retrieval_contract,
+                        query_contract,
+                        min_sources,
+                        url,
+                        title,
+                        segment,
+                    ) {
+                        score += 6;
+                    }
+                    score
+                })
+        } else {
+            first_metric_sentence(input).or_else(|| best_metric_segment(input))
+        };
+        if let Some(metric_excerpt) = metric_excerpt {
+            let mut focused_metric_excerpt = compact_metric_focus(&metric_excerpt);
+            if focused_metric_excerpt.chars().any(|ch| ch.is_ascii_digit())
+                && (focused_metric_excerpt.contains('$')
+                    || focused_metric_excerpt.to_ascii_lowercase().contains("usd"))
+                && !contains_current_condition_metric_signal(&focused_metric_excerpt)
+            {
+                let labeled_metric_excerpt = format!("Pricing: {focused_metric_excerpt}");
+                if contains_current_condition_metric_signal(&labeled_metric_excerpt) {
+                    focused_metric_excerpt = labeled_metric_excerpt;
+                }
+            }
+            if !focused_metric_excerpt.is_empty()
+                && candidate_time_sensitive_resolvable_payload(url, title, &focused_metric_excerpt)
+                && excerpt_has_query_grounding_signal_with_contract(
+                    retrieval_contract,
+                    query_contract,
+                    min_sources,
+                    url,
+                    title,
+                    &focused_metric_excerpt,
+                )
+            {
+                return focused_metric_excerpt;
+            }
         }
     }
 
@@ -1112,6 +1224,74 @@ fn document_authority_host_tokens(url: &str) -> BTreeSet<String> {
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+pub(crate) fn query_requires_host_anchored_primary_authority(query_contract: &str) -> bool {
+    let normalized = query_contract.to_ascii_lowercase();
+    (normalized.contains("pricing")
+        || normalized.contains("billing")
+        || normalized.contains("price per")
+        || normalized.contains("rate card")
+        || normalized.contains("token cost"))
+        && (normalized.contains("api")
+            || normalized.contains("model")
+            || normalized.contains("service")
+            || normalized.contains("platform")
+            || normalized.contains("official"))
+}
+
+fn query_host_anchor_tokens(query_contract: &str) -> BTreeSet<String> {
+    query_contract
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter_map(|token| {
+            let normalized = token.trim().to_ascii_lowercase();
+            if normalized.len() < 4 {
+                return None;
+            }
+            if matches!(
+                normalized.as_str(),
+                "what"
+                    | "when"
+                    | "where"
+                    | "which"
+                    | "latest"
+                    | "current"
+                    | "right"
+                    | "pricing"
+                    | "billing"
+                    | "price"
+                    | "prices"
+                    | "token"
+                    | "tokens"
+                    | "cost"
+                    | "costs"
+                    | "rate"
+                    | "rates"
+                    | "card"
+                    | "cards"
+                    | "official"
+                    | "open"
+                    | "api"
+                    | "apis"
+                    | "model"
+                    | "models"
+                    | "service"
+                    | "services"
+                    | "platform"
+            ) {
+                return None;
+            }
+            Some(normalized)
+        })
+        .collect()
+}
+
+fn source_matches_host_anchored_primary_authority(query_contract: &str, url: &str) -> bool {
+    let tokens = query_host_anchor_tokens(query_contract);
+    !tokens.is_empty()
+        && document_authority_host_tokens(url)
+            .into_iter()
+            .any(|token| tokens.contains(&token))
 }
 
 pub(crate) fn source_has_public_authority_host(url: &str) -> bool {
@@ -1288,6 +1468,45 @@ pub(crate) fn source_has_document_authority(
 
     (host_overlap > 0 && (public_authority_host || surface_hits > 0 || title_overlap > 0))
         || (public_authority_host && surface_hits > 0)
+}
+
+pub(crate) fn source_counts_as_primary_authority(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    if !source_has_document_authority(query_contract, url, title, excerpt) {
+        return false;
+    }
+    if query_requires_host_anchored_primary_authority(query_contract) {
+        return source_matches_host_anchored_primary_authority(query_contract, url);
+    }
+    true
+}
+
+pub(crate) fn source_has_host_anchored_primary_authority_snapshot_alignment(
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+    query_contract: &str,
+    min_sources: usize,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    query_requires_host_anchored_primary_authority(query_contract)
+        && retrieval_contract_requires_primary_authority_source(retrieval_contract, query_contract)
+        && source_counts_as_primary_authority(query_contract, url, title, excerpt)
+        && candidate_time_sensitive_resolvable_payload(url, title, excerpt)
+        && (!title.trim().is_empty()
+            || !excerpt.trim().is_empty()
+            || excerpt_has_query_grounding_signal_with_contract(
+                retrieval_contract,
+                query_contract,
+                min_sources,
+                url,
+                title,
+                excerpt,
+            ))
 }
 
 pub(crate) fn source_has_grounded_primary_authority(
@@ -2269,6 +2488,105 @@ mod tests {
             "Cybersecurity and Privacy | NIST",
             "NIST advances measurement science, standards, and technology for cybersecurity and privacy."
         ));
+    }
+
+    #[test]
+    fn primary_authority_accepts_live_openai_pricing_surface_with_title_only() {
+        let query = "What is the latest OpenAI API pricing?";
+        let url = "https://openai.com/api/pricing/";
+        let title = "OpenAI API Pricing | OpenAI";
+
+        assert!(
+            source_has_document_authority(query, url, title, ""),
+            "official branded pricing page should retain document authority from host/title grounding"
+        );
+        assert!(
+            source_counts_as_primary_authority(query, url, title, ""),
+            "host-anchored current pricing query should count the official branded pricing page as primary authority"
+        );
+    }
+
+    #[test]
+    fn primary_authority_accepts_live_openai_pricing_surface_with_search_snippet() {
+        let query = "What is the latest OpenAI API pricing?";
+        let url = "https://openai.com/api/pricing/";
+        let title = "OpenAI API Pricing | OpenAI";
+        let excerpt = "Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools. Compare token costs, realtime, image, and video pricing, plus service tiers.";
+
+        assert!(source_has_document_authority(query, url, title, excerpt));
+        assert!(source_counts_as_primary_authority(
+            query, url, title, excerpt
+        ));
+    }
+
+    #[test]
+    fn host_anchored_primary_authority_snapshot_alignment_accepts_official_pricing_rate_card() {
+        let query = "What is the latest OpenAI API pricing?";
+        let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+        let url = "https://openai.com/api/pricing/";
+        let title = "OpenAI API Pricing | OpenAI";
+        let excerpt = "Image: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs";
+
+        assert!(query_requires_host_anchored_primary_authority(query));
+        assert!(retrieval_contract_requires_primary_authority_source(
+            Some(&retrieval_contract),
+            query,
+        ));
+        assert!(source_counts_as_primary_authority(
+            query, url, title, excerpt
+        ));
+        assert!(
+            candidate_time_sensitive_resolvable_payload(url, title, excerpt),
+            "title+excerpt should qualify as a resolvable current pricing payload"
+        );
+        assert!(
+            source_has_host_anchored_primary_authority_snapshot_alignment(
+                Some(&retrieval_contract),
+                query,
+                1,
+                url,
+                title,
+                excerpt,
+            )
+        );
+    }
+
+    #[test]
+    fn prioritized_query_grounding_excerpt_prefers_metric_surface_for_current_pricing_pages() {
+        let query = "What is the latest OpenAI API pricing?";
+        let url = "https://openai.com/api/pricing/";
+        let title = "OpenAI API Pricing | OpenAI";
+        let content = "Our frontier models are designed to spend more time thinking before producing a response, making them ideal for complex, multi-step problems.\n\nPricing above reflects standard processing rates for context lengths under 270K.\n\nNow: 1 GB for $0.03 / 64GB for $1.92 per container Starting March 31, 2026: 1 GB for $0.03 / 64GB for $1.92 per 20-minute session pass.\n\nAudio: $32.00 for inputs $0.40 for cached inputs $64.00 for outputs Text: $4.00 for inputs $0.40 for cached inputs $16.00 for outputs Image: $5.00 for inputs $0.50 for cached inputs\n\nState-of-the-art image generation model.\n\nImage: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs";
+        let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+
+        let selected = prioritized_query_grounding_excerpt_with_contract(
+            Some(&retrieval_contract),
+            query,
+            1,
+            url,
+            title,
+            content,
+            240,
+        );
+
+        assert!(
+            selected.contains("$32.00") || selected.contains("$8.00"),
+            "selected={selected}"
+        );
+        assert!(
+            contains_current_condition_metric_signal(&selected),
+            "selected={selected}"
+        );
+        assert!(
+            !selected.starts_with("Our frontier models are designed"),
+            "selected={selected}"
+        );
+        assert!(
+            !selected.contains("1 GB for $0.03") && !selected.contains("per container"),
+            "selected={selected}"
+        );
     }
 
     #[test]

@@ -259,6 +259,7 @@ fn routing_receipt_contract_for_browser_scroll_stays_tool_first() {
         policy_binding_hash: "binding-hash".to_string(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(receipt.tool_name, "browser__scroll");

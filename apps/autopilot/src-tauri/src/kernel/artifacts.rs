@@ -10,9 +10,9 @@ use ioi_memory::MemoryRuntime;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
@@ -25,6 +25,38 @@ fn now_iso() -> String {
 
 fn artifact_content_ref(artifact_id: &str) -> String {
     format!("ioi-memory://artifact/{}", artifact_id)
+}
+
+fn sanitized_artifact_filename(raw: &str) -> String {
+    let candidate = Path::new(raw)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .unwrap_or("artifact.bin");
+    let sanitized = candidate
+        .chars()
+        .map(|ch| match ch {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            _ => ch,
+        })
+        .collect::<String>();
+    if sanitized.is_empty() {
+        "artifact.bin".to_string()
+    } else {
+        sanitized
+    }
+}
+
+fn write_artifact_bytes_to_path(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    if let Some(parent) = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Failed to prepare artifact directory: {}", error))?;
+    }
+    fs::write(path, bytes).map_err(|error| format!("Failed to write artifact file: {}", error))
 }
 
 fn persist_artifact(
@@ -868,6 +900,42 @@ pub fn get_artifact_content(
         }));
     }
     Ok(None)
+}
+
+#[tauri::command]
+pub fn save_artifact_content(
+    state: State<'_, Mutex<AppState>>,
+    artifact_id: String,
+    output_path: String,
+) -> Result<String, String> {
+    let memory_runtime = get_memory_runtime(&state)?;
+    let bytes = orchestrator::load_artifact_content(&memory_runtime, &artifact_id)
+        .ok_or_else(|| format!("Artifact {} is unavailable.", artifact_id))?;
+    let output_path = output_path.trim();
+    if output_path.is_empty() {
+        return Err("output_path must not be empty".to_string());
+    }
+    let path = PathBuf::from(output_path);
+    write_artifact_bytes_to_path(&path, &bytes)?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn materialize_artifact_content_to_temp(
+    state: State<'_, Mutex<AppState>>,
+    artifact_id: String,
+    suggested_name: Option<String>,
+) -> Result<String, String> {
+    let memory_runtime = get_memory_runtime(&state)?;
+    let bytes = orchestrator::load_artifact_content(&memory_runtime, &artifact_id)
+        .ok_or_else(|| format!("Artifact {} is unavailable.", artifact_id))?;
+    let filename = sanitized_artifact_filename(suggested_name.as_deref().unwrap_or("artifact.bin"));
+    let directory = std::env::temp_dir().join(format!("ioi-artifact-{}", Uuid::new_v4()));
+    fs::create_dir_all(&directory)
+        .map_err(|error| format!("Failed to prepare temporary artifact directory: {}", error))?;
+    let path = directory.join(filename);
+    write_artifact_bytes_to_path(&path, &bytes)?;
+    Ok(path.to_string_lossy().into_owned())
 }
 
 #[tauri::command]

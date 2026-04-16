@@ -233,6 +233,13 @@ export function ConversationTimeline({
           !suppressPendingIndicators;
         const showInlineStatusCard =
           isLatestTurn && !!turn.prompt && !turn.answer && !!inlineStatusCard;
+        const compactDirectInlineRoute =
+          !!turnPlanSummary &&
+          turnPlanSummary.routeFamily === "general" &&
+          turnPlanSummary.routeDecision?.outputIntent === "direct_inline" &&
+          turnPlanSummary.selectedSkills.length === 0 &&
+          !turnPlanSummary.artifactGeneration &&
+          !turnPlanSummary.computerUsePerception;
         const showExecutionRouteCard =
           !!turn.prompt && hasPlanSummary && !showLiveThinking && !showInlineStatusCard;
         const showAssistantPendingBubble =
@@ -308,6 +315,7 @@ export function ConversationTimeline({
                   summary={turnPlanSummary}
                   currentStep={showLiveThinking ? currentStep : undefined}
                   traceDetail={traceDetail}
+                  preferCompactDirectInline
                   onOpenArtifacts={() =>
                     onOpenArtifactHub(
                       "active_context",
@@ -315,9 +323,11 @@ export function ConversationTimeline({
                     )
                   }
                 />
-                <ExecutionMomentList
-                  moments={turnContext?.executionMoments || []}
-                />
+                {!compactDirectInlineRoute && (
+                  <ExecutionMomentList
+                    moments={turnContext?.executionMoments || []}
+                  />
+                )}
               </>
             )}
 

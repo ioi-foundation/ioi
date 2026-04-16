@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useState } from "react";
 import type {
-  AgentRuntime,
+  AgentWorkbenchRuntime,
   WalletMailConfigureAccountResult,
   WalletMailConfiguredAccount,
   WalletMailListRecentResult,
@@ -208,7 +208,7 @@ export interface MailConnectorActionsState {
 }
 
 export function useMailConnectorActions(
-  runtime: AgentRuntime,
+  runtime: AgentWorkbenchRuntime,
   options?: UseMailConnectorActionsOptions
 ): MailConnectorActionsState {
   const [mailProviderPreset, setMailProviderPreset] = useState<MailProviderPresetKey>("auto");

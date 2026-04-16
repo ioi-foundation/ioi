@@ -147,6 +147,58 @@ fn extract_system_refusal_reason(tool_call_result: &str) -> Option<String> {
         })
 }
 
+fn tool_normalization_payload(
+    observation: &middleware::ToolNormalizationObservation,
+) -> serde_json::Value {
+    json!({
+        "raw_name": observation.raw_name,
+        "normalized_name": observation.normalized_name,
+        "changed": observation.changed(),
+        "labels": observation.labels,
+    })
+}
+
+fn record_tool_normalization_observation(
+    processing_state: &mut ActionProcessingState,
+    observation: &middleware::ToolNormalizationObservation,
+) {
+    processing_state
+        .verification_checks
+        .push("tool_normalization_observed=true".to_string());
+    processing_state.verification_checks.push(format!(
+        "tool_normalization_changed={}",
+        observation.changed()
+    ));
+    if let Some(raw_name) = observation.raw_name.as_deref() {
+        processing_state
+            .verification_checks
+            .push(format!("tool_normalization_raw_name={}", raw_name));
+    }
+    if let Some(normalized_name) = observation.normalized_name.as_deref() {
+        processing_state
+            .verification_checks
+            .push(format!("tool_normalization_name={}", normalized_name));
+    }
+    for label in &observation.labels {
+        processing_state
+            .verification_checks
+            .push(format!("tool_normalization_label={}", label));
+    }
+    processing_state.tool_normalization_observation = Some(tool_normalization_payload(observation));
+}
+
+fn attach_tool_normalization_observation(
+    action_payload: &mut serde_json::Value,
+    observation: Option<&serde_json::Value>,
+) {
+    let Some(observation) = observation else {
+        return;
+    };
+    if let Some(payload) = action_payload.as_object_mut() {
+        payload.insert("tool_normalization".to_string(), observation.clone());
+    }
+}
+
 pub async fn process_tool_output(
     service: &RuntimeAgentService,
     state: &mut dyn StateAccess,
@@ -212,39 +264,43 @@ pub async fn process_tool_output(
     }
 
     // 2. Normalize & Expand
-    let tool_call =
-        if let Some(repaired_tool) = refusal_repair.and_then(|attempt| attempt.repaired_tool) {
-            Ok(repaired_tool)
-        } else {
-            match middleware::normalize_tool_call(&tool_call_result) {
-                Ok(tool) => Ok(tool),
-                Err(error) => {
-                    if !should_use_web_research_path(agent_state)
-                        && !is_mailbox_connector_goal(&agent_state.goal)
-                    {
-                        let repair_attempt = attempt_invalid_tool_call_repair(
-                            service,
-                            state,
-                            agent_state,
-                            session_id,
-                            &tool_call_result,
-                            &error.to_string(),
-                        )
-                        .await?;
-                        processing_state
-                            .verification_checks
-                            .extend(repair_attempt.verification_checks);
-                        if let Some(repaired_tool) = repair_attempt.repaired_tool {
-                            Ok(repaired_tool)
-                        } else {
-                            Err(error)
-                        }
+    let tool_call = if let Some(repaired_tool) =
+        refusal_repair.and_then(|attempt| attempt.repaired_tool)
+    {
+        Ok(repaired_tool)
+    } else {
+        match middleware::normalize_tool_call_with_observation(&tool_call_result) {
+            Ok(result) => {
+                record_tool_normalization_observation(&mut processing_state, &result.observation);
+                Ok(result.tool)
+            }
+            Err(error) => {
+                if !should_use_web_research_path(agent_state)
+                    && !is_mailbox_connector_goal(&agent_state.goal)
+                {
+                    let repair_attempt = attempt_invalid_tool_call_repair(
+                        service,
+                        state,
+                        agent_state,
+                        session_id,
+                        &tool_call_result,
+                        &error.to_string(),
+                    )
+                    .await?;
+                    processing_state
+                        .verification_checks
+                        .extend(repair_attempt.verification_checks);
+                    if let Some(repaired_tool) = repair_attempt.repaired_tool {
+                        Ok(repaired_tool)
                     } else {
                         Err(error)
                     }
+                } else {
+                    Err(error)
                 }
             }
-        };
+        }
+    };
 
     // Check for Skill / Macro Match
     if let Ok(AgentTool::Dynamic(ref val)) = tool_call {
@@ -427,6 +483,10 @@ pub async fn process_tool_output(
         Ok(tool) => {
             processing_state.action_payload =
                 serde_json::to_value(&tool).unwrap_or_else(|_| json!({}));
+            attach_tool_normalization_observation(
+                &mut processing_state.action_payload,
+                processing_state.tool_normalization_observation.as_ref(),
+            );
             let (tool_name, tool_args) = canonical_tool_identity(&tool);
             processing_state.current_tool_name = tool_name;
             processing_state.executed_tool_jcs = Some(
@@ -532,6 +592,10 @@ pub async fn process_tool_output(
                 "name": processing_state.current_tool_name.clone(),
                 "arguments": parse_args,
             });
+            attach_tool_normalization_observation(
+                &mut processing_state.action_payload,
+                processing_state.tool_normalization_observation.as_ref(),
+            );
             // Prefix ERROR_CLASS so anti-loop classification is deterministic.
             processing_state.error_msg =
                 Some(format!("ERROR_CLASS=UnexpectedState {}", parse_error));

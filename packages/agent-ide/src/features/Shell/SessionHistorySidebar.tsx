@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { formatSessionTimeAgo } from "../../runtime/use-session-history-browser";
 import type { SessionHistorySummaryLike } from "../../runtime/use-session-history-browser";
+import { getSessionId } from "../../runtime/session-status";
 import {
   useSessionHistoryFolders,
   type SessionHistoryFolderRecord,
@@ -52,6 +53,7 @@ function matchesSessionQuery(
   session: SessionHistorySummaryLike,
   normalizedQuery: string,
 ) {
+  const sessionId = getSessionId(session);
   if (!normalizedQuery) {
     return true;
   }
@@ -62,7 +64,7 @@ function matchesSessionQuery(
     session.current_step,
     session.resume_hint,
     session.workspace_root,
-    session.session_id,
+    sessionId,
   ]
     .filter(Boolean)
     .join(" ")
@@ -299,7 +301,7 @@ export function SessionHistorySidebar<
       .map((folder) => {
         const folderSessionIds = new Set(folder.sessionIds);
         const orderedSessions = sessions.filter((session) =>
-          folderSessionIds.has(session.session_id),
+          folderSessionIds.has(getSessionId(session) ?? ""),
         );
         const matchedByName = normalizedQuery
           ? folder.name.toLowerCase().includes(normalizedQuery)
@@ -332,7 +334,7 @@ export function SessionHistorySidebar<
     () =>
       sessions.filter(
         (session) =>
-          !assignedSessionIds.has(session.session_id) &&
+          !assignedSessionIds.has(getSessionId(session) ?? "") &&
           matchesSessionQuery(session, normalizedQuery),
       ),
     [assignedSessionIds, normalizedQuery, sessions],
@@ -408,6 +410,11 @@ export function SessionHistorySidebar<
     session: TSession,
     currentFolder: SessionHistoryFolderRecord | null,
   ) => {
+    const sessionId = getSessionId(session);
+    if (!sessionId) {
+      return null;
+    }
+
     const subtitle = sessionSubtitle(session);
     const titleText = session.title?.trim() || "Untitled chat";
     const accessibilitySummary = uniqueSessionParts([
@@ -415,21 +422,20 @@ export function SessionHistorySidebar<
       subtitle,
       formatSessionTimeAgo(session.timestamp),
     ]).join(" · ");
-    const isActive = activeSessionId === session.session_id;
+    const isActive = activeSessionId === sessionId;
     const availableDestinationFolders = folders.filter(
       (folder) => folder.id !== currentFolder?.id,
     );
-    const menuOpen =
-      menuState?.kind === "session" && menuState.id === session.session_id;
+    const menuOpen = menuState?.kind === "session" && menuState.id === sessionId;
 
     return (
       <div
-        key={session.session_id}
+        key={sessionId}
         className={`history-item-shell ${isActive ? "active" : ""}`}
       >
         <button
           className={`history-item ${isActive ? "active" : ""}`}
-          onClick={() => onSelectSession(session.session_id)}
+          onClick={() => onSelectSession(sessionId)}
           title={accessibilitySummary}
         >
           <span className="history-item-selection-rail" aria-hidden="true" />
@@ -448,11 +454,11 @@ export function SessionHistorySidebar<
           onClick={(event) => {
             event.stopPropagation();
             setMenuState((current) =>
-              current?.kind === "session" && current.id === session.session_id
+              current?.kind === "session" && current.id === sessionId
                 ? null
                 : {
                     kind: "session",
-                    id: session.session_id,
+                    id: sessionId,
                   },
             );
           }}
@@ -465,7 +471,7 @@ export function SessionHistorySidebar<
               <button
                 className="history-row-menu-item"
                 onClick={() => {
-                  moveSessionToFolder(session.session_id, null);
+                  moveSessionToFolder(sessionId, null);
                   closeMenus();
                 }}
               >
@@ -477,7 +483,7 @@ export function SessionHistorySidebar<
                 key={folder.id}
                 className="history-row-menu-item"
                 onClick={() => {
-                  moveSessionToFolder(session.session_id, folder.id);
+                  moveSessionToFolder(sessionId, folder.id);
                   closeMenus();
                 }}
               >
@@ -487,7 +493,7 @@ export function SessionHistorySidebar<
             <button
               className="history-row-menu-item"
               onClick={() => {
-                handleCreateFolder(session.session_id);
+                handleCreateFolder(sessionId);
               }}
             >
               Move to New Folder

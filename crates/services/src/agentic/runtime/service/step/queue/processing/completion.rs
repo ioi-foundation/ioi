@@ -1,3 +1,8 @@
+use crate::agentic::rules::ActionRules;
+use crate::agentic::runtime::service::step::action::command_contract::{
+    compose_terminal_chat_reply, enrich_command_scope_summary, execution_contract_violation_error,
+    missing_execution_contract_markers_with_rules,
+};
 use crate::agentic::runtime::service::step::action::{
     has_execution_postcondition, is_command_probe_intent, is_ui_capture_screenshot_intent,
     summarize_command_probe_output,
@@ -126,6 +131,74 @@ pub(super) fn maybe_complete_mail_reply(
         hex::encode(&session_id[..4]),
         tool_name,
         fallback_only_queue
+    );
+}
+
+pub(super) fn maybe_complete_chat_reply(
+    agent_state: &mut AgentState,
+    tool_wrapper: &AgentTool,
+    is_gated: bool,
+    success: &mut bool,
+    out: &mut Option<String>,
+    err: &mut Option<String>,
+    completion_summary: &mut Option<String>,
+    verification_checks: &mut Vec<String>,
+    rules: &ActionRules,
+    session_id: [u8; 32],
+) {
+    if is_gated || !*success || completion_summary.is_some() {
+        return;
+    }
+
+    let AgentTool::ChatReply { message } = tool_wrapper else {
+        return;
+    };
+
+    if agent_state.pending_search_completion.is_some() {
+        return;
+    }
+
+    let missing_contract_markers =
+        missing_execution_contract_markers_with_rules(agent_state, rules);
+    if !missing_contract_markers.is_empty() {
+        let missing = missing_contract_markers.join(",");
+        let contract_error = execution_contract_violation_error(&missing);
+        *success = false;
+        *out = Some(contract_error.clone());
+        *err = Some(contract_error);
+        agent_state.status = AgentStatus::Running;
+        verification_checks.push("execution_contract_gate_blocked=true".to_string());
+        verification_checks.push(format!("execution_contract_missing_keys={}", missing));
+        return;
+    }
+
+    let message = enrich_command_scope_summary(message, agent_state);
+    let composed = compose_terminal_chat_reply(&message);
+    complete_with_summary(
+        agent_state,
+        composed.output.clone(),
+        success,
+        out,
+        err,
+        completion_summary,
+        false,
+    );
+    verification_checks.push("terminal_chat_reply_ready=true".to_string());
+    verification_checks.push(format!("response_composer_applied={}", composed.applied));
+    verification_checks.push(format!(
+        "response_composer_template={}",
+        composed.template_id
+    ));
+    verification_checks.push(format!(
+        "response_composer_validator_passed={}",
+        composed.validator_passed
+    ));
+    if let Some(reason) = composed.fallback_reason {
+        verification_checks.push(format!("response_composer_fallback_reason={}", reason));
+    }
+    log::info!(
+        "Completed queued chat__reply flow for session {}.",
+        hex::encode(&session_id[..4])
     );
 }
 
@@ -516,6 +589,49 @@ mod tests {
             completion_summary.as_deref(),
             Some("Sent the email successfully.")
         );
+    }
+
+    #[test]
+    fn completes_explicit_chat_reply_from_queue() {
+        let mut agent_state = agent_state_with_mail_reply();
+        agent_state.resolved_intent = None;
+        let session_id = agent_state.session_id;
+        let mut success = true;
+        let mut out = Some("Replied: npm run dev:desktop".to_string());
+        let mut err = None;
+        let mut completion_summary = None;
+        let mut verification_checks = Vec::new();
+        let rules = crate::agentic::runtime::service::step::helpers::default_safe_policy();
+
+        maybe_complete_chat_reply(
+            &mut agent_state,
+            &AgentTool::ChatReply {
+                message:
+                    "In `package.json`, the npm script that launches the desktop app is `dev:desktop`."
+                        .to_string(),
+            },
+            false,
+            &mut success,
+            &mut out,
+            &mut err,
+            &mut completion_summary,
+            &mut verification_checks,
+            &rules,
+            session_id,
+        );
+
+        assert!(matches!(
+            agent_state.status,
+            AgentStatus::Completed(Some(_))
+        ));
+        assert!(agent_state.execution_queue.is_empty());
+        assert_eq!(out, completion_summary);
+        assert!(completion_summary
+            .as_deref()
+            .is_some_and(|summary| summary.contains("`dev:desktop`")));
+        assert!(verification_checks
+            .iter()
+            .any(|check| check == "terminal_chat_reply_ready=true"));
     }
 
     #[test]

@@ -122,6 +122,7 @@ fn routing_receipt_for_explicit_tool_unavailable_marker_preserves_failure_class(
         policy_binding_hash: "binding".to_string(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(
@@ -193,6 +194,7 @@ fn routing_receipt_for_navigation_fallback_failure_sets_nondeterministic_ui() {
         policy_binding_hash: "binding".to_string(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(

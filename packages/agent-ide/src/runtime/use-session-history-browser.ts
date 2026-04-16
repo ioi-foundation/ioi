@@ -1,14 +1,7 @@
 import { useMemo } from "react";
+import type { SessionSummaryLike as BaseSessionSummaryLike } from "./session-status";
 
-export interface SessionHistorySummaryLike {
-  session_id: string;
-  title: string;
-  timestamp: number;
-  phase?: string | null;
-  current_step?: string | null;
-  resume_hint?: string | null;
-  workspace_root?: string | null;
-}
+export interface SessionHistorySummaryLike extends BaseSessionSummaryLike {}
 
 export interface SessionHistoryGroup<TSession extends SessionHistorySummaryLike> {
   label: string;
@@ -65,6 +58,10 @@ export interface UseSessionHistoryBrowserOptions<
   searchQuery: string;
 }
 
+export type UseFilteredSessionHistoryOptions<
+  TSession extends SessionHistorySummaryLike,
+> = UseSessionHistoryBrowserOptions<TSession>;
+
 export function useSessionHistoryBrowser<
   TSession extends SessionHistorySummaryLike,
 >({ sessions, searchQuery }: UseSessionHistoryBrowserOptions<TSession>) {
@@ -101,3 +98,5 @@ export function useSessionHistoryBrowser<
     groupedSessions,
   };
 }
+
+export const useFilteredSessionHistory = useSessionHistoryBrowser;

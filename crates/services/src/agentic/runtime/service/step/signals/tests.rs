@@ -297,6 +297,15 @@ fn query_facets_capture_time_sensitive_public_fact_contract() {
 }
 
 #[test]
+fn query_facets_capture_latest_pricing_contract() {
+    let facets = analyze_query_facets("What is the latest OpenAI API pricing?");
+    assert!(facets.time_sensitive_public_fact);
+    assert!(!facets.locality_sensitive_public_fact);
+    assert!(facets.grounded_external_required);
+    assert!(!facets.workspace_constrained);
+}
+
+#[test]
 fn query_facets_capture_latest_plural_briefing_contract() {
     let facets = analyze_query_facets(
         "Research the latest NIST post-quantum cryptography standards and write me a one-page briefing.",
@@ -304,6 +313,15 @@ fn query_facets_capture_latest_plural_briefing_contract() {
     assert!(facets.time_sensitive_public_fact);
     assert!(facets.grounded_external_required);
     assert!(!facets.locality_sensitive_public_fact);
+    assert!(!facets.workspace_constrained);
+}
+
+#[test]
+fn query_facets_capture_current_office_holder_contract() {
+    let facets = analyze_query_facets("Who is the current Secretary-General of the UN?");
+    assert!(facets.time_sensitive_public_fact);
+    assert!(!facets.locality_sensitive_public_fact);
+    assert!(facets.grounded_external_required);
     assert!(!facets.workspace_constrained);
 }
 

@@ -80,16 +80,25 @@ pub(super) fn unwrap_tool_envelope(raw_val: Value) -> Result<Value> {
 
 pub(super) fn sanitize_json(input: &str) -> String {
     let trimmed = input.trim();
-    // Check for markdown code blocks
-    if trimmed.starts_with("```") {
-        let lines: Vec<&str> = trimmed.lines().collect();
-        // Remove first line (```json or ```) and last line (```) if valid
-        if lines.len() >= 2
-            && lines
-                .last()
-                .is_some_and(|line| line.trim().starts_with("```"))
-        {
-            return lines[1..lines.len() - 1].join("\n");
+    // Prefer the first fenced code block anywhere in the output so we can
+    // recover tool JSON that follows a short explanation.
+    if let Some(fence_start) = trimmed.find("```") {
+        let after_open = &trimmed[fence_start + 3..];
+        if let Some(fence_end_rel) = after_open.find("```") {
+            let block = &after_open[..fence_end_rel];
+            let mut lines = block.lines();
+            let first_line = lines.next().unwrap_or_default().trim();
+            let body = if first_line.eq_ignore_ascii_case("json")
+                || first_line.eq_ignore_ascii_case("javascript")
+                || first_line.eq_ignore_ascii_case("js")
+            {
+                lines.collect::<Vec<_>>().join("\n")
+            } else {
+                block.to_string()
+            };
+            if !body.trim().is_empty() {
+                return body;
+            }
         }
     }
     // Also handle raw strings that might just have the json prefix without backticks

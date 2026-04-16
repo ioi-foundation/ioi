@@ -7,6 +7,13 @@ import type {
   SetStateAction,
 } from "react";
 import { flushSync } from "react-dom";
+import {
+  getSessionId,
+  isWaitingForClarificationStep,
+  isWaitingForSudoStep,
+} from "./session-status";
+
+const UI_PAINT_FALLBACK_MS = 48;
 
 export interface SessionComposerMessageLike {
   role: string;
@@ -25,24 +32,16 @@ interface SessionComposerClarificationRequestLike {
 export interface SessionComposerTaskLike {
   id?: string | null;
   session_id?: string | null;
+  sessionId?: string | null;
   phase?: string | null;
   current_step?: string | null;
+  currentStep?: string | null;
   pending_request_hash?: string | null;
+  pendingRequestHash?: string | null;
   credential_request?: SessionComposerCredentialRequestLike | null;
+  credentialRequest?: SessionComposerCredentialRequestLike | null;
   clarification_request?: SessionComposerClarificationRequestLike | null;
-}
-
-export function isWaitingForClarificationStep(step?: string | null): boolean {
-  const lowered = (step || "").toLowerCase();
-  return (
-    lowered.includes("waiting for clarification") ||
-    lowered.includes("waiting for intent clarification") ||
-    lowered.includes("wait_for_clarification")
-  );
-}
-
-export function isWaitingForSudoStep(step?: string | null): boolean {
-  return (step || "").toLowerCase().includes("waiting for sudo password");
+  clarificationRequest?: SessionComposerClarificationRequestLike | null;
 }
 
 export function isSessionComposerSubmissionBlocked<
@@ -51,19 +50,19 @@ export function isSessionComposerSubmissionBlocked<
   if (!task) {
     return false;
   }
-  if (task.phase === "Gate" || !!task.pending_request_hash) {
+  if (task.phase === "Gate" || !!(task.pendingRequestHash ?? task.pending_request_hash)) {
     return true;
   }
-  if (task.credential_request?.kind === "sudo_password") {
+  if ((task.credentialRequest ?? task.credential_request)?.kind === "sudo_password") {
     return true;
   }
   if (
-    task.clarification_request &&
-    isWaitingForClarificationStep(task.current_step)
+    (task.clarificationRequest ?? task.clarification_request) &&
+    isWaitingForClarificationStep(task.currentStep ?? task.current_step)
   ) {
     return true;
   }
-  if (isWaitingForSudoStep(task.current_step)) {
+  if (isWaitingForSudoStep(task.currentStep ?? task.current_step)) {
     return true;
   }
   return task.phase === "Running";
@@ -90,6 +89,7 @@ export interface UseSessionComposerOptions<
   beforeStartTask?: (intent: string) => Promise<void>;
   onSubmitError?: (error: unknown) => void;
   onEscapeKeyDown?: () => Promise<void> | void;
+  shouldContinueExistingSession?: (task: TTask | null) => boolean;
   inputMaxHeightPx?: number;
   newSessionFocusDelayMs?: number;
   createLocalHistoryMessage?: (input: {
@@ -114,6 +114,42 @@ function defaultLocalHistoryMessage({
   };
 }
 
+export function defaultShouldContinueExistingSession(
+  task: SessionComposerTaskLike | null,
+): boolean {
+  return !!task && !!task.id && task.phase !== "Failed";
+}
+
+export function waitForNextUiPaint(timeoutMs = UI_PAINT_FALLBACK_MS): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+      resolve();
+    };
+
+    timeoutId = setTimeout(finish, timeoutMs);
+
+    if (
+      typeof window !== "undefined" &&
+      typeof window.requestAnimationFrame === "function"
+    ) {
+      window.requestAnimationFrame(() => finish());
+      return;
+    }
+
+    finish();
+  });
+}
+
 export function useSessionComposer<
   TTask extends SessionComposerTaskLike,
   TLocalHistoryMessage extends SessionComposerMessageLike,
@@ -135,6 +171,7 @@ export function useSessionComposer<
   beforeStartTask,
   onSubmitError,
   onEscapeKeyDown,
+  shouldContinueExistingSession = defaultShouldContinueExistingSession,
   inputMaxHeightPx = 120,
   newSessionFocusDelayMs = 50,
   createLocalHistoryMessage,
@@ -162,10 +199,7 @@ export function useSessionComposer<
   }, [resolveTaskFailureMessage, setSubmissionError, setSubmissionInFlight, task]);
 
   const waitForUiPaint = useCallback(
-    () =>
-      new Promise<void>((resolve) => {
-        window.requestAnimationFrame(() => resolve());
-      }),
+    () => waitForNextUiPaint(),
     [],
   );
 
@@ -176,10 +210,14 @@ export function useSessionComposer<
     }
 
     try {
-      const shouldContinueExistingSession =
-        !!task && !!task.id && task.phase !== "Failed";
+      const shouldContinueCurrentSession = shouldContinueExistingSession(task);
 
-      if (shouldContinueExistingSession) {
+      if (shouldContinueCurrentSession) {
+        const currentTask = task;
+        const sessionId = currentTask ? getSessionId(currentTask) : null;
+        if (!sessionId) {
+          throw new Error("Composer continuation requires an active session id.");
+        }
         flushSync(() => {
           if (inputRef.current) {
             inputRef.current.style.height = "auto";
@@ -189,7 +227,7 @@ export function useSessionComposer<
           setSubmissionInFlight(true);
         });
         await waitForUiPaint();
-        await continueTask(task.id || task.session_id || "", text);
+        await continueTask(sessionId, text);
         return;
       }
 
@@ -237,6 +275,7 @@ export function useSessionComposer<
     setSubmissionInFlight,
     startTask,
     startTaskUnavailableMessage,
+    shouldContinueExistingSession,
     task,
     waitForUiPaint,
   ]);
@@ -246,7 +285,7 @@ export function useSessionComposer<
   }, [intent, submitText]);
 
   const handleNewSession = useCallback(() => {
-    const activeSessionId = task?.id || task?.session_id || null;
+    const activeSessionId = task ? getSessionId(task) : null;
     resetSession();
     setLocalHistory([]);
     setSubmissionInFlight(false);
@@ -307,3 +346,6 @@ export function useSessionComposer<
     handleInputKeyDown,
   };
 }
+
+export const useSessionInputComposer = useSessionComposer;
+export { isWaitingForClarificationStep, isWaitingForSudoStep };

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-    AgentRuntime,
+    AgentWorkbenchRuntime,
     GraphCapabilityCatalog,
     GraphModelBindingCatalog,
     GraphPayload,
@@ -41,7 +41,7 @@ const NODE_TYPES_BY_CAPABILITY: Record<string, string[]> = {
 const MODEL_BOUND_CAPABILITY_KEYS = new Set(["reasoning", "vision", "embedding", "image"]);
 
 export function useGraphExecution(
-    runtime: AgentRuntime,
+    runtime: AgentWorkbenchRuntime,
     nodes: any[],
     edges: any[],
     setNodes: any,

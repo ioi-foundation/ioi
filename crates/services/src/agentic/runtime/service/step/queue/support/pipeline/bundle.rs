@@ -336,6 +336,139 @@ mod tests {
             )
         );
     }
+
+    #[test]
+    fn constrained_inventory_prioritizes_official_pricing_authority_surface() {
+        let query = "What is the latest OpenAI API pricing?";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let official_url = "https://openai.com/api/pricing/";
+        let third_party_url =
+            "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services";
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 0,
+            tool: "web__search".to_string(),
+            backend: "edge:brave:http".to_string(),
+            query: Some(query.to_string()),
+            url: Some("https://search.brave.com/search?q=openai+api+pricing".to_string()),
+            sources: vec![
+                WebSource {
+                    source_id: "official-openai-pricing".to_string(),
+                    rank: Some(1),
+                    url: official_url.to_string(),
+                    title: Some("OpenAI API Pricing | OpenAI".to_string()),
+                    snippet: Some(
+                        "Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools. Compare token costs, realtime, image, and video pricing, plus service tiers."
+                            .to_string(),
+                    ),
+                    domain: Some("openai.com".to_string()),
+                },
+                WebSource {
+                    source_id: "third-party-pricing".to_string(),
+                    rank: Some(2),
+                    url: third_party_url.to_string(),
+                    title: Some(
+                        "OpenAI API Pricing & Services - A Comprehensive Guide".to_string(),
+                    ),
+                    snippet: Some(
+                        "April 24, 2025 - OpenAI o4-mini: A cost-efficient alternative to the o3 model. Price: Input: $1.10 per 1M tokens."
+                            .to_string(),
+                    ),
+                    domain: Some("www.arsturn.com".to_string()),
+                },
+            ],
+            source_observations: vec![],
+            documents: vec![],
+            provider_candidates: vec![],
+            retrieval_contract: Some(retrieval_contract),
+        };
+
+        let (urls, _) =
+            constrained_candidate_inventory_from_bundle_with_locality_hint(query, 1, &bundle, None);
+
+        assert_eq!(urls.first().map(String::as_str), Some(official_url));
+    }
+
+    #[test]
+    fn constrained_inventory_prioritizes_current_role_holder_surface_over_biography() {
+        let query = "Who is the current Secretary General of the UN?";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let faq_url = "https://ask.un.org/faq/14625";
+        let biography_url = "https://en.wikipedia.org/wiki/Ant%C3%B3nio_Guterres";
+        let role_definition_url =
+            "https://en.wikipedia.org/wiki/Secretary-General_of_the_United_Nations";
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 0,
+            tool: "web__search".to_string(),
+            backend: "edge:search:aggregate:test".to_string(),
+            query: Some("who secretary general".to_string()),
+            url: Some("https://search.brave.com/search?q=who+secretary+general".to_string()),
+            sources: vec![
+                WebSource {
+                    source_id: "ask-un".to_string(),
+                    rank: Some(1),
+                    url: faq_url.to_string(),
+                    title: Some(
+                        "UN Ask DAG ask.un.org › faq › 14625 Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                            .to_string(),
+                    ),
+                    snippet: Some(
+                        "António Guterres is the current Secretary-General of the United Nations."
+                            .to_string(),
+                    ),
+                    domain: Some("ask.un.org".to_string()),
+                },
+                WebSource {
+                    source_id: "un-role-definition".to_string(),
+                    rank: Some(4),
+                    url: role_definition_url.to_string(),
+                    title: Some(
+                        "Wikipedia en.wikipedia.org › wiki › Secretary-General_of_the_United_Nations Secretary-General of the United Nations - Wikipedia"
+                            .to_string(),
+                    ),
+                    snippet: Some(
+                        "The secretary-general of the United Nations is the Head of the United Nations Secretariat."
+                            .to_string(),
+                    ),
+                    domain: Some("en.wikipedia.org".to_string()),
+                },
+                WebSource {
+                    source_id: "guterres-biography".to_string(),
+                    rank: Some(6),
+                    url: biography_url.to_string(),
+                    title: Some(
+                        "Wikipedia en.wikipedia.org › wiki › António_Guterres António Guterres - Wikipedia"
+                            .to_string(),
+                    ),
+                    snippet: Some(
+                        "17 hours ago - Guterres was elected secretary-general in October 2016, succeeding Ban Ki-moon at the beginning of the following year and becoming the first European to hold this office since Kurt Waldheim in 1981."
+                            .to_string(),
+                    ),
+                    domain: Some("en.wikipedia.org".to_string()),
+                },
+            ],
+            source_observations: vec![],
+            documents: vec![],
+            provider_candidates: vec![],
+            retrieval_contract: Some(retrieval_contract),
+        };
+
+        let (urls, _) =
+            constrained_candidate_inventory_from_bundle_with_locality_hint(query, 1, &bundle, None);
+
+        assert_eq!(urls.first().map(String::as_str), Some(faq_url), "{urls:?}");
+        assert!(
+            !urls
+                .iter()
+                .any(|url| url.eq_ignore_ascii_case(role_definition_url)),
+            "{urls:?}"
+        );
+    }
 }
 
 pub(crate) fn document_source_hints_from_bundle(
@@ -425,13 +558,16 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
     );
     let document_briefing_layout = query_prefers_document_briefing_layout(query_contract)
         && !query_requests_comparison(query_contract);
-    let authority_source_required_for_briefing = document_briefing_layout
-        && projection.query_facets.grounded_external_required
-        && bundle
-            .retrieval_contract
-            .as_ref()
-            .map(|contract| contract.currentness_required || contract.source_independence_min > 1)
-            .unwrap_or(false);
+    let subject_identity_required =
+        crate::agentic::runtime::service::step::queue::support::query_requires_subject_currentness_identity(
+            query_contract,
+        );
+    let primary_authority_source_required = retrieval_contract_requires_primary_authority_source(
+        bundle.retrieval_contract.as_ref(),
+        query_contract,
+    );
+    let authority_source_required_for_briefing =
+        document_briefing_layout && primary_authority_source_required;
     let constraints = &projection.constraints;
     let policy = ResolutionPolicy::default();
     let min_required = min_sources.max(1) as usize;
@@ -503,9 +639,14 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                 .count();
             let briefing_subject_overlap = query_native_overlap >= 3
                 || (query_native_overlap >= 2 && temporal_recency_score > 0);
-            let primary_authority = authority_source_required_for_briefing
-                && source_has_document_authority(query_contract, &hint.url, title, &hint.excerpt)
-                && (briefing_subject_overlap || identifier_bearing);
+            let primary_authority = if !primary_authority_source_required {
+                false
+            } else if authority_source_required_for_briefing {
+                source_counts_as_primary_authority(query_contract, &hint.url, title, &hint.excerpt)
+                    && (briefing_subject_overlap || identifier_bearing)
+            } else {
+                source_counts_as_primary_authority(query_contract, &hint.url, title, &hint.excerpt)
+            };
             let observed_identifier_labels = source_briefing_standard_identifier_labels(
                 query_contract,
                 &hint.url,
@@ -522,6 +663,16 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                 title,
                 &hint.excerpt,
             );
+            let subject_identity_grounded = subject_identity_required
+                && crate::agentic::runtime::service::step::queue::support::first_subject_currentness_sentence(
+                    format!("{} {}", title, &hint.excerpt).as_str(),
+                )
+                .is_some();
+            let current_holder_grounded = subject_identity_required
+                && crate::agentic::runtime::service::step::queue::support::first_current_role_holder_sentence(
+                    format!("{} {}", title, &hint.excerpt).as_str(),
+                )
+                .is_some();
             let headline_low_quality = headline_lookup_mode
                 && headline_source_is_low_quality(&hint.url, title, &hint.excerpt);
             let headline_actionable = headline_lookup_mode && headline_source_is_actionable(&hint);
@@ -549,6 +700,8 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
                     .filter(|label| optional_briefing_identifier_labels.contains(*label))
                     .count(),
                 query_grounding_signal,
+                current_holder_grounded,
+                subject_identity_grounded,
                 headline_low_quality,
                 headline_actionable,
             }
@@ -621,11 +774,52 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         } else {
             std::cmp::Ordering::Equal
         };
+        let subject_identity_order = if subject_identity_required {
+            right
+                .current_holder_grounded
+                .cmp(&left.current_holder_grounded)
+                .then_with(|| {
+                    right
+                        .subject_identity_grounded
+                        .cmp(&left.subject_identity_grounded)
+                })
+                .then_with(|| {
+                    right
+                        .query_grounding_signal
+                        .cmp(&left.query_grounding_signal)
+                })
+                .then_with(|| {
+                    right
+                        .temporal_recency_score
+                        .cmp(&left.temporal_recency_score)
+                })
+        } else {
+            std::cmp::Ordering::Equal
+        };
+        let primary_authority_order = if primary_authority_source_required {
+            right
+                .primary_authority
+                .cmp(&left.primary_authority)
+                .then_with(|| {
+                    right
+                        .document_authority_score
+                        .cmp(&left.document_authority_score)
+                })
+                .then_with(|| {
+                    right
+                        .temporal_recency_score
+                        .cmp(&left.temporal_recency_score)
+                })
+        } else {
+            std::cmp::Ordering::Equal
+        };
         right
             .headline_actionable
             .cmp(&left.headline_actionable)
             .then_with(|| left.headline_low_quality.cmp(&right.headline_low_quality))
             .then_with(|| briefing_order)
+            .then_with(|| subject_identity_order)
+            .then_with(|| primary_authority_order)
             .then_with(|| {
                 right
                     .time_sensitive_resolvable_payload
@@ -662,23 +856,42 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         .iter()
         .filter(|candidate| !candidate.headline_low_quality)
         .count();
-    let authority_candidate_for_briefing = |candidate: &&RankedAcquisitionCandidate| {
-        authority_source_required_for_briefing
-            && candidate.document_authority_score > 0
+    let primary_authority_candidate = |candidate: &&RankedAcquisitionCandidate| {
+        primary_authority_source_required
+            && candidate.primary_authority
             && (candidate.query_grounding_signal
                 || candidate.compatibility.compatibility_score > 0
                 || candidate.compatibility.is_compatible)
+    };
+    let subject_identity_candidate = |candidate: &&RankedAcquisitionCandidate| {
+        subject_identity_required
+            && (candidate.current_holder_grounded || candidate.subject_identity_grounded)
     };
 
     let mut filtered = ranked.iter().collect::<Vec<_>>();
     if should_filter_by_compatibility {
         filtered.retain(|candidate| {
             compatibility_passes_projection(&projection, &candidate.compatibility)
-                || authority_candidate_for_briefing(candidate)
+                || primary_authority_candidate(candidate)
+                || subject_identity_candidate(candidate)
         });
     }
     if headline_lookup_mode && headline_non_low_quality_candidates >= min_required {
         filtered.retain(|candidate| !candidate.headline_low_quality);
+    }
+    if subject_identity_required
+        && filtered
+            .iter()
+            .any(|candidate| candidate.current_holder_grounded)
+    {
+        filtered.retain(|candidate| candidate.current_holder_grounded);
+    }
+    if subject_identity_required
+        && filtered
+            .iter()
+            .any(|candidate| candidate.subject_identity_grounded)
+    {
+        filtered.retain(|candidate| candidate.subject_identity_grounded);
     }
 
     let resolvable_candidates = filtered
@@ -687,7 +900,9 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         .count();
     if !headline_lookup_mode && has_constraint_objective && resolvable_candidates >= min_required {
         filtered.retain(|candidate| {
-            candidate.resolves_constraint || authority_candidate_for_briefing(candidate)
+            candidate.resolves_constraint
+                || primary_authority_candidate(candidate)
+                || subject_identity_candidate(candidate)
         });
     }
 
@@ -711,11 +926,11 @@ pub(crate) fn constrained_candidate_inventory_from_bundle_with_locality_hint(
         selected_urls.push(url.to_string());
         selected_hints.push(candidate.hint.clone());
     }
-    if authority_source_required_for_briefing {
+    if primary_authority_source_required {
         let authority_urls = selected_hints
             .iter()
             .filter(|hint| {
-                source_has_document_authority(
+                source_counts_as_primary_authority(
                     query_contract,
                     &hint.url,
                     hint.title.as_deref().unwrap_or_default(),

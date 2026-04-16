@@ -33,6 +33,10 @@ fi
 
 if [[ "$LOCAL_GPU_DEV" == "1" ]]; then
   export AUTOPILOT_LOCAL_GPU_DEV=1
+  # Local GPU desktop profiles encrypt the kernel identity with a fixed local
+  # passphrase on first boot. Re-export it on subsequent boots so retained
+  # profiles can restart non-interactively.
+  export IOI_GUARDIAN_KEY_PASS="${IOI_GUARDIAN_KEY_PASS:-local-mode}"
   export IOI_STUDIO_PROOF_TRACE="${IOI_STUDIO_PROOF_TRACE:-1}"
   export AUTOPILOT_DATA_PROFILE="${AUTOPILOT_DATA_PROFILE:-desktop-localgpu}"
   export AUTOPILOT_RESET_DATA_ON_BOOT="${AUTOPILOT_RESET_DATA_ON_BOOT:-1}"

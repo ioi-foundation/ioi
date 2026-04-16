@@ -1,0 +1,3143 @@
+{
+  "captured_at": "2026-04-15T17:35:07.650463+00:00",
+  "prompt": "What npm script launches the desktop app in this repo?",
+  "screenshot": "docs/evidence/route-hierarchy/live-dev-start-intent/2026-04-15T17-29-36Z/01-what-npm-script-launches-the-desktop-app-in-this-repo/final.png",
+  "window_id": 20971532,
+  "window_capture_error": null,
+  "task": {
+    "id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+    "intent": "What npm script launches the desktop app in this repo?",
+    "agent": "Autopilot",
+    "phase": "Running",
+    "progress": 1,
+    "total_steps": 20,
+    "current_step": "Working in the workspace",
+    "gate_info": null,
+    "receipt": null,
+    "visual_hash": null,
+    "pending_request_hash": null,
+    "session_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+    "credential_request": null,
+    "clarification_request": null,
+    "session_checklist": [
+      {
+        "itemId": "request",
+        "label": "Request captured",
+        "status": "completed",
+        "detail": "What npm script launches the desktop app in this repo?",
+        "updatedAtMs": 1776274314969
+      },
+      {
+        "itemId": "execution",
+        "label": "Continue execution",
+        "status": "in_progress",
+        "detail": "Working in the workspace",
+        "updatedAtMs": 1776274314969
+      },
+      {
+        "itemId": "review",
+        "label": "Review emerging output",
+        "status": "pending",
+        "detail": "RoutingReceipt(step=1, tier=ToolFirst, tool=file__list, decision=allowed, stop=false, policy_hash=9a064ed80e45877f6269c3...",
+        "updatedAtMs": 1776274314969
+      }
+    ],
+    "background_tasks": [
+      {
+        "taskId": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "sessionId": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "label": "What npm script launches the desktop app in this repo?",
+        "status": "running",
+        "detail": "Working in the workspace",
+        "latestOutput": "RoutingReceipt(step=1, tier=ToolFirst, tool=file__list, decision=allowed, stop=false, policy_hash=9a064ed80e45877f6269c3...",
+        "canStop": true,
+        "updatedAtMs": 1776274314969
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "text": "What npm script launches the desktop app in this repo?",
+        "timestamp": 1776274204565
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f IntentResolver: intent_id=workspace.ops band=High score=0.862 constrained=false hash=63e0a32144b7438177428c9acf29d9f48276a5145f2b72bd8f74f6627cb24deb",
+        "timestamp": 1776274256724
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=discovery key=host_discovery satisfied=true evidence_commit_hash=sha256:8fa8142b4857b405066272a37d4e80a1ffee4dd4435de342c496fbf08d6973f5",
+        "timestamp": 1776274271625
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=provider_selection key=provider_selection satisfied=true evidence_commit_hash=sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71",
+        "timestamp": 1776274271694
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=provider_selection key=provider_selection_commit satisfied=true evidence_commit_hash=sha256:3b0a84ef9463fb6b0ea7120f207637f1e30c9b138b25f5c0967d7a08263610ce",
+        "timestamp": 1776274271741
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=service_prepare_tool satisfied=true evidence_commit_hash=sha256:5a3cf0dd95e0d7f88e22c99b78ced5ca628bc30bf1d35fd4ab6af5a2212663e0",
+        "timestamp": 1776274271803
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=service_determinism_context satisfied=true evidence_commit_hash=sha256:2e2bd218a62ae91b30048a548355f507be8c8496641dab97ee62236a2e9bd7c6",
+        "timestamp": 1776274271852
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=policy_hash_binding satisfied=true evidence_commit_hash=sha256:55eaeaa802416f1211e8d3304e2d059449b4f31911e1982ea60753208f88c57c",
+        "timestamp": 1776274271902
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=capability_lease satisfied=true evidence_commit_hash=sha256:8bef9271ff4a01b08ed6069d2b53cfc018aa2e8b117d3dc22a8eac2cc149b23f",
+        "timestamp": 1776274271951
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=firewall_decision_receipt satisfied=true evidence_commit_hash=sha256:0c827c0d9fdefb14800977c6c2bd65781ad417e23b3f84e3241feddc517bcbe1",
+        "timestamp": 1776274272002
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=determinism_commit satisfied=true evidence_commit_hash=sha256:64549927f2ab2728a42a9717230c0b693b56b9ebdce74ff10299ea93df9f7c1e",
+        "timestamp": 1776274272053
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=service_policy_gate satisfied=true evidence_commit_hash=sha256:504839388bcfed86d9d171cc8fd4b3b4368abdcf5e474c3719413d92de4ae296",
+        "timestamp": 1776274272103
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=service_executor_dispatch satisfied=true evidence_commit_hash=sha256:f1e7e362cdf5d5f2a229174360be5f4421343c3ddb6e512d1b30da6df9de89f4",
+        "timestamp": 1776274272153
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=service_finalize_executor_result satisfied=true evidence_commit_hash=sha256:3d1881e9db15e5ff2009c6e6083c5900a76e3a1b3710a09f4dd305c5029eb1a0",
+        "timestamp": 1776274272203
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=service_action_complete satisfied=true evidence_commit_hash=sha256:396c701fd7c890cc9fb51c5b1df7d68916981d1c4de3d08f46ad1cc0efa465b6",
+        "timestamp": 1776274272268
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=execution key=execution satisfied=true evidence_commit_hash=sha256:67583da4d904c1690122bc19c8281610993e0f08b56262a7551656fc4bcdf1ef",
+        "timestamp": 1776274272319
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=verification key=verification satisfied=true evidence_commit_hash=sha256:1edff4419407da8dbbf4b0046244b15ad6978a53ac7de22b85ede4513742bae8",
+        "timestamp": 1776274272368
+      },
+      {
+        "role": "tool",
+        "text": "Tool Output (file__list): [D] .artifacts\n[D] .cargo\n[D] .cargo-deny\n[F] .dockerignore\n[F] .env\n[D] .git\n[D] .github\n[F] .gitignore\n[D] .tmp\n[D] .vscode\n[F] CODEX.txt\n[F] CONTRIBUTING.md\n[F] Cargo.lock\n[F] Cargo.toml\n[F] LICENSE-BBSL\n[F] MARATHON.md\n[F] README.md\n[F] SECURITY.md\n[D] apps\n[F] codebase_snapshot.md\n[D] crates\n[D] docs\n[D] examples\n[D] ioi-data\n[D] ioi-swarm\n[D] models\n[D] node_modules\n[D] ops\n[D] outputs\n[F] package-lock.json\n[F] package.json\n[D] packages\n[F] pyrightconfig.json\n[F] rust-toolchain.toml\n[F] rustfmt.toml\n[D] scripts\n[D] target\n[D] tests\n[D] tools",
+        "timestamp": 1776274272467
+      },
+      {
+        "role": "system",
+        "text": "RoutingReceipt(step=0, tier=ToolFirst, tool=file__list, decision=allowed, stop=false, policy_hash=f99eb0b44d7396f4b0f7d9d526114376e11f98a386b4d03dba0fc2b1fd1473e5), route_family=coding, output_intent=tool_execution, direct_answer_allowed=true, projected_tools=19, verify=[tool_normalization_observed=true, tool_normalization_changed=true, tool_normalization_raw_name=file__list, tool_normalization_name=file__list, tool_normalization_label=bare_tool_token_wrapped, tool_normalization_label=bare_tool_token_default_root_path, capability_execution_phase=discovery, host_home_dir=/home/heathledger, host_desktop_dir=/home/heathledger/Desktop, host_discovery_probe_source=process_env:HOME, host_discovery_timestamp_ms=1776274271624, host_discovery_satisfied=true, receipt::host_discovery=true, capability_route_selected=native_integration, receipt::provider_selection=true, receipt::provider_selection_commit=true, provider_selection_route=native_integration, provider_selection_commit=sha256:3ba98461f3e7c58dcc4c9a1a523e83c45909c2a95093bcd35e692d4f13b34cbc, receipt::execution=true, receipt::verification=true, incident_active=false, policy_decision=allowed, was_gated=false, awaiting_sudo_password=false, awaiting_clarification=false, remediation_queued=false, stop_condition_hit=false, routing_tier_selected=ToolFirst, routing_reason_code=tool_first_default, routing_source_failure=None, routing_tier_matches_pre_state=true]",
+        "timestamp": 1776274276129
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=provider_selection key=provider_selection satisfied=true evidence_commit_hash=sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71",
+        "timestamp": 1776274291193
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=provider_selection key=provider_selection_commit satisfied=true evidence_commit_hash=sha256:3b0a84ef9463fb6b0ea7120f207637f1e30c9b138b25f5c0967d7a08263610ce",
+        "timestamp": 1776274291278
+      },
+      {
+        "role": "tool",
+        "text": "Tool Output (file__list): Skipped immediate replay of 'file__list' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state once or finish with the gathered evidence.",
+        "timestamp": 1776274291400
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=provider_selection key=provider_selection satisfied=true evidence_commit_hash=sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71",
+        "timestamp": 1776274299127
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=provider_selection key=provider_selection_commit satisfied=true evidence_commit_hash=sha256:3b0a84ef9463fb6b0ea7120f207637f1e30c9b138b25f5c0967d7a08263610ce",
+        "timestamp": 1776274299254
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=provider_selection key=provider_selection satisfied=true evidence_commit_hash=sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71",
+        "timestamp": 1776274306992
+      },
+      {
+        "role": "system",
+        "text": "\u2699\ufe0f ExecutionContract: intent_id=workspace.ops stage=provider_selection key=provider_selection_commit satisfied=true evidence_commit_hash=sha256:3b0a84ef9463fb6b0ea7120f207637f1e30c9b138b25f5c0967d7a08263610ce",
+        "timestamp": 1776274307054
+      },
+      {
+        "role": "system",
+        "text": "RoutingReceipt(step=1, tier=ToolFirst, tool=file__list, decision=allowed, stop=false, policy_hash=9a064ed80e45877f6269c3014ac695b137381cbcd9bcf58aa357b0d310448e01), failure_class=NoEffectAfterAction, route_family=coding, output_intent=tool_execution, direct_answer_allowed=true, projected_tools=19, verify=[tool_normalization_observed=true, tool_normalization_changed=true, tool_normalization_raw_name=file__list, tool_normalization_name=file__list, tool_normalization_label=tool_to_name, tool_normalization_label=args_to_arguments, capability_route_selected=native_integration, receipt::provider_selection=true, receipt::provider_selection_commit=true, provider_selection_route=native_integration, provider_selection_commit=sha256:3ba98461f3e7c58dcc4c9a1a523e83c45909c2a95093bcd35e692d4f13b34cbc, duplicate_action_fingerprint_non_command_noop=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true, duplicate_action_fingerprint_non_command_step_advanced=true, duplicate_action_fingerprint=10e5edef8df86c1a73e1c09ec08223689a29ddc006f51b3b05d26d5a5b0a4213, duplicate_action_fingerprint_non_terminal=false, duplicate_action_fingerprint_prior_success_promoted_to_failure=true, incident_active=false, attempt_repeat_count=1, attempt_key_hash=80abaf7993c7ead1f7f8dcc9d1135c26cacc0b0bbb26040fe7543ee0f103df2e, attempt_retry_budget_remaining=2, attempt_retry_blocked_without_change=false, incident_recovery_skipped_for_file_read_no_effect=true, incident_skip_root_tool=file__list, incident_skip_failure_class=NoEffectAfterAction, incident_active=false, policy_decision=allowed, was_gated=false, awaiting_sudo_password=false, awaiting_clarification=false, remediation_queued=false, stop_condition_hit=false, routing_tier_selected=ToolFirst, routing_reason_code=tool_first_default, routing_source_failure=None, routing_tier_matches_pre_state=true, failure_class=NoEffectAfterAction]",
+        "timestamp": 1776274311390
+      }
+    ],
+    "events": [
+      {
+        "event_id": "ee3aa914-9198-4c3f-bffd-3129d0e60f23",
+        "timestamp": "2026-04-15T17:30:04.565033593+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "What npm script launches the desktop app in this repo?"
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "What npm script launches the desktop app in this repo?"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "e3c51314-ce1a-4645-bc7a-1ae2c80ab983",
+        "timestamp": "2026-04-15T17:30:05.028154365+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 1,
+        "event_type": "RECEIPT",
+        "title": "Studio route decision",
+        "digest": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "workspace_grounding_required"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:workspace_grounding_required",
+                "route_hint:coding_workspace_context",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "view",
+                "bash_tool"
+              ],
+              "projected_tools": [
+                "view",
+                "bash_tool"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "coding",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "coding",
+          "selected_route": "conversation_workspace_grounded_single_pass",
+          "topology": "single_agent",
+          "verifier_outcome": null,
+          "verifier_state": "active"
+        },
+        "details": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "workspace_grounding_required"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:workspace_grounding_required",
+                "route_hint:coding_workspace_context",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "view",
+                "bash_tool"
+              ],
+              "projected_tools": [
+                "view",
+                "bash_tool"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "coding",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "coding",
+          "selected_route": "conversation_workspace_grounded_single_pass",
+          "summary": "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "topology": "single_agent",
+          "verifier_outcome": null,
+          "verifier_state": "active"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "ee3aa914-9198-4c3f-bffd-3129d0e60f23"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "b5de02ce-f865-433c-9afa-881c6df6856c",
+        "timestamp": "2026-04-15T17:30:56.752538312+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: IntentResolver",
+        "digest": {
+          "component": "IntentResolver",
+          "status": "intent_id=workspace.ops band=High score=0.862 constrained=false hash=63e0a32144b7438177428c9acf29d9f48276a5145f2b72bd8f74f6627cb24deb"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "f828ff8a-7716-4c5f-82ca-1173962ebeff",
+        "timestamp": "2026-04-15T17:31:11.651613186+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=discovery key=host_discovery satisfied=true evidence_commit_hash=sha256:8fa8142b4857b405066272a37d4e80a1ffee4dd4435de342c496fbf08d6973f5"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "b5de02ce-f865-433c-9afa-881c6df6856c"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "e231ce05-f60e-4e57-86a2-acc4a50f1fb8",
+        "timestamp": "2026-04-15T17:31:11.713763818+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=provider_selection key=provider_selection satisfied=true evidence_commit_hash=sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "f828ff8a-7716-4c5f-82ca-1173962ebeff"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "12706f95-e614-40d8-9e85-d33a106fcf77",
+        "timestamp": "2026-04-15T17:31:11.761705625+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=provider_selection key=provider_selection_commit satisfied=true evidence_commit_hash=sha256:3b0a84ef9463fb6b0ea7120f207637f1e30c9b138b25f5c0967d7a08263610ce"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "e231ce05-f60e-4e57-86a2-acc4a50f1fb8"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "6505e0ce-98a4-4ada-a386-df3b533e4bb8",
+        "timestamp": "2026-04-15T17:31:11.824005773+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=service_prepare_tool satisfied=true evidence_commit_hash=sha256:5a3cf0dd95e0d7f88e22c99b78ced5ca628bc30bf1d35fd4ab6af5a2212663e0"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "12706f95-e614-40d8-9e85-d33a106fcf77"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "d51e9b4c-a256-4bbb-9d8f-39090a8cb382",
+        "timestamp": "2026-04-15T17:31:11.873165987+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=service_determinism_context satisfied=true evidence_commit_hash=sha256:2e2bd218a62ae91b30048a548355f507be8c8496641dab97ee62236a2e9bd7c6"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "6505e0ce-98a4-4ada-a386-df3b533e4bb8"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "13c9fbd8-d2a8-490d-abbc-7fd82f725afe",
+        "timestamp": "2026-04-15T17:31:11.923193613+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=policy_hash_binding satisfied=true evidence_commit_hash=sha256:55eaeaa802416f1211e8d3304e2d059449b4f31911e1982ea60753208f88c57c"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "d51e9b4c-a256-4bbb-9d8f-39090a8cb382"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "c13390f1-433a-4865-b1a6-b51420019561",
+        "timestamp": "2026-04-15T17:31:11.972641828+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=capability_lease satisfied=true evidence_commit_hash=sha256:8bef9271ff4a01b08ed6069d2b53cfc018aa2e8b117d3dc22a8eac2cc149b23f"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "13c9fbd8-d2a8-490d-abbc-7fd82f725afe"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "5e1357ed-0a95-4977-9f90-4d5c4b5d700a",
+        "timestamp": "2026-04-15T17:31:12.024369879+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=firewall_decision_receipt satisfied=true evidence_commit_hash=sha256:0c827c0d9fdefb14800977c6c2bd65781ad417e23b3f84e3241feddc517bcbe1"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "c13390f1-433a-4865-b1a6-b51420019561"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "70d8c25e-5d39-4e1b-8b29-fdcb5915793c",
+        "timestamp": "2026-04-15T17:31:12.074119806+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=determinism_commit satisfied=true evidence_commit_hash=sha256:64549927f2ab2728a42a9717230c0b693b56b9ebdce74ff10299ea93df9f7c1e"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "5e1357ed-0a95-4977-9f90-4d5c4b5d700a"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "c3e87839-a168-469a-b92e-bb042334f33c",
+        "timestamp": "2026-04-15T17:31:12.123392304+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=service_policy_gate satisfied=true evidence_commit_hash=sha256:504839388bcfed86d9d171cc8fd4b3b4368abdcf5e474c3719413d92de4ae296"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "70d8c25e-5d39-4e1b-8b29-fdcb5915793c"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "40b0c439-c076-4c6f-bc20-279f509e9770",
+        "timestamp": "2026-04-15T17:31:12.174121582+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=service_executor_dispatch satisfied=true evidence_commit_hash=sha256:f1e7e362cdf5d5f2a229174360be5f4421343c3ddb6e512d1b30da6df9de89f4"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "c3e87839-a168-469a-b92e-bb042334f33c"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "41532e78-3e76-4ecf-8ec2-06d1363f8c19",
+        "timestamp": "2026-04-15T17:31:12.240816360+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=service_finalize_executor_result satisfied=true evidence_commit_hash=sha256:3d1881e9db15e5ff2009c6e6083c5900a76e3a1b3710a09f4dd305c5029eb1a0"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "40b0c439-c076-4c6f-bc20-279f509e9770"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "883d033c-73cc-4b12-9a38-59fc5a73fee8",
+        "timestamp": "2026-04-15T17:31:12.290320683+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=service_action_complete satisfied=true evidence_commit_hash=sha256:396c701fd7c890cc9fb51c5b1df7d68916981d1c4de3d08f46ad1cc0efa465b6"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "41532e78-3e76-4ecf-8ec2-06d1363f8c19"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "5706fe42-1624-466b-bbf6-aaf0d4d07fcd",
+        "timestamp": "2026-04-15T17:31:12.339234009+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=execution key=execution satisfied=true evidence_commit_hash=sha256:67583da4d904c1690122bc19c8281610993e0f08b56262a7551656fc4bcdf1ef"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "883d033c-73cc-4b12-9a38-59fc5a73fee8"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "366c52e4-ae06-49c2-a6e4-e23867ef8ca9",
+        "timestamp": "2026-04-15T17:31:12.389332020+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=verification key=verification satisfied=true evidence_commit_hash=sha256:1edff4419407da8dbbf4b0046244b15ad6978a53ac7de22b85ede4513742bae8"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "5706fe42-1624-466b-bbf6-aaf0d4d07fcd"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "ad4efe34-93d4-43bc-9eed-6531bc71447e",
+        "timestamp": "2026-04-15T17:31:12.438954514+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "Captured reasoning step",
+        "digest": {
+          "session_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+          "token_count": 10,
+          "visual_hash": null
+        },
+        "details": {
+          "content": "file__list"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "366c52e4-ae06-49c2-a6e4-e23867ef8ca9"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "b9ab53cc-9807-44c5-92cc-e727e1a786bd",
+        "timestamp": "2026-04-15T17:31:12.489253578+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "COMMAND_RUN",
+        "title": "Ran file__list",
+        "digest": {
+          "line_count": 39,
+          "output_snippet": "[D] .artifacts\n[D] .cargo\n[D] .cargo-deny\n[F] .dockerignore\n\u2026",
+          "tool_name": "file__list"
+        },
+        "details": {
+          "output": "[D] .artifacts\n[D] .cargo\n[D] .cargo-deny\n[F] .dockerignore\n[F] .env\n[D] .git\n[D] .github\n[F] .gitignore\n[D] .tmp\n[D] .vscode\n[F] CODEX.txt\n[F] CONTRIBUTING.md\n[F] Cargo.lock\n[F] Cargo.toml\n[F] LICENSE-BBSL\n[F] MARATHON.md\n[F] README.md\n[F] SECURITY.md\n[D] apps\n[F] codebase_snapshot.md\n[D] crates\n[D] docs\n[D] examples\n[D] ioi-data\n[D] ioi-swarm\n[D] models\n[D] node_modules\n[D] ops\n[D] outputs\n[F] package-lock.json\n[F] package.json\n[D] packages\n[F] pyrightconfig.json\n[F] rust-toolchain.toml\n[F] rustfmt.toml\n[D] scripts\n[D] target\n[D] tests\n[D] tools"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "ad4efe34-93d4-43bc-9eed-6531bc71447e"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "edbd6175-16d8-45e7-ba47-dc54bc5a152b",
+        "timestamp": "2026-04-15T17:31:16.227611790+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "RECEIPT",
+        "title": "Receipt: Working in the workspace (allowed)",
+        "digest": {
+          "artifact_output_intent": false,
+          "broad_fallback_tools": [],
+          "connector_candidate_count": 0,
+          "connector_first_preference": false,
+          "currentness_override": false,
+          "decision": "allowed",
+          "direct_answer_allowed": true,
+          "direct_answer_blockers": [],
+          "file_output_intent": false,
+          "gate_state": "",
+          "incident_stage": "",
+          "inline_visual_intent": false,
+          "intent_class": "",
+          "narrow_tool_preference": false,
+          "output_intent": "tool_execution",
+          "primary_tools": [
+            "math__eval",
+            "chat__reply",
+            "agent__await",
+            "agent__pause",
+            "agent__complete",
+            "file__write",
+            "file__replace_line",
+            "file__edit",
+            "file__multi_edit",
+            "file__read",
+            "file__view",
+            "file__list",
+            "file__search",
+            "file__info",
+            "file__copy",
+            "file__move",
+            "file__delete",
+            "file__create_dir",
+            "file__zip"
+          ],
+          "projected_tools": [
+            "math__eval",
+            "chat__reply",
+            "agent__await",
+            "agent__pause",
+            "agent__complete",
+            "file__write",
+            "file__replace_line",
+            "file__edit",
+            "file__multi_edit",
+            "file__read",
+            "file__view",
+            "file__list",
+            "file__search",
+            "file__info",
+            "file__copy",
+            "file__move",
+            "file__delete",
+            "file__create_dir",
+            "file__zip"
+          ],
+          "resolution_action": "",
+          "route_family": "coding",
+          "selected_provider_family": null,
+          "selected_provider_route_label": null,
+          "skill_prep_required": false,
+          "strategy_node": "",
+          "summary": "RoutingReceipt(step=0, tier=ToolFirst, tool=file__list, decision=allowed, stop=false, policy_hash=f99eb0b44d7396f4b0f7d9d526114376e11f98a386b4d03dba0fc2b1fd1473e5), route_family=coding, output_intent=tool_execution, direct_answer_allowed=true, projected_tools=19, verify=[tool_normalization_observed=true, tool_normaliza\n\u2026",
+          "tier": "ToolFirst",
+          "tool_name": "Working in the workspace"
+        },
+        "details": {
+          "receipt_summary": "RoutingReceipt(step=0, tier=ToolFirst, tool=file__list, decision=allowed, stop=false, policy_hash=f99eb0b44d7396f4b0f7d9d526114376e11f98a386b4d03dba0fc2b1fd1473e5), route_family=coding, output_intent=tool_execution, direct_answer_allowed=true, projected_tools=19, verify=[tool_normalization_observed=true, tool_normalization_changed=true, tool_normalization_raw_name=file__list, tool_normalization_name=file__list, tool_normalization_label=bare_tool_token_wrapped, tool_normalization_label=bare_tool_token_default_root_path, capability_execution_phase=discovery, host_home_dir=/home/heathledger, host_desktop_dir=/home/heathledger/Desktop, host_discovery_probe_source=process_env:HOME, host_discovery_timestamp_ms=1776274271624, host_discovery_satisfied=true, receipt::host_discovery=true, capability_route_selected=native_integration, receipt::provider_selection=true, receipt::provider_selection_commit=true, provider_selection_route=native_integration, provider_selection_commit=sha256:3ba98461f3e7c58dcc4c9a1a523e83c45909c2a95093bcd35e692d4f13b34cbc, receipt::execution=true, receipt::verification=true, incident_active=false, policy_decision=allowed, was_gated=false, awaiting_sudo_password=false, awaiting_clarification=false, remediation_queued=false, stop_condition_hit=false, routing_tier_selected=ToolFirst, routing_reason_code=tool_first_default, routing_source_failure=None, routing_tier_matches_pre_state=true]",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": true,
+            "direct_answer_blockers": [],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "agent__escalate"
+              ],
+              "primary_tools": [
+                "math__eval",
+                "chat__reply",
+                "agent__await",
+                "agent__pause",
+                "agent__complete",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "file__multi_edit",
+                "file__read",
+                "file__view",
+                "file__list",
+                "file__search",
+                "file__info",
+                "file__copy",
+                "file__move",
+                "file__delete",
+                "file__create_dir",
+                "file__zip"
+              ],
+              "projected_tools": [
+                "math__eval",
+                "chat__reply",
+                "agent__await",
+                "agent__pause",
+                "agent__complete",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "file__multi_edit",
+                "file__read",
+                "file__view",
+                "file__list",
+                "file__search",
+                "file__info",
+                "file__copy",
+                "file__move",
+                "file__delete",
+                "file__create_dir",
+                "file__zip"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": false,
+            "output_intent": "tool_execution",
+            "route_family": "coding",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          }
+        },
+        "artifact_refs": [
+          {
+            "artifact_id": "4a7c75c1-c542-4af1-bfd7-f217b1c789ce",
+            "artifact_type": "REPORT"
+          }
+        ],
+        "receipt_ref": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b:0:file__list",
+        "input_refs": [
+          "b9ab53cc-9807-44c5-92cc-e727e1a786bd"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "7d6f8edc-c87c-46b0-a3dd-8f8dd3fac6ab",
+        "timestamp": "2026-04-15T17:31:31.243569940+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=provider_selection key=provider_selection satisfied=true evidence_commit_hash=sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "edbd6175-16d8-45e7-ba47-dc54bc5a152b"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "4ec40ef2-4290-498d-9ac3-4130c6f0964f",
+        "timestamp": "2026-04-15T17:31:31.301555419+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=provider_selection key=provider_selection_commit satisfied=true evidence_commit_hash=sha256:3b0a84ef9463fb6b0ea7120f207637f1e30c9b138b25f5c0967d7a08263610ce"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "7d6f8edc-c87c-46b0-a3dd-8f8dd3fac6ab"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "aab3da6e-5271-4c69-87aa-2e32aaa09d02",
+        "timestamp": "2026-04-15T17:31:31.369667461+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "Captured reasoning step",
+        "digest": {
+          "session_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+          "token_count": 59,
+          "visual_hash": null
+        },
+        "details": {
+          "content": "{\n  \"tool\": \"file__list\",\n  \"args\": {\n    \"path\": \".\"\n  }\n}"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "4ec40ef2-4290-498d-9ac3-4130c6f0964f"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "1c56a3d2-6c4e-4312-91e1-f6aa880ee3c3",
+        "timestamp": "2026-04-15T17:31:31.422715149+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 1,
+        "event_type": "COMMAND_RUN",
+        "title": "Ran file__list",
+        "digest": {
+          "line_count": 1,
+          "output_snippet": "Skipped immediate replay of 'file__list' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state once or finish with the gathered evidence.",
+          "tool_name": "file__list"
+        },
+        "details": {
+          "output": "Skipped immediate replay of 'file__list' because the identical action already succeeded on the previous step. Do not repeat it. Verify the updated state once or finish with the gathered evidence."
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "aab3da6e-5271-4c69-87aa-2e32aaa09d02"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "7bb4a6c0-e5a7-42c9-becb-ccdaebe88ac5",
+        "timestamp": "2026-04-15T17:31:39.173051960+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=provider_selection key=provider_selection satisfied=true evidence_commit_hash=sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "1c56a3d2-6c4e-4312-91e1-f6aa880ee3c3"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "1658ce6d-98fa-4718-9377-13b9b610e69b",
+        "timestamp": "2026-04-15T17:31:39.303006195+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=provider_selection key=provider_selection_commit satisfied=true evidence_commit_hash=sha256:3b0a84ef9463fb6b0ea7120f207637f1e30c9b138b25f5c0967d7a08263610ce"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "7bb4a6c0-e5a7-42c9-becb-ccdaebe88ac5"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "e38a8376-f642-4817-8eb7-8274ea2edb73",
+        "timestamp": "2026-04-15T17:31:39.382214897+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "Captured reasoning step",
+        "digest": {
+          "session_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+          "token_count": 59,
+          "visual_hash": null
+        },
+        "details": {
+          "content": "{\n  \"tool\": \"file__list\",\n  \"args\": {\n    \"path\": \".\"\n  }\n}"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "1658ce6d-98fa-4718-9377-13b9b610e69b"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "a76ea840-70ec-4a3f-8654-9a33d29e8fb3",
+        "timestamp": "2026-04-15T17:31:47.017631815+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=provider_selection key=provider_selection satisfied=true evidence_commit_hash=sha256:35873a08f3f70ec8cdd48f8023b49904f333923c3e571f189a04a14329d37a71"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "e38a8376-f642-4817-8eb7-8274ea2edb73"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "4a6ef23d-6bbc-42ee-ab31-7d067441d3e4",
+        "timestamp": "2026-04-15T17:31:47.077490009+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "System update: ExecutionContract",
+        "digest": {
+          "component": "ExecutionContract",
+          "status": "intent_id=workspace.ops stage=provider_selection key=provider_selection_commit satisfied=true evidence_commit_hash=sha256:3b0a84ef9463fb6b0ea7120f207637f1e30c9b138b25f5c0967d7a08263610ce"
+        },
+        "details": {},
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "a76ea840-70ec-4a3f-8654-9a33d29e8fb3"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "596b767d-17d0-46eb-a69a-ce6f527676ff",
+        "timestamp": "2026-04-15T17:31:47.161149578+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "Captured reasoning step",
+        "digest": {
+          "session_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+          "token_count": 64,
+          "visual_hash": null
+        },
+        "details": {
+          "content": "{\n  \"name\": \"file__list\",\n  \"arguments\": {\n    \"path\": \".\"\n  }\n}"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "4a6ef23d-6bbc-42ee-ab31-7d067441d3e4"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "2ce03e3b-263e-47d7-a379-fa89ea5f6002",
+        "timestamp": "2026-04-15T17:31:51.506992611+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "step_index": 1,
+        "event_type": "RECEIPT",
+        "title": "Receipt: Working in the workspace (allowed)",
+        "digest": {
+          "artifact_output_intent": false,
+          "broad_fallback_tools": [],
+          "connector_candidate_count": 0,
+          "connector_first_preference": false,
+          "currentness_override": false,
+          "decision": "allowed",
+          "direct_answer_allowed": true,
+          "direct_answer_blockers": [],
+          "file_output_intent": false,
+          "gate_state": "",
+          "incident_stage": "",
+          "inline_visual_intent": false,
+          "intent_class": "",
+          "narrow_tool_preference": false,
+          "output_intent": "tool_execution",
+          "primary_tools": [
+            "math__eval",
+            "chat__reply",
+            "agent__await",
+            "agent__pause",
+            "agent__complete",
+            "file__write",
+            "file__replace_line",
+            "file__edit",
+            "file__multi_edit",
+            "file__read",
+            "file__view",
+            "file__list",
+            "file__search",
+            "file__info",
+            "file__copy",
+            "file__move",
+            "file__delete",
+            "file__create_dir",
+            "file__zip"
+          ],
+          "projected_tools": [
+            "math__eval",
+            "chat__reply",
+            "agent__await",
+            "agent__pause",
+            "agent__complete",
+            "file__write",
+            "file__replace_line",
+            "file__edit",
+            "file__multi_edit",
+            "file__read",
+            "file__view",
+            "file__list",
+            "file__search",
+            "file__info",
+            "file__copy",
+            "file__move",
+            "file__delete",
+            "file__create_dir",
+            "file__zip"
+          ],
+          "resolution_action": "",
+          "route_family": "coding",
+          "selected_provider_family": null,
+          "selected_provider_route_label": null,
+          "skill_prep_required": false,
+          "strategy_node": "",
+          "summary": "RoutingReceipt(step=1, tier=ToolFirst, tool=file__list, decision=allowed, stop=false, policy_hash=9a064ed80e45877f6269c3014ac695b137381cbcd9bcf58aa357b0d310448e01), failure_class=NoEffectAfterAction, route_family=coding, output_intent=tool_execution, direct_answer_allowed=true, projected_tools=19, verify=[tool_normaliz\n\u2026",
+          "tier": "ToolFirst",
+          "tool_name": "Working in the workspace"
+        },
+        "details": {
+          "receipt_summary": "RoutingReceipt(step=1, tier=ToolFirst, tool=file__list, decision=allowed, stop=false, policy_hash=9a064ed80e45877f6269c3014ac695b137381cbcd9bcf58aa357b0d310448e01), failure_class=NoEffectAfterAction, route_family=coding, output_intent=tool_execution, direct_answer_allowed=true, projected_tools=19, verify=[tool_normalization_observed=true, tool_normalization_changed=true, tool_normalization_raw_name=file__list, tool_normalization_name=file__list, tool_normalization_label=tool_to_name, tool_normalization_label=args_to_arguments, capability_route_selected=native_integration, receipt::provider_selection=true, receipt::provider_selection_commit=true, provider_selection_route=native_integration, provider_selection_commit=sha256:3ba98461f3e7c58dcc4c9a1a523e83c45909c2a95093bcd35e692d4f13b34cbc, duplicate_action_fingerprint_non_command_noop=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true, duplicate_action_fingerprint_non_command_step_advanced=true, duplicate_action_fingerprint=10e5edef8df86c1a73e1c09ec08223689a29ddc006f51b3b05d26d5a5b0a4213, duplicate_action_fingerprint_non_terminal=false, duplicate_action_fingerprint_prior_success_promoted_to_failure=true, incident_active=false, attempt_repeat_count=1, attempt_key_hash=80abaf7993c7ead1f7f8dcc9d1135c26cacc0b0bbb26040fe7543ee0f103df2e, attempt_retry_budget_remaining=2, attempt_retry_blocked_without_change=false, incident_recovery_skipped_for_file_read_no_effect=true, incident_skip_root_tool=file__list, incident_skip_failure_class=NoEffectAfterAction, incident_active=false, policy_decision=allowed, was_gated=false, awaiting_sudo_password=false, awaiting_clarification=false, remediation_queued=false, stop_condition_hit=false, routing_tier_selected=ToolFirst, routing_reason_code=tool_first_default, routing_source_failure=None, routing_tier_matches_pre_state=true, failure_class=NoEffectAfterAction]",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": true,
+            "direct_answer_blockers": [],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "agent__escalate"
+              ],
+              "primary_tools": [
+                "math__eval",
+                "chat__reply",
+                "agent__await",
+                "agent__pause",
+                "agent__complete",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "file__multi_edit",
+                "file__read",
+                "file__view",
+                "file__list",
+                "file__search",
+                "file__info",
+                "file__copy",
+                "file__move",
+                "file__delete",
+                "file__create_dir",
+                "file__zip"
+              ],
+              "projected_tools": [
+                "math__eval",
+                "chat__reply",
+                "agent__await",
+                "agent__pause",
+                "agent__complete",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "file__multi_edit",
+                "file__read",
+                "file__view",
+                "file__list",
+                "file__search",
+                "file__info",
+                "file__copy",
+                "file__move",
+                "file__delete",
+                "file__create_dir",
+                "file__zip"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": false,
+            "output_intent": "tool_execution",
+            "route_family": "coding",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          }
+        },
+        "artifact_refs": [
+          {
+            "artifact_id": "7fd6fca6-2253-4dac-8ac5-f393f0701c04",
+            "artifact_type": "REPORT"
+          }
+        ],
+        "receipt_ref": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b:1:file__list",
+        "input_refs": [
+          "596b767d-17d0-46eb-a69a-ce6f527676ff"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "df4aca7b-ef97-4f0d-b99f-7205f95b4950",
+        "created_at": "2026-04-15T17:30:04.565097410+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/df4aca7b-ef97-4f0d-b99f-7205f95b4950",
+        "metadata": {
+          "refs": [],
+          "run_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "4a7c75c1-c542-4af1-bfd7-f217b1c789ce",
+        "created_at": "2026-04-15T17:31:16.151135876+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "artifact_type": "REPORT",
+        "title": "Receipt 0",
+        "description": "Routing policy decision receipt",
+        "content_ref": "ioi-memory://artifact/4a7c75c1-c542-4af1-bfd7-f217b1c789ce",
+        "metadata": {
+          "artifacts": [
+            "trace://agent_step/0",
+            "trace://session/2072c7af"
+          ],
+          "decision": "allowed",
+          "failure_class_name": "",
+          "gate_state": "",
+          "incident_id": "",
+          "incident_stage": "",
+          "intent_class": "",
+          "policy_binding_hash": "f99eb0b44d7396f4b0f7d9d526114376e11f98a386b4d03dba0fc2b1fd1473e5",
+          "receipt_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b:0:file__list",
+          "resolution_action": "",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": true,
+            "direct_answer_blockers": [],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "agent__escalate"
+              ],
+              "primary_tools": [
+                "math__eval",
+                "chat__reply",
+                "agent__await",
+                "agent__pause",
+                "agent__complete",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "file__multi_edit",
+                "file__read",
+                "file__view",
+                "file__list",
+                "file__search",
+                "file__info",
+                "file__copy",
+                "file__move",
+                "file__delete",
+                "file__create_dir",
+                "file__zip"
+              ],
+              "projected_tools": [
+                "math__eval",
+                "chat__reply",
+                "agent__await",
+                "agent__pause",
+                "agent__complete",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "file__multi_edit",
+                "file__read",
+                "file__view",
+                "file__list",
+                "file__search",
+                "file__info",
+                "file__copy",
+                "file__move",
+                "file__delete",
+                "file__create_dir",
+                "file__zip"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": false,
+            "output_intent": "tool_execution",
+            "route_family": "coding",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "session_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+          "step_index": 0,
+          "strategy_name": "",
+          "strategy_node": "",
+          "summary": "RoutingReceipt(step=0, tier=ToolFirst, tool=file__list, decision=allowed, stop=false, policy_hash=f99eb0b44d7396f4b0f7d9d526114376e11f98a386b4d03dba0fc2b1fd1473e5), route_family=coding, output_intent=tool_execution, direct_answer_allowed=true, projected_tools=19, verify=[tool_normalization_observed=true, tool_normalization_changed=true, tool_normalization_raw_name=file__list, tool_normalization_name=file__list, tool_normalization_label=bare_tool_token_wrapped, tool_normalization_label=bare_tool_token_default_root_path, capability_execution_phase=discovery, host_home_dir=/home/heathledger, host_desktop_dir=/home/heathledger/Desktop, host_discovery_probe_source=process_env:HOME, host_discovery_timestamp_ms=1776274271624, host_discovery_satisfied=true, receipt::host_discovery=true, capability_route_selected=native_integration, receipt::provider_selection=true, receipt::provider_selection_commit=true, provider_selection_route=native_integration, provider_selection_commit=sha256:3ba98461f3e7c58dcc4c9a1a523e83c45909c2a95093bcd35e692d4f13b34cbc, receipt::execution=true, receipt::verification=true, incident_active=false, policy_decision=allowed, was_gated=false, awaiting_sudo_password=false, awaiting_clarification=false, remediation_queued=false, stop_condition_hit=false, routing_tier_selected=ToolFirst, routing_reason_code=tool_first_default, routing_source_failure=None, routing_tier_matches_pre_state=true]",
+          "tool_name": "file__list",
+          "verification": [
+            "tool_normalization_observed=true",
+            "tool_normalization_changed=true",
+            "tool_normalization_raw_name=file__list",
+            "tool_normalization_name=file__list",
+            "tool_normalization_label=bare_tool_token_wrapped",
+            "tool_normalization_label=bare_tool_token_default_root_path",
+            "capability_execution_phase=discovery",
+            "host_home_dir=/home/heathledger",
+            "host_desktop_dir=/home/heathledger/Desktop",
+            "host_discovery_probe_source=process_env:HOME",
+            "host_discovery_timestamp_ms=1776274271624",
+            "host_discovery_satisfied=true",
+            "receipt::host_discovery=true",
+            "capability_route_selected=native_integration",
+            "receipt::provider_selection=true",
+            "receipt::provider_selection_commit=true",
+            "provider_selection_route=native_integration",
+            "provider_selection_commit=sha256:3ba98461f3e7c58dcc4c9a1a523e83c45909c2a95093bcd35e692d4f13b34cbc",
+            "receipt::execution=true",
+            "receipt::verification=true",
+            "incident_active=false",
+            "policy_decision=allowed",
+            "was_gated=false",
+            "awaiting_sudo_password=false",
+            "awaiting_clarification=false",
+            "remediation_queued=false",
+            "stop_condition_hit=false",
+            "routing_tier_selected=ToolFirst",
+            "routing_reason_code=tool_first_default",
+            "routing_source_failure=None",
+            "routing_tier_matches_pre_state=true"
+          ]
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "c337b892-e4d8-49e3-a01a-1b0b2b033725",
+        "created_at": "2026-04-15T17:31:16.189777498+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/c337b892-e4d8-49e3-a01a-1b0b2b033725",
+        "metadata": {
+          "refs": [
+            "4a7c75c1-c542-4af1-bfd7-f217b1c789ce"
+          ],
+          "run_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b"
+        },
+        "version": 2,
+        "parent_artifact_id": "df4aca7b-ef97-4f0d-b99f-7205f95b4950"
+      },
+      {
+        "artifact_id": "7fd6fca6-2253-4dac-8ac5-f393f0701c04",
+        "created_at": "2026-04-15T17:31:51.424374322+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "artifact_type": "REPORT",
+        "title": "Receipt 1",
+        "description": "Routing policy decision receipt",
+        "content_ref": "ioi-memory://artifact/7fd6fca6-2253-4dac-8ac5-f393f0701c04",
+        "metadata": {
+          "artifacts": [
+            "trace://agent_step/1",
+            "trace://session/2072c7af"
+          ],
+          "decision": "allowed",
+          "failure_class_name": "NoEffectAfterAction",
+          "gate_state": "",
+          "incident_id": "",
+          "incident_stage": "",
+          "intent_class": "",
+          "policy_binding_hash": "9a064ed80e45877f6269c3014ac695b137381cbcd9bcf58aa357b0d310448e01",
+          "receipt_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b:1:file__list",
+          "resolution_action": "",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": true,
+            "direct_answer_blockers": [],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "agent__escalate"
+              ],
+              "primary_tools": [
+                "math__eval",
+                "chat__reply",
+                "agent__await",
+                "agent__pause",
+                "agent__complete",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "file__multi_edit",
+                "file__read",
+                "file__view",
+                "file__list",
+                "file__search",
+                "file__info",
+                "file__copy",
+                "file__move",
+                "file__delete",
+                "file__create_dir",
+                "file__zip"
+              ],
+              "projected_tools": [
+                "math__eval",
+                "chat__reply",
+                "agent__await",
+                "agent__pause",
+                "agent__complete",
+                "file__write",
+                "file__replace_line",
+                "file__edit",
+                "file__multi_edit",
+                "file__read",
+                "file__view",
+                "file__list",
+                "file__search",
+                "file__info",
+                "file__copy",
+                "file__move",
+                "file__delete",
+                "file__create_dir",
+                "file__zip"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": false,
+            "output_intent": "tool_execution",
+            "route_family": "coding",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "session_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+          "step_index": 1,
+          "strategy_name": "",
+          "strategy_node": "",
+          "summary": "RoutingReceipt(step=1, tier=ToolFirst, tool=file__list, decision=allowed, stop=false, policy_hash=9a064ed80e45877f6269c3014ac695b137381cbcd9bcf58aa357b0d310448e01), failure_class=NoEffectAfterAction, route_family=coding, output_intent=tool_execution, direct_answer_allowed=true, projected_tools=19, verify=[tool_normalization_observed=true, tool_normalization_changed=true, tool_normalization_raw_name=file__list, tool_normalization_name=file__list, tool_normalization_label=tool_to_name, tool_normalization_label=args_to_arguments, capability_route_selected=native_integration, receipt::provider_selection=true, receipt::provider_selection_commit=true, provider_selection_route=native_integration, provider_selection_commit=sha256:3ba98461f3e7c58dcc4c9a1a523e83c45909c2a95093bcd35e692d4f13b34cbc, duplicate_action_fingerprint_non_command_noop=true, duplicate_action_fingerprint_prior_success_noop=true, duplicate_action_fingerprint_non_command_skipped=true, duplicate_action_fingerprint_non_command_step_advanced=true, duplicate_action_fingerprint=10e5edef8df86c1a73e1c09ec08223689a29ddc006f51b3b05d26d5a5b0a4213, duplicate_action_fingerprint_non_terminal=false, duplicate_action_fingerprint_prior_success_promoted_to_failure=true, incident_active=false, attempt_repeat_count=1, attempt_key_hash=80abaf7993c7ead1f7f8dcc9d1135c26cacc0b0bbb26040fe7543ee0f103df2e, attempt_retry_budget_remaining=2, attempt_retry_blocked_without_change=false, incident_recovery_skipped_for_file_read_no_effect=true, incident_skip_root_tool=file__list, incident_skip_failure_class=NoEffectAfterAction, incident_active=false, policy_decision=allowed, was_gated=false, awaiting_sudo_password=false, awaiting_clarification=false, remediation_queued=false, stop_condition_hit=false, routing_tier_selected=ToolFirst, routing_reason_code=tool_first_default, routing_source_failure=None, routing_tier_matches_pre_state=true, failure_class=NoEffectAfterAction]",
+          "tool_name": "file__list",
+          "verification": [
+            "tool_normalization_observed=true",
+            "tool_normalization_changed=true",
+            "tool_normalization_raw_name=file__list",
+            "tool_normalization_name=file__list",
+            "tool_normalization_label=tool_to_name",
+            "tool_normalization_label=args_to_arguments",
+            "capability_route_selected=native_integration",
+            "receipt::provider_selection=true",
+            "receipt::provider_selection_commit=true",
+            "provider_selection_route=native_integration",
+            "provider_selection_commit=sha256:3ba98461f3e7c58dcc4c9a1a523e83c45909c2a95093bcd35e692d4f13b34cbc",
+            "duplicate_action_fingerprint_non_command_noop=true",
+            "duplicate_action_fingerprint_prior_success_noop=true",
+            "duplicate_action_fingerprint_non_command_skipped=true",
+            "duplicate_action_fingerprint_non_command_step_advanced=true",
+            "duplicate_action_fingerprint=10e5edef8df86c1a73e1c09ec08223689a29ddc006f51b3b05d26d5a5b0a4213",
+            "duplicate_action_fingerprint_non_terminal=false",
+            "duplicate_action_fingerprint_prior_success_promoted_to_failure=true",
+            "incident_active=false",
+            "attempt_repeat_count=1",
+            "attempt_key_hash=80abaf7993c7ead1f7f8dcc9d1135c26cacc0b0bbb26040fe7543ee0f103df2e",
+            "attempt_retry_budget_remaining=2",
+            "attempt_retry_blocked_without_change=false",
+            "incident_recovery_skipped_for_file_read_no_effect=true",
+            "incident_skip_root_tool=file__list",
+            "incident_skip_failure_class=NoEffectAfterAction",
+            "incident_active=false",
+            "policy_decision=allowed",
+            "was_gated=false",
+            "awaiting_sudo_password=false",
+            "awaiting_clarification=false",
+            "remediation_queued=false",
+            "stop_condition_hit=false",
+            "routing_tier_selected=ToolFirst",
+            "routing_reason_code=tool_first_default",
+            "routing_source_failure=None",
+            "routing_tier_matches_pre_state=true",
+            "failure_class=NoEffectAfterAction"
+          ]
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      },
+      {
+        "artifact_id": "ccbc3e96-1d2b-4967-a399-ca94e3f793a9",
+        "created_at": "2026-04-15T17:31:51.466429439+00:00",
+        "thread_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/ccbc3e96-1d2b-4967-a399-ca94e3f793a9",
+        "metadata": {
+          "refs": [
+            "7fd6fca6-2253-4dac-8ac5-f393f0701c04"
+          ],
+          "run_id": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b"
+        },
+        "version": 2,
+        "parent_artifact_id": "df4aca7b-ef97-4f0d-b99f-7205f95b4950"
+      }
+    ],
+    "studio_session": {
+      "sessionId": "1cfa6d3c-085f-4b4a-aff5-cd2d7ce23088",
+      "threadId": "2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+      "artifactId": "5e745298-0ead-4ec2-aee4-8095b8150fdd",
+      "title": "Conversation route \u00b7 What npm script launches the desktop app in this repo?",
+      "summary": "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+      "currentLens": "source",
+      "navigatorBackingMode": "logical",
+      "navigatorNodes": [
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "attachedArtifactIds": [],
+      "availableLenses": [
+        "source",
+        "evidence"
+      ],
+      "materialization": {
+        "version": 7,
+        "requestKind": "conversation",
+        "normalizedIntent": "What npm script launches the desktop app in this repo?",
+        "summary": "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+        "artifactBrief": null,
+        "preparationNeeds": null,
+        "preparedContextResolution": null,
+        "skillDiscoveryResolution": null,
+        "blueprint": null,
+        "artifactIr": null,
+        "selectedSkills": [],
+        "retrievedExemplars": [],
+        "editIntent": null,
+        "candidateSummaries": [],
+        "winningCandidateId": null,
+        "winningCandidateRationale": null,
+        "executionEnvelope": {
+          "version": 1,
+          "strategy": "single_pass",
+          "modeDecision": {
+            "requestedStrategy": "plan_execute",
+            "resolvedStrategy": "single_pass",
+            "modeConfidence": 0.75450003,
+            "oneShotSufficiency": 0.945,
+            "ambiguity": 0.06999999,
+            "workGraphSizeEstimate": 1,
+            "hiddenDependencyLikelihood": 0.1,
+            "verificationPressure": 0.1,
+            "revisionCost": 0.1,
+            "evidenceBreadth": 0.1,
+            "mergeBurden": 0.0,
+            "decompositionPayoff": 0.045,
+            "workGraphRequired": false,
+            "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 60000,
+              "maxTokens": 2048,
+              "maxToolCalls": 1,
+              "maxRepairs": 0,
+              "expansionPolicy": "fixed"
+            }
+          },
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 60000,
+            "maxTokens": 2048,
+            "maxToolCalls": 1,
+            "maxRepairs": 0,
+            "expansionPolicy": "fixed"
+          },
+          "executionDomain": "studio_conversation",
+          "domainKind": "conversation",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "satisfiedVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": false
+          },
+          "plan": {
+            "version": 1,
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Conversation handoff",
+                "role": "responder",
+                "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "executionSummary": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "workerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the conversation route with the single_pass strategy.",
+              "startedAt": "2026-04-15T17:30:05.027771703+00:00",
+              "finishedAt": "2026-04-15T17:30:05.027771703+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "workspace_grounding_required",
+                "coding_workspace_context",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Conversation stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-15T17:30:05.027771703+00:00",
+              "finishedAt": "2026-04-15T17:30:05.027771703+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "workspace_grounding_required \u00b7 coding_workspace_context \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "changeReceipts": [],
+          "mergeReceipts": [],
+          "verificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the conversation surface.",
+              "details": [
+                "workspace_grounding_required",
+                "coding_workspace_context",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:single_pass",
+                "workspace_grounding_required",
+                "coding_workspace_context",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "graphMutationReceipts": [],
+          "dispatchBatches": [],
+          "repairReceipts": [],
+          "replanReceipts": [],
+          "budgetSummary": {
+            "plannedWorkerCount": 2,
+            "dispatchedWorkerCount": 2,
+            "tokenBudget": null,
+            "tokenUsage": null,
+            "wallClockMs": null,
+            "coordinationOverheadMs": null,
+            "status": "completed"
+          },
+          "livePreviews": []
+        },
+        "swarmPlan": {
+          "version": 1,
+          "strategy": "single_pass",
+          "executionDomain": "studio_conversation",
+          "adapterLabel": "conversation_single_pass_v1",
+          "parallelismMode": "sequential_by_default",
+          "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+          "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+          "decompositionType": "small_graph_functional_decomposition",
+          "firstFrontierIds": [
+            "handoff"
+          ],
+          "spawnConditions": [
+            "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+          ],
+          "pruneConditions": [
+            "Prune clarification work once the reply handoff is already unblocked."
+          ],
+          "mergeStrategy": "deterministic_reply_surface_projection",
+          "verificationStrategy": "route_truth_before_reply",
+          "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_truth"
+            ],
+            "satisfiedVerificationIds": [
+              "route_truth"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": true
+          },
+          "workItems": [
+            {
+              "id": "planner",
+              "title": "Outcome planner",
+              "role": "planner",
+              "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Outcome route is explicit.",
+                "Execution strategy is explicit."
+              ],
+              "dependencyIds": [],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            },
+            {
+              "id": "handoff",
+              "title": "Conversation handoff",
+              "role": "responder",
+              "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Studio reply remains truthful about the chosen surface.",
+                "No artifact renderer is implied when none was invoked."
+              ],
+              "dependencyIds": [
+                "planner"
+              ],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            }
+          ]
+        },
+        "swarmExecution": {
+          "enabled": true,
+          "currentStage": "reply",
+          "executionStage": "finalize",
+          "activeWorkerRole": null,
+          "totalWorkItems": 2,
+          "completedWorkItems": 2,
+          "failedWorkItems": 0,
+          "verificationStatus": "ready",
+          "strategy": "single_pass",
+          "executionDomain": "studio_conversation",
+          "adapterLabel": "conversation_single_pass_v1",
+          "parallelismMode": "sequential_by_default"
+        },
+        "swarmWorkerReceipts": [
+          {
+            "workItemId": "planner",
+            "role": "planner",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Selected the conversation route with the single_pass strategy.",
+            "startedAt": "2026-04-15T17:30:05.027771703+00:00",
+            "finishedAt": "2026-04-15T17:30:05.027771703+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "route_context"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "No artifact files were requested on this route.",
+              "workspace_grounding_required",
+              "coding_workspace_context",
+              "no_persistent_artifact_requested"
+            ],
+            "failure": null
+          },
+          {
+            "workItemId": "handoff",
+            "role": "responder",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Conversation stayed primary and no artifact renderer was launched.",
+            "startedAt": "2026-04-15T17:30:05.027771703+00:00",
+            "finishedAt": "2026-04-15T17:30:05.027771703+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "execution_plan"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+              "workspace_grounding_required \u00b7 coding_workspace_context \u00b7 no_persistent_artifact_requested"
+            ],
+            "failure": null
+          }
+        ],
+        "swarmChangeReceipts": [],
+        "swarmMergeReceipts": [],
+        "swarmVerificationReceipts": [
+          {
+            "id": "route_verification",
+            "kind": "route_verification",
+            "status": "ready",
+            "summary": "Studio verified that this request belongs on the conversation surface.",
+            "details": [
+              "workspace_grounding_required",
+              "coding_workspace_context",
+              "no_persistent_artifact_requested"
+            ]
+          },
+          {
+            "id": "reply_surface",
+            "kind": "reply_surface",
+            "status": "ready",
+            "summary": "The shared reply lane remains available and no artifact renderer is required.",
+            "details": [
+              "strategy:single_pass",
+              "workspace_grounding_required",
+              "coding_workspace_context",
+              "no_persistent_artifact_requested"
+            ]
+          }
+        ],
+        "renderEvaluation": null,
+        "judge": null,
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "fallbackUsed": false,
+        "uxLifecycle": "judged",
+        "failure": null,
+        "navigatorNodes": [
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "description": "Inspect the source form of the artifact.",
+            "badge": null,
+            "status": null,
+            "lens": "source",
+            "path": null,
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "fileWrites": [],
+        "commandIntents": [],
+        "previewIntent": null,
+        "verificationSteps": [
+          {
+            "id": "route",
+            "label": "Verify route",
+            "kind": "route",
+            "status": "success"
+          },
+          {
+            "id": "reply_surface",
+            "label": "Verify reply surface",
+            "kind": "reply_surface",
+            "status": "success"
+          }
+        ],
+        "pipelineSteps": [
+          {
+            "id": "intake",
+            "stage": "plan",
+            "label": "Intake",
+            "status": "complete",
+            "summary": "Studio captured the request and preserved it as a typed outcome turn.",
+            "outputs": [
+              "What npm script launches the desktop app in this repo?"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "routing",
+            "stage": "dispatch",
+            "label": "Outcome routing",
+            "status": "complete",
+            "summary": "The typed router intentionally kept this request on the conversation surface.",
+            "outputs": [
+              "conversation",
+              "conversation",
+              "strategy:single_pass",
+              "workspace_grounding_required",
+              "coding_workspace_context",
+              "no_persistent_artifact_requested"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "planner",
+            "stage": "plan",
+            "label": "Planner",
+            "status": "complete",
+            "summary": "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+            "outputs": [
+              "single_pass",
+              "work_items:2",
+              "sequential_by_default"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "swarm_execution",
+            "stage": "work",
+            "label": "Shared execution",
+            "status": "complete",
+            "summary": "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+            "outputs": [
+              "worker_receipts:2",
+              "progress:2/2",
+              "adapter:conversation_single_pass_v1"
+            ],
+            "verificationGate": "Shared execution receipts must remain truthful about the active outcome surface."
+          },
+          {
+            "id": "verification",
+            "stage": "verify",
+            "label": "Verification",
+            "status": "complete",
+            "summary": "Studio verified the selected non-artifact route before composing the reply state.",
+            "outputs": [
+              "route_verification (ready)",
+              "reply_surface (ready)"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          },
+          {
+            "id": "reply",
+            "stage": "finalize",
+            "label": "Reply",
+            "status": "complete",
+            "summary": "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+            "outputs": [
+              "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "workspace_grounding_required",
+              "coding_workspace_context",
+              "no_persistent_artifact_requested"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          }
+        ],
+        "runtimeNarrationEvents": [],
+        "notes": [
+          "Studio intentionally kept this request off the artifact materialization path.",
+          "The shared execution envelope still records plan, worker, and verification state.",
+          "No renderer-specific fallback artifact was injected for this route.",
+          "routing_hints:workspace_grounding_required | coding_workspace_context | no_persistent_artifact_requested",
+          "Route family: coding",
+          "Output intent: tool_execution",
+          "Projected surface: view, bash_tool"
+        ]
+      },
+      "outcomeRequest": {
+        "requestId": "1fb5a096-0c79-4c38-bcd5-fd220c878c97",
+        "rawPrompt": "What npm script launches the desktop app in this repo?",
+        "activeArtifactId": null,
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "executionModeDecision": {
+          "requestedStrategy": "plan_execute",
+          "resolvedStrategy": "single_pass",
+          "modeConfidence": 0.75450003,
+          "oneShotSufficiency": 0.945,
+          "ambiguity": 0.06999999,
+          "workGraphSizeEstimate": 1,
+          "hiddenDependencyLikelihood": 0.1,
+          "verificationPressure": 0.1,
+          "revisionCost": 0.1,
+          "evidenceBreadth": 0.1,
+          "mergeBurden": 0.0,
+          "decompositionPayoff": 0.045,
+          "workGraphRequired": false,
+          "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 60000,
+            "maxTokens": 2048,
+            "maxToolCalls": 1,
+            "maxRepairs": 0,
+            "expansionPolicy": "fixed"
+          }
+        },
+        "confidence": 0.93,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": [
+          "workspace_grounding_required",
+          "coding_workspace_context",
+          "no_persistent_artifact_requested"
+        ],
+        "artifact": null
+      },
+      "artifactManifest": {
+        "artifactId": "5e745298-0ead-4ec2-aee4-8095b8150fdd",
+        "title": "Conversation route \u00b7 What npm script launches the desktop app in this repo?",
+        "artifactClass": "report_bundle",
+        "renderer": "bundle_manifest",
+        "primaryTab": "source",
+        "tabs": [
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "renderer": null,
+            "filePath": null,
+            "lens": "source"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null
+        },
+        "storage": null
+      },
+      "verifiedReply": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "title": "Conversation route \u00b7 What npm script launches the desktop app in this repo?",
+        "summary": "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+        "evidence": [
+          "outcome:conversation",
+          "strategy:single_pass",
+          "provenance:openai-compatible",
+          "route_hint:workspace_grounding_required",
+          "route_hint:coding_workspace_context",
+          "route_hint:no_persistent_artifact_requested"
+        ],
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "failure": null,
+        "updatedAt": "2026-04-15T17:30:05.027961177+00:00"
+      },
+      "lifecycleState": "ready",
+      "status": "ready",
+      "activeRevisionId": "72cfad82-a852-47a0-b37b-765dd1add53a",
+      "revisions": [
+        {
+          "revisionId": "72cfad82-a852-47a0-b37b-765dd1add53a",
+          "parentRevisionId": null,
+          "branchId": "main",
+          "branchLabel": "Main",
+          "prompt": "What npm script launches the desktop app in this repo?",
+          "createdAt": "2026-04-15T17:30:05.028008695+00:00",
+          "uxLifecycle": "judged",
+          "artifactManifest": {
+            "artifactId": "5e745298-0ead-4ec2-aee4-8095b8150fdd",
+            "title": "Conversation route \u00b7 What npm script launches the desktop app in this repo?",
+            "artifactClass": "report_bundle",
+            "renderer": "bundle_manifest",
+            "primaryTab": "source",
+            "tabs": [
+              {
+                "id": "source",
+                "label": "Source",
+                "kind": "source",
+                "renderer": null,
+                "filePath": null,
+                "lens": "source"
+              },
+              {
+                "id": "evidence",
+                "label": "Evidence",
+                "kind": "evidence",
+                "renderer": null,
+                "filePath": null,
+                "lens": "evidence"
+              }
+            ],
+            "files": [],
+            "verification": {
+              "status": "ready",
+              "lifecycleState": "ready",
+              "summary": "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "productionProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "acceptanceProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "failure": null
+            },
+            "storage": null
+          },
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "single_pass",
+            "modeDecision": {
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "single_pass",
+              "modeConfidence": 0.75450003,
+              "oneShotSufficiency": 0.945,
+              "ambiguity": 0.06999999,
+              "workGraphSizeEstimate": 1,
+              "hiddenDependencyLikelihood": 0.1,
+              "verificationPressure": 0.1,
+              "revisionCost": 0.1,
+              "evidenceBreadth": 0.1,
+              "mergeBurden": 0.0,
+              "decompositionPayoff": 0.045,
+              "workGraphRequired": false,
+              "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 60000,
+                "maxTokens": 2048,
+                "maxToolCalls": 1,
+                "maxRepairs": 0,
+                "expansionPolicy": "fixed"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 60000,
+              "maxTokens": 2048,
+              "maxToolCalls": 1,
+              "maxRepairs": 0,
+              "expansionPolicy": "fixed"
+            },
+            "executionDomain": "studio_conversation",
+            "domainKind": "conversation",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "satisfiedVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": false
+            },
+            "plan": {
+              "version": 1,
+              "strategy": "single_pass",
+              "executionDomain": "studio_conversation",
+              "adapterLabel": "conversation_single_pass_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Conversation handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "executionSummary": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "single_pass",
+              "executionDomain": "studio_conversation",
+              "adapterLabel": "conversation_single_pass_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "workerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the conversation route with the single_pass strategy.",
+                "startedAt": "2026-04-15T17:30:05.027771703+00:00",
+                "finishedAt": "2026-04-15T17:30:05.027771703+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "workspace_grounding_required",
+                  "coding_workspace_context",
+                  "no_persistent_artifact_requested"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Conversation stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-15T17:30:05.027771703+00:00",
+                "finishedAt": "2026-04-15T17:30:05.027771703+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "workspace_grounding_required \u00b7 coding_workspace_context \u00b7 no_persistent_artifact_requested"
+                ],
+                "failure": null
+              }
+            ],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the conversation surface.",
+                "details": [
+                  "workspace_grounding_required",
+                  "coding_workspace_context",
+                  "no_persistent_artifact_requested"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:single_pass",
+                  "workspace_grounding_required",
+                  "coding_workspace_context",
+                  "no_persistent_artifact_requested"
+                ]
+              }
+            ],
+            "graphMutationReceipts": [],
+            "dispatchBatches": [],
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "budgetSummary": {
+              "plannedWorkerCount": 2,
+              "dispatchedWorkerCount": 2,
+              "tokenBudget": null,
+              "tokenUsage": null,
+              "wallClockMs": null,
+              "coordinationOverheadMs": null,
+              "status": "completed"
+            },
+            "livePreviews": []
+          },
+          "swarmPlan": {
+            "version": 1,
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Conversation handoff",
+                "role": "responder",
+                "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "swarmExecution": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "swarmWorkerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the conversation route with the single_pass strategy.",
+              "startedAt": "2026-04-15T17:30:05.027771703+00:00",
+              "finishedAt": "2026-04-15T17:30:05.027771703+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "workspace_grounding_required",
+                "coding_workspace_context",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Conversation stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-15T17:30:05.027771703+00:00",
+              "finishedAt": "2026-04-15T17:30:05.027771703+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "workspace_grounding_required \u00b7 coding_workspace_context \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the conversation surface.",
+              "details": [
+                "workspace_grounding_required",
+                "coding_workspace_context",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:single_pass",
+                "workspace_grounding_required",
+                "coding_workspace_context",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null,
+          "fileWrites": [],
+          "tasteMemory": null,
+          "selectedTargets": []
+        }
+      ],
+      "tasteMemory": null,
+      "retrievedExemplars": [],
+      "selectedTargets": [],
+      "uxLifecycle": "judged",
+      "createdAt": "2026-04-15T17:30:05.027948111+00:00",
+      "updatedAt": "2026-04-15T17:30:05.027948111+00:00",
+      "buildSessionId": null,
+      "workspaceRoot": null,
+      "rendererSessionId": null
+    },
+    "studio_outcome": {
+      "requestId": "1fb5a096-0c79-4c38-bcd5-fd220c878c97",
+      "rawPrompt": "What npm script launches the desktop app in this repo?",
+      "activeArtifactId": null,
+      "outcomeKind": "conversation",
+      "executionStrategy": "single_pass",
+      "executionModeDecision": {
+        "requestedStrategy": "plan_execute",
+        "resolvedStrategy": "single_pass",
+        "modeConfidence": 0.75450003,
+        "oneShotSufficiency": 0.945,
+        "ambiguity": 0.06999999,
+        "workGraphSizeEstimate": 1,
+        "hiddenDependencyLikelihood": 0.1,
+        "verificationPressure": 0.1,
+        "revisionCost": 0.1,
+        "evidenceBreadth": 0.1,
+        "mergeBurden": 0.0,
+        "decompositionPayoff": 0.045,
+        "workGraphRequired": false,
+        "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+        "budgetEnvelope": {
+          "maxWorkers": 1,
+          "maxParallelDepth": 1,
+          "maxReplans": 0,
+          "maxWallClockMs": 60000,
+          "maxTokens": 2048,
+          "maxToolCalls": 1,
+          "maxRepairs": 0,
+          "expansionPolicy": "fixed"
+        }
+      },
+      "confidence": 0.93,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "routingHints": [
+        "workspace_grounding_required",
+        "coding_workspace_context",
+        "no_persistent_artifact_requested"
+      ],
+      "artifact": null
+    },
+    "renderer_session": null,
+    "build_session": null,
+    "run_bundle_id": "df4aca7b-ef97-4f0d-b99f-7205f95b4950",
+    "swarm_tree": [],
+    "generation": 0,
+    "lineage_id": "genesis",
+    "fitness_score": 0.0
+  },
+  "route_receipt_summary": {
+    "title": "Studio route decision",
+    "selected_route": "conversation_workspace_grounded_single_pass",
+    "route_family": "coding",
+    "planner_authority": "kernel",
+    "verifier_state": "active",
+    "artifact_class": null,
+    "route_decision": {
+      "artifact_output_intent": false,
+      "connector_candidate_count": 0,
+      "connector_first_preference": false,
+      "currentness_override": false,
+      "direct_answer_allowed": false,
+      "direct_answer_blockers": [
+        "workspace_grounding_required"
+      ],
+      "effective_tool_surface": {
+        "broad_fallback_tools": [],
+        "diagnostic_tools": [
+          "route_hint:workspace_grounding_required",
+          "route_hint:coding_workspace_context",
+          "route_hint:no_persistent_artifact_requested"
+        ],
+        "primary_tools": [
+          "view",
+          "bash_tool"
+        ],
+        "projected_tools": [
+          "view",
+          "bash_tool"
+        ]
+      },
+      "file_output_intent": false,
+      "inline_visual_intent": false,
+      "narrow_tool_preference": true,
+      "output_intent": "tool_execution",
+      "route_family": "coding",
+      "selected_provider_family": null,
+      "selected_provider_route_label": null,
+      "skill_prep_required": false
+    },
+    "artifact_manifest_summary": {
+      "title": "Conversation route \u00b7 What npm script launches the desktop app in this repo?",
+      "renderer": "bundle_manifest",
+      "primary_tab": "source",
+      "tabs": [
+        "source",
+        "evidence"
+      ],
+      "lifecycle_state": "ready",
+      "verification_status": "ready",
+      "verification_summary": "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution."
+    }
+  },
+  "latest_agent_message": null,
+  "log_tail": [
+    "[Autopilot] Block #401 committed (Tx: 0)",
+    "[Autopilot] Block #402 committed (Tx: 0)",
+    "[Autopilot] Block #403 committed (Tx: 0)",
+    "[Autopilot] Block #404 committed (Tx: 0)",
+    "[Autopilot] Block #405 committed (Tx: 0)",
+    "[Autopilot] Block #406 committed (Tx: 0)",
+    "[Autopilot] Block #407 committed (Tx: 0)",
+    "[Autopilot] Block #408 committed (Tx: 0)",
+    "[Autopilot] Block #409 committed (Tx: 0)",
+    "[Autopilot] Block #410 committed (Tx: 0)",
+    "[Autopilot] Block #411 committed (Tx: 0)",
+    "[Autopilot] Block #412 committed (Tx: 0)",
+    "[Autopilot] Block #413 committed (Tx: 0)",
+    "[Autopilot] Block #414 committed (Tx: 0)",
+    "[Autopilot] Block #415 committed (Tx: 0)",
+    "[Autopilot] Block #416 committed (Tx: 0)",
+    "[Autopilot] Block #417 committed (Tx: 0)",
+    "[Autopilot] Block #418 committed (Tx: 0)",
+    "[Autopilot] Block #419 committed (Tx: 0)",
+    "[Autopilot] Block #420 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+    "[Autopilot] Block #421 committed (Tx: 0)",
+    "[Autopilot] Block #422 committed (Tx: 0)",
+    "[Autopilot] Block #423 committed (Tx: 0)",
+    "[Autopilot] Block #424 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+    "[Autopilot] Block #425 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=queued detail={\"launch\":{\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\",\"request\":{\"intent\":\"What npm script launches the desktop app in this repo?\",\"kind\":\"autopilot-intent\"}}}",
+    "[Autopilot][StudioLaunch] stage=show_target_requested detail={\"launch\":{\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\",\"request\":{\"intent\":\"What npm script launches the desktop app in this repo?\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=show_requested detail={\"maximizedBefore\":false,\"minimizedBefore\":false,\"visibleBefore\":false,\"windowExistedBefore\":true,\"windowLabel\":\"studio\"}",
+    "[Autopilot] Surfacing 'studio' (task_switcher=true, visible=Ok(true), minimized=Ok(false))",
+    "[Autopilot][StudioLaunch] stage=show_surfaced detail={\"maximizedAfter\":false,\"minimizedAfter\":false,\"recreatedWindow\":false,\"visibleAfter\":true,\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=show_target_emitted detail={\"launch\":{\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\",\"request\":{\"intent\":\"What npm script launches the desktop app in this repo?\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=studio_launch_event_received detail={\"kind\":\"autopilot-intent\",\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\",\"request\":{\"intent\":\"What npm script launches the desktop app in this repo?\",\"kind\":\"autopilot-intent\"}}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_applying detail={\"kind\":\"autopilot-intent\",\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\",\"request\":{\"intent\":\"What npm script launches the desktop app in this repo?\",\"kind\":\"autopilot-intent\"},\"source\":\"event\"}",
+    "[Autopilot] Block #426 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_applied detail={\"intent\":\"What npm script launches the desktop app in this repo?\",\"kind\":\"autopilot-intent\",\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\",\"source\":\"event\"}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_requested detail={\"intentLength\":54}",
+    "[Autopilot][StudioLaunch] stage=acked detail={\"hadPendingRequest\":true,\"launch\":{\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\",\"request\":{\"intent\":\"What npm script launches the desktop app in this repo?\",\"kind\":\"autopilot-intent\"}},\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\"}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_dispatching detail={\"intentLength\":54}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_called detail={\"intentLength\":54}",
+    "[Autopilot] Block #427 committed (Tx: 0)",
+    "[Autopilot] Block #428 committed (Tx: 0)",
+    "[Autopilot] Block #429 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=studio_launch_event_received detail={\"kind\":\"autopilot-intent\",\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\",\"request\":{\"intent\":\"What npm script launches the desktop app in this repo?\",\"kind\":\"autopilot-intent\"}}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_applying detail={\"kind\":\"autopilot-intent\",\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\",\"request\":{\"intent\":\"What npm script launches the desktop app in this repo?\",\"kind\":\"autopilot-intent\"},\"source\":\"event\"}",
+    "[Autopilot] start_task invoked origin_surface=studio intent_len=54",
+    "[Autopilot] start_task workflow expansion ready for 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b",
+    "[Autopilot] start_task knowledge injection ready for 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b attached=false",
+    "[Autopilot] Block #430 committed (Tx: 0)",
+    "[Autopilot] start_task initial task saved 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b phase=Running",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_resolved detail={\"intentLength\":54}",
+    "[Autopilot] Block #431 committed (Tx: 0)",
+    "[Autopilot] Block #432 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#431 (1 sessions)",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_applied detail={\"intent\":\"What npm script launches the desktop app in this repo?\",\"kind\":\"autopilot-intent\",\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\",\"source\":\"event\"}",
+    "[Autopilot] Block #433 committed (Tx: 0)",
+    "[Autopilot] Block #434 committed (Tx: 0)",
+    "[Autopilot] Block #435 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_requested detail={\"intentLength\":54}",
+    "[Autopilot][StudioLaunch] stage=ack_ignored detail={\"hadPendingRequest\":false,\"launch\":null,\"launchId\":\"75ff88c7-8c44-4b9b-9bea-2a9d75f2972a\"}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_dispatching detail={\"intentLength\":54}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_called detail={\"intentLength\":54}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_resolved detail={\"intentLength\":54}",
+    "[Autopilot] Block #436 committed (Tx: 0)",
+    "[Autopilot] Block #437 committed (Tx: 0)",
+    "[Autopilot] Block #438 committed (Tx: 0)",
+    "[Autopilot] Block #439 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#439 (1 sessions)",
+    "[Autopilot] Block #440 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#440 (1 sessions)",
+    "[Autopilot] Block #441 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#441 (1 sessions)",
+    "[Autopilot] Block #442 committed (Tx: 0)",
+    "[Autopilot] Block #443 committed (Tx: 0)",
+    "[Autopilot] Block #444 committed (Tx: 0)",
+    "[Autopilot] Block #445 committed (Tx: 0)",
+    "[Autopilot] Block #446 committed (Tx: 0)",
+    "[Autopilot] Block #447 committed (Tx: 0)",
+    "[Autopilot] Block #448 committed (Tx: 0)",
+    "[Autopilot] Block #449 committed (Tx: 0)",
+    "[Autopilot] Block #450 committed (Tx: 0)",
+    "[Autopilot] Block #451 committed (Tx: 0)",
+    "[Autopilot] Block #452 committed (Tx: 0)",
+    "[Autopilot] Block #453 committed (Tx: 0)",
+    "[Autopilot] Block #454 committed (Tx: 0)",
+    "[Autopilot] Block #455 committed (Tx: 0)",
+    "[Autopilot] Block #456 committed (Tx: 0)",
+    "[Autopilot] Block #457 committed (Tx: 0)",
+    "[Autopilot] Agent start submitted successfully (Nonce: 0, TxHash: 3d34bb9cee3518873866e7da346d895edc1137a4b39ce83da3deebb51bfcc76a)",
+    "[Autopilot] Block #458 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#458 (1 sessions)",
+    "[Autopilot] Block #459 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#459 (1 sessions)",
+    "[Autopilot] Block #460 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)",
+    "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: 8aedc3a25ba54bcf474fd34c6239e49cc0a13f1e9440ce7c202646b6a1412c73)",
+    "[Autopilot] step@v1 exact-nonce tx 8aedc3a25ba54bcf474fd34c6239e49cc0a13f1e9440ce7c202646b6a1412c73 at nonce 1 is still pending. Deferring commit confirmation to the reconciler: Tx 8aedc3a25ba54bcf474fd34c6239e49cc0a13f1e9440ce7c202646b6a1412c73 did not commit within 15000ms (last tx status: InMempool).",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)",
+    "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: 8aedc3a25ba54bcf474fd34c6239e49cc0a13f1e9440ce7c202646b6a1412c73)",
+    "[Autopilot] Re-submitted first step heartbeat for session 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b (attempt 1 nonce 1).",
+    "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: 8aedc3a25ba54bcf474fd34c6239e49cc0a13f1e9440ce7c202646b6a1412c73)",
+    "[Autopilot] Re-submitted first step heartbeat for session 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b (attempt 2 nonce 1).",
+    "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: 8aedc3a25ba54bcf474fd34c6239e49cc0a13f1e9440ce7c202646b6a1412c73)",
+    "[Autopilot] Re-submitted first step heartbeat for session 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b (attempt 3 nonce 1).",
+    "[Autopilot] Agent step submitted successfully (Nonce: 1, TxHash: 8aedc3a25ba54bcf474fd34c6239e49cc0a13f1e9440ce7c202646b6a1412c73)",
+    "[Autopilot] Re-submitted first step heartbeat for session 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b (attempt 4 nonce 1).",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)",
+    "[Autopilot] step@v1 ephemeral tx 48d5b96df0e43af6c80661411849e1986773e8a554a86f4456bfa8ed5629d064 is still pending. Deferring commit confirmation to the reconciler: Tx 48d5b96df0e43af6c80661411849e1986773e8a554a86f4456bfa8ed5629d064 did not commit within 15000ms (last tx status: InMempool).",
+    "[Autopilot] Escalated first-step recovery for session 2072c7afc89e4f6f9c06962db116b7498b014495eaa9462395d9fe24561fa98b after 4 pending bootstrap retries via ephemeral fallback.",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)",
+    "[Autopilot] Block #461 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#461 (1 sessions)",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)",
+    "[Kernel] Session projection refreshed via monitor (1 sessions)"
+  ],
+  "probe_error": "Timed out after 300s waiting for prompt result: What npm script launches the desktop app in this repo?"
+}

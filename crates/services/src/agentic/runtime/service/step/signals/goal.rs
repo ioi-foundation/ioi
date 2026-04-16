@@ -88,7 +88,7 @@ const EXTERNAL_KNOWLEDGE_MARKERS: &[&str] = &[
     "observed",
 ];
 
-const PUBLIC_FACT_MARKERS: [&str; 29] = [
+const PUBLIC_FACT_MARKERS: [&str; 40] = [
     "weather",
     "forecast",
     "temperature",
@@ -106,6 +106,10 @@ const PUBLIC_FACT_MARKERS: [&str; 29] = [
     "visibility",
     "stock price",
     "market price",
+    "pricing",
+    "billing",
+    "price",
+    "rates",
     "exchange rate",
     "price of",
     "score",
@@ -118,6 +122,13 @@ const PUBLIC_FACT_MARKERS: [&str; 29] = [
     "headlines",
     "breaking news",
     "top stories",
+    "ceo",
+    "president",
+    "prime minister",
+    "secretary-general",
+    "secretary general",
+    "governor",
+    "mayor",
 ];
 
 const LOCAL_EXTERNAL_DISCOVERY_MARKERS: [&str; 7] = [

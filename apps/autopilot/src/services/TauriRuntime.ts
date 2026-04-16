@@ -2,12 +2,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import {
-  AgentRuntime,
-  AgentSessionEventName,
-  AgentSessionGateResponse,
-  AgentSessionProjection,
-  AgentSessionRuntime,
-  AgentSessionThreadLoadOptions,
+  AgentWorkbenchRuntime,
+  AssistantSessionRuntime,
+  AssistantSessionEventName,
+  AssistantSessionGateResponse,
+  AssistantSessionProjection,
+  AssistantSessionThreadLoadOptions,
   AssistantWorkbenchActivity,
   AssistantWorkbenchSession,
   ConnectorActionDefinition,
@@ -417,7 +417,7 @@ function liveFleetStateFromSnapshot(snapshot: LocalEngineSnapshot): FleetState {
 
 type RuntimeShellSurface = "overlay" | "studio";
 
-export class TauriRuntime implements AgentRuntime, AgentSessionRuntime {
+export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRuntime {
     constructor(
       private readonly shellSurface: RuntimeShellSurface = "overlay",
     ) {}
@@ -427,51 +427,98 @@ export class TauriRuntime implements AgentRuntime, AgentSessionRuntime {
     }
 
     async stopExecution(): Promise<void> {
-        await this.stopSessionTask();
+        await this.stopAssistantSession();
+    }
+
+    async startAssistantSession<T>(intent: string): Promise<T> {
+        console.info("[Autopilot][Runtime] start_task invoking", {
+          originSurface: this.shellSurface,
+          intentLength: intent.trim().length,
+        });
+        try {
+          const task = await invoke<T>("start_task", {
+            intent,
+            originSurface: this.shellSurface,
+          });
+          console.info("[Autopilot][Runtime] start_task resolved", {
+            originSurface: this.shellSurface,
+          });
+          return task;
+        } catch (error) {
+          console.error("[Autopilot][Runtime] start_task failed", error);
+          throw error;
+        }
     }
 
     async startSessionTask<T>(intent: string): Promise<T> {
-        return invoke<T>("start_task", {
-          intent,
-          originSurface: this.shellSurface,
-        });
+        return this.startAssistantSession<T>(intent);
     }
 
-    async continueSessionTask(sessionId: string, userInput: string): Promise<void> {
+    async submitAssistantSessionInput(sessionId: string, userInput: string): Promise<void> {
         await invoke("continue_task", { sessionId, userInput });
     }
 
-    async dismissSessionTask(): Promise<void> {
+    async continueSessionTask(sessionId: string, userInput: string): Promise<void> {
+        return this.submitAssistantSessionInput(sessionId, userInput);
+    }
+
+    async dismissAssistantSession(): Promise<void> {
         await invoke("dismiss_task");
     }
 
-    async stopSessionTask(): Promise<void> {
+    async dismissSessionTask(): Promise<void> {
+        return this.dismissAssistantSession();
+    }
+
+    async stopAssistantSession(): Promise<void> {
         await invoke("cancel_task");
     }
 
-    async getCurrentSessionTask<T>(): Promise<T | null> {
+    async stopSessionTask(): Promise<void> {
+        return this.stopAssistantSession();
+    }
+
+    async getActiveAssistantSession<T>(): Promise<T | null> {
         return invoke<T | null>("get_current_task");
     }
 
-    async listSessionHistory<T>(): Promise<T[]> {
+    async getCurrentSessionTask<T>(): Promise<T | null> {
+        return this.getActiveAssistantSession<T>();
+    }
+
+    async listAssistantSessions<T>(): Promise<T[]> {
         return invoke<T[]>("get_session_history");
     }
 
-    async getSessionProjection<TTask, TSessionSummary>(): Promise<
-      AgentSessionProjection<TTask, TSessionSummary>
+    async listSessionHistory<T>(): Promise<T[]> {
+        return this.listAssistantSessions<T>();
+    }
+
+    async getAssistantSessionProjection<TTask, TSessionSummary>(): Promise<
+      AssistantSessionProjection<TTask, TSessionSummary>
     > {
-        return invoke<AgentSessionProjection<TTask, TSessionSummary>>(
+        return invoke<AssistantSessionProjection<TTask, TSessionSummary>>(
           "get_session_projection",
         );
     }
 
-    async loadSessionTask<T>(sessionId: string): Promise<T> {
+    async getSessionProjection<TTask, TSessionSummary>(): Promise<
+      AssistantSessionProjection<TTask, TSessionSummary>
+    > {
+        return this.getAssistantSessionProjection<TTask, TSessionSummary>();
+    }
+
+    async loadAssistantSession<T>(sessionId: string): Promise<T> {
         return invoke<T>("load_session", { sessionId });
     }
 
-    async loadSessionThreadEvents<T>(
+    async loadSessionTask<T>(sessionId: string): Promise<T> {
+        return this.loadAssistantSession<T>(sessionId);
+    }
+
+    async loadAssistantSessionEvents<T>(
         threadId: string,
-        options?: AgentSessionThreadLoadOptions
+        options?: AssistantSessionThreadLoadOptions
     ): Promise<T[]> {
         return invoke<T[]>("get_thread_events", {
             threadId,
@@ -481,11 +528,22 @@ export class TauriRuntime implements AgentRuntime, AgentSessionRuntime {
         });
     }
 
-    async loadSessionThreadArtifacts<T>(threadId: string): Promise<T[]> {
+    async loadSessionThreadEvents<T>(
+        threadId: string,
+        options?: AssistantSessionThreadLoadOptions
+    ): Promise<T[]> {
+        return this.loadAssistantSessionEvents<T>(threadId, options);
+    }
+
+    async loadAssistantSessionArtifacts<T>(threadId: string): Promise<T[]> {
         return invoke<T[]>("get_thread_artifacts", {
             threadId,
             thread_id: threadId,
         });
+    }
+
+    async loadSessionThreadArtifacts<T>(threadId: string): Promise<T[]> {
+        return this.loadAssistantSessionArtifacts<T>(threadId);
     }
 
     async showPillShell(): Promise<void> {
@@ -669,33 +727,63 @@ export class TauriRuntime implements AgentRuntime, AgentSessionRuntime {
         );
     }
 
-    async submitSessionRuntimePassword(
+    async submitAssistantSessionRuntimePassword(
         sessionId: string,
         password: string
     ): Promise<void> {
         await invoke("submit_runtime_password", { sessionId, password });
     }
 
-    async respondToSessionGate(input: AgentSessionGateResponse): Promise<void> {
+    async submitSessionRuntimePassword(
+        sessionId: string,
+        password: string
+    ): Promise<void> {
+        return this.submitAssistantSessionRuntimePassword(sessionId, password);
+    }
+
+    async respondToAssistantSessionGate(
+      input: AssistantSessionGateResponse,
+    ): Promise<void> {
         await invoke("gate_respond", { ...input });
     }
 
-    async listenSessionProjection<TTask, TSessionSummary>(
+    async respondToSessionGate(input: AssistantSessionGateResponse): Promise<void> {
+        return this.respondToAssistantSessionGate(input);
+    }
+
+    async listenAssistantSessionProjection<TTask, TSessionSummary>(
       handler: (
-        projection: AgentSessionProjection<TTask, TSessionSummary>,
+        projection: AssistantSessionProjection<TTask, TSessionSummary>,
       ) => void,
     ): Promise<() => void> {
-        return listen<AgentSessionProjection<TTask, TSessionSummary>>(
+        return listen<AssistantSessionProjection<TTask, TSessionSummary>>(
           "session-projection-updated",
           (event) => handler(event.payload),
         );
     }
 
-    async listenSessionEvent<T>(
-        eventName: AgentSessionEventName,
+    async listenSessionProjection<TTask, TSessionSummary>(
+      handler: (
+        projection: AssistantSessionProjection<TTask, TSessionSummary>,
+      ) => void,
+    ): Promise<() => void> {
+        return this.listenAssistantSessionProjection<TTask, TSessionSummary>(
+          handler,
+        );
+    }
+
+    async listenAssistantSessionEvent<T>(
+        eventName: AssistantSessionEventName,
         handler: (payload: T) => void
     ): Promise<() => void> {
         return listen<T>(eventName, (event) => handler(event.payload));
+    }
+
+    async listenSessionEvent<T>(
+        eventName: AssistantSessionEventName,
+        handler: (payload: T) => void
+    ): Promise<() => void> {
+        return this.listenAssistantSessionEvent(eventName, handler);
     }
 
     async checkNodeCache(nodeId: string, config: any, input: string): Promise<any> {

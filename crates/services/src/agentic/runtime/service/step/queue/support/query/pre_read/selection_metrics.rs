@@ -250,6 +250,15 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
                 title,
                 excerpt,
             );
+            let host_anchored_primary_authority_aligned =
+                source_has_host_anchored_primary_authority_snapshot_alignment(
+                    retrieval_contract,
+                    query_contract,
+                    required_source_count,
+                    selected_trimmed,
+                    title,
+                    excerpt,
+                );
             let grounded_external_publication_support =
                 source_is_grounded_external_publication_support_artifact(
                     retrieval_contract,
@@ -258,15 +267,23 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
                     title,
                     excerpt,
                 );
+            let subject_identity_aligned = query_requires_subject_currentness_identity(query_contract)
+                && first_subject_currentness_sentence(&format!("{} {}", title, excerpt)).is_some();
             let quality_compatible = (compatibility_passes_projection(&projection, &compatibility)
                 || authority_aligned
-                || grounded_external_publication_support)
+                || host_anchored_primary_authority_aligned
+                || grounded_external_publication_support
+                || subject_identity_aligned)
                 && admissible_for_document_briefing
                 && entity_anchor_compatible;
             if quality_compatible {
                 compatible_sources = compatible_sources.saturating_add(1);
             }
-            if quality_compatible && (authority_aligned || authoritative) {
+            if quality_compatible
+                && (authority_aligned
+                    || host_anchored_primary_authority_aligned
+                    || authoritative)
+            {
                 authority_backed_compatible_sources =
                     authority_backed_compatible_sources.saturating_add(1);
             }

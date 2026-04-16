@@ -1,0 +1,84 @@
+{
+  "captured_at": "2026-04-15T00:04:38.820982+00:00",
+  "prompt": "What is the capital of Spain?",
+  "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-desktop-parity/2026-04-15T00-04-30Z/01-what-is-the-capital-of-spain/final.png",
+  "task_id": "2d0a4e276ec44d7099c52121aabffa6fe64c9c01b78e49739b608bc062a8fb28",
+  "intent": "What is the capital of Spain?",
+  "phase": "Complete",
+  "current_step": "Ready for input",
+  "progress": 20,
+  "total_steps": 20,
+  "latest_agent_message": "The capital of Spain is Madrid.",
+  "studio_outcome": {
+    "requestId": "2d1733bb-a48d-4978-8d57-95c8974624ea",
+    "rawPrompt": "What is the capital of Spain?",
+    "activeArtifactId": null,
+    "outcomeKind": "conversation",
+    "executionStrategy": "single_pass",
+    "executionModeDecision": {
+      "requestedStrategy": "single_pass",
+      "resolvedStrategy": "single_pass",
+      "modeConfidence": 1.0,
+      "oneShotSufficiency": 0.945,
+      "ambiguity": 0.0,
+      "workGraphSizeEstimate": 1,
+      "hiddenDependencyLikelihood": 0.1,
+      "verificationPressure": 0.1,
+      "revisionCost": 0.1,
+      "evidenceBreadth": 0.1,
+      "mergeBurden": 0.0,
+      "decompositionPayoff": 0.045,
+      "workGraphRequired": false,
+      "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+      "budgetEnvelope": {
+        "maxWorkers": 1,
+        "maxParallelDepth": 1,
+        "maxReplans": 0,
+        "maxWallClockMs": 60000,
+        "maxTokens": 2048,
+        "maxToolCalls": 1,
+        "maxRepairs": 0,
+        "expansionPolicy": "fixed"
+      }
+    },
+    "confidence": 1.0,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "routingHints": [
+      "no_persistent_artifact_requested"
+    ],
+    "artifact": null
+  },
+  "studio_session_summary": {
+    "session_id": "dc96dc43-c8ef-4b29-a5c1-5c29f439cabe",
+    "lifecycle_state": "ready",
+    "verified_reply": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "title": "Conversation route \u00b7 What is the capital of Spain?",
+      "summary": "The capital of Spain is Madrid.",
+      "evidence": [
+        "outcome:conversation",
+        "strategy:single_pass",
+        "provenance:openai-compatible",
+        "route_hint:no_persistent_artifact_requested",
+        "route_execution:studio_direct_inline"
+      ],
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen3.5:9b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen3.5:9b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "failure": null,
+      "updatedAt": "2026-04-15T00:04:38.218668702+00:00"
+    }
+  },
+  "execution_contracts": []
+}

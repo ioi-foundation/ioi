@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
-  AgentRuntime,
+  AgentWorkbenchRuntime,
   ConnectorConfigureResult,
   ConnectorSummary,
   ConnectorStatus,
@@ -37,7 +37,7 @@ interface CapabilityExtensionPreview {
 }
 
 interface ConnectorsViewProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   initialConnectors?: ConnectorSummary[];
   surfaceTitle?: string;
   surfaceDescription?: string;

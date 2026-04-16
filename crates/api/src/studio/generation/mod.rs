@@ -52,10 +52,14 @@ pub(crate) use adaptive_search::{
     derive_studio_adaptive_search_budget, ranked_candidate_indices_by_score,
     shortlisted_candidate_indices_for_budget, target_candidate_count_after_initial_search,
 };
+#[cfg(test)]
+pub(crate) use candidate_materialization::local_download_bundle_candidate_prejudge;
 use candidate_materialization::*;
 use common::*;
 use compact_html_materialization::*;
 use compact_html_swarm::*;
+#[cfg(test)]
+pub(crate) use materialization_prompt::build_studio_artifact_direct_author_continuation_prompt_for_runtime;
 pub use materialization_prompt::build_studio_artifact_materialization_prompt;
 use materialization_prompt::*;
 pub use materialization_repair_prompt::build_studio_artifact_materialization_repair_prompt;
@@ -87,6 +91,7 @@ pub use runtime_materialization::{
     materialize_studio_artifact_candidate_with_runtime, materialize_studio_artifact_with_runtime,
 };
 pub(crate) use runtime_materialization::{
+    materialize_studio_artifact_candidate_with_runtime_detailed,
     materialize_studio_artifact_candidate_with_runtime_direct_author_detailed,
     refine_studio_artifact_candidate_with_runtime,
 };

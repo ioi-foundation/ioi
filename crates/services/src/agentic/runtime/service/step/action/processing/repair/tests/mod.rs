@@ -105,6 +105,7 @@ impl GuiDriver for NoopGuiDriver {
 #[derive(Default)]
 struct RepairRecordingRuntime {
     outputs: Mutex<Vec<Result<Vec<u8>, VmError>>>,
+    text_outputs: Mutex<Vec<Result<Vec<u8>, VmError>>>,
     seen_tools: Mutex<Vec<Vec<String>>>,
     seen_inputs: Mutex<Vec<Vec<u8>>>,
 }
@@ -144,6 +145,18 @@ impl InferenceRuntime for RepairRecordingRuntime {
         &self,
         request: TextGenerationRequest,
     ) -> Result<TextGenerationResult, VmError> {
+        let mut outputs = self
+            .text_outputs
+            .lock()
+            .expect("text_outputs mutex poisoned");
+        if !outputs.is_empty() {
+            let output = outputs.remove(0)?;
+            return Ok(TextGenerationResult {
+                output,
+                model_id: request.model_id,
+                streamed: request.stream,
+            });
+        }
         Ok(TextGenerationResult {
             output: request.input_context,
             model_id: request.model_id,

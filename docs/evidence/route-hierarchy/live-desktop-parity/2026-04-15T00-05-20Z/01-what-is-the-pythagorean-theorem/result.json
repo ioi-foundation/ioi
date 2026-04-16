@@ -1,0 +1,84 @@
+{
+  "captured_at": "2026-04-15T00:05:36.678934+00:00",
+  "prompt": "What is the Pythagorean theorem?",
+  "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-desktop-parity/2026-04-15T00-05-20Z/01-what-is-the-pythagorean-theorem/final.png",
+  "task_id": "00eddcd3572142668b823e943933a5d777b38b0764fc4ca7a3259869dfb06ec9",
+  "intent": "What is the Pythagorean theorem?",
+  "phase": "Complete",
+  "current_step": "Ready for input",
+  "progress": 20,
+  "total_steps": 20,
+  "latest_agent_message": "The Pythagorean theorem is a fundamental principle in geometry that describes the relationship between the three sides of a right-angled triangle. It states that the square of the length of the hypotenuse (the side opposite the right angle) is equal to the sum of the squares of the lengths of the other two sides. This relationship is commonly expressed with the formula $a^2 + b^2 = c^2$, where $c$ represents the length of the hypotenuse, and $a$ and $b$ represent the lengths of the other two sides.",
+  "studio_outcome": {
+    "requestId": "0eb3290c-99d0-4212-938c-1816aca36c5c",
+    "rawPrompt": "What is the Pythagorean theorem?",
+    "activeArtifactId": null,
+    "outcomeKind": "conversation",
+    "executionStrategy": "single_pass",
+    "executionModeDecision": {
+      "requestedStrategy": "direct_author",
+      "resolvedStrategy": "single_pass",
+      "modeConfidence": 0.79999995,
+      "oneShotSufficiency": 0.945,
+      "ambiguity": 0.0,
+      "workGraphSizeEstimate": 1,
+      "hiddenDependencyLikelihood": 0.1,
+      "verificationPressure": 0.1,
+      "revisionCost": 0.1,
+      "evidenceBreadth": 0.1,
+      "mergeBurden": 0.0,
+      "decompositionPayoff": 0.045,
+      "workGraphRequired": false,
+      "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+      "budgetEnvelope": {
+        "maxWorkers": 1,
+        "maxParallelDepth": 1,
+        "maxReplans": 0,
+        "maxWallClockMs": 60000,
+        "maxTokens": 2048,
+        "maxToolCalls": 1,
+        "maxRepairs": 0,
+        "expansionPolicy": "fixed"
+      }
+    },
+    "confidence": 1.0,
+    "needsClarification": false,
+    "clarificationQuestions": [],
+    "routingHints": [
+      "no_persistent_artifact_requested"
+    ],
+    "artifact": null
+  },
+  "studio_session_summary": {
+    "session_id": "4e642a0f-451c-4238-8798-16d39f3e2db0",
+    "lifecycle_state": "ready",
+    "verified_reply": {
+      "status": "ready",
+      "lifecycleState": "ready",
+      "title": "Conversation route \u00b7 What is the Pythagorean theorem?",
+      "summary": "The Pythagorean theorem is a fundamental principle in geometry that describes the relationship between the three sides of a right-angled triangle. It states that the square of the length of the hypotenuse (the side opposite the right angle) is equal to the sum of the squares of the lengths of the other two sides. This relationship is commonly expressed with the formula $a^2 + b^2 = c^2$, where $c$ represents the length of the hypotenuse, and $a$ and $b$ represent the lengths of the other two sides.",
+      "evidence": [
+        "outcome:conversation",
+        "strategy:single_pass",
+        "provenance:openai-compatible",
+        "route_hint:no_persistent_artifact_requested",
+        "route_execution:studio_direct_inline"
+      ],
+      "productionProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen3.5:9b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "acceptanceProvenance": {
+        "kind": "real_local_runtime",
+        "label": "openai-compatible",
+        "model": "qwen3.5:9b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+      },
+      "failure": null,
+      "updatedAt": "2026-04-15T00:05:35.623200197+00:00"
+    }
+  },
+  "execution_contracts": []
+}

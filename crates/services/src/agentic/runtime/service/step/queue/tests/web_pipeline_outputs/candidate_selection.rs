@@ -132,6 +132,48 @@ fn web_pipeline_next_candidate_prefers_immediate_metric_source_for_single_snapsh
 }
 
 #[test]
+fn web_pipeline_next_candidate_prefers_named_role_holder_source_over_generic_role_definition() {
+    let pending = PendingSearchCompletion {
+        query: "Who is the current Secretary-General of the UN?".to_string(),
+        query_contract: "Who is the current Secretary-General of the UN?".to_string(),
+        retrieval_contract: None,
+        url: "https://duckduckgo.com/?q=current+Secretary-General+of+the+UN".to_string(),
+        started_step: 1,
+        started_at_ms: 1_776_200_894_000,
+        deadline_ms: 1_776_200_954_000,
+        candidate_urls: vec![
+            "https://en.wikipedia.org/wiki/Secretary-General_of_the_United_Nations".to_string(),
+            "https://ask.un.org/faq/14625".to_string(),
+        ],
+        candidate_source_hints: vec![
+            PendingSearchReadSummary {
+                url: "https://en.wikipedia.org/wiki/Secretary-General_of_the_United_Nations"
+                    .to_string(),
+                title: Some("Secretary-General of the United Nations - Wikipedia".to_string()),
+                excerpt: "The secretary-general of the United Nations is the Head of the United Nations Secretariat."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://ask.un.org/faq/14625".to_string(),
+                title: Some(
+                    "Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                        .to_string(),
+                ),
+                excerpt: "António Guterres is the current Secretary-General of the United Nations."
+                    .to_string(),
+            },
+        ],
+        attempted_urls: vec![],
+        blocked_urls: vec![],
+        successful_reads: vec![],
+        min_sources: 1,
+    };
+
+    let next = next_pending_web_candidate(&pending).expect("expected next candidate");
+    assert_eq!(next, "https://ask.un.org/faq/14625");
+}
+
+#[test]
 fn web_pipeline_next_candidate_prefers_current_observation_surface_without_numeric_over_forecast() {
     let pending = PendingSearchCompletion {
         query: "What's the weather right now?".to_string(),

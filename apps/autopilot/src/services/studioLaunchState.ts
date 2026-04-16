@@ -30,6 +30,7 @@ export type PendingStudioLaunchRequest =
   | {
       kind: "autopilot-intent";
       intent: string;
+      sessionId?: string | null;
     }
   | {
       kind: "assistant-workbench";
@@ -110,6 +111,7 @@ export function summarizePendingStudioLaunchRequest(
       return {
         kind: request.kind,
         intent: request.intent,
+        sessionId: request.sessionId ?? null,
       };
     case "assistant-workbench":
       return {
@@ -297,25 +299,28 @@ export function peekPendingStudioLaunchRequest(): Promise<PendingStudioLaunchEnv
   return Promise.resolve(readPendingStudioLaunchEnvelope());
 }
 
-export function ackPendingStudioLaunchRequest(launchId: string): Promise<void> {
+export function ackPendingStudioLaunchRequest(launchId: string): Promise<boolean> {
   if (!canUseStorage()) {
-    return Promise.resolve();
+    return Promise.resolve(false);
   }
 
   if (canUseTauri()) {
-    return invoke("ack_pending_studio_launch", { launchId }).catch(() => {
+    return invoke<boolean>("ack_pending_studio_launch", { launchId }).catch(() => {
       const pendingLaunch = readPendingStudioLaunchEnvelope();
       if (pendingLaunch?.launchId === launchId) {
         window.localStorage.removeItem(STORAGE_KEY);
+        return true;
       }
-    }) as Promise<void>;
+      return false;
+    });
   }
 
   const pendingLaunch = readPendingStudioLaunchEnvelope();
   if (pendingLaunch?.launchId === launchId) {
     window.localStorage.removeItem(STORAGE_KEY);
+    return Promise.resolve(true);
   }
-  return Promise.resolve();
+  return Promise.resolve(false);
 }
 
 export function recordStudioLaunchReceipt(stage: string, detail: unknown = {}) {

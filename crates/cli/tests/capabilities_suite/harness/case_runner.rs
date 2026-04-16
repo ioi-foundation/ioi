@@ -287,6 +287,162 @@ fn requires_human_intervention(reason: &str) -> bool {
     .any(|needle| lower.contains(needle))
 }
 
+fn parse_tool_normalization_observation(
+    tool_name: &str,
+    verification_checks: &[String],
+) -> Option<ToolNormalizationObservation> {
+    let mut raw_name = None;
+    let mut normalized_name = None;
+    let mut changed = false;
+    let mut labels = Vec::new();
+
+    for check in verification_checks {
+        if let Some((key, value)) = check.split_once('=') {
+            match key {
+                "tool_normalization_raw_name" => raw_name = Some(value.to_string()),
+                "tool_normalization_name" => normalized_name = Some(value.to_string()),
+                "tool_normalization_changed" => changed = value.eq_ignore_ascii_case("true"),
+                "tool_normalization_label" => labels.push(value.to_string()),
+                _ => {}
+            }
+        }
+    }
+
+    if raw_name.is_none() && normalized_name.is_none() && labels.is_empty() && !changed {
+        return None;
+    }
+
+    Some(ToolNormalizationObservation {
+        tool_name: tool_name.to_string(),
+        raw_name,
+        normalized_name,
+        changed,
+        labels,
+    })
+}
+
+fn parse_tool_recovery_observation(
+    tool_name: &str,
+    verification_checks: &[String],
+) -> Option<ToolRecoveryObservation> {
+    let mut repair_attempted = false;
+    let mut repair_succeeded = None;
+    let mut retry_path = false;
+    let mut repair_runtime = None;
+    let mut repair_tool = None;
+    let mut repair_workflow = None;
+    let mut recovery_strategy = None;
+    let mut recovery_source = None;
+    let mut boundary_events = Vec::new();
+    let mut labels = Vec::new();
+
+    for check in verification_checks {
+        if check.eq_ignore_ascii_case("determinism_recovery_retry=true") {
+            retry_path = true;
+            labels.push("determinism_recovery_retry".to_string());
+            continue;
+        }
+
+        let Some((key, value)) = check.split_once('=') else {
+            continue;
+        };
+
+        match key {
+            "invalid_tool_call_repair_attempted" => {
+                repair_attempted = value.eq_ignore_ascii_case("true");
+            }
+            "invalid_tool_call_repair_succeeded" => {
+                repair_succeeded = Some(value.eq_ignore_ascii_case("true"));
+            }
+            "invalid_tool_call_repair_runtime" => {
+                repair_runtime = Some(value.to_string());
+            }
+            "invalid_tool_call_repair_tool" => {
+                repair_tool = Some(value.to_string());
+            }
+            "invalid_tool_call_repair_workflow" => {
+                repair_workflow = Some(value.to_string());
+            }
+            "invalid_tool_call_repair_deterministic_recovery" => {
+                recovery_strategy = Some(value.to_string());
+            }
+            "invalid_tool_call_repair_deterministic_source" => {
+                recovery_source = Some(value.to_string());
+            }
+            "invalid_tool_call_repair_targeted_command_boundary"
+            | "invalid_tool_call_repair_targeted_command_rerun" => {
+                retry_path = true;
+                boundary_events.push(format!("{key}={value}"));
+            }
+            _ => {
+                if key.starts_with("invalid_tool_call_repair_")
+                    && value.eq_ignore_ascii_case("true")
+                {
+                    labels.push(key.to_string());
+                }
+            }
+        }
+    }
+
+    if !repair_attempted
+        && repair_succeeded.is_none()
+        && !retry_path
+        && repair_runtime.is_none()
+        && repair_tool.is_none()
+        && repair_workflow.is_none()
+        && recovery_strategy.is_none()
+        && recovery_source.is_none()
+        && boundary_events.is_empty()
+        && labels.is_empty()
+    {
+        return None;
+    }
+
+    Some(ToolRecoveryObservation {
+        tool_name: tool_name.to_string(),
+        repair_attempted,
+        repair_succeeded,
+        retry_path,
+        repair_runtime,
+        repair_tool,
+        repair_workflow,
+        recovery_strategy,
+        recovery_source,
+        boundary_events,
+        labels,
+    })
+}
+
+fn route_decision_observation(
+    tool_name: &str,
+    route_decision: &ioi_types::app::RoutingRouteDecision,
+) -> Option<RouteDecisionObservation> {
+    if route_decision.route_family.trim().is_empty()
+        && route_decision.output_intent.trim().is_empty()
+    {
+        return None;
+    }
+
+    Some(RouteDecisionObservation {
+        tool_name: tool_name.to_string(),
+        route_family: route_decision.route_family.clone(),
+        output_intent: route_decision.output_intent.clone(),
+        direct_answer_allowed: route_decision.direct_answer_allowed,
+        direct_answer_blockers: route_decision.direct_answer_blockers.clone(),
+        currentness_override: route_decision.currentness_override,
+        connector_first_preference: route_decision.connector_first_preference,
+        narrow_tool_preference: route_decision.narrow_tool_preference,
+        selected_provider_family: route_decision.selected_provider_family.clone(),
+        selected_provider_route_label: route_decision.selected_provider_route_label.clone(),
+        projected_tools: route_decision.effective_tool_surface.projected_tools.clone(),
+        primary_tools: route_decision.effective_tool_surface.primary_tools.clone(),
+        broad_fallback_tools: route_decision
+            .effective_tool_surface
+            .broad_fallback_tools
+            .clone(),
+    })
+}
+
 fn truncate_for_log(input: &str, max_chars: usize) -> String {
     let compact = input.split_whitespace().collect::<Vec<_>>().join(" ");
     if compact.chars().count() <= max_chars {
@@ -923,6 +1079,9 @@ pub async fn run_case(
     let mut routing_policy_decisions = BTreeSet::new();
     let mut routing_failure_classes = BTreeSet::new();
     let mut routing_stop_condition_hits = 0usize;
+    let mut route_decisions = Vec::<RouteDecisionObservation>::new();
+    let mut tool_normalizations = Vec::<ToolNormalizationObservation>::new();
+    let mut tool_recoveries = Vec::<ToolRecoveryObservation>::new();
     let mut verification_checks = BTreeSet::new();
     let mut action_evidence = Vec::new();
     let mut action_error_classes = BTreeSet::new();
@@ -1096,6 +1255,23 @@ pub async fn run_case(
                 for check in &receipt.post_state.verification_checks {
                     verification_checks.insert(check.clone());
                 }
+                if let Some(observation) =
+                    route_decision_observation(&receipt.tool_name, &receipt.route_decision)
+                {
+                    route_decisions.push(observation);
+                }
+                if let Some(observation) = parse_tool_normalization_observation(
+                    &receipt.tool_name,
+                    &receipt.post_state.verification_checks,
+                ) {
+                    tool_normalizations.push(observation);
+                }
+                if let Some(observation) = parse_tool_recovery_observation(
+                    &receipt.tool_name,
+                    &receipt.post_state.verification_checks,
+                ) {
+                    tool_recoveries.push(observation);
+                }
                 if receipt
                     .policy_decision
                     .eq_ignore_ascii_case("require_approval")
@@ -1182,7 +1358,10 @@ pub async fn run_case(
                         success: playbook.success,
                         route_family: playbook.route_family.clone(),
                         topology: playbook.topology.clone(),
+                        planner_authority: playbook.planner_authority.clone(),
                         verifier_state: playbook.verifier_state.clone(),
+                        verifier_role: playbook.verifier_role.clone(),
+                        verifier_outcome: playbook.verifier_outcome.clone(),
                         step_id: playbook.step_id.clone(),
                         step_label: playbook.step_label.clone(),
                         template_id: playbook.template_id.clone(),
@@ -1512,6 +1691,9 @@ pub async fn run_case(
         routing_policy_decisions: routing_policy_decisions.into_iter().collect(),
         routing_failure_classes: routing_failure_classes.into_iter().collect(),
         routing_stop_condition_hits,
+        route_decisions,
+        tool_normalizations,
+        tool_recoveries,
         verification_checks,
         verification_facts,
         approval_required_events,

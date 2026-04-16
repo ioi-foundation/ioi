@@ -31,6 +31,15 @@ mod tests {
     }
 
     #[test]
+    fn time_sensitive_resolvable_payload_accepts_current_role_holder_surface() {
+        assert!(candidate_time_sensitive_resolvable_payload(
+            "https://www.un.org/sg/en/content/sg/biography",
+            "Secretary-General biography | United Nations",
+            "António Guterres currently serves as the Secretary-General of the United Nations.",
+        ));
+    }
+
+    #[test]
     fn time_sensitive_resolvable_payload_rejects_marketing_percentages_on_price_pages() {
         assert!(!candidate_time_sensitive_resolvable_payload(
             "https://crypto.com/en/price/bitcoin",

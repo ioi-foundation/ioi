@@ -7,7 +7,7 @@ import {
   type RefObject,
 } from "react";
 import type {
-  AgentRuntime,
+  AgentWorkbenchRuntime,
   ConnectorActionDefinition,
   ConnectorActionRequest,
   ConnectorActionResult,
@@ -36,7 +36,7 @@ type GenericActionsState = {
 };
 
 interface GenericConnectorPanelProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   connector: ConnectorSummary;
   section?: GenericConnectorPanelSection;
   onConfigured?: (result: ConnectorConfigureResult) => void;

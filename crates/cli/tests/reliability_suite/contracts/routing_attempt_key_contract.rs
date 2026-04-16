@@ -141,6 +141,7 @@ fn stable_attempt_key_enforces_changed_condition_and_preserves_receipt_state() {
         policy_binding_hash: "binding".to_string(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(receipt.pre_state.tier, "ToolFirst");

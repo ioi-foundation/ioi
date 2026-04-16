@@ -187,6 +187,31 @@ pub(crate) fn retrieval_contract_required_distinct_domain_floor(
         .unwrap_or_else(|| required_distinct_domain_floor(query))
 }
 
+pub(crate) fn retrieval_contract_requires_primary_authority_source(
+    contract: Option<&WebRetrievalContract>,
+    query: &str,
+) -> bool {
+    let Some(contract) = contract else {
+        return false;
+    };
+
+    let document_briefing_authority = matches!(
+        synthesis_layout_profile(Some(contract), query),
+        SynthesisLayoutProfile::DocumentBriefing
+    ) && !query_requests_comparison(query)
+        && crate::agentic::runtime::service::step::signals::analyze_query_facets(query)
+            .grounded_external_required
+        && (contract.currentness_required || contract.source_independence_min > 1);
+
+    let host_anchored_authority = query_requires_host_anchored_primary_authority(query)
+        && !query_requests_comparison(query)
+        && crate::agentic::runtime::service::step::signals::analyze_query_facets(query)
+            .grounded_external_required
+        && contract.currentness_required;
+
+    document_briefing_authority || host_anchored_authority
+}
+
 pub(crate) fn retrieval_contract_primary_authority_source_slot_cap(
     contract: Option<&WebRetrievalContract>,
     query: &str,
@@ -198,14 +223,7 @@ pub(crate) fn retrieval_contract_primary_authority_source_slot_cap(
     if expected_count == 0 {
         return 0;
     }
-    let authority_source_required = matches!(
-        synthesis_layout_profile(Some(contract), query),
-        SynthesisLayoutProfile::DocumentBriefing
-    ) && !query_requests_comparison(query)
-        && crate::agentic::runtime::service::step::signals::analyze_query_facets(query)
-            .grounded_external_required
-        && (contract.currentness_required || contract.source_independence_min > 1);
-    if !authority_source_required {
+    if !retrieval_contract_requires_primary_authority_source(Some(contract), query) {
         return 0;
     }
 
@@ -368,10 +386,12 @@ mod tests {
 
     use super::{
         required_citations_per_story, retrieval_contract_min_sources,
+        retrieval_contract_primary_authority_source_slot_cap,
         retrieval_contract_required_distinct_citations,
         retrieval_contract_required_document_briefing_citation_count,
         retrieval_contract_required_support_count,
         retrieval_contract_requires_document_briefing_identifier_evidence,
+        retrieval_contract_requires_primary_authority_source,
         retrieval_or_query_requests_comparison,
     };
 
@@ -474,6 +494,23 @@ mod tests {
         assert!(super::prefers_single_fact_snapshot(query));
         assert_eq!(required_citations_per_story(query), 1);
         assert_eq!(contract.citation_count_min, 1);
+    }
+
+    #[test]
+    fn latest_api_pricing_queries_require_primary_authority_source() {
+        let query = "What is the latest OpenAI API pricing?";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+            .expect("retrieval contract");
+
+        assert!(contract.currentness_required);
+        assert!(retrieval_contract_requires_primary_authority_source(
+            Some(&contract),
+            query
+        ));
+        assert_eq!(
+            retrieval_contract_primary_authority_source_slot_cap(Some(&contract), query, 1),
+            1
+        );
     }
 }
 

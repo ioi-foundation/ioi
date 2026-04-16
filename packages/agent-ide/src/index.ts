@@ -14,6 +14,10 @@ export { GoogleWorkspaceConnectorPanel } from "./features/Connectors/components/
 export { MailConnectorPanel } from "./features/Connectors/components/MailConnectorPanel";
 export { useMailConnectorActions } from "./features/Connectors/hooks/useMailConnectorActions";
 export {
+  createChatSessionStore,
+  createConnectedSessionStore,
+  createNormalizedChatSessionStore,
+  createSessionStore,
   appendUniqueSessionArtifact,
   appendUniqueSessionEvent,
   buildSessionReplTargets,
@@ -43,21 +47,29 @@ export {
 } from "./runtime/assistant-workbench-activity";
 export {
   useAssistantWorkbenchState,
+  useAssistantWorkbenchStore,
 } from "./runtime/use-assistant-workbench-state";
 export { useAssistantWorkbenchController } from "./runtime/use-assistant-workbench-controller";
-export { useSessionControllerHydration } from "./runtime/use-session-controller-hydration";
+export { useAssistantWorkbenchActions } from "./runtime/use-assistant-workbench-controller";
+export {
+  useHydrateSessionStore,
+  useSessionControllerHydration,
+} from "./runtime/use-session-controller-hydration";
 export {
   isSessionComposerSubmissionBlocked,
   isWaitingForClarificationStep,
   isWaitingForSudoStep,
   useSessionComposer,
 } from "./runtime/use-session-composer";
+export { useSessionInputComposer } from "./runtime/use-session-composer";
 export { useSessionGateState } from "./runtime/use-session-gate-state";
+export { useSessionApprovalState } from "./runtime/use-session-gate-state";
 export {
   formatSessionTimeAgo,
   groupSessionHistoryByDate,
   useSessionHistoryBrowser,
 } from "./runtime/use-session-history-browser";
+export { useFilteredSessionHistory } from "./runtime/use-session-history-browser";
 export { useSessionInspectionSurface } from "./runtime/use-session-inspection-surface";
 export { useSessionInterruptionActions } from "./runtime/use-session-interruption-actions";
 export { useSessionLegacyPresentation } from "./runtime/use-session-legacy-presentation";
@@ -66,11 +78,31 @@ export {
   dedupeSessionActivityEvents,
 } from "./runtime/session-run-presentation";
 export { useSessionRunSurface } from "./runtime/use-session-run-surface";
+export { useSessionDisplayState } from "./runtime/use-session-run-surface";
 export { useSessionShellOrchestration } from "./runtime/use-session-shell-orchestration";
+export { useSessionShellActions } from "./runtime/use-session-shell-orchestration";
 export { useSessionShellShortcuts } from "./runtime/use-session-shell-shortcuts";
 export { useSessionTurnContexts } from "./runtime/use-session-turn-contexts";
 export { useSessionViewState } from "./runtime/use-session-view-state";
+export { useSessionUiState } from "./runtime/use-session-view-state";
 export {
+  dismissAssistantSession,
+  getActiveAssistantSession,
+  getAssistantSessionProjection,
+  getAssistantSessionRuntime,
+  listAssistantSessions,
+  listenAssistantSessionEvent,
+  listenAssistantSessionProjection,
+  loadAssistantSession,
+  loadAssistantSessionArtifacts,
+  loadAssistantSessionEvents,
+  respondToAssistantSessionGate,
+  setActiveAssistantSessionRuntime,
+  setDefaultAssistantSessionRuntime,
+  startAssistantSession,
+  stopAssistantSession,
+  submitAssistantSessionInput,
+  submitAssistantSessionRuntimePassword,
   continueSessionTask,
   dismissSessionTask,
   getCurrentSessionTask,
@@ -110,9 +142,36 @@ export {
 } from "./runtime/session-runtime";
 export { parseShieldApprovalRequest } from "./runtime/shield-approval";
 export { buildConnectorApprovalMemoryRequest } from "./runtime/shield-approval";
+export {
+  buildMeetingBriefDraft,
+  buildMeetingPrepAutopilotIntent,
+  buildReplyAutopilotIntent,
+  buildReplyBody,
+  buildReplyReferences,
+  collectCalendarLinks,
+  ensureReplySubject,
+  extractDisplayName,
+  extractEmailAddress,
+  formatWorkbenchEventTime,
+} from "./runtime/assistant-workbench-content";
+export {
+  getSessionId,
+  getSessionStepText,
+  isWaitingForClarificationStep as isClarificationWaitStep,
+  isWaitingForSudoStep as isSudoPasswordWaitStep,
+  normalizeSessionSummary,
+  sessionSummaryLooksLive,
+  shouldRetainSessionOnMissingProjection,
+} from "./runtime/session-status";
 
 export type {
+  AgentWorkbenchRuntime,
   AgentRuntime,
+  AssistantSessionEventName,
+  AssistantSessionGateResponse,
+  AssistantSessionProjection,
+  AssistantSessionRuntime,
+  AssistantSessionThreadLoadOptions,
   AgentSessionEventName,
   AgentSessionGateResponse,
   AgentSessionProjection,
@@ -181,9 +240,24 @@ export type {
 } from "./runtime/use-assistant-workbench-state";
 export type {
   AssistantWorkbenchBusyAction,
+  UseAssistantWorkbenchActionsOptions,
   UseAssistantWorkbenchControllerOptions,
 } from "./runtime/use-assistant-workbench-controller";
 export type {
+  ChatSessionLike,
+  ChatSessionMessageLike,
+  LineageSessionLike,
+  SessionArtifactLike,
+  SessionAttachTargetLike,
+  SessionEventLike,
+  SessionHistoryPollingOptions,
+  SessionListEntryLike,
+  SessionPollingOptions,
+  SessionStoreAdapter,
+  SessionStoreConfig,
+  SessionStoreConnectOptions,
+  SessionStoreState,
+  StudioSessionLike,
   SessionControllerArtifactLike,
   SessionControllerBootstrapOptions,
   SessionControllerLineageTaskLike,
@@ -204,6 +278,7 @@ export type {
   SessionComposerTaskLike,
   UseSessionComposerOptions,
 } from "./runtime/use-session-composer";
+export type { UseHydrateSessionStoreOptions } from "./runtime/use-session-controller-hydration";
 export type {
   UseSessionConversationScrollOptions,
   UseSessionDeferredFocusOptions,
@@ -240,10 +315,14 @@ export type {
 } from "./runtime/use-session-history-browser";
 export type { UseSessionInspectionSurfaceOptions } from "./runtime/use-session-inspection-surface";
 export type {
+  UseSessionDisplayStateOptions,
   SessionRunSurfaceTaskLike,
   UseSessionRunSurfaceOptions,
 } from "./runtime/use-session-run-surface";
-export type { UseSessionShellOrchestrationOptions } from "./runtime/use-session-shell-orchestration";
+export type {
+  UseSessionShellActionsOptions,
+  UseSessionShellOrchestrationOptions,
+} from "./runtime/use-session-shell-orchestration";
 export type { UseSessionShellShortcutsOptions } from "./runtime/use-session-shell-shortcuts";
 export type {
   SessionConversationMessageLike,
@@ -258,7 +337,9 @@ export type {
   UseSessionTurnContextsOptions,
 } from "./runtime/use-session-turn-contexts";
 export type {
+  SessionUiState,
   SessionViewState,
+  UseSessionUiStateOptions,
   UseSessionViewStateOptions,
 } from "./runtime/use-session-view-state";
 

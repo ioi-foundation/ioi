@@ -1,0 +1,28 @@
+{
+  "captured_at": "2026-04-16T18:46:00.856549+00:00",
+  "prompt": "Find coffee shops open now near Williamsburg, Brooklyn.",
+  "screenshot": "docs/evidence/route-hierarchy/live-specialized-domain-policy/2026-04-16T18-35-22Z/01-find-coffee-shops-open-now-near-williamsburg-brooklyn/final.png",
+  "window_id": 18874380,
+  "window_capture_error": null,
+  "task": null,
+  "route_receipt_summary": null,
+  "latest_agent_message": null,
+  "log_tail": [
+    "",
+    "> dev:desktop",
+    "> bash apps/autopilot/scripts/dev-desktop.sh x11",
+    "",
+    "Autopilot local GPU dev profile: desktop-localgpu-places-policy-final16c (reset_on_boot=1, preset=ollama-openai, model=qwen3.5:9b, routing_model=qwen3.5:9b, routing_profile=fully_local, acceptance_model=qwen3.5:9b, embeddings=nomic-embed-text, http_timeout_secs=600, max_loaded_models=1, num_parallel=1, keep_alive=10m, flash_attention=1, context_length=4096, proof_trace=1)",
+    "Local GPU dev cache: /home/heathledger/.ollama/models (ollama available)",
+    "Stopping stale local runtime preset: 1108264",
+    "Reset Autopilot dev profile before launch: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu-places-policy-final16c",
+    "Starting local runtime preset 'ollama-openai'...",
+    "Local runtime ready: http://127.0.0.1:11434/api/tags",
+    "Warming local runtime models for Studio routing, drafting, and acceptance in background...",
+    "Building local kernel companion (first run may take a few minutes)...",
+    "Starting local kernel companion at http://127.0.0.1:9001...",
+    "Local kernel companion exited during startup.",
+    "See /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu-places-policy-final16c/kernel/ioi-local.log"
+  ],
+  "probe_error": "Timed out after 240s waiting for prompt result: Find coffee shops open now near Williamsburg, Brooklyn."
+}

@@ -67,6 +67,21 @@ impl InferenceRuntime for CasualConversationVsProbeRuntime {
             .to_string()
             .into_bytes());
         }
+        if query.contains("pythagorean theorem") || query.contains("repository summary") {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
         Err(VmError::HostError("inference unavailable".to_string()))
     }
 
@@ -79,6 +94,8 @@ impl InferenceRuntime for CasualConversationVsProbeRuntime {
             || lower.contains("is a tool installed on this computer")
             || lower.contains("is git installed")
             || lower.contains("reply with exactly one word: hello")
+            || lower.contains("pythagorean theorem")
+            || lower.contains("repository summary")
         {
             return Ok(vec![0.0, 1.0]);
         }
@@ -159,6 +176,74 @@ impl InferenceRuntime for WorkspaceCreationVsMailRuntime {
             return Ok(vec![0.15, 1.0, 0.55]);
         }
         Ok(vec![0.0, 0.0, 0.0])
+    }
+
+    async fn load_model(
+        &self,
+        _model_hash: [u8; 32],
+        _path: &std::path::Path,
+    ) -> Result<(), VmError> {
+        Ok(())
+    }
+
+    async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+struct CurrentPublicFactFallbackRuntime;
+
+#[async_trait]
+impl InferenceRuntime for CurrentPublicFactFallbackRuntime {
+    async fn execute_inference(
+        &self,
+        _model_hash: [u8; 32],
+        input_context: &[u8],
+        _options: InferenceOptions,
+    ) -> Result<Vec<u8>, VmError> {
+        let prompt = String::from_utf8_lossy(input_context).to_ascii_lowercase();
+        let query = query_from_input_context(input_context);
+        if prompt.contains("remote_public_fact_required")
+            && query.contains("current secretary-general")
+        {
+            return Ok(serde_json::json!({
+                "remote_public_fact_required": false,
+                "host_local_clock_targeted": false,
+                "command_directed": false,
+                "durable_automation_requested": false,
+                "model_registry_control_requested": false,
+                "app_launch_directed": false,
+                "direct_ui_input": false,
+                "desktop_screenshot_requested": false,
+                "temporal_filesystem_filter": false
+            })
+            .to_string()
+            .into_bytes());
+        }
+        Err(VmError::HostError("inference unavailable".to_string()))
+    }
+
+    async fn embed_text(&self, text: &str) -> Result<Vec<f32>, VmError> {
+        let lower = text.to_ascii_lowercase();
+        if lower.contains("research live information on the web")
+            || lower.contains("current events")
+            || lower.contains("latest news")
+        {
+            return Ok(vec![1.0, 0.0]);
+        }
+        if lower.contains("respond conversationally without executing external side effects")
+            || lower.contains("answer the user message")
+            || lower.contains("draft a response")
+        {
+            return Ok(vec![0.0, 1.0]);
+        }
+        if lower.contains("current secretary-general of the un")
+            || lower.contains("who is the current secretary-general")
+        {
+            return Ok(vec![0.24, 0.18]);
+        }
+        Ok(vec![0.05, 0.05])
     }
 
     async fn load_model(
@@ -324,6 +409,169 @@ async fn resolver_forces_explanatory_summary_prompts_to_conversation_reply() {
 
     assert_eq!(resolved.intent_id, "conversation.reply");
     assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
+    assert!(!should_pause_for_clarification(
+        &resolved,
+        &rules.ontology_policy.intent_routing
+    ));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_forces_expository_knowledge_queries_to_conversation_reply() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(CasualConversationVsProbeRuntime);
+    let service = RuntimeAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "What is the Pythagorean theorem?".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v17-expository-conversation-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "conversation.reply" | "command.probe"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "conversation.reply");
+    assert_eq!(resolved.scope, IntentScopeProfile::Conversation);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_keeps_local_repository_questions_out_of_expository_force_reply() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(CasualConversationVsProbeRuntime);
+    let service = RuntimeAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "What is this repository summary?".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v17-expository-conversation-test".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "conversation.reply" | "command.probe"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "command.probe");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_uses_query_facet_backstop_for_simple_current_public_fact_queries() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(CurrentPublicFactFallbackRuntime);
+    let service = RuntimeAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "Who is the current Secretary-General of the UN?".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v17-current-public-fact-backstop".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "web.research" | "conversation.reply"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "web.research");
+    assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
+    assert!(matches!(
+        resolved.band,
+        IntentConfidenceBand::Medium | IntentConfidenceBand::High
+    ));
+    assert!(resolved
+        .required_capabilities
+        .iter()
+        .any(|capability| capability.as_str() == "web.retrieve"));
+    assert!(!should_pause_for_clarification(
+        &resolved,
+        &rules.ontology_policy.intent_routing
+    ));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn resolver_uses_query_facet_backstop_for_latest_pricing_queries() {
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let terminal = Arc::new(TerminalDriver::new());
+    let browser = Arc::new(BrowserDriver::new());
+    let inference: Arc<dyn InferenceRuntime> = Arc::new(CurrentPublicFactFallbackRuntime);
+    let service = RuntimeAgentService::new(gui, terminal, browser, inference);
+
+    let mut agent_state = test_agent_state();
+    agent_state.goal = "What is the latest OpenAI API pricing?".to_string();
+
+    let mut rules = ActionRules::default();
+    rules.ontology_policy.intent_routing.matrix_version =
+        "intent-matrix-v17-latest-pricing-backstop".into();
+    rules.ontology_policy.intent_routing.matrix = rules
+        .ontology_policy
+        .intent_routing
+        .matrix
+        .iter()
+        .filter(|entry| {
+            matches!(
+                entry.intent_id.as_str(),
+                "web.research" | "conversation.reply"
+            )
+        })
+        .cloned()
+        .collect();
+
+    let resolved = resolve_step_intent(&service, &agent_state, &rules, "terminal")
+        .await
+        .unwrap();
+
+    assert_eq!(resolved.intent_id, "web.research");
+    assert_eq!(resolved.scope, IntentScopeProfile::WebResearch);
+    assert!(matches!(
+        resolved.band,
+        IntentConfidenceBand::Medium | IntentConfidenceBand::High
+    ));
     assert!(!should_pause_for_clarification(
         &resolved,
         &rules.ontology_policy.intent_routing

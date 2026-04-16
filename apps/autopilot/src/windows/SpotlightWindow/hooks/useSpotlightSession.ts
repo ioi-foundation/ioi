@@ -7,13 +7,13 @@ import type {
 import {
   hideSpotlightShell,
   type SessionGateChatEvent as ChatEvent,
-  useSessionComposer,
+  useHydrateSessionStore,
+  useSessionInputComposer,
   useSessionDeferredFocus,
-  useSessionControllerHydration,
   useSessionInspectionSurface,
   useSessionInterruptionActions,
-  useSessionShellOrchestration,
-  useSessionViewState,
+  useSessionShellActions,
+  useSessionUiState,
 } from "@ioi/agent-ide";
 import type {
   AgentTask,
@@ -42,6 +42,24 @@ type UseSpotlightSessionOptions = {
   loadThreadEvents: (threadId: string, limit?: number, cursor?: number) => Promise<unknown>;
   loadThreadArtifacts: (threadId: string) => Promise<unknown>;
 };
+
+export function shouldContinueSpotlightComposerSession(
+  isStudioVariant: boolean,
+  task: AgentTask | null,
+): boolean {
+  if (!task?.id || task.phase === "Failed") {
+    return false;
+  }
+
+  if (isStudioVariant && task.phase === "Complete") {
+    // Studio follow-ups should continue the completed session by default so
+    // retained widget or artifact context stays available unless the user
+    // explicitly starts a new outcome.
+    return true;
+  }
+
+  return true;
+}
 
 export function useSpotlightSession({
   bootstrapSessionController,
@@ -90,7 +108,7 @@ export function useSpotlightSession({
     searchQuery,
     setSearchQuery,
     isDraggingFile,
-  } = useSessionViewState<ChatMessage, ArtifactHubViewKey>();
+  } = useSessionUiState<ChatMessage, ArtifactHubViewKey>();
 
   const getTaskThreadId = useCallback(
     (currentTask: AgentTask) => currentTask.session_id || currentTask.id || null,
@@ -133,12 +151,12 @@ export function useSpotlightSession({
     resetInspectionSurface,
   ]);
 
-  useSessionControllerHydration<AgentTask>({
-    bootstrapSessionController,
-    task,
-    getTaskThreadId,
-    loadThreadEvents,
-    loadThreadArtifacts,
+  useHydrateSessionStore<AgentTask>({
+    connectSessionStore: bootstrapSessionController,
+    session: task,
+    getSessionThreadId: getTaskThreadId,
+    loadSessionEvents: loadThreadEvents,
+    loadSessionArtifacts: loadThreadArtifacts,
   });
 
   useSessionDeferredFocus({
@@ -146,7 +164,7 @@ export function useSpotlightSession({
   });
 
   const { openStudio, attachSession: handleLoadSession } =
-    useSessionShellOrchestration<AgentTask>({
+    useSessionShellActions<AgentTask>({
       isStudioShell: isStudioVariant,
       hideCurrentShell: hideSpotlightShell,
       resolveStudioView,
@@ -163,7 +181,7 @@ export function useSpotlightSession({
     handleNewSession: handleNewChat,
     handleInputChange,
     handleInputKeyDown,
-  } = useSessionComposer<AgentTask, ChatMessage, ChatEvent>({
+  } = useSessionInputComposer<AgentTask, ChatMessage, ChatEvent>({
     task,
     intent,
     inputRef,
@@ -186,6 +204,8 @@ export function useSpotlightSession({
         await openStudio("autopilot");
       }
     },
+    shouldContinueExistingSession: (currentTask) =>
+      shouldContinueSpotlightComposerSession(isStudioVariant, currentTask),
     onSubmitError: (error) => {
       console.error(error);
     },

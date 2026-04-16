@@ -10,4 +10,5 @@ mod targets;
 mod tests;
 
 pub use engine::PolicyEngine;
+pub(crate) use filesystem::augment_workspace_filesystem_policy;
 pub(crate) use targets::policy_target_aliases;
