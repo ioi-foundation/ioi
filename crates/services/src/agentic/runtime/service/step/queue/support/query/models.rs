@@ -100,6 +100,8 @@ pub(crate) struct RankedAcquisitionCandidate {
     pub(crate) required_identifier_label_count: usize,
     pub(crate) optional_identifier_label_count: usize,
     pub(crate) query_grounding_signal: bool,
+    pub(crate) current_holder_grounded: bool,
+    pub(crate) subject_identity_grounded: bool,
     pub(crate) headline_low_quality: bool,
     pub(crate) headline_actionable: bool,
 }

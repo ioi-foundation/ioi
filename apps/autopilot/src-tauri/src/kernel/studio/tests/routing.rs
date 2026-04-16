@@ -102,6 +102,7 @@ fn typed_outcome_router_times_out_with_slow_runtime() {
         "Help me think through routing timeouts for interactive launch work",
         None,
         None,
+        None,
         Duration::from_millis(5),
     )
     .expect_err("slow runtime should time out");
@@ -129,6 +130,7 @@ fn explicit_single_document_html_requests_bypass_router_timeout() {
         "Create an interactive HTML artifact that explains quantum computers.",
         None,
         None,
+        None,
         Duration::from_millis(5),
     )
     .expect("explicit single-document requests should short-circuit routing");
@@ -145,4 +147,44 @@ fn explicit_single_document_html_requests_bypass_router_timeout() {
         artifact.deliverable_shape,
         StudioArtifactDeliverableShape::SingleFile
     );
+}
+
+#[test]
+fn explicit_workspace_requests_bypass_router_timeout() {
+    let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowStudioOutcomeTestRuntime {
+        payload: r#"{
+              "outcomeKind":"conversation",
+              "confidence":0.1,
+              "needsClarification":true,
+              "clarificationQuestions":["unexpected fallback"],
+              "artifact":null
+            }"#
+        .to_string(),
+        delay: Duration::from_millis(50),
+        provenance: None,
+    });
+
+    let planned = studio_outcome_request_with_runtime_timeout(
+        runtime,
+        "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+        None,
+        None,
+        None,
+        Duration::from_millis(5),
+    )
+    .expect("explicit workspace requests should short-circuit routing");
+
+    assert_eq!(planned.outcome_kind, StudioOutcomeKind::Artifact);
+    assert_eq!(
+        planned.execution_strategy,
+        StudioExecutionStrategy::AdaptiveWorkGraph
+    );
+    assert!(!planned.needs_clarification);
+    let artifact = planned.artifact.expect("artifact request");
+    assert_eq!(artifact.renderer, StudioRendererKind::WorkspaceSurface);
+    assert_eq!(
+        artifact.deliverable_shape,
+        StudioArtifactDeliverableShape::WorkspaceProject
+    );
+    assert_eq!(artifact.workspace_recipe_id.as_deref(), Some("react-vite"));
 }

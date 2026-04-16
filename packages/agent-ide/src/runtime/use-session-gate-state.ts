@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { respondToSessionGate } from "./session-runtime";
+import { getSessionId, isWaitingForClarificationStep, isWaitingForSudoStep } from "./session-status";
+import { respondToAssistantSessionGate } from "./session-runtime";
 
 export interface SessionGateChatEvent {
   role: string;
@@ -62,12 +63,18 @@ export interface SessionClarificationRequest {
 export interface SessionGateTaskLike {
   id?: string | null;
   session_id?: string | null;
+  sessionId?: string | null;
   phase?: string | null;
   current_step?: string | null;
+  currentStep?: string | null;
   pending_request_hash?: string | null;
+  pendingRequestHash?: string | null;
   gate_info?: SessionGateInfo | null;
+  gateInfo?: SessionGateInfo | null;
   credential_request?: SessionCredentialRequest | null;
+  credentialRequest?: SessionCredentialRequest | null;
   clarification_request?: SessionClarificationRequest | null;
+  clarificationRequest?: SessionClarificationRequest | null;
 }
 
 export interface UseSessionGateStateOptions<TTask extends SessionGateTaskLike> {
@@ -84,22 +91,16 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
     null,
   );
 
-  const hasPendingApproval = !!task?.pending_request_hash;
-  const credentialRequest = task?.credential_request ?? undefined;
-  const clarificationRequest = task?.clarification_request ?? undefined;
-  const activeSessionId = task?.session_id || task?.id || null;
+  const hasPendingApproval = !!(task?.pendingRequestHash ?? task?.pending_request_hash);
+  const credentialRequest = task?.credentialRequest ?? task?.credential_request ?? undefined;
+  const clarificationRequest =
+    task?.clarificationRequest ?? task?.clarification_request ?? undefined;
+  const activeSessionId = task ? getSessionId(task) : null;
 
-  const waitingForSudoByStep = (task?.current_step || "")
-    .toLowerCase()
-    .includes("waiting for sudo password");
-  const waitingForClarificationByStep = (() => {
-    const step = (task?.current_step || "").toLowerCase();
-    return (
-      step.includes("waiting for clarification") ||
-      step.includes("waiting for intent clarification") ||
-      step.includes("wait_for_clarification")
-    );
-  })();
+  const currentStep = task?.currentStep ?? task?.current_step;
+  const waitingForSudoByStep = isWaitingForSudoStep(currentStep);
+  const waitingForClarificationByStep =
+    isWaitingForClarificationStep(currentStep);
 
   const waitingForSudoPrompt =
     credentialRequest?.kind === "sudo_password" || waitingForSudoByStep;
@@ -110,33 +111,42 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
   const showPasswordPrompt =
     waitingForSudoPrompt &&
     !suppressPasswordPrompt &&
-    !!(task?.session_id || task?.id);
+    !!activeSessionId;
   const showClarificationPrompt =
     !!clarificationRequest &&
-    !!(task?.session_id || task?.id) &&
+    !!activeSessionId &&
     (waitingForClarificationByStep ||
       task?.phase === "Complete" ||
       task?.phase === "Running");
   const inputLockedByCredential = showPasswordPrompt || showClarificationPrompt;
 
   const gateInfo: SessionGateInfo | undefined = useMemo(() => {
-    if (task?.gate_info) {
-      return task.gate_info;
+    if (task?.gateInfo ?? task?.gate_info) {
+      return (task?.gateInfo ?? task?.gate_info) ?? undefined;
     }
     if (!hasPendingApproval) {
       return undefined;
     }
     return {
       title: "Approval Required",
-      description: task?.pending_request_hash
-        ? `Authorization required for request ${task.pending_request_hash}.`
+      description: task?.pendingRequestHash ?? task?.pending_request_hash
+        ? `Authorization required for request ${
+            task?.pendingRequestHash ?? task?.pending_request_hash
+          }.`
         : "Authorization required before execution can continue.",
       risk: "high",
     };
-  }, [hasPendingApproval, task?.gate_info, task?.pending_request_hash]);
+  }, [
+    hasPendingApproval,
+    task?.gateInfo,
+    task?.gate_info,
+    task?.pendingRequestHash,
+    task?.pending_request_hash,
+  ]);
 
   const isPiiGate = !!gateInfo?.pii;
-  const activeRequestHash = task?.pending_request_hash || undefined;
+  const activeRequestHash =
+    task?.pendingRequestHash ?? task?.pending_request_hash ?? undefined;
   const isGated =
     !showPasswordPrompt &&
     !showClarificationPrompt &&
@@ -147,7 +157,10 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
   const handleApprove = useCallback(async () => {
     setGateActionError(null);
     try {
-      await respondToSessionGate({ approved: true, requestHash: activeRequestHash });
+      await respondToAssistantSessionGate({
+        approved: true,
+        requestHash: activeRequestHash,
+      });
       setChatEvents((prev) =>
         prev.map((event) =>
           event.isGate ? { ...event, isGate: false, text: "✓ Approved" } : event,
@@ -163,7 +176,7 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
   const handleDeny = useCallback(async () => {
     setGateActionError(null);
     try {
-      await respondToSessionGate({
+      await respondToAssistantSessionGate({
         approved: false,
         action: "deny",
         requestHash: activeRequestHash,
@@ -183,7 +196,7 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
   const handleGrantScopedException = useCallback(async () => {
     setGateActionError(null);
     try {
-      await respondToSessionGate({
+      await respondToAssistantSessionGate({
         approved: true,
         action: "grant_scoped_exception",
         requestHash: activeRequestHash,
@@ -203,7 +216,8 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
   }, [activeRequestHash, setChatEvents]);
 
   useEffect(() => {
-    if (task && task.phase === "Gate" && task.gate_info) {
+    const gateDetails = task?.gateInfo ?? task?.gate_info;
+    if (task && task.phase === "Gate" && gateDetails) {
       const last = chatEvents[chatEvents.length - 1];
       if (!last || !last.isGate) {
         setChatEvents((prev) => [
@@ -213,7 +227,7 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
             text: "",
             timestamp: Date.now(),
             isGate: true,
-            gateData: task.gate_info,
+            gateData: gateDetails,
           },
         ]);
       }
@@ -300,3 +314,5 @@ export function useSessionGateState<TTask extends SessionGateTaskLike>({
     handleGrantScopedException,
   };
 }
+
+export const useSessionApprovalState = useSessionGateState;

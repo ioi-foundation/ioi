@@ -79,10 +79,13 @@ fn web_pipeline_single_fact_query_prefers_direct_answer_layout() {
 
     let reply =
         synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
-    assert!(reply.contains("What happened:"));
-    assert!(!reply.contains("Story 1:"));
-    assert!(!reply.contains("Answer:"));
-    assert!(!reply.contains("Context:"));
+    assert!(
+        reply.contains("Current answer:") || reply.contains("Current snapshot"),
+        "reply={reply}"
+    );
+    assert!(reply.contains("Sam Altman"), "reply={reply}");
+    assert!(!reply.contains("Story 1:"), "reply={reply}");
+    assert!(!reply.contains("Context:"), "reply={reply}");
 }
 
 #[test]

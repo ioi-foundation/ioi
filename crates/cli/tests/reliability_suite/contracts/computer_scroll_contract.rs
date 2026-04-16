@@ -258,6 +258,7 @@ fn routing_receipt_contract_for_scroll_includes_canonical_hash_and_pre_state() {
         policy_binding_hash: binding_hash.clone(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(receipt.intent_hash, intent_hash);

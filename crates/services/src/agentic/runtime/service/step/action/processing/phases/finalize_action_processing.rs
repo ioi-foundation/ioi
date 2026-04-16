@@ -78,6 +78,12 @@ fn observe_terminal_chat_reply_shape(summary: &str) -> TerminalChatReplyShapeFac
     }
 }
 
+fn duplicate_prior_success_noop(verification_checks: &[String]) -> bool {
+    verification_checks
+        .iter()
+        .any(|check| check == "duplicate_action_fingerprint_prior_success_noop=true")
+}
+
 fn terminal_chat_reply_layout_profile(
     facts: &TerminalChatReplyShapeFacts,
 ) -> TerminalChatReplyLayoutProfile {
@@ -315,6 +321,7 @@ pub(crate) async fn finalize_action_processing(
         mut escalation_path,
         mut remediation_queued,
         mut verification_checks,
+        tool_normalization_observation: _tool_normalization_observation,
         awaiting_sudo_password,
         mut awaiting_clarification,
         command_probe_completed: _command_probe_completed,
@@ -325,6 +332,20 @@ pub(crate) async fn finalize_action_processing(
     } = state_in;
     let trace_visual_hash = trace_visual_hash.unwrap_or(final_visual_phash);
     let prior_consecutive_failures = agent_state.consecutive_failures;
+    let duplicate_prior_success_noop = duplicate_prior_success_noop(&verification_checks);
+    if duplicate_prior_success_noop && failure_class.is_none() {
+        success = false;
+        if error_msg.is_none() {
+            error_msg = Some(
+                "ERROR_CLASS=NoEffectAfterAction Duplicate replay produced no new effect."
+                    .to_string(),
+            );
+        }
+        failure_class = Some(FailureClass::NoEffectAfterAction);
+        verification_checks.push(
+            "duplicate_action_fingerprint_prior_success_promoted_to_failure=true".to_string(),
+        );
+    }
     if !is_gated && !awaiting_sudo_password && !awaiting_clarification {
         if let Some(tool_jcs) = executed_tool_jcs.as_deref() {
             let resolved_retry_hash = retry_intent_hash
@@ -563,7 +584,33 @@ pub(crate) async fn finalize_action_processing(
                         .map(|msg| requires_wait_for_clarification(&current_tool_name, msg))
                         .unwrap_or(false);
 
-                    if remediation_queued {
+                    let workspace_manifest_recovery_queued = if !remediation_queued {
+                        maybe_enqueue_workspace_package_manifest_recovery(
+                            agent_state,
+                            session_id,
+                            class,
+                            &current_tool_name,
+                        )?
+                    } else {
+                        false
+                    };
+
+                    if workspace_manifest_recovery_queued {
+                        stop_condition_hit = false;
+                        escalation_path = None;
+                        is_lifecycle_action = true;
+                        remediation_queued = true;
+                        success = true;
+                        error_msg = None;
+                        history_entry = Some(
+                            "Queued deterministic package-manifest recovery actions.".to_string(),
+                        );
+                        action_output = history_entry.clone();
+                        agent_state.status = AgentStatus::Running;
+                        agent_state.recent_actions.clear();
+                        verification_checks
+                            .push("workspace_package_manifest_recovery_queued=true".to_string());
+                    } else if remediation_queued {
                         stop_condition_hit = false;
                         escalation_path = None;
                         is_lifecycle_action = true;
@@ -782,7 +829,11 @@ pub(crate) async fn finalize_action_processing(
         log::info!("SystemFail executed: Forcing IMMEDIATE escalation state (failures=3)");
         agent_state.consecutive_failures = 3;
     } else if !stop_condition_hit && (success || is_lifecycle_action) {
-        agent_state.consecutive_failures = 0;
+        if duplicate_prior_success_noop {
+            agent_state.consecutive_failures = prior_consecutive_failures.saturating_add(1);
+        } else {
+            agent_state.consecutive_failures = 0;
+        }
     }
 
     let max_steps_terminalization_due = !is_gated
@@ -900,6 +951,26 @@ pub(crate) async fn finalize_action_processing(
     }
 
     if !is_gated {
+        if success
+            && terminal_chat_reply_output.is_none()
+            && matches!(agent_state.status, AgentStatus::Running)
+        {
+            if let Some(summary) = maybe_terminalize_workspace_package_manifest_read(
+                agent_state,
+                &current_tool_name,
+                action_output.as_deref().or(history_entry.as_deref()),
+            ) {
+                history_entry = Some(summary.clone());
+                action_output = Some(summary.clone());
+                terminal_chat_reply_output = Some(summary.clone());
+                is_lifecycle_action = true;
+                agent_state.status = AgentStatus::Completed(Some(summary));
+                verification_checks
+                    .push("workspace_package_manifest_read_terminalized=true".to_string());
+                verification_checks.push("terminal_chat_reply_ready=true".to_string());
+            }
+        }
+
         let composed_terminal_chat = terminal_chat_reply_output
             .as_deref()
             .map(compose_terminal_chat_reply);
@@ -1036,6 +1107,15 @@ pub(crate) async fn finalize_action_processing(
     let failure_class_name = failure_class
         .map(|class| class.as_str().to_string())
         .unwrap_or_default();
+    let route_decision =
+        crate::agentic::runtime::service::step::route_projection::project_route_decision(
+            service,
+            state,
+            agent_state,
+            &current_tool_name,
+            agent_state.current_tier,
+        )
+        .await;
 
     let receipt = RoutingReceiptEvent {
         session_id,
@@ -1064,6 +1144,7 @@ pub(crate) async fn finalize_action_processing(
         policy_binding_hash: policy_binding,
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision,
     };
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 
@@ -1119,6 +1200,95 @@ fn maybe_enqueue_lowercase_rename_recovery(
     Ok(true)
 }
 
+fn maybe_terminalize_workspace_package_manifest_read(
+    agent_state: &AgentState,
+    current_tool_name: &str,
+    output: Option<&str>,
+) -> Option<String> {
+    if current_tool_name != "file__read" {
+        return None;
+    }
+    if agent_state.parent_session_id.is_some() {
+        return None;
+    }
+    if agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope)
+        != Some(ioi_types::app::agentic::IntentScopeProfile::WorkspaceOps)
+    {
+        return None;
+    }
+    if !workspace_goal_prefers_package_manifest_recovery(&agent_state.goal) {
+        return None;
+    }
+
+    let manifest_raw = output?;
+    let manifest_script =
+        select_manifest_script_recovery_candidate(&agent_state.goal, manifest_raw)?;
+    Some(format!(
+        "In `package.json`, the npm script that launches the desktop app is `{}`. It runs `{}`.",
+        manifest_script.name, manifest_script.command
+    ))
+}
+
+fn maybe_enqueue_workspace_package_manifest_recovery(
+    agent_state: &mut AgentState,
+    session_id: [u8; 32],
+    failure_class: FailureClass,
+    root_tool_name: &str,
+) -> Result<bool, TransactionError> {
+    if !matches!(failure_class, FailureClass::NoEffectAfterAction) || root_tool_name != "file__list"
+    {
+        return Ok(false);
+    }
+    if agent_state.parent_session_id.is_some() {
+        return Ok(false);
+    }
+    if agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope)
+        != Some(ioi_types::app::agentic::IntentScopeProfile::WorkspaceOps)
+    {
+        return Ok(false);
+    }
+    if !workspace_goal_prefers_package_manifest_recovery(&agent_state.goal) {
+        return Ok(false);
+    }
+
+    let Some(manifest_path) = workspace_package_manifest_path(agent_state) else {
+        return Ok(false);
+    };
+    let Some(manifest_raw) = std::fs::read_to_string(&manifest_path).ok() else {
+        return Ok(false);
+    };
+    let Some(manifest_script) =
+        select_manifest_script_recovery_candidate(&agent_state.goal, &manifest_raw)
+    else {
+        return Ok(false);
+    };
+
+    let read_path = workspace_package_manifest_read_path(agent_state);
+    let recovery_tools = vec![
+        AgentTool::FsRead { path: read_path },
+        AgentTool::ChatReply {
+            message: format!(
+                "In `package.json`, the npm script that launches the desktop app is `{}`. It runs `{}`.",
+                manifest_script.name, manifest_script.command
+            ),
+        },
+    ];
+
+    let base_nonce = agent_state.step_count as u64 + 1;
+    for (offset, tool) in recovery_tools.into_iter().rev().enumerate() {
+        let request = tool_to_action_request(&tool, session_id, base_nonce + offset as u64)?;
+        agent_state.execution_queue.insert(0, request);
+    }
+
+    Ok(true)
+}
+
 fn tool_to_action_request(
     tool: &AgentTool,
     session_id: [u8; 32],
@@ -1155,6 +1325,12 @@ fn tool_to_action_request(
 struct LowercaseRenamePlan {
     target_dir: String,
     renames: Vec<(String, String)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ManifestScriptRecoveryCandidate {
+    name: String,
+    command: String,
 }
 
 const QUEUE_TOOL_NAME_KEY: &str = "__ioi_tool_name";
@@ -1237,12 +1413,199 @@ fn expand_runtime_home_alias(path: &str) -> String {
     trimmed.to_string()
 }
 
+fn workspace_goal_prefers_package_manifest_recovery(goal: &str) -> bool {
+    let goal_lc = goal.to_ascii_lowercase();
+    goal_lc.contains("npm") && goal_lc.contains("script") && goal_lc.contains("desktop")
+}
+
+fn workspace_package_manifest_path(agent_state: &AgentState) -> Option<std::path::PathBuf> {
+    let working_directory = agent_state.working_directory.trim();
+    let base_path = if working_directory.is_empty() {
+        std::path::PathBuf::from(".")
+    } else {
+        std::path::PathBuf::from(expand_runtime_home_alias(working_directory))
+    };
+    let manifest_path = base_path.join("package.json");
+    std::fs::metadata(&manifest_path)
+        .ok()
+        .map(|_| manifest_path)
+}
+
+fn workspace_package_manifest_read_path(agent_state: &AgentState) -> String {
+    let working_directory = agent_state.working_directory.trim();
+    if working_directory.is_empty() || working_directory == "." {
+        "./package.json".to_string()
+    } else {
+        format!(
+            "{}/package.json",
+            expand_runtime_home_alias(working_directory).trim_end_matches('/')
+        )
+    }
+}
+
+fn select_manifest_script_recovery_candidate(
+    goal: &str,
+    manifest_raw: &str,
+) -> Option<ManifestScriptRecoveryCandidate> {
+    let manifest = serde_json::from_str::<serde_json::Value>(manifest_raw).ok()?;
+    let scripts = manifest.get("scripts")?.as_object()?;
+    let goal_lc = goal.to_ascii_lowercase();
+
+    let mut candidates = scripts
+        .iter()
+        .filter_map(|(name, value)| {
+            let command = value.as_str()?.trim();
+            if command.is_empty() {
+                return None;
+            }
+            let name_lc = name.to_ascii_lowercase();
+            let command_lc = command.to_ascii_lowercase();
+            let mut score = 0u32;
+            if goal_lc.contains("desktop")
+                && (name_lc.contains("desktop") || command_lc.contains("desktop"))
+            {
+                score += 10;
+            }
+            if goal_lc.contains("desktop") && name_lc == "dev:desktop" {
+                score += 8;
+            }
+            if goal_lc.contains("launch")
+                && (name_lc.contains("start")
+                    || name_lc.contains("launch")
+                    || name_lc.contains("dev")
+                    || command_lc.contains("dev-desktop"))
+            {
+                score += 4;
+            }
+            if goal_lc.contains("app")
+                && (name_lc.contains("app")
+                    || command_lc.contains("autopilot")
+                    || command_lc.contains("desktop"))
+            {
+                score += 2;
+            }
+            if goal_lc.contains("wayland")
+                && (name_lc.contains("wayland") || command_lc.contains("wayland"))
+            {
+                score += 6;
+            } else if name_lc.contains("wayland") || command_lc.contains("wayland") {
+                score = score.saturating_sub(3);
+            }
+            if goal_lc.contains("dry")
+                && (name_lc.contains("dryrun") || command_lc.contains("dry-run"))
+            {
+                score += 4;
+            } else if name_lc.contains("dryrun") || command_lc.contains("dry-run") {
+                score = score.saturating_sub(4);
+            }
+            if name_lc.ends_with("desktop") {
+                score += 3;
+            }
+            (score > 0).then_some((score, name.as_str(), command))
+        })
+        .collect::<Vec<_>>();
+
+    candidates.sort_by(|left, right| right.cmp(left));
+    let (top_score, top_name, top_command) = *candidates.first()?;
+    let ambiguous_top_score = candidates
+        .iter()
+        .filter(|(score, _, _)| *score == top_score)
+        .count();
+    if top_score < 10 || ambiguous_top_score > 1 {
+        return None;
+    }
+
+    Some(ManifestScriptRecoveryCandidate {
+        name: top_name.to_string(),
+        command: top_command.to_string(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        observe_terminal_chat_reply_shape, terminal_chat_reply_layout_profile,
-        TerminalChatReplyLayoutProfile,
+        duplicate_prior_success_noop, maybe_enqueue_workspace_package_manifest_recovery,
+        maybe_terminalize_workspace_package_manifest_read, observe_terminal_chat_reply_shape,
+        select_manifest_script_recovery_candidate, terminal_chat_reply_layout_profile,
+        workspace_goal_prefers_package_manifest_recovery, FailureClass,
+        ManifestScriptRecoveryCandidate, TerminalChatReplyLayoutProfile,
     };
+    use crate::agentic::runtime::service::step::queue::queue_action_request_to_tool;
+    use crate::agentic::runtime::types::{AgentMode, AgentState, AgentStatus, ExecutionTier};
+    use ioi_types::app::agentic::{
+        AgentTool, CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+    };
+    use ioi_types::app::ActionRequest;
+    use std::collections::{BTreeMap, VecDeque};
+
+    fn workspace_ops_intent() -> ResolvedIntentState {
+        ResolvedIntentState {
+            intent_id: "workspace.ops".to_string(),
+            scope: IntentScopeProfile::WorkspaceOps,
+            band: IntentConfidenceBand::High,
+            score: 0.98,
+            top_k: vec![],
+            required_capabilities: vec![CapabilityId::from("filesystem.read")],
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "v1".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
+            constrained: false,
+        }
+    }
+
+    fn test_agent_state() -> AgentState {
+        AgentState {
+            session_id: [7u8; 32],
+            goal: "test".to_string(),
+            transcript_root: [0u8; 32],
+            status: AgentStatus::Running,
+            step_count: 0,
+            max_steps: 8,
+            last_action_type: None,
+            parent_session_id: None,
+            child_session_ids: vec![],
+            budget: 0,
+            tokens_used: 0,
+            consecutive_failures: 0,
+            pending_approval: None,
+            pending_tool_call: None,
+            pending_tool_jcs: None,
+            pending_tool_hash: None,
+            pending_request_nonce: None,
+            pending_visual_hash: None,
+            recent_actions: vec![],
+            mode: AgentMode::Agent,
+            current_tier: ExecutionTier::DomHeadless,
+            last_screen_phash: None,
+            execution_queue: Vec::<ActionRequest>::new(),
+            pending_search_completion: None,
+            planner_state: None,
+            active_skill_hash: None,
+            tool_execution_log: BTreeMap::new(),
+            visual_som_map: None,
+            visual_semantic_map: None,
+            swarm_context: None,
+            target: None,
+            resolved_intent: None,
+            awaiting_intent_clarification: false,
+            working_directory: ".".to_string(),
+            command_history: VecDeque::new(),
+            active_lens: None,
+        }
+    }
 
     #[test]
     fn terminal_chat_reply_shape_detects_story_collection_output() {
@@ -1294,5 +1657,174 @@ mod tests {
             terminal_chat_reply_layout_profile(&facts),
             TerminalChatReplyLayoutProfile::SingleSnapshot
         );
+    }
+
+    #[test]
+    fn duplicate_prior_success_noop_detects_retry_boundary() {
+        assert!(duplicate_prior_success_noop(&[
+            "duplicate_action_fingerprint_non_command_noop=true".to_string(),
+            "duplicate_action_fingerprint_prior_success_noop=true".to_string(),
+        ]));
+        assert!(!duplicate_prior_success_noop(&[
+            "duplicate_action_fingerprint_non_command_noop=true".to_string(),
+        ]));
+    }
+
+    #[test]
+    fn workspace_goal_prefers_package_manifest_recovery_for_desktop_script_queries() {
+        assert!(workspace_goal_prefers_package_manifest_recovery(
+            "What npm script launches the desktop app in this repo?"
+        ));
+        assert!(!workspace_goal_prefers_package_manifest_recovery(
+            "What does the README say about the desktop app?"
+        ));
+    }
+
+    #[test]
+    fn select_manifest_script_recovery_candidate_prefers_unique_desktop_script() {
+        let manifest = r#"{
+          "scripts": {
+            "dev": "vite",
+            "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11",
+            "test": "vitest"
+          }
+        }"#;
+
+        assert_eq!(
+            select_manifest_script_recovery_candidate(
+                "What npm script launches the desktop app in this repo?",
+                manifest,
+            ),
+            Some(ManifestScriptRecoveryCandidate {
+                name: "dev:desktop".to_string(),
+                command: "bash apps/autopilot/scripts/dev-desktop.sh x11".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn select_manifest_script_recovery_candidate_prefers_launch_oriented_desktop_match() {
+        let manifest = r#"{
+          "scripts": {
+            "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11",
+            "start:desktop": "electron ."
+          }
+        }"#;
+
+        assert_eq!(
+            select_manifest_script_recovery_candidate(
+                "What npm script launches the desktop app in this repo?",
+                manifest,
+            ),
+            Some(ManifestScriptRecoveryCandidate {
+                name: "dev:desktop".to_string(),
+                command: "bash apps/autopilot/scripts/dev-desktop.sh x11".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn select_manifest_script_recovery_candidate_prefers_primary_desktop_script_over_variants() {
+        let manifest = r#"{
+          "scripts": {
+            "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11",
+            "dev:desktop:wayland": "bash apps/autopilot/scripts/dev-desktop.sh wayland",
+            "dryrun:desktop": "bash apps/autopilot/scripts/dry-run-desktop.sh x11"
+          }
+        }"#;
+
+        assert_eq!(
+            select_manifest_script_recovery_candidate(
+                "What npm script launches the desktop app in this repo?",
+                manifest,
+            ),
+            Some(ManifestScriptRecoveryCandidate {
+                name: "dev:desktop".to_string(),
+                command: "bash apps/autopilot/scripts/dev-desktop.sh x11".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn manifest_read_terminalization_emits_desktop_script_reply() {
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "What npm script launches the desktop app in this repo?".to_string();
+        agent_state.resolved_intent = Some(workspace_ops_intent());
+
+        let manifest = r#"{
+          "scripts": {
+            "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11",
+            "dev:desktop:wayland": "bash apps/autopilot/scripts/dev-desktop.sh wayland"
+          }
+        }"#;
+
+        assert_eq!(
+            maybe_terminalize_workspace_package_manifest_read(
+                &agent_state,
+                "file__read",
+                Some(manifest),
+            ),
+            Some(
+                "In `package.json`, the npm script that launches the desktop app is `dev:desktop`. It runs `bash apps/autopilot/scripts/dev-desktop.sh x11`.".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn workspace_package_manifest_recovery_enqueues_read_then_reply_on_first_no_effect() {
+        let dir = std::env::temp_dir().join(format!(
+            "ioi-package-manifest-recovery-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock should be available")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).expect("temp dir should be created");
+        std::fs::write(
+            dir.join("package.json"),
+            r#"{
+              "scripts": {
+                "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11"
+              }
+            }"#,
+        )
+        .expect("package.json should be written");
+
+        let mut agent_state = test_agent_state();
+        agent_state.goal = "What npm script launches the desktop app in this repo?".to_string();
+        agent_state.resolved_intent = Some(workspace_ops_intent());
+        agent_state.working_directory = dir.to_string_lossy().to_string();
+
+        let queued = maybe_enqueue_workspace_package_manifest_recovery(
+            &mut agent_state,
+            [7u8; 32],
+            FailureClass::NoEffectAfterAction,
+            "file__list",
+        )
+        .expect("recovery enqueue should succeed");
+
+        assert!(queued);
+        assert_eq!(agent_state.execution_queue.len(), 2);
+
+        let read_tool = queue_action_request_to_tool(&agent_state.execution_queue[0])
+            .expect("queued read should decode");
+        let reply_tool = queue_action_request_to_tool(&agent_state.execution_queue[1])
+            .expect("queued reply should decode");
+
+        match read_tool {
+            AgentTool::FsRead { path } => assert_eq!(path, "./package.json"),
+            other => panic!("expected FsRead recovery tool, got {:?}", other),
+        }
+        match reply_tool {
+            AgentTool::ChatReply { message } => {
+                assert!(message.contains("`dev:desktop`"));
+                assert!(message.contains("dev-desktop.sh x11"));
+            }
+            other => panic!("expected ChatReply recovery tool, got {:?}", other),
+        }
+
+        let _ = std::fs::remove_file(dir.join("package.json"));
+        let _ = std::fs::remove_dir(dir);
     }
 }

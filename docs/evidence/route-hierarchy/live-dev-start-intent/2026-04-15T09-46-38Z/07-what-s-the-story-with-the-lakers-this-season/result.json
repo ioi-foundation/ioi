@@ -1,0 +1,1920 @@
+{
+  "captured_at": "2026-04-15T09:53:47.080300+00:00",
+  "prompt": "What's the story with the Lakers this season?",
+  "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-dev-start-intent/2026-04-15T09-46-38Z/07-what-s-the-story-with-the-lakers-this-season/final.png",
+  "window_id": 20971532,
+  "window_capture_error": null,
+  "task": {
+    "id": "36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+    "intent": "What's the story with the Lakers this season?",
+    "agent": "Autopilot",
+    "phase": "Complete",
+    "progress": 20,
+    "total_steps": 20,
+    "current_step": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- 2026 NBA playoffs: Schedule, scores, news and highlights\n- Redick gives no Doncic update as Lakers' playoff prep begins\n- Nike's trademark filing for Bronny James' 'B9' logo denied",
+    "gate_info": null,
+    "receipt": null,
+    "visual_hash": null,
+    "pending_request_hash": null,
+    "session_id": "36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+    "credential_request": null,
+    "clarification_request": null,
+    "session_checklist": [
+      {
+        "itemId": "request",
+        "label": "Request captured",
+        "status": "completed",
+        "detail": "What's the story with the Lakers this season?",
+        "updatedAtMs": 1776246826158
+      },
+      {
+        "itemId": "execution",
+        "label": "Execution complete",
+        "status": "completed",
+        "detail": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 aw...",
+        "updatedAtMs": 1776246826158
+      },
+      {
+        "itemId": "review",
+        "label": "Review latest output",
+        "status": "completed",
+        "detail": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 aw...",
+        "updatedAtMs": 1776246826158
+      }
+    ],
+    "background_tasks": [
+      {
+        "taskId": "36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+        "sessionId": "36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+        "label": "What's the story with the Lakers this season?",
+        "status": "completed",
+        "detail": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 aw...",
+        "latestOutput": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 aw...",
+        "canStop": false,
+        "updatedAtMs": 1776246826158
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "text": "What's the story with the Lakers this season?",
+        "timestamp": 1776246825791
+      },
+      {
+        "role": "agent",
+        "text": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- 2026 NBA playoffs: Schedule, scores, news and highlights\n- Redick gives no Doncic update as Lakers' playoff prep begins\n- Nike's trademark filing for Bronny James' 'B9' logo denied",
+        "timestamp": 1776246826141
+      }
+    ],
+    "events": [
+      {
+        "event_id": "5ff1bc87-caba-4be1-a5a6-13c3e6c43907",
+        "timestamp": "2026-04-15T09:53:45.791338220+00:00",
+        "thread_id": "36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "What's the story with the Lakers this season?"
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "What's the story with the Lakers this season?"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "df47c963-b1b6-493d-a7b7-c158f4718e44",
+        "timestamp": "2026-04-15T09:53:45.840499054+00:00",
+        "thread_id": "36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+        "step_index": 1,
+        "event_type": "RECEIPT",
+        "title": "Studio route decision",
+        "digest": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:sports",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "fetch_sports_data"
+              ],
+              "projected_tools": [
+                "fetch_sports_data"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_sports",
+          "topology": "planner_specialist",
+          "verifier_outcome": null,
+          "verifier_state": "active"
+        },
+        "details": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:sports",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "fetch_sports_data"
+              ],
+              "projected_tools": [
+                "fetch_sports_data"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_sports",
+          "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the sports tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "topology": "planner_specialist",
+          "verifier_outcome": null,
+          "verifier_state": "active"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "5ff1bc87-caba-4be1-a5a6-13c3e6c43907"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "c1b1bb6d-5045-49fc-8732-2020e2cc5f16",
+        "timestamp": "2026-04-15T09:53:46.141416768+00:00",
+        "thread_id": "36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+        "step_index": 2,
+        "event_type": "RECEIPT",
+        "title": "Studio reply completed",
+        "digest": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:sports",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "fetch_sports_data"
+              ],
+              "projected_tools": [
+                "fetch_sports_data"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_sports",
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "details": {
+          "planner_authority": "kernel",
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:sports",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "fetch_sports_data"
+              ],
+              "projected_tools": [
+                "fetch_sports_data"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_sports",
+          "summary": "Studio completed the sports tool-widget route directly and preserved the final route contract.",
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "df47c963-b1b6-493d-a7b7-c158f4718e44"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "c6a6ef1d-be87-4104-8447-dbb732cda2b4",
+        "created_at": "2026-04-15T09:53:45.791470555+00:00",
+        "thread_id": "36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/c6a6ef1d-be87-4104-8447-dbb732cda2b4",
+        "metadata": {
+          "refs": [],
+          "run_id": "36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      }
+    ],
+    "studio_session": {
+      "sessionId": "56819fdd-8a5b-4ac7-9522-37343c23e6d5",
+      "threadId": "36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+      "artifactId": "aef6f75b-918c-41c4-9065-c5606e700c01",
+      "title": "Tool widget route \u00b7 What's the story with the Lakers this season?",
+      "summary": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- 2026 NBA playoffs: Schedule, scores, news and highlights\n- Redick gives no Doncic update as Lakers' playoff prep begins\n- Nike's trademark filing for Bronny James' 'B9' logo denied",
+      "currentLens": "source",
+      "navigatorBackingMode": "logical",
+      "navigatorNodes": [
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": null,
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "attachedArtifactIds": [],
+      "availableLenses": [
+        "source",
+        "evidence"
+      ],
+      "materialization": {
+        "version": 7,
+        "requestKind": "tool_widget",
+        "normalizedIntent": "What's the story with the Lakers this season?",
+        "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the sports tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+        "artifactBrief": null,
+        "preparationNeeds": null,
+        "preparedContextResolution": null,
+        "skillDiscoveryResolution": null,
+        "blueprint": null,
+        "artifactIr": null,
+        "selectedSkills": [],
+        "retrievedExemplars": [],
+        "editIntent": null,
+        "candidateSummaries": [],
+        "winningCandidateId": null,
+        "winningCandidateRationale": null,
+        "executionEnvelope": {
+          "version": 1,
+          "strategy": "plan_execute",
+          "modeDecision": {
+            "requestedStrategy": "plan_execute",
+            "resolvedStrategy": "plan_execute",
+            "modeConfidence": 0.98050004,
+            "oneShotSufficiency": 0.86249995,
+            "ambiguity": 0.029999971,
+            "workGraphSizeEstimate": 1,
+            "hiddenDependencyLikelihood": 0.25,
+            "verificationPressure": 0.2,
+            "revisionCost": 0.2,
+            "evidenceBreadth": 0.15,
+            "mergeBurden": 0.15,
+            "decompositionPayoff": 0.13250001,
+            "workGraphRequired": false,
+            "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            }
+          },
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          },
+          "executionDomain": "studio_tool_widget",
+          "domainKind": "tool_widget",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "satisfiedVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": false
+          },
+          "plan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "executionSummary": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "workerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-15T09:53:45.840099940+00:00",
+              "finishedAt": "2026-04-15T09:53:45.840099940+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-15T09:53:45.840099940+00:00",
+              "finishedAt": "2026-04-15T09:53:45.840099940+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:sports \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "changeReceipts": [],
+          "mergeReceipts": [],
+          "verificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "graphMutationReceipts": [],
+          "dispatchBatches": [],
+          "repairReceipts": [],
+          "replanReceipts": [],
+          "budgetSummary": {
+            "plannedWorkerCount": 2,
+            "dispatchedWorkerCount": 2,
+            "tokenBudget": null,
+            "tokenUsage": null,
+            "wallClockMs": null,
+            "coordinationOverheadMs": null,
+            "status": "completed"
+          },
+          "livePreviews": []
+        },
+        "swarmPlan": {
+          "version": 1,
+          "strategy": "plan_execute",
+          "executionDomain": "studio_tool_widget",
+          "adapterLabel": "tool_widget_plan_execute_v1",
+          "parallelismMode": "sequential_by_default",
+          "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+          "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+          "decompositionType": "small_graph_functional_decomposition",
+          "firstFrontierIds": [
+            "handoff"
+          ],
+          "spawnConditions": [
+            "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+          ],
+          "pruneConditions": [
+            "Prune clarification work once the reply handoff is already unblocked."
+          ],
+          "mergeStrategy": "deterministic_reply_surface_projection",
+          "verificationStrategy": "route_truth_before_reply",
+          "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_truth"
+            ],
+            "satisfiedVerificationIds": [
+              "route_truth"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": true
+          },
+          "workItems": [
+            {
+              "id": "planner",
+              "title": "Outcome planner",
+              "role": "planner",
+              "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Outcome route is explicit.",
+                "Execution strategy is explicit."
+              ],
+              "dependencyIds": [],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            },
+            {
+              "id": "handoff",
+              "title": "Tool-widget handoff",
+              "role": "responder",
+              "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Studio reply remains truthful about the chosen surface.",
+                "No artifact renderer is implied when none was invoked."
+              ],
+              "dependencyIds": [
+                "planner"
+              ],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            }
+          ]
+        },
+        "swarmExecution": {
+          "enabled": true,
+          "currentStage": "reply",
+          "executionStage": "finalize",
+          "activeWorkerRole": null,
+          "totalWorkItems": 2,
+          "completedWorkItems": 2,
+          "failedWorkItems": 0,
+          "verificationStatus": "ready",
+          "strategy": "plan_execute",
+          "executionDomain": "studio_tool_widget",
+          "adapterLabel": "tool_widget_plan_execute_v1",
+          "parallelismMode": "sequential_by_default"
+        },
+        "swarmWorkerReceipts": [
+          {
+            "workItemId": "planner",
+            "role": "planner",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Selected the tool_widget route with the plan_execute strategy.",
+            "startedAt": "2026-04-15T09:53:45.840099940+00:00",
+            "finishedAt": "2026-04-15T09:53:45.840099940+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "route_context"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "No artifact files were requested on this route.",
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "failure": null
+          },
+          {
+            "workItemId": "handoff",
+            "role": "responder",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+            "startedAt": "2026-04-15T09:53:45.840099940+00:00",
+            "finishedAt": "2026-04-15T09:53:45.840099940+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "execution_plan"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+              "tool_widget:sports \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+            ],
+            "failure": null
+          }
+        ],
+        "swarmChangeReceipts": [],
+        "swarmMergeReceipts": [],
+        "swarmVerificationReceipts": [
+          {
+            "id": "route_verification",
+            "kind": "route_verification",
+            "status": "ready",
+            "summary": "Studio verified that this request belongs on the tool-widget surface.",
+            "details": [
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ]
+          },
+          {
+            "id": "reply_surface",
+            "kind": "reply_surface",
+            "status": "ready",
+            "summary": "The shared reply lane remains available and no artifact renderer is required.",
+            "details": [
+              "strategy:plan_execute",
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ]
+          }
+        ],
+        "renderEvaluation": null,
+        "judge": null,
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "fallbackUsed": false,
+        "uxLifecycle": "judged",
+        "failure": null,
+        "navigatorNodes": [
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "description": "Inspect the source form of the artifact.",
+            "badge": null,
+            "status": null,
+            "lens": "source",
+            "path": null,
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "fileWrites": [],
+        "commandIntents": [],
+        "previewIntent": null,
+        "verificationSteps": [
+          {
+            "id": "route",
+            "label": "Verify route",
+            "kind": "route",
+            "status": "success"
+          },
+          {
+            "id": "reply_surface",
+            "label": "Verify reply surface",
+            "kind": "reply_surface",
+            "status": "success"
+          }
+        ],
+        "pipelineSteps": [
+          {
+            "id": "intake",
+            "stage": "plan",
+            "label": "Intake",
+            "status": "complete",
+            "summary": "Studio captured the request and preserved it as a typed outcome turn.",
+            "outputs": [
+              "What's the story with the Lakers this season?"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "routing",
+            "stage": "dispatch",
+            "label": "Outcome routing",
+            "status": "complete",
+            "summary": "The typed router intentionally kept this request on the tool widget surface.",
+            "outputs": [
+              "tool_widget",
+              "tool_widget",
+              "strategy:plan_execute",
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "planner",
+            "stage": "plan",
+            "label": "Planner",
+            "status": "complete",
+            "summary": "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+            "outputs": [
+              "plan_execute",
+              "work_items:2",
+              "sequential_by_default"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "swarm_execution",
+            "stage": "work",
+            "label": "Shared execution",
+            "status": "complete",
+            "summary": "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+            "outputs": [
+              "worker_receipts:2",
+              "progress:2/2",
+              "adapter:tool_widget_plan_execute_v1"
+            ],
+            "verificationGate": "Shared execution receipts must remain truthful about the active outcome surface."
+          },
+          {
+            "id": "verification",
+            "stage": "verify",
+            "label": "Verification",
+            "status": "complete",
+            "summary": "Studio verified the selected non-artifact route before composing the reply state.",
+            "outputs": [
+              "route_verification (ready)",
+              "reply_surface (ready)"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          },
+          {
+            "id": "reply",
+            "stage": "finalize",
+            "label": "Reply",
+            "status": "complete",
+            "summary": "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+            "outputs": [
+              "Studio routed this request to a tool-widget surface. The request maps cleanly to the sports tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "tool_widget:sports",
+              "narrow_surface_preferred",
+              "no_persistent_artifact_requested"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          }
+        ],
+        "runtimeNarrationEvents": [],
+        "notes": [
+          "Studio intentionally kept this request off the artifact materialization path.",
+          "The shared execution envelope still records plan, worker, and verification state.",
+          "No renderer-specific fallback artifact was injected for this route.",
+          "routing_hints:tool_widget:sports | narrow_surface_preferred | no_persistent_artifact_requested",
+          "Route family: research",
+          "Output intent: tool_execution",
+          "Projected surface: fetch_sports_data"
+        ]
+      },
+      "outcomeRequest": {
+        "requestId": "1dd7aeee-440c-4927-98a7-913b988603ce",
+        "rawPrompt": "What's the story with the Lakers this season?",
+        "activeArtifactId": null,
+        "outcomeKind": "tool_widget",
+        "executionStrategy": "plan_execute",
+        "executionModeDecision": {
+          "requestedStrategy": "plan_execute",
+          "resolvedStrategy": "plan_execute",
+          "modeConfidence": 0.98050004,
+          "oneShotSufficiency": 0.86249995,
+          "ambiguity": 0.029999971,
+          "workGraphSizeEstimate": 1,
+          "hiddenDependencyLikelihood": 0.25,
+          "verificationPressure": 0.2,
+          "revisionCost": 0.2,
+          "evidenceBreadth": 0.15,
+          "mergeBurden": 0.15,
+          "decompositionPayoff": 0.13250001,
+          "workGraphRequired": false,
+          "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          }
+        },
+        "confidence": 0.97,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": [
+          "tool_widget:sports",
+          "narrow_surface_preferred",
+          "no_persistent_artifact_requested"
+        ],
+        "artifact": null
+      },
+      "artifactManifest": {
+        "artifactId": "aef6f75b-918c-41c4-9065-c5606e700c01",
+        "title": "Tool widget route \u00b7 What's the story with the Lakers this season?",
+        "artifactClass": "report_bundle",
+        "renderer": "bundle_manifest",
+        "primaryTab": "source",
+        "tabs": [
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "renderer": null,
+            "filePath": null,
+            "lens": "source"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the sports tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null
+        },
+        "storage": null
+      },
+      "verifiedReply": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "title": "Tool widget route \u00b7 What's the story with the Lakers this season?",
+        "summary": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- 2026 NBA playoffs: Schedule, scores, news and highlights\n- Redick gives no Doncic update as Lakers' playoff prep begins\n- Nike's trademark filing for Bronny James' 'B9' logo denied",
+        "evidence": [
+          "outcome:tool_widget",
+          "strategy:plan_execute",
+          "provenance:openai-compatible",
+          "route_hint:tool_widget:sports",
+          "route_hint:narrow_surface_preferred",
+          "route_hint:no_persistent_artifact_requested",
+          "route_execution:studio_tool_widget_sports"
+        ],
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "failure": null,
+        "updatedAt": "2026-04-15T09:53:46.141191148+00:00"
+      },
+      "lifecycleState": "ready",
+      "status": "ready",
+      "activeRevisionId": "e4765a36-befe-44a6-a3b2-3fd32ece9335",
+      "revisions": [
+        {
+          "revisionId": "e4765a36-befe-44a6-a3b2-3fd32ece9335",
+          "parentRevisionId": null,
+          "branchId": "main",
+          "branchLabel": "Main",
+          "prompt": "What's the story with the Lakers this season?",
+          "createdAt": "2026-04-15T09:53:45.840350072+00:00",
+          "uxLifecycle": "judged",
+          "artifactManifest": {
+            "artifactId": "aef6f75b-918c-41c4-9065-c5606e700c01",
+            "title": "Tool widget route \u00b7 What's the story with the Lakers this season?",
+            "artifactClass": "report_bundle",
+            "renderer": "bundle_manifest",
+            "primaryTab": "source",
+            "tabs": [
+              {
+                "id": "source",
+                "label": "Source",
+                "kind": "source",
+                "renderer": null,
+                "filePath": null,
+                "lens": "source"
+              },
+              {
+                "id": "evidence",
+                "label": "Evidence",
+                "kind": "evidence",
+                "renderer": null,
+                "filePath": null,
+                "lens": "evidence"
+              }
+            ],
+            "files": [],
+            "verification": {
+              "status": "ready",
+              "lifecycleState": "ready",
+              "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the sports tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "productionProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "acceptanceProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "failure": null
+            },
+            "storage": null
+          },
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "modeDecision": {
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "plan_execute",
+              "modeConfidence": 0.98050004,
+              "oneShotSufficiency": 0.86249995,
+              "ambiguity": 0.029999971,
+              "workGraphSizeEstimate": 1,
+              "hiddenDependencyLikelihood": 0.25,
+              "verificationPressure": 0.2,
+              "revisionCost": 0.2,
+              "evidenceBreadth": 0.15,
+              "mergeBurden": 0.15,
+              "decompositionPayoff": 0.13250001,
+              "workGraphRequired": false,
+              "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 180000,
+                "maxTokens": 8192,
+                "maxToolCalls": 4,
+                "maxRepairs": 1,
+                "expansionPolicy": "fixed"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            },
+            "executionDomain": "studio_tool_widget",
+            "domainKind": "tool_widget",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "satisfiedVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": false
+            },
+            "plan": {
+              "version": 1,
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Tool-widget handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "executionSummary": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "workerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the tool_widget route with the plan_execute strategy.",
+                "startedAt": "2026-04-15T09:53:45.840099940+00:00",
+                "finishedAt": "2026-04-15T09:53:45.840099940+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "tool_widget:sports",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-15T09:53:45.840099940+00:00",
+                "finishedAt": "2026-04-15T09:53:45.840099940+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "tool_widget:sports \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+                ],
+                "failure": null
+              }
+            ],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the tool-widget surface.",
+                "details": [
+                  "tool_widget:sports",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:plan_execute",
+                  "tool_widget:sports",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              }
+            ],
+            "graphMutationReceipts": [],
+            "dispatchBatches": [],
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "budgetSummary": {
+              "plannedWorkerCount": 2,
+              "dispatchedWorkerCount": 2,
+              "tokenBudget": null,
+              "tokenUsage": null,
+              "wallClockMs": null,
+              "coordinationOverheadMs": null,
+              "status": "completed"
+            },
+            "livePreviews": []
+          },
+          "swarmPlan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "swarmExecution": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "swarmWorkerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-15T09:53:45.840099940+00:00",
+              "finishedAt": "2026-04-15T09:53:45.840099940+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-15T09:53:45.840099940+00:00",
+              "finishedAt": "2026-04-15T09:53:45.840099940+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:sports \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:sports",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null,
+          "fileWrites": [],
+          "tasteMemory": null,
+          "selectedTargets": []
+        }
+      ],
+      "tasteMemory": null,
+      "retrievedExemplars": [],
+      "selectedTargets": [],
+      "uxLifecycle": "judged",
+      "createdAt": "2026-04-15T09:53:45.840284078+00:00",
+      "updatedAt": "2026-04-15T09:53:46.141191148+00:00",
+      "buildSessionId": null,
+      "workspaceRoot": null,
+      "rendererSessionId": null
+    },
+    "studio_outcome": {
+      "requestId": "1dd7aeee-440c-4927-98a7-913b988603ce",
+      "rawPrompt": "What's the story with the Lakers this season?",
+      "activeArtifactId": null,
+      "outcomeKind": "tool_widget",
+      "executionStrategy": "plan_execute",
+      "executionModeDecision": {
+        "requestedStrategy": "plan_execute",
+        "resolvedStrategy": "plan_execute",
+        "modeConfidence": 0.98050004,
+        "oneShotSufficiency": 0.86249995,
+        "ambiguity": 0.029999971,
+        "workGraphSizeEstimate": 1,
+        "hiddenDependencyLikelihood": 0.25,
+        "verificationPressure": 0.2,
+        "revisionCost": 0.2,
+        "evidenceBreadth": 0.15,
+        "mergeBurden": 0.15,
+        "decompositionPayoff": 0.13250001,
+        "workGraphRequired": false,
+        "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+        "budgetEnvelope": {
+          "maxWorkers": 1,
+          "maxParallelDepth": 1,
+          "maxReplans": 0,
+          "maxWallClockMs": 180000,
+          "maxTokens": 8192,
+          "maxToolCalls": 4,
+          "maxRepairs": 1,
+          "expansionPolicy": "fixed"
+        }
+      },
+      "confidence": 0.97,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "routingHints": [
+        "tool_widget:sports",
+        "narrow_surface_preferred",
+        "no_persistent_artifact_requested"
+      ],
+      "artifact": null
+    },
+    "renderer_session": null,
+    "build_session": null,
+    "run_bundle_id": "c6a6ef1d-be87-4104-8447-dbb732cda2b4",
+    "swarm_tree": [],
+    "generation": 0,
+    "lineage_id": "genesis",
+    "fitness_score": 0.0
+  },
+  "route_receipt_summary": {
+    "title": "Studio route decision",
+    "selected_route": "tool_widget_sports",
+    "route_family": "research",
+    "planner_authority": "kernel",
+    "verifier_state": "active",
+    "artifact_class": null,
+    "route_decision": {
+      "artifact_output_intent": false,
+      "connector_candidate_count": 0,
+      "connector_first_preference": false,
+      "currentness_override": false,
+      "direct_answer_allowed": false,
+      "direct_answer_blockers": [
+        "tool_widget_surface_selected"
+      ],
+      "effective_tool_surface": {
+        "broad_fallback_tools": [],
+        "diagnostic_tools": [
+          "route_hint:tool_widget:sports",
+          "route_hint:narrow_surface_preferred",
+          "route_hint:no_persistent_artifact_requested"
+        ],
+        "primary_tools": [
+          "fetch_sports_data"
+        ],
+        "projected_tools": [
+          "fetch_sports_data"
+        ]
+      },
+      "file_output_intent": false,
+      "inline_visual_intent": false,
+      "narrow_tool_preference": true,
+      "output_intent": "tool_execution",
+      "route_family": "research",
+      "selected_provider_family": null,
+      "selected_provider_route_label": null,
+      "skill_prep_required": false
+    },
+    "artifact_manifest_summary": {
+      "title": null,
+      "renderer": null,
+      "primary_tab": null,
+      "tabs": [],
+      "lifecycle_state": null,
+      "verification_status": null,
+      "verification_summary": null
+    }
+  },
+  "latest_agent_message": "Los Angeles Lakers are 53-29 and ESPN currently lists them as 1st in Pacific Division.\nSplit: 28-13 at home and 25-16 away.\nNext listed game: Houston Rockets at Los Angeles Lakers.\nRecent headlines:\n- 2026 NBA playoffs: Schedule, scores, news and highlights\n- Redick gives no Doncic update as Lakers' playoff prep begins\n- Nike's trademark filing for Bronny James' 'B9' logo denied",
+  "log_tail": [
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: field `log_path` is never read\u001b[0m",
+    "  \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/studio/workspace_build.rs:33:5",
+    "   \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m31\u001b[0m \u001b[1m\u001b[94m|\u001b[0m struct StudioPreviewProcess {",
+    "   \u001b[1m\u001b[94m|\u001b[0m        \u001b[1m\u001b[94m--------------------\u001b[0m \u001b[1m\u001b[94mfield in this struct\u001b[0m",
+    "\u001b[1m\u001b[94m32\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     child: Child,",
+    "\u001b[1m\u001b[94m33\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     log_path: PathBuf,",
+    "   \u001b[1m\u001b[94m|\u001b[0m     \u001b[1m\u001b[33m^^^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: methods `id` and `label` are never used\u001b[0m",
+    "  \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/studio/workspace_scaffold.rs:79:8",
+    "   \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m78\u001b[0m \u001b[1m\u001b[94m|\u001b[0m impl StudioStaticHtmlArchetype {",
+    "   \u001b[1m\u001b[94m|\u001b[0m \u001b[1m\u001b[94m------------------------------\u001b[0m \u001b[1m\u001b[94mmethods in this implementation\u001b[0m",
+    "\u001b[1m\u001b[94m79\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     fn id(self) -> &'static str {",
+    "   \u001b[1m\u001b[94m|\u001b[0m        \u001b[1m\u001b[33m^^\u001b[0m",
+    "\u001b[1m\u001b[94m...\u001b[0m",
+    "\u001b[1m\u001b[94m88\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     fn label(self) -> &'static str {",
+    "   \u001b[1m\u001b[94m|\u001b[0m        \u001b[1m\u001b[33m^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: struct `ReceiptDigest` is never constructed\u001b[0m",
+    "   \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/models.rs:838:12",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m838\u001b[0m \u001b[1m\u001b[94m|\u001b[0m pub struct ReceiptDigest {",
+    "    \u001b[1m\u001b[94m|\u001b[0m            \u001b[1m\u001b[33m^^^^^^^^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: method `resize` is never used\u001b[0m",
+    "   \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/workspace.rs:600:19",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m573\u001b[0m \u001b[1m\u001b[94m|\u001b[0m impl WorkspaceTerminalBridge {",
+    "    \u001b[1m\u001b[94m|\u001b[0m \u001b[1m\u001b[94m----------------------------\u001b[0m \u001b[1m\u001b[94mmethod in this implementation\u001b[0m",
+    "\u001b[1m\u001b[94m...\u001b[0m",
+    "\u001b[1m\u001b[94m600\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     pub(crate) fn resize(&self, cols: u16, rows: u16) -> Result<(), String> {",
+    "    \u001b[1m\u001b[94m|\u001b[0m                   \u001b[1m\u001b[33m^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m: `autopilot` (lib) generated 17 warnings",
+    "\u001b[1m\u001b[92m    Finished\u001b[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.60s",
+    "\u001b[1m\u001b[33mwarning\u001b[0m: the following packages contain code that will be rejected by a future version of Rust: imap-proto v0.10.2, xcap v0.0.14",
+    "\u001b[1m\u001b[92mnote\u001b[0m: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`",
+    "\u001b[1m\u001b[92m     Running\u001b[0m `/home/heathledger/Documents/ioi/repos/ioi/target/debug/autopilot`",
+    "[Autopilot] X11 threading initialized",
+    "[Autopilot] Display env: XDG_SESSION_TYPE='x11' WAYLAND_DISPLAY='' GDK_BACKEND='x11' WINIT_UNIX_BACKEND='x11'",
+    "[Autopilot] Initializing...",
+    "[Studio] Using Autopilot data profile 'desktop-localgpu' at /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu",
+    "--- Encrypting New Secure Key ---",
+    "[Studio] Initialized memory runtime.",
+    "[Studio] Skipping wallet-backed connector bootstrap for this local dev profile.",
+    "[Studio] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety.",
+    "[Studio] Set IOI_STUDIO_MCP_PROFILE=dev_filesystem to opt in.",
+    "[Autopilot] Setup complete.",
+    "[Autopilot] Connected to Kernel Event Stream at http://127.0.0.1:9000",
+    "[Autopilot] Event Stream Active \u2705",
+    "[Autopilot] Block #63 committed (Tx: 0)",
+    "[Autopilot] Block #64 committed (Tx: 0)",
+    "[Autopilot] Block #65 committed (Tx: 0)",
+    "[Autopilot] Block #66 committed (Tx: 0)",
+    "[Autopilot] Block #67 committed (Tx: 0)",
+    "[Autopilot] Block #68 committed (Tx: 0)",
+    "[Autopilot] Block #69 committed (Tx: 0)",
+    "[Autopilot] Block #70 committed (Tx: 0)",
+    "[Autopilot] Block #71 committed (Tx: 0)",
+    "[Autopilot] Block #72 committed (Tx: 0)",
+    "[Autopilot] Block #73 committed (Tx: 0)",
+    "[Autopilot] Block #74 committed (Tx: 0)",
+    "[Autopilot] Block #75 committed (Tx: 0)",
+    "[Autopilot] Block #76 committed (Tx: 0)",
+    "[Autopilot] Block #77 committed (Tx: 0)",
+    "[Autopilot] Block #78 committed (Tx: 0)",
+    "[Autopilot] Block #79 committed (Tx: 0)",
+    "[Autopilot] Block #80 committed (Tx: 0)",
+    "[Autopilot] Block #81 committed (Tx: 0)",
+    "[Autopilot] Block #82 committed (Tx: 0)",
+    "[Autopilot] Block #83 committed (Tx: 0)",
+    "[Autopilot] Block #84 committed (Tx: 0)",
+    "[Autopilot] Block #85 committed (Tx: 0)",
+    "[Autopilot] Block #86 committed (Tx: 0)",
+    "[Autopilot] Block #87 committed (Tx: 0)",
+    "[Autopilot] Block #88 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+    "[Autopilot][StudioLaunch] stage=queued detail={\"launch\":{\"launchId\":\"9c7c0ab4-6c19-4124-b6ec-c1e7238c0ff2\",\"request\":{\"intent\":\"What's the story with the Lakers this season?\",\"kind\":\"autopilot-intent\"}}}",
+    "[Autopilot][StudioLaunch] stage=show_target_requested detail={\"launch\":{\"launchId\":\"9c7c0ab4-6c19-4124-b6ec-c1e7238c0ff2\",\"request\":{\"intent\":\"What's the story with the Lakers this season?\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=show_requested detail={\"maximizedBefore\":false,\"minimizedBefore\":false,\"visibleBefore\":false,\"windowExistedBefore\":true,\"windowLabel\":\"studio\"}",
+    "[Autopilot] Block #89 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+    "[Autopilot] Surfacing 'studio' (task_switcher=true, visible=Ok(true), minimized=Ok(false))",
+    "[Autopilot][StudioLaunch] stage=show_surfaced detail={\"maximizedAfter\":false,\"minimizedAfter\":false,\"recreatedWindow\":false,\"visibleAfter\":true,\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=show_target_emitted detail={\"launch\":{\"launchId\":\"9c7c0ab4-6c19-4124-b6ec-c1e7238c0ff2\",\"request\":{\"intent\":\"What's the story with the Lakers this season?\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=studio_launch_event_received detail={\"kind\":\"autopilot-intent\",\"launchId\":\"9c7c0ab4-6c19-4124-b6ec-c1e7238c0ff2\",\"request\":{\"intent\":\"What's the story with the Lakers this season?\",\"kind\":\"autopilot-intent\"}}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_applying detail={\"kind\":\"autopilot-intent\",\"launchId\":\"9c7c0ab4-6c19-4124-b6ec-c1e7238c0ff2\",\"request\":{\"intent\":\"What's the story with the Lakers this season?\",\"kind\":\"autopilot-intent\"},\"source\":\"event\"}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_applied detail={\"intent\":\"What's the story with the Lakers this season?\",\"kind\":\"autopilot-intent\",\"launchId\":\"9c7c0ab4-6c19-4124-b6ec-c1e7238c0ff2\",\"source\":\"event\"}",
+    "[Autopilot][StudioLaunch] stage=acked detail={\"hadPendingRequest\":true,\"launch\":{\"launchId\":\"9c7c0ab4-6c19-4124-b6ec-c1e7238c0ff2\",\"request\":{\"intent\":\"What's the story with the Lakers this season?\",\"kind\":\"autopilot-intent\"}},\"launchId\":\"9c7c0ab4-6c19-4124-b6ec-c1e7238c0ff2\"}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_requested detail={\"intentLength\":45}",
+    "[Autopilot] Block #90 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_dispatching detail={\"intentLength\":45}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_called detail={\"intentLength\":45}",
+    "[Autopilot] Block #91 committed (Tx: 0)",
+    "[Autopilot] Block #92 committed (Tx: 0)",
+    "[Autopilot] start_task invoked origin_surface=studio intent_len=45",
+    "[Autopilot] start_task workflow expansion ready for 36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff",
+    "[Autopilot] start_task knowledge injection ready for 36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff attached=false",
+    "[Autopilot] Block #93 committed (Tx: 0)",
+    "[Autopilot] start_task initial task saved 36eb1cc0ebc54166a1d476802b683e41e76774e5ff244adda1e3d1fb261a6aff phase=Running",
+    "[Autopilot] Block #94 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_resolved detail={\"intentLength\":45}",
+    "[Kernel] Session projection refreshed via block#94 (1 sessions)",
+    "[Autopilot] Block #95 committed (Tx: 0)",
+    "[Autopilot] Block #96 committed (Tx: 0)",
+    "[Autopilot] Block #97 committed (Tx: 0)",
+    "[Autopilot] Block #98 committed (Tx: 0)",
+    "[Autopilot] Block #99 committed (Tx: 0)",
+    "[Autopilot] Block #100 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#100 (1 sessions)",
+    "[Autopilot] Block #101 committed (Tx: 0)",
+    "[Autopilot] Block #102 committed (Tx: 0)",
+    "[Autopilot] Block #103 committed (Tx: 0)",
+    "[Autopilot] Block #104 committed (Tx: 0)",
+    "[Autopilot] Block #105 committed (Tx: 0)",
+    "[Autopilot] Block #106 committed (Tx: 0)",
+    "[Autopilot] Block #107 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}"
+  ]
+}

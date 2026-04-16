@@ -1,3 +1,6 @@
+import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useState } from "react";
 import {
   type WorkspaceActivityEntry,
@@ -36,6 +39,26 @@ function payloadText(payload?: ArtifactContentPayload | null): string {
   return payload.content;
 }
 
+function decodeDataUriText(uri?: string | null): string {
+  if (!uri || !uri.startsWith("data:")) {
+    return "";
+  }
+  const commaIndex = uri.indexOf(",");
+  if (commaIndex < 0) {
+    return "";
+  }
+  const meta = uri.slice(5, commaIndex);
+  const content = uri.slice(commaIndex + 1);
+  try {
+    if (meta.includes(";base64")) {
+      return window.atob(content);
+    }
+    return decodeURIComponent(content);
+  } catch {
+    return "";
+  }
+}
+
 function payloadDataUri(
   payload: ArtifactContentPayload | null | undefined,
   mime: string | undefined,
@@ -46,6 +69,20 @@ function payloadDataUri(
     return `data:${resolvedMime};base64,${payload.content}`;
   }
   return `data:${resolvedMime};charset=utf-8,${encodeURIComponent(payload.content)}`;
+}
+
+function isTextLikeMime(mime: string | undefined): boolean {
+  if (!mime) {
+    return true;
+  }
+  const normalized = mime.toLowerCase();
+  return (
+    normalized.startsWith("text/") ||
+    normalized.includes("json") ||
+    normalized.includes("javascript") ||
+    normalized.includes("xml") ||
+    normalized === "image/svg+xml"
+  );
 }
 
 function clampSelection(selection: string): string {
@@ -186,16 +223,31 @@ export function ArtifactRendererHost({
   rendererSession,
   onAttachSelection,
 }: ArtifactRendererHostProps) {
-  const text = payloadText(payload);
-  const dataUri = payloadDataUri(payload, file?.mime);
+  const text = payloadText(payload) || decodeDataUriText(file?.externalUrl);
+  const dataUri = payloadDataUri(payload, file?.mime) || file?.externalUrl || null;
   const downloadFiles = files.filter((entry) => entry.downloadable);
   const renderableFiles = files.filter((entry) => entry.renderable);
   const artifactPath = file?.path ?? renderableFiles[0]?.path ?? `${renderer}.render`;
   const [selection, setSelection] = useState("");
+  const [downloadActionPending, setDownloadActionPending] = useState<
+    "save" | "open" | null
+  >(null);
+  const [downloadActionError, setDownloadActionError] = useState<string | null>(null);
+  const selectedDownloadArtifactId = file?.artifactId ?? null;
+  const selectedDownloadPath = file?.path ?? `${title}.bin`;
+  const selectedDownloadIsBinary =
+    renderer === "download_card" &&
+    Boolean(file?.downloadable) &&
+    !isTextLikeMime(file?.mime);
 
   useEffect(() => {
     setSelection("");
   }, [artifactPath, renderer, payload?.content]);
+
+  useEffect(() => {
+    setDownloadActionPending(null);
+    setDownloadActionError(null);
+  }, [file?.artifactId, file?.path, payload?.artifact_id, renderer]);
 
   useEffect(() => {
     if (!onAttachSelection) {
@@ -216,6 +268,22 @@ export function ArtifactRendererHost({
     return () => window.removeEventListener("message", listener);
   }, [artifactPath, onAttachSelection]);
 
+  useEffect(() => {
+    const listener = (event: MessageEvent) => {
+      const payload = event.data;
+      if (!payload || payload.__studioWidgetState !== true) {
+        return;
+      }
+      const widgetState = payload.widgetState;
+      if (!widgetState || typeof widgetState !== "object" || Array.isArray(widgetState)) {
+        return;
+      }
+      void invoke("studio_attach_widget_state", { widgetState });
+    };
+    window.addEventListener("message", listener);
+    return () => window.removeEventListener("message", listener);
+  }, []);
+
   const selectionAction =
     selection && onAttachSelection ? (
       <div className="studio-artifact-render-selection">
@@ -229,6 +297,58 @@ export function ArtifactRendererHost({
         </button>
       </div>
     ) : null;
+
+  const handleSaveDownload = async () => {
+    if (!selectedDownloadArtifactId) {
+      return;
+    }
+    const outputPath = await save({
+      title: `Save ${selectedDownloadPath}`,
+      defaultPath: selectedDownloadPath,
+    });
+    if (!outputPath) {
+      return;
+    }
+    setDownloadActionPending("save");
+    setDownloadActionError(null);
+    try {
+      await invoke<string>("save_artifact_content", {
+        artifactId: selectedDownloadArtifactId,
+        artifact_id: selectedDownloadArtifactId,
+        outputPath,
+        output_path: outputPath,
+      });
+    } catch (error) {
+      setDownloadActionError(
+        error instanceof Error ? error.message : "Failed to save artifact.",
+      );
+    } finally {
+      setDownloadActionPending(null);
+    }
+  };
+
+  const handleOpenDownload = async () => {
+    if (!selectedDownloadArtifactId) {
+      return;
+    }
+    setDownloadActionPending("open");
+    setDownloadActionError(null);
+    try {
+      const tempPath = await invoke<string>("materialize_artifact_content_to_temp", {
+        artifactId: selectedDownloadArtifactId,
+        artifact_id: selectedDownloadArtifactId,
+        suggestedName: selectedDownloadPath,
+        suggested_name: selectedDownloadPath,
+      });
+      await openPath(tempPath);
+    } catch (error) {
+      setDownloadActionError(
+        error instanceof Error ? error.message : "Failed to open artifact.",
+      );
+    } finally {
+      setDownloadActionPending(null);
+    }
+  };
 
   if (renderer === "workspace_surface") {
     if (rendererSession?.previewUrl) {
@@ -388,6 +508,26 @@ export function ArtifactRendererHost({
                 {downloadFiles.length} download{downloadFiles.length === 1 ? "" : "s"}
               </span>
               {file?.path ? <span className="studio-artifact-chip">{file.path}</span> : null}
+              {selectedDownloadArtifactId ? (
+                <button
+                  type="button"
+                  className="studio-artifact-stage-button"
+                  disabled={downloadActionPending !== null}
+                  onClick={() => void handleSaveDownload()}
+                >
+                  {downloadActionPending === "save" ? "Saving..." : "Save As..."}
+                </button>
+              ) : null}
+              {selectedDownloadArtifactId ? (
+                <button
+                  type="button"
+                  className="studio-artifact-stage-button"
+                  disabled={downloadActionPending !== null}
+                  onClick={() => void handleOpenDownload()}
+                >
+                  {downloadActionPending === "open" ? "Opening..." : "Open In Default App"}
+                </button>
+              ) : null}
             </div>
           </header>
 
@@ -402,7 +542,16 @@ export function ArtifactRendererHost({
             </section>
 
             <section className="studio-artifact-download-preview">
-              {text ? (
+              {selectedDownloadIsBinary && file ? (
+                <div className="studio-artifact-renderer-empty">
+                  <strong>{file.path}</strong>
+                  <p>
+                    Studio is keeping this file as a real binary artifact instead of forcing a text
+                    preview. Save it or open it in the default desktop app.
+                  </p>
+                  <p>{file.mime}</p>
+                </div>
+              ) : text ? (
                 <pre>{text}</pre>
               ) : (
                 <div className="studio-artifact-renderer-empty">
@@ -410,6 +559,12 @@ export function ArtifactRendererHost({
                   <p>Source previews open in the stage while the download surface stays primary.</p>
                 </div>
               )}
+              {downloadActionError ? (
+                <div className="studio-artifact-renderer-empty">
+                  <strong>Artifact action failed.</strong>
+                  <p>{downloadActionError}</p>
+                </div>
+              ) : null}
             </section>
           </div>
         </div>

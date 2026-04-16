@@ -473,7 +473,7 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
     ]))
 }
 
-pub(super) fn build_studio_artifact_direct_author_continuation_prompt_for_runtime(
+pub(crate) fn build_studio_artifact_direct_author_continuation_prompt_for_runtime(
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
@@ -483,6 +483,20 @@ pub(super) fn build_studio_artifact_direct_author_continuation_prompt_for_runtim
     latest_error: &str,
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> serde_json::Value {
+    fn continuation_partial_document_context(partial_document: &str) -> String {
+        let trimmed = partial_document.trim();
+        let chars = trimmed.chars().collect::<Vec<_>>();
+        if chars.len() <= 6000 {
+            return trimmed.to_string();
+        }
+
+        let head = chars.iter().take(2200).collect::<String>();
+        let tail = chars[chars.len().saturating_sub(2800)..]
+            .iter()
+            .collect::<String>();
+        format!("[document start]\n{head}\n\n[document tail]\n{tail}")
+    }
+
     let boundary = direct_author_completion_boundary(request).unwrap_or("</html>");
     let continuation_contract = match request.renderer {
         StudioRendererKind::HtmlIframe => {
@@ -495,7 +509,7 @@ pub(super) fn build_studio_artifact_direct_author_continuation_prompt_for_runtim
             "Return mode=\"suffix\" with only the missing document tail, or mode=\"full_document\" with the full corrected document when a rewrite is necessary."
         }
     };
-    let tail = live_token_stream_preview_text(partial_document, 4000);
+    let partial_document_context = continuation_partial_document_context(partial_document);
     let selected_skills_focus_text = if selected_skills.is_empty() {
         "No selected skill guidance was attached.".to_string()
     } else {
@@ -535,7 +549,7 @@ pub(super) fn build_studio_artifact_direct_author_continuation_prompt_for_runtim
                 latest_error.trim(),
                 continuation_contract,
                 boundary,
-                tail,
+                partial_document_context,
             )
         }
     ])
@@ -627,12 +641,15 @@ pub(super) fn studio_artifact_materialization_schema_contract_for_runtime(
     renderer: StudioRendererKind,
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> &'static str {
-    if renderer == StudioRendererKind::HtmlIframe && studio_modal_first_html_enabled() {
+    if renderer == StudioRendererKind::HtmlIframe
+        && studio_modal_first_html_enabled()
+        && !compact_local_html_materialization_prompt(renderer, runtime_kind)
+    {
         return "Return exactly one JSON object with this camelCase schema:\n{\n  \"summary\": <string>,\n  \"notes\": [<string>],\n  \"files\": [\n    {\n      \"path\": <string>,\n      \"mime\": <string>,\n      \"role\": \"primary\" | \"source\" | \"export\" | \"supporting\",\n      \"renderable\": <boolean>,\n      \"downloadable\": <boolean>,\n      \"encoding\": null | \"utf8\" | \"base64\",\n      \"body\": <string>\n    }\n  ]\n}\nRules:\n1) Respect the typed renderer exactly.\n2) html_iframe => one self-contained renderable .html file with inline CSS/JS only.\n3) Use standard HTML with <body><main>...</main></body> and meaningful surfaced content.\n4) First paint must already show a complete default state for the chosen interaction grammar.\n5) Choose the interaction model that best fits the request: tabs, toggles, inspectable marks, steppers, scrubbers, sceneboards, inline simulators, annotated diagrams, or another truthful inline state-change pattern.\n6) If view switching is required, switch between authored on-page states, scenes, or sections with a visible state change; mapped panels are allowed but not mandatory.\n7) If detail inspection is required, reveal deeper context inline through captions, annotations, callouts, overlays, drawers, or contextual text; no fixed shared detail panel is required.\n8) If sequence browsing is required, expose a visible progression control on first paint such as previous/next, a stepper, a scrubber, or an evidence rail.\n9) Keep visible content in the raw HTML before scripts run; scripts may change authored state but must not create the only meaningful first-paint content from nothing.\n10) Use inline SVG, canvas, or DOM/CSS with visible labels when the brief calls for diagrams, metrics, or visual evidence.\n11) Interactive explainers must connect at least two meaningful request-grounded state changes; one isolated button, lone slider, or decorative toggle is insufficient.\n12) Controls only count when they update labeled evidence, simulation state, comparison state, or explanatory copy tied to the request concepts.\n13) Establish an intentional visual system with purposeful typography, spacing, contrast, and palette; default browser-body styling or plain white document layouts are not acceptable unless the request explicitly calls for them.\n14) Do not use alert(), dead buttons, submit-nowhere forms, navigation-only controls, placeholder copy, TODO markers, HTML comments, nonexistent DOM ids, or external libraries.\n15) Keep the artifact request-specific, refinement-faithful, and truthful rather than inventing completion.";
     }
     if compact_local_html_materialization_prompt(renderer, runtime_kind) {
         if studio_modal_first_html_enabled() {
-            return "Return exactly one JSON object with this camelCase schema:\n{\n  \"summary\": <string>,\n  \"notes\": [<string>],\n  \"files\": [\n    {\n      \"path\": <string>,\n      \"mime\": <string>,\n      \"role\": \"primary\" | \"source\" | \"export\" | \"supporting\",\n      \"renderable\": <boolean>,\n      \"downloadable\": <boolean>,\n      \"encoding\": null | \"utf8\" | \"base64\",\n      \"body\": <string>\n    }\n  ]\n}\nRules:\n1) Respect the typed renderer exactly.\n2) html_iframe => one self-contained renderable .html file with inline CSS/JS only.\n3) Use standard HTML with <body><main>...</main></body> and meaningful surfaced content.\n4) First paint must already show a complete default state for the chosen interaction grammar.\n5) Choose the interaction model that best fits the request: tabs, toggles, inspectable marks, steppers, scrubbers, sceneboards, inline simulators, annotated diagrams, or another truthful inline state-change pattern.\n6) If view switching is required, switch between authored on-page states, scenes, or sections with a visible state change; mapped panels are allowed but not mandatory.\n7) If detail inspection is required, reveal deeper context inline through captions, annotations, callouts, overlays, drawers, or contextual text; no fixed shared detail panel is required.\n8) If sequence browsing is required, expose a visible progression control on first paint such as previous/next, a stepper, a scrubber, or an evidence rail.\n9) Keep visible content in the raw HTML before scripts run; scripts may change authored state but must not create the only meaningful first-paint content from nothing.\n10) Use inline SVG, canvas, or DOM/CSS with visible labels when the brief calls for diagrams, metrics, or visual evidence.\n11) Interactive explainers must connect at least two meaningful request-grounded state changes; one isolated button, lone slider, or decorative toggle is insufficient.\n12) Controls only count when they update labeled evidence, simulation state, comparison state, or explanatory copy tied to the request concepts.\n13) Establish an intentional visual system with purposeful typography, spacing, contrast, and palette; default browser-body styling or plain white document layouts are not acceptable unless the request explicitly calls for them.\n14) Do not use alert(), dead buttons, submit-nowhere forms, navigation-only controls, placeholder copy, TODO markers, HTML comments, nonexistent DOM ids, or external libraries.\n15) Keep the artifact request-specific, refinement-faithful, and truthful rather than inventing completion.";
+            return "Return exactly one JSON object with this camelCase schema:\n{\n  \"summary\": <string>,\n  \"notes\": [<string>],\n  \"files\": [\n    {\n      \"path\": <string>,\n      \"mime\": <string>,\n      \"role\": \"primary\" | \"source\" | \"export\" | \"supporting\",\n      \"renderable\": <boolean>,\n      \"downloadable\": <boolean>,\n      \"encoding\": null | \"utf8\" | \"base64\",\n      \"body\": <string>\n    }\n  ]\n}\nRules:\n1) Respect the typed renderer exactly.\n2) html_iframe => one self-contained renderable .html file with inline CSS/JS only.\n3) Use standard HTML with <body><main>...</main></body> and meaningful surfaced content.\n4) First paint must already show a complete default state with visible request-grounded evidence.\n5) Make at least two meaningful request-grounded state changes possible; one decorative control is not enough.\n6) Controls only count when they update labeled evidence, simulation state, comparison state, or explanatory copy tied to the request.\n7) Keep visible content in the raw HTML before scripts run; scripts may switch authored state but must not create the only meaningful first-paint content from nothing.\n8) Use inline SVG, canvas, or DOM/CSS with visible labels when the brief calls for diagrams, metrics, or visual evidence.\n9) Keep CSS and JS concise enough to finish the full document in one local-model pass.\n10) Do not use placeholder copy, dead controls, nonexistent DOM ids, HTML comments, or external libraries.";
         }
         return "Return exactly one JSON object with this camelCase schema:\n{\n  \"summary\": <string>,\n  \"notes\": [<string>],\n  \"files\": [\n    {\n      \"path\": <string>,\n      \"mime\": <string>,\n      \"role\": \"primary\" | \"source\" | \"export\" | \"supporting\",\n      \"renderable\": <boolean>,\n      \"downloadable\": <boolean>,\n      \"encoding\": null | \"utf8\" | \"base64\",\n      \"body\": <string>\n    }\n  ]\n}\nRules:\n1) Respect the typed renderer exactly.\n2) html_iframe => one self-contained renderable .html file with inline CSS/JS only.\n3) Use standard HTML with <body><main>...</main></body> and at least three sectioning elements inside <main>.\n4) Start the visible composition immediately inside <main>; do not spend most of the response budget on a long style block before the first surfaced section.\n5) First paint must already show a real control set, two populated evidence surfaces, and one shared detail or comparison region.\n6) If the artifact uses buttons, tabs, or chips to switch views, emit at least two pre-rendered mapped panel containers in the raw HTML with literal attributes such as <button data-view=\"overview\" aria-controls=\"overview-panel\"> plus <section id=\"overview-panel\" data-view-panel=\"overview\">...</section> and a second hidden mapped panel.\n7) View-switching controls must toggle those pre-rendered mapped panels through literal attributes such as data-view plus data-view-panel or aria-controls; do not synthesize target ids at runtime, and do not point every control only at one shared detail region.\n8) If rollover detail is required, include visible [data-detail] marks that update the shared detail region on hover/focus, and make every such mark keyboard-focusable with tabindex=\"0\" or a naturally focusable element.\n9) If you include a shared detail, comparison, or explanation region, populate its default state directly in the HTML before any script runs; do not leave it empty on first paint.\n10) Render the default selected view and evidence directly in the HTML before any script runs, with exactly one mapped panel visible when view switching is present.\n11) Keep CSS concise and utility-first so the document can reach a complete closing </main></body></html> within the response budget.\n12) Use inline SVG or DOM/CSS evidence with visible labels; no blank shells, placeholders, HTML comments, TODOs, nonexistent ids, or external libraries.\n13) Do not emit the literal words placeholder, placeholders, TODO, or TBD anywhere in the final HTML, CSS, JavaScript, comments, ids, classes, or visible copy.\n14) Keep the artifact request-specific, refinement-faithful, and truthful rather than inventing completion.";
     }
@@ -646,7 +663,10 @@ pub(super) fn studio_artifact_renderer_authoring_guidance_for_runtime(
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> String {
     let required_interactions = brief.required_interaction_summaries();
-    if request.renderer == StudioRendererKind::HtmlIframe && studio_modal_first_html_enabled() {
+    if request.renderer == StudioRendererKind::HtmlIframe
+        && studio_modal_first_html_enabled()
+        && !compact_local_html_materialization_prompt(request.renderer, runtime_kind)
+    {
         return studio_artifact_renderer_authoring_guidance(request, brief, candidate_seed);
     }
     if compact_local_html_materialization_prompt(request.renderer, runtime_kind) {

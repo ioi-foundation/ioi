@@ -18,6 +18,163 @@ use serde_json::json;
 use std::sync::Mutex;
 use tauri::Manager;
 
+fn humanize_route_token(value: &str) -> String {
+    let normalized = value
+        .trim()
+        .replace(['_', '-'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if normalized.is_empty() {
+        return String::new();
+    }
+
+    normalized
+        .split(' ')
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => {
+                    let mut out = first.to_uppercase().collect::<String>();
+                    out.push_str(chars.as_str());
+                    out
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn route_progress_label(receipt: &RoutingReceipt) -> String {
+    let tool_name = receipt.tool_name.trim().to_ascii_lowercase();
+    let decision = receipt.route_decision.as_ref();
+    let route_family = decision
+        .map(|value| value.route_family.trim().to_ascii_lowercase())
+        .unwrap_or_default();
+    let output_intent = decision
+        .map(|value| value.output_intent.trim().to_ascii_lowercase())
+        .unwrap_or_default();
+    let provider_family = decision
+        .and_then(|value| {
+            let family = value.selected_provider_family.trim();
+            if family.is_empty() {
+                None
+            } else {
+                Some(family.to_ascii_lowercase())
+            }
+        })
+        .unwrap_or_default();
+
+    if tool_name.starts_with("web__search") {
+        return if decision.is_some_and(|value| value.currentness_override) {
+            "Searching the web for current information".to_string()
+        } else {
+            "Searching the web".to_string()
+        };
+    }
+    if tool_name.starts_with("web__read") || tool_name.starts_with("web__fetch") {
+        return "Reading a source".to_string();
+    }
+    if tool_name.starts_with("memory__search") || tool_name.starts_with("memory__read") {
+        return "Checking memory".to_string();
+    }
+    if tool_name.starts_with("browser__") {
+        return "Working in the browser".to_string();
+    }
+    if tool_name.starts_with("screen__") || tool_name.starts_with("window__") {
+        return "Working on the current window".to_string();
+    }
+    if tool_name.starts_with("connector__google__gmail") || provider_family == "gmail" {
+        if tool_name.contains("send") {
+            return "Sending your email".to_string();
+        }
+        if tool_name.contains("draft") {
+            return "Drafting your email".to_string();
+        }
+        if tool_name.contains("read") || tool_name.contains("list") {
+            return "Checking your email".to_string();
+        }
+        return "Using your Gmail connector".to_string();
+    }
+    if tool_name.starts_with("connector__google__calendar") || provider_family == "calendar" {
+        if tool_name.contains("create") || tool_name.contains("update") {
+            return "Updating your Google Calendar".to_string();
+        }
+        return "Checking your Google Calendar".to_string();
+    }
+    if tool_name.starts_with("mail__") {
+        if tool_name.contains("send") || tool_name.contains("reply") {
+            return "Sending your email".to_string();
+        }
+        return "Checking your email".to_string();
+    }
+    if tool_name.starts_with("shell__run") {
+        if output_intent == "artifact" {
+            return "Building the artifact".to_string();
+        }
+        if output_intent == "file" {
+            return if route_family == "coding" {
+                "Working in the workspace".to_string()
+            } else {
+                "Preparing your file".to_string()
+            };
+        }
+        return "Processing the request".to_string();
+    }
+    if tool_name.starts_with("file__") {
+        if output_intent == "artifact" {
+            return "Preparing the artifact".to_string();
+        }
+        if output_intent == "file" {
+            return "Preparing your file".to_string();
+        }
+        if route_family == "coding" {
+            if tool_name.starts_with("file__list")
+                || tool_name.starts_with("file__search")
+                || tool_name.starts_with("file__info")
+            {
+                return "Working in the workspace".to_string();
+            }
+            return "Reading from the workspace".to_string();
+        }
+        return "Reading your file".to_string();
+    }
+    if tool_name.starts_with("visualize__") || tool_name.starts_with("media__") {
+        if output_intent == "inline_visual" {
+            return "Preparing the visual".to_string();
+        }
+        return "Generating media".to_string();
+    }
+    if tool_name.starts_with("agent__delegate") || tool_name.starts_with("agent__await") {
+        return match route_family.as_str() {
+            "research" => "Gathering current evidence".to_string(),
+            "coding" => "Planning the workspace route".to_string(),
+            "computer_use" => "Preparing the computer-use route".to_string(),
+            "artifacts" => "Preparing the artifact route".to_string(),
+            _ => "Planning the route".to_string(),
+        };
+    }
+    if tool_name.starts_with("chat__reply") || tool_name.starts_with("model__responses") {
+        return "Preparing the reply".to_string();
+    }
+
+    if !route_family.is_empty() {
+        return match route_family.as_str() {
+            "research" => "Gathering current evidence".to_string(),
+            "coding" => "Working in the workspace".to_string(),
+            "computer_use" => "Working on the current window".to_string(),
+            "artifacts" => "Preparing the artifact".to_string(),
+            _ => format!(
+                "Continuing the {} route",
+                humanize_route_token(&route_family)
+            ),
+        };
+    }
+
+    "Continuing the request".to_string()
+}
+
 pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: RoutingReceipt) {
     let thread_id = thread_id_from_session(&app, &receipt.session_id);
     let receipt_is_install_tool = is_install_package_tool(&receipt.tool_name);
@@ -220,6 +377,12 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             }
         })
         .unwrap_or_else(|| "none".to_string());
+    let route_decision = receipt.route_decision.as_ref();
+    let projected_tool_count = route_decision
+        .and_then(|decision| decision.effective_tool_surface.as_ref())
+        .map(|surface| surface.projected_tools.len())
+        .unwrap_or_default();
+    let progress_label = route_progress_label(&receipt);
 
     let mut summary = format!(
         "RoutingReceipt(step={}, tier={}, tool={}, decision={}, stop={}, policy_hash={})",
@@ -261,6 +424,30 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             ", resolution_action={}",
             receipt.resolution_action
         ));
+    }
+    if let Some(decision) = route_decision {
+        if !decision.route_family.is_empty() {
+            summary.push_str(&format!(", route_family={}", decision.route_family));
+        }
+        if !decision.output_intent.is_empty() {
+            summary.push_str(&format!(", output_intent={}", decision.output_intent));
+        }
+        summary.push_str(&format!(
+            ", direct_answer_allowed={}",
+            decision.direct_answer_allowed
+        ));
+        if decision.currentness_override {
+            summary.push_str(", currentness_override=true");
+        }
+        if !decision.selected_provider_family.is_empty() {
+            summary.push_str(&format!(
+                ", provider_family={}",
+                decision.selected_provider_family
+            ));
+        }
+        if projected_tool_count > 0 {
+            summary.push_str(&format!(", projected_tools={}", projected_tool_count));
+        }
     }
     if !receipt.escalation_path.is_empty() {
         summary.push_str(&format!(", escalation={}", receipt.escalation_path));
@@ -386,10 +573,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
             if t.phase == AgentPhase::Gate {
                 t.phase = AgentPhase::Running;
             }
-            t.current_step = format!(
-                "Routing: {} ({})",
-                receipt.tool_name, receipt.policy_decision
-            );
+            t.current_step = progress_label.clone();
         }
         t.history.push(ChatMessage {
             role: "system".to_string(),
@@ -402,6 +586,47 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
     }
 
     let receipt_id = format!("{}:{}:{}", thread_id, receipt.step_index, receipt.tool_name);
+    let route_decision_payload = route_decision.map(|decision| {
+        let effective_tool_surface = decision.effective_tool_surface.as_ref();
+        json!({
+            "route_family": decision.route_family,
+            "direct_answer_allowed": decision.direct_answer_allowed,
+            "direct_answer_blockers": decision.direct_answer_blockers,
+            "currentness_override": decision.currentness_override,
+            "connector_candidate_count": decision.connector_candidate_count,
+            "selected_provider_family": if decision.selected_provider_family.is_empty() {
+                serde_json::Value::Null
+            } else {
+                serde_json::Value::String(decision.selected_provider_family.clone())
+            },
+            "selected_provider_route_label": if decision.selected_provider_route_label.is_empty() {
+                serde_json::Value::Null
+            } else {
+                serde_json::Value::String(decision.selected_provider_route_label.clone())
+            },
+            "connector_first_preference": decision.connector_first_preference,
+            "narrow_tool_preference": decision.narrow_tool_preference,
+            "file_output_intent": decision.file_output_intent,
+            "artifact_output_intent": decision.artifact_output_intent,
+            "inline_visual_intent": decision.inline_visual_intent,
+            "skill_prep_required": decision.skill_prep_required,
+            "output_intent": decision.output_intent,
+            "effective_tool_surface": {
+                "projected_tools": effective_tool_surface
+                    .map(|surface| surface.projected_tools.clone())
+                    .unwrap_or_default(),
+                "primary_tools": effective_tool_surface
+                    .map(|surface| surface.primary_tools.clone())
+                    .unwrap_or_default(),
+                "broad_fallback_tools": effective_tool_surface
+                    .map(|surface| surface.broad_fallback_tools.clone())
+                    .unwrap_or_default(),
+                "diagnostic_tools": effective_tool_surface
+                    .map(|surface| surface.diagnostic_tools.clone())
+                    .unwrap_or_default(),
+            }
+        })
+    });
 
     let report_ref = {
         let state = app.state::<Mutex<AppState>>();
@@ -424,6 +649,7 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
                 "summary": summary,
                 "artifacts": receipt.artifacts,
                 "policy_binding_hash": receipt.policy_binding_hash,
+                "route_decision": route_decision_payload.clone(),
                 "verification": receipt
                     .post_state
                     .as_ref()
@@ -448,11 +674,53 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         }
     };
 
+    let extra_digest = route_decision.map(|decision| {
+        let effective_tool_surface = decision.effective_tool_surface.as_ref();
+        json!({
+            "route_family": decision.route_family,
+            "direct_answer_allowed": decision.direct_answer_allowed,
+            "currentness_override": decision.currentness_override,
+            "connector_candidate_count": decision.connector_candidate_count,
+            "selected_provider_family": if decision.selected_provider_family.is_empty() {
+                serde_json::Value::Null
+            } else {
+                serde_json::Value::String(decision.selected_provider_family.clone())
+            },
+            "selected_provider_route_label": if decision.selected_provider_route_label.is_empty() {
+                serde_json::Value::Null
+            } else {
+                serde_json::Value::String(decision.selected_provider_route_label.clone())
+            },
+            "connector_first_preference": decision.connector_first_preference,
+            "narrow_tool_preference": decision.narrow_tool_preference,
+            "file_output_intent": decision.file_output_intent,
+            "artifact_output_intent": decision.artifact_output_intent,
+            "inline_visual_intent": decision.inline_visual_intent,
+            "skill_prep_required": decision.skill_prep_required,
+            "output_intent": decision.output_intent,
+            "projected_tools": effective_tool_surface
+                .map(|surface| surface.projected_tools.clone())
+                .unwrap_or_default(),
+            "primary_tools": effective_tool_surface
+                .map(|surface| surface.primary_tools.clone())
+                .unwrap_or_default(),
+            "broad_fallback_tools": effective_tool_surface
+                .map(|surface| surface.broad_fallback_tools.clone())
+                .unwrap_or_default(),
+            "direct_answer_blockers": decision.direct_answer_blockers,
+        })
+    });
+    let extra_details = route_decision_payload.clone().map(|route_decision| {
+        json!({
+            "route_decision": route_decision,
+        })
+    });
+
     let event = emit_receipt_digest(
         &thread_id,
         receipt.step_index,
         receipt_id,
-        &receipt.tool_name,
+        &progress_label,
         receipt
             .pre_state
             .as_ref()
@@ -466,6 +734,8 @@ pub(super) async fn handle_routing_receipt(app: &tauri::AppHandle, receipt: Rout
         &receipt.gate_state,
         &receipt.resolution_action,
         &summary,
+        extra_digest,
+        extra_details,
         report_ref,
         Vec::new(),
     );

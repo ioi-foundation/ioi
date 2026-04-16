@@ -11,6 +11,7 @@ pub mod ontology;
 pub mod perception;
 pub mod planner;
 pub mod queue;
+pub mod route_projection;
 pub mod signals;
 pub mod text_tokens;
 pub mod visual;
@@ -30,23 +31,311 @@ use crate::agentic::runtime::service::step::anti_loop::{
     choose_routing_tier, mutation_receipt_artifact_id, mutation_receipt_pointer_for_artifact_id,
 };
 use crate::agentic::runtime::service::step::helpers::default_safe_policy;
-use crate::agentic::runtime::types::{AgentState, AgentStatus, ParentPlaybookRun, StepAgentParams};
+use crate::agentic::runtime::types::{
+    AgentState, AgentStatus, ExecutionTier, ParentPlaybookRun, StepAgentParams,
+};
 use crate::agentic::runtime::utils::persist_agent_state;
 use hex;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
+use ioi_api::vm::inference::InferenceRuntime;
 use ioi_crypto::algorithms::hash::sha256;
-use ioi_types::app::agentic::{AgentTool, IntentScopeProfile, ResolvedIntentState, StepTrace};
+use ioi_types::app::agentic::{
+    AgentTool, ChatMessage as AgentChatMessage, InferenceOptions, IntentScopeProfile,
+    ResolvedIntentState, StepTrace,
+};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, KernelEvent};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use serde_json::json;
+use std::sync::Arc;
 use std::time::Duration;
 
 const RUNTIME_SECRET_KIND_SUDO_PASSWORD: &str = "sudo_password";
 const STEP_ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(300);
 const WAIT_FOR_INTENT_CLARIFICATION_PROMPT: &str =
     "System: WAIT_FOR_INTENT_CLARIFICATION. Intent confidence is too low to proceed safely. Please clarify the requested outcome.";
+const DIRECT_INLINE_AUTHOR_TIMEOUT_SECS: u64 = 12;
+const DIRECT_INLINE_AUTHOR_LOCAL_GPU_TIMEOUT_SECS: u64 = 60;
+
+fn env_var_truthy(name: &str) -> bool {
+    std::env::var(name)
+        .ok()
+        .map(|raw| {
+            matches!(
+                raw.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn direct_inline_author_timeout() -> Duration {
+    let default_timeout_secs = if env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV") {
+        DIRECT_INLINE_AUTHOR_LOCAL_GPU_TIMEOUT_SECS
+    } else {
+        DIRECT_INLINE_AUTHOR_TIMEOUT_SECS
+    };
+
+    std::env::var("IOI_DIRECT_INLINE_AUTHOR_TIMEOUT_SECS")
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map(Duration::from_secs)
+        .unwrap_or_else(|| Duration::from_secs(default_timeout_secs))
+}
+
+fn truncate_direct_inline_prompt(text: &str, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text.to_string();
+    }
+    let mut truncated = text.chars().take(max_chars).collect::<String>();
+    truncated.push_str("...");
+    truncated
+}
+
+fn recent_direct_inline_conversation_excerpt(messages: &[AgentChatMessage]) -> String {
+    messages
+        .iter()
+        .rev()
+        .take(6)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .map(|message| {
+            format!(
+                "{}: {}",
+                message.role,
+                truncate_direct_inline_prompt(message.content.trim(), 500)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn latest_user_message_for_direct_inline_authoring(
+    service: &RuntimeAgentService,
+    session_id: [u8; 32],
+    agent_state: &AgentState,
+) -> (String, Option<String>) {
+    let history = service.hydrate_session_history(session_id).ok();
+    let latest_user = history
+        .as_ref()
+        .and_then(|messages| {
+            messages
+                .iter()
+                .rev()
+                .find(|message| message.role.trim().eq_ignore_ascii_case("user"))
+                .map(|message| message.content.trim().to_string())
+        })
+        .filter(|content| !content.is_empty())
+        .unwrap_or_else(|| agent_state.goal.trim().to_string());
+    let recent_excerpt = history
+        .as_ref()
+        .map(|messages| recent_direct_inline_conversation_excerpt(messages))
+        .filter(|excerpt| !excerpt.trim().is_empty());
+
+    (latest_user, recent_excerpt)
+}
+
+fn build_direct_inline_author_prompt(
+    latest_user_message: &str,
+    recent_conversation: Option<&str>,
+) -> String {
+    let mut prompt = String::from(
+        "You are the direct-inline authoring path for the IOI desktop agent.\n\
+Return ONLY the final user-facing answer text.\n\
+Rules:\n\
+1. Do not output JSON, tool names, markdown fences, or process narration.\n\
+2. Do not mention routing, internal tools, repairs, or system state.\n\
+3. Answer the user's latest request directly and concisely.\n\
+4. If the request requires fresh current data, exact live state, or unavailable private data, say that fresh retrieval is required and do not guess.\n\
+5. Keep the answer useful on its own.\n",
+    );
+    if let Some(recent_conversation) = recent_conversation {
+        prompt.push_str("\nRecent conversation:\n");
+        prompt.push_str(&truncate_direct_inline_prompt(
+            recent_conversation.trim(),
+            1800,
+        ));
+    }
+    prompt.push_str("\nLatest user request:\n");
+    prompt.push_str(&truncate_direct_inline_prompt(
+        latest_user_message.trim(),
+        1500,
+    ));
+    prompt.push_str("\nFinal answer text:");
+    prompt
+}
+
+fn normalize_direct_inline_author_output(raw_output: &str) -> Option<String> {
+    let trimmed = raw_output.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) {
+        let extracted = value
+            .as_str()
+            .map(str::trim)
+            .or_else(|| {
+                value
+                    .get("message")
+                    .and_then(|value| value.as_str())
+                    .map(str::trim)
+            })
+            .or_else(|| {
+                value
+                    .get("arguments")
+                    .and_then(|arguments| arguments.get("message"))
+                    .and_then(|value| value.as_str())
+                    .map(str::trim)
+            })
+            .filter(|value| !value.is_empty());
+        if let Some(message) = extracted {
+            return Some(message.to_string());
+        }
+    }
+
+    Some(trimmed.to_string())
+}
+
+async fn run_direct_inline_author_inference(
+    service: &RuntimeAgentService,
+    runtime: Arc<dyn InferenceRuntime>,
+    runtime_label: &str,
+    session_id: [u8; 32],
+    prompt: &str,
+) -> Result<Option<String>, TransactionError> {
+    let messages = json!([
+        { "role": "system", "content": prompt },
+        { "role": "user", "content": "Answer the latest user request now." }
+    ]);
+    let input = serde_json::to_vec(&messages)
+        .map_err(|error| TransactionError::Serialization(error.to_string()))?;
+    let inference_input = service
+        .prepare_cloud_inference_input(
+            Some(session_id),
+            "desktop_agent",
+            "model_hash:direct_inline_author",
+            &input,
+        )
+        .await?;
+    let timeout = direct_inline_author_timeout();
+    let output = match tokio::time::timeout(
+        timeout,
+        runtime.execute_inference(
+            [0u8; 32],
+            &inference_input,
+            InferenceOptions {
+                temperature: 0.0,
+                json_mode: false,
+                max_tokens: 768,
+                ..Default::default()
+            },
+        ),
+    )
+    .await
+    {
+        Err(_) => {
+            log::warn!(
+                "Direct inline authoring timed out session={} runtime={} timeout_ms={}",
+                hex::encode(&session_id[..4]),
+                runtime_label,
+                timeout.as_millis()
+            );
+            return Ok(None);
+        }
+        Ok(Err(error)) => {
+            log::warn!(
+                "Direct inline authoring failed session={} runtime={} error={}",
+                hex::encode(&session_id[..4]),
+                runtime_label,
+                error
+            );
+            return Ok(None);
+        }
+        Ok(Ok(bytes)) => String::from_utf8_lossy(&bytes).to_string(),
+    };
+
+    Ok(normalize_direct_inline_author_output(&output))
+}
+
+fn direct_inline_authoring_eligible(route_decision: &ioi_types::app::RoutingRouteDecision) -> bool {
+    route_decision.direct_answer_allowed
+        && route_decision
+            .output_intent
+            .eq_ignore_ascii_case("direct_inline")
+        && route_decision.route_family.eq_ignore_ascii_case("general")
+        && route_decision
+            .effective_tool_surface
+            .projected_tools
+            .iter()
+            .any(|tool_name| tool_name.eq_ignore_ascii_case("chat__reply"))
+}
+
+async fn maybe_direct_inline_author_tool_call(
+    service: &RuntimeAgentService,
+    state: &dyn StateAccess,
+    agent_state: &AgentState,
+    session_id: [u8; 32],
+    target_tier: ExecutionTier,
+) -> Result<Option<String>, TransactionError> {
+    let route_decision = route_projection::project_route_decision(
+        service,
+        state,
+        agent_state,
+        "chat__reply",
+        target_tier,
+    )
+    .await;
+    if !direct_inline_authoring_eligible(&route_decision) {
+        return Ok(None);
+    }
+
+    let (latest_user_message, recent_conversation) =
+        latest_user_message_for_direct_inline_authoring(service, session_id, agent_state);
+    if latest_user_message.trim().is_empty() {
+        return Ok(None);
+    }
+
+    let prompt =
+        build_direct_inline_author_prompt(&latest_user_message, recent_conversation.as_deref());
+    let mut authored_message = run_direct_inline_author_inference(
+        service,
+        service.fast_inference.clone(),
+        "fast",
+        session_id,
+        &prompt,
+    )
+    .await?;
+
+    if authored_message.is_none()
+        && !Arc::ptr_eq(&service.fast_inference, &service.reasoning_inference)
+    {
+        authored_message = run_direct_inline_author_inference(
+            service,
+            service.reasoning_inference.clone(),
+            "reasoning",
+            session_id,
+            &prompt,
+        )
+        .await?;
+    }
+
+    let Some(message) = authored_message else {
+        return Ok(None);
+    };
+
+    serde_json::to_string(&json!({
+        "name": "chat__reply",
+        "arguments": {
+            "message": message,
+        }
+    }))
+    .map(Some)
+    .map_err(|error| TransactionError::Serialization(error.to_string()))
+}
 
 async fn emit_planner_fallback_evidence(
     service: &RuntimeAgentService,
@@ -953,6 +1242,27 @@ async fn run_step_cognitive_loop(
 
     agent_state.current_tier = target_tier;
 
+    if let Some(direct_inline_tool_call) =
+        maybe_direct_inline_author_tool_call(service, state, agent_state, p.session_id, target_tier)
+            .await?
+    {
+        let final_visual_phash = agent_state.last_screen_phash.unwrap_or([0u8; 32]);
+        Box::pin(action::process_tool_output(
+            service,
+            state,
+            agent_state,
+            direct_inline_tool_call,
+            final_visual_phash,
+            "DirectInlineAuthor".to_string(),
+            p.session_id,
+            ctx.block_height,
+            ctx.block_timestamp,
+            call_context,
+        ))
+        .await?;
+        return Ok(());
+    }
+
     let perception = Box::pin(perception::gather_context(
         service,
         state,
@@ -1095,9 +1405,9 @@ pub async fn handle_step(
 #[cfg(test)]
 mod tests {
     use super::{
-        ensure_agent_running_or_resume_retry_pause, maybe_run_optimizer_recovery,
-        queue_parent_playbook_await_request, queue_root_playbook_delegate_request,
-        should_clear_stale_canonical_pending,
+        ensure_agent_running_or_resume_retry_pause, maybe_direct_inline_author_tool_call,
+        maybe_run_optimizer_recovery, queue_parent_playbook_await_request,
+        queue_root_playbook_delegate_request, should_clear_stale_canonical_pending,
     };
     use crate::agentic::runtime::keys::{get_parent_playbook_run_key, get_state_key};
     use crate::agentic::runtime::service::RuntimeAgentService;
@@ -1108,18 +1418,21 @@ mod tests {
     use ioi_api::state::{StateAccess, StateScanIter};
     use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
     use ioi_api::vm::inference::mock::MockInferenceRuntime;
+    use ioi_api::vm::inference::InferenceRuntime;
     use ioi_drivers::browser::BrowserDriver;
     use ioi_drivers::terminal::TerminalDriver;
     use ioi_types::app::agentic::{
-        ArgumentOrigin, InstructionBindingKind, InstructionContract, InstructionSlotBinding,
-        IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
+        ArgumentOrigin, CapabilityId, InferenceOptions, InstructionBindingKind,
+        InstructionContract, InstructionSlotBinding, IntentConfidenceBand, IntentScopeProfile,
+        ResolvedIntentState,
     };
     use ioi_types::app::{ActionContext, ActionRequest, ActionTarget, ContextSlice};
     use ioi_types::codec;
     use ioi_types::error::{StateError, VmError};
     use std::collections::{BTreeMap, HashMap};
     use std::io::Cursor;
-    use std::sync::Arc;
+    use std::path::Path;
+    use std::sync::{Arc, Mutex};
 
     fn test_agent_state() -> AgentState {
         AgentState {
@@ -1284,6 +1597,71 @@ mod tests {
         )
     }
 
+    fn build_test_service_hybrid(
+        fast_inference: Arc<dyn InferenceRuntime>,
+        reasoning_inference: Arc<dyn InferenceRuntime>,
+    ) -> RuntimeAgentService {
+        let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+        RuntimeAgentService::new_hybrid(
+            gui,
+            Arc::new(TerminalDriver::new()),
+            Arc::new(BrowserDriver::new()),
+            fast_inference,
+            reasoning_inference,
+        )
+    }
+
+    #[derive(Debug, Default)]
+    struct RecordingInferenceRuntime {
+        outputs: Mutex<Vec<Vec<u8>>>,
+        seen_inputs: Mutex<Vec<String>>,
+    }
+
+    impl RecordingInferenceRuntime {
+        fn with_outputs<I>(outputs: I) -> Self
+        where
+            I: IntoIterator<Item = &'static str>,
+        {
+            let mut queued = outputs
+                .into_iter()
+                .map(|value| value.as_bytes().to_vec())
+                .collect::<Vec<_>>();
+            queued.reverse();
+            Self {
+                outputs: Mutex::new(queued),
+                seen_inputs: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl InferenceRuntime for RecordingInferenceRuntime {
+        async fn execute_inference(
+            &self,
+            _model_hash: [u8; 32],
+            input_context: &[u8],
+            _options: InferenceOptions,
+        ) -> Result<Vec<u8>, VmError> {
+            self.seen_inputs
+                .lock()
+                .expect("seen_inputs mutex poisoned")
+                .push(String::from_utf8_lossy(input_context).to_string());
+            self.outputs
+                .lock()
+                .expect("outputs mutex poisoned")
+                .pop()
+                .ok_or_else(|| VmError::HostError("no mock output queued".to_string()))
+        }
+
+        async fn load_model(&self, _model_hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
+            Ok(())
+        }
+
+        async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+            Ok(())
+        }
+    }
+
     fn resolved_web_intent_with_playbook(playbook_id: &str) -> ResolvedIntentState {
         ResolvedIntentState {
             intent_id: "web.research".to_string(),
@@ -1320,6 +1698,34 @@ mod tests {
                 negative_constraints: vec![],
                 success_criteria: vec![],
             }),
+            constrained: false,
+        }
+    }
+
+    fn resolved_conversation_intent() -> ResolvedIntentState {
+        ResolvedIntentState {
+            intent_id: "conversation.reply".to_string(),
+            scope: IntentScopeProfile::Conversation,
+            band: IntentConfidenceBand::High,
+            score: 1.0,
+            top_k: vec![],
+            required_capabilities: vec![CapabilityId::from("conversation.reply")],
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "intent-matrix-test".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "v1".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [1u8; 32],
+            tool_registry_hash: [2u8; 32],
+            capability_ontology_hash: [3u8; 32],
+            query_normalization_version: "intent-query-norm-v1".to_string(),
+            matrix_source_hash: [4u8; 32],
+            receipt_hash: [5u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
             constrained: false,
         }
     }
@@ -1363,6 +1769,83 @@ mod tests {
         assert!(error
             .to_string()
             .contains("Agent not running: Paused(\"Waiting for human approval\")"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn direct_inline_authoring_generates_chat_reply_for_conversation_route() {
+        let fast_runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
+            "The Pythagorean theorem states that in a right triangle, a^2 + b^2 = c^2.",
+        ]));
+        let service = build_test_service_hybrid(fast_runtime.clone(), fast_runtime.clone());
+        let state = MockState::default();
+        let mut agent_state = test_agent_state();
+        agent_state.session_id = [0x61; 32];
+        agent_state.goal = "What is the Pythagorean theorem?".to_string();
+        agent_state.resolved_intent = Some(resolved_conversation_intent());
+
+        let tool_call = maybe_direct_inline_author_tool_call(
+            &service,
+            &state,
+            &agent_state,
+            agent_state.session_id,
+            ExecutionTier::DomHeadless,
+        )
+        .await
+        .expect("direct inline authoring should succeed");
+
+        let tool_call = tool_call.expect("conversation route should synthesize chat reply");
+        let payload: serde_json::Value =
+            serde_json::from_str(&tool_call).expect("tool call should decode");
+        assert_eq!(
+            payload.get("name").and_then(|value| value.as_str()),
+            Some("chat__reply")
+        );
+        assert_eq!(
+            payload
+                .get("arguments")
+                .and_then(|arguments| arguments.get("message"))
+                .and_then(|value| value.as_str()),
+            Some("The Pythagorean theorem states that in a right triangle, a^2 + b^2 = c^2.")
+        );
+
+        let seen_inputs = fast_runtime
+            .seen_inputs
+            .lock()
+            .expect("seen_inputs mutex poisoned");
+        assert_eq!(seen_inputs.len(), 1);
+        assert!(seen_inputs[0].contains("Return ONLY the final user-facing answer text."));
+        assert!(seen_inputs[0].contains("What is the Pythagorean theorem?"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn direct_inline_authoring_skips_research_routes() {
+        let fast_runtime = Arc::new(RecordingInferenceRuntime::with_outputs([
+            "This should never be used.",
+        ]));
+        let service = build_test_service_hybrid(fast_runtime.clone(), fast_runtime.clone());
+        let state = MockState::default();
+        let mut agent_state = test_agent_state();
+        agent_state.session_id = [0x62; 32];
+        agent_state.goal = "What is the weather in Boston today?".to_string();
+        agent_state.resolved_intent =
+            Some(resolved_web_intent_with_playbook("citation_grounded_brief"));
+
+        let tool_call = maybe_direct_inline_author_tool_call(
+            &service,
+            &state,
+            &agent_state,
+            agent_state.session_id,
+            ExecutionTier::DomHeadless,
+        )
+        .await
+        .expect("research route should evaluate");
+
+        assert!(tool_call.is_none());
+        assert!(fast_runtime
+            .seen_inputs
+            .lock()
+            .expect("seen_inputs mutex poisoned")
+            .is_empty());
     }
 
     #[tokio::test(flavor = "current_thread")]

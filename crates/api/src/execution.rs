@@ -699,6 +699,11 @@ pub fn derive_execution_mode_decision(
         StudioOutcomeKind::Conversation | StudioOutcomeKind::Visualizer => {
             if needs_clarification {
                 StudioExecutionStrategy::PlanExecute
+            } else if matches!(
+                requested_strategy,
+                StudioExecutionStrategy::AdaptiveWorkGraph | StudioExecutionStrategy::MicroSwarm
+            ) {
+                requested_strategy
             } else {
                 StudioExecutionStrategy::SinglePass
             }
@@ -1810,6 +1815,29 @@ mod tests {
         assert!(!decision.work_graph_required);
         assert!(decision.one_shot_sufficiency >= 0.7);
         assert_eq!(decision.budget_envelope.max_workers, 1);
+    }
+
+    #[test]
+    fn derive_execution_mode_decision_preserves_requested_conversation_work_graph() {
+        let decision = derive_execution_mode_decision(
+            StudioOutcomeKind::Conversation,
+            None,
+            StudioExecutionStrategy::AdaptiveWorkGraph,
+            0.91,
+            false,
+            false,
+        );
+
+        assert_eq!(
+            decision.requested_strategy,
+            StudioExecutionStrategy::AdaptiveWorkGraph
+        );
+        assert_eq!(
+            decision.resolved_strategy,
+            StudioExecutionStrategy::AdaptiveWorkGraph
+        );
+        assert!(decision.work_graph_required);
+        assert!(decision.budget_envelope.max_workers >= 4);
     }
 
     #[test]

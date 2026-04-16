@@ -5,6 +5,17 @@ fn matrix_contains_intent(matrix: &[IntentMatrixEntry], intent_id: &str) -> bool
     matrix.iter().any(|entry| entry.intent_id == intent_id)
 }
 
+fn query_contains_non_inline_markers(normalized: &str) -> bool {
+    normalized.contains("http://")
+        || normalized.contains("https://")
+        || normalized.contains("www.")
+        || normalized.contains("```")
+        || normalized.contains("~/")
+        || normalized.contains("./")
+        || normalized.contains('/')
+        || normalized.contains('\\')
+}
+
 fn obvious_casual_conversation_query(
     query: &str,
     query_binding_profile: &QueryBindingProfile,
@@ -31,15 +42,7 @@ fn obvious_casual_conversation_query(
     }
 
     let normalized = trimmed.to_ascii_lowercase();
-    if normalized.contains("http://")
-        || normalized.contains("https://")
-        || normalized.contains("www.")
-        || normalized.contains("```")
-        || normalized.contains("~/")
-        || normalized.contains("./")
-        || normalized.contains('/')
-        || normalized.contains('\\')
-    {
+    if query_contains_non_inline_markers(&normalized) {
         return false;
     }
 
@@ -157,6 +160,117 @@ fn obvious_casual_conversation_query(
         && words
             .iter()
             .any(|word| matches!(*word, "you" | "your" | "we" | "i" | "me"))
+}
+
+fn obvious_expository_reply_query(
+    query: &str,
+    query_binding_profile: &QueryBindingProfile,
+    matrix: &[IntentMatrixEntry],
+) -> bool {
+    if !matrix_contains_intent(matrix, "conversation.reply") {
+        return false;
+    }
+
+    if query_binding_profile.remote_public_fact_required
+        || query_binding_profile.host_local_clock_targeted
+        || query_binding_profile.command_directed
+        || query_binding_profile.durable_automation_requested
+        || query_binding_profile.model_registry_control_requested
+        || query_binding_profile.app_launch_directed
+        || query_binding_profile.direct_ui_input
+        || query_binding_profile.desktop_screenshot_requested
+        || query_binding_profile.temporal_filesystem_filter
+    {
+        return false;
+    }
+
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+
+    let normalized = trimmed.to_ascii_lowercase();
+    if query_contains_non_inline_markers(&normalized) {
+        return false;
+    }
+
+    let words = normalized
+        .split_whitespace()
+        .map(|word| word.trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '\''))
+        .filter(|word| !word.is_empty())
+        .collect::<Vec<_>>();
+    if words.len() < 3 || words.len() > 12 {
+        return false;
+    }
+
+    let first_two = words.iter().take(2).copied().collect::<Vec<_>>().join(" ");
+    let first_three = words.iter().take(3).copied().collect::<Vec<_>>().join(" ");
+    let first_word = words.first().copied().unwrap_or_default();
+
+    let explanatory_prefix = matches!(
+        first_two.as_str(),
+        "what is"
+            | "what are"
+            | "what was"
+            | "what were"
+            | "how does"
+            | "how do"
+            | "how is"
+            | "why is"
+            | "why do"
+            | "who was"
+            | "who were"
+    ) || matches!(
+        first_three.as_str(),
+        "what's the" | "what's a" | "what's an"
+    ) || matches!(first_word, "define" | "explain" | "describe");
+    if !explanatory_prefix {
+        return false;
+    }
+
+    let local_or_operational_terms = [
+        "app",
+        "branch",
+        "browser",
+        "button",
+        "click",
+        "command",
+        "computer",
+        "cursor",
+        "directory",
+        "docker",
+        "env",
+        "file",
+        "folder",
+        "installed",
+        "local",
+        "port",
+        "process",
+        "repo",
+        "repository",
+        "running",
+        "screen",
+        "service",
+        "shell",
+        "terminal",
+        "this",
+        "type",
+        "window",
+        "workspace",
+    ];
+    if words
+        .iter()
+        .any(|word| local_or_operational_terms.contains(word))
+    {
+        return false;
+    }
+
+    let temporal_terms = ["current", "latest", "today", "recent", "now"];
+    if words.iter().any(|word| temporal_terms.contains(word)) {
+        return false;
+    }
+
+    true
 }
 
 pub async fn resolve_step_intent(
@@ -281,8 +395,13 @@ pub async fn resolve_step_intent_with_state(
     }
 
     let forced_intent_id =
-        obvious_casual_conversation_query(&query, &query_binding_profile, &matrix)
-            .then_some("conversation.reply");
+        if obvious_casual_conversation_query(&query, &query_binding_profile, &matrix)
+            || obvious_expository_reply_query(&query, &query_binding_profile, &matrix)
+        {
+            Some("conversation.reply")
+        } else {
+            None
+        };
     if forced_intent_id.is_some() {
         log::info!(
             "IntentResolver forced obvious casual conversation to conversation.reply session={} query_hash={}",
@@ -505,6 +624,52 @@ pub async fn resolve_step_intent_with_state(
         }
     }
 
+    fn maybe_promote_low_band_for_binding_anchored_winner(
+        winner: &IntentCandidateScore,
+        selection_top_k: &[IntentCandidateScore],
+        matrix: &[IntentMatrixEntry],
+        query_binding_profile: &QueryBindingProfile,
+        band: IntentConfidenceBand,
+    ) -> IntentConfidenceBand {
+        if winner.intent_id == "resolver.unclassified" || !matches!(band, IntentConfidenceBand::Low)
+        {
+            return band;
+        }
+        if !query_binding_profile.available || selection_top_k.len() != 1 {
+            return band;
+        }
+        let Some(entry) = matrix
+            .iter()
+            .find(|entry| entry.intent_id == winner.intent_id)
+        else {
+            return band;
+        };
+        let binding_anchored = match entry.query_binding {
+            IntentQueryBindingClass::None => false,
+            IntentQueryBindingClass::HostLocal => query_binding_profile.host_local_clock_targeted,
+            IntentQueryBindingClass::RemotePublicFact => {
+                query_binding_profile.remote_public_fact_required
+            }
+            IntentQueryBindingClass::AppLaunchDirected => query_binding_profile.app_launch_directed,
+            IntentQueryBindingClass::CommandDirected => query_binding_profile.command_directed,
+            IntentQueryBindingClass::DurableAutomation => {
+                query_binding_profile.durable_automation_requested
+            }
+            IntentQueryBindingClass::ModelRegistryControl => {
+                query_binding_profile.model_registry_control_requested
+            }
+            IntentQueryBindingClass::DirectUiInput => query_binding_profile.direct_ui_input,
+            IntentQueryBindingClass::DesktopScreenshot => {
+                query_binding_profile.desktop_screenshot_requested
+            }
+        };
+        if binding_anchored {
+            IntentConfidenceBand::Medium
+        } else {
+            band
+        }
+    }
+
     let (
         scope,
         preferred_tier,
@@ -552,11 +717,17 @@ pub async fn resolve_step_intent_with_state(
             })?;
         let score = winner.score.clamp(0.0, 1.0);
         let base_band = resolve_band(score, policy);
-        let band = maybe_promote_low_band_for_policy_exempt_winner(
+        let band = maybe_promote_low_band_for_binding_anchored_winner(
             &winner,
             &preferred_selection_top_k,
-            policy,
-            base_band,
+            &matrix,
+            &query_binding_profile,
+            maybe_promote_low_band_for_policy_exempt_winner(
+                &winner,
+                &preferred_selection_top_k,
+                policy,
+                base_band,
+            ),
         );
         let provider_selection = resolve_provider_selection_state(
             service,

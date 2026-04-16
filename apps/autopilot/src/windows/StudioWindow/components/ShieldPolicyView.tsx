@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { AgentRuntime, ConnectorSummary } from "@ioi/agent-ide";
+import type { AgentWorkbenchRuntime, ConnectorSummary } from "@ioi/agent-ide";
 import type {
   AutomationPolicyMode,
   CapabilityGovernanceRequest,
@@ -23,7 +23,7 @@ import {
 import { buildConnectorTrustProfile } from "./capabilities/model";
 
 interface ShieldPolicyViewProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   policyState: ShieldPolicyState;
   onChange: (next: ShieldPolicyState) => void;
   governanceRequest?: CapabilityGovernanceRequest | null;

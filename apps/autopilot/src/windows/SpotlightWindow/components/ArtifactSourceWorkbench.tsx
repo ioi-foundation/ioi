@@ -230,6 +230,26 @@ function decodePayloadText(
   return payload.content;
 }
 
+function decodeExternalUrlText(url?: string | null): string | null {
+  if (!url || !url.startsWith("data:")) {
+    return null;
+  }
+  const commaIndex = url.indexOf(",");
+  if (commaIndex < 0) {
+    return null;
+  }
+  const meta = url.slice(5, commaIndex);
+  const content = url.slice(commaIndex + 1);
+  try {
+    if (meta.includes(";base64")) {
+      return window.atob(content);
+    }
+    return decodeURIComponent(content);
+  } catch {
+    return null;
+  }
+}
+
 function isBinaryMime(mime: string): boolean {
   const normalized = mime.trim().toLowerCase();
   if (!normalized) {
@@ -341,8 +361,12 @@ export function ArtifactSourceWorkbench({
   configureStudioMonacoLoader();
 
   const sourceText = useMemo(
-    () => decodePayloadText(payload, sourceTextOverride),
-    [payload, sourceTextOverride],
+    () =>
+      decodePayloadText(
+        payload,
+        sourceTextOverride ?? decodeExternalUrlText(selectedFile?.externalUrl),
+      ),
+    [payload, selectedFile?.externalUrl, sourceTextOverride],
   );
   const fileCount = files.length;
   const mime = selectedFile?.mime ?? "text/plain";

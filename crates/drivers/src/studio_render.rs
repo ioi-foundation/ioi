@@ -1695,7 +1695,12 @@ fn score_render_evaluation(
     if typography_contrast_score <= 2 {
         findings.push(StudioArtifactRenderFinding {
             code: "typography_contrast_low".to_string(),
-            severity: if desktop.dom.min_text_contrast < 2.8 {
+            severity: if matches!(
+                request.renderer,
+                StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed
+            ) {
+                StudioArtifactRenderFindingSeverity::Warning
+            } else if desktop.dom.min_text_contrast < 2.8 {
                 StudioArtifactRenderFindingSeverity::Blocked
             } else {
                 StudioArtifactRenderFindingSeverity::Warning
@@ -1949,6 +1954,45 @@ fn score_blueprint_consistency(
     interaction: Option<&ViewportCapture>,
     interaction_expected: bool,
 ) -> u8 {
+    let document_like_brief = matches!(
+        blueprint.map(|value| value.renderer),
+        Some(StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed)
+    ) || (brief.required_interactions.is_empty()
+        && brief
+            .audience
+            .trim()
+            .to_ascii_lowercase()
+            .starts_with("people reviewing the")
+        && brief
+            .artifact_thesis
+            .trim()
+            .to_ascii_lowercase()
+            .contains(" document"));
+    if document_like_brief {
+        let captured_sections = desktop.dom.section_count.max(mobile.dom.section_count);
+        let visible_text_chars = desktop
+            .capture
+            .visible_text_chars
+            .max(mobile.capture.visible_text_chars);
+        let ir_interaction_targets = artifact_ir
+            .map(|value| value.interaction_graph.len())
+            .unwrap_or_default();
+        let mut score = 1;
+        if desktop.dom.main_present && visible_text_chars >= 80 {
+            score += 1;
+        }
+        if captured_sections >= 1 {
+            score += 1;
+        }
+        if visible_text_chars >= 220 {
+            score += 1;
+        }
+        if !interaction_expected || interaction.is_none() || ir_interaction_targets == 0 {
+            score += 1;
+        }
+        return score;
+    }
+
     let target_sections = blueprint
         .map(|value| value.section_plan.len())
         .unwrap_or_else(|| brief.required_concepts.len().max(2))
@@ -1987,6 +2031,7 @@ fn score_blueprint_consistency(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_api::studio::{compile_studio_artifact_ir, derive_studio_artifact_blueprint};
     use ioi_types::app::{
         StudioArtifactClass, StudioArtifactDeliverableShape, StudioArtifactFileRole,
         StudioArtifactPersistenceMode, StudioExecutionSubstrate, StudioOutcomeArtifactScope,
@@ -2036,6 +2081,54 @@ mod tests {
         }
     }
 
+    fn document_markdown_request() -> StudioOutcomeArtifactRequest {
+        StudioOutcomeArtifactRequest {
+            artifact_class: StudioArtifactClass::Document,
+            deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
+            renderer: StudioRendererKind::Markdown,
+            presentation_surface: StudioPresentationSurface::SidePanel,
+            persistence: StudioArtifactPersistenceMode::ArtifactScoped,
+            execution_substrate: StudioExecutionSubstrate::ClientSandbox,
+            workspace_recipe_id: None,
+            presentation_variant_id: None,
+            scope: StudioOutcomeArtifactScope {
+                target_project: None,
+                create_new_workspace: false,
+                mutation_boundary: vec!["artifact".to_string()],
+            },
+            verification: StudioOutcomeArtifactVerificationRequest {
+                require_render: true,
+                require_build: false,
+                require_preview: false,
+                require_export: false,
+                require_diff_review: false,
+            },
+        }
+    }
+
+    fn document_markdown_brief() -> StudioArtifactBrief {
+        StudioArtifactBrief {
+            audience: "engineers".to_string(),
+            job_to_be_done: "explain HTTP request lifecycle in five bullets".to_string(),
+            subject_domain: "HTTP request lifecycle".to_string(),
+            artifact_thesis: "A HTTP request lifecycle document".to_string(),
+            required_concepts: vec![
+                "HTTP request lifecycle".to_string(),
+                "HTTP request lifecycle summary".to_string(),
+                "HTTP request lifecycle evidence".to_string(),
+            ],
+            required_interactions: Vec::new(),
+            query_profile: None,
+            visual_tone: vec!["grounded document clarity".to_string()],
+            factual_anchors: vec![
+                "HTTP request lifecycle".to_string(),
+                "HTTP request lifecycle examples".to_string(),
+            ],
+            style_directives: vec!["clear hierarchy".to_string()],
+            reference_hints: vec!["HTTP request lifecycle evidence".to_string()],
+        }
+    }
+
     fn viewport_capture(
         viewport: StudioArtifactRenderCaptureViewport,
         visible_text_chars: usize,
@@ -2079,6 +2172,32 @@ mod tests {
                 luminance_stddev: 0.2,
             },
         }
+    }
+
+    #[test]
+    fn markdown_blueprint_consistency_accepts_dense_static_document_surfaces() {
+        let request = document_markdown_request();
+        let brief = document_markdown_brief();
+        let blueprint = derive_studio_artifact_blueprint(&request, &brief);
+        let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
+        let mut desktop = viewport_capture(StudioArtifactRenderCaptureViewport::Desktop, 420, 0);
+        desktop.dom.section_count = 1;
+        desktop.dom.evidence_surface_count = 0;
+        let mut mobile = viewport_capture(StudioArtifactRenderCaptureViewport::Mobile, 320, 0);
+        mobile.dom.section_count = 1;
+        mobile.dom.evidence_surface_count = 0;
+
+        let score = score_blueprint_consistency(
+            &brief,
+            Some(&blueprint),
+            Some(&artifact_ir),
+            &desktop,
+            &mobile,
+            None,
+            false,
+        );
+
+        assert_eq!(score, 5);
     }
 
     #[tokio::test]

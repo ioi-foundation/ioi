@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { openStudioShellView } from "./session-runtime";
 
-export interface UseSessionShellOrchestrationOptions<TTask> {
+export interface UseSessionShellActionsOptions<TTask> {
   isStudioShell?: boolean;
   hideCurrentShell?: () => Promise<void>;
   resolveStudioView?: (targetView: string) => string;
@@ -10,14 +10,14 @@ export interface UseSessionShellOrchestrationOptions<TTask> {
   onAttachSessionError?: (error: unknown) => void;
 }
 
-export function useSessionShellOrchestration<TTask>({
+export function useSessionShellActions<TTask>({
   isStudioShell = false,
   hideCurrentShell,
   resolveStudioView,
   loadSession,
   beforeAttachSession,
   onAttachSessionError,
-}: UseSessionShellOrchestrationOptions<TTask>) {
+}: UseSessionShellActionsOptions<TTask>) {
   const openStudio = useCallback(
     async (targetView: string = "compose") => {
       const resolvedView = resolveStudioView
@@ -52,3 +52,8 @@ export function useSessionShellOrchestration<TTask>({
     attachSession,
   };
 }
+
+export type UseSessionShellOrchestrationOptions<TTask> =
+  UseSessionShellActionsOptions<TTask>;
+
+export const useSessionShellOrchestration = useSessionShellActions;

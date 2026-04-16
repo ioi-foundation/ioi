@@ -56,7 +56,8 @@ use super::types::{
     GoogleCalendarPayloadObservation, GoogleGmailPayloadObservation, GoogleObservation,
     IntentResolutionEvidence, MailObservation, MailReadLatestPayloadObservation,
     MailReplyPayloadObservation, ParentPlaybookObservation, PlannedToolCallEvidence, QueryCase,
-    RunObservation, ScreenshotObservation, WebObservation,
+    RouteDecisionObservation, RunObservation, ScreenshotObservation, ToolNormalizationObservation,
+    ToolRecoveryObservation, WebObservation,
 };
 
 include!("harness/gui_mock.rs");
@@ -1525,7 +1526,8 @@ fn insert_fixture_evidence<T>(
 mod tests {
     use super::{
         case_step_timeout_reason, merge_environment_receipts, parse_mail_read_latest_payload,
-        parse_mail_reply_payload, remaining_case_budget,
+        parse_mail_reply_payload, parse_tool_normalization_observation, remaining_case_budget,
+        route_decision_observation,
     };
     use crate::capabilities_suite::types::EnvironmentReceiptObservation;
     use std::time::Duration;
@@ -1652,5 +1654,154 @@ mod tests {
         assert!(reason.contains("elapsed_ms=120250"), "reason={reason}");
         assert!(reason.contains("deadline_ms=120000"), "reason={reason}");
         assert!(reason.contains("step_budget_ms=250"), "reason={reason}");
+    }
+
+    #[test]
+    fn parse_tool_normalization_observation_retains_alias_and_labels() {
+        let observation = parse_tool_normalization_observation(
+            "ask_user_input_v0",
+            &[
+                "tool_normalization_raw_name=ask_user_input_v0".to_string(),
+                "tool_normalization_name=user__ask_choice".to_string(),
+                "tool_normalization_changed=true".to_string(),
+                "tool_normalization_label=legacy_alias".to_string(),
+                "tool_normalization_label=canonicalized".to_string(),
+            ],
+        )
+        .expect("normalization observation should be present");
+
+        assert_eq!(observation.tool_name, "ask_user_input_v0");
+        assert_eq!(observation.raw_name.as_deref(), Some("ask_user_input_v0"));
+        assert_eq!(
+            observation.normalized_name.as_deref(),
+            Some("user__ask_choice")
+        );
+        assert!(observation.changed);
+        assert_eq!(
+            observation.labels,
+            vec!["legacy_alias".to_string(), "canonicalized".to_string()]
+        );
+    }
+
+    #[test]
+    fn route_decision_observation_retains_projected_tool_surface() {
+        let decision = ioi_types::app::RoutingRouteDecision {
+            route_family: "connectors".to_string(),
+            direct_answer_allowed: false,
+            direct_answer_blockers: vec!["connector_match".to_string()],
+            currentness_override: true,
+            connector_candidate_count: 2,
+            selected_provider_family: Some("gmail".to_string()),
+            selected_provider_route_label: Some("provider_first".to_string()),
+            connector_first_preference: true,
+            narrow_tool_preference: true,
+            file_output_intent: false,
+            artifact_output_intent: false,
+            inline_visual_intent: false,
+            skill_prep_required: false,
+            output_intent: "tool_execution".to_string(),
+            effective_tool_surface: ioi_types::app::RoutingEffectiveToolSurface {
+                projected_tools: vec![
+                    "gmail__send_email".to_string(),
+                    "conversation__reply".to_string(),
+                ],
+                primary_tools: vec!["gmail__send_email".to_string()],
+                broad_fallback_tools: vec!["conversation__reply".to_string()],
+                diagnostic_tools: vec!["web__search".to_string()],
+            },
+        };
+
+        let observation = route_decision_observation("gmail__send_email", &decision)
+            .expect("route decision observation should be present");
+
+        assert_eq!(observation.tool_name, "gmail__send_email");
+        assert_eq!(observation.route_family, "connectors");
+        assert_eq!(observation.output_intent, "tool_execution");
+        assert!(!observation.direct_answer_allowed);
+        assert!(observation.currentness_override);
+        assert!(observation.connector_first_preference);
+        assert!(observation.narrow_tool_preference);
+        assert_eq!(
+            observation.selected_provider_family.as_deref(),
+            Some("gmail")
+        );
+        assert_eq!(
+            observation.selected_provider_route_label.as_deref(),
+            Some("provider_first")
+        );
+        assert_eq!(
+            observation.projected_tools,
+            vec![
+                "gmail__send_email".to_string(),
+                "conversation__reply".to_string()
+            ]
+        );
+        assert_eq!(
+            observation.primary_tools,
+            vec!["gmail__send_email".to_string()]
+        );
+        assert_eq!(
+            observation.broad_fallback_tools,
+            vec!["conversation__reply".to_string()]
+        );
+    }
+
+    #[test]
+    fn parse_tool_recovery_observation_retains_runtime_strategy_and_retry_signals() {
+        let observation = super::parse_tool_recovery_observation(
+            "filesystem__patch",
+            &[
+                "invalid_tool_call_repair_attempted=true".to_string(),
+                "invalid_tool_call_repair_succeeded=true".to_string(),
+                "invalid_tool_call_repair_runtime=deterministic".to_string(),
+                "invalid_tool_call_repair_tool=filesystem__patch".to_string(),
+                "invalid_tool_call_repair_workflow=patch_build_verify".to_string(),
+                "invalid_tool_call_repair_deterministic_source=goal_constrained_snapshot"
+                    .to_string(),
+                "invalid_tool_call_repair_deterministic_recovery=targeted_exec".to_string(),
+                "invalid_tool_call_repair_targeted_command_boundary=post_edit_unexpected_state"
+                    .to_string(),
+                "invalid_tool_call_repair_targeted_command_rerun=post_edit".to_string(),
+                "determinism_recovery_retry=true".to_string(),
+                "invalid_tool_call_repair_runtime_line_edit_upconverted=true".to_string(),
+            ],
+        )
+        .expect("recovery observation should be present");
+
+        assert_eq!(observation.tool_name, "filesystem__patch");
+        assert!(observation.repair_attempted);
+        assert_eq!(observation.repair_succeeded, Some(true));
+        assert!(observation.retry_path);
+        assert_eq!(observation.repair_runtime.as_deref(), Some("deterministic"));
+        assert_eq!(
+            observation.repair_tool.as_deref(),
+            Some("filesystem__patch")
+        );
+        assert_eq!(
+            observation.repair_workflow.as_deref(),
+            Some("patch_build_verify")
+        );
+        assert_eq!(
+            observation.recovery_strategy.as_deref(),
+            Some("targeted_exec")
+        );
+        assert_eq!(
+            observation.recovery_source.as_deref(),
+            Some("goal_constrained_snapshot")
+        );
+        assert_eq!(
+            observation.boundary_events,
+            vec![
+                "invalid_tool_call_repair_targeted_command_boundary=post_edit_unexpected_state"
+                    .to_string(),
+                "invalid_tool_call_repair_targeted_command_rerun=post_edit".to_string(),
+            ]
+        );
+        assert!(observation
+            .labels
+            .contains(&"determinism_recovery_retry".to_string()));
+        assert!(observation
+            .labels
+            .contains(&"invalid_tool_call_repair_runtime_line_edit_upconverted".to_string()));
     }
 }

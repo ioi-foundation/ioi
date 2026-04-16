@@ -1,0 +1,114 @@
+[
+  {
+    "prompt": "What's the weather in Boston this weekend?",
+    "covers_questions": [50, 51, 53, 54, 55, 56, 60, 62],
+    "expectations": {
+      "phase": "Complete",
+      "route_family": "research",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "narrow_tool_preference": true,
+      "selected_route_contains": "weather",
+      "primary_tools_include": ["weather_fetch"],
+      "presentation_surface": "weather_widget",
+      "widget_family": "weather",
+      "policy_hidden_instruction_dependency": false,
+      "source_ranking_sources_include": ["specialized_tool"],
+      "verification_required_checks_include": ["weather_surface_rendered"],
+      "lane_transition_targets_include": ["tool_widget"],
+      "orchestration_task_count_min": 3,
+      "orchestration_checkpoint_count_min": 2
+    }
+  },
+  {
+    "prompt": "Find three good coffee shops near downtown Portland, show them on a map, and tell me which one opens earliest.",
+    "covers_questions": [50, 51, 53, 54, 55, 56, 60, 62],
+    "expectations": {
+      "phase": "Complete",
+      "route_family": "research",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "narrow_tool_preference": true,
+      "selected_route_contains": "places",
+      "primary_tools_include": ["places_search"],
+      "presentation_surface": "places_widget",
+      "widget_family": "places",
+      "policy_hidden_instruction_dependency": false,
+      "source_ranking_sources_include": ["specialized_tool"],
+      "verification_required_checks_include": ["places_surface_rendered"],
+      "lane_transition_targets_include": ["tool_widget"],
+      "orchestration_task_count_min": 3,
+      "orchestration_checkpoint_count_min": 2
+    }
+  },
+  {
+    "prompt": "Compare the Lakers and Celtics this season and tell me which team looks stronger right now.",
+    "covers_questions": [50, 51, 53, 54, 55, 56, 60, 62],
+    "expectations": {
+      "phase": "Complete",
+      "route_family": "research",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "narrow_tool_preference": true,
+      "selected_route_contains": "sports",
+      "primary_tools_include": ["fetch_sports_data"],
+      "presentation_surface": "sports_widget",
+      "widget_family": "sports",
+      "policy_hidden_instruction_dependency": false,
+      "source_ranking_sources_include": ["specialized_tool"],
+      "verification_required_checks_include": ["sports_surface_rendered"],
+      "lane_transition_targets_include": ["tool_widget"],
+      "orchestration_task_count_min": 3,
+      "orchestration_checkpoint_count_min": 2
+    }
+  },
+  {
+    "prompt": "How do I make carbonara for 3 people?",
+    "covers_questions": [50, 51, 53, 54, 55, 60],
+    "expectations": {
+      "phase": "Complete",
+      "route_family": "research",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "narrow_tool_preference": true,
+      "selected_route_contains": "recipe",
+      "primary_tools_include": ["recipe_display_v0"],
+      "presentation_surface": "recipe_widget",
+      "widget_family": "recipe",
+      "policy_hidden_instruction_dependency": false,
+      "verification_required_checks_include": ["recipe_surface_rendered"],
+      "lane_transition_targets_include": ["tool_widget"],
+      "orchestration_task_count_min": 3,
+      "orchestration_checkpoint_count_min": 2
+    }
+  },
+  {
+    "prompt": "Draft a professional email to my landlord asking whether the lease renewal paperwork is ready and keep it concise.",
+    "covers_questions": [53, 54, 55, 56, 60],
+    "expectations": {
+      "phase": "Complete",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "narrow_tool_preference": true,
+      "presentation_surface": "communication_surface",
+      "policy_hidden_instruction_dependency": false,
+      "verification_required_checks_include": ["communication_surface_rendered"],
+      "orchestration_task_count_min": 3,
+      "orchestration_checkpoint_count_min": 2
+    }
+  },
+  {
+    "prompt": "Plan a Saturday in Portland by comparing the weather, choosing a coffee shop downtown, and suggesting one nearby dinner spot, then turn it into a short itinerary artifact.",
+    "covers_questions": [53, 54, 55, 60, 62, 75],
+    "expectations": {
+      "phase": "Complete",
+      "output_intent": "artifact",
+      "direct_answer_allowed": false,
+      "artifact_output_intent": true,
+      "presentation_surface": "artifact_surface",
+      "policy_hidden_instruction_dependency": false,
+      "orchestration_task_count_min": 3,
+      "orchestration_checkpoint_count_min": 2
+    }
+  }
+]

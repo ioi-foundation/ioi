@@ -318,6 +318,7 @@ pub(super) fn handle_duplicate_command_execution(
             )
         };
         summary = worker_duplicate_noop_summary(state, agent_state, session_id, tool, summary);
+        summary = workspace_duplicate_noop_summary(agent_state, tool, summary);
         let queued_browser_snapshot_verification = prior_successful_duplicate
             && tool.target() == ActionTarget::BrowserInteract
             && queue_browser_snapshot_verification(agent_state, session_id);
@@ -609,6 +610,45 @@ fn worker_duplicate_noop_summary(
             } else {
                 summary.push_str(
                     " When the edit is ready, run the focused verification command with `shell__start`.",
+                );
+            }
+            summary
+        }
+        _ => default_summary,
+    }
+}
+
+fn workspace_duplicate_noop_summary(
+    agent_state: &AgentState,
+    tool: &AgentTool,
+    default_summary: String,
+) -> String {
+    if agent_state.parent_session_id.is_some() {
+        return default_summary;
+    }
+    if agent_state
+        .resolved_intent
+        .as_ref()
+        .map(|resolved| resolved.scope)
+        != Some(ioi_types::app::agentic::IntentScopeProfile::WorkspaceOps)
+    {
+        return default_summary;
+    }
+
+    match tool {
+        AgentTool::FsRead { path } => {
+            let target = Path::new(path)
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or(path.as_str());
+            let mut summary = default_summary;
+            if target.eq_ignore_ascii_case("package.json") {
+                summary.push_str(
+                    " If the answer is already present in this file, your next action must be `chat__reply` citing the relevant script entry instead of rereading `package.json`.",
+                );
+            } else {
+                summary.push_str(
+                    " If the answer is already present in this file, your next action must be `chat__reply` using the gathered evidence instead of rereading it.",
                 );
             }
             summary
@@ -1040,7 +1080,7 @@ mod tests {
         is_read_only_filesystem_tool, maybe_terminalize_duplicate_worker_noop,
         queue_browser_snapshot_verification, synthesize_repo_context_brief_from_duplicate,
         worker_duplicate_noop_summary, worker_duplicate_refresh_read_allowed,
-        worker_duplicate_requires_recovery_error,
+        worker_duplicate_requires_recovery_error, workspace_duplicate_noop_summary,
     };
     use crate::agentic::runtime::service::lifecycle::persist_worker_assignment;
     use crate::agentic::runtime::service::step::action::{
@@ -1054,6 +1094,7 @@ mod tests {
     use ioi_state::primitives::hash::HashCommitmentScheme;
     use ioi_state::tree::iavl::IAVLTree;
     use ioi_types::app::agentic::AgentTool;
+    use ioi_types::app::agentic::{IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState};
     use ioi_types::app::ActionTarget;
     use std::collections::BTreeMap;
     use tempfile::tempdir;
@@ -1145,6 +1186,47 @@ mod tests {
             "file__read",
             &agent_state
         ));
+    }
+
+    #[test]
+    fn workspace_package_read_duplicate_summary_requires_chat_reply() {
+        let mut agent_state = test_agent_state();
+        agent_state.resolved_intent = Some(ResolvedIntentState {
+            intent_id: "workspace.lookup".to_string(),
+            scope: IntentScopeProfile::WorkspaceOps,
+            band: IntentConfidenceBand::High,
+            score: 0.95,
+            top_k: vec![],
+            required_capabilities: vec![],
+            required_receipts: vec![],
+            required_postconditions: vec![],
+            risk_class: "low".to_string(),
+            preferred_tier: "tool_first".to_string(),
+            matrix_version: "test".to_string(),
+            embedding_model_id: "test".to_string(),
+            embedding_model_version: "test".to_string(),
+            similarity_function_id: "cosine".to_string(),
+            intent_set_hash: [0u8; 32],
+            tool_registry_hash: [0u8; 32],
+            capability_ontology_hash: [0u8; 32],
+            query_normalization_version: "v1".to_string(),
+            matrix_source_hash: [0u8; 32],
+            receipt_hash: [0u8; 32],
+            provider_selection: None,
+            instruction_contract: None,
+            constrained: false,
+        });
+
+        let summary = workspace_duplicate_noop_summary(
+            &agent_state,
+            &AgentTool::FsRead {
+                path: "./package.json".to_string(),
+            },
+            "Skipped immediate replay of 'file__read'.".to_string(),
+        );
+
+        assert!(summary.contains("chat__reply"));
+        assert!(summary.contains("package.json"));
     }
 
     #[test]

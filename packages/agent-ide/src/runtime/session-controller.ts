@@ -1,22 +1,36 @@
 import { create } from "zustand";
 import type { StoreApi, UseBoundStore } from "zustand";
-import type { AgentSessionEventName, AgentSessionProjection } from "./agent-runtime";
+import type {
+  AssistantSessionEventName,
+  AssistantSessionProjection,
+} from "./assistant-session-runtime-types";
 import {
-  continueSessionTask,
-  dismissSessionTask,
-  getCurrentSessionTask,
-  getSessionProjection,
+  dismissAssistantSession,
+  getActiveAssistantSession,
+  getAssistantSessionProjection,
   hideSpotlightShell,
-  listenSessionProjection,
-  listenSessionEvent,
-  listSessionHistory,
-  loadSessionTask,
-  loadSessionThreadArtifacts,
-  loadSessionThreadEvents,
+  listAssistantSessions,
+  listenAssistantSessionEvent,
+  listenAssistantSessionProjection,
+  loadAssistantSession,
+  loadAssistantSessionArtifacts,
+  loadAssistantSessionEvents,
   showSpotlightShell,
   showStudioShell,
-  startSessionTask,
+  startAssistantSession,
+  submitAssistantSessionInput,
 } from "./session-runtime";
+import {
+  buildSessionAttachTargets,
+  mergeSessionSnapshotCollection,
+  resolveSessionRecoveryId,
+  selectPrimarySessionAttachTarget,
+  shouldRetainHydratedThreadCollections,
+  type SessionAttachTarget,
+} from "./session-repl-targets";
+import {
+  shouldRetainSessionOnMissingProjection,
+} from "./session-status";
 
 export interface SessionControllerHistoryPollingOptions {
   intervalMs?: number;
@@ -34,18 +48,7 @@ export interface SessionControllerReplSessionLike {
   workspace_root?: string | null;
 }
 
-export interface SessionControllerReplTarget {
-  sessionId: string;
-  title: string;
-  timestamp: number;
-  phase: string | null;
-  currentStep: string | null;
-  resumeHint: string | null;
-  workspaceRoot: string | null;
-  isCurrent: boolean;
-  attachable: boolean;
-  priorityLabel: string;
-}
+export type SessionControllerReplTarget = SessionAttachTarget;
 
 export interface SessionControllerBootstrapOptions {
   refreshCurrentTask?: boolean;
@@ -71,7 +74,9 @@ export interface SessionControllerRuntime<
   dismissTask(): Promise<void>;
   getCurrentTask(): Promise<TTask | null>;
   listSessionHistory(): Promise<TSessionSummary[]>;
-  getSessionProjection(): Promise<AgentSessionProjection<TTask, TSessionSummary>>;
+  getSessionProjection(): Promise<
+    AssistantSessionProjection<TTask, TSessionSummary>
+  >;
   loadSession(sessionId: string): Promise<TTask>;
   loadThreadEvents(
     threadId: string,
@@ -80,11 +85,13 @@ export interface SessionControllerRuntime<
   ): Promise<TEvent[]>;
   loadThreadArtifacts(threadId: string): Promise<TArtifact[]>;
   listenEvent<TPayload>(
-    eventName: AgentSessionEventName,
+    eventName: AssistantSessionEventName,
     handler: (payload: TPayload) => void,
   ): Promise<() => void>;
   listenSessionProjection(
-    handler: (projection: AgentSessionProjection<TTask, TSessionSummary>) => void,
+    handler: (
+      projection: AssistantSessionProjection<TTask, TSessionSummary>,
+    ) => void,
   ): Promise<() => void>;
   showSpotlight(): Promise<void>;
   hideSpotlight(): Promise<void>;
@@ -145,73 +152,35 @@ export interface SessionControllerStudioTaskLike {
   build_session?: unknown | null;
 }
 
-type RetainableProjectionTaskLike = Partial<
-  SessionControllerChatTaskLike<
-    SessionControllerEventLike,
-    SessionControllerArtifactLike,
-    SessionControllerChatMessageLike
-  >
-> & {
-  pending_request_hash?: unknown;
-  gate_info?: unknown;
-  background_tasks?: Array<{ can_stop?: boolean | null }> | null;
-};
-
-function looksLikeLiveRetainableTask(task: unknown): task is RetainableProjectionTaskLike {
-  return !!task && typeof task === "object";
-}
-
-function shouldRetainTaskOnNullProjection(task: unknown): boolean {
-  if (!looksLikeLiveRetainableTask(task)) {
-    return false;
-  }
-
-  const phase = typeof task.phase === "string" ? task.phase : null;
-  const currentStep =
-    typeof task.current_step === "string"
-      ? task.current_step.trim().toLowerCase()
-      : "";
-  const hasBackgroundStop =
-    Array.isArray(task.background_tasks) &&
-    task.background_tasks.some((entry) => Boolean(entry?.can_stop));
-  const hasLiveBlocker =
-    Boolean(task.credential_request) ||
-    Boolean(task.clarification_request) ||
-    Boolean(task.pending_request_hash) ||
-    Boolean(task.gate_info) ||
-    phase === "Gate";
-
-  return (
-    hasLiveBlocker ||
-    phase === "Running" ||
-    hasBackgroundStop ||
-    currentStep.includes("waiting for") ||
-    currentStep.includes("initializing") ||
-    currentStep.includes("routing the request")
-  );
-}
-
 export interface SessionControllerStoreState<
   TTask,
   TEvent,
   TArtifact,
   TSessionSummary,
 > {
+  session: TTask | null;
   task: TTask | null;
   events: TEvent[];
   artifacts: TArtifact[];
   selectedArtifactId: string | null;
   sessions: TSessionSummary[];
+  startSession: (intent: string) => Promise<TTask | null>;
   startTask: (intent: string) => Promise<TTask | null>;
+  setSession: (task: TTask) => void;
   updateTask: (task: TTask) => void;
+  dismissSession: () => Promise<void>;
   dismissTask: () => Promise<void>;
   showSpotlight: () => Promise<void>;
   hideSpotlight: () => Promise<void>;
   showStudio: () => Promise<void>;
+  submitSessionInput: (sessionId: string, input: string) => Promise<void>;
   continueTask: (sessionId: string, input: string) => Promise<void>;
+  clearSession: () => void;
   resetSession: () => void;
   startNewSession: () => void;
+  refreshActiveSession: () => Promise<TTask | null>;
   refreshCurrentTask: () => Promise<TTask | null>;
+  refreshSessionList: () => Promise<TSessionSummary[]>;
   refreshSessionHistory: () => Promise<TSessionSummary[]>;
   loadSession: (sessionId: string) => Promise<TTask | null>;
   setSelectedArtifactId: (artifactId: string | null) => void;
@@ -223,17 +192,23 @@ export interface SessionControllerStoreState<
   loadThreadArtifacts: (threadId: string) => Promise<TArtifact[]>;
 }
 
-interface CreateSessionControllerStoreResult<
+interface CreateSessionStoreResult<
   TTask,
   TEvent,
   TArtifact,
   TSessionSummary,
 > {
+  useSessionStore: UseBoundStore<
+    StoreApi<SessionControllerStoreState<TTask, TEvent, TArtifact, TSessionSummary>>
+  >;
   useSessionControllerStore: UseBoundStore<
     StoreApi<
       SessionControllerStoreState<TTask, TEvent, TArtifact, TSessionSummary>
     >
   >;
+  connectSessionStore: (
+    options?: SessionControllerBootstrapOptions,
+  ) => Promise<void>;
   bootstrapSessionController: (
     options?: SessionControllerBootstrapOptions,
   ) => Promise<void>;
@@ -249,90 +224,6 @@ function selectedArtifactStillPresent<TArtifact>(
   }
 
   return artifacts.some((artifact) => getArtifactId(artifact) === selectedArtifactId);
-}
-
-function sessionLooksLiveForRepl(session: SessionControllerReplSessionLike): boolean {
-  const phase = (session.phase ?? "").trim().toLowerCase();
-  const currentStep = (session.current_step ?? "").trim().toLowerCase();
-  return (
-    phase === "running" ||
-    phase === "gate" ||
-    currentStep.includes("waiting for") ||
-    currentStep.includes("initializing") ||
-    currentStep.includes("routing the request") ||
-    currentStep.includes("sending message")
-  );
-}
-
-function replPriorityLabel(
-  session: SessionControllerReplSessionLike,
-  activeSessionId?: string | null,
-): string {
-  if (activeSessionId && session.session_id === activeSessionId) {
-    return "Current session";
-  }
-  if (sessionLooksLiveForRepl(session)) {
-    return "Live session";
-  }
-  if (session.workspace_root) {
-    return "Recent workspace";
-  }
-  return "Session history";
-}
-
-function replPriorityScore(
-  session: SessionControllerReplSessionLike,
-  activeSessionId?: string | null,
-): number {
-  if (activeSessionId && session.session_id === activeSessionId) {
-    return 4;
-  }
-  if (sessionLooksLiveForRepl(session)) {
-    return 3;
-  }
-  if (session.workspace_root) {
-    return 2;
-  }
-  return 1;
-}
-
-export function buildSessionReplTargets<
-  TSession extends SessionControllerReplSessionLike,
->(
-  sessions: TSession[],
-  activeSessionId?: string | null,
-): SessionControllerReplTarget[] {
-  return [...sessions]
-    .sort((left, right) => {
-      const priorityDelta =
-        replPriorityScore(right, activeSessionId) -
-        replPriorityScore(left, activeSessionId);
-      if (priorityDelta !== 0) {
-        return priorityDelta;
-      }
-      return right.timestamp - left.timestamp;
-    })
-    .map((session) => ({
-      sessionId: session.session_id,
-      title: session.title,
-      timestamp: session.timestamp,
-      phase: session.phase ?? null,
-      currentStep: session.current_step ?? null,
-      resumeHint: session.resume_hint ?? null,
-      workspaceRoot: session.workspace_root ?? null,
-      isCurrent: Boolean(activeSessionId && session.session_id === activeSessionId),
-      attachable: Boolean(session.workspace_root),
-      priorityLabel: replPriorityLabel(session, activeSessionId),
-    }));
-}
-
-export function selectPrimarySessionReplTarget<
-  TSession extends SessionControllerReplSessionLike,
->(
-  sessions: TSession[],
-  activeSessionId?: string | null,
-): SessionControllerReplTarget | null {
-  return buildSessionReplTargets(sessions, activeSessionId)[0] ?? null;
 }
 
 export function appendUniqueSessionEvent<TEvent extends SessionControllerEventLike>(
@@ -443,7 +334,7 @@ export function createSessionControllerStore<
 >(
   runtime: SessionControllerRuntime<TTask, TEvent, TArtifact, TSessionSummary>,
   config: SessionControllerConfig<TTask, TEvent, TArtifact>,
-): CreateSessionControllerStoreResult<
+): CreateSessionStoreResult<
   TTask,
   TEvent,
   TArtifact,
@@ -464,29 +355,64 @@ export function createSessionControllerStore<
     task: TTask | null,
   ): TTask | null => {
     if (!task) {
-      set({ task: null, events: [], artifacts: [], selectedArtifactId: null });
+      set({
+        session: null,
+        task: null,
+        events: [],
+        artifacts: [],
+        selectedArtifactId: null,
+      });
       return null;
     }
 
     const normalized = config.normalizeTask(task);
-    const normalizedArtifacts = config.getTaskArtifacts(normalized);
-    set((state) => ({
-      task: normalized,
-      events: config.getTaskEvents(normalized),
-      artifacts: normalizedArtifacts,
-      selectedArtifactId: selectedArtifactStillPresent(
-        normalizedArtifacts,
-        state.selectedArtifactId,
-        config.getArtifactId,
-      )
-        ? state.selectedArtifactId
-        : null,
-    }));
-    return normalized;
+    let appliedTask = normalized;
+    set((state) => {
+      const retainHydratedCollections = shouldRetainHydratedThreadCollections(
+        state.task,
+        normalized,
+      );
+      const snapshotEvents = config.getTaskEvents(normalized);
+      const snapshotArtifacts = config.getTaskArtifacts(normalized);
+      const mergedEvents = retainHydratedCollections
+        ? mergeSessionSnapshotCollection(
+            state.events,
+            snapshotEvents,
+            config.appendUniqueEvent,
+          )
+        : snapshotEvents;
+      const mergedArtifacts = retainHydratedCollections
+        ? mergeSessionSnapshotCollection(
+            state.artifacts,
+            snapshotArtifacts,
+            config.appendUniqueArtifact,
+          )
+        : snapshotArtifacts;
+      const normalizedWithCollections = config.setTaskArtifacts(
+        config.setTaskEvents(normalized, mergedEvents),
+        mergedArtifacts,
+      );
+      appliedTask = normalizedWithCollections;
+
+      return {
+        session: normalizedWithCollections,
+        task: normalizedWithCollections,
+        events: mergedEvents,
+        artifacts: mergedArtifacts,
+        selectedArtifactId: selectedArtifactStillPresent(
+          mergedArtifacts,
+          state.selectedArtifactId,
+          config.getArtifactId,
+        )
+          ? state.selectedArtifactId
+          : null,
+      };
+    });
+    return appliedTask;
   };
 
   const shouldPollTaskSnapshot = (task: TTask | null): boolean =>
-    shouldRetainTaskOnNullProjection(task);
+    shouldRetainSessionOnMissingProjection(task);
 
   let taskPollTimer: ReturnType<typeof setTimeout> | null = null;
   let taskPollInFlight = false;
@@ -544,16 +470,17 @@ export function createSessionControllerStore<
           >),
     ) => void,
     get: () => SessionControllerStoreState<TTask, TEvent, TArtifact, TSessionSummary>,
-    projection: AgentSessionProjection<TTask, TSessionSummary>,
+    projection: AssistantSessionProjection<TTask, TSessionSummary>,
   ) => {
     useSessionControllerStore.setState((state) => {
       if (!projection.task) {
-        if (shouldRetainTaskOnNullProjection(state.task)) {
+        if (shouldRetainSessionOnMissingProjection(state.task)) {
           return {
             sessions: projection.sessions,
           };
         }
         return {
+          session: null,
           task: null,
           events: [],
           artifacts: [],
@@ -565,6 +492,7 @@ export function createSessionControllerStore<
       const normalized = config.normalizeTask(projection.task);
       const normalizedArtifacts = config.getTaskArtifacts(normalized);
       return {
+        session: normalized,
         task: normalized,
         events: config.getTaskEvents(normalized),
         artifacts: normalizedArtifacts,
@@ -590,11 +518,22 @@ export function createSessionControllerStore<
   const useSessionControllerStore = create<
     SessionControllerStoreState<TTask, TEvent, TArtifact, TSessionSummary>
   >((set, get) => ({
+    session: null,
     task: null,
     events: [],
     artifacts: [],
     selectedArtifactId: null,
     sessions: [],
+
+    startSession: async (intent: string): Promise<TTask | null> => {
+      const task = applyTaskSnapshot(set, await runtime.startTask(intent));
+      if (shouldPollTaskSnapshot(task)) {
+        scheduleTaskPoll(set, get);
+      } else {
+        clearTaskPollTimer();
+      }
+      return task;
+    },
 
     startTask: async (intent: string): Promise<TTask | null> => {
       const task = applyTaskSnapshot(set, await runtime.startTask(intent));
@@ -606,23 +545,45 @@ export function createSessionControllerStore<
       return task;
     },
 
+    setSession: (task: TTask) => {
+      void applyTaskSnapshot(set, task);
+    },
+
     updateTask: (task: TTask) => {
       void applyTaskSnapshot(set, task);
     },
 
+    dismissSession: async () => {
+      await runtime.dismissTask();
+      set({
+        session: null,
+        task: null,
+        events: [],
+        artifacts: [],
+        selectedArtifactId: null,
+      });
+    },
+
     dismissTask: async () => {
       await runtime.dismissTask();
-      set({ task: null, events: [], artifacts: [], selectedArtifactId: null });
+      set({
+        session: null,
+        task: null,
+        events: [],
+        artifacts: [],
+        selectedArtifactId: null,
+      });
     },
 
     showSpotlight: async () => runtime.showSpotlight(),
     hideSpotlight: async () => runtime.hideSpotlight(),
     showStudio: async () => runtime.showStudio(),
 
-    continueTask: async (sessionId: string, input: string) => {
+    submitSessionInput: async (sessionId: string, input: string) => {
       const currentTask = get().task;
       if (currentTask) {
-        set({ task: config.buildOptimisticContinueTask(currentTask, input) });
+        const nextTask = config.buildOptimisticContinueTask(currentTask, input);
+        set({ session: nextTask, task: nextTask });
       }
 
       try {
@@ -630,13 +591,43 @@ export function createSessionControllerStore<
       } catch (error) {
         const task = get().task;
         if (task) {
-          set({ task: config.buildContinueFailureTask(task, error) });
+          const nextTask = config.buildContinueFailureTask(task, error);
+          set({ session: nextTask, task: nextTask });
         }
       }
     },
 
+    continueTask: async (sessionId: string, input: string) => {
+      const currentTask = get().task;
+      if (currentTask) {
+        const nextTask = config.buildOptimisticContinueTask(currentTask, input);
+        set({ session: nextTask, task: nextTask });
+      }
+
+      try {
+        await runtime.continueTask(sessionId, input);
+      } catch (error) {
+        const task = get().task;
+        if (task) {
+          const nextTask = config.buildContinueFailureTask(task, error);
+          set({ session: nextTask, task: nextTask });
+        }
+      }
+    },
+
+    clearSession: () => {
+      set({
+        session: null,
+        task: null,
+        events: [],
+        artifacts: [],
+        selectedArtifactId: null,
+      });
+    },
+
     resetSession: () => {
       set({
+        session: null,
         task: null,
         events: [],
         artifacts: [],
@@ -648,6 +639,15 @@ export function createSessionControllerStore<
       get().resetSession();
     },
 
+    refreshActiveSession: async () => {
+      try {
+        return applyTaskSnapshot(set, await runtime.getCurrentTask());
+      } catch (error) {
+        console.error("Failed to refresh current task:", error);
+        return get().task;
+      }
+    },
+
     refreshCurrentTask: async () => {
       try {
         return applyTaskSnapshot(set, await runtime.getCurrentTask());
@@ -655,6 +655,12 @@ export function createSessionControllerStore<
         console.error("Failed to refresh current task:", error);
         return get().task;
       }
+    },
+
+    refreshSessionList: async () => {
+      const sessions = await runtime.listSessionHistory();
+      set({ sessions });
+      return sessions;
     },
 
     refreshSessionHistory: async () => {
@@ -702,6 +708,42 @@ export function createSessionControllerStore<
   storeSet = useSessionControllerStore.setState;
   storeGet = useSessionControllerStore.getState;
 
+  const recoverTaskFromSessionSummary = (
+    sessionId: string | null,
+    set: (
+      partial:
+        | Partial<SessionControllerStoreState<TTask, TEvent, TArtifact, TSessionSummary>>
+        | ((
+            state: SessionControllerStoreState<TTask, TEvent, TArtifact, TSessionSummary>,
+          ) => Partial<
+            SessionControllerStoreState<TTask, TEvent, TArtifact, TSessionSummary>
+          >),
+    ) => void,
+    get: () => SessionControllerStoreState<TTask, TEvent, TArtifact, TSessionSummary>,
+  ) => {
+    if (!sessionId) {
+      return;
+    }
+
+    void runtime
+      .loadSession(sessionId)
+      .then((task) => {
+        const recoveredTask = applyTaskSnapshot(set, task);
+        if (shouldPollTaskSnapshot(recoveredTask)) {
+          scheduleTaskPoll(set, get, TASK_POLL_IDLE_DELAY_MS);
+        } else {
+          clearTaskPollTimer();
+        }
+      })
+      .catch(() => {
+        if (shouldPollTaskSnapshot(get().task)) {
+          scheduleTaskPoll(set, get, TASK_POLL_IDLE_DELAY_MS);
+        } else {
+          clearTaskPollTimer();
+        }
+      });
+  };
+
   scheduleTaskPoll = (set, get, delayMs = TASK_POLL_INITIAL_DELAY_MS) => {
     clearTaskPollTimer();
     taskPollTimer = setTimeout(() => {
@@ -717,6 +759,14 @@ export function createSessionControllerStore<
         .then((task) => {
           const currentTask = get().task;
           if (!task) {
+            const recoverySessionId = resolveSessionRecoveryId(
+              currentTask,
+              get().sessions,
+            );
+            if (recoverySessionId) {
+              recoverTaskFromSessionSummary(recoverySessionId, set, get);
+              return;
+            }
             if (shouldPollTaskSnapshot(currentTask)) {
               scheduleTaskPoll(set, get, TASK_POLL_IDLE_DELAY_MS);
             } else {
@@ -758,7 +808,14 @@ export function createSessionControllerStore<
       }
 
       await runtime.listenSessionProjection((projection) => {
+        const recoverySessionId = !projection.task
+          ? resolveSessionRecoveryId(
+              storeGet!().task,
+              projection.sessions,
+            )
+          : null;
         applySessionProjection(storeSet!, storeGet!, projection);
+        recoverTaskFromSessionSummary(recoverySessionId, storeSet!, storeGet!);
       });
 
       await runtime.listenEvent<TTask>("task-started", (payload) => {
@@ -785,6 +842,7 @@ export function createSessionControllerStore<
       await runtime.listenEvent("task-dismissed", () => {
         clearTaskPollTimer();
         useSessionControllerStore.setState({
+          session: null,
           task: null,
           events: [],
           artifacts: [],
@@ -801,7 +859,7 @@ export function createSessionControllerStore<
                 config.appendUniqueEvent(config.getTaskEvents(state.task), payload),
               )
             : state.task;
-          return { events, task };
+          return { events, session: task, task };
         });
       });
 
@@ -814,7 +872,7 @@ export function createSessionControllerStore<
                 config.appendUniqueArtifact(config.getTaskArtifacts(state.task), payload),
               )
             : state.task;
-          return { artifacts, task };
+          return { artifacts, session: task, task };
         });
       });
     })().catch((error) => {
@@ -849,7 +907,9 @@ export function createSessionControllerStore<
   }
 
   return {
+    connectSessionStore: bootstrapSessionController,
     bootstrapSessionController,
+    useSessionStore: useSessionControllerStore,
     useSessionControllerStore,
   };
 }
@@ -861,7 +921,7 @@ export function createRuntimeSessionControllerStore<
   TSessionSummary,
 >(
   config: SessionControllerConfig<TTask, TEvent, TArtifact>,
-): CreateSessionControllerStoreResult<
+): CreateSessionStoreResult<
   TTask,
   TEvent,
   TArtifact,
@@ -874,27 +934,28 @@ export function createRuntimeSessionControllerStore<
     TSessionSummary
   >(
     {
-      startTask: (intent: string) => startSessionTask<TTask>(intent),
+      startTask: (intent: string) => startAssistantSession<TTask>(intent),
       continueTask: (sessionId: string, userInput: string) =>
-        continueSessionTask(sessionId, userInput),
-      dismissTask: () => dismissSessionTask(),
-      getCurrentTask: () => getCurrentSessionTask<TTask>(),
-      listSessionHistory: () => listSessionHistory<TSessionSummary>(),
-      getSessionProjection: () => getSessionProjection<TTask, TSessionSummary>(),
-      loadSession: (sessionId: string) => loadSessionTask<TTask>(sessionId),
+        submitAssistantSessionInput(sessionId, userInput),
+      dismissTask: () => dismissAssistantSession(),
+      getCurrentTask: () => getActiveAssistantSession<TTask>(),
+      listSessionHistory: () => listAssistantSessions<TSessionSummary>(),
+      getSessionProjection: () =>
+        getAssistantSessionProjection<TTask, TSessionSummary>(),
+      loadSession: (sessionId: string) => loadAssistantSession<TTask>(sessionId),
       loadThreadEvents: (threadId: string, limit?: number, cursor?: number) =>
-        loadSessionThreadEvents<TEvent>(threadId, limit, cursor),
+        loadAssistantSessionEvents<TEvent>(threadId, limit, cursor),
       loadThreadArtifacts: (threadId: string) =>
-        loadSessionThreadArtifacts<TArtifact>(threadId),
+        loadAssistantSessionArtifacts<TArtifact>(threadId),
       listenEvent: <TPayload,>(
-        eventName: AgentSessionEventName,
+        eventName: AssistantSessionEventName,
         handler: (payload: TPayload) => void,
-      ) => listenSessionEvent<TPayload>(eventName, handler),
+      ) => listenAssistantSessionEvent<TPayload>(eventName, handler),
       listenSessionProjection: (
         handler: (
-          projection: AgentSessionProjection<TTask, TSessionSummary>,
+          projection: AssistantSessionProjection<TTask, TSessionSummary>,
         ) => void,
-      ) => listenSessionProjection<TTask, TSessionSummary>(handler),
+      ) => listenAssistantSessionProjection<TTask, TSessionSummary>(handler),
       showSpotlight: () => showSpotlightShell(),
       hideSpotlight: () => hideSpotlightShell(),
       showStudio: () => showStudioShell(),
@@ -913,7 +974,7 @@ export function createRuntimeChatSessionControllerStore<
   options: {
     normalizeTask(task: TTask): TTask;
   },
-): CreateSessionControllerStoreResult<
+): CreateSessionStoreResult<
   TTask,
   TEvent,
   TArtifact,
@@ -956,7 +1017,7 @@ export function createNormalizedRuntimeChatSessionControllerStore<
     normalizeTask(task: TTask): TTask;
     onBootstrapError?: (error: unknown) => void;
   },
-): CreateSessionControllerStoreResult<
+): CreateSessionStoreResult<
   TTask,
   TEvent,
   TArtifact,
@@ -973,7 +1034,18 @@ export function createNormalizedRuntimeChatSessionControllerStore<
   });
 
   return {
+    useSessionStore: controllerStore.useSessionStore,
     useSessionControllerStore: controllerStore.useSessionControllerStore,
+    connectSessionStore: (
+      bootstrapOptions: SessionControllerBootstrapOptions = {},
+    ) =>
+      controllerStore.connectSessionStore({
+        ...bootstrapOptions,
+        onError: composeSessionControllerErrorHandlers(
+          bootstrapOptions.onError,
+          options.onBootstrapError,
+        ),
+      }),
     bootstrapSessionController: (
       bootstrapOptions: SessionControllerBootstrapOptions = {},
     ) =>
@@ -986,3 +1058,91 @@ export function createNormalizedRuntimeChatSessionControllerStore<
       }),
   };
 }
+
+export function createSessionStore<
+  TTask,
+  TEvent,
+  TArtifact,
+  TSessionSummary,
+>(
+  runtime: SessionControllerRuntime<TTask, TEvent, TArtifact, TSessionSummary>,
+  config: SessionControllerConfig<TTask, TEvent, TArtifact>,
+): CreateSessionStoreResult<TTask, TEvent, TArtifact, TSessionSummary> {
+  return createSessionControllerStore(runtime, config);
+}
+
+export function createConnectedSessionStore<
+  TTask,
+  TEvent,
+  TArtifact,
+  TSessionSummary,
+>(
+  config: SessionControllerConfig<TTask, TEvent, TArtifact>,
+): CreateSessionStoreResult<TTask, TEvent, TArtifact, TSessionSummary> {
+  return createRuntimeSessionControllerStore(config);
+}
+
+export function createChatSessionStore<
+  TTask extends SessionControllerChatTaskLike<TEvent, TArtifact, TMessage>,
+  TEvent extends SessionControllerEventLike,
+  TArtifact extends SessionControllerArtifactLike,
+  TSessionSummary,
+  TMessage extends SessionControllerChatMessageLike = SessionControllerChatMessageLike,
+>(
+  options: {
+    normalizeTask(task: TTask): TTask;
+  },
+): CreateSessionStoreResult<TTask, TEvent, TArtifact, TSessionSummary> {
+  return createRuntimeChatSessionControllerStore(options);
+}
+
+export function createNormalizedChatSessionStore<
+  TTask extends SessionControllerChatTaskLike<TEvent, TArtifact, TMessage> &
+    Partial<SessionControllerLineageTaskLike & SessionControllerStudioTaskLike>,
+  TEvent extends SessionControllerEventLike,
+  TArtifact extends SessionControllerArtifactLike,
+  TSessionSummary,
+  TMessage extends SessionControllerChatMessageLike = SessionControllerChatMessageLike,
+>(
+  options: {
+    normalizeTask(task: TTask): TTask;
+    onBootstrapError?: (error: unknown) => void;
+  },
+): CreateSessionStoreResult<TTask, TEvent, TArtifact, TSessionSummary> {
+  return createNormalizedRuntimeChatSessionControllerStore(options);
+}
+
+export type SessionHistoryPollingOptions = SessionControllerHistoryPollingOptions;
+export type SessionListEntryLike = SessionControllerReplSessionLike;
+export type SessionAttachTargetLike = SessionControllerReplTarget;
+export type SessionStoreConnectOptions = SessionControllerBootstrapOptions;
+export type SessionPollingOptions<TTask> = SessionControllerTaskPollingOptions<TTask>;
+export type SessionStoreAdapter<
+  TTask,
+  TEvent,
+  TArtifact,
+  TSessionSummary,
+> = SessionControllerRuntime<TTask, TEvent, TArtifact, TSessionSummary>;
+export type SessionStoreConfig<TTask, TEvent, TArtifact> =
+  SessionControllerConfig<TTask, TEvent, TArtifact>;
+export type SessionEventLike = SessionControllerEventLike;
+export type SessionArtifactLike = SessionControllerArtifactLike;
+export type ChatSessionMessageLike = SessionControllerChatMessageLike;
+export type ChatSessionLike<
+  TEvent extends SessionControllerEventLike,
+  TArtifact extends SessionControllerArtifactLike,
+  TMessage extends SessionControllerChatMessageLike = SessionControllerChatMessageLike,
+> = SessionControllerChatTaskLike<TEvent, TArtifact, TMessage>;
+export type LineageSessionLike = SessionControllerLineageTaskLike;
+export type StudioSessionLike = SessionControllerStudioTaskLike;
+export type SessionStoreState<
+  TTask,
+  TEvent,
+  TArtifact,
+  TSessionSummary,
+> = SessionControllerStoreState<TTask, TEvent, TArtifact, TSessionSummary>;
+
+export const buildSessionReplTargets = buildSessionAttachTargets;
+export const selectPrimarySessionReplTarget = selectPrimarySessionAttachTarget;
+export const resolveNullProjectionRecoverySessionId = resolveSessionRecoveryId;
+export { mergeSessionSnapshotCollection, shouldRetainHydratedThreadCollections };

@@ -470,12 +470,15 @@ function planSummaryCapturesTypedHierarchyTest(): void {
       playbook_label: "Evidence-Audited Patch",
       route_family: "coding",
       topology: "planner_specialist_verifier",
+      planner_authority: "kernel",
       verifier_state: "queued",
+      verifier_role: "test_verifier",
       status: "running",
       success: true,
     },
     details: {
       parent_session_id: "session-parent",
+      verifier_outcome: "warning",
       summary: "Started parent playbook.",
     },
   };
@@ -557,7 +560,10 @@ function planSummaryCapturesTypedHierarchyTest(): void {
       playbook_label: "Evidence-Audited Patch",
       route_family: "coding",
       topology: "planner_specialist_verifier",
+      planner_authority: "kernel",
       verifier_state: "passed",
+      verifier_role: "test_verifier",
+      verifier_outcome: "pass",
       status: "completed",
       success: true,
     },
@@ -585,14 +591,318 @@ function planSummaryCapturesTypedHierarchyTest(): void {
     presentation.planSummary?.topology,
     "planner_specialist_verifier",
   );
+  assert.equal(presentation.planSummary?.plannerAuthority, "kernel");
   assert.equal(presentation.planSummary?.workerCount, 2);
   assert.equal(presentation.planSummary?.branchCount, 2);
   assert.equal(presentation.planSummary?.activeWorkerLabel, "Coding Worker");
   assert.equal(presentation.planSummary?.verifierState, "passed");
+  assert.equal(presentation.planSummary?.verifierRole, "test_verifier");
+  assert.equal(presentation.planSummary?.verifierOutcome, "pass");
   assert.equal(presentation.planSummary?.approvalState, "pending");
   assert.equal(
     presentation.planSummary?.selectedRoute.includes("Evidence"),
     true,
+  );
+}
+
+function streamedParentPlaybookRouteContractTest(): void {
+  const streamedParentPlaybook: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-streamed-parent-playbook",
+    step_index: 132,
+    event_type: "RECEIPT",
+    title: "Parent playbook completed",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__await",
+      phase: "completed",
+      playbook_id: "citation_grounded_brief",
+      playbook_label: "Citation Grounded Brief",
+      route_family: "research",
+      topology: "planner_specialist_verifier",
+      planner_authority: "kernel",
+      verifier_state: "passed",
+      verifier_role: "citation_verifier",
+      verifier_outcome: "pass",
+      status: "completed",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-research",
+      planner_authority: "kernel",
+      verifier_role: "citation_verifier",
+      verifier_outcome: "pass",
+      summary: "Completed citation-grounded brief.",
+    },
+  };
+
+  const presentation = buildRunPresentation([], [streamedParentPlaybook], []);
+
+  assert.equal(presentation.planSummary?.routeFamily, "research");
+  assert.equal(presentation.planSummary?.plannerAuthority, "kernel");
+  assert.equal(
+    presentation.planSummary?.verifierRole,
+    "citation_verifier",
+  );
+  assert.equal(presentation.planSummary?.verifierOutcome, "pass");
+}
+
+function routeDecisionReceiptProjectionTest(): void {
+  const routingReceipt: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-route-decision",
+    step_index: 211,
+    event_type: "RECEIPT",
+    title: "Receipt: google_gmail__draft_email (allowed)",
+    digest: {
+      tool_name: "google_gmail__draft_email",
+      route_family: "communication",
+      output_intent: "tool_execution",
+      direct_answer_allowed: false,
+      currentness_override: true,
+      selected_provider_family: "mail.google.gmail",
+      selected_provider_route_label: "google_gmail",
+      connector_first_preference: true,
+      narrow_tool_preference: true,
+      projected_tools: [
+        "google_gmail__draft_email",
+        "chat__reply",
+        "memory__search",
+      ],
+      primary_tools: ["google_gmail__draft_email"],
+      broad_fallback_tools: ["chat__reply", "memory__search"],
+      direct_answer_blockers: [
+        "currentness_override",
+        "connector_preferred",
+      ],
+    },
+    details: {
+      route_decision: {
+        route_family: "communication",
+        direct_answer_allowed: false,
+        direct_answer_blockers: [
+          "currentness_override",
+          "connector_preferred",
+        ],
+        currentness_override: true,
+        connector_candidate_count: 1,
+        selected_provider_family: "mail.google.gmail",
+        selected_provider_route_label: "google_gmail",
+        connector_first_preference: true,
+        narrow_tool_preference: true,
+        file_output_intent: false,
+        artifact_output_intent: false,
+        inline_visual_intent: false,
+        skill_prep_required: false,
+        output_intent: "tool_execution",
+        effective_tool_surface: {
+          projected_tools: [
+            "google_gmail__draft_email",
+            "chat__reply",
+            "memory__search",
+          ],
+          primary_tools: ["google_gmail__draft_email"],
+          broad_fallback_tools: ["chat__reply", "memory__search"],
+          diagnostic_tools: ["web__search"],
+        },
+      },
+      lane_frame: {
+        primaryLane: "communication",
+        secondaryLanes: ["integrations"],
+        primaryGoal: "Draft and ground the requested email reply.",
+        toolWidgetFamily: null,
+        currentnessPressure: true,
+        workspaceGroundingRequired: false,
+        persistentDeliverableRequested: false,
+        activeArtifactFollowUp: false,
+        laneConfidence: 0.94,
+      },
+      request_frame: {
+        kind: "message_compose",
+        channel: "email",
+        recipientContext: "Finance team",
+        purpose: "draft",
+        missingSlots: [],
+        clarificationRequiredSlots: [],
+      },
+      source_selection: {
+        candidateSources: [
+          "connector",
+          "conversation_context",
+          "direct_answer",
+        ],
+        selectedSource: "connector",
+        explicitUserSource: false,
+        fallbackReason: null,
+      },
+      retained_lane_state: {
+        activeLane: "communication",
+        selectedProviderFamily: "mail.google.gmail",
+        selectedProviderRouteLabel: "google_gmail",
+        selectedSourceFamily: "connector",
+      },
+      lane_transitions: [
+        {
+          transitionKind: "planned",
+          fromLane: null,
+          toLane: "communication",
+          reason: "The prompt is best treated as a communication/composition task.",
+          evidence: ["request_frame:message_compose"],
+        },
+        {
+          transitionKind: "planned",
+          fromLane: "communication",
+          toLane: "integrations",
+          reason: "The message lane will lean on a connected provider when one is available.",
+          evidence: ["connector_intent_detected"],
+        },
+      ],
+      orchestration_state: {
+        objective: {
+          objectiveId: "objective-mail-1",
+          title: "Draft the requested email reply",
+          status: "in_progress",
+          successCriteria: [
+            "Use the connected mailbox if available",
+            "Preserve the requested communication intent",
+          ],
+        },
+        tasks: [
+          {
+            taskId: "task-mail-1",
+            label: "Resolve the message lane",
+            status: "complete",
+            laneFamily: "communication",
+            dependsOn: [],
+            summary: "The message compose frame was derived from the prompt.",
+          },
+          {
+            taskId: "task-mail-2",
+            label: "Use the connector-backed provider",
+            status: "in_progress",
+            laneFamily: "integrations",
+            dependsOn: ["task-mail-1"],
+            summary: "Gmail stayed selected as the primary provider route.",
+          },
+        ],
+        checkpoints: [
+          {
+            checkpointId: "checkpoint-mail-1",
+            label: "Provider selected",
+            status: "complete",
+            summary: "The connected Gmail route is retained for execution.",
+          },
+        ],
+        completionInvariant: {
+          summary: "The reply must remain grounded in the selected connected mailbox.",
+          satisfied: false,
+          outstandingRequirements: ["Complete the draft generation step"],
+        },
+      },
+      domain_policy_bundle: {
+        clarification_policy: {
+          mode: "clarify_on_missing_slots",
+          assumedBindings: [],
+          blockingSlots: [],
+          rationale: "Clarify only when the message lane still lacks required fields.",
+        },
+        fallback_policy: {
+          mode: "allow_ranked_fallbacks",
+          primaryLane: "communication",
+          fallbackLanes: ["integrations"],
+          triggerSignals: ["connector_intent_detected"],
+          rationale: "Connector-backed messaging stays primary, with ranked integration assists.",
+        },
+        presentation_policy: {
+          primarySurface: "communication_surface",
+          widgetFamily: "message",
+          renderer: "html_iframe",
+          tabPriority: ["render", "evidence"],
+          rationale: "Communication stays on a route-shaped parity surface.",
+        },
+        transformation_policy: {
+          outputShape: "message_draft",
+          orderedSteps: ["resolve_channel", "compose_draft"],
+          rationale: "Transform the prompt into a channel-specific draft.",
+        },
+        risk_profile: {
+          sensitivity: "medium",
+          reasons: ["connector-backed communication can affect external systems"],
+          approvalRequired: false,
+          userVisibleGuardrails: ["Show the provider and verification gate before completion."],
+        },
+        verification_contract: {
+          strategy: "message_shape_and_audience",
+          requiredChecks: ["message_channel_resolved", "communication_surface_rendered"],
+          completionGate: "surface_and_route_verified",
+        },
+        policy_contract: {
+          bindings: ["lane_frame", "request_frame", "domain_policy_bundle"],
+          hiddenInstructionDependency: false,
+          rationale: "Policies are retained in typed bindings.",
+        },
+        source_ranking: [
+          {
+            source: "connector",
+            rank: 1,
+            rationale: "Selected as the active source for this turn.",
+          },
+        ],
+        retained_widget_state: {
+          widgetFamily: "message",
+          bindings: [
+            { key: "message.channel", value: "email", source: "request_frame" },
+          ],
+          lastUpdatedAt: null,
+        },
+      },
+    },
+  };
+
+  const presentation = buildRunPresentation([], [routingReceipt], []);
+
+  assert.equal(presentation.planSummary?.routeFamily, "communication");
+  assert.equal(
+    presentation.planSummary?.routeDecision?.selectedProviderFamily,
+    "mail.google.gmail",
+  );
+  assert.equal(
+    presentation.planSummary?.routeDecision?.connectorFirstPreference,
+    true,
+  );
+  assert.deepEqual(
+    presentation.planSummary?.routeDecision?.effectiveToolSurface.primaryTools,
+    ["google_gmail__draft_email"],
+  );
+  assert.equal(
+    presentation.planSummary?.routeDecision?.laneFrame?.primaryLane,
+    "communication",
+  );
+  assert.equal(
+    presentation.planSummary?.routeDecision?.requestFrame?.kind,
+    "message_compose",
+  );
+  assert.equal(
+    presentation.planSummary?.routeDecision?.sourceSelection?.selectedSource,
+    "connector",
+  );
+  assert.equal(
+    presentation.planSummary?.routeDecision?.laneTransitions[1]?.toLane,
+    "integrations",
+  );
+  assert.equal(
+    presentation.planSummary?.routeDecision?.orchestrationState?.tasks.length,
+    2,
+  );
+  assert.equal(
+    presentation.planSummary?.routeDecision?.domainPolicyBundle?.presentationPolicy
+      ?.primarySurface,
+    "communication_surface",
+  );
+  assert.equal(
+    presentation.planSummary?.routeDecision?.domainPolicyBundle?.policyContract
+      ?.hiddenInstructionDependency,
+    false,
   );
 }
 
@@ -1855,6 +2165,8 @@ thoughtSummaryTest();
 clarificationReasoningFallbackTest();
 ordinaryReasoningDoesNotBecomeAnswerTest();
 planSummaryCapturesTypedHierarchyTest();
+streamedParentPlaybookRouteContractTest();
+routeDecisionReceiptProjectionTest();
 planSummaryFallsBackToSingleAgentResearchRoute();
 planSummaryUsesExplicitComputerUseRouteContract();
 planSummaryCarriesComputerUsePerceptionVerificationAndRecovery();

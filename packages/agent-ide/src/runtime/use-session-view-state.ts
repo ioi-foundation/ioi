@@ -21,6 +21,11 @@ export interface SessionViewState<
   isDraggingFile: boolean;
 }
 
+export type SessionUiState<
+  TMessage,
+  TInspectionView extends string,
+> = SessionViewState<TMessage, TInspectionView>;
+
 interface SessionViewStateAction<
   TMessage,
   TInspectionView extends string,
@@ -41,6 +46,11 @@ export interface UseSessionViewStateOptions<
 > {
   initialState?: Partial<SessionViewState<TMessage, TInspectionView>>;
 }
+
+export type UseSessionUiStateOptions<
+  TMessage,
+  TInspectionView extends string,
+> = UseSessionViewStateOptions<TMessage, TInspectionView>;
 
 const DEFAULT_STATE: SessionViewState<never, never> = {
   intent: "",
@@ -183,3 +193,5 @@ export function useSessionViewState<
     setIsDraggingFile,
   };
 }
+
+export const useSessionUiState = useSessionViewState;

@@ -133,6 +133,7 @@ fn refusal_routing_receipt_uses_canonical_intent_and_complete_pre_state() {
         policy_binding_hash: binding.clone(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(receipt.pre_state.agent_status, "Running");

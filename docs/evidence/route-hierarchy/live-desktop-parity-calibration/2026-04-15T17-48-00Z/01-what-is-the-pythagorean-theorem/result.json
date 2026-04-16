@@ -1,0 +1,21 @@
+{
+  "captured_at": "2026-04-15T17:49:20.038115+00:00",
+  "prompt": "What is the Pythagorean theorem?",
+  "screenshot": "docs/evidence/route-hierarchy/live-desktop-parity-calibration/2026-04-15T17-48-00Z/01-what-is-the-pythagorean-theorem/final.png",
+  "task_id": null,
+  "intent": null,
+  "phase": null,
+  "current_step": null,
+  "progress": null,
+  "total_steps": null,
+  "latest_agent_message": null,
+  "studio_outcome": null,
+  "studio_session_summary": {
+    "session_id": null,
+    "lifecycle_state": null,
+    "verified_reply": null
+  },
+  "route_receipt_summary": null,
+  "execution_contracts": [],
+  "probe_error": "Timed out after 10s waiting for prompt start: What is the Pythagorean theorem?"
+}

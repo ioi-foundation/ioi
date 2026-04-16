@@ -13,11 +13,10 @@ use super::targets::{is_high_risk_target_for_rules, policy_target_aliases};
 pub struct PolicyEngine;
 
 impl PolicyEngine {
-    /// Evaluates an ActionRequest against the active policy.
-    /// This is the core "Compliance Layer" logic.
-    pub async fn evaluate(
+    pub async fn evaluate_with_working_directory(
         rules: &ActionRules,
         request: &ActionRequest,
+        working_directory: Option<&str>,
         safety_model: &Arc<dyn LocalSafetyModel>,
         os_driver: &Arc<dyn OsDriver>,
         presented_approval: Option<&ApprovalToken>,
@@ -60,6 +59,7 @@ impl PolicyEngine {
                     rule,
                     &request.target,
                     &request.params,
+                    working_directory,
                     safety_model,
                     os_driver,
                 )
@@ -93,6 +93,26 @@ impl PolicyEngine {
             Some(Verdict::RequireApproval) => Verdict::RequireApproval,
             _ => base_verdict,
         }
+    }
+
+    /// Evaluates an ActionRequest against the active policy.
+    /// This is the core "Compliance Layer" logic.
+    pub async fn evaluate(
+        rules: &ActionRules,
+        request: &ActionRequest,
+        safety_model: &Arc<dyn LocalSafetyModel>,
+        os_driver: &Arc<dyn OsDriver>,
+        presented_approval: Option<&ApprovalToken>,
+    ) -> Verdict {
+        Self::evaluate_with_working_directory(
+            rules,
+            request,
+            None,
+            safety_model,
+            os_driver,
+            presented_approval,
+        )
+        .await
     }
 
     async fn evaluate_pii_overlay(

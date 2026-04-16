@@ -1,3 +1,4 @@
+use crate::agentic::rules::{ActionRules, Rule, RuleConditions, Verdict};
 use ioi_types::app::ActionTarget;
 use serde_json::Value;
 use std::ffi::OsString;
@@ -118,10 +119,102 @@ fn normalize_policy_path(path: &str) -> Option<PathBuf> {
     Some(normalized)
 }
 
+fn expand_tilde_path(path: &str) -> Option<PathBuf> {
+    if path == "~" {
+        if let Some(home) = std::env::var_os("HOME").filter(|value| !value.is_empty()) {
+            return Some(PathBuf::from(home));
+        }
+        if let Some(home) = std::env::var_os("USERPROFILE").filter(|value| !value.is_empty()) {
+            return Some(PathBuf::from(home));
+        }
+        return None;
+    }
+
+    if let Some(remainder) = path.strip_prefix("~/").or_else(|| path.strip_prefix("~\\")) {
+        return expand_tilde_path("~").map(|home| home.join(remainder));
+    }
+
+    Some(PathBuf::from(path))
+}
+
+fn syntactic_resolve_policy_path(path: &str, working_directory: Option<&str>) -> Option<PathBuf> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let requested = expand_tilde_path(trimmed)?;
+    if requested.is_absolute() {
+        return Some(requested);
+    }
+
+    let cwd = working_directory
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(".");
+    let base = expand_tilde_path(cwd)?;
+    let absolute_base = if base.is_absolute() {
+        base
+    } else {
+        std::env::current_dir().ok()?.join(base)
+    };
+
+    Some(absolute_base.join(requested))
+}
+
+fn resolve_policy_path(path: &str, working_directory: Option<&str>) -> Option<PathBuf> {
+    if let Some(resolved) = syntactic_resolve_policy_path(path, working_directory) {
+        if let Some(normalized) = normalize_policy_path(resolved.to_string_lossy().as_ref()) {
+            return Some(normalized);
+        }
+    }
+
+    normalize_policy_path(path)
+}
+
+fn resolve_workspace_root(working_directory: Option<&str>) -> Option<String> {
+    let normalized = working_directory
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    let resolved = resolve_policy_path(".", Some(normalized))?;
+    if resolved.parent().is_none() {
+        return None;
+    }
+    Some(resolved.display().to_string())
+}
+
+pub(crate) fn augment_workspace_filesystem_policy(
+    rules: &ActionRules,
+    working_directory: Option<&str>,
+) -> ActionRules {
+    let Some(workspace_root) = resolve_workspace_root(working_directory) else {
+        return rules.clone();
+    };
+
+    let mut effective = rules.clone();
+    for (rule_id, target) in [
+        ("allow-workspace-fs-read", "fs::read"),
+        ("allow-workspace-fs-write", "fs::write"),
+    ] {
+        effective.rules.push(Rule {
+            rule_id: Some(rule_id.to_string()),
+            target: target.to_string(),
+            conditions: RuleConditions {
+                allow_paths: Some(vec![workspace_root.clone()]),
+                ..Default::default()
+            },
+            action: Verdict::Allow,
+        });
+    }
+
+    effective
+}
+
 pub(super) fn validate_allow_paths_condition(
     allowed_paths: &[String],
     target: &ActionTarget,
     params: &[u8],
+    working_directory: Option<&str>,
 ) -> bool {
     let Some(required_keys) = required_filesystem_path_keys(target) else {
         return true;
@@ -153,7 +246,7 @@ pub(super) fn validate_allow_paths_condition(
 
     let normalized_allowed_paths = match allowed_paths
         .iter()
-        .map(|allowed| normalize_policy_path(allowed))
+        .map(|allowed| resolve_policy_path(allowed, working_directory))
         .collect::<Option<Vec<_>>>()
     {
         Some(paths) => paths,
@@ -169,7 +262,7 @@ pub(super) fn validate_allow_paths_condition(
     let denied_paths: Vec<String> = requested_paths
         .into_iter()
         .filter_map(|path| {
-            let normalized_path = match normalize_policy_path(&path) {
+            let normalized_path = match resolve_policy_path(&path, working_directory) {
                 Some(value) => value,
                 None => return Some(format!("{path} (invalid path traversal)")),
             };

@@ -1,7 +1,7 @@
 // packages/agent-ide/src/features/Editor/Inspector/views/GraphConfigView.tsx
 import { useEffect, useMemo, useState } from "react";
 import {
-  AgentRuntime,
+  AgentWorkbenchRuntime,
   GraphCapabilityCatalog,
   GraphModelBindingCatalog,
 } from "../../../../runtime/agent-runtime";
@@ -9,7 +9,7 @@ import { GraphGlobalConfig } from "../../../../types/graph";
 
 interface GraphConfigViewProps {
   config: GraphGlobalConfig;
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   onOpenSystemSettings?: () => void;
   onChange: (updates: Partial<GraphGlobalConfig>) => void;
 }

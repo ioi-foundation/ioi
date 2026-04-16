@@ -956,16 +956,6 @@ pub(crate) fn prefer_excerpt_for_query(
         return if right_low_priority { left } else { right };
     }
 
-    let left_actionability = excerpt_actionability_score(&left);
-    let right_actionability = excerpt_actionability_score(&right);
-    if right_actionability != left_actionability {
-        return if right_actionability > left_actionability {
-            right
-        } else {
-            left
-        };
-    }
-
     let left_current = contains_current_condition_metric_signal(&left);
     let right_current = contains_current_condition_metric_signal(&right);
     if right_current != left_current {
@@ -976,6 +966,16 @@ pub(crate) fn prefer_excerpt_for_query(
     let right_metric = contains_metric_signal(&right);
     if right_metric != left_metric {
         return if right_metric { right } else { left };
+    }
+
+    let left_actionability = excerpt_actionability_score(&left);
+    let right_actionability = excerpt_actionability_score(&right);
+    if right_actionability != left_actionability {
+        return if right_actionability > left_actionability {
+            right
+        } else {
+            left
+        };
     }
 
     let left_low = is_low_signal_excerpt(&left);
@@ -1229,6 +1229,18 @@ mod tests {
         let preferred = prefer_excerpt_for_query(query, noisy.to_string(), clean.to_string());
 
         assert_eq!(preferred, clean);
+    }
+
+    #[test]
+    fn prefer_excerpt_for_query_prefers_current_metric_excerpt_for_latest_pricing() {
+        let query = "What is the latest OpenAI API pricing?";
+        let metric_excerpt = "Image: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs";
+        let generic_hint = "Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools. Compare token costs, realtime, image, and video pricing, plus service tiers.";
+
+        let preferred =
+            prefer_excerpt_for_query(query, metric_excerpt.to_string(), generic_hint.to_string());
+
+        assert_eq!(preferred, metric_excerpt);
     }
 
     #[test]

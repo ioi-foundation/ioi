@@ -275,6 +275,38 @@ fn document_briefing_quality_observation_accepts_grounded_external_pdf_support_w
 }
 
 #[test]
+fn current_office_holder_quality_observation_accepts_identity_grounded_current_holder_surface() {
+    let query = "Who is the current Secretary-General of the UN?";
+    let contract = crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+        .expect("retrieval contract");
+    let selected_urls = vec!["https://ask.un.org/faq/14625".to_string()];
+    let source_hints = vec![PendingSearchReadSummary {
+        url: selected_urls[0].clone(),
+        title: Some(
+            "Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                .to_string(),
+        ),
+        excerpt:
+            "António Guterres is the current Secretary-General of the United Nations."
+                .to_string(),
+    }];
+
+    let observation = selected_source_quality_observation_with_contract_and_locality_hint(
+        Some(&contract),
+        query,
+        1,
+        &selected_urls,
+        &source_hints,
+        None,
+    );
+
+    assert_eq!(observation.total_sources, 1);
+    assert_eq!(observation.compatible_sources, 1, "{observation:#?}");
+    assert!(observation.quality_floor_met, "{observation:#?}");
+    assert!(observation.identifier_coverage_floor_met, "{observation:#?}");
+}
+
+#[test]
 fn local_business_quality_observation_requires_entity_anchor_compatible_sources() {
     let query =
         "Find the three best-reviewed Italian restaurants in Anderson, SC and compare their menus.";

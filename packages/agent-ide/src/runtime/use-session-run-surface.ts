@@ -26,6 +26,13 @@ export interface UseSessionRunSurfaceOptions<
   getArtifactId: (artifact: TArtifact) => string | null | undefined;
 }
 
+export type UseSessionDisplayStateOptions<
+  TTask extends SessionRunSurfaceTaskLike<TMessage, TEvent, TArtifact>,
+  TMessage,
+  TEvent,
+  TArtifact,
+> = UseSessionRunSurfaceOptions<TTask, TMessage, TEvent, TArtifact>;
+
 export function useSessionRunSurface<
   TTask extends SessionRunSurfaceTaskLike<TMessage, TEvent, TArtifact>,
   TMessage,
@@ -83,3 +90,5 @@ export function useSessionRunSurface<
     isRunning,
   };
 }
+
+export const useSessionDisplayState = useSessionRunSurface;

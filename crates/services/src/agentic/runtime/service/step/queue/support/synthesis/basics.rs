@@ -254,10 +254,20 @@ pub(crate) fn contains_current_condition_metric_signal(text: &str) -> bool {
     if has_stale_relative_age_signal(text) {
         return false;
     }
+    let lowered = text.to_ascii_lowercase();
     let current_metric_payload = has_quantitative_metric_payload(text, true);
     let temperature_observation = has_temperature_observation_signal(text);
-    if !current_metric_payload && !temperature_observation {
-        return false;
+    let price_quote_observation = has_price_quote_payload(text);
+    let explicit_price_context = (lowered.contains("pricing")
+        || lowered.contains(" price ")
+        || lowered.contains(" prices ")
+        || lowered.contains("cost")
+        || lowered.contains("rate card")
+        || lowered.contains("rates"))
+        && text.chars().any(|ch| ch.is_ascii_digit())
+        && (text.contains('$') || lowered.contains("usd"));
+    if !current_metric_payload && !temperature_observation && !price_quote_observation {
+        return explicit_price_context;
     }
     let schema = analyze_metric_schema(text);
     let has_observable_axis = schema.axis_hits.iter().any(|axis| {
@@ -273,10 +283,13 @@ pub(crate) fn contains_current_condition_metric_signal(text: &str) -> bool {
                 | MetricAxis::Rate
         )
     });
-    if schema.axis_hits.contains(&MetricAxis::Price) && !has_price_quote_payload(text) {
+    if schema.axis_hits.contains(&MetricAxis::Price) && !price_quote_observation {
         return false;
     }
-    has_observable_axis || temperature_observation
+    has_observable_axis
+        || temperature_observation
+        || price_quote_observation
+        || explicit_price_context
 }
 
 pub(crate) fn metric_axis_unavailable_label(axis: MetricAxis) -> &'static str {
@@ -331,6 +344,55 @@ pub(crate) fn contains_metric_signal(text: &str) -> bool {
     analyze_metric_schema(text).has_metric_payload()
 }
 
+pub(crate) fn metric_sentence_like_segments(text: &str) -> Vec<String> {
+    let compact = compact_whitespace(text);
+    if compact.is_empty() {
+        return Vec::new();
+    }
+
+    let chars = compact.char_indices().collect::<Vec<_>>();
+    let mut segments = Vec::new();
+    let mut start = 0usize;
+    for (idx, ch) in chars.iter().copied() {
+        let split_here = match ch {
+            '!' | '?' | ';' | '\n' => true,
+            '.' => {
+                let prev_digit = compact[..idx]
+                    .chars()
+                    .next_back()
+                    .map(|value| value.is_ascii_digit())
+                    .unwrap_or(false);
+                let next_digit = compact[idx + ch.len_utf8()..]
+                    .chars()
+                    .next()
+                    .map(|value| value.is_ascii_digit())
+                    .unwrap_or(false);
+                !(prev_digit && next_digit)
+            }
+            _ => false,
+        };
+        if !split_here {
+            continue;
+        }
+        let segment = compact[start..idx].trim();
+        if !segment.is_empty() {
+            segments.push(segment.to_string());
+        }
+        start = idx + ch.len_utf8();
+    }
+
+    let trailing = compact[start..].trim();
+    if !trailing.is_empty() {
+        segments.push(trailing.to_string());
+    }
+
+    if segments.is_empty() {
+        vec![compact]
+    } else {
+        segments
+    }
+}
+
 pub(crate) fn metric_segment_signal_score(text: &str) -> usize {
     let schema = analyze_metric_schema(text);
     let axis_score = schema.axis_hits.len().saturating_mul(3);
@@ -367,17 +429,13 @@ pub(crate) fn best_metric_segment(text: &str) -> Option<String> {
     }
 
     let mut best: Option<(usize, usize, String)> = None;
-    for segment in compact
-        .split(['.', '!', '?', ';', '\n'])
-        .map(str::trim)
-        .filter(|segment| !segment.is_empty())
-    {
-        let schema = analyze_metric_schema(segment);
+    for segment in metric_sentence_like_segments(&compact) {
+        let schema = analyze_metric_schema(&segment);
         if !schema.has_metric_payload() {
             continue;
         }
-        let score = metric_segment_signal_score(segment);
-        let candidate = compact_whitespace(segment);
+        let score = metric_segment_signal_score(&segment);
+        let candidate = compact_whitespace(&segment);
         let candidate_len = candidate.len();
         match &best {
             Some((best_score, best_len, _))
@@ -395,12 +453,8 @@ pub(crate) fn first_metric_sentence(text: &str) -> Option<String> {
     let compact = compact_whitespace(text);
     let mut best_metric: Option<(i32, usize, String)> = None;
     let mut fallback: Option<(usize, String)> = None;
-    for sentence in compact
-        .split(['.', '!', '?', ';', '\n'])
-        .map(str::trim)
-        .filter(|segment| !segment.is_empty())
-    {
-        let focused = compact_metric_focus(sentence);
+    for sentence in metric_sentence_like_segments(&compact) {
+        let focused = compact_metric_focus(&sentence);
         if focused.is_empty() {
             continue;
         }
@@ -429,7 +483,7 @@ pub(crate) fn first_metric_sentence(text: &str) -> Option<String> {
             }
             continue;
         }
-        if contains_metric_signal(sentence) {
+        if contains_metric_signal(&sentence) {
             let candidate_len = focused.len();
             let replace = fallback
                 .as_ref()
@@ -506,10 +560,169 @@ pub(crate) fn has_numeric_measurement_signal(text: &str) -> bool {
     false
 }
 
+const PRICE_SNAPSHOT_CATEGORY_MARKERS: &[&str] = &[
+    "audio:",
+    "text:",
+    "image:",
+    "video:",
+    "realtime:",
+    "transcription:",
+    "speech:",
+    "tts:",
+];
+
+fn price_only_snapshot_query(query_contract: &str) -> bool {
+    let normalized = format!(
+        " {} ",
+        query_contract
+            .to_ascii_lowercase()
+            .chars()
+            .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
+            .collect::<String>()
+    );
+    (normalized.contains(" pricing ")
+        || normalized.contains(" price ")
+        || normalized.contains(" prices ")
+        || normalized.contains(" rates ")
+        || normalized.contains(" rate card ")
+        || normalized.contains(" billing "))
+        && !normalized.contains(" exchange rate ")
+        && !normalized.contains(" interest rate ")
+}
+
+pub(crate) fn single_snapshot_prefers_price_summary_label(
+    query_contract: &str,
+    metric_excerpt: &str,
+) -> bool {
+    price_only_snapshot_query(query_contract)
+        && (has_price_quote_payload(metric_excerpt) || metric_excerpt.contains('$'))
+}
+
+pub(crate) fn single_snapshot_current_metric_prefix(
+    query_contract: &str,
+    metric_excerpt: &str,
+    cited: bool,
+) -> &'static str {
+    if single_snapshot_prefers_price_summary_label(query_contract, metric_excerpt) {
+        if cited {
+            "Current pricing from cited source text:"
+        } else {
+            "Current pricing from retrieved source text:"
+        }
+    } else if cited {
+        "Current conditions from cited source text:"
+    } else {
+        "Current conditions from retrieved source text:"
+    }
+}
+
+fn normalize_price_clause_text(text: &str) -> String {
+    let compact = compact_whitespace(text);
+    let trimmed = compact
+        .trim()
+        .trim_matches(|ch: char| matches!(ch, ':' | ';' | '|' | ','))
+        .trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let stripped = trimmed
+        .strip_prefix("Pricing:")
+        .map(str::trim)
+        .unwrap_or(trimmed);
+    let mut normalized = stripped.to_string();
+    for (from, to) in [
+        (" for cached inputs", " cached input"),
+        (" for inputs", " input"),
+        (" for outputs", " output"),
+        (" for output", " output"),
+        (" for outpu", " output"),
+        (" cached inputs", " cached input"),
+        (" inputs", " input"),
+        (" outputs", " output"),
+    ] {
+        normalized = normalized.replace(from, to);
+    }
+    normalized = compact_whitespace(&normalized);
+
+    let mut tokens: Vec<String> = Vec::new();
+    let mut seen_currency = 0usize;
+    for token in normalized.split_whitespace() {
+        let trimmed = token.trim_matches(|ch: char| matches!(ch, ';' | '|'));
+        if trimmed.is_empty() || trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+            break;
+        }
+        if trimmed.contains('$') && seen_currency > 0 {
+            if let Some(last) = tokens.last_mut() {
+                if !last.ends_with(',') {
+                    last.push(',');
+                }
+            }
+        }
+        if trimmed.contains('$') {
+            seen_currency += 1;
+        }
+        tokens.push(trimmed.to_string());
+        if tokens.len() >= 32 {
+            break;
+        }
+    }
+
+    let mut concise = tokens.join(" ");
+    while concise.ends_with(" for") {
+        concise.truncate(concise.len().saturating_sub(4));
+        concise = concise.trim_end().to_string();
+    }
+    concise
+        .trim()
+        .trim_matches(|ch: char| matches!(ch, ':' | ';' | '|' | '-' | ','))
+        .to_string()
+}
+
+fn concise_price_quote_snapshot_line(metric_excerpt: &str) -> Option<String> {
+    let focused = compact_whitespace(strip_metric_summary_prefix(metric_excerpt));
+    if focused.is_empty() || !focused.contains('$') {
+        return None;
+    }
+
+    let lowered = focused.to_ascii_lowercase();
+    let mut category_positions = PRICE_SNAPSHOT_CATEGORY_MARKERS
+        .iter()
+        .filter_map(|marker| lowered.find(marker).map(|idx| (idx, *marker)))
+        .collect::<Vec<_>>();
+    category_positions.sort_by_key(|(idx, _)| *idx);
+    category_positions.dedup_by_key(|(idx, _)| *idx);
+
+    let mut clauses = Vec::new();
+    if category_positions.len() >= 2 {
+        for (idx, (start, _)) in category_positions.iter().enumerate().take(3) {
+            let end = category_positions
+                .get(idx + 1)
+                .map(|(next, _)| *next)
+                .unwrap_or_else(|| focused.len());
+            let clause = normalize_price_clause_text(focused[*start..end].trim());
+            if clause.is_empty() {
+                continue;
+            }
+            clauses.push(clause);
+        }
+    }
+
+    if !clauses.is_empty() {
+        return Some(clauses.join("; "));
+    }
+
+    let normalized = normalize_price_clause_text(&focused);
+    (!normalized.is_empty()).then_some(normalized)
+}
+
 pub(crate) fn concise_metric_snapshot_line(metric_excerpt: &str) -> String {
     let focused = compact_metric_focus(strip_metric_summary_prefix(metric_excerpt));
     if focused.is_empty() {
         return focused;
+    }
+    if let Some(price_snapshot) = concise_price_quote_snapshot_line(metric_excerpt) {
+        return price_snapshot;
     }
     let schema = analyze_metric_schema(&focused);
     let allow_slash_delimiter = schema.axis_hits.contains(&MetricAxis::Price)
@@ -550,6 +763,8 @@ fn strip_metric_summary_prefix(text: &str) -> &str {
     for prefix in [
         "Current conditions from retrieved source text:",
         "Current conditions from cited source text:",
+        "Current pricing from retrieved source text:",
+        "Current pricing from cited source text:",
         "Available observed details from retrieved source text:",
         "Available observed details from cited source text:",
     ] {
@@ -561,6 +776,432 @@ fn strip_metric_summary_prefix(text: &str) -> &str {
         }
     }
     trimmed
+}
+
+const SINGLE_SNAPSHOT_DIRECT_FACT_PREFIXES: &[&str] = &[
+    "Current answer:",
+    "Current answer from retrieved source text:",
+    "Current answer from cited source text:",
+    "Current status:",
+    "Current status from retrieved source text:",
+    "Current status from cited source text:",
+];
+
+const SUBJECT_CURRENTNESS_ROLE_MARKERS: &[&str] = &[
+    "ceo",
+    "chief executive officer",
+    "president",
+    "prime minister",
+    "secretary-general",
+    "secretary general",
+    "governor",
+    "mayor",
+    "chair",
+    "chairman",
+    "chairwoman",
+    "director",
+    "executive director",
+    "minister",
+    "chancellor",
+    "commissioner",
+    "leader",
+    "leadership",
+    "incumbent",
+];
+
+const SUBJECT_CURRENTNESS_RELATION_MARKERS: &[&str] = &[
+    " is led by ",
+    " led by ",
+    " is the current ",
+    " is the ",
+    " serves as ",
+    " currently serves as ",
+    " currently is ",
+    " current ",
+    " incumbent ",
+    " appointed ",
+    " elected ",
+    " office holder ",
+    " officeholder ",
+];
+
+const SUBJECT_CURRENTNESS_ROLE_NOISE_TOKENS: &[&str] = &[
+    "a",
+    "an",
+    "and",
+    "appointed",
+    "as",
+    "by",
+    "ceo",
+    "chair",
+    "chairman",
+    "chairwoman",
+    "chancellor",
+    "chief",
+    "commissioner",
+    "current",
+    "currently",
+    "director",
+    "elected",
+    "executive",
+    "general",
+    "governor",
+    "head",
+    "holder",
+    "incumbent",
+    "is",
+    "leader",
+    "leadership",
+    "led",
+    "mayor",
+    "minister",
+    "of",
+    "office",
+    "officeholder",
+    "officer",
+    "president",
+    "prime",
+    "secretary",
+    "secretary-general",
+    "serves",
+    "serve",
+    "the",
+];
+
+fn ensure_terminal_sentence(text: &str) -> String {
+    let compact = compact_whitespace(text);
+    let trimmed = compact
+        .trim()
+        .trim_matches(|ch: char| matches!(ch, ':' | ';' | '|' | '-'))
+        .trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    if trimmed.ends_with(['.', '!', '?']) {
+        trimmed.to_string()
+    } else {
+        format!("{trimmed}.")
+    }
+}
+
+pub(crate) fn strip_single_snapshot_direct_fact_prefix(text: &str) -> &str {
+    let trimmed = text.trim();
+    for prefix in SINGLE_SNAPSHOT_DIRECT_FACT_PREFIXES {
+        if trimmed
+            .get(..prefix.len())
+            .is_some_and(|candidate| candidate.eq_ignore_ascii_case(prefix))
+        {
+            return trimmed[prefix.len()..].trim();
+        }
+    }
+    trimmed
+}
+
+pub(crate) fn single_snapshot_has_direct_fact_line(text: &str) -> bool {
+    SINGLE_SNAPSHOT_DIRECT_FACT_PREFIXES.iter().any(|prefix| {
+        text.get(..prefix.len())
+            .is_some_and(|candidate| candidate.eq_ignore_ascii_case(prefix))
+    })
+}
+
+fn subject_currentness_segment_has_role_marker(text: &str) -> bool {
+    let normalized = format!(" {} ", compact_whitespace(text).to_ascii_lowercase());
+    SUBJECT_CURRENTNESS_ROLE_MARKERS
+        .iter()
+        .any(|marker| normalized.contains(marker))
+}
+
+fn subject_currentness_capitalized_identity_streak(text: &str) -> usize {
+    let mut best = 0usize;
+    let mut streak = 0usize;
+
+    for token in
+        text.split(|ch: char| !(ch.is_alphanumeric() || ch == '\'' || ch == '-' || ch == '’'))
+    {
+        let trimmed = token.trim_matches(|ch: char| !ch.is_alphanumeric());
+        if trimmed.is_empty() {
+            streak = 0;
+            continue;
+        }
+
+        let normalized = trimmed.to_ascii_lowercase();
+        let first = trimmed.chars().next();
+        let capitalized = trimmed.chars().any(|ch| ch.is_uppercase());
+        let is_short_acronym = trimmed.chars().all(|ch| ch.is_uppercase()) && trimmed.len() <= 3;
+        let is_noise = SUBJECT_CURRENTNESS_ROLE_NOISE_TOKENS.contains(&normalized.as_str());
+        if first.is_none()
+            || !capitalized
+            || is_short_acronym
+            || is_noise
+            || normalized.chars().all(|ch| ch.is_ascii_digit())
+        {
+            streak = 0;
+            continue;
+        }
+
+        streak += 1;
+        best = best.max(streak);
+    }
+
+    best
+}
+
+fn subject_currentness_led_by_identity_payload(text: &str) -> bool {
+    let compact = compact_whitespace(text);
+    let normalized = format!(" {} ", compact.to_ascii_lowercase());
+
+    for marker in [" is led by ", " led by "] {
+        let Some(idx) = normalized.find(marker) else {
+            continue;
+        };
+        let Some((left, remainder)) = compact.get(..idx).zip(compact.get(idx + marker.len()..))
+        else {
+            continue;
+        };
+        if subject_currentness_segment_has_role_marker(left) {
+            continue;
+        }
+
+        let right = remainder.trim();
+        let right_head = right
+            .split_once(" of ")
+            .map(|(head, _)| head)
+            .unwrap_or(right);
+        if subject_currentness_capitalized_identity_streak(right_head) >= 2 {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn subject_currentness_subject_identity_payload(text: &str) -> bool {
+    let compact = compact_whitespace(text);
+    let normalized = format!(" {} ", compact.to_ascii_lowercase());
+
+    for marker in [
+        " is the current ",
+        " currently serves as ",
+        " currently is ",
+        " is the ",
+        " appointed ",
+        " elected ",
+    ] {
+        let Some(idx) = normalized.find(marker) else {
+            continue;
+        };
+        let Some((left, right)) = compact.get(..idx).zip(compact.get(idx + marker.len()..)) else {
+            continue;
+        };
+        if subject_currentness_segment_has_role_marker(left) {
+            continue;
+        }
+        if !subject_currentness_segment_has_role_marker(right) {
+            continue;
+        }
+        if subject_currentness_capitalized_identity_streak(left) >= 1 {
+            return true;
+        }
+    }
+
+    false
+}
+
+pub(crate) fn has_subject_currentness_payload(text: &str) -> bool {
+    let normalized = format!(" {} ", compact_whitespace(text).to_ascii_lowercase());
+    SUBJECT_CURRENTNESS_ROLE_MARKERS
+        .iter()
+        .any(|marker| normalized.contains(marker))
+        && SUBJECT_CURRENTNESS_RELATION_MARKERS
+            .iter()
+            .any(|marker| normalized.contains(marker))
+        && (subject_currentness_subject_identity_payload(text)
+            || subject_currentness_led_by_identity_payload(text))
+}
+
+pub(crate) fn query_requires_subject_currentness_identity(query_contract: &str) -> bool {
+    let normalized = format!(
+        " {} ",
+        compact_whitespace(query_contract).to_ascii_lowercase()
+    );
+    normalized.contains(" who ")
+        && SUBJECT_CURRENTNESS_ROLE_MARKERS
+            .iter()
+            .any(|marker| normalized.contains(marker))
+}
+
+fn has_explicit_current_holder_marker(text: &str) -> bool {
+    let normalized = format!(" {} ", compact_whitespace(text).to_ascii_lowercase());
+    normalized.contains(" is the current ")
+        || normalized.contains(" is current ")
+        || normalized.contains(" currently serves as ")
+        || normalized.contains(" serves as ")
+        || normalized.contains(" currently is ")
+        || normalized.contains(" incumbent ")
+}
+
+pub(crate) fn first_subject_currentness_sentence(text: &str) -> Option<String> {
+    let compact = compact_whitespace(text);
+    let trimmed = compact.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    for candidate in trimmed.split(['.', '!', '?', '\n', ';']) {
+        let normalized = ensure_terminal_sentence(candidate);
+        if normalized.len() >= 20 && has_subject_currentness_payload(&normalized) {
+            return Some(normalized);
+        }
+    }
+
+    has_subject_currentness_payload(trimmed).then(|| ensure_terminal_sentence(trimmed))
+}
+
+pub(crate) fn first_current_role_holder_sentence(text: &str) -> Option<String> {
+    first_subject_currentness_sentence(text)
+        .filter(|sentence| has_explicit_current_holder_marker(sentence))
+}
+
+#[cfg(test)]
+mod currentness_tests {
+    use super::{
+        first_current_role_holder_sentence, first_subject_currentness_sentence,
+        has_subject_currentness_payload, query_requires_subject_currentness_identity,
+    };
+
+    #[test]
+    fn generic_role_definition_is_not_treated_as_subject_identity_payload() {
+        let text = "Secretary-General of the United Nations - Wikipedia. The secretary-general of the United Nations is the Head of the United Nations Secretariat.";
+        assert!(!has_subject_currentness_payload(text), "text={text}");
+        assert!(
+            first_subject_currentness_sentence(text).is_none(),
+            "text={text}"
+        );
+    }
+
+    #[test]
+    fn current_role_holder_sentence_is_detected() {
+        let text = "António Guterres is the current Secretary-General of the United Nations.";
+        assert!(has_subject_currentness_payload(text), "text={text}");
+        assert_eq!(
+            first_subject_currentness_sentence(text).as_deref(),
+            Some("António Guterres is the current Secretary-General of the United Nations.")
+        );
+        assert_eq!(
+            first_current_role_holder_sentence(text).as_deref(),
+            Some("António Guterres is the current Secretary-General of the United Nations.")
+        );
+    }
+
+    #[test]
+    fn historical_role_holder_biography_is_not_treated_as_explicit_current_holder() {
+        let text = "Guterres was elected secretary-general in October 2016, succeeding Ban Ki-moon at the beginning of the following year.";
+        assert!(has_subject_currentness_payload(text), "text={text}");
+        assert_eq!(
+            first_current_role_holder_sentence(text),
+            None,
+            "text={text}"
+        );
+    }
+
+    #[test]
+    fn current_role_holder_is_detected_from_search_title_and_excerpt_combo() {
+        let text = "UN Ask DAG ask.un.org › faq › 14625 Who is and has been Secretary-General of the United Nations? - Ask DAG! António Guterres is the current Secretary-General of the United Nations.";
+        assert_eq!(
+            first_current_role_holder_sentence(text).as_deref(),
+            Some("António Guterres is the current Secretary-General of the United Nations.")
+        );
+    }
+
+    #[test]
+    fn who_queries_for_current_roles_require_identity_grounding() {
+        assert!(query_requires_subject_currentness_identity(
+            "Who is the current Secretary-General of the UN?"
+        ));
+        assert!(!query_requires_subject_currentness_identity(
+            "What does the Secretary-General of the UN do?"
+        ));
+    }
+}
+
+pub(crate) fn single_snapshot_fact_grounding_signal_with_contract(
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+    query_contract: &str,
+    min_sources: usize,
+    source: &PendingSearchReadSummary,
+) -> bool {
+    let title = source.title.as_deref().unwrap_or_default();
+    excerpt_has_query_grounding_signal_with_contract(
+        retrieval_contract,
+        query_contract,
+        min_sources,
+        &source.url,
+        title,
+        &source.excerpt,
+    ) || first_subject_currentness_sentence(&format!("{} {}", title, source.excerpt)).is_some()
+}
+
+pub(crate) fn single_snapshot_summary_line_with_contract(
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+    query_contract: &str,
+    min_sources: usize,
+    source: &PendingSearchReadSummary,
+) -> String {
+    let title = source.title.as_deref().unwrap_or_default();
+    let excerpt = source.excerpt.as_str();
+    if let Some(metric) = first_metric_sentence(excerpt) {
+        if contains_current_condition_metric_signal(&metric) {
+            return format!(
+                "{} {}",
+                single_snapshot_current_metric_prefix(query_contract, &metric, false),
+                concise_metric_snapshot_line(&metric)
+            );
+        }
+        if has_quantitative_metric_payload(&metric, false) {
+            return single_snapshot_best_available_with_limitation(source, &metric);
+        }
+    }
+    if let Some(subject_currentness) =
+        first_subject_currentness_sentence(&format!("{} {}", title, excerpt))
+    {
+        return format!(
+            "Current answer from retrieved source text: {}",
+            subject_currentness
+        );
+    }
+    if single_snapshot_fact_grounding_signal_with_contract(
+        retrieval_contract,
+        query_contract,
+        min_sources,
+        source,
+    ) {
+        let fact = actionable_excerpt(excerpt)
+            .or_else(|| excerpt_headline(excerpt))
+            .unwrap_or_else(|| {
+                source_bullet_for_query_with_contract(
+                    retrieval_contract,
+                    query_contract,
+                    min_sources,
+                    source,
+                )
+            });
+        return format!(
+            "Current answer from retrieved source text: {}",
+            ensure_terminal_sentence(&fact)
+        );
+    }
+    let fallback = actionable_excerpt(excerpt).unwrap_or_else(|| source_bullet(source));
+    if contains_current_condition_metric_signal(&fallback) {
+        return format!(
+            "{} {}",
+            single_snapshot_current_metric_prefix(query_contract, &fallback, false),
+            concise_metric_snapshot_line(&fallback)
+        );
+    }
+    if has_quantitative_metric_payload(&fallback, false) {
+        return single_snapshot_best_available_with_limitation(source, &fallback);
+    }
+    single_snapshot_metric_limitation_line(source)
 }
 
 pub(crate) fn single_snapshot_metric_limitation_line(source: &PendingSearchReadSummary) -> String {
@@ -586,30 +1227,7 @@ pub(crate) fn single_snapshot_best_available_with_limitation(
 }
 
 pub(crate) fn single_snapshot_summary_line(source: &PendingSearchReadSummary) -> String {
-    if let Some(metric) = first_metric_sentence(source.excerpt.as_str()) {
-        if contains_current_condition_metric_signal(&metric) {
-            return format!(
-                "Current conditions from retrieved source text: {}",
-                concise_metric_snapshot_line(&metric)
-            );
-        }
-        if has_quantitative_metric_payload(&metric, false) {
-            return single_snapshot_best_available_with_limitation(source, &metric);
-        }
-        return single_snapshot_metric_limitation_line(source);
-    }
-    let fallback =
-        actionable_excerpt(source.excerpt.as_str()).unwrap_or_else(|| source_bullet(source));
-    if contains_current_condition_metric_signal(&fallback) {
-        return format!(
-            "Current conditions from retrieved source text: {}",
-            concise_metric_snapshot_line(&fallback)
-        );
-    }
-    if has_quantitative_metric_payload(&fallback, false) {
-        return single_snapshot_best_available_with_limitation(source, &fallback);
-    }
-    single_snapshot_metric_limitation_line(source)
+    single_snapshot_summary_line_with_contract(None, "", 1, source)
 }
 
 pub(crate) fn metric_axis_display_label(axis: MetricAxis) -> &'static str {

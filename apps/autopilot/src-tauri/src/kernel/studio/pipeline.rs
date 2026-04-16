@@ -398,6 +398,7 @@ fn pipeline_steps_for_non_artifact_route(
         .as_ref()
         .map(|summary| summary.enabled)
         .unwrap_or(false);
+    let route_hints = outcome_request.routing_hints.clone();
     let verification_gate = "Verification state, not worker prose, authorizes Studio replies.";
 
     let mut steps = vec![
@@ -427,7 +428,10 @@ fn pipeline_steps_for_non_artifact_route(
                     .as_ref()
                     .map(|summary| format!("strategy:{}", summary.strategy))
                     .unwrap_or_else(|| "strategy:plan_execute".to_string()),
-            ],
+            ]
+            .into_iter()
+            .chain(route_hints.iter().take(3).cloned())
+            .collect(),
             None,
         ),
     ];
@@ -509,8 +513,11 @@ fn pipeline_steps_for_non_artifact_route(
             execution_stage_for_pipeline_phase("reply"),
             "Reply",
             status,
-            "Studio composes the user-facing summary from shared execution state, not from an implied artifact renderer.",
-            vec![studio_session.verified_reply.summary.clone()],
+            "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+            vec![studio_session.verified_reply.summary.clone()]
+                .into_iter()
+                .chain(route_hints.iter().take(3).cloned())
+                .collect(),
             Some(verification_gate),
         ),
     ]);
@@ -854,6 +861,7 @@ pub(super) fn pipeline_steps_for_state(
     let skill_discovery_resolution = materialization.skill_discovery_resolution.as_ref();
     let skill_discovery_outputs = if let Some(resolution) = skill_discovery_resolution {
         let mut outputs = vec![
+            format!("guidance_status:{}", resolution.guidance_status),
             format!("guidance_evaluated:{}", resolution.guidance_evaluated),
             format!("guidance_recommended:{}", resolution.guidance_recommended),
             format!("guidance_found:{}", resolution.guidance_found),

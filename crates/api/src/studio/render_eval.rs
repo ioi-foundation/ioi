@@ -48,10 +48,16 @@ pub fn build_studio_artifact_render_acceptance_policy(
 ) -> StudioArtifactRenderAcceptancePolicy {
     let required_interaction_goals = brief.required_interaction_goal_count();
     let require_response_region = brief.requires_response_region();
-    let minimum_semantic_regions = blueprint
-        .map(|blueprint| blueprint.acceptance_targets.minimum_section_count as usize)
-        .unwrap_or(3)
-        .max(2);
+    let minimum_semantic_regions = match request.renderer {
+        StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed => blueprint
+            .map(|blueprint| blueprint.acceptance_targets.minimum_section_count as usize)
+            .unwrap_or(1)
+            .max(1),
+        _ => blueprint
+            .map(|blueprint| blueprint.acceptance_targets.minimum_section_count as usize)
+            .unwrap_or(3)
+            .max(2),
+    };
     let evidence_surfaces_from_ir = artifact_ir
         .map(|artifact_ir| artifact_ir.evidence_surfaces.len())
         .unwrap_or_default();
@@ -90,7 +96,10 @@ pub fn build_studio_artifact_render_acceptance_policy(
         minimum_evidence_surfaces,
         minimum_actionable_affordances,
         blocked_score_threshold: 9,
-        primary_view_score_threshold: 18,
+        primary_view_score_threshold: match request.renderer {
+            StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed => 15,
+            _ => 18,
+        },
         require_primary_region: matches!(
             request.renderer,
             StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox
@@ -129,14 +138,17 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
     judge.visual_hierarchy = merge_visual_score(judge.visual_hierarchy, hierarchy_signal);
     judge.completeness = merge_visual_score(judge.completeness, completeness_signal);
 
-    let blocked_render_finding = render_evaluation
-        .findings
-        .iter()
-        .find(|finding| finding.severity == StudioArtifactRenderFindingSeverity::Blocked);
+    let blocked_render_finding = render_evaluation.findings.iter().find(|finding| {
+        finding.severity == StudioArtifactRenderFindingSeverity::Blocked
+            && !render_blocking_finding_is_advisory_for_request(request, finding)
+    });
     let warning_count = render_evaluation
         .findings
         .iter()
-        .filter(|finding| finding.severity == StudioArtifactRenderFindingSeverity::Warning)
+        .filter(|finding| {
+            finding.severity == StudioArtifactRenderFindingSeverity::Warning
+                || render_blocking_finding_is_advisory_for_request(request, finding)
+        })
         .count();
     let failed_required_obligation =
         render_evaluation
@@ -330,6 +342,16 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
     }
 
     judge
+}
+
+fn render_blocking_finding_is_advisory_for_request(
+    request: &StudioOutcomeArtifactRequest,
+    finding: &StudioArtifactRenderFinding,
+) -> bool {
+    matches!(
+        request.renderer,
+        StudioRendererKind::Markdown | StudioRendererKind::PdfEmbed
+    ) && finding.code == "typography_contrast_low"
 }
 
 fn average_u8(left: u8, right: u8) -> u8 {

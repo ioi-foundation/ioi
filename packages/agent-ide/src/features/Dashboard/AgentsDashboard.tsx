@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { AgentRuntime, AgentSummary } from "../../runtime/agent-runtime";
+import { AgentWorkbenchRuntime, AgentSummary } from "../../runtime/agent-runtime";
 import "./AgentsDashboard.css";
 
 interface AgentsDashboardProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   onSelectAgent: (agent: AgentSummary | null) => void; 
 }
 

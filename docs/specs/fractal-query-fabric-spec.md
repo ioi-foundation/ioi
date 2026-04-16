@@ -8,12 +8,19 @@ flows and no longer ships an `SCS` crate.
 
 ## 1. Executive Summary
 
-Fractal Query Fabric (`FQF`) is the proposed canonical state, projection, and query fabric for IOI-native applications.
+Fractal Query Fabric (`FQF`) is the proposed canonical state, projection, and
+query fabric for agentic applications where receipts, replay, multi-node
+continuity, capability-scoped reads, and portable execution state are
+load-bearing.
+
+It is especially aimed at IOI-native runtimes, `ai://` applications, and the
+platform teams building the substrate beneath them.
 
 It is not:
 
 - SQL on a blockchain
 - a decentralized Supabase clone
+- a general replacement for Postgres-backed CRUD apps
 - a replacement for every local UI store
 - a resurrection of the old `SCS` memory story
 
@@ -23,12 +30,22 @@ It is:
 - a projection system that materializes app-facing read models
 - a receiptable query surface for agentic and user-facing applications
 - a shared substrate for runs, tasks, approvals, artifacts, promotions, and durable knowledge
-- the durable authority layer for IOI-native apps that would otherwise default to Postgres/Supabase
+- the durable authority layer for IOI-native agentic systems that would otherwise be assembled from Postgres/Supabase plus workflow, sync, and audit glue
+- a system that may ship with a first-party Postgres projection driver for SQL interoperability without treating Postgres as canonical authority or a runtime dependency
 - when anchored on IOI mainnet, part of a larger `L0` story for global `ai://` registry, publication, and trust roots
+
+The wedge is not "better database infrastructure."
+
+It is:
+
+> a substrate where meaningful reads, executions, promotions, and projections
+> can produce verifiable evidence instead of relying on bespoke audit glue.
 
 The architectural shift is:
 
-> canonical truth lives in the fractal kernel; projections are first-class runtime artifacts; queries are capability-scoped and optionally receiptable; relational tables are only one projection family among many.
+> canonical truth lives in the fractal kernel; projections are first-class
+> runtime artifacts; queries are capability-scoped and optionally receiptable;
+> relational tables are only one projection family among many.
 
 Performance doctrine:
 
@@ -38,42 +55,117 @@ Scaling north star:
 
 > `FQF` should scale by minimizing global truth, maximizing local read termination, and making every expensive derived artifact portable, replayable, and independently scalable.
 
-If successful, this is not "the death of Postgres" in general. It is the first credible displacement of Postgres as the default authority layer for IOI-style agentic applications.
+This is not about displacing Postgres for ordinary software. It is about giving
+agentic runtimes a substrate they do not currently have as a coherent product
+or protocol category.
+
+### 1.1 Market Fit
+
+The market is narrower than "apps that would otherwise default to Postgres."
+Most apps do not need this architecture and should not pay its complexity tax.
+
+The real target is systems where these properties are load-bearing:
+
+- replayable canonical truth
+- native receipts and evidence trails
+- resumable multi-node continuity
+- capability-scoped reads and mutations
+- portable execution and projection state
+
+That is a smaller market than general application backends, but it is real,
+growing quickly, and currently underserved.
+
+### 1.2 Primary Buyer and Builder
+
+Primary buyer for `FQF` v1:
+
+- platform teams building agentic runtimes, orchestration fabrics, or sovereign application substrates
+
+Primary operators:
+
+- runtime teams responsible for continuity, policy, audit, upgrade, and repair behavior across nodes
+
+Primary downstream builders:
+
+- `ai://` application developers who want a shared substrate instead of assembling Postgres, workflow engines, ad hoc projection layers, and custom audit logic
+
+V1 prioritization rule:
+
+- optimize first for platform teams and runtime operators
+- make application ergonomics excellent, but do not let general app-backend expectations blur the core market
+
+### 1.3 Comparison Landscape
+
+`FQF` should be read against the current default options for agentic systems,
+not against the median CRUD stack.
+
+- Durable Objects get colocated mutable coordination right, but they do not center the model on portable projection checkpoints, formal promotion, or native receipt lineage.
+- Convex gets reactive app queries and developer ergonomics right, but it is not organized around a canonical operation log, evidence-grade receipts, or artifact privacy classes.
+- Postgres plus Temporal is the practical default for serious workflow systems, but truth fragments across mutable rows, workflow history, caches, and bespoke projection glue.
+- EventStore or CQRS-style stacks get replay and projections right, but usually stop short of capability-scoped reads, artifact privacy, portable session continuity, and promotion as protocol.
+- Materialize and similar systems are powerful derived-view engines, but they are not the canonical authority and do not solve the receipt, policy, or promotion problem.
+
+The competition is therefore less "one database" and more the stitched stack of:
+
+- mutable OLTP authority
+- workflow/event history
+- custom projection machinery
+- custom auth scoping
+- custom audit and receipt infrastructure
+
+### 1.4 Four Load-Bearing Properties
+
+The spec is strongest when it centers four properties:
+
+1. Canonical operation log plus deterministic object state as truth.
+2. Portable projection checkpoints as a throughput primitive, not just a recovery tool.
+3. Promotion as protocol rather than application convention.
+4. Artifact privacy classes that separate ciphertext availability from plaintext readability.
+
+Receipts are the organizing property across all four. They are not one feature
+among many. They are the reason the fabric is materially different.
 
 ## 2. Decision
 
 This spec adopts the following position:
 
-- `Yes`: build `FQF` as the shared canonical state and projection fabric for IOI-native apps.
+- `Yes`: build `FQF` as the shared canonical state and projection fabric for IOI-native agentic runtimes and applications that need evidence-grade continuity.
 - `No`: do not reintroduce `SCS` as a separate context plane; live product memory uses `ioi-memory`.
 - `Yes`: let shared durable knowledge evolve toward wiki-shaped canonical objects, artifact references, and projections where that materially improves portability, provenance, and cumulative value.
 - `Yes`: support artifact privacy classes where public availability of ciphertext is separable from plaintext readability.
 - `Yes`: support React apps via local-first app stores plus `FQF` sync/query/mutation.
+- `Yes`: ship a first-party Postgres projection driver as a blessed interoperability adapter for SQL-facing tools, APIs, and migrations.
 - `No`: do not put working-memory scratch state, execution-local caches, or enrichment internals on the canonical hot path.
 - `No`: do not silently promote ephemeral gig/task data into shared canonical wiki state.
 - `No`: do not make every query, cache, or UI interaction part of canonical state.
+- `No`: do not make Postgres a required dependency, privileged authority layer, or semantic write path for canonical state.
 - `No`: do not turn `FQF` into a universal replacement for every database workload.
 
 ## 3. Why This Exists
 
-The current web application default is:
+The current default stack for serious agentic applications is still assembled
+from parts:
 
 - React frontend
 - hosted Postgres as authority
+- workflow engine or durable job runner
 - blob storage for assets
 - realtime layer bolted on
 - vector store bolted on
 - app-specific sync/cache logic bolted on
 
-That stack is serviceable for CRUD software. It is weak for agentic software because:
+That stack is serviceable for CRUD software and adequate for some workflow
+systems. It is weak for agentic software when the system must preserve evidence,
+continuity, and portable state as first-class runtime properties.
 
-- memory is ad hoc
-- provenance is weak
-- canonical execution truth is weak
-- permissions are bolt-on
-- multi-node serving is awkward
-- portability is poor
-- proof-sensitive reads are not first-class
+The weaknesses are structural:
+
+- truth fragments across mutable rows, workflow history, caches, and app code
+- provenance and receipts are added after the fact
+- promotion from local/session work into shared truth is implicit application logic
+- multi-node continuity relies on sticky serving paths or bespoke repair logic
+- artifact privacy and readable plaintext policy are usually conflated
+- projection portability is treated as cache management rather than substrate design
 
 IOI already has the beginnings of a better split:
 
@@ -94,138 +186,40 @@ Relevant current anchors in the repo:
 
 `FQF` should build on that foundation, not fight it.
 
-## 3.1 Sharpest Practical Advantages Over Postgres-as-Authority
+## 3.1 Three Decisive Advantages
 
-The decisive advantages are not that `FQF` can imitate a database. They are
-that it changes what counts as canonical truth, what becomes protocol-visible,
-and what can move cleanly across serving nodes.
+The argument for `FQF` should land on three claims.
 
-1. Canonical truth becomes replayable and verifiable, not merely mutable.
+1. Canonical truth is replayable.
 
-   `Postgres` is excellent at transactional row storage, but its native center
-   of gravity is still current mutable state. `FQF` instead treats the
-   deterministic operation log and deterministic object transitions as the
-   canonical authority, while app-facing state is derived through projections.
-   That is a better fit for receipts, audits, dispute resolution, historical
-   reconstruction, and deterministic replay.
+   `FQF` treats the deterministic operation log and deterministic object
+   transitions as authority. That is stronger than mutable-row truth for
+   receipts, dispute resolution, historical reconstruction, and deterministic
+   replay.
 
-2. Projections become protocol-visible contracts instead of opaque internal
-   views.
+2. Projections are portable.
 
-   In `FQF`, relational, graph, timeline, ranking, and capability read models
-   are explicit, versioned artifacts that clients can bind to directly. The
-   query surface therefore becomes part of the application contract instead of
-   remaining an ad hoc layer of hidden SQL views, indexes, and server-local
-   resolver logic.
+   Relational, graph, timeline, ranking, and capability read models become
+   explicit versioned artifacts with checkpoints, replay, and cross-node
+   movement. This turns projection state into a throughput primitive instead of
+   disposable server-local glue.
 
-3. Multi-node portability becomes cleaner because continuity is rooted in
-   canonical state, portable authority artifacts, and resumable projection
-   streams.
+3. Receipts are native.
 
-   Clients should be able to pair local replicas or caches with `FQF`
-   changefeeds, fail over across provider nodes, and resume subscriptions using
-   signed portable tokens and deterministic checkpoint or delta recovery. That
-   is materially better than relying on sticky sessions or one shared hosted SQL
-   authority for normal app continuity.
+   Queries, executions, promotions, and projections can all bind to canonical
+   anchors, capability scope, and evidence surfaces. This makes verifiable
+   explanation part of the substrate rather than an audit bolt-on.
 
-4. Reads can be trust-graded instead of all-or-nothing.
+Everything else in the spec should support those three claims or get out of
+their way.
 
-   `FQF` allows the runtime contract to distinguish trivial local reads,
-   checkpoint- or anchor-bound reads, and full proof-ready reads for
-   trust-sensitive or dispute-sensitive cases. This is stronger than the normal
-   `Postgres` model, where a query is usually either trusted operationally or
-   wrapped in bespoke audit logic outside the read contract.
+## 3.2 Why General Agentic Work Is The Category Center
 
-5. Capability-scoped application state fits the IOI security model more
-   naturally.
+`FQF` should be read first as a substrate for general agentic work, not as a
+knowledge-base product.
 
-   Projection scope, capability scope, and session or lease constraints can live
-   inside portable signed artifacts rather than being inferred from node-local
-   session lookups. That makes reads, subscriptions, and routine mutations align
-   with the same policy-bounded authority model used elsewhere in IOI.
-
-6. The object-first worldview maps better to agentic systems than row-first
-   authority.
-
-   IOI-native applications care about objects such as `Service`, `Version`,
-   `Run`, `Receipt`, `Approval`, and `CapabilityLease`. Treating those objects
-   as the semantic truth over canonical state is a better fit for approvals,
-   manifests, receipts, and long-running workflows than treating relational rows
-   as the deepest source of authority.
-
-7. The frontend architecture becomes more IOI-native instead of pretending the
-   product is a conventional SaaS stack with a chain bolted on later.
-
-   A React UI paired with a local-first store, an `FQF` client, resumable
-   subscriptions, and a runtime mutation path that writes canonical operations
-   into the log can consume protocol-derived state directly. That is a better
-   architectural match for `ai://` applications than centering the product on a
-   hosted `Postgres` backend and treating canonical state as a secondary export.
-
-8. Receipts and evidence become part of the substrate, not a separate audit
-   afterthought.
-
-   Because mutations, projections, queries, and artifacts can all be bound to
-   canonical state anchors and receipt surfaces, `FQF` is a stronger substrate
-   for agent receipts, evidence trails, governance workflows, and policy review.
-   In IOI, the important question is often not merely "what did the UI show?"
-   but "what canonical state, capability surface, and proof surface authorized
-   this action?"
-
-## 3.2 Why This Gets Stronger For Wiki-Shaped Knowledge Systems
-
-A living knowledge base built by agents has a different shape than ordinary CRUD
-software.
-
-It wants:
-
-- raw source files to remain inspectable artifacts
-- compiled wiki pages to accumulate rather than disappear into transient chat
-- backlinks, citations, and lineage to remain first-class
-- every answer, report, slide deck, or plot to be fileable back into the corpus
-- large derived views and retrieval indexes to move across nodes without hidden glue
-
-`FQF` becomes stronger when viewed through that lens because:
-
-1. Knowledge becomes canonical as objects plus artifacts, not as opaque prompt
-   residue.
-
-   Raw sources, wiki documents, wiki revisions, generated reports, and filed-back
-   answers can all share one authority model: immutable artifacts referenced by
-   canonical objects with explicit lineage.
-
-2. The "every answer makes the wiki smarter" loop becomes structurally native.
-
-   Outputs do not need to terminate as terminal text. They can become new
-   artifacts and revisions with explicit provenance, subscriptions, and
-   visibility policy.
-
-3. Backlinks, citation graphs, topic indexes, and stale-page queues become
-   normal projections instead of one-off product glue.
-
-   The wiki therefore benefits directly from the same projection portability,
-   resumable subscriptions, and checkpoint transport that make `FQF` attractive
-   for other IOI-native applications.
-
-4. Enrichment fits the design doctrine cleanly if it stays derived.
-
-   Chunking, summaries, embeddings, link suggestion, contradiction scans, and
-   retrieval candidate generation belong on the near-hot or async derived path,
-   not on the canonical commit path.
-
-5. Multi-node knowledge serving becomes more credible.
-
-   Large wiki-shaped corpora can move across nodes through shared artifacts,
-   projection checkpoints, and delta replay rather than full recomputation from
-   raw history on every serving node.
-
-## 3.3 Why This Must Be Broader Than A Knowledge Base
-
-The wiki-shaped knowledge story is powerful, but it is not sufficient by itself.
-
-If `FQF` is going to become the default authority layer for IOI-native
-applications, it must model general agentic work just as naturally as it models
-durable knowledge.
+If `FQF` is going to matter, it must model operational agent state just as
+naturally as it models durable knowledge.
 
 That means treating these as first-class concerns too:
 
@@ -271,6 +265,22 @@ The broader architectural claim is:
    durable result can later become shared knowledge. That progression is the
    real power of the fabric.
 
+## 3.3 Wiki-Shaped Knowledge Is An Important Example, Not The Market Definition
+
+Wiki-shaped knowledge systems are a strong example of where `FQF` gets
+particularly compelling, but they are not the category center.
+
+They matter because they stress the same core properties:
+
+- raw sources remain inspectable artifacts
+- compiled pages and revisions accumulate as canonical objects
+- backlinks, citations, and lineage become normal projections
+- outputs can be filed back into shared state with explicit provenance
+- large derived views can move across nodes through checkpoints and replay
+
+The wiki story is therefore evidence that the general substrate works. It
+should be presented as a powerful example, not as the main market definition.
+
 ## 4. Core Thesis
 
 Traditional application stacks treat:
@@ -280,7 +290,7 @@ Traditional application stacks treat:
 - indexes as hidden implementation details
 - queries as untrusted reads
 
-`FQF` rejects that for IOI-native applications.
+`FQF` rejects that for agentic systems that need evidence-grade continuity.
 
 In `FQF`:
 
@@ -290,7 +300,7 @@ In `FQF`:
 - projections = explicit, versioned runtime artifacts
 - queries = scoped runtime acts with optional receipts
 - tables = one projection family
-- SQL = optional compatibility surface
+- SQL = optional compatibility surface exposed through adapters, never the canonical storage mode
 - canonical commit path must remain narrower than projection, proof, and query-serving layers
 
 ## 5. Relationship to Existing IOI Components
@@ -693,24 +703,48 @@ Any movement from:
 
 should be modeled as an explicit promotion flow.
 
-A promotion request should bind:
+Promotion is one of the hardest things to fake with application glue and one of
+the strongest sources of leverage in `FQF`.
 
+It is the point where the system answers questions such as:
+
+- what local or session work is eligible to become shared truth
+- what evidence supports that move
+- what policy, review, or approval path is required
+- what exactly changed when promotion was accepted
+
+#### Promotion Objects
+
+A `PromotionRequest` should bind:
+
+- `promotion_id`
 - source scope
 - target scope
 - source object refs and/or artifact bundle refs
+- evidence set refs when present
 - requested canonical mutations
+- requested head changes or object creations
 - requested privacy-class or retention changes
 - policy hash
+- actor identity and capability scope
+- idempotency key
+- expected prior heads or merge base where relevant
 - requested reviewers or approvers when required
+- review policy or promotion policy id
 - reason, automation source, or upstream run reference
+- created-at / expires-at bounds
 
 Promotion results should be explicit:
 
-- accepted
-- rejected
+- proposed
+- admitted
 - needs review
+- approved
+- committed
+- rejected
 - needs additional evidence
 - expired
+- superseded
 
 Promotion rule:
 
@@ -719,12 +753,53 @@ Promotion rule:
 - promotion is the protocol boundary that turns useful local/session work into
   durable shared truth
 
-When important, promotion should emit a receipt that explains:
+#### Promotion Flow
 
+Minimum flow:
+
+1. Create `PromotionRequest` against stable source refs, bundle refs, and
+   optional evidence refs.
+2. Run admission checks for capability scope, policy eligibility, privacy-class
+   changes, and required approvals.
+3. If policy requires human or delegated review, route the request into explicit
+   review state rather than allowing silent background mutation.
+4. Reviewers inspect a stable evidence snapshot, not mutable draft state.
+5. Approval artifacts or review decisions bind back to the exact
+   `PromotionRequest`.
+6. Commit applies the requested canonical mutations only if preconditions still
+   hold, including expected heads, policy version, and required approvals.
+7. Commit creates or advances the shared canonical objects and emits a
+   `PromotionReceipt`.
+
+Commit rule:
+
+- promotion commit must be idempotent
+- promotion commit must fail explicitly if source lineage, expected heads, or
+  required approvals no longer match
+- promotion must not silently mutate source artifacts or source drafts in place
+- when promotion creates a shared head, the resulting lineage must point back to
+  the admitted request and supporting evidence
+
+Review rule:
+
+- review should bind to evidence bundles, receipts, and immutable artifacts
+  rather than loose comments over mutable state
+- approval and rejection should themselves be canonical objects when they matter
+  for governance, audit, or later appeal
+
+#### Promotion Receipt
+
+When important, promotion should emit a `PromotionReceipt` that explains:
+
+- promotion id and outcome
 - what moved
+- which source refs, bundle refs, or evidence refs were considered
 - why it was admissible
 - what policy authorized it
+- which reviews or approvals were satisfied
 - what new shared objects or heads were created
+- what privacy-class or retention changes occurred
+- what canonical anchors bind the result
 
 ### Bundle and Evidence Model
 
@@ -885,7 +960,7 @@ Exposes:
 - capability-scoped reads
 - policy and promotion explanations
 - provenance-aware reads
-- optional SQL compatibility
+- optional SQL compatibility via projection adapters
 - optional GraphQL-like adapters
 
 Primary property:
@@ -1094,6 +1169,67 @@ For:
 - reports
 - search/filter/pagination
 
+Relational projections matter because a large amount of surrounding software
+already expects a SQL-shaped read surface.
+
+Design rule:
+
+- relational projections are explicit derived artifacts over canonical `FQF` truth
+- they are not an alternate authority path
+- `FQF` can project into Postgres, but `FQF` does not run on Postgres
+- a first-party Postgres driver is recommended as an interoperability bridge, not as a default dependency
+
+### Postgres Projection Driver
+
+`FQF` should define a blessed Postgres projection driver for:
+
+- existing APIs and admin panels
+- BI, analytics, and reporting tools
+- ORM-heavy integration layers
+- incremental migration from legacy application stacks
+
+Placement rule:
+
+- the Postgres driver sits after projection runtime, not underneath canonical state
+- it consumes named projection outputs; it does not interpret or finalize business truth
+
+Driver invariants:
+
+- one-way authority: Postgres receives derived state from `FQF`; it never defines canonical truth
+- no semantic writes: managed Postgres relations must not mutate canonical state directly
+- deterministic derivation: the same canonical history, projection definition, and projection version must emit the same relational result
+- explicit freshness: every exposed rowset must bind to projection lineage and canonical watermark metadata
+- receipt lineage: query receipts, when offered, must root to `FQF` snapshot or projection lineage rather than arbitrary SQL transaction state
+- rebuildability: Postgres materialization must be disposable and reconstructible from canonical state plus projection definitions and checkpoints
+
+Driver responsibilities:
+
+- subscribe to named projection outputs by `projection_id` and `projection_version`
+- emit deterministic schemas, tables, views, or materialized views from projection definitions
+- publish lag, health, schema-version, and checkpoint metadata explicitly
+- preserve provenance columns or companion metadata such as `fqf_projection_id`, `fqf_projection_version`, `fqf_canonical_watermark`, and optional `fqf_snapshot_root`
+- support rebuild from checkpoint restore plus bounded replay or full canonical replay
+- fence, reject, or ignore direct semantic writes to adapter-managed relations
+
+Driver non-responsibilities:
+
+- canonical ordering
+- authority over business state
+- settlement or finalization
+- canonical policy enforcement
+- semantic conflict resolution
+
+Recommended exposure patterns:
+
+- append-only event tables for chronological consumers
+- current-state tables for operational APIs and dashboards
+- stable SQL views over adapter-managed storage for compatibility cutovers
+
+Legacy write compatibility rule:
+
+- if a legacy system can only "write to Postgres," it must write into a staging or inbox schema that translates rows into formal `FQF` intents
+- that staging schema is a compatibility ingress surface, not authority
+
 ## 13.2 Graph Projections
 
 For:
@@ -1298,6 +1434,13 @@ This allows queries to become auditable when they matter.
 
 ## 15. Query Receipts
 
+Receipts are not a side feature. They are one of the main reasons `FQF`
+exists.
+
+The distinct promise is that significant reads, executions, promotions, and
+projection surfaces can all be bound to verifiable evidence. Query receipts are
+the read-side expression of that broader property.
+
 ## 15.1 Policy
 
 Not every query should emit a heavyweight receipt.
@@ -1473,10 +1616,12 @@ The replacement stack is:
 - local-first app store
 - kernel runtime
 - `FQF` for canonical authority
+- optional Postgres projection driver for SQL interoperability and legacy integration
 - blob/artifact substrate for immutable assets
 - runtime working memory via `ioi-memory` or its successor knowledge-runtime surface
 
-That is the right substitution target, not "Postgres for everything."
+That is the right substitution target, not "Postgres for everything." The
+adapter is a bridge, not a base.
 
 ## 18.3 Shared Client Runtime Requirement
 
@@ -1508,6 +1653,12 @@ An `ai://` application may package:
 - artifact references
 
 ## 19.1 `L0` Registry and Trust Anchor Role
+
+This section is an optional IOI-network profile, not part of the minimum claim
+required for `FQF` to make sense as a runtime fabric.
+
+`FQF` does not require a global `L0` registry in order to be coherent as a
+local, tenant-scoped, or sovereign runtime substrate.
 
 For public `ai://` interoperability, the spec should explicitly model `IOI mainnet` as the `L0` root layer.
 
@@ -1924,6 +2075,7 @@ Optional extension profiles:
 - encrypted artifact and key-release profile
 - proof-sensitive query and receipt profile
 - semantic or enrichment-heavy projection profile
+- SQL/Postgres interoperability profile
 - large-checkpoint and bulk-transport profile
 
 Every runtime node should advertise:
@@ -1976,6 +2128,7 @@ These should be maintained as `FQF` projections:
 
 - dashboards
 - search/filter views
+- SQL/Postgres interoperability surfaces rooted in named projections
 - task queues and approval inboxes
 - run timelines and worker views
 - execution queues and attempt views
@@ -2069,7 +2222,21 @@ Target behavior:
 - lower frequency
 - higher proof and finality expectations
 
-## 24. What FQF Does Not Replace
+## 24. What FQF Refuses To Be
+
+`FQF` is not:
+
+- an OLTP database
+- a graph database
+- a search engine
+- a pub/sub broker
+- a workflow engine
+- a blob store
+
+It is a canonical state and projection substrate from which relational, graph,
+ranking, subscription, workflow, and evidence surfaces can be derived.
+
+## 24.1 What It Still Does Not Replace
 
 `FQF` should not replace:
 
@@ -2227,6 +2394,9 @@ Make `FQF` the authority layer for IOI-native app state.
 At this point:
 
 - Postgres may still exist as compatibility or reporting infrastructure
+- the first-party Postgres driver should be easy to enable but not required for canonical operation
+- SQL consumers should read explicit projection version, watermark, and lag metadata rather than treating adapter state as self-authorizing truth
+- legacy write compatibility, when needed, should flow through staging/inbox translation into formal `FQF` ingress
 - but it is no longer the primary source of truth
 - `ioi-memory` becomes increasingly local/runtime-facing as shared durable knowledge moves into canonical wiki objects, artifact refs, and projections
 - private gig/task flows can stay local or session-scoped without creating durable shared wiki residue unless promoted
@@ -2285,10 +2455,11 @@ Design rule:
 
 ## 28. Success Criteria
 
-`FQF` succeeds when IOI-native applications can:
+`FQF` succeeds when agentic runtimes and applications that need evidence-grade
+continuity can:
 
 1. store canonical shared app state without Postgres as authority
-2. expose durable app-facing read models without bespoke backend glue
+2. expose durable app-facing read models, including SQL-facing interoperability surfaces, without bespoke backend glue
 3. maintain local-first React UX via local app stores and cached projections
 4. subscribe to realtime canonical changes
 5. serve the same logical app instance across multiple nodes
@@ -2339,6 +2510,8 @@ Design rule:
 - it files private gig/task outputs into shared wiki state by default
 - it becomes a knowledge-only niche and fails to model general operational agent state cleanly
 - each app has to invent its own cache, sync, and subscription model
+- it makes Postgres a required dependency for normal canonical operation
+- it lets adapter-managed Postgres relations become a backdoor write path or a hidden fallback source of truth
 - side-effecting execution remains a bespoke app-layer concern without shared receipts, idempotency, or approval semantics
 - promotion across scopes remains implicit and leaks private/session work into shared state
 - repair and upgrade behavior are too implicit for operators or agents to reason about safely

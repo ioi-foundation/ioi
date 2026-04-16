@@ -1269,6 +1269,15 @@ pub(crate) async fn run_lifecycle_status_phase(
     let failure_class_name = failure_class
         .map(|class| class.as_str().to_string())
         .unwrap_or_default();
+    let route_decision =
+        crate::agentic::runtime::service::step::route_projection::project_route_decision(
+            service,
+            state,
+            agent_state,
+            &tool_name,
+            agent_state.current_tier,
+        )
+        .await;
     let receipt = RoutingReceiptEvent {
         session_id,
         step_index: pre_state_summary.step_index,
@@ -1296,6 +1305,7 @@ pub(crate) async fn run_lifecycle_status_phase(
         policy_binding_hash: policy_binding,
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision,
     };
     emit_routing_receipt(service.event_sender.as_ref(), receipt);
 

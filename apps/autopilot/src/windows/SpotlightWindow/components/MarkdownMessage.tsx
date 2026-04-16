@@ -1,7 +1,10 @@
 import type { MouseEvent } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import "katex/dist/katex.min.css";
 
 const SAFE_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
 const MarkdownRenderer = ReactMarkdown as any;
@@ -52,7 +55,11 @@ export function MarkdownMessage({ text }: { text: string }) {
 
   return (
     <div className="message-content-markdown">
-      <MarkdownRenderer remarkPlugins={[remarkGfm]} components={markdownComponents}>
+      <MarkdownRenderer
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={markdownComponents}
+      >
         {text}
       </MarkdownRenderer>
     </div>

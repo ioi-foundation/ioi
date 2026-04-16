@@ -62,8 +62,8 @@ assert.match(
 
 assert.match(
   spotlightWindowSource,
-  /const showStudioArtifactToggle =\s*isStudioVariant && studioArtifactDrawerAvailable[\s\S]*\{showStudioArtifactToggle \? \(/,
-  "studio artifact toggle should remain scoped to the Studio page variant",
+  /<StudioConversationSidebar[\s\S]*showArtifactNav=\{showStudioArtifactNav\}[\s\S]*onToggleArtifacts=\{handleToggleStudioArtifacts\}/,
+  "studio artifact navigation should be routed through the Studio sidebar",
 );
 
 assert.match(

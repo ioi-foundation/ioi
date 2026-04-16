@@ -1,0 +1,4427 @@
+{
+  "captured_at": "2026-04-16T17:50:44.695835+00:00",
+  "prompt": "How about tomorrow instead?",
+  "screenshot": "docs/evidence/route-hierarchy/live-final-gap-reuse-native-final/2026-04-16T17-49-52Z/02-how-about-tomorrow-instead/final.png",
+  "window_id": 18874380,
+  "window_capture_error": null,
+  "task": {
+    "id": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+    "intent": "What's the weather in Boston this weekend?",
+    "agent": "Autopilot",
+    "phase": "Complete",
+    "progress": 20,
+    "total_steps": 20,
+    "current_step": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+    "gate_info": null,
+    "receipt": null,
+    "visual_hash": null,
+    "pending_request_hash": null,
+    "session_id": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+    "credential_request": null,
+    "clarification_request": null,
+    "session_checklist": [
+      {
+        "itemId": "request",
+        "label": "Request captured",
+        "status": "completed",
+        "detail": "What's the weather in Boston this weekend?",
+        "updatedAtMs": 1776361841832
+      },
+      {
+        "itemId": "execution",
+        "label": "Continue execution",
+        "status": "in_progress",
+        "detail": "Sending message...",
+        "updatedAtMs": 1776361841832
+      },
+      {
+        "itemId": "review",
+        "label": "Review emerging output",
+        "status": "pending",
+        "detail": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+        "updatedAtMs": 1776361841832
+      }
+    ],
+    "background_tasks": [
+      {
+        "taskId": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+        "sessionId": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+        "label": "What's the weather in Boston this weekend?",
+        "status": "running",
+        "detail": "Sending message...",
+        "latestOutput": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+        "canStop": true,
+        "updatedAtMs": 1776361841832
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "text": "What's the weather in Boston this weekend?",
+        "timestamp": 1776361802687
+      },
+      {
+        "role": "agent",
+        "text": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+        "timestamp": 1776361823256
+      },
+      {
+        "role": "user",
+        "text": "How about tomorrow instead?",
+        "timestamp": 1776361841832
+      },
+      {
+        "role": "agent",
+        "text": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+        "timestamp": 1776361842330
+      }
+    ],
+    "events": [
+      {
+        "event_id": "eb6a880f-5598-4af1-9b83-2c09fabc94fc",
+        "timestamp": "2026-04-16T17:50:02.687878191+00:00",
+        "thread_id": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "What's the weather in Boston this weekend?"
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "What's the weather in Boston this weekend?"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "290f0344-62c7-4533-9b6e-fd1b47ef00dc",
+        "timestamp": "2026-04-16T17:50:22.685409591+00:00",
+        "thread_id": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+        "step_index": 1,
+        "event_type": "RECEIPT",
+        "title": "Studio route decision",
+        "digest": {
+          "domain_policy_bundle": {
+            "clarificationPolicy": {
+              "assumedBindings": [
+                "weather.location",
+                "weather.temporal_scope"
+              ],
+              "blockingSlots": [],
+              "mode": "assume_from_retained_state",
+              "rationale": "Weather advice clarifies only when location scope is missing and cannot be safely inherited."
+            },
+            "fallbackPolicy": {
+              "fallbackLanes": [
+                "tool_widget",
+                "conversation"
+              ],
+              "mode": "stay_in_specialized_lane",
+              "primaryLane": "research",
+              "rationale": "Specialized lanes stay primary unless execution is blocked or an explicit ranked fallback is required.",
+              "triggerSignals": [
+                "narrow_surface_preferred"
+              ]
+            },
+            "policyContract": {
+              "bindings": [
+                "lane_frame",
+                "request_frame",
+                "source_selection",
+                "route_decision.effective_tool_surface",
+                "domain_policy_bundle"
+              ],
+              "hiddenInstructionDependency": false,
+              "rationale": "Lane choice, fallback posture, source ranking, presentation, and verification are retained as typed runtime receipts."
+            },
+            "presentationPolicy": {
+              "primarySurface": "weather_widget",
+              "rationale": "Studio prefers a route-shaped parity surface so the desktop shell shows the active lane instead of collapsing to a generic summary.",
+              "renderer": "html_iframe",
+              "tabPriority": [
+                "render",
+                "evidence"
+              ],
+              "widgetFamily": "weather"
+            },
+            "retainedWidgetState": {
+              "bindings": [
+                {
+                  "key": "weather.location",
+                  "source": "request_frame",
+                  "value": "boston"
+                },
+                {
+                  "key": "weather.temporal_scope",
+                  "source": "request_frame",
+                  "value": "this_weekend"
+                }
+              ],
+              "lastUpdatedAt": null,
+              "widgetFamily": "weather"
+            },
+            "riskProfile": {
+              "approvalRequired": false,
+              "reasons": [],
+              "sensitivity": "low",
+              "userVisibleGuardrails": [
+                "Show the selected lane and source before answering."
+              ]
+            },
+            "sourceRanking": [
+              {
+                "rank": 1,
+                "rationale": "Selected as the active source for this turn.",
+                "source": "specialized_tool"
+              },
+              {
+                "rank": 2,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "conversation_context"
+              },
+              {
+                "rank": 3,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "web_search"
+              }
+            ],
+            "transformationPolicy": {
+              "orderedSteps": [
+                "resolve_scope",
+                "fetch_conditions",
+                "summarize_actionable_weather",
+                "retain_widget_state"
+              ],
+              "outputShape": "weather_summary_with_practical_guidance",
+              "rationale": "Weather turns normalize live conditions into a concise answer plus retained location context."
+            },
+            "verificationContract": {
+              "completionGate": "surface_and_route_verified",
+              "requiredChecks": [
+                "location_scope_resolved",
+                "current_conditions_available",
+                "weather_surface_rendered"
+              ],
+              "strategy": "weather_scope_and_currentness"
+            }
+          },
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9700000286102295,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the weather scope and return current conditions for the requested location.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "weather",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame:weather"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a weather-specific lane with location-bound tool semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "What's the weather in Boston this weekend?"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the weather scope",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "assumedLocation": "boston",
+            "clarificationRequiredSlots": [],
+            "inferredLocations": [
+              "boston"
+            ],
+            "kind": "weather",
+            "missingSlots": [],
+            "temporalScope": "this_weekend"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "research",
+            "activeToolWidgetFamily": "weather",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "specialized_tool",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:weather",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "weather_fetch"
+              ],
+              "projected_tools": [
+                "weather_fetch"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_weather",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "specialized_tool",
+              "web_search"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": null,
+            "selectedSource": "specialized_tool"
+          },
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "details": {
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9700000286102295,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the weather scope and return current conditions for the requested location.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "weather",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame:weather"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a weather-specific lane with location-bound tool semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "What's the weather in Boston this weekend?"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the weather scope",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "assumedLocation": "boston",
+            "clarificationRequiredSlots": [],
+            "inferredLocations": [
+              "boston"
+            ],
+            "kind": "weather",
+            "missingSlots": [],
+            "temporalScope": "this_weekend"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "research",
+            "activeToolWidgetFamily": "weather",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "specialized_tool",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:weather",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "weather_fetch"
+              ],
+              "projected_tools": [
+                "weather_fetch"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_weather",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "specialized_tool",
+              "web_search"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": null,
+            "selectedSource": "specialized_tool"
+          },
+          "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "eb6a880f-5598-4af1-9b83-2c09fabc94fc"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "eaeb57c2-48f9-49fa-8a14-281af2baf632",
+        "timestamp": "2026-04-16T17:50:23.257378141+00:00",
+        "thread_id": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+        "step_index": 2,
+        "event_type": "RECEIPT",
+        "title": "Studio reply completed",
+        "digest": {
+          "domain_policy_bundle": {
+            "clarificationPolicy": {
+              "assumedBindings": [
+                "weather.location",
+                "weather.temporal_scope"
+              ],
+              "blockingSlots": [],
+              "mode": "assume_from_retained_state",
+              "rationale": "Weather advice clarifies only when location scope is missing and cannot be safely inherited."
+            },
+            "fallbackPolicy": {
+              "fallbackLanes": [
+                "tool_widget",
+                "conversation"
+              ],
+              "mode": "stay_in_specialized_lane",
+              "primaryLane": "research",
+              "rationale": "Specialized lanes stay primary unless execution is blocked or an explicit ranked fallback is required.",
+              "triggerSignals": [
+                "narrow_surface_preferred"
+              ]
+            },
+            "policyContract": {
+              "bindings": [
+                "lane_frame",
+                "request_frame",
+                "source_selection",
+                "route_decision.effective_tool_surface",
+                "domain_policy_bundle"
+              ],
+              "hiddenInstructionDependency": false,
+              "rationale": "Lane choice, fallback posture, source ranking, presentation, and verification are retained as typed runtime receipts."
+            },
+            "presentationPolicy": {
+              "primarySurface": "weather_widget",
+              "rationale": "Studio prefers a route-shaped parity surface so the desktop shell shows the active lane instead of collapsing to a generic summary.",
+              "renderer": "html_iframe",
+              "tabPriority": [
+                "render",
+                "evidence"
+              ],
+              "widgetFamily": "weather"
+            },
+            "retainedWidgetState": {
+              "bindings": [
+                {
+                  "key": "weather.location",
+                  "source": "request_frame",
+                  "value": "boston"
+                },
+                {
+                  "key": "weather.temporal_scope",
+                  "source": "request_frame",
+                  "value": "this_weekend"
+                }
+              ],
+              "lastUpdatedAt": null,
+              "widgetFamily": "weather"
+            },
+            "riskProfile": {
+              "approvalRequired": false,
+              "reasons": [],
+              "sensitivity": "low",
+              "userVisibleGuardrails": [
+                "Show the selected lane and source before answering."
+              ]
+            },
+            "sourceRanking": [
+              {
+                "rank": 1,
+                "rationale": "Selected as the active source for this turn.",
+                "source": "specialized_tool"
+              },
+              {
+                "rank": 2,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "conversation_context"
+              },
+              {
+                "rank": 3,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "web_search"
+              }
+            ],
+            "transformationPolicy": {
+              "orderedSteps": [
+                "resolve_scope",
+                "fetch_conditions",
+                "summarize_actionable_weather",
+                "retain_widget_state"
+              ],
+              "outputShape": "weather_summary_with_practical_guidance",
+              "rationale": "Weather turns normalize live conditions into a concise answer plus retained location context."
+            },
+            "verificationContract": {
+              "completionGate": "surface_and_route_verified",
+              "requiredChecks": [
+                "location_scope_resolved",
+                "current_conditions_available",
+                "weather_surface_rendered"
+              ],
+              "strategy": "weather_scope_and_currentness"
+            }
+          },
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9700000286102295,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the weather scope and return current conditions for the requested location.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "weather",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame:weather"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a weather-specific lane with location-bound tool semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "What's the weather in Boston this weekend?"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the weather scope",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "assumedLocation": "boston",
+            "clarificationRequiredSlots": [],
+            "inferredLocations": [
+              "boston"
+            ],
+            "kind": "weather",
+            "missingSlots": [],
+            "temporalScope": "this_weekend"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "research",
+            "activeToolWidgetFamily": "weather",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "specialized_tool",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:weather",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "weather_fetch"
+              ],
+              "projected_tools": [
+                "weather_fetch"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_weather",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "specialized_tool",
+              "web_search"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": null,
+            "selectedSource": "specialized_tool"
+          },
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "details": {
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9700000286102295,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the weather scope and return current conditions for the requested location.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "weather",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame:weather"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a weather-specific lane with location-bound tool semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "What's the weather in Boston this weekend?"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the weather scope",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "assumedLocation": "boston",
+            "clarificationRequiredSlots": [],
+            "inferredLocations": [
+              "boston"
+            ],
+            "kind": "weather",
+            "missingSlots": [],
+            "temporalScope": "this_weekend"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "research",
+            "activeToolWidgetFamily": "weather",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "specialized_tool",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:weather",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested"
+              ],
+              "primary_tools": [
+                "weather_fetch"
+              ],
+              "projected_tools": [
+                "weather_fetch"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_weather",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "specialized_tool",
+              "web_search"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": null,
+            "selectedSource": "specialized_tool"
+          },
+          "summary": "Studio completed the weather tool-widget route directly and preserved the final route contract.",
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "290f0344-62c7-4533-9b6e-fd1b47ef00dc"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "9ed72de4-3c8a-4408-bbe9-49d3dc7c2644",
+        "timestamp": "2026-04-16T17:50:41.832319373+00:00",
+        "thread_id": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+        "step_index": 20,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "How about tomorrow instead?"
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "How about tomorrow instead?"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "fd74a30b-a6c7-45b3-870d-f784e96e1b79",
+        "timestamp": "2026-04-16T17:50:41.860649086+00:00",
+        "thread_id": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+        "step_index": 21,
+        "event_type": "RECEIPT",
+        "title": "Studio route decision",
+        "digest": {
+          "domain_policy_bundle": {
+            "clarificationPolicy": {
+              "assumedBindings": [
+                "weather.temporal_scope"
+              ],
+              "blockingSlots": [
+                "location"
+              ],
+              "mode": "block_until_clarified",
+              "rationale": "Weather advice clarifies only when location scope is missing and cannot be safely inherited."
+            },
+            "fallbackPolicy": {
+              "fallbackLanes": [
+                "tool_widget",
+                "conversation"
+              ],
+              "mode": "stay_in_specialized_lane",
+              "primaryLane": "research",
+              "rationale": "Specialized lanes stay primary unless execution is blocked or an explicit ranked fallback is required.",
+              "triggerSignals": [
+                "narrow_surface_preferred"
+              ]
+            },
+            "policyContract": {
+              "bindings": [
+                "lane_frame",
+                "request_frame",
+                "source_selection",
+                "route_decision.effective_tool_surface",
+                "domain_policy_bundle"
+              ],
+              "hiddenInstructionDependency": false,
+              "rationale": "Lane choice, fallback posture, source ranking, presentation, and verification are retained as typed runtime receipts."
+            },
+            "presentationPolicy": {
+              "primarySurface": "weather_widget",
+              "rationale": "Studio prefers a route-shaped parity surface so the desktop shell shows the active lane instead of collapsing to a generic summary.",
+              "renderer": "html_iframe",
+              "tabPriority": [
+                "render",
+                "evidence"
+              ],
+              "widgetFamily": "weather"
+            },
+            "retainedWidgetState": {
+              "bindings": [
+                {
+                  "key": "weather.temporal_scope",
+                  "source": "request_frame",
+                  "value": "tomorrow"
+                }
+              ],
+              "lastUpdatedAt": null,
+              "widgetFamily": "weather"
+            },
+            "riskProfile": {
+              "approvalRequired": false,
+              "reasons": [],
+              "sensitivity": "low",
+              "userVisibleGuardrails": [
+                "Show the selected lane and source before answering."
+              ]
+            },
+            "sourceRanking": [
+              {
+                "rank": 1,
+                "rationale": "Selected as the active source for this turn.",
+                "source": "artifact_context"
+              },
+              {
+                "rank": 2,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "conversation_context"
+              }
+            ],
+            "transformationPolicy": {
+              "orderedSteps": [
+                "resolve_scope",
+                "fetch_conditions",
+                "summarize_actionable_weather",
+                "retain_widget_state"
+              ],
+              "outputShape": "weather_summary_with_practical_guidance",
+              "rationale": "Weather turns normalize live conditions into a concise answer plus retained location context."
+            },
+            "verificationContract": {
+              "completionGate": "surface_and_route_verified",
+              "requiredChecks": [
+                "location_scope_resolved",
+                "current_conditions_available",
+                "weather_surface_rendered"
+              ],
+              "strategy": "weather_scope_and_currentness"
+            }
+          },
+          "lane_frame": {
+            "activeArtifactFollowUp": true,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9200000166893005,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the weather scope and return current conditions for the requested location.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "weather",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "request_frame:weather"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a weather-specific lane with location-bound tool semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "location",
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "How about tomorrow instead?"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the weather scope",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "assumedLocation": null,
+            "clarificationRequiredSlots": [
+              "location"
+            ],
+            "inferredLocations": [],
+            "kind": "weather",
+            "missingSlots": [
+              "location"
+            ],
+            "temporalScope": "tomorrow"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": "e1102b4c-d2fb-41d3-bc20-542b2dfc8311",
+            "activeLane": "research",
+            "activeToolWidgetFamily": "weather",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "artifact_context",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:weather",
+                "route_hint:retained_widget_follow_up",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:retained_widget_state_applied"
+              ],
+              "primary_tools": [
+                "weather_fetch"
+              ],
+              "projected_tools": [
+                "weather_fetch"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_weather",
+          "source_selection": {
+            "candidateSources": [
+              "artifact_context",
+              "conversation_context"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": "required lane slots are still missing, so execution is blocked on clarification",
+            "selectedSource": "artifact_context"
+          },
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "details": {
+          "lane_frame": {
+            "activeArtifactFollowUp": true,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9200000166893005,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the weather scope and return current conditions for the requested location.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "weather",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "request_frame:weather"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a weather-specific lane with location-bound tool semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "location",
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "How about tomorrow instead?"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the weather scope",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "assumedLocation": null,
+            "clarificationRequiredSlots": [
+              "location"
+            ],
+            "inferredLocations": [],
+            "kind": "weather",
+            "missingSlots": [
+              "location"
+            ],
+            "temporalScope": "tomorrow"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": "e1102b4c-d2fb-41d3-bc20-542b2dfc8311",
+            "activeLane": "research",
+            "activeToolWidgetFamily": "weather",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "artifact_context",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:weather",
+                "route_hint:retained_widget_follow_up",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:retained_widget_state_applied"
+              ],
+              "primary_tools": [
+                "weather_fetch"
+              ],
+              "projected_tools": [
+                "weather_fetch"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_weather",
+          "source_selection": {
+            "candidateSources": [
+              "artifact_context",
+              "conversation_context"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": "required lane slots are still missing, so execution is blocked on clarification",
+            "selectedSource": "artifact_context"
+          },
+          "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "9ed72de4-3c8a-4408-bbe9-49d3dc7c2644"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "72c1e9be-c3db-47d7-91dd-1bd52001671d",
+        "timestamp": "2026-04-16T17:50:42.331604583+00:00",
+        "thread_id": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+        "step_index": 22,
+        "event_type": "RECEIPT",
+        "title": "Studio reply completed",
+        "digest": {
+          "domain_policy_bundle": {
+            "clarificationPolicy": {
+              "assumedBindings": [
+                "weather.temporal_scope"
+              ],
+              "blockingSlots": [
+                "location"
+              ],
+              "mode": "block_until_clarified",
+              "rationale": "Weather advice clarifies only when location scope is missing and cannot be safely inherited."
+            },
+            "fallbackPolicy": {
+              "fallbackLanes": [
+                "tool_widget",
+                "conversation"
+              ],
+              "mode": "stay_in_specialized_lane",
+              "primaryLane": "research",
+              "rationale": "Specialized lanes stay primary unless execution is blocked or an explicit ranked fallback is required.",
+              "triggerSignals": [
+                "narrow_surface_preferred"
+              ]
+            },
+            "policyContract": {
+              "bindings": [
+                "lane_frame",
+                "request_frame",
+                "source_selection",
+                "route_decision.effective_tool_surface",
+                "domain_policy_bundle"
+              ],
+              "hiddenInstructionDependency": false,
+              "rationale": "Lane choice, fallback posture, source ranking, presentation, and verification are retained as typed runtime receipts."
+            },
+            "presentationPolicy": {
+              "primarySurface": "weather_widget",
+              "rationale": "Studio prefers a route-shaped parity surface so the desktop shell shows the active lane instead of collapsing to a generic summary.",
+              "renderer": "html_iframe",
+              "tabPriority": [
+                "render",
+                "evidence"
+              ],
+              "widgetFamily": "weather"
+            },
+            "retainedWidgetState": {
+              "bindings": [
+                {
+                  "key": "weather.temporal_scope",
+                  "source": "request_frame",
+                  "value": "tomorrow"
+                }
+              ],
+              "lastUpdatedAt": null,
+              "widgetFamily": "weather"
+            },
+            "riskProfile": {
+              "approvalRequired": false,
+              "reasons": [],
+              "sensitivity": "low",
+              "userVisibleGuardrails": [
+                "Show the selected lane and source before answering."
+              ]
+            },
+            "sourceRanking": [
+              {
+                "rank": 1,
+                "rationale": "Selected as the active source for this turn.",
+                "source": "artifact_context"
+              },
+              {
+                "rank": 2,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "conversation_context"
+              }
+            ],
+            "transformationPolicy": {
+              "orderedSteps": [
+                "resolve_scope",
+                "fetch_conditions",
+                "summarize_actionable_weather",
+                "retain_widget_state"
+              ],
+              "outputShape": "weather_summary_with_practical_guidance",
+              "rationale": "Weather turns normalize live conditions into a concise answer plus retained location context."
+            },
+            "verificationContract": {
+              "completionGate": "surface_and_route_verified",
+              "requiredChecks": [
+                "location_scope_resolved",
+                "current_conditions_available",
+                "weather_surface_rendered"
+              ],
+              "strategy": "weather_scope_and_currentness"
+            }
+          },
+          "lane_frame": {
+            "activeArtifactFollowUp": true,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9200000166893005,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the weather scope and return current conditions for the requested location.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "weather",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "request_frame:weather"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a weather-specific lane with location-bound tool semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "location",
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "How about tomorrow instead?"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the weather scope",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "assumedLocation": null,
+            "clarificationRequiredSlots": [
+              "location"
+            ],
+            "inferredLocations": [],
+            "kind": "weather",
+            "missingSlots": [
+              "location"
+            ],
+            "temporalScope": "tomorrow"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": "e1102b4c-d2fb-41d3-bc20-542b2dfc8311",
+            "activeLane": "research",
+            "activeToolWidgetFamily": "weather",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "artifact_context",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:weather",
+                "route_hint:retained_widget_follow_up",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:retained_widget_state_applied"
+              ],
+              "primary_tools": [
+                "weather_fetch"
+              ],
+              "projected_tools": [
+                "weather_fetch"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_weather",
+          "source_selection": {
+            "candidateSources": [
+              "artifact_context",
+              "conversation_context"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": "required lane slots are still missing, so execution is blocked on clarification",
+            "selectedSource": "artifact_context"
+          },
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "details": {
+          "lane_frame": {
+            "activeArtifactFollowUp": true,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9200000166893005,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the weather scope and return current conditions for the requested location.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "weather",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "request_frame:weather"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a weather-specific lane with location-bound tool semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "pending",
+                "summary": "Studio can continue into lane execution."
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "location",
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "in_progress",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "How about tomorrow instead?"
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the weather scope",
+                "laneFamily": "research",
+                "status": "in_progress",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "pending",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "assumedLocation": null,
+            "clarificationRequiredSlots": [
+              "location"
+            ],
+            "inferredLocations": [],
+            "kind": "weather",
+            "missingSlots": [
+              "location"
+            ],
+            "temporalScope": "tomorrow"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": "e1102b4c-d2fb-41d3-bc20-542b2dfc8311",
+            "activeLane": "research",
+            "activeToolWidgetFamily": "weather",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "artifact_context",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:weather",
+                "route_hint:retained_widget_follow_up",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:retained_widget_state_applied"
+              ],
+              "primary_tools": [
+                "weather_fetch"
+              ],
+              "projected_tools": [
+                "weather_fetch"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_weather",
+          "source_selection": {
+            "candidateSources": [
+              "artifact_context",
+              "conversation_context"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": "required lane slots are still missing, so execution is blocked on clarification",
+            "selectedSource": "artifact_context"
+          },
+          "summary": "Studio completed the weather tool-widget route directly and preserved the final route contract.",
+          "topology": "planner_specialist",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "fd74a30b-a6c7-45b3-870d-f784e96e1b79"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "a024c537-00ff-4c48-b766-cbc39c49c3ea",
+        "created_at": "2026-04-16T17:50:02.687988820+00:00",
+        "thread_id": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/a024c537-00ff-4c48-b766-cbc39c49c3ea",
+        "metadata": {
+          "refs": [],
+          "run_id": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      }
+    ],
+    "studio_session": {
+      "sessionId": "5b338b03-efbd-464e-b879-e157c9b93213",
+      "threadId": "647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+      "artifactId": "8cb8aa8e-00cd-4741-9aac-07c1539283cb",
+      "title": "Tool widget route \u00b7 How about tomorrow instead?",
+      "summary": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+      "currentLens": "render",
+      "navigatorBackingMode": "logical",
+      "navigatorNodes": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "description": "Interact with the artifact through its renderer-specific presentation.",
+          "badge": null,
+          "status": null,
+          "lens": "render",
+          "path": "surface/index.html",
+          "children": []
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": "surface/route.md",
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "attachedArtifactIds": [],
+      "availableLenses": [
+        "render",
+        "source",
+        "evidence"
+      ],
+      "materialization": {
+        "version": 7,
+        "requestKind": "tool_widget",
+        "normalizedIntent": "How about tomorrow instead?",
+        "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+        "artifactBrief": null,
+        "preparationNeeds": null,
+        "preparedContextResolution": null,
+        "skillDiscoveryResolution": null,
+        "blueprint": null,
+        "artifactIr": null,
+        "selectedSkills": [],
+        "retrievedExemplars": [],
+        "editIntent": null,
+        "candidateSummaries": [],
+        "winningCandidateId": null,
+        "winningCandidateRationale": null,
+        "executionEnvelope": {
+          "version": 1,
+          "strategy": "plan_execute",
+          "modeDecision": {
+            "requestedStrategy": "plan_execute",
+            "resolvedStrategy": "plan_execute",
+            "modeConfidence": 0.948,
+            "oneShotSufficiency": 0.86249995,
+            "ambiguity": 0.07999998,
+            "workGraphSizeEstimate": 1,
+            "hiddenDependencyLikelihood": 0.25,
+            "verificationPressure": 0.2,
+            "revisionCost": 0.2,
+            "evidenceBreadth": 0.15,
+            "mergeBurden": 0.15,
+            "decompositionPayoff": 0.13250001,
+            "workGraphRequired": false,
+            "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            }
+          },
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          },
+          "executionDomain": "studio_tool_widget",
+          "domainKind": "tool_widget",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "satisfiedVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": false
+          },
+          "plan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "executionSummary": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "workerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-16T17:50:41.859646157+00:00",
+              "finishedAt": "2026-04-16T17:50:41.859646157+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-16T17:50:41.859646157+00:00",
+              "finishedAt": "2026-04-16T17:50:41.859646157+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:weather \u00b7 retained_widget_follow_up \u00b7 narrow_surface_preferred \u00b7 retained_widget_state_applied"
+              ],
+              "failure": null
+            }
+          ],
+          "changeReceipts": [],
+          "mergeReceipts": [],
+          "verificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied"
+              ]
+            }
+          ],
+          "graphMutationReceipts": [],
+          "dispatchBatches": [],
+          "repairReceipts": [],
+          "replanReceipts": [],
+          "budgetSummary": {
+            "plannedWorkerCount": 2,
+            "dispatchedWorkerCount": 2,
+            "tokenBudget": null,
+            "tokenUsage": null,
+            "wallClockMs": null,
+            "coordinationOverheadMs": null,
+            "status": "completed"
+          },
+          "livePreviews": []
+        },
+        "swarmPlan": {
+          "version": 1,
+          "strategy": "plan_execute",
+          "executionDomain": "studio_tool_widget",
+          "adapterLabel": "tool_widget_plan_execute_v1",
+          "parallelismMode": "sequential_by_default",
+          "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+          "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+          "decompositionType": "small_graph_functional_decomposition",
+          "firstFrontierIds": [
+            "handoff"
+          ],
+          "spawnConditions": [
+            "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+          ],
+          "pruneConditions": [
+            "Prune clarification work once the reply handoff is already unblocked."
+          ],
+          "mergeStrategy": "deterministic_reply_surface_projection",
+          "verificationStrategy": "route_truth_before_reply",
+          "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_truth"
+            ],
+            "satisfiedVerificationIds": [
+              "route_truth"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": true
+          },
+          "workItems": [
+            {
+              "id": "planner",
+              "title": "Outcome planner",
+              "role": "planner",
+              "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Outcome route is explicit.",
+                "Execution strategy is explicit."
+              ],
+              "dependencyIds": [],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            },
+            {
+              "id": "handoff",
+              "title": "Tool-widget handoff",
+              "role": "responder",
+              "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Studio reply remains truthful about the chosen surface.",
+                "No artifact renderer is implied when none was invoked."
+              ],
+              "dependencyIds": [
+                "planner"
+              ],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            }
+          ]
+        },
+        "swarmExecution": {
+          "enabled": true,
+          "currentStage": "reply",
+          "executionStage": "finalize",
+          "activeWorkerRole": null,
+          "totalWorkItems": 2,
+          "completedWorkItems": 2,
+          "failedWorkItems": 0,
+          "verificationStatus": "ready",
+          "strategy": "plan_execute",
+          "executionDomain": "studio_tool_widget",
+          "adapterLabel": "tool_widget_plan_execute_v1",
+          "parallelismMode": "sequential_by_default"
+        },
+        "swarmWorkerReceipts": [
+          {
+            "workItemId": "planner",
+            "role": "planner",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Selected the tool_widget route with the plan_execute strategy.",
+            "startedAt": "2026-04-16T17:50:41.859646157+00:00",
+            "finishedAt": "2026-04-16T17:50:41.859646157+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "route_context"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "No artifact files were requested on this route.",
+              "tool_widget:weather",
+              "retained_widget_follow_up",
+              "narrow_surface_preferred",
+              "retained_widget_state_applied"
+            ],
+            "failure": null
+          },
+          {
+            "workItemId": "handoff",
+            "role": "responder",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+            "startedAt": "2026-04-16T17:50:41.859646157+00:00",
+            "finishedAt": "2026-04-16T17:50:41.859646157+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "execution_plan"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+              "tool_widget:weather \u00b7 retained_widget_follow_up \u00b7 narrow_surface_preferred \u00b7 retained_widget_state_applied"
+            ],
+            "failure": null
+          }
+        ],
+        "swarmChangeReceipts": [],
+        "swarmMergeReceipts": [],
+        "swarmVerificationReceipts": [
+          {
+            "id": "route_verification",
+            "kind": "route_verification",
+            "status": "ready",
+            "summary": "Studio verified that this request belongs on the tool-widget surface.",
+            "details": [
+              "tool_widget:weather",
+              "retained_widget_follow_up",
+              "narrow_surface_preferred",
+              "retained_widget_state_applied"
+            ]
+          },
+          {
+            "id": "reply_surface",
+            "kind": "reply_surface",
+            "status": "ready",
+            "summary": "The shared reply lane remains available and no artifact renderer is required.",
+            "details": [
+              "strategy:plan_execute",
+              "tool_widget:weather",
+              "retained_widget_follow_up",
+              "narrow_surface_preferred",
+              "retained_widget_state_applied"
+            ]
+          }
+        ],
+        "renderEvaluation": null,
+        "judge": null,
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "fallbackUsed": false,
+        "uxLifecycle": "judged",
+        "failure": null,
+        "navigatorNodes": [
+          {
+            "id": "render",
+            "label": "Render",
+            "kind": "render",
+            "description": "Interact with the artifact through its renderer-specific presentation.",
+            "badge": null,
+            "status": null,
+            "lens": "render",
+            "path": "surface/index.html",
+            "children": []
+          },
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "description": "Inspect the source form of the artifact.",
+            "badge": null,
+            "status": null,
+            "lens": "source",
+            "path": "surface/route.md",
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "fileWrites": [],
+        "commandIntents": [],
+        "previewIntent": null,
+        "verificationSteps": [
+          {
+            "id": "route",
+            "label": "Verify route",
+            "kind": "route",
+            "status": "success"
+          },
+          {
+            "id": "reply_surface",
+            "label": "Verify reply surface",
+            "kind": "reply_surface",
+            "status": "success"
+          }
+        ],
+        "pipelineSteps": [
+          {
+            "id": "intake",
+            "stage": "plan",
+            "label": "Intake",
+            "status": "complete",
+            "summary": "Studio captured the request and preserved it as a typed outcome turn.",
+            "outputs": [
+              "How about tomorrow instead?"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "routing",
+            "stage": "dispatch",
+            "label": "Outcome routing",
+            "status": "complete",
+            "summary": "The typed router intentionally kept this request on the tool widget surface.",
+            "outputs": [
+              "tool_widget",
+              "tool_widget",
+              "strategy:plan_execute",
+              "tool_widget:weather",
+              "retained_widget_follow_up",
+              "narrow_surface_preferred"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "planner",
+            "stage": "plan",
+            "label": "Planner",
+            "status": "complete",
+            "summary": "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+            "outputs": [
+              "plan_execute",
+              "work_items:2",
+              "sequential_by_default"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "swarm_execution",
+            "stage": "work",
+            "label": "Shared execution",
+            "status": "complete",
+            "summary": "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+            "outputs": [
+              "worker_receipts:2",
+              "progress:2/2",
+              "adapter:tool_widget_plan_execute_v1"
+            ],
+            "verificationGate": "Shared execution receipts must remain truthful about the active outcome surface."
+          },
+          {
+            "id": "verification",
+            "stage": "verify",
+            "label": "Verification",
+            "status": "complete",
+            "summary": "Studio verified the selected non-artifact route before composing the reply state.",
+            "outputs": [
+              "route_verification (ready)",
+              "reply_surface (ready)"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          },
+          {
+            "id": "reply",
+            "stage": "finalize",
+            "label": "Reply",
+            "status": "complete",
+            "summary": "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+            "outputs": [
+              "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "tool_widget:weather",
+              "retained_widget_follow_up",
+              "narrow_surface_preferred"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          }
+        ],
+        "runtimeNarrationEvents": [],
+        "notes": [
+          "Studio intentionally kept this request off the artifact materialization path.",
+          "The shared execution envelope still records plan, worker, and verification state.",
+          "No renderer-specific fallback artifact was injected for this route.",
+          "routing_hints:tool_widget:weather | retained_widget_follow_up | narrow_surface_preferred | retained_widget_state_applied",
+          "Route family: research",
+          "Output intent: tool_execution",
+          "Projected surface: weather_fetch"
+        ]
+      },
+      "outcomeRequest": {
+        "requestId": "c3d94a31-bb45-41bb-98e2-b82a84a12c09",
+        "rawPrompt": "How about tomorrow instead?",
+        "activeArtifactId": "e1102b4c-d2fb-41d3-bc20-542b2dfc8311",
+        "outcomeKind": "tool_widget",
+        "executionStrategy": "plan_execute",
+        "executionModeDecision": {
+          "requestedStrategy": "plan_execute",
+          "resolvedStrategy": "plan_execute",
+          "modeConfidence": 0.948,
+          "oneShotSufficiency": 0.86249995,
+          "ambiguity": 0.07999998,
+          "workGraphSizeEstimate": 1,
+          "hiddenDependencyLikelihood": 0.25,
+          "verificationPressure": 0.2,
+          "revisionCost": 0.2,
+          "evidenceBreadth": 0.15,
+          "mergeBurden": 0.15,
+          "decompositionPayoff": 0.13250001,
+          "workGraphRequired": false,
+          "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          }
+        },
+        "confidence": 0.92,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": [
+          "tool_widget:weather",
+          "retained_widget_follow_up",
+          "narrow_surface_preferred",
+          "retained_widget_state_applied"
+        ],
+        "laneFrame": {
+          "primaryLane": "research",
+          "secondaryLanes": [
+            "tool_widget",
+            "conversation"
+          ],
+          "primaryGoal": "Resolve the weather scope and return current conditions for the requested location.",
+          "toolWidgetFamily": "weather",
+          "currentnessPressure": true,
+          "workspaceGroundingRequired": false,
+          "persistentDeliverableRequested": false,
+          "activeArtifactFollowUp": true,
+          "laneConfidence": 0.92
+        },
+        "requestFrame": {
+          "kind": "weather",
+          "inferredLocations": [],
+          "assumedLocation": null,
+          "temporalScope": "tomorrow",
+          "missingSlots": [
+            "location"
+          ],
+          "clarificationRequiredSlots": [
+            "location"
+          ]
+        },
+        "sourceSelection": {
+          "candidateSources": [
+            "artifact_context",
+            "conversation_context"
+          ],
+          "selectedSource": "artifact_context",
+          "explicitUserSource": true,
+          "fallbackReason": "required lane slots are still missing, so execution is blocked on clarification"
+        },
+        "retainedLaneState": {
+          "activeLane": "research",
+          "activeToolWidgetFamily": "weather",
+          "activeArtifactId": "e1102b4c-d2fb-41d3-bc20-542b2dfc8311",
+          "unresolvedClarificationQuestion": null,
+          "selectedProviderFamily": null,
+          "selectedProviderRouteLabel": null,
+          "selectedSourceFamily": "artifact_context"
+        },
+        "laneTransitions": [
+          {
+            "transitionKind": "planned",
+            "fromLane": null,
+            "toLane": "research",
+            "reason": "The prompt maps to a weather-specific lane with location-bound tool semantics.",
+            "evidence": [
+              "tool_widget:weather",
+              "retained_widget_follow_up",
+              "narrow_surface_preferred",
+              "retained_widget_state_applied",
+              "request_frame:weather"
+            ]
+          },
+          {
+            "transitionKind": "planned",
+            "fromLane": "research",
+            "toLane": "tool_widget",
+            "reason": "The research lane can land through a specialized tool-widget surface.",
+            "evidence": [
+              "tool_widget:weather",
+              "retained_widget_follow_up",
+              "narrow_surface_preferred",
+              "retained_widget_state_applied",
+              "secondary_lane:research->toolwidget"
+            ]
+          },
+          {
+            "transitionKind": "planned",
+            "fromLane": "research",
+            "toLane": "conversation",
+            "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+            "evidence": [
+              "tool_widget:weather",
+              "retained_widget_follow_up",
+              "narrow_surface_preferred",
+              "retained_widget_state_applied",
+              "secondary_lane:research->conversation"
+            ]
+          }
+        ],
+        "orchestrationState": {
+          "objective": {
+            "objectiveId": "studio_objective",
+            "title": "How about tomorrow instead?",
+            "status": "in_progress",
+            "successCriteria": [
+              "Resolve the required scope for the research lane.",
+              "Return a grounded answer rather than a speculative reply."
+            ]
+          },
+          "tasks": [
+            {
+              "taskId": "lane_inputs",
+              "label": "Resolve the weather scope",
+              "status": "in_progress",
+              "laneFamily": "research",
+              "dependsOn": [],
+              "summary": "Studio should make the lane contract explicit before execution."
+            },
+            {
+              "taskId": "lane_execute",
+              "label": "Execute the selected lane",
+              "status": "pending",
+              "laneFamily": "research",
+              "dependsOn": [
+                "lane_inputs"
+              ],
+              "summary": null
+            },
+            {
+              "taskId": "lane_finish",
+              "label": "Finish the response truthfully",
+              "status": "pending",
+              "laneFamily": "conversation",
+              "dependsOn": [
+                "lane_execute"
+              ],
+              "summary": null
+            }
+          ],
+          "checkpoints": [
+            {
+              "checkpointId": "route_contract",
+              "label": "Route contract recorded",
+              "status": "complete",
+              "summary": "Studio captured a typed route, source, and lane contract."
+            },
+            {
+              "checkpointId": "lane_readiness",
+              "label": "Lane readiness",
+              "status": "pending",
+              "summary": "Studio can continue into lane execution."
+            }
+          ],
+          "completionInvariant": {
+            "summary": "The answer is grounded in the selected fresh-information lane.",
+            "satisfied": false,
+            "outstandingRequirements": [
+              "location",
+              "execute_lane",
+              "deliver_response"
+            ]
+          }
+        },
+        "artifact": null
+      },
+      "artifactManifest": {
+        "artifactId": "8cb8aa8e-00cd-4741-9aac-07c1539283cb",
+        "title": "Tool widget route \u00b7 How about tomorrow instead?",
+        "artifactClass": "interactive_single_file",
+        "renderer": "html_iframe",
+        "primaryTab": "render",
+        "tabs": [
+          {
+            "id": "render",
+            "label": "Render",
+            "kind": "render",
+            "renderer": "html_iframe",
+            "filePath": "surface/index.html",
+            "lens": "render"
+          },
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "renderer": null,
+            "filePath": "surface/route.md",
+            "lens": "source"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [
+          {
+            "path": "surface/index.html",
+            "mime": "text/html",
+            "role": "primary",
+            "renderable": true,
+            "downloadable": false,
+            "artifactId": null,
+            "externalUrl": "data:text/html;base64,PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KICA8aGVhZD4KICAgIDxtZXRhIGNoYXJzZXQ9InV0Zi04IiAvPgogICAgPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xIiAvPgogICAgPHRpdGxlPlRvb2wgd2lkZ2V0IHJvdXRlIMK3IEhvdyBhYm91dCB0b21vcnJvdyBpbnN0ZWFkPzwvdGl0bGU+CiAgICA8c3R5bGU+CiAgICAgIDpyb290IHsKICAgICAgICBjb2xvci1zY2hlbWU6IGRhcms7CiAgICAgICAgLS1iZzogIzBkMTExNzsKICAgICAgICAtLXBhbmVsOiAjMTExODIxOwogICAgICAgIC0tbXV0ZWQ6ICM4Yjk5YWQ7CiAgICAgICAgLS10ZXh0OiAjZWNmMWY3OwogICAgICAgIC0tbGluZTogcmdiYSgyNTUsMjU1LDI1NSwwLjA4KTsKICAgICAgICAtLWFjY2VudDogIzU5YjNmZjsKICAgICAgfQogICAgICBib2R5IHsKICAgICAgICBtYXJnaW46IDA7CiAgICAgICAgcGFkZGluZzogMjRweDsKICAgICAgICBmb250LWZhbWlseTogdWktc2Fucy1zZXJpZiwgc3lzdGVtLXVpLCBzYW5zLXNlcmlmOwogICAgICAgIGJhY2tncm91bmQ6IHJhZGlhbC1ncmFkaWVudChjaXJjbGUgYXQgdG9wLCAjMTgyMzM0IDAlLCB2YXIoLS1iZykgNjAlKTsKICAgICAgICBjb2xvcjogdmFyKC0tdGV4dCk7CiAgICAgIH0KICAgICAgLnNoZWxsIHsKICAgICAgICBtYXgtd2lkdGg6IDkyMHB4OwogICAgICAgIG1hcmdpbjogMCBhdXRvOwogICAgICAgIGJhY2tncm91bmQ6IHJnYmEoMTAsIDE0LCAyMCwgMC44KTsKICAgICAgICBib3JkZXI6IDFweCBzb2xpZCB2YXIoLS1saW5lKTsKICAgICAgICBib3JkZXItcmFkaXVzOiAyMHB4OwogICAgICAgIHBhZGRpbmc6IDI0cHg7CiAgICAgICAgYm94LXNoYWRvdzogMCAyNHB4IDYwcHggcmdiYSgwLCAwLCAwLCAwLjI4KTsKICAgICAgfQogICAgICAuZXllYnJvdyB7CiAgICAgICAgZm9udC1zaXplOiAxMnB4OwogICAgICAgIHRleHQtdHJhbnNmb3JtOiB1cHBlcmNhc2U7CiAgICAgICAgbGV0dGVyLXNwYWNpbmc6IDAuMTJlbTsKICAgICAgICBjb2xvcjogdmFyKC0tbXV0ZWQpOwogICAgICB9CiAgICAgIGgxIHsKICAgICAgICBtYXJnaW46IDhweCAwIDA7CiAgICAgICAgZm9udC1zaXplOiAyOHB4OwogICAgICB9CiAgICAgIC5jaGlwcyB7CiAgICAgICAgZGlzcGxheTogZmxleDsKICAgICAgICBmbGV4LXdyYXA6IHdyYXA7CiAgICAgICAgZ2FwOiA4cHg7CiAgICAgICAgbWFyZ2luOiAxOHB4IDAgMjBweDsKICAgICAgfQogICAgICAuY2hpcCB7CiAgICAgICAgZm9udC1zaXplOiAxMnB4OwogICAgICAgIHBhZGRpbmc6IDZweCAxMHB4OwogICAgICAgIGJvcmRlci1yYWRpdXM6IDk5OXB4OwogICAgICAgIGJvcmRlcjogMXB4IHNvbGlkIHZhcigtLWxpbmUpOwogICAgICAgIGJhY2tncm91bmQ6IHJnYmEoMjU1LDI1NSwyNTUsMC4wNCk7CiAgICAgIH0KICAgICAgc2VjdGlvbiB7CiAgICAgICAgbWFyZ2luLXRvcDogMjJweDsKICAgICAgICBwYWRkaW5nLXRvcDogMThweDsKICAgICAgICBib3JkZXItdG9wOiAxcHggc29saWQgdmFyKC0tbGluZSk7CiAgICAgIH0KICAgICAgaDMgewogICAgICAgIG1hcmdpbjogMCAwIDEwcHg7CiAgICAgICAgZm9udC1zaXplOiAxNHB4OwogICAgICAgIGxldHRlci1zcGFjaW5nOiAwLjA0ZW07CiAgICAgICAgdGV4dC10cmFuc2Zvcm06IHVwcGVyY2FzZTsKICAgICAgICBjb2xvcjogdmFyKC0tbXV0ZWQpOwogICAgICB9CiAgICAgIHAsIGxpIHsKICAgICAgICBsaW5lLWhlaWdodDogMS41NTsKICAgICAgfQogICAgICBjb2RlIHsKICAgICAgICBjb2xvcjogdmFyKC0tYWNjZW50KTsKICAgICAgfQogICAgPC9zdHlsZT4KICA8L2hlYWQ+CiAgPGJvZHk+CiAgICA8bWFpbiBjbGFzcz0ic2hlbGwiPgogICAgICA8ZGl2IGNsYXNzPSJleWVicm93Ij5TdHVkaW8gcGFyaXR5IHN1cmZhY2U8L2Rpdj4KICAgICAgPGgxPlRvb2wgd2lkZ2V0IHJvdXRlIMK3IEhvdyBhYm91dCB0b21vcnJvdyBpbnN0ZWFkPzwvaDE+CiAgICAgIDxkaXYgY2xhc3M9ImNoaXBzIj48c3BhbiBjbGFzcz0iY2hpcCI+Um91dGU6IHJlc2VhcmNoPC9zcGFuPjxzcGFuIGNsYXNzPSJjaGlwIj5PdXRwdXQ6IHRvb2xfZXhlY3V0aW9uPC9zcGFuPjxzcGFuIGNsYXNzPSJjaGlwIj5TdXJmYWNlOiB3ZWF0aGVyX3dpZGdldDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+cmlzazogbG93PC9zcGFuPjwvZGl2PgogICAgICA8c2VjdGlvbj4KICAgICAgICA8aDM+T3V0Y29tZTwvaDM+CiAgICAgICAgPHA+Ym9zdG9uOiB0ZW1wICs1MsKwRiBodW1pZGl0eSA4OSUgd2luZCDihpk0bXBoIHByZXNzdXJlIDEwMTNoUGEgYXMgb2YgMTM6NDg6MzktMDQwMC48L3A+CiAgICAgIDwvc2VjdGlvbj4KICAgICAgPHNlY3Rpb24+PGgzPlNvdXJjZSByYW5raW5nPC9oMz48b2w+PGxpPjxzdHJvbmc+QXJ0aWZhY3RDb250ZXh0PC9zdHJvbmc+IMK3IFNlbGVjdGVkIGFzIHRoZSBhY3RpdmUgc291cmNlIGZvciB0aGlzIHR1cm4uPC9saT48bGk+PHN0cm9uZz5Db252ZXJzYXRpb25Db250ZXh0PC9zdHJvbmc+IMK3IFJldGFpbmVkIGFzIGFuIG9yZGVyZWQgZmFsbGJhY2sgb3Igc3VwcG9ydGluZyBzb3VyY2UuPC9saT48L29sPjwvc2VjdGlvbj4KICAgICAgCiAgICA8L21haW4+CiAgICA8c2NyaXB0PgogICAgICBjb25zdCB3aWRnZXRTdGF0ZSA9IHsid2lkZ2V0RmFtaWx5Ijoid2VhdGhlciIsImJpbmRpbmdzIjpbeyJrZXkiOiJ3ZWF0aGVyLnRlbXBvcmFsX3Njb3BlIiwidmFsdWUiOiJ0b21vcnJvdyIsInNvdXJjZSI6InJlcXVlc3RfZnJhbWUifV0sImxhc3RVcGRhdGVkQXQiOm51bGx9OwogICAgICBpZiAod2lkZ2V0U3RhdGUpIHsKICAgICAgICB3aW5kb3cucGFyZW50LnBvc3RNZXNzYWdlKHsKICAgICAgICAgIF9fc3R1ZGlvV2lkZ2V0U3RhdGU6IHRydWUsCiAgICAgICAgICB3aWRnZXRTdGF0ZSwKICAgICAgICB9LCAiKiIpOwogICAgICB9CiAgICA8L3NjcmlwdD4KICA8L2JvZHk+CjwvaHRtbD4="
+          },
+          {
+            "path": "surface/route.md",
+            "mime": "text/markdown",
+            "role": "source",
+            "renderable": false,
+            "downloadable": false,
+            "artifactId": null,
+            "externalUrl": "data:text/markdown;base64,IyBUb29sIHdpZGdldCByb3V0ZSDCtyBIb3cgYWJvdXQgdG9tb3Jyb3cgaW5zdGVhZD8KCmJvc3RvbjogdGVtcCArNTLCsEYgaHVtaWRpdHkgODklIHdpbmQg4oaZNG1waCBwcmVzc3VyZSAxMDEzaFBhIGFzIG9mIDEzOjQ4OjM5LTA0MDAuCgojIyBSb3V0ZSBjb250cmFjdAotIHJvdXRlIGZhbWlseTogcmVzZWFyY2gKLSBvdXRwdXQgaW50ZW50OiB0b29sX2V4ZWN1dGlvbgotIGRpcmVjdCBhbnN3ZXIgYWxsb3dlZDogZmFsc2UKLSBwcmVzZW50YXRpb24gc3VyZmFjZTogd2VhdGhlcl93aWRnZXQKCiMjIFNvdXJjZSByYW5raW5nCi0gMS4gQXJ0aWZhY3RDb250ZXh0OiBTZWxlY3RlZCBhcyB0aGUgYWN0aXZlIHNvdXJjZSBmb3IgdGhpcyB0dXJuLgotIDIuIENvbnZlcnNhdGlvbkNvbnRleHQ6IFJldGFpbmVkIGFzIGFuIG9yZGVyZWQgZmFsbGJhY2sgb3Igc3VwcG9ydGluZyBzb3VyY2UuCgojIyBSZXRhaW5lZCB3aWRnZXQgc3RhdGUKLSB3ZWF0aGVyLnRlbXBvcmFsX3Njb3BlID0gdG9tb3Jyb3cgKHJlcXVlc3RfZnJhbWUp"
+          }
+        ],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null
+        },
+        "storage": null
+      },
+      "verifiedReply": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "title": "Tool widget route \u00b7 How about tomorrow instead?",
+        "summary": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+        "evidence": [
+          "outcome:tool_widget",
+          "strategy:plan_execute",
+          "provenance:openai-compatible",
+          "route_hint:tool_widget:weather",
+          "route_hint:retained_widget_follow_up",
+          "route_hint:narrow_surface_preferred",
+          "route_hint:retained_widget_state_applied",
+          "route_execution:studio_tool_widget_weather"
+        ],
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "failure": null,
+        "updatedAt": "2026-04-16T17:50:42.330742577+00:00"
+      },
+      "lifecycleState": "ready",
+      "status": "ready",
+      "activeRevisionId": "515c75a6-b7d2-4d72-9c30-80ac5e99e2eb",
+      "revisions": [
+        {
+          "revisionId": "515c75a6-b7d2-4d72-9c30-80ac5e99e2eb",
+          "parentRevisionId": null,
+          "branchId": "main",
+          "branchLabel": "Main",
+          "prompt": "How about tomorrow instead?",
+          "createdAt": "2026-04-16T17:50:41.860166835+00:00",
+          "uxLifecycle": "judged",
+          "artifactManifest": {
+            "artifactId": "8cb8aa8e-00cd-4741-9aac-07c1539283cb",
+            "title": "Tool widget route \u00b7 How about tomorrow instead?",
+            "artifactClass": "interactive_single_file",
+            "renderer": "html_iframe",
+            "primaryTab": "render",
+            "tabs": [
+              {
+                "id": "render",
+                "label": "Render",
+                "kind": "render",
+                "renderer": "html_iframe",
+                "filePath": "surface/index.html",
+                "lens": "render"
+              },
+              {
+                "id": "source",
+                "label": "Source",
+                "kind": "source",
+                "renderer": null,
+                "filePath": "surface/route.md",
+                "lens": "source"
+              },
+              {
+                "id": "evidence",
+                "label": "Evidence",
+                "kind": "evidence",
+                "renderer": null,
+                "filePath": null,
+                "lens": "evidence"
+              }
+            ],
+            "files": [
+              {
+                "path": "surface/index.html",
+                "mime": "text/html",
+                "role": "primary",
+                "renderable": true,
+                "downloadable": false,
+                "artifactId": null,
+                "externalUrl": "data:text/html;base64,PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KICA8aGVhZD4KICAgIDxtZXRhIGNoYXJzZXQ9InV0Zi04IiAvPgogICAgPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xIiAvPgogICAgPHRpdGxlPlRvb2wgd2lkZ2V0IHJvdXRlIMK3IEhvdyBhYm91dCB0b21vcnJvdyBpbnN0ZWFkPzwvdGl0bGU+CiAgICA8c3R5bGU+CiAgICAgIDpyb290IHsKICAgICAgICBjb2xvci1zY2hlbWU6IGRhcms7CiAgICAgICAgLS1iZzogIzBkMTExNzsKICAgICAgICAtLXBhbmVsOiAjMTExODIxOwogICAgICAgIC0tbXV0ZWQ6ICM4Yjk5YWQ7CiAgICAgICAgLS10ZXh0OiAjZWNmMWY3OwogICAgICAgIC0tbGluZTogcmdiYSgyNTUsMjU1LDI1NSwwLjA4KTsKICAgICAgICAtLWFjY2VudDogIzU5YjNmZjsKICAgICAgfQogICAgICBib2R5IHsKICAgICAgICBtYXJnaW46IDA7CiAgICAgICAgcGFkZGluZzogMjRweDsKICAgICAgICBmb250LWZhbWlseTogdWktc2Fucy1zZXJpZiwgc3lzdGVtLXVpLCBzYW5zLXNlcmlmOwogICAgICAgIGJhY2tncm91bmQ6IHJhZGlhbC1ncmFkaWVudChjaXJjbGUgYXQgdG9wLCAjMTgyMzM0IDAlLCB2YXIoLS1iZykgNjAlKTsKICAgICAgICBjb2xvcjogdmFyKC0tdGV4dCk7CiAgICAgIH0KICAgICAgLnNoZWxsIHsKICAgICAgICBtYXgtd2lkdGg6IDkyMHB4OwogICAgICAgIG1hcmdpbjogMCBhdXRvOwogICAgICAgIGJhY2tncm91bmQ6IHJnYmEoMTAsIDE0LCAyMCwgMC44KTsKICAgICAgICBib3JkZXI6IDFweCBzb2xpZCB2YXIoLS1saW5lKTsKICAgICAgICBib3JkZXItcmFkaXVzOiAyMHB4OwogICAgICAgIHBhZGRpbmc6IDI0cHg7CiAgICAgICAgYm94LXNoYWRvdzogMCAyNHB4IDYwcHggcmdiYSgwLCAwLCAwLCAwLjI4KTsKICAgICAgfQogICAgICAuZXllYnJvdyB7CiAgICAgICAgZm9udC1zaXplOiAxMnB4OwogICAgICAgIHRleHQtdHJhbnNmb3JtOiB1cHBlcmNhc2U7CiAgICAgICAgbGV0dGVyLXNwYWNpbmc6IDAuMTJlbTsKICAgICAgICBjb2xvcjogdmFyKC0tbXV0ZWQpOwogICAgICB9CiAgICAgIGgxIHsKICAgICAgICBtYXJnaW46IDhweCAwIDA7CiAgICAgICAgZm9udC1zaXplOiAyOHB4OwogICAgICB9CiAgICAgIC5jaGlwcyB7CiAgICAgICAgZGlzcGxheTogZmxleDsKICAgICAgICBmbGV4LXdyYXA6IHdyYXA7CiAgICAgICAgZ2FwOiA4cHg7CiAgICAgICAgbWFyZ2luOiAxOHB4IDAgMjBweDsKICAgICAgfQogICAgICAuY2hpcCB7CiAgICAgICAgZm9udC1zaXplOiAxMnB4OwogICAgICAgIHBhZGRpbmc6IDZweCAxMHB4OwogICAgICAgIGJvcmRlci1yYWRpdXM6IDk5OXB4OwogICAgICAgIGJvcmRlcjogMXB4IHNvbGlkIHZhcigtLWxpbmUpOwogICAgICAgIGJhY2tncm91bmQ6IHJnYmEoMjU1LDI1NSwyNTUsMC4wNCk7CiAgICAgIH0KICAgICAgc2VjdGlvbiB7CiAgICAgICAgbWFyZ2luLXRvcDogMjJweDsKICAgICAgICBwYWRkaW5nLXRvcDogMThweDsKICAgICAgICBib3JkZXItdG9wOiAxcHggc29saWQgdmFyKC0tbGluZSk7CiAgICAgIH0KICAgICAgaDMgewogICAgICAgIG1hcmdpbjogMCAwIDEwcHg7CiAgICAgICAgZm9udC1zaXplOiAxNHB4OwogICAgICAgIGxldHRlci1zcGFjaW5nOiAwLjA0ZW07CiAgICAgICAgdGV4dC10cmFuc2Zvcm06IHVwcGVyY2FzZTsKICAgICAgICBjb2xvcjogdmFyKC0tbXV0ZWQpOwogICAgICB9CiAgICAgIHAsIGxpIHsKICAgICAgICBsaW5lLWhlaWdodDogMS41NTsKICAgICAgfQogICAgICBjb2RlIHsKICAgICAgICBjb2xvcjogdmFyKC0tYWNjZW50KTsKICAgICAgfQogICAgPC9zdHlsZT4KICA8L2hlYWQ+CiAgPGJvZHk+CiAgICA8bWFpbiBjbGFzcz0ic2hlbGwiPgogICAgICA8ZGl2IGNsYXNzPSJleWVicm93Ij5TdHVkaW8gcGFyaXR5IHN1cmZhY2U8L2Rpdj4KICAgICAgPGgxPlRvb2wgd2lkZ2V0IHJvdXRlIMK3IEhvdyBhYm91dCB0b21vcnJvdyBpbnN0ZWFkPzwvaDE+CiAgICAgIDxkaXYgY2xhc3M9ImNoaXBzIj48c3BhbiBjbGFzcz0iY2hpcCI+Um91dGU6IHJlc2VhcmNoPC9zcGFuPjxzcGFuIGNsYXNzPSJjaGlwIj5PdXRwdXQ6IHRvb2xfZXhlY3V0aW9uPC9zcGFuPjxzcGFuIGNsYXNzPSJjaGlwIj5TdXJmYWNlOiB3ZWF0aGVyX3dpZGdldDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+cmlzazogbG93PC9zcGFuPjwvZGl2PgogICAgICA8c2VjdGlvbj4KICAgICAgICA8aDM+T3V0Y29tZTwvaDM+CiAgICAgICAgPHA+U3R1ZGlvIHJvdXRlZCB0aGlzIHJlcXVlc3QgdG8gYSB0b29sLXdpZGdldCBzdXJmYWNlLiBUaGUgcmVxdWVzdCBtYXBzIGNsZWFubHkgdG8gdGhlIHdlYXRoZXIgdG9vbC13aWRnZXQgZmFtaWx5LiBBIG5hcnJvdyBmaXJzdC1wYXJ0eSBzdXJmYWNlIGJlYXRzIGEgYnJvYWQgZmFsbGJhY2sgaGVyZS4gU3R1ZGlvIGtlcHQgdGhlIGFydGlmYWN0IGxhbmUgY2xvc2VkIGFuZCBwcmVzZXJ2ZWQgcm91dGUgcmVjZWlwdHMgZm9yIGRvd25zdHJlYW0gZXhlY3V0aW9uLjwvcD4KICAgICAgPC9zZWN0aW9uPgogICAgICA8c2VjdGlvbj48aDM+U291cmNlIHJhbmtpbmc8L2gzPjxvbD48bGk+PHN0cm9uZz5BcnRpZmFjdENvbnRleHQ8L3N0cm9uZz4gwrcgU2VsZWN0ZWQgYXMgdGhlIGFjdGl2ZSBzb3VyY2UgZm9yIHRoaXMgdHVybi48L2xpPjxsaT48c3Ryb25nPkNvbnZlcnNhdGlvbkNvbnRleHQ8L3N0cm9uZz4gwrcgUmV0YWluZWQgYXMgYW4gb3JkZXJlZCBmYWxsYmFjayBvciBzdXBwb3J0aW5nIHNvdXJjZS48L2xpPjwvb2w+PC9zZWN0aW9uPgogICAgICAKICAgIDwvbWFpbj4KICAgIDxzY3JpcHQ+CiAgICAgIGNvbnN0IHdpZGdldFN0YXRlID0geyJ3aWRnZXRGYW1pbHkiOiJ3ZWF0aGVyIiwiYmluZGluZ3MiOlt7ImtleSI6IndlYXRoZXIudGVtcG9yYWxfc2NvcGUiLCJ2YWx1ZSI6InRvbW9ycm93Iiwic291cmNlIjoicmVxdWVzdF9mcmFtZSJ9XSwibGFzdFVwZGF0ZWRBdCI6bnVsbH07CiAgICAgIGlmICh3aWRnZXRTdGF0ZSkgewogICAgICAgIHdpbmRvdy5wYXJlbnQucG9zdE1lc3NhZ2UoewogICAgICAgICAgX19zdHVkaW9XaWRnZXRTdGF0ZTogdHJ1ZSwKICAgICAgICAgIHdpZGdldFN0YXRlLAogICAgICAgIH0sICIqIik7CiAgICAgIH0KICAgIDwvc2NyaXB0PgogIDwvYm9keT4KPC9odG1sPg=="
+              },
+              {
+                "path": "surface/route.md",
+                "mime": "text/markdown",
+                "role": "source",
+                "renderable": false,
+                "downloadable": false,
+                "artifactId": null,
+                "externalUrl": "data:text/markdown;base64,IyBUb29sIHdpZGdldCByb3V0ZSDCtyBIb3cgYWJvdXQgdG9tb3Jyb3cgaW5zdGVhZD8KClN0dWRpbyByb3V0ZWQgdGhpcyByZXF1ZXN0IHRvIGEgdG9vbC13aWRnZXQgc3VyZmFjZS4gVGhlIHJlcXVlc3QgbWFwcyBjbGVhbmx5IHRvIHRoZSB3ZWF0aGVyIHRvb2wtd2lkZ2V0IGZhbWlseS4gQSBuYXJyb3cgZmlyc3QtcGFydHkgc3VyZmFjZSBiZWF0cyBhIGJyb2FkIGZhbGxiYWNrIGhlcmUuIFN0dWRpbyBrZXB0IHRoZSBhcnRpZmFjdCBsYW5lIGNsb3NlZCBhbmQgcHJlc2VydmVkIHJvdXRlIHJlY2VpcHRzIGZvciBkb3duc3RyZWFtIGV4ZWN1dGlvbi4KCiMjIFJvdXRlIGNvbnRyYWN0Ci0gcm91dGUgZmFtaWx5OiByZXNlYXJjaAotIG91dHB1dCBpbnRlbnQ6IHRvb2xfZXhlY3V0aW9uCi0gZGlyZWN0IGFuc3dlciBhbGxvd2VkOiBmYWxzZQotIHByZXNlbnRhdGlvbiBzdXJmYWNlOiB3ZWF0aGVyX3dpZGdldAoKIyMgU291cmNlIHJhbmtpbmcKLSAxLiBBcnRpZmFjdENvbnRleHQ6IFNlbGVjdGVkIGFzIHRoZSBhY3RpdmUgc291cmNlIGZvciB0aGlzIHR1cm4uCi0gMi4gQ29udmVyc2F0aW9uQ29udGV4dDogUmV0YWluZWQgYXMgYW4gb3JkZXJlZCBmYWxsYmFjayBvciBzdXBwb3J0aW5nIHNvdXJjZS4KCiMjIFJldGFpbmVkIHdpZGdldCBzdGF0ZQotIHdlYXRoZXIudGVtcG9yYWxfc2NvcGUgPSB0b21vcnJvdyAocmVxdWVzdF9mcmFtZSk="
+              }
+            ],
+            "verification": {
+              "status": "ready",
+              "lifecycleState": "ready",
+              "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "productionProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "acceptanceProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "failure": null
+            },
+            "storage": null
+          },
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "modeDecision": {
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "plan_execute",
+              "modeConfidence": 0.948,
+              "oneShotSufficiency": 0.86249995,
+              "ambiguity": 0.07999998,
+              "workGraphSizeEstimate": 1,
+              "hiddenDependencyLikelihood": 0.25,
+              "verificationPressure": 0.2,
+              "revisionCost": 0.2,
+              "evidenceBreadth": 0.15,
+              "mergeBurden": 0.15,
+              "decompositionPayoff": 0.13250001,
+              "workGraphRequired": false,
+              "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 180000,
+                "maxTokens": 8192,
+                "maxToolCalls": 4,
+                "maxRepairs": 1,
+                "expansionPolicy": "fixed"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            },
+            "executionDomain": "studio_tool_widget",
+            "domainKind": "tool_widget",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "satisfiedVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": false
+            },
+            "plan": {
+              "version": 1,
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Tool-widget handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "executionSummary": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "workerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the tool_widget route with the plan_execute strategy.",
+                "startedAt": "2026-04-16T17:50:41.859646157+00:00",
+                "finishedAt": "2026-04-16T17:50:41.859646157+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "tool_widget:weather",
+                  "retained_widget_follow_up",
+                  "narrow_surface_preferred",
+                  "retained_widget_state_applied"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-16T17:50:41.859646157+00:00",
+                "finishedAt": "2026-04-16T17:50:41.859646157+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "tool_widget:weather \u00b7 retained_widget_follow_up \u00b7 narrow_surface_preferred \u00b7 retained_widget_state_applied"
+                ],
+                "failure": null
+              }
+            ],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the tool-widget surface.",
+                "details": [
+                  "tool_widget:weather",
+                  "retained_widget_follow_up",
+                  "narrow_surface_preferred",
+                  "retained_widget_state_applied"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:plan_execute",
+                  "tool_widget:weather",
+                  "retained_widget_follow_up",
+                  "narrow_surface_preferred",
+                  "retained_widget_state_applied"
+                ]
+              }
+            ],
+            "graphMutationReceipts": [],
+            "dispatchBatches": [],
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "budgetSummary": {
+              "plannedWorkerCount": 2,
+              "dispatchedWorkerCount": 2,
+              "tokenBudget": null,
+              "tokenUsage": null,
+              "wallClockMs": null,
+              "coordinationOverheadMs": null,
+              "status": "completed"
+            },
+            "livePreviews": []
+          },
+          "swarmPlan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "swarmExecution": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "swarmWorkerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-16T17:50:41.859646157+00:00",
+              "finishedAt": "2026-04-16T17:50:41.859646157+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-16T17:50:41.859646157+00:00",
+              "finishedAt": "2026-04-16T17:50:41.859646157+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:weather \u00b7 retained_widget_follow_up \u00b7 narrow_surface_preferred \u00b7 retained_widget_state_applied"
+              ],
+              "failure": null
+            }
+          ],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:weather",
+                "retained_widget_follow_up",
+                "narrow_surface_preferred",
+                "retained_widget_state_applied"
+              ]
+            }
+          ],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null,
+          "fileWrites": [],
+          "tasteMemory": null,
+          "selectedTargets": []
+        }
+      ],
+      "tasteMemory": null,
+      "retrievedExemplars": [],
+      "selectedTargets": [],
+      "widgetState": {
+        "widgetFamily": "weather",
+        "bindings": [
+          {
+            "key": "weather.temporal_scope",
+            "value": "tomorrow",
+            "source": "request_frame"
+          }
+        ],
+        "lastUpdatedAt": null
+      },
+      "uxLifecycle": "judged",
+      "createdAt": "2026-04-16T17:50:41.860023368+00:00",
+      "updatedAt": "2026-04-16T17:50:42.330742577+00:00",
+      "buildSessionId": null,
+      "workspaceRoot": null,
+      "rendererSessionId": null
+    },
+    "studio_outcome": {
+      "requestId": "c3d94a31-bb45-41bb-98e2-b82a84a12c09",
+      "rawPrompt": "How about tomorrow instead?",
+      "activeArtifactId": "e1102b4c-d2fb-41d3-bc20-542b2dfc8311",
+      "outcomeKind": "tool_widget",
+      "executionStrategy": "plan_execute",
+      "executionModeDecision": {
+        "requestedStrategy": "plan_execute",
+        "resolvedStrategy": "plan_execute",
+        "modeConfidence": 0.948,
+        "oneShotSufficiency": 0.86249995,
+        "ambiguity": 0.07999998,
+        "workGraphSizeEstimate": 1,
+        "hiddenDependencyLikelihood": 0.25,
+        "verificationPressure": 0.2,
+        "revisionCost": 0.2,
+        "evidenceBreadth": 0.15,
+        "mergeBurden": 0.15,
+        "decompositionPayoff": 0.13250001,
+        "workGraphRequired": false,
+        "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+        "budgetEnvelope": {
+          "maxWorkers": 1,
+          "maxParallelDepth": 1,
+          "maxReplans": 0,
+          "maxWallClockMs": 180000,
+          "maxTokens": 8192,
+          "maxToolCalls": 4,
+          "maxRepairs": 1,
+          "expansionPolicy": "fixed"
+        }
+      },
+      "confidence": 0.92,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "routingHints": [
+        "tool_widget:weather",
+        "retained_widget_follow_up",
+        "narrow_surface_preferred",
+        "retained_widget_state_applied"
+      ],
+      "laneFrame": {
+        "primaryLane": "research",
+        "secondaryLanes": [
+          "tool_widget",
+          "conversation"
+        ],
+        "primaryGoal": "Resolve the weather scope and return current conditions for the requested location.",
+        "toolWidgetFamily": "weather",
+        "currentnessPressure": true,
+        "workspaceGroundingRequired": false,
+        "persistentDeliverableRequested": false,
+        "activeArtifactFollowUp": true,
+        "laneConfidence": 0.92
+      },
+      "requestFrame": {
+        "kind": "weather",
+        "inferredLocations": [],
+        "assumedLocation": null,
+        "temporalScope": "tomorrow",
+        "missingSlots": [
+          "location"
+        ],
+        "clarificationRequiredSlots": [
+          "location"
+        ]
+      },
+      "sourceSelection": {
+        "candidateSources": [
+          "artifact_context",
+          "conversation_context"
+        ],
+        "selectedSource": "artifact_context",
+        "explicitUserSource": true,
+        "fallbackReason": "required lane slots are still missing, so execution is blocked on clarification"
+      },
+      "retainedLaneState": {
+        "activeLane": "research",
+        "activeToolWidgetFamily": "weather",
+        "activeArtifactId": "e1102b4c-d2fb-41d3-bc20-542b2dfc8311",
+        "unresolvedClarificationQuestion": null,
+        "selectedProviderFamily": null,
+        "selectedProviderRouteLabel": null,
+        "selectedSourceFamily": "artifact_context"
+      },
+      "laneTransitions": [
+        {
+          "transitionKind": "planned",
+          "fromLane": null,
+          "toLane": "research",
+          "reason": "The prompt maps to a weather-specific lane with location-bound tool semantics.",
+          "evidence": [
+            "tool_widget:weather",
+            "retained_widget_follow_up",
+            "narrow_surface_preferred",
+            "retained_widget_state_applied",
+            "request_frame:weather"
+          ]
+        },
+        {
+          "transitionKind": "planned",
+          "fromLane": "research",
+          "toLane": "tool_widget",
+          "reason": "The research lane can land through a specialized tool-widget surface.",
+          "evidence": [
+            "tool_widget:weather",
+            "retained_widget_follow_up",
+            "narrow_surface_preferred",
+            "retained_widget_state_applied",
+            "secondary_lane:research->toolwidget"
+          ]
+        },
+        {
+          "transitionKind": "planned",
+          "fromLane": "research",
+          "toLane": "conversation",
+          "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+          "evidence": [
+            "tool_widget:weather",
+            "retained_widget_follow_up",
+            "narrow_surface_preferred",
+            "retained_widget_state_applied",
+            "secondary_lane:research->conversation"
+          ]
+        }
+      ],
+      "orchestrationState": {
+        "objective": {
+          "objectiveId": "studio_objective",
+          "title": "How about tomorrow instead?",
+          "status": "in_progress",
+          "successCriteria": [
+            "Resolve the required scope for the research lane.",
+            "Return a grounded answer rather than a speculative reply."
+          ]
+        },
+        "tasks": [
+          {
+            "taskId": "lane_inputs",
+            "label": "Resolve the weather scope",
+            "status": "in_progress",
+            "laneFamily": "research",
+            "dependsOn": [],
+            "summary": "Studio should make the lane contract explicit before execution."
+          },
+          {
+            "taskId": "lane_execute",
+            "label": "Execute the selected lane",
+            "status": "pending",
+            "laneFamily": "research",
+            "dependsOn": [
+              "lane_inputs"
+            ],
+            "summary": null
+          },
+          {
+            "taskId": "lane_finish",
+            "label": "Finish the response truthfully",
+            "status": "pending",
+            "laneFamily": "conversation",
+            "dependsOn": [
+              "lane_execute"
+            ],
+            "summary": null
+          }
+        ],
+        "checkpoints": [
+          {
+            "checkpointId": "route_contract",
+            "label": "Route contract recorded",
+            "status": "complete",
+            "summary": "Studio captured a typed route, source, and lane contract."
+          },
+          {
+            "checkpointId": "lane_readiness",
+            "label": "Lane readiness",
+            "status": "pending",
+            "summary": "Studio can continue into lane execution."
+          }
+        ],
+        "completionInvariant": {
+          "summary": "The answer is grounded in the selected fresh-information lane.",
+          "satisfied": false,
+          "outstandingRequirements": [
+            "location",
+            "execute_lane",
+            "deliver_response"
+          ]
+        }
+      },
+      "artifact": null
+    },
+    "renderer_session": null,
+    "build_session": null,
+    "run_bundle_id": "a024c537-00ff-4c48-b766-cbc39c49c3ea",
+    "swarm_tree": [],
+    "generation": 0,
+    "lineage_id": "genesis",
+    "fitness_score": 0.0
+  },
+  "route_receipt_summary": {
+    "title": "Studio route decision",
+    "selected_route": "tool_widget_weather",
+    "route_family": "research",
+    "planner_authority": "kernel",
+    "verifier_state": "passed",
+    "artifact_class": null,
+    "route_decision": {
+      "artifact_output_intent": false,
+      "connector_candidate_count": 0,
+      "connector_first_preference": false,
+      "currentness_override": false,
+      "direct_answer_allowed": false,
+      "direct_answer_blockers": [
+        "tool_widget_surface_selected"
+      ],
+      "effective_tool_surface": {
+        "broad_fallback_tools": [
+          "web_search"
+        ],
+        "diagnostic_tools": [
+          "route_hint:tool_widget:weather",
+          "route_hint:narrow_surface_preferred",
+          "route_hint:no_persistent_artifact_requested"
+        ],
+        "primary_tools": [
+          "weather_fetch"
+        ],
+        "projected_tools": [
+          "weather_fetch"
+        ]
+      },
+      "file_output_intent": false,
+      "inline_visual_intent": false,
+      "narrow_tool_preference": true,
+      "output_intent": "tool_execution",
+      "route_family": "research",
+      "selected_provider_family": null,
+      "selected_provider_route_label": null,
+      "skill_prep_required": false
+    },
+    "artifact_manifest_summary": {
+      "title": "Tool widget route \u00b7 How about tomorrow instead?",
+      "renderer": "html_iframe",
+      "primary_tab": "render",
+      "tabs": [
+        "render",
+        "source",
+        "evidence"
+      ],
+      "lifecycle_state": "ready",
+      "verification_status": "ready",
+      "verification_summary": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400."
+    }
+  },
+  "latest_agent_message": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+  "log_tail": [
+    "[Autopilot] Block #486 committed (Tx: 0)",
+    "[Autopilot] Block #487 committed (Tx: 0)",
+    "[Autopilot] Block #488 committed (Tx: 0)",
+    "[Autopilot] Block #489 committed (Tx: 0)",
+    "[Autopilot] Block #490 committed (Tx: 0)",
+    "[Autopilot] Block #491 committed (Tx: 0)",
+    "[Autopilot] Block #492 committed (Tx: 0)",
+    "[Autopilot] Block #493 committed (Tx: 0)",
+    "[Autopilot] Block #494 committed (Tx: 0)",
+    "[Autopilot] Block #495 committed (Tx: 0)",
+    "[Autopilot] Block #496 committed (Tx: 0)",
+    "[Autopilot] Block #497 committed (Tx: 0)",
+    "[Autopilot] Block #498 committed (Tx: 0)",
+    "[Autopilot] Block #499 committed (Tx: 0)",
+    "[Autopilot] Block #500 committed (Tx: 0)",
+    "[Autopilot] Block #501 committed (Tx: 0)",
+    "[Autopilot] Block #502 committed (Tx: 0)",
+    "[Autopilot] Block #503 committed (Tx: 0)",
+    "[Autopilot] Block #504 committed (Tx: 0)",
+    "[Autopilot] Block #505 committed (Tx: 0)",
+    "[Autopilot] Block #506 committed (Tx: 0)",
+    "[Autopilot] Block #507 committed (Tx: 0)",
+    "[Autopilot] Block #508 committed (Tx: 0)",
+    "[Autopilot] Block #509 committed (Tx: 0)",
+    "[Autopilot] Block #510 committed (Tx: 0)",
+    "[Autopilot] Block #511 committed (Tx: 0)",
+    "[Autopilot] Block #512 committed (Tx: 0)",
+    "[Autopilot] Block #513 committed (Tx: 0)",
+    "[Autopilot] Block #514 committed (Tx: 0)",
+    "[Autopilot] Block #515 committed (Tx: 0)",
+    "[Autopilot] Block #516 committed (Tx: 0)",
+    "[Autopilot] Block #517 committed (Tx: 0)",
+    "[Autopilot] Block #518 committed (Tx: 0)",
+    "[Autopilot] Block #519 committed (Tx: 0)",
+    "[Autopilot] Block #520 committed (Tx: 0)",
+    "[Autopilot] Block #521 committed (Tx: 0)",
+    "[Autopilot] Block #522 committed (Tx: 0)",
+    "[Autopilot] Block #523 committed (Tx: 0)",
+    "[Autopilot] Block #524 committed (Tx: 0)",
+    "[Autopilot] Block #525 committed (Tx: 0)",
+    "[Autopilot] Block #526 committed (Tx: 0)",
+    "[Autopilot] Block #527 committed (Tx: 0)",
+    "[Autopilot] Block #528 committed (Tx: 0)",
+    "[Autopilot] Block #529 committed (Tx: 0)",
+    "[Autopilot] Block #530 committed (Tx: 0)",
+    "[Autopilot] Block #531 committed (Tx: 0)",
+    "[Autopilot] Block #532 committed (Tx: 0)",
+    "[Autopilot] Block #533 committed (Tx: 0)",
+    "[Autopilot] Block #534 committed (Tx: 0)",
+    "[Autopilot] Block #535 committed (Tx: 0)",
+    "[Autopilot] Block #536 committed (Tx: 0)",
+    "[Autopilot] Block #537 committed (Tx: 0)",
+    "[Autopilot] Block #538 committed (Tx: 0)",
+    "[Autopilot] Block #539 committed (Tx: 0)",
+    "[Autopilot] Block #540 committed (Tx: 0)",
+    "[Autopilot] Block #541 committed (Tx: 0)",
+    "[Autopilot] Block #542 committed (Tx: 0)",
+    "[Autopilot] Block #543 committed (Tx: 0)",
+    "[Autopilot] Block #544 committed (Tx: 0)",
+    "[Autopilot] Block #545 committed (Tx: 0)",
+    "[Autopilot] Block #546 committed (Tx: 0)",
+    "[Autopilot] Block #547 committed (Tx: 0)",
+    "[Autopilot] Block #548 committed (Tx: 0)",
+    "[Autopilot] Block #549 committed (Tx: 0)",
+    "[Autopilot] Block #550 committed (Tx: 0)",
+    "[Autopilot] Block #551 committed (Tx: 0)",
+    "[Autopilot] Block #552 committed (Tx: 0)",
+    "[Autopilot] Block #553 committed (Tx: 0)",
+    "[Autopilot] Block #554 committed (Tx: 0)",
+    "[Autopilot] Block #555 committed (Tx: 0)",
+    "[Autopilot] Block #556 committed (Tx: 0)",
+    "[Autopilot] Block #557 committed (Tx: 0)",
+    "[Autopilot] Block #558 committed (Tx: 0)",
+    "[Autopilot] Block #559 committed (Tx: 0)",
+    "[Autopilot] Block #560 committed (Tx: 0)",
+    "[Autopilot] Block #561 committed (Tx: 0)",
+    "[Autopilot] Block #562 committed (Tx: 0)",
+    "[Autopilot] Block #563 committed (Tx: 0)",
+    "[Autopilot] Block #564 committed (Tx: 0)",
+    "[Autopilot] Block #565 committed (Tx: 0)",
+    "[Autopilot] Block #566 committed (Tx: 0)",
+    "[Autopilot] Block #567 committed (Tx: 0)",
+    "[Autopilot] Block #568 committed (Tx: 0)",
+    "[Autopilot] Block #569 committed (Tx: 0)",
+    "[Autopilot] Block #570 committed (Tx: 0)",
+    "[Autopilot] Block #571 committed (Tx: 0)",
+    "[Autopilot] Block #572 committed (Tx: 0)",
+    "[Autopilot] Block #573 committed (Tx: 0)",
+    "[Autopilot] Block #574 committed (Tx: 0)",
+    "[Autopilot] Block #575 committed (Tx: 0)",
+    "[Autopilot] Block #576 committed (Tx: 0)",
+    "[Autopilot] Block #577 committed (Tx: 0)",
+    "[Autopilot] Block #578 committed (Tx: 0)",
+    "[Autopilot] Block #579 committed (Tx: 0)",
+    "[Autopilot] Block #580 committed (Tx: 0)",
+    "[Autopilot] Block #581 committed (Tx: 0)",
+    "[Autopilot] Block #582 committed (Tx: 0)",
+    "[Autopilot] Block #583 committed (Tx: 0)",
+    "[Autopilot] Block #584 committed (Tx: 0)",
+    "[Autopilot] Block #585 committed (Tx: 0)",
+    "[Autopilot] Block #586 committed (Tx: 0)",
+    "[Autopilot] Block #587 committed (Tx: 0)",
+    "[Autopilot] Block #588 committed (Tx: 0)",
+    "[Autopilot] Block #589 committed (Tx: 0)",
+    "[Autopilot] Block #590 committed (Tx: 0)",
+    "[Autopilot] Block #591 committed (Tx: 0)",
+    "[Autopilot] Block #592 committed (Tx: 0)",
+    "[Autopilot] Block #593 committed (Tx: 0)",
+    "[Autopilot] Block #594 committed (Tx: 0)",
+    "[Autopilot] Block #595 committed (Tx: 0)",
+    "[Autopilot] Block #596 committed (Tx: 0)",
+    "[Autopilot] Block #597 committed (Tx: 0)",
+    "[Autopilot] Block #598 committed (Tx: 0)",
+    "[Autopilot] Block #599 committed (Tx: 0)",
+    "[Autopilot] Block #600 committed (Tx: 0)",
+    "[Autopilot] Block #601 committed (Tx: 0)",
+    "[Autopilot] Block #602 committed (Tx: 0)",
+    "[Autopilot] Block #603 committed (Tx: 0)",
+    "[Autopilot] Block #604 committed (Tx: 0)",
+    "[Autopilot] Block #605 committed (Tx: 0)",
+    "[Autopilot] Block #606 committed (Tx: 0)",
+    "[Autopilot] Block #607 committed (Tx: 0)",
+    "[Autopilot] Block #608 committed (Tx: 0)",
+    "[Autopilot] Block #609 committed (Tx: 0)",
+    "[Autopilot] Block #610 committed (Tx: 0)",
+    "[Autopilot] Block #611 committed (Tx: 0)",
+    "[Autopilot] Block #612 committed (Tx: 0)",
+    "[Autopilot] Block #613 committed (Tx: 0)",
+    "[Autopilot] Block #614 committed (Tx: 0)",
+    "[Autopilot] Block #615 committed (Tx: 0)",
+    "[Autopilot] Block #616 committed (Tx: 0)",
+    "[Autopilot] Block #617 committed (Tx: 0)",
+    "[Autopilot] Block #618 committed (Tx: 0)",
+    "[Autopilot] Block #619 committed (Tx: 0)",
+    "[Autopilot] Block #620 committed (Tx: 0)",
+    "[Autopilot] Block #621 committed (Tx: 0)",
+    "[Autopilot] Block #622 committed (Tx: 0)",
+    "[Autopilot] Block #623 committed (Tx: 0)",
+    "[Autopilot] Block #624 committed (Tx: 0)",
+    "[Autopilot] Block #625 committed (Tx: 0)",
+    "[Autopilot] Block #626 committed (Tx: 0)",
+    "[Autopilot] Block #627 committed (Tx: 0)",
+    "[Autopilot] Block #628 committed (Tx: 0)",
+    "[Autopilot] Block #629 committed (Tx: 0)",
+    "[Autopilot] Block #630 committed (Tx: 0)",
+    "[Autopilot] Block #631 committed (Tx: 0)",
+    "[Autopilot] Block #632 committed (Tx: 0)",
+    "[Autopilot] Block #633 committed (Tx: 0)",
+    "[Autopilot] Block #634 committed (Tx: 0)",
+    "[Autopilot] Block #635 committed (Tx: 0)",
+    "[Autopilot] Block #636 committed (Tx: 0)",
+    "[Autopilot] Block #637 committed (Tx: 0)",
+    "[Autopilot] Block #638 committed (Tx: 0)",
+    "[Autopilot] Block #639 committed (Tx: 0)",
+    "[Autopilot] Block #640 committed (Tx: 0)",
+    "[Autopilot] Block #641 committed (Tx: 0)",
+    "[Autopilot] Block #642 committed (Tx: 0)",
+    "[Autopilot] Block #643 committed (Tx: 0)",
+    "[Autopilot] Block #644 committed (Tx: 0)",
+    "[Autopilot] Block #645 committed (Tx: 0)",
+    "[Autopilot] Block #646 committed (Tx: 0)",
+    "[Autopilot] Block #647 committed (Tx: 0)",
+    "[Autopilot] Block #648 committed (Tx: 0)",
+    "[Autopilot] Block #649 committed (Tx: 0)",
+    "[Autopilot] Block #650 committed (Tx: 0)",
+    "[Autopilot] Block #651 committed (Tx: 0)",
+    "[Autopilot] Block #652 committed (Tx: 0)",
+    "[Autopilot] Block #653 committed (Tx: 0)",
+    "[Autopilot] Block #654 committed (Tx: 0)",
+    "[Autopilot] Block #655 committed (Tx: 0)",
+    "[Autopilot] Block #656 committed (Tx: 0)",
+    "[Autopilot] Block #657 committed (Tx: 0)",
+    "[Autopilot] Block #658 committed (Tx: 0)",
+    "[Autopilot] Block #659 committed (Tx: 0)",
+    "[Autopilot] Block #660 committed (Tx: 0)",
+    "[Autopilot] Block #661 committed (Tx: 0)",
+    "[Autopilot] Block #662 committed (Tx: 0)",
+    "[Autopilot] Block #663 committed (Tx: 0)",
+    "[Autopilot] Block #664 committed (Tx: 0)",
+    "[Autopilot] Block #665 committed (Tx: 0)",
+    "[Autopilot] Block #666 committed (Tx: 0)",
+    "[Autopilot] Block #667 committed (Tx: 0)",
+    "[Autopilot] Block #668 committed (Tx: 0)",
+    "[Autopilot] Block #669 committed (Tx: 0)",
+    "[Autopilot] Block #670 committed (Tx: 0)",
+    "[Autopilot] Block #671 committed (Tx: 0)",
+    "[Autopilot] Block #672 committed (Tx: 0)",
+    "[Autopilot] Block #673 committed (Tx: 0)",
+    "[Autopilot] Block #674 committed (Tx: 0)",
+    "[Autopilot] Block #675 committed (Tx: 0)",
+    "[Autopilot] Block #676 committed (Tx: 0)",
+    "[Autopilot] Block #677 committed (Tx: 0)",
+    "[Autopilot] Block #678 committed (Tx: 0)",
+    "[Autopilot] Block #679 committed (Tx: 0)",
+    "[Autopilot] Block #680 committed (Tx: 0)",
+    "[Autopilot] Block #681 committed (Tx: 0)",
+    "[Autopilot] Block #682 committed (Tx: 0)",
+    "[Autopilot] Block #683 committed (Tx: 0)",
+    "[Autopilot] Block #684 committed (Tx: 0)",
+    "[Autopilot] Block #685 committed (Tx: 0)",
+    "[Autopilot] Block #686 committed (Tx: 0)",
+    "[Autopilot] Block #687 committed (Tx: 0)",
+    "[Autopilot] Block #688 committed (Tx: 0)",
+    "[Autopilot] Block #689 committed (Tx: 0)",
+    "[Autopilot] Block #690 committed (Tx: 0)",
+    "[Autopilot] Block #691 committed (Tx: 0)",
+    "[Autopilot] Block #692 committed (Tx: 0)",
+    "[Autopilot] Block #693 committed (Tx: 0)",
+    "[Autopilot] Block #694 committed (Tx: 0)",
+    "[Autopilot] Block #695 committed (Tx: 0)",
+    "[Autopilot] Block #696 committed (Tx: 0)",
+    "[Autopilot] Block #697 committed (Tx: 0)",
+    "[Autopilot] Block #698 committed (Tx: 0)",
+    "[Autopilot] Block #699 committed (Tx: 0)",
+    "[Autopilot] Block #700 committed (Tx: 0)",
+    "[Autopilot] Block #701 committed (Tx: 0)",
+    "[Autopilot] Block #702 committed (Tx: 0)",
+    "[Autopilot] Block #703 committed (Tx: 0)",
+    "[Autopilot] Block #704 committed (Tx: 0)",
+    "[Autopilot] Block #705 committed (Tx: 0)",
+    "[Autopilot] Block #706 committed (Tx: 0)",
+    "[Autopilot] Block #707 committed (Tx: 0)",
+    "[Autopilot] Block #708 committed (Tx: 0)",
+    "[Autopilot] Block #709 committed (Tx: 0)",
+    "[Autopilot] Block #710 committed (Tx: 0)",
+    "[Autopilot] Block #711 committed (Tx: 0)",
+    "[Autopilot] Block #712 committed (Tx: 0)",
+    "[Autopilot] Block #713 committed (Tx: 0)",
+    "[Autopilot] Block #714 committed (Tx: 0)",
+    "[Autopilot] Block #715 committed (Tx: 0)",
+    "[Autopilot] Block #716 committed (Tx: 0)",
+    "[Autopilot] Block #717 committed (Tx: 0)",
+    "[Autopilot] Block #718 committed (Tx: 0)",
+    "[Autopilot] Block #719 committed (Tx: 0)",
+    "[Autopilot] Block #720 committed (Tx: 0)",
+    "[Autopilot] Block #721 committed (Tx: 0)",
+    "[Autopilot] Block #722 committed (Tx: 0)",
+    "[Autopilot] Block #723 committed (Tx: 0)",
+    "[Autopilot] Block #724 committed (Tx: 0)",
+    "[Autopilot] Block #725 committed (Tx: 0)",
+    "[Autopilot] Block #726 committed (Tx: 0)",
+    "[Autopilot] Block #727 committed (Tx: 0)",
+    "[Autopilot] Block #728 committed (Tx: 0)",
+    "[Autopilot] Block #729 committed (Tx: 0)",
+    "[Autopilot] Block #730 committed (Tx: 0)",
+    "[Autopilot] Block #731 committed (Tx: 0)",
+    "[Autopilot] Block #732 committed (Tx: 0)",
+    "[Autopilot] Block #733 committed (Tx: 0)",
+    "[Autopilot] Block #734 committed (Tx: 0)",
+    "[Autopilot] Block #735 committed (Tx: 0)",
+    "[Autopilot] Block #736 committed (Tx: 0)",
+    "[Autopilot] Block #737 committed (Tx: 0)",
+    "[Autopilot] Block #738 committed (Tx: 0)",
+    "[Autopilot] Block #739 committed (Tx: 0)",
+    "[Autopilot] Block #740 committed (Tx: 0)",
+    "[Autopilot] Block #741 committed (Tx: 0)",
+    "[Autopilot] Block #742 committed (Tx: 0)",
+    "[Autopilot] Block #743 committed (Tx: 0)",
+    "[Autopilot] Block #744 committed (Tx: 0)",
+    "[Autopilot] Block #745 committed (Tx: 0)",
+    "[Autopilot] Block #746 committed (Tx: 0)",
+    "[Autopilot] Block #747 committed (Tx: 0)",
+    "[Autopilot] Block #748 committed (Tx: 0)",
+    "[Autopilot] Block #749 committed (Tx: 0)",
+    "[Autopilot] Block #750 committed (Tx: 0)",
+    "[Autopilot] Block #751 committed (Tx: 0)",
+    "[Autopilot] Block #752 committed (Tx: 0)",
+    "[Autopilot] Block #753 committed (Tx: 0)",
+    "[Autopilot] Block #754 committed (Tx: 0)",
+    "[Autopilot] Block #755 committed (Tx: 0)",
+    "[Autopilot] Block #756 committed (Tx: 0)",
+    "[Autopilot] Block #757 committed (Tx: 0)",
+    "[Autopilot] Block #758 committed (Tx: 0)",
+    "[Autopilot] Block #759 committed (Tx: 0)",
+    "[Autopilot] Block #760 committed (Tx: 0)",
+    "[Autopilot] Block #761 committed (Tx: 0)",
+    "[Autopilot] Block #762 committed (Tx: 0)",
+    "[Autopilot] Block #763 committed (Tx: 0)",
+    "[Autopilot] Block #764 committed (Tx: 0)",
+    "[Autopilot] Block #765 committed (Tx: 0)",
+    "[Autopilot] Block #766 committed (Tx: 0)",
+    "[Autopilot] Block #767 committed (Tx: 0)",
+    "[Autopilot] Block #768 committed (Tx: 0)",
+    "[Autopilot] Block #769 committed (Tx: 0)",
+    "[Autopilot] Block #770 committed (Tx: 0)",
+    "[Autopilot] Block #771 committed (Tx: 0)",
+    "[Autopilot] Block #772 committed (Tx: 0)",
+    "[Autopilot] Block #773 committed (Tx: 0)",
+    "[Autopilot] Block #774 committed (Tx: 0)",
+    "[Autopilot] Block #775 committed (Tx: 0)",
+    "[Autopilot] Block #776 committed (Tx: 0)",
+    "[Autopilot] Block #777 committed (Tx: 0)",
+    "[Autopilot] Block #778 committed (Tx: 0)",
+    "[Autopilot] Block #779 committed (Tx: 0)",
+    "[Autopilot] Block #780 committed (Tx: 0)",
+    "[Autopilot] Block #781 committed (Tx: 0)",
+    "[Autopilot] Block #782 committed (Tx: 0)",
+    "[Autopilot] Block #783 committed (Tx: 0)",
+    "[Autopilot] Block #784 committed (Tx: 0)",
+    "[Autopilot] Block #785 committed (Tx: 0)",
+    "[Autopilot] Block #786 committed (Tx: 0)",
+    "[Autopilot] Block #787 committed (Tx: 0)",
+    "[Autopilot] Block #788 committed (Tx: 0)",
+    "[Autopilot] Block #789 committed (Tx: 0)",
+    "[Autopilot] Block #790 committed (Tx: 0)",
+    "[Autopilot] Block #791 committed (Tx: 0)",
+    "[Autopilot] Block #792 committed (Tx: 0)",
+    "[Autopilot] Block #793 committed (Tx: 0)",
+    "[Autopilot] Block #794 committed (Tx: 0)",
+    "[Autopilot] Block #795 committed (Tx: 0)",
+    "[Autopilot] Block #796 committed (Tx: 0)",
+    "[Autopilot] Block #797 committed (Tx: 0)",
+    "[Autopilot] Block #798 committed (Tx: 0)",
+    "[Autopilot] Block #799 committed (Tx: 0)",
+    "[Autopilot] Block #800 committed (Tx: 0)",
+    "[Autopilot] Block #801 committed (Tx: 0)",
+    "[Autopilot] Block #802 committed (Tx: 0)",
+    "[Autopilot] Block #803 committed (Tx: 0)",
+    "[Autopilot] Block #804 committed (Tx: 0)",
+    "[Autopilot] Block #805 committed (Tx: 0)",
+    "[Autopilot] Block #806 committed (Tx: 0)",
+    "[Autopilot] Block #807 committed (Tx: 0)",
+    "[Autopilot] Block #808 committed (Tx: 0)",
+    "[Autopilot] Block #809 committed (Tx: 0)",
+    "[Autopilot] Block #810 committed (Tx: 0)",
+    "[Autopilot] Block #811 committed (Tx: 0)",
+    "[Autopilot] Block #812 committed (Tx: 0)",
+    "[Autopilot] Block #813 committed (Tx: 0)",
+    "[Autopilot] Block #814 committed (Tx: 0)",
+    "[Autopilot] Block #815 committed (Tx: 0)",
+    "[Autopilot] Block #816 committed (Tx: 0)",
+    "[Autopilot] Block #817 committed (Tx: 0)",
+    "[Autopilot] Block #818 committed (Tx: 0)",
+    "[Autopilot] Block #819 committed (Tx: 0)",
+    "[Autopilot] Block #820 committed (Tx: 0)",
+    "[Autopilot] Block #821 committed (Tx: 0)",
+    "[Autopilot][StudioContinue] session=647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e studio_backed=true phase=Running current_step=Sending message...",
+    "[Autopilot][StudioContinue] preparing studio follow-up for session=647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e input=How about tomorrow instead?",
+    "[Autopilot][StudioContinue] maybe_prepare_current_task_for_studio_turn intent=How about tomorrow instead?",
+    "[Autopilot][StudioContinue] routed follow-up outcome_kind=ToolWidget hints=[\"tool_widget:weather\", \"retained_widget_follow_up\", \"narrow_surface_preferred\", \"retained_widget_state_applied\"]",
+    "[Autopilot] Block #822 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#822 (1 sessions)",
+    "[Autopilot] Block #823 committed (Tx: 0)",
+    "[Autopilot] Block #824 committed (Tx: 0)",
+    "[Autopilot] Block #825 committed (Tx: 0)",
+    "[Autopilot] Block #826 committed (Tx: 0)",
+    "[Autopilot] Block #827 committed (Tx: 0)",
+    "[Autopilot] Block #828 committed (Tx: 0)",
+    "[Autopilot] Block #829 committed (Tx: 0)",
+    "[Autopilot] Block #830 committed (Tx: 0)",
+    "[Autopilot] Block #831 committed (Tx: 0)",
+    "[Autopilot][StudioContinue] follow-up task updated phase=Complete current_step=boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+    "[Autopilot][StudioContinue] studio follow-up prepared for session=647c0dcc84f24e1e9e517791e40a9a28c5e367ef380c4ffd8ef06e33eaa6781e",
+    "[Autopilot] Block #832 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#832 (1 sessions)",
+    "[Autopilot] Block #833 committed (Tx: 0)",
+    "[Autopilot] Block #834 committed (Tx: 0)",
+    "[Autopilot] Block #835 committed (Tx: 0)",
+    "[Autopilot] Block #836 committed (Tx: 0)",
+    "[Autopilot] Block #837 committed (Tx: 0)",
+    "[Autopilot] Block #838 committed (Tx: 0)",
+    "[Autopilot] Block #839 committed (Tx: 0)",
+    "[Autopilot] Block #840 committed (Tx: 0)",
+    "[Autopilot] Block #841 committed (Tx: 0)",
+    "[Autopilot] Block #842 committed (Tx: 0)",
+    "[Autopilot] Block #843 committed (Tx: 0)",
+    "[Autopilot] Block #844 committed (Tx: 0)",
+    "[Autopilot] Block #845 committed (Tx: 0)",
+    "[Autopilot] Block #846 committed (Tx: 0)",
+    "[Autopilot] Block #847 committed (Tx: 0)",
+    "[Autopilot] Block #848 committed (Tx: 0)",
+    "[Autopilot] Block #849 committed (Tx: 0)",
+    "[Autopilot] Block #850 committed (Tx: 0)",
+    "[Autopilot] Block #851 committed (Tx: 0)",
+    "[Autopilot] Block #852 committed (Tx: 0)",
+    "[Autopilot] Block #853 committed (Tx: 0)",
+    "[Autopilot] Block #854 committed (Tx: 0)",
+    "[Autopilot] Block #855 committed (Tx: 0)",
+    "[Autopilot] Block #856 committed (Tx: 0)",
+    "[Autopilot] Block #857 committed (Tx: 0)",
+    "[Autopilot] Block #858 committed (Tx: 0)",
+    "[Autopilot] Block #859 committed (Tx: 0)",
+    "[Autopilot] Block #860 committed (Tx: 0)",
+    "[Autopilot] Block #861 committed (Tx: 0)",
+    "[Autopilot] Block #862 committed (Tx: 0)",
+    "[Autopilot] Block #863 committed (Tx: 0)",
+    "[Autopilot] Block #864 committed (Tx: 0)",
+    "[Autopilot] Block #865 committed (Tx: 0)",
+    "[Autopilot] Block #866 committed (Tx: 0)",
+    "[Autopilot] Block #867 committed (Tx: 0)",
+    "[Autopilot] Block #868 committed (Tx: 0)",
+    "[Autopilot] Block #869 committed (Tx: 0)",
+    "[Autopilot] Block #870 committed (Tx: 0)",
+    "[Autopilot] Block #871 committed (Tx: 0)",
+    "[Autopilot] Block #872 committed (Tx: 0)",
+    "[Autopilot] Block #873 committed (Tx: 0)",
+    "[Autopilot] Block #874 committed (Tx: 0)",
+    "[Autopilot] Block #875 committed (Tx: 0)",
+    "[Autopilot] Block #876 committed (Tx: 0)",
+    "[Autopilot] Block #877 committed (Tx: 0)"
+  ],
+  "probe_error": null,
+  "follow_up_metadata": {
+    "follow_up_user_occurrences": 1,
+    "follow_up_user_index": 2,
+    "follow_up_agent_reply_present": true,
+    "follow_up_agent_reply": "boston: temp +52\u00b0F humidity 89% wind \u21994mph pressure 1013hPa as of 13:48:39-0400.",
+    "session_reused": true
+  }
+}

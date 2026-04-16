@@ -3,7 +3,7 @@ import {
   AgentsDashboard,
   BuilderView,
   type RuntimeCatalogEntry,
-  type AgentRuntime,
+  type AgentWorkbenchRuntime,
   type ProjectFile,
   type AgentSummary,
   RuntimeCatalogView,
@@ -19,7 +19,7 @@ interface ProjectScope {
 }
 
 interface MissionControlWorkflowsViewProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   surface: "home" | "canvas" | "agents" | "catalog";
   currentProject: ProjectScope;
   projects: ProjectScope[];

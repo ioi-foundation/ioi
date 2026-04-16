@@ -314,13 +314,55 @@ fn skill_discovery_active_event() -> StudioArtifactRuntimeNarrationEvent {
     )
 }
 
+fn skill_discovery_title(resolution: &StudioArtifactSkillDiscoveryResolution) -> String {
+    match resolution
+        .guidance_status
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "attached" => "Guidance attached".to_string(),
+        "not_needed" => "Guidance not needed".to_string(),
+        "unavailable" => "Guidance unavailable".to_string(),
+        _ => "Check for guidance".to_string(),
+    }
+}
+
+fn skill_discovery_completion_message(
+    resolution: &StudioArtifactSkillDiscoveryResolution,
+    selected_skills: &[StudioArtifactSelectedSkill],
+) -> String {
+    match resolution.guidance_status.trim().to_ascii_lowercase().as_str() {
+        "attached" => {
+            if selected_skills.len() == 1 {
+                format!(
+                    "Skill discovery is complete. Read {} before authoring.",
+                    selected_skills[0].name
+                )
+            } else {
+                format!(
+                    "Skill discovery is complete. Read {} selected skill guides before authoring.",
+                    selected_skills.len()
+                )
+            }
+        }
+        "not_needed" => {
+            "Skill discovery is complete. No extra skill guide was needed before authoring."
+                .to_string()
+        }
+        "unavailable" => "Skill discovery is complete. Studio checked for guidance before authoring but did not find a qualifying skill to attach."
+            .to_string(),
+        _ => "Skill discovery is complete.".to_string(),
+    }
+}
+
 fn skill_discovery_complete_event(
     resolution: &StudioArtifactSkillDiscoveryResolution,
 ) -> StudioArtifactRuntimeNarrationEvent {
     StudioArtifactRuntimeNarrationEvent::new(
         StudioArtifactRuntimeEventType::SkillDiscovery,
         StudioArtifactRuntimeStepId::SkillDiscovery,
-        "Check for guidance",
+        skill_discovery_title(resolution),
         resolution.rationale.clone(),
         if resolution.status.eq_ignore_ascii_case("blocked") {
             StudioArtifactRuntimeEventStatus::Blocked
@@ -405,7 +447,7 @@ pub(super) fn prepare_studio_artifact_planning_context(
         );
     }
 
-    let planning_timeout = Duration::from_secs(30).min(
+    let planning_timeout = Duration::from_secs(90).min(
         super::studio_generation_timeout_for_runtime(&inference_runtime),
     );
     let discovery_brief =
@@ -427,6 +469,7 @@ pub(super) fn prepare_studio_artifact_planning_context(
             .as_ref()
             .map(|preparation_needs| StudioArtifactSkillDiscoveryResolution {
                 status: "active".to_string(),
+                guidance_status: "pending".to_string(),
                 guidance_evaluated: false,
                 guidance_recommended: !preparation_needs.skill_needs.is_empty(),
                 guidance_found: false,
@@ -481,19 +524,11 @@ pub(super) fn prepare_studio_artifact_planning_context(
         selected_skills.clone(),
         Vec::new(),
     );
-    let skill_discovery_step = if selected_skills.is_empty() {
-        "Skill discovery is complete. No extra skill guide was needed before authoring.".to_string()
-    } else if selected_skills.len() == 1 {
-        format!(
-            "Skill discovery is complete. Read {} before authoring.",
-            selected_skills[0].name
-        )
-    } else {
-        format!(
-            "Skill discovery is complete. Read {} selected skill guides before authoring.",
-            selected_skills.len()
-        )
-    };
+    let skill_discovery_step = skill_discovery_context
+        .skill_discovery_resolution
+        .as_ref()
+        .map(|resolution| skill_discovery_completion_message(resolution, &selected_skills))
+        .unwrap_or_else(|| "Skill discovery is complete.".to_string());
     emit_skill_discovery_progress(
         progress_observer.as_ref(),
         skill_discovery_step,
@@ -538,17 +573,11 @@ pub(super) fn prepare_studio_artifact_planning_context(
         Ok(Ok(brief)) => brief,
         Ok(Err(error)) => {
             studio_skill_trace(format!("planning_context:brief_error {}", error));
-            return Err(format!(
-                "Prepared artifact context failed during brief synthesis: {}",
-                error
-            ));
+            discovery_brief.clone()
         }
         Err(_) => {
             studio_skill_trace("planning_context:brief_timeout");
-            return Err(
-                "Prepared artifact context timed out while synthesizing the artifact brief."
-                    .to_string(),
-            );
+            discovery_brief.clone()
         }
     };
     let blueprint = derive_studio_artifact_blueprint(request, &brief);

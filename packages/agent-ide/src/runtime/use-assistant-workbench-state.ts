@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AssistantWorkbenchActivity,
   AssistantWorkbenchSession,
-} from "./agent-runtime";
+} from "./assistant-session-runtime-types";
 import {
   assistantWorkbenchActivityTargetKey,
   assistantWorkbenchSessionTargetKey,
@@ -235,6 +235,8 @@ export function useAssistantWorkbenchState(
   );
 
   return {
+    activeWorkbenchSession: assistantWorkbench,
+    workbenchActivityFeed: assistantWorkbenchActivities,
     assistantWorkbench,
     assistantWorkbenchActivities,
     activeAssistantWorkbenchActivities,
@@ -246,3 +248,5 @@ export function useAssistantWorkbenchState(
     recordAssistantWorkbenchActivity,
   };
 }
+
+export const useAssistantWorkbenchStore = useAssistantWorkbenchState;

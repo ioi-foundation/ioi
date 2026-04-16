@@ -5,7 +5,7 @@ import {
   Node,
   NodeLogic,
 } from "../../../types/graph";
-import { AgentRuntime } from "../../../runtime/agent-runtime";
+import { AgentWorkbenchRuntime } from "../../../runtime/agent-runtime";
 import { LogicView } from "./views/LogicView";
 import { PolicyView } from "./views/PolicyView";
 import { SimulationView } from "./views/SimulationView";
@@ -17,7 +17,7 @@ interface InspectorProps {
   selectedNode: Node | null;
   globalConfig?: GraphGlobalConfig;
   upstreamContext?: unknown;
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   onOpenSystemSettings?: () => void;
   onUpdateNode: (
     id: string,

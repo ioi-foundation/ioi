@@ -108,6 +108,7 @@ impl PolicyEngine {
         rule: &Rule,
         target: &ActionTarget,
         params: &[u8],
+        working_directory: Option<&str>,
         safety_model: &Arc<dyn LocalSafetyModel>,
         os_driver: &Arc<dyn OsDriver>,
     ) -> bool {
@@ -236,7 +237,7 @@ impl PolicyEngine {
 
         // Filesystem Path Check
         if let Some(allowed_paths) = &conditions.allow_paths {
-            if !validate_allow_paths_condition(allowed_paths, target, params) {
+            if !validate_allow_paths_condition(allowed_paths, target, params, working_directory) {
                 return false;
             }
         }

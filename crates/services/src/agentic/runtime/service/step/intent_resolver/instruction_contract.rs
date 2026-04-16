@@ -388,15 +388,31 @@ fn query_requests_research_work(query: &str) -> bool {
         &[
             " research ",
             " investigate ",
-            " look up ",
             " find sources ",
             " gather evidence ",
-            " latest ",
-            " current ",
             " compare sources ",
             " fact-check ",
         ],
     )
+}
+
+fn query_requests_deep_research_work(query: &str) -> bool {
+    let normalized = normalized_query_text(query);
+    query_requests_research_work(query)
+        || query_contains_any(
+            &normalized,
+            &[
+                " briefing ",
+                " brief ",
+                " report ",
+                " deep dive ",
+                " literature review ",
+                " source freshness ",
+                " grounded ",
+                " citations ",
+                " cited ",
+            ],
+        )
 }
 
 fn query_requests_port_or_parity_work(query: &str) -> bool {
@@ -478,14 +494,24 @@ fn preferred_agent_playbook_for_intent(query: &str, intent_id: &str) -> Option<&
         {
             Some("evidence_audited_patch")
         }
-        "web.research" | "memory.recall" => Some("citation_grounded_brief"),
+        "web.research" | "memory.recall"
+            if query_requests_deep_research_work(query)
+                || query_requests_verification_work(query) =>
+        {
+            Some("citation_grounded_brief")
+        }
         "delegation.task" if query_requests_artifact_work(query) => {
             Some("artifact_generation_gate")
         }
         "delegation.task" if query_requests_browser_work(query) => {
             Some("browser_postcondition_gate")
         }
-        "delegation.task" if query_requests_research_work(query) => Some("citation_grounded_brief"),
+        "delegation.task"
+            if query_requests_deep_research_work(query)
+                || query_requests_verification_work(query) =>
+        {
+            Some("citation_grounded_brief")
+        }
         _ => None,
     }
 }
@@ -504,11 +530,13 @@ fn preferred_delegation_template_for_intent(query: &str, intent_id: &str) -> Opt
     }
 
     match intent_id.trim() {
-        "web.research" | "memory.recall" => Some("researcher"),
+        "web.research" | "memory.recall" if query_requests_deep_research_work(query) => {
+            Some("researcher")
+        }
         "workspace.ops" if query_requests_code_change_work(query) => Some("coder"),
         "delegation.task" if query_requests_verification_work(query) => Some("verifier"),
         "delegation.task" if query_requests_code_change_work(query) => Some("coder"),
-        "delegation.task" if query_requests_research_work(query) => Some("researcher"),
+        "delegation.task" if query_requests_deep_research_work(query) => Some("researcher"),
         _ => None,
     }
 }
@@ -538,7 +566,9 @@ fn preferred_delegation_workflow_for_intent(
     }
 
     match (intent_id.trim(), template_id.trim()) {
-        ("web.research", "researcher") | ("memory.recall", "researcher") => {
+        ("web.research", "researcher") | ("memory.recall", "researcher")
+            if query_requests_deep_research_work(query) =>
+        {
             Some("live_research_brief")
         }
         ("web.research", "verifier") | ("memory.recall", "verifier") => Some("citation_audit"),
@@ -955,7 +985,7 @@ mod tests {
         let mut contract = InstructionContract::default();
 
         finalize_instruction_contract(
-            "Find the latest kernel scheduling benchmarks.",
+            "Research the latest kernel scheduling benchmarks.",
             "web.research",
             &mut contract,
         );
@@ -978,6 +1008,32 @@ mod tests {
         assert_eq!(
             workflow_binding.value.as_deref(),
             Some("live_research_brief")
+        );
+    }
+
+    #[test]
+    fn does_not_seed_research_template_or_playbook_for_simple_currentness_lookup() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Who is the current Secretary-General of the UN?",
+            "web.research",
+            &mut contract,
+        );
+
+        assert!(
+            contract
+                .slot_bindings
+                .iter()
+                .all(|binding| binding.slot != "playbook_id"),
+            "simple currentness lookups should not force a research playbook"
+        );
+        assert!(
+            contract
+                .slot_bindings
+                .iter()
+                .all(|binding| binding.slot != "template_id"),
+            "simple currentness lookups should not force a delegated researcher template"
         );
     }
 

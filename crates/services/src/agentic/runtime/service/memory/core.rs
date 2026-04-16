@@ -25,21 +25,28 @@ fn normalize_core_memory_content(content: &str, max_chars: usize) -> String {
 
 fn content_looks_secret_like(content: &str) -> bool {
     let lowered = content.to_ascii_lowercase();
+    let tokenized = lowered
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
+        .collect::<String>();
+    let bounded = format!(" {} ", tokenized.split_whitespace().collect::<Vec<_>>().join(" "));
     [
-        "password",
-        "passwd",
-        "api key",
-        "api_key",
-        "token",
-        "secret",
-        "private key",
-        "bearer ",
-        "authorization:",
-        "ssh-rsa",
-        "-----begin",
+        " password ",
+        " passwd ",
+        " api key ",
+        " api_key ",
+        " secret key ",
+        " client secret ",
+        " access token ",
+        " refresh token ",
+        " private key ",
+        " bearer ",
     ]
     .iter()
-    .any(|needle| lowered.contains(needle))
+    .any(|needle| bounded.contains(needle))
+        || lowered.contains("authorization:")
+        || lowered.contains("ssh-rsa")
+        || lowered.contains("-----begin")
 }
 
 fn digest_hex(input: &str) -> String {
@@ -384,3 +391,22 @@ fn format_prompt_eligible_core_memory(
     }
 }
 
+#[cfg(test)]
+mod core_tests {
+    use super::content_looks_secret_like;
+
+    #[test]
+    fn secret_detector_ignores_secretary_general_phrasing() {
+        assert!(!content_looks_secret_like(
+            "Who is the current Secretary-General of the UN?"
+        ));
+    }
+
+    #[test]
+    fn secret_detector_keeps_explicit_secret_indicators() {
+        assert!(content_looks_secret_like("client secret: abc123"));
+        assert!(content_looks_secret_like("Bearer abc123"));
+        assert!(content_looks_secret_like("password is hunter2"));
+        assert!(content_looks_secret_like("Authorization: Bearer abc123"));
+    }
+}

@@ -1,13 +1,13 @@
-import type { AgentRuntime, AgentSessionRuntime } from "@ioi/agent-ide";
+import type { AgentWorkbenchRuntime, AssistantSessionRuntime } from "@ioi/agent-ide";
 import {
-  getSessionRuntime as getSharedSessionRuntime,
-  setDefaultSessionRuntime,
-  setSessionRuntime,
+  getAssistantSessionRuntime as getSharedSessionRuntime,
+  setActiveAssistantSessionRuntime,
+  setDefaultAssistantSessionRuntime,
 } from "@ioi/agent-ide";
 import type { LocalEngineSnapshot } from "../types";
 import { TauriRuntime, type WorkspaceWorkflowSummary } from "./TauriRuntime";
 
-export interface SessionOperatorRuntime extends AgentSessionRuntime {
+export interface SessionOperatorRuntime extends AssistantSessionRuntime {
   getLocalEngineSnapshot(): Promise<LocalEngineSnapshot>;
   stageLocalEngineOperation(input: {
     subjectKind: string;
@@ -26,16 +26,16 @@ export interface SessionOperatorRuntime extends AgentSessionRuntime {
   promoteLocalEngineOperation(operationId: string): Promise<void>;
 }
 
-export type SessionWorkbenchRuntime = AgentRuntime &
-  AgentSessionRuntime & {
+export type SessionWorkbenchRuntime = AgentWorkbenchRuntime &
+  AssistantSessionRuntime & {
     listWorkspaceWorkflows?: () => Promise<WorkspaceWorkflowSummary[]>;
   };
 
 const defaultSessionRuntime = new TauriRuntime();
-setDefaultSessionRuntime(defaultSessionRuntime);
+setDefaultAssistantSessionRuntime(defaultSessionRuntime);
 
 function isSessionOperatorRuntime(
-  runtime: AgentSessionRuntime,
+  runtime: AssistantSessionRuntime,
 ): runtime is SessionOperatorRuntime {
   const candidate = runtime as Partial<SessionOperatorRuntime>;
   return (
@@ -50,7 +50,7 @@ function isSessionOperatorRuntime(
 }
 
 function isSessionWorkbenchRuntime(
-  runtime: AgentSessionRuntime,
+  runtime: AssistantSessionRuntime,
 ): runtime is SessionWorkbenchRuntime {
   const candidate = runtime as Partial<SessionWorkbenchRuntime>;
   return (
@@ -68,7 +68,7 @@ function isSessionWorkbenchRuntime(
   );
 }
 
-export function getSessionRuntime(): AgentSessionRuntime {
+export function getSessionRuntime(): AssistantSessionRuntime {
   return getSharedSessionRuntime();
 }
 
@@ -88,4 +88,4 @@ export function getSessionOperatorRuntime(): SessionOperatorRuntime {
   return defaultSessionRuntime;
 }
 
-export { setSessionRuntime };
+export { setActiveAssistantSessionRuntime as setSessionRuntime };

@@ -18,7 +18,7 @@ fn single_snapshot_primary_story<'a>(
     draft: &'a SynthesisDraft,
     single_snapshot_query_axes: &BTreeSet<MetricAxis>,
 ) -> Option<&'a StoryDraft> {
-    let mut best = None::<(&StoryDraft, usize, usize, usize)>;
+    let mut best = None::<(&StoryDraft, usize, usize, usize, usize)>;
     for story in &draft.stories {
         let metric_lines =
             single_snapshot_structured_metric_lines(story, draft, single_snapshot_query_axes);
@@ -36,24 +36,31 @@ fn single_snapshot_primary_story<'a>(
                     .filter_map(|id| draft.citations_by_id.get(id))
                     .any(citation_current_condition_metric_signal),
         );
+        let direct_fact_score =
+            usize::from(single_snapshot_has_direct_fact_line(&story.what_happened));
         let candidate = (
             story,
             current_condition_score,
+            direct_fact_score,
             metric_lines.len(),
             successful_read_count,
         );
         match best {
-            Some((_, best_current, best_metric_lines, best_reads))
+            Some((_, best_current, best_direct_fact, best_metric_lines, best_reads))
                 if current_condition_score < best_current
                     || (current_condition_score == best_current
+                        && direct_fact_score < best_direct_fact)
+                    || (current_condition_score == best_current
+                        && direct_fact_score == best_direct_fact
                         && metric_lines.len() < best_metric_lines)
                     || (current_condition_score == best_current
+                        && direct_fact_score == best_direct_fact
                         && metric_lines.len() == best_metric_lines
                         && successful_read_count <= best_reads) => {}
             _ => best = Some(candidate),
         }
     }
-    best.map(|(story, _, _, _)| story)
+    best.map(|(story, _, _, _, _)| story)
 }
 
 fn single_snapshot_aggregated_citation_ids(
@@ -111,6 +118,11 @@ pub(super) fn render_single_snapshot_layout(
     conflict_notes: &[String],
     gap_notes: &[String],
 ) -> String {
+    let direct_fact_snapshot = single_snapshot_query_axes.is_empty()
+        && draft
+            .stories
+            .iter()
+            .any(|story| single_snapshot_has_direct_fact_line(&story.what_happened));
     let scope_candidate_hints = draft
         .citations_by_id
         .values()
@@ -120,7 +132,12 @@ pub(super) fn render_single_snapshot_layout(
             excerpt: citation.excerpt.clone(),
         })
         .collect::<Vec<_>>();
-    let heading = if let Some(scope) = query_scope_hint(&draft.query, &scope_candidate_hints) {
+    let heading = if direct_fact_snapshot {
+        format!(
+            "Current snapshot (as of {} UTC):",
+            draft.run_timestamp_iso_utc
+        )
+    } else if let Some(scope) = query_scope_hint(&draft.query, &scope_candidate_hints) {
         format!(
             "Right now in {} (as of {} UTC):",
             scope, draft.run_timestamp_iso_utc
@@ -180,18 +197,29 @@ pub(super) fn render_single_snapshot_layout(
                 .as_deref()
                 .map(|metric| has_quantitative_metric_payload(metric, false))
                 .unwrap_or(false);
-        let summary_line = if let Some(temp) = temperature_phrase {
+        let summary_line = if single_snapshot_has_direct_fact_line(&story.what_happened) {
+            format!(
+                "Current answer: {}",
+                strip_single_snapshot_direct_fact_prefix(&story.what_happened)
+            )
+        } else if let Some(temp) = temperature_phrase {
             format!("Current conditions: It's **{}**.", temp)
         } else if contains_current_condition_metric_signal(&story.what_happened) {
             format!(
-                "Current conditions from retrieved source text: {}",
+                "{} {}",
+                single_snapshot_current_metric_prefix(&draft.query, &story.what_happened, false),
                 concise_metric_snapshot_line(&story.what_happened)
             )
         } else if let Some(value) = first_metric_value {
-            format!("Current conditions from retrieved source text: {}", value)
+            format!(
+                "{} {}",
+                single_snapshot_current_metric_prefix(&draft.query, &value, false),
+                value
+            )
         } else if let Some(metric) = citation_current_metric.as_deref() {
             format!(
-                "Current conditions from cited source text: {}",
+                "{} {}",
+                single_snapshot_current_metric_prefix(&draft.query, metric, true),
                 concise_metric_snapshot_line(metric)
             )
         } else if let Some(metric) = citation_partial_metric.as_deref() {
@@ -205,26 +233,45 @@ pub(super) fn render_single_snapshot_layout(
         let summary_line_lower = summary_line.to_ascii_lowercase();
         let summary_line_has_metric_limitation =
             summary_line_lower.contains("current-condition metrics were not exposed");
-        lines.push(summary_line);
-
-        if !metric_lines.is_empty() {
-            lines.push(String::new());
-            for (axis, value) in metric_lines {
-                lines.push(format!("- {}: {}", metric_axis_display_label(axis), value));
-            }
-        }
-
-        if let Some(note) = source_consistency_note(story, draft) {
-            lines.push(String::new());
-            lines.push(note);
-        }
-
+        let summary_line_has_direct_fact_signal = summary_line_lower.starts_with("current answer:");
         let citation_current_condition_signal = story
             .citation_ids
             .iter()
             .chain(aggregated_citation_ids.iter())
             .filter_map(|id| draft.citations_by_id.get(id))
             .any(citation_current_condition_metric_signal);
+        let strong_current_price_snapshot =
+            single_snapshot_prefers_price_summary_label(&draft.query, &story.what_happened)
+                || metric_lines.iter().any(|(_, value)| {
+                    single_snapshot_prefers_price_summary_label(&draft.query, value)
+                })
+                || citation_current_metric
+                    .as_deref()
+                    .map(|metric| single_snapshot_prefers_price_summary_label(&draft.query, metric))
+                    .unwrap_or(false)
+                || citation_partial_metric
+                    .as_deref()
+                    .map(|metric| single_snapshot_prefers_price_summary_label(&draft.query, metric))
+                    .unwrap_or(false);
+        let strong_current_price_snapshot = strong_current_price_snapshot
+            && (contains_current_condition_metric_signal(&story.what_happened)
+                || citation_current_condition_signal);
+        lines.push(summary_line);
+
+        if !metric_lines.is_empty() && !strong_current_price_snapshot {
+            lines.push(String::new());
+            for (axis, value) in metric_lines {
+                lines.push(format!("- {}: {}", metric_axis_display_label(axis), value));
+            }
+        }
+
+        if !strong_current_price_snapshot {
+            if let Some(note) = source_consistency_note(story, draft) {
+                lines.push(String::new());
+                lines.push(note);
+            }
+        }
+
         let envelope_sources = aggregated_citation_ids
             .iter()
             .filter_map(|id| draft.citations_by_id.get(id))
@@ -256,18 +303,23 @@ pub(super) fn render_single_snapshot_layout(
         );
         let summary_has_current_metric_signal =
             contains_current_condition_metric_signal(&story.what_happened);
+        let metric_followup_applicable = !direct_fact_snapshot;
         let summary_has_metric_limitation = story
             .what_happened
             .to_ascii_lowercase()
             .contains("current-condition metrics were not exposed");
-        let needs_followup_guidance = envelope_requires_caveat
-            || summary_line_has_metric_limitation
-            || summary_has_metric_limitation
-            || draft.partial_note.is_some()
-            || (!summary_has_current_metric_signal
-                && !citation_current_condition_signal
-                && !story_has_quantitative_metric_signal);
+        let needs_followup_guidance = metric_followup_applicable
+            && !strong_current_price_snapshot
+            && (envelope_requires_caveat
+                || summary_line_has_metric_limitation
+                || summary_has_metric_limitation
+                || draft.partial_note.is_some()
+                || (!summary_has_current_metric_signal
+                    && !citation_current_condition_signal
+                    && !story_has_quantitative_metric_signal
+                    && !summary_line_has_direct_fact_signal));
         if needs_followup_guidance {
+            lines.push(String::new());
             lines.push(
                 "- Estimated-right-now: derived from cited forecast range was unavailable in retrieved source text."
                     .to_string(),
@@ -562,5 +614,158 @@ mod tests {
 
         assert!(rendered.contains("https://forecast.weather.gov/MapClick.php"));
         assert!(rendered.contains("https://www.timeanddate.com/weather/usa/anderson"));
+    }
+
+    #[test]
+    fn render_single_snapshot_layout_surfaces_direct_current_fact_without_metric_caveats() {
+        let mut citations_by_id = BTreeMap::new();
+        citations_by_id.insert(
+            "c1".to_string(),
+            CitationCandidate {
+                id: "c1".to_string(),
+                url: "https://ask.un.org/faq/14625".to_string(),
+                source_label:
+                    "UN Ask DAG ask.un.org \u{203a} faq \u{203a} 14625 Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                        .to_string(),
+                excerpt:
+                    "Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+                        .to_string(),
+                timestamp_utc: "2026-04-14T21:08:14Z".to_string(),
+                note: "retrieved_utc".to_string(),
+                from_successful_read: true,
+            },
+        );
+
+        let draft = SynthesisDraft {
+            query: "Who is the current Secretary-General of the UN?".to_string(),
+            retrieval_contract: Some(WebRetrievalContract {
+                contract_version: "test.v1".to_string(),
+                entity_cardinality_min: 1,
+                comparison_required: false,
+                currentness_required: true,
+                runtime_locality_required: false,
+                source_independence_min: 1,
+                citation_count_min: 1,
+                structured_record_preferred: true,
+                ordered_collection_preferred: false,
+                link_collection_preferred: false,
+                canonical_link_out_preferred: false,
+                geo_scoped_detail_required: false,
+                discovery_surface_required: false,
+                entity_diversity_required: false,
+                scalar_measure_required: false,
+                browser_fallback_allowed: true,
+            }),
+            run_date: "2026-04-14".to_string(),
+            run_timestamp_ms: 1_776_200_894_000,
+            run_timestamp_iso_utc: "2026-04-14T21:08:14Z".to_string(),
+            completion_reason: "min_sources_reached".to_string(),
+            overall_confidence: "high".to_string(),
+            overall_caveat: "retrieval receipts available".to_string(),
+            stories: vec![StoryDraft {
+                title: "United Nations".to_string(),
+                what_happened:
+                    "Current answer from retrieved source text: Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+                        .to_string(),
+                changed_last_hour: String::new(),
+                why_it_matters: String::new(),
+                user_impact: String::new(),
+                workaround: String::new(),
+                eta_confidence: "high".to_string(),
+                citation_ids: vec!["c1".to_string()],
+                confidence: "high".to_string(),
+                caveat: "retrieved_utc".to_string(),
+            }],
+            citations_by_id,
+            blocked_urls: Vec::new(),
+            partial_note: None,
+        };
+
+        let rendered = render_single_snapshot_layout(&draft, 1, 1, &BTreeSet::new(), &[], &[], &[]);
+
+        assert!(rendered.contains("Current snapshot (as of 2026-04-14T21:08:14Z UTC):"));
+        assert!(rendered.contains(
+            "Current answer: Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+        ));
+        assert!(!rendered.contains("Current metric status:"));
+        assert!(!rendered.contains("Data caveat: Retrieved source snippets did not expose numeric current-condition metrics"));
+    }
+
+    #[test]
+    fn render_single_snapshot_layout_keeps_strong_price_snapshot_concise() {
+        let mut citations_by_id = BTreeMap::new();
+        citations_by_id.insert(
+            "c1".to_string(),
+            CitationCandidate {
+                id: "c1".to_string(),
+                url: "https://openai.com/api/pricing/".to_string(),
+                source_label: "OpenAI API Pricing | OpenAI".to_string(),
+                excerpt: "Pricing: Audio: $32.00 for inputs $0.40 for cached inputs $64.00 for outputs Text: $4.00 for inputs $0.40 for cached inputs $16.00 for outputs".to_string(),
+                timestamp_utc: "2026-04-15T06:04:04Z".to_string(),
+                note: "retrieved_utc".to_string(),
+                from_successful_read: true,
+            },
+        );
+
+        let draft = SynthesisDraft {
+            query: "What is the latest OpenAI API pricing?".to_string(),
+            retrieval_contract: Some(WebRetrievalContract {
+                contract_version: "test.v1".to_string(),
+                entity_cardinality_min: 1,
+                comparison_required: false,
+                currentness_required: true,
+                runtime_locality_required: false,
+                source_independence_min: 1,
+                citation_count_min: 1,
+                structured_record_preferred: true,
+                ordered_collection_preferred: false,
+                link_collection_preferred: false,
+                canonical_link_out_preferred: false,
+                geo_scoped_detail_required: false,
+                discovery_surface_required: false,
+                entity_diversity_required: false,
+                scalar_measure_required: true,
+                browser_fallback_allowed: true,
+            }),
+            run_date: "2026-04-15".to_string(),
+            run_timestamp_ms: 1_776_233_044_000,
+            run_timestamp_iso_utc: "2026-04-15T06:04:04Z".to_string(),
+            completion_reason: "min_sources_reached".to_string(),
+            overall_confidence: "high".to_string(),
+            overall_caveat: "retrieval receipts available".to_string(),
+            stories: vec![StoryDraft {
+                title: "OpenAI API Pricing".to_string(),
+                what_happened: "Current pricing from retrieved source text: Pricing: Audio: $32.00 for inputs $0.40 for cached inputs $64.00 for outputs Text: $4.00 for inputs $0.40 for cached inputs $16.00 for outputs".to_string(),
+                changed_last_hour: String::new(),
+                why_it_matters: String::new(),
+                user_impact: String::new(),
+                workaround: String::new(),
+                eta_confidence: "high".to_string(),
+                citation_ids: vec!["c1".to_string()],
+                confidence: "high".to_string(),
+                caveat: "retrieved_utc".to_string(),
+            }],
+            citations_by_id,
+            blocked_urls: Vec::new(),
+            partial_note: None,
+        };
+
+        let rendered = render_single_snapshot_layout(
+            &draft,
+            1,
+            1,
+            &query_metric_axes(&draft.query),
+            &[],
+            &[],
+            &[],
+        );
+
+        assert!(rendered.contains("Current pricing from retrieved source text:"));
+        assert!(rendered.contains("Audio: $32.00 input, $0.40 cached input, $64.00 output"));
+        assert!(rendered.contains("Text: $4.00 input, $0.40 cached input, $16.00 output"));
+        assert!(!rendered.contains("Estimated-right-now:"));
+        assert!(!rendered.contains("Current metric status:"));
+        assert!(!rendered.contains("Data caveat:"));
+        assert!(!rendered.contains("(From OpenAI API Pricing"));
     }
 }

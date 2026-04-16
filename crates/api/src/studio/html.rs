@@ -30,29 +30,51 @@ pub(super) fn normalize_html_terminal_closure(html: &str) -> String {
     let has_close_body = lower.contains("</body>");
     let has_close_main = !has_main || lower.contains("</main>");
 
-    if has_close_html && (!has_body || has_close_body) && has_close_main {
-        return trimmed.to_string();
-    }
-
     let mut normalized = trimmed.to_string();
     if has_close_html {
-        let Some(insert_at) = lower.rfind("</html>") else {
+        if has_main && has_close_main {
+            let lower_normalized = normalized.to_ascii_lowercase();
+            if let Some(insert_at) = lower_normalized.rfind("</main>") {
+                let suffix =
+                    close_unclosed_html_elements_for_truncated_suffix(&normalized[..insert_at]);
+                if !suffix.is_empty() {
+                    normalized.insert_str(insert_at, &suffix);
+                }
+            }
+        }
+
+        if has_body && has_close_body {
+            let lower_normalized = normalized.to_ascii_lowercase();
+            if let Some(insert_at) = lower_normalized.rfind("</body>") {
+                let suffix =
+                    close_unclosed_html_elements_for_truncated_suffix(&normalized[..insert_at]);
+                if !suffix.is_empty() {
+                    normalized.insert_str(insert_at, &suffix);
+                }
+            }
+        }
+
+        let lower_normalized = normalized.to_ascii_lowercase();
+        let Some(insert_at) = lower_normalized.rfind("</html>") else {
             return html.to_string();
         };
-        let mut suffix = String::new();
-        if has_main && !has_close_main {
+        let mut suffix =
+            close_unclosed_html_elements_for_truncated_suffix(&normalized[..insert_at]);
+        if has_main && !lower_normalized.contains("</main>") {
             suffix.push_str("</main>");
         }
-        if has_body && !has_close_body {
+        if has_body && !lower_normalized.contains("</body>") {
             suffix.push_str("</body>");
         }
-        if suffix.is_empty() {
-            return trimmed.to_string();
+        if !suffix.is_empty() {
+            normalized.insert_str(insert_at, &suffix);
         }
-        normalized.insert_str(insert_at, &suffix);
         return normalized;
     }
 
+    normalized.push_str(&close_unclosed_html_elements_for_truncated_suffix(
+        &normalized,
+    ));
     if has_main && !has_close_main {
         normalized.push_str("</main>");
     }
@@ -61,6 +83,89 @@ pub(super) fn normalize_html_terminal_closure(html: &str) -> String {
     }
     normalized.push_str("</html>");
     normalized
+}
+
+fn close_unclosed_html_elements_for_truncated_suffix(html: &str) -> String {
+    let mut stack = Vec::<String>::new();
+    let mut cursor = 0usize;
+
+    while let Some(relative_start) = html[cursor..].find('<') {
+        let start = cursor + relative_start;
+        let Some(relative_end) = html[start..].find('>') else {
+            break;
+        };
+        let end = start + relative_end;
+        let tag = html[start + 1..end].trim();
+        cursor = end + 1;
+
+        if tag.is_empty() || tag.starts_with('!') || tag.starts_with('?') || tag.starts_with('%') {
+            continue;
+        }
+
+        if let Some(rest) = tag.strip_prefix('/') {
+            let name = rest
+                .split(|c: char| c.is_whitespace() || c == '>')
+                .next()
+                .unwrap_or_default()
+                .trim_matches('/');
+            if name.is_empty() {
+                continue;
+            }
+            let normalized_name = name.to_ascii_lowercase();
+            if let Some(position) = stack.iter().rposition(|entry| entry == &normalized_name) {
+                stack.truncate(position);
+            }
+            continue;
+        }
+
+        let name = tag
+            .split(|c: char| c.is_whitespace() || c == '/' || c == '>')
+            .next()
+            .unwrap_or_default();
+        if name.is_empty() {
+            continue;
+        }
+        let normalized_name = name.to_ascii_lowercase();
+        if matches!(normalized_name.as_str(), "html" | "body" | "main")
+            || html_void_element(&normalized_name)
+            || tag.ends_with('/')
+        {
+            continue;
+        }
+        stack.push(normalized_name);
+    }
+
+    if stack.is_empty() {
+        return String::new();
+    }
+
+    let mut suffix = String::new();
+    for tag in stack.iter().rev() {
+        suffix.push_str("</");
+        suffix.push_str(tag);
+        suffix.push('>');
+    }
+    suffix
+}
+
+fn html_void_element(tag: &str) -> bool {
+    matches!(
+        tag,
+        "area"
+            | "base"
+            | "br"
+            | "col"
+            | "embed"
+            | "hr"
+            | "img"
+            | "input"
+            | "link"
+            | "meta"
+            | "param"
+            | "source"
+            | "track"
+            | "wbr"
+    )
 }
 
 pub(super) fn normalize_html_interactions(html: &str) -> String {

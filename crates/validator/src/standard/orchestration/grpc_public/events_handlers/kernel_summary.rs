@@ -276,11 +276,21 @@ fn summarize_kernel_event(kernel_event: &ioi_types::app::KernelEvent) -> String 
             ),
         },
         Ev::RoutingReceipt(receipt) => format!(
-            "RoutingReceipt session={} step_index={} tool_name={} policy_decision={} success={} action_json_{}",
+            "RoutingReceipt session={} step_index={} tool_name={} policy_decision={} route_family={} output_intent={} success={} action_json_{}",
             prefix_hex_4(&receipt.session_id),
             receipt.step_index,
             receipt.tool_name,
             receipt.policy_decision,
+            if receipt.route_decision.route_family.is_empty() {
+                "none"
+            } else {
+                receipt.route_decision.route_family.as_str()
+            },
+            if receipt.route_decision.output_intent.is_empty() {
+                "none"
+            } else {
+                receipt.route_decision.output_intent.as_str()
+            },
             receipt.post_state.success,
             text_fingerprint(&receipt.action_json)
         ),

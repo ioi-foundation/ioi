@@ -1,6 +1,6 @@
 use super::*;
 use ioi_ipc::public::chain_event::Event as ChainEventEnum;
-use ioi_types::app::RoutingReceiptEvent;
+use ioi_types::app::{RoutingEffectiveToolSurface, RoutingReceiptEvent, RoutingRouteDecision};
 
 #[test]
 fn routing_receipt_chain_event_payload_is_complete() {
@@ -47,6 +47,35 @@ fn routing_receipt_chain_event_payload_is_complete() {
         policy_binding_hash: String::new(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: RoutingRouteDecision {
+            route_family: "coding".to_string(),
+            direct_answer_allowed: false,
+            direct_answer_blockers: vec![
+                "file_output_intent".to_string(),
+                "skill_prep_required".to_string(),
+            ],
+            currentness_override: false,
+            connector_candidate_count: 0,
+            selected_provider_family: None,
+            selected_provider_route_label: None,
+            connector_first_preference: false,
+            narrow_tool_preference: true,
+            file_output_intent: true,
+            artifact_output_intent: false,
+            inline_visual_intent: false,
+            skill_prep_required: true,
+            output_intent: "file".to_string(),
+            effective_tool_surface: RoutingEffectiveToolSurface {
+                projected_tools: vec![
+                    "file__edit".to_string(),
+                    "shell__run".to_string(),
+                    "chat__reply".to_string(),
+                ],
+                primary_tools: vec!["file__edit".to_string()],
+                broad_fallback_tools: vec!["shell__run".to_string(), "chat__reply".to_string()],
+                diagnostic_tools: vec!["memory__search".to_string()],
+            },
+        },
     };
 
     let mapped = map_routing_receipt(receipt.clone(), Some((&keypair, signer_pk.as_str())));
@@ -79,6 +108,21 @@ fn routing_receipt_chain_event_payload_is_complete() {
             assert!(!payload.policy_binding_hash.is_empty());
             assert!(!payload.policy_binding_sig.is_empty());
             assert_eq!(payload.policy_binding_signer, signer_pk);
+            assert_eq!(
+                payload
+                    .route_decision
+                    .as_ref()
+                    .map(|decision| decision.route_family.as_str()),
+                Some("coding")
+            );
+            assert_eq!(
+                payload
+                    .route_decision
+                    .as_ref()
+                    .and_then(|decision| decision.effective_tool_surface.as_ref())
+                    .map(|surface| surface.projected_tools.len()),
+                Some(3)
+            );
 
             let signer_bytes =
                 hex::decode(&payload.policy_binding_signer).expect("valid signer hex");

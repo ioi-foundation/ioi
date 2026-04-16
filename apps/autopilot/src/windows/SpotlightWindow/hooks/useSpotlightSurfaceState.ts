@@ -16,6 +16,11 @@ import {
   type StudioExecutionMetrics,
   type StudioExecutionProcess,
 } from "../components/studioExecutionChrome";
+import {
+  defaultRunActivityDetail,
+  defaultRunActivityTitle,
+  operatorFacingCurrentStep,
+} from "../viewmodels/runtimeStatusCopy";
 import type {
   AgentEvent,
   Artifact,
@@ -212,7 +217,7 @@ function artifactThinkingLabelForEvent(
     case "artifact_route_committed":
       return "Route to artifact";
     case "skill_discovery":
-      return "Check for guidance";
+      return event.title || "Check for guidance";
     case "skill_read":
       return event.title || "Read guidance";
     case "artifact_brief":
@@ -605,6 +610,10 @@ export function useSpotlightSurfaceState({
       artifactThinkingLatestProcess?.summary ||
       task?.current_step ||
       "Studio is moving through the current artifact run.";
+    const routeActivityTitle = defaultRunActivityTitle(runPresentation.planSummary);
+    const routeActivityDetail =
+      operatorFacingCurrentStep(task, runPresentation.planSummary) ||
+      defaultRunActivityDetail(runPresentation.planSummary);
 
     if (hasOperatorDecisionPrompt) {
       return null;
@@ -634,12 +643,10 @@ export function useSpotlightSurfaceState({
 
     if (submissionInFlight) {
       return {
-        title: artifactRouteActive
-          ? artifactThinkingTitle
-          : "Routing the request",
+        title: artifactRouteActive ? artifactThinkingTitle : routeActivityTitle,
         detail: artifactRouteActive
           ? artifactThinkingDetail
-          : "Studio is choosing whether this should remain conversational, open a tool surface, render a visualizer, or materialize an artifact.",
+          : routeActivityDetail,
         metrics: artifactRouteActive ? null : executionChrome.metrics,
         processes: artifactRouteActive ? artifactThinkingProcesses : executionChrome.processes,
         selectedSkills: artifactRouteActive ? artifactSelectedSkills : [],
@@ -661,10 +668,8 @@ export function useSpotlightSurfaceState({
       return {
         title: studioArtifactExpected
           ? "Thinking through the artifact request"
-          : "Preparing the outcome surface",
-        detail:
-          task.current_step ||
-          "Studio is materializing the right outcome type and waiting for verification evidence.",
+          : routeActivityTitle,
+        detail: routeActivityDetail,
         ...executionChrome,
       };
     }
@@ -675,8 +680,8 @@ export function useSpotlightSurfaceState({
       !studioArtifactAvailable
     ) {
       return {
-        title: "Studio needs clarification before it can open an artifact",
-        detail: task.current_step || task.clarification_request.question,
+        title: "Clarification needed",
+        detail: task.clarification_request.question,
         ...deriveTaskStudioExecutionChrome(task),
       };
     }
@@ -694,14 +699,11 @@ export function useSpotlightSurfaceState({
         title:
           studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingTitle
-            : outcomeLabel
-              ? `Working the ${outcomeLabel.toLowerCase()} route`
-              : "Working the outcome surface",
+            : routeActivityTitle || outcomeLabel || "Preparing the reply",
         detail:
           studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingDetail
-            : task.current_step ||
-              "Studio is routing the active work items, merging worker output, and verifying the next usable surface.",
+            : routeActivityDetail,
         metrics:
           studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
             ? null

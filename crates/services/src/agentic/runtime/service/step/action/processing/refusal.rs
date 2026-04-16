@@ -108,6 +108,15 @@ pub(super) async fn intercept_raw_refusal(
     let policy_binding = policy_binding_hash(&refusal_intent_hash, &refusal_policy_decision);
     let incident_fields =
         incident_receipt_fields(load_incident_state(state, &session_id)?.as_ref());
+    let route_decision =
+        crate::agentic::runtime::service::step::route_projection::project_route_decision(
+            service,
+            state,
+            agent_state,
+            "system::refusal",
+            agent_state.current_tier,
+        )
+        .await;
     let receipt = RoutingReceiptEvent {
         session_id,
         step_index: pre_state_summary.step_index,
@@ -136,6 +145,7 @@ pub(super) async fn intercept_raw_refusal(
         policy_binding_hash: policy_binding,
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision,
     };
 
     emit_routing_receipt(service.event_sender.as_ref(), receipt);

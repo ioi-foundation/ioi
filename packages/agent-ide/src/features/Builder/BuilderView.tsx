@@ -1,10 +1,10 @@
 import { useState, useRef } from "react";
-import { AgentRuntime } from "../../runtime/agent-runtime";
+import { AgentWorkbenchRuntime } from "../../runtime/agent-runtime";
 import { AgentConfiguration } from "../../types/graph";
 import "./BuilderView.css";
 
 interface BuilderViewProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   onAddToGraph: (config: AgentConfiguration) => void;
   onBack: () => void;
 }

@@ -1,13 +1,31 @@
 use std::time::Duration;
 
+fn env_var_truthy(name: &str) -> bool {
+    std::env::var(name)
+        .ok()
+        .map(|raw| {
+            matches!(
+                raw.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false)
+}
+
 pub(super) fn cognition_inference_timeout() -> Duration {
     const DEFAULT_TIMEOUT_SECS: u64 = 15;
+    const LOCAL_GPU_DEV_DEFAULT_TIMEOUT_SECS: u64 = 60;
+    let default_timeout_secs = if env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV") {
+        LOCAL_GPU_DEV_DEFAULT_TIMEOUT_SECS
+    } else {
+        DEFAULT_TIMEOUT_SECS
+    };
     std::env::var("IOI_COGNITION_INFERENCE_TIMEOUT_SECS")
         .ok()
         .and_then(|raw| raw.parse::<u64>().ok())
         .filter(|secs| *secs > 0)
         .map(Duration::from_secs)
-        .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECS))
+        .unwrap_or_else(|| Duration::from_secs(default_timeout_secs))
 }
 
 fn compact_single_line(input: &str, max_chars: usize) -> String {
@@ -46,4 +64,68 @@ pub(super) fn inference_error_system_fail_reason(raw_error: &str) -> String {
         "ERROR_CLASS=UserInterventionNeeded Cognition inference failed before tool planning. detail={}",
         detail
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn with_env<F: FnOnce()>(entries: &[(&str, Option<&str>)], f: F) {
+        let saved = entries
+            .iter()
+            .map(|(key, _)| ((*key).to_string(), std::env::var(key).ok()))
+            .collect::<Vec<_>>();
+        for (key, value) in entries {
+            match value {
+                Some(value) => std::env::set_var(key, value),
+                None => std::env::remove_var(key),
+            }
+        }
+        f();
+        for (key, value) in saved {
+            match value {
+                Some(value) => std::env::set_var(&key, value),
+                None => std::env::remove_var(&key),
+            }
+        }
+    }
+
+    #[test]
+    fn cognition_timeout_defaults_to_fifteen_seconds() {
+        with_env(
+            &[
+                ("AUTOPILOT_LOCAL_GPU_DEV", None),
+                ("IOI_COGNITION_INFERENCE_TIMEOUT_SECS", None),
+            ],
+            || {
+                assert_eq!(cognition_inference_timeout(), Duration::from_secs(15));
+            },
+        );
+    }
+
+    #[test]
+    fn cognition_timeout_expands_in_local_gpu_dev_mode() {
+        with_env(
+            &[
+                ("AUTOPILOT_LOCAL_GPU_DEV", Some("1")),
+                ("IOI_COGNITION_INFERENCE_TIMEOUT_SECS", None),
+            ],
+            || {
+                assert_eq!(cognition_inference_timeout(), Duration::from_secs(60));
+            },
+        );
+    }
+
+    #[test]
+    fn explicit_timeout_env_overrides_local_gpu_dev_default() {
+        with_env(
+            &[
+                ("AUTOPILOT_LOCAL_GPU_DEV", Some("1")),
+                ("IOI_COGNITION_INFERENCE_TIMEOUT_SECS", Some("23")),
+            ],
+            || {
+                assert_eq!(cognition_inference_timeout(), Duration::from_secs(23));
+            },
+        );
+    }
 }

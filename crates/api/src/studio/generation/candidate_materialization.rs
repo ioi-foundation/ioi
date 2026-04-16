@@ -1,4 +1,8 @@
 use super::*;
+use crate::studio::payload::{
+    download_bundle_export_body_looks_complete, download_bundle_export_format_label,
+    infer_download_bundle_export_format_from_path_and_mime, is_download_bundle_readme_file,
+};
 use std::time::Duration;
 
 pub(super) async fn materialize_and_locally_judge_candidate(
@@ -204,7 +208,7 @@ pub(super) async fn materialize_and_locally_judge_candidate(
     ))
 }
 
-pub(super) fn local_download_bundle_candidate_prejudge(
+pub(crate) fn local_download_bundle_candidate_prejudge(
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
     payload: &StudioGeneratedArtifactPayload,
@@ -218,11 +222,24 @@ pub(super) fn local_download_bundle_candidate_prejudge(
         .iter()
         .filter(|file| file.downloadable)
         .collect::<Vec<_>>();
-    let has_csv_export = export_files.iter().any(|file| {
-        (file.path.to_ascii_lowercase().ends_with(".csv") || file.mime == "text/csv")
-            && file.body.lines().count() >= 2
-            && file.body.contains(',')
-    });
+    let recognized_exports = export_files
+        .iter()
+        .filter_map(|file| {
+            if is_download_bundle_readme_file(&file.path, &file.mime) {
+                None
+            } else {
+                infer_download_bundle_export_format_from_path_and_mime(&file.path, &file.mime)
+                    .map(|format| (file, format))
+            }
+        })
+        .collect::<Vec<_>>();
+    let has_usable_export = recognized_exports
+        .iter()
+        .any(|(file, format)| download_bundle_export_body_looks_complete(*format, &file.body));
+    let export_labels = recognized_exports
+        .iter()
+        .map(|(_, format)| download_bundle_export_format_label(*format))
+        .collect::<Vec<_>>();
     let required_terms = brief
         .required_concepts
         .iter()
@@ -240,36 +257,48 @@ pub(super) fn local_download_bundle_candidate_prejudge(
         .filter(|term| !term.is_empty() && body_lower.contains(term.as_str()))
         .count();
     let all_downloadable = payload.files.iter().all(|file| file.downloadable);
-    let classification = if has_readme && has_csv_export && all_downloadable {
+    let classification = if has_readme && has_usable_export && all_downloadable {
         StudioArtifactJudgeClassification::Pass
-    } else if has_readme || has_csv_export {
+    } else if has_readme || has_usable_export {
         StudioArtifactJudgeClassification::Repairable
     } else {
         StudioArtifactJudgeClassification::Blocked
     };
-    let request_faithfulness = if has_readme && has_csv_export { 4 } else { 2 };
+    let request_faithfulness = if has_readme && has_usable_export {
+        4
+    } else {
+        2
+    };
     let concept_coverage = if concept_hits >= brief.required_concepts.len().min(2).max(1) {
         4
-    } else if has_readme && has_csv_export {
+    } else if has_readme && has_usable_export {
         3
     } else {
         2
     };
-    let completeness = if has_readme && has_csv_export { 4 } else { 2 };
+    let completeness = if has_readme && has_usable_export {
+        4
+    } else {
+        2
+    };
     let deserves_primary_artifact_view = classification == StudioArtifactJudgeClassification::Pass;
     let mut strengths = Vec::new();
     if has_readme {
         strengths.push("README.md is present for bundle guidance.".to_string());
     }
-    if has_csv_export {
-        strengths.push("CSV export is present with tabular rows.".to_string());
+    if !export_labels.is_empty() && has_usable_export {
+        strengths.push(format!(
+            "{} is present with usable content.",
+            export_labels.join(" + ")
+        ));
     }
     let mut blocked_reasons = Vec::new();
     if !has_readme {
         blocked_reasons.push("Bundle is missing a usable README.md.".to_string());
     }
-    if !has_csv_export {
-        blocked_reasons.push("Bundle is missing a usable CSV export.".to_string());
+    if !has_usable_export {
+        blocked_reasons
+            .push("Bundle is missing a usable request-grounded export file.".to_string());
     }
     if !all_downloadable {
         blocked_reasons.push("All bundle files must remain downloadable.".to_string());
@@ -306,7 +335,7 @@ pub(super) fn local_download_bundle_candidate_prejudge(
             visual_hierarchy: 4,
             completeness,
             generic_shell_detected: false,
-            trivial_shell_detected: !(has_readme || has_csv_export),
+            trivial_shell_detected: !(has_readme || has_usable_export),
             deserves_primary_artifact_view,
             patched_existing_artifact: None,
             continuity_revision_ux: None,

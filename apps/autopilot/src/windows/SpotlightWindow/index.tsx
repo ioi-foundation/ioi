@@ -3,16 +3,16 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   hideSpotlightShell,
-  setSessionRuntime,
+  setActiveAssistantSessionRuntime,
   showGateShell,
-  stopSessionTask,
-  type AgentSessionRuntime,
+  stopAssistantSession,
+  type AssistantSessionRuntime,
   SessionHistorySidebar,
   useAssistantWorkbenchState,
-  useSessionGateState,
+  useSessionApprovalState,
   useSessionConversationScroll,
   useSessionDeferredFocus,
-  useSessionRunSurface,
+  useSessionDisplayState,
   useSessionShellShortcuts,
   useSessionStudioArtifactDrawer,
 } from "@ioi/agent-ide";
@@ -23,8 +23,10 @@ import { buildAssistantWorkbenchSummary } from "../../lib/assistantWorkbenchSumm
 import { useLiveValidationSummary } from "../../hooks/useLiveValidationSummary";
 import { useRetainedWorkbenchTrace } from "../../hooks/useRetainedWorkbenchTrace";
 import {
+  AgentTask,
   AgentEvent,
   Artifact,
+  SessionSummary,
   SourceSummary,
 } from "../../types";
 import { useSpotlightLayout } from "./hooks/useSpotlightLayout";
@@ -34,7 +36,10 @@ import {
   selectRetainableDrawerSession,
   useSpotlightSurfaceState,
 } from "./hooks/useSpotlightSurfaceState";
-import { useSpotlightSession } from "./hooks/useSpotlightSession";
+import {
+  shouldContinueSpotlightComposerSession,
+  useSpotlightSession,
+} from "./hooks/useSpotlightSession";
 import { useLegacyPresentation } from "./hooks/useLegacyPresentation";
 
 // Sub-components
@@ -49,6 +54,7 @@ import { SpotlightGateDock } from "./components/SpotlightGateDock";
 import { SpotlightOperatorStrip } from "./components/SpotlightOperatorStrip";
 import { SpotlightOrchestrationBoard } from "./components/SpotlightOrchestrationBoard";
 import { StudioConversationSurface } from "./components/StudioConversationSurface";
+import { StudioConversationSidebar } from "./components/StudioConversationSidebar";
 import { StudioArtifactSurface } from "./components/StudioArtifactSurface";
 import { collectAvailableStudioArtifacts } from "./components/studioArtifactConversationModel";
 import {
@@ -77,8 +83,105 @@ type SpotlightWindowProps = {
   variant?: "overlay" | "studio";
   seedIntent?: string | null;
   onConsumeSeedIntent?: () => void;
-  sessionRuntime?: AgentSessionRuntime;
+  sessionRuntime?: AssistantSessionRuntime;
 };
+
+function taskSessionId(task: AgentTask | null): string | null {
+  return task?.session_id || task?.id || null;
+}
+
+function isLikelyContextDependentSeedIntent(intent: string): boolean {
+  const normalized = intent.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return [
+    /^how about\b/,
+    /^what about\b/,
+    /^and\b/,
+    /^also\b/,
+    /^instead\b/,
+    /^then\b/,
+    /^tomorrow\b/,
+    /^next\b/,
+    /^same\b/,
+    /^that\b/,
+    /^those\b/,
+    /^them\b/,
+    /\b(instead|tomorrow|next one|same one|that one|those)\b/,
+  ].some((pattern) => pattern.test(normalized));
+}
+
+function sessionLikelyAwaitingFollowUp(session: SessionSummary): boolean {
+  const phase = (session.phase ?? "").trim().toLowerCase();
+  const currentStep = (session.current_step ?? "").trim().toLowerCase();
+  const resumeHint = (session.resume_hint ?? "").trim().toLowerCase();
+
+  if (phase && phase !== "complete" && phase !== "failed") {
+    return true;
+  }
+
+  return [currentStep, resumeHint].some(
+    (value) =>
+      value.includes("clarification") ||
+      value.includes("approval") ||
+      value.includes("waiting for") ||
+      value.includes("resume"),
+  );
+}
+
+function looksLikeEllipticalFollowUpReply(intent: string): boolean {
+  const normalized = intent.trim().toLowerCase();
+  if (!normalized || normalized.endsWith("?")) {
+    return false;
+  }
+
+  const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+  const startsFreshRequest = /^(find|show|give|list|draft|write|make|create|plan|build|generate|tell|recommend|search|look up|book|buy|compose|reply|summarize|explain)\b/.test(
+    normalized,
+  );
+
+  if (
+    [
+      /^(near|around|within|in|at|by|for|via|through|on)\b/,
+      /^(slack|email|gmail|text|sms|chat)\b/,
+      /^(today|tomorrow|tonight|this weekend|this week|next week)\b/,
+    ].some((pattern) => pattern.test(normalized))
+  ) {
+    return true;
+  }
+
+  if (
+    !startsFreshRequest &&
+    wordCount <= 6 &&
+    (normalized.includes(",") || normalized.endsWith("."))
+  ) {
+    return true;
+  }
+
+  return !startsFreshRequest && wordCount <= 3 && normalized.length <= 48;
+}
+
+function preferredClarificationOptionId(task: AgentTask | null): string | null {
+  const options = task?.clarification_request?.options ?? [];
+  return (
+    options.find((option) => option.recommended)?.id ??
+    options[0]?.id ??
+    null
+  );
+}
+
+function selectSeedIntentContinuationSession(
+  sessions: SessionSummary[],
+): SessionSummary | null {
+  const sorted = [...sessions].sort((left, right) => right.timestamp - left.timestamp);
+  return (
+    sorted.find((session) => sessionLikelyAwaitingFollowUp(session)) ||
+    sorted.find((session) => (session.phase || "").trim().toLowerCase() !== "failed") ||
+    null
+  );
+}
 
 // ============================================
 // MAIN COMPONENT
@@ -103,6 +206,9 @@ export function SpotlightWindow({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const chatAreaRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const submittedSeedIntentRef = useRef<string | null>(null);
+  const seedIntentAttachAttemptRef = useRef<string | null>(null);
+  const seedIntentProjectionRefreshRef = useRef<string | null>(null);
 
   const {
     task,
@@ -178,7 +284,7 @@ export function SpotlightWindow({
     handleApprove,
     handleDeny,
     handleGrantScopedException,
-  } = useSessionGateState({
+  } = useSessionApprovalState({
     task,
   });
 
@@ -273,9 +379,9 @@ export function SpotlightWindow({
       return;
     }
 
-    setSessionRuntime(sessionRuntime);
+    setActiveAssistantSessionRuntime(sessionRuntime);
     return () => {
-      setSessionRuntime(null);
+      setActiveAssistantSessionRuntime(null);
     };
   }, [sessionRuntime]);
 
@@ -298,11 +404,106 @@ export function SpotlightWindow({
 
   useEffect(() => {
     if (!seedIntent?.trim()) {
+      submittedSeedIntentRef.current = null;
+      seedIntentAttachAttemptRef.current = null;
+      seedIntentProjectionRefreshRef.current = null;
       return;
     }
 
     const nextIntent = seedIntent.trim();
+    if (submittedSeedIntentRef.current === nextIntent) {
+      void recordStudioLaunchReceipt("studio_seed_intent_submit_skipped_duplicate", {
+        intentLength: nextIntent.length,
+      });
+      onConsumeSeedIntent?.();
+      return;
+    }
+
     if (isStudioVariant) {
+      const looksEllipticalReply = looksLikeEllipticalFollowUpReply(nextIntent);
+      const clarificationOptionId = preferredClarificationOptionId(task);
+      const hasPendingFollowUpSession = sessions.some((session) =>
+        sessionLikelyAwaitingFollowUp(session),
+      );
+      const shouldWaitForRetainedProjection =
+        looksEllipticalReply &&
+        sessions.length === 0 &&
+        !taskSessionId(task);
+      const requiresRetainedContext =
+        isLikelyContextDependentSeedIntent(nextIntent) ||
+        (hasPendingFollowUpSession &&
+          looksEllipticalReply) ||
+        shouldWaitForRetainedProjection;
+      const hasAttachableCurrentTask = shouldContinueSpotlightComposerSession(
+        isStudioVariant,
+        task,
+      );
+      const currentSessionId = taskSessionId(task);
+
+      if (requiresRetainedContext && !hasAttachableCurrentTask) {
+        const continuationSession = selectSeedIntentContinuationSession(sessions);
+
+        if (!continuationSession) {
+          if (sessions.length === 0) {
+            if (seedIntentProjectionRefreshRef.current !== nextIntent) {
+              seedIntentProjectionRefreshRef.current = nextIntent;
+              void Promise.allSettled([
+                refreshSessionHistory(),
+                refreshCurrentTask(),
+              ]).catch((error) => {
+                console.error(
+                  "[Studio][SeedIntent] failed to refresh retained session projection",
+                  error,
+                );
+              });
+            }
+            void recordStudioLaunchReceipt(
+              "studio_seed_intent_waiting_for_session_projection",
+              {
+                intentLength: nextIntent.length,
+              },
+            );
+            if (shouldWaitForRetainedProjection) {
+              return;
+            }
+          }
+        } else if (continuationSession.session_id !== currentSessionId) {
+          seedIntentProjectionRefreshRef.current = null;
+          const attachKey = `${nextIntent}:${continuationSession.session_id}`;
+          if (seedIntentAttachAttemptRef.current !== attachKey) {
+            seedIntentAttachAttemptRef.current = attachKey;
+            void recordStudioLaunchReceipt("studio_seed_intent_attach_requested", {
+              intentLength: nextIntent.length,
+              sessionId: continuationSession.session_id,
+            });
+            void handleLoadSession(continuationSession.session_id)
+              .then(() => {
+                void recordStudioLaunchReceipt("studio_seed_intent_attach_resolved", {
+                  intentLength: nextIntent.length,
+                  sessionId: continuationSession.session_id,
+                });
+              })
+              .catch((error) => {
+                seedIntentAttachAttemptRef.current = null;
+                console.error(
+                  "[Studio][SeedIntent] failed to attach retained session",
+                  error,
+                );
+                void recordStudioLaunchReceipt("studio_seed_intent_attach_failed", {
+                  intentLength: nextIntent.length,
+                  sessionId: continuationSession.session_id,
+                  error:
+                    error instanceof Error ? error.message : String(error),
+                });
+              });
+          }
+          return;
+        }
+      }
+
+      submittedSeedIntentRef.current = nextIntent;
+      seedIntentAttachAttemptRef.current = null;
+      seedIntentProjectionRefreshRef.current = null;
       console.info("[Studio][SeedIntent] auto-submit requested", {
         length: nextIntent.length,
       });
@@ -310,24 +511,84 @@ export function SpotlightWindow({
         intentLength: nextIntent.length,
       });
       window.setTimeout(() => {
-        console.info("[Studio][SeedIntent] auto-submit dispatching");
-        void recordStudioLaunchReceipt("studio_seed_intent_submit_dispatching", {
-          intentLength: nextIntent.length,
-        });
-        void handleSubmitText(nextIntent)
-          .then(() => {
-            console.info("[Studio][SeedIntent] auto-submit resolved");
-            void recordStudioLaunchReceipt("studio_seed_intent_submit_resolved", {
-              intentLength: nextIntent.length,
-            });
-          })
-          .catch((error) => {
-            console.error("[Studio][SeedIntent] auto-submit failed", error);
-            void recordStudioLaunchReceipt("studio_seed_intent_submit_failed", {
-              intentLength: nextIntent.length,
-              error: error instanceof Error ? error.message : String(error),
-            });
+        try {
+          if (task?.clarification_request && clarificationOptionId) {
+            console.info("[Studio][SeedIntent] clarification submit dispatching");
+            void recordStudioLaunchReceipt(
+              "studio_seed_intent_clarification_submit_dispatching",
+              {
+                intentLength: nextIntent.length,
+                optionId: clarificationOptionId,
+              },
+            );
+            const submitPromise = handleSubmitClarification(
+              clarificationOptionId,
+              nextIntent,
+            );
+            void recordStudioLaunchReceipt(
+              "studio_seed_intent_clarification_submit_called",
+              {
+                intentLength: nextIntent.length,
+                optionId: clarificationOptionId,
+              },
+            );
+            void submitPromise
+              .then(() => {
+                console.info("[Studio][SeedIntent] clarification submit resolved");
+                void recordStudioLaunchReceipt(
+                  "studio_seed_intent_clarification_submit_resolved",
+                  {
+                    intentLength: nextIntent.length,
+                    optionId: clarificationOptionId,
+                  },
+                );
+              })
+              .catch((error) => {
+                console.error(
+                  "[Studio][SeedIntent] clarification submit failed",
+                  error,
+                );
+                void recordStudioLaunchReceipt(
+                  "studio_seed_intent_clarification_submit_failed",
+                  {
+                    intentLength: nextIntent.length,
+                    optionId: clarificationOptionId,
+                    error: error instanceof Error ? error.message : String(error),
+                  },
+                );
+              });
+            return;
+          }
+
+          console.info("[Studio][SeedIntent] auto-submit dispatching");
+          void recordStudioLaunchReceipt("studio_seed_intent_submit_dispatching", {
+            intentLength: nextIntent.length,
           });
+          const submitPromise = handleSubmitText(nextIntent);
+          void recordStudioLaunchReceipt("studio_seed_intent_submit_called", {
+            intentLength: nextIntent.length,
+          });
+          void submitPromise
+            .then(() => {
+              console.info("[Studio][SeedIntent] auto-submit resolved");
+              void recordStudioLaunchReceipt("studio_seed_intent_submit_resolved", {
+                intentLength: nextIntent.length,
+              });
+            })
+            .catch((error) => {
+              console.error("[Studio][SeedIntent] auto-submit failed", error);
+              void recordStudioLaunchReceipt("studio_seed_intent_submit_failed", {
+                intentLength: nextIntent.length,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            });
+        } catch (error) {
+          console.error("[Studio][SeedIntent] auto-submit threw synchronously", error);
+          void recordStudioLaunchReceipt("studio_seed_intent_submit_sync_failed", {
+            intentLength: nextIntent.length,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }, 0);
       onConsumeSeedIntent?.();
       return;
@@ -336,12 +597,18 @@ export function SpotlightWindow({
     setIntent(nextIntent);
     onConsumeSeedIntent?.();
   }, [
+    handleSubmitClarification,
     handleSubmitText,
+    handleLoadSession,
     inputRef,
     isStudioVariant,
     onConsumeSeedIntent,
+    refreshCurrentTask,
+    refreshSessionHistory,
+    sessions,
     seedIntent,
     setIntent,
+    task,
   ]);
 
   useSessionDeferredFocus({
@@ -432,7 +699,7 @@ export function SpotlightWindow({
     activeArtifacts,
     selectedArtifact,
     isRunning,
-  } = useSessionRunSurface({
+  } = useSessionDisplayState({
     task,
     localHistory,
     events,
@@ -543,7 +810,7 @@ export function SpotlightWindow({
 
   const handleStopSession = useCallback(async () => {
     try {
-      await stopSessionTask();
+      await stopAssistantSession();
     } catch (error) {
       console.error("Failed to stop session task:", error);
       return;
@@ -636,15 +903,23 @@ export function SpotlightWindow({
 
     setStudioArtifactVisible(false);
   }, [selectedStudioArtifactSessionId, studioArtifactVisible]);
-  const studioArtifactToggleLabel = !studioArtifactVisible
-    ? "Show artifacts"
-    : selectedStudioArtifactSessionId !== null
-      ? "Browse artifacts"
-      : "Hide artifacts";
   const studioArtifactMenuVisible =
     studioArtifactVisible && selectedStudioArtifactSessionId === null;
-  const showStudioArtifactToggle =
+  const showStudioArtifactNav =
     isStudioVariant && studioArtifactDrawerAvailable;
+  const handleStudioNewSession = useCallback(() => {
+    setSelectedStudioArtifactSessionId(null);
+    setStudioArtifactVisible(false);
+    handleNewChat();
+  }, [handleNewChat]);
+  const handleStudioSelectSession = useCallback(
+    (sessionId: string) => {
+      setSelectedStudioArtifactSessionId(null);
+      setStudioArtifactVisible(false);
+      void handleLoadSession(sessionId);
+    },
+    [handleLoadSession],
+  );
   const studioStatusCardNode = studioStatusCard ? (
     <StudioRunStateCard
       tone={studioStatusCard.tone}
@@ -657,6 +932,20 @@ export function SpotlightWindow({
       codePreview={studioStatusCard.codePreview}
     />
   ) : null;
+  const studioSidebarNode = isStudioVariant ? (
+    <StudioConversationSidebar
+      sessions={sessions}
+      activeSessionId={task?.session_id || task?.id || null}
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      onNewSession={handleStudioNewSession}
+      onSelectSession={handleStudioSelectSession}
+      showArtifactNav={showStudioArtifactNav}
+      artifactVisible={studioArtifactVisible}
+      artifactCount={studioAvailableArtifacts.length}
+      onToggleArtifacts={handleToggleStudioArtifacts}
+    />
+  ) : null;
 
   // ============================================
   // RENDER
@@ -666,9 +955,9 @@ export function SpotlightWindow({
     <div
       className={`${isStudioVariant ? "spot-studio-conversation" : "spot-main"} ${
         studioArtifactVisible ? "is-artifact-open" : ""
-      }`}
+      } ${isStudioVariant && !hasSessionContent ? "is-empty" : ""}`}
     >
-      {!layout.sidebarVisible && (
+      {!isStudioVariant && !layout.sidebarVisible && (
         <button
           className="spot-sidebar-toggle"
           onClick={() => toggleSidebar(true)}
@@ -677,31 +966,6 @@ export function SpotlightWindow({
           {icons.sidebar}
         </button>
       )}
-
-      {showStudioArtifactToggle ? (
-        <div className="spot-studio-toolbar">
-          <button
-            type="button"
-            className={`spot-studio-artifact-toggle ${
-              studioArtifactVisible ? "is-open" : ""
-            }`}
-            onClick={handleToggleStudioArtifacts}
-            aria-label={`${studioArtifactToggleLabel} (${
-              task?.studio_session?.artifactManifest?.renderer === "workspace_surface"
-                ? "Workspace renderer"
-                : "Artifact stage"
-            })`}
-            aria-pressed={studioArtifactVisible}
-            title={`${studioArtifactToggleLabel} (${
-              task?.studio_session?.artifactManifest?.renderer === "workspace_surface"
-                ? "Workspace renderer"
-                : "Artifact stage"
-            })`}
-          >
-            {icons.artifacts}
-          </button>
-        </div>
-      ) : null}
 
       {showOverlaySessionChrome ? (
         <SpotlightOperatorStrip
@@ -892,10 +1156,14 @@ export function SpotlightWindow({
         onToggleAutoContext={() => setAutoContext(!autoContext)}
         isRunning={isRunning}
         isGated={isGated}
-        onStop={() => stopSessionTask().catch(console.error)}
+        onStop={() => stopAssistantSession().catch(console.error)}
         onSubmit={handleSubmit}
-        onNewSession={handleNewChat}
+        onNewSession={isStudioVariant ? handleStudioNewSession : handleNewChat}
         onLoadSession={(sessionId) => {
+          if (isStudioVariant) {
+            handleStudioSelectSession(sessionId);
+            return;
+          }
           void handleLoadSession(sessionId);
         }}
         onOpenGate={() => {
@@ -932,7 +1200,7 @@ export function SpotlightWindow({
         onOpenSettings={() => openStudio("settings")}
         placeholder={
           isStudioVariant
-            ? "Describe the outcome you want. Studio will route it into conversation, widget, visualizer, or artifact."
+            ? "What do you want to materialize?"
             : undefined
         }
       />
@@ -1051,7 +1319,7 @@ export function SpotlightWindow({
             isDualPanelSpotlight ? "spot-content--dual-panel" : ""
           }`}
         >
-          {layout.sidebarVisible && (
+          {!isStudioVariant && layout.sidebarVisible && (
             <SessionHistorySidebar
               sessions={sessions}
               onSelectSession={handleLoadSession}
@@ -1073,6 +1341,7 @@ export function SpotlightWindow({
 
           {isStudioVariant ? (
             <StudioConversationSurface
+              sidebar={studioSidebarNode}
               artifactVisible={studioArtifactVisible}
               artifactMenuVisible={studioArtifactMenuVisible}
               artifactDrawerVisible={

@@ -1,0 +1,3590 @@
+{
+  "captured_at": "2026-04-16T19:44:28.449578+00:00",
+  "prompt": "Near Williamsburg, Brooklyn.",
+  "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-final-gap-reuse-native-final/2026-04-16T19-43-25Z/02-near-williamsburg-brooklyn/final.png",
+  "window_id": 18874380,
+  "window_capture_error": null,
+  "task": {
+    "id": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+    "intent": "Find coffee shops open now.",
+    "agent": "Autopilot",
+    "phase": "Running",
+    "progress": 0,
+    "total_steps": 20,
+    "current_step": "Drafting the direct answer...",
+    "gate_info": null,
+    "receipt": null,
+    "visual_hash": null,
+    "pending_request_hash": null,
+    "session_id": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+    "credential_request": null,
+    "clarification_request": {
+      "kind": "intent_resolution",
+      "question": "What kind of place should Studio look for?",
+      "tool_name": "studio::route_clarification",
+      "failure_class": "UserInterventionNeeded",
+      "evidence_snippet": "Studio paused before selecting the outcome surface because it needs clarification: What kind of place should Studio look for?",
+      "context_hint": "Routing hints: tool_widget:places, no_persistent_artifact_requested, shared_answer_surface, retained_widget_state_applied, request_frame_clarification_required",
+      "options": [
+        {
+          "id": "share_place_category",
+          "label": "Choose a category",
+          "description": "Tell Studio what kind of place to search for.",
+          "recommended": true
+        },
+        {
+          "id": "coffee_shops",
+          "label": "Coffee shops",
+          "description": "Search for coffee shops.",
+          "recommended": false
+        },
+        {
+          "id": "restaurants",
+          "label": "Restaurants",
+          "description": "Search for restaurants.",
+          "recommended": false
+        }
+      ],
+      "allow_other": true
+    },
+    "session_checklist": [
+      {
+        "itemId": "request",
+        "label": "Request captured",
+        "status": "completed",
+        "detail": "Find coffee shops open now.",
+        "updatedAtMs": 1776368657628
+      },
+      {
+        "itemId": "execution",
+        "label": "Continue execution",
+        "status": "in_progress",
+        "detail": "Sending message...",
+        "updatedAtMs": 1776368657628
+      },
+      {
+        "itemId": "review",
+        "label": "Review emerging output",
+        "status": "pending",
+        "detail": "Sending message...",
+        "updatedAtMs": 1776368657628
+      }
+    ],
+    "background_tasks": [
+      {
+        "taskId": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+        "sessionId": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+        "label": "Find coffee shops open now.",
+        "status": "running",
+        "detail": "Sending message...",
+        "latestOutput": "Sending message...",
+        "canStop": true,
+        "updatedAtMs": 1776368657628
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "text": "Find coffee shops open now.",
+        "timestamp": 1776368633112
+      },
+      {
+        "role": "user",
+        "text": "Near Williamsburg, Brooklyn.",
+        "timestamp": 1776368657628
+      }
+    ],
+    "events": [
+      {
+        "event_id": "09f81ce3-8a38-4c96-8f76-81e4c82f5fc7",
+        "timestamp": "2026-04-16T19:43:53.112143058+00:00",
+        "thread_id": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "Find coffee shops open now."
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "Find coffee shops open now."
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "0a2ed1ef-ae72-440a-9810-bd4d64f3c0d6",
+        "timestamp": "2026-04-16T19:44:06.579573712+00:00",
+        "thread_id": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+        "step_index": 1,
+        "event_type": "RECEIPT",
+        "title": "Studio route decision",
+        "digest": {
+          "domain_policy_bundle": {
+            "clarificationPolicy": {
+              "assumedBindings": [
+                "places.category"
+              ],
+              "blockingSlots": [
+                "location"
+              ],
+              "mode": "block_until_clarified",
+              "rationale": "Places routes clarify only when the category or anchor location is still unresolved."
+            },
+            "fallbackPolicy": {
+              "fallbackLanes": [
+                "tool_widget",
+                "conversation"
+              ],
+              "mode": "block_until_clarified",
+              "primaryLane": "research",
+              "rationale": "Places stays in its specialized lane unless search scope is unresolved or a ranked fallback is explicitly required.",
+              "triggerSignals": [
+                "narrow_surface_preferred"
+              ]
+            },
+            "policyContract": {
+              "bindings": [
+                "lane_frame",
+                "request_frame",
+                "source_selection",
+                "route_decision.effective_tool_surface",
+                "domain_policy_bundle"
+              ],
+              "hiddenInstructionDependency": false,
+              "rationale": "Lane choice, fallback posture, source ranking, presentation, and verification are retained as typed runtime receipts."
+            },
+            "presentationPolicy": {
+              "primarySurface": "places_widget",
+              "rationale": "Places answers should keep the map-oriented parity surface so ranking and anchor scope stay visible.",
+              "renderer": "html_iframe",
+              "tabPriority": [
+                "render",
+                "evidence"
+              ],
+              "widgetFamily": "places"
+            },
+            "retainedWidgetState": {
+              "bindings": [
+                {
+                  "key": "places.category",
+                  "source": "request_frame",
+                  "value": "coffee shops"
+                }
+              ],
+              "lastUpdatedAt": null,
+              "widgetFamily": "places"
+            },
+            "riskProfile": {
+              "approvalRequired": false,
+              "reasons": [
+                "place recommendations must stay grounded in the requested location scope",
+                "ranked lists should preserve category and anchor assumptions",
+                "ranked place recommendations should stay grounded in the requested location scope"
+              ],
+              "sensitivity": "medium",
+              "userVisibleGuardrails": [
+                "Show the selected search anchor and ranking source before answering."
+              ]
+            },
+            "sourceRanking": [
+              {
+                "rank": 1,
+                "rationale": "The specialized places surface outranks broad search because it preserves anchor scope, category, and ranked map results.",
+                "source": "specialized_tool"
+              },
+              {
+                "rank": 2,
+                "rationale": "Conversation context and web search remain ordered fallbacks when the places surface cannot satisfy the scope.",
+                "source": "conversation_context"
+              },
+              {
+                "rank": 3,
+                "rationale": "Conversation context and web search remain ordered fallbacks when the places surface cannot satisfy the scope.",
+                "source": "web_search"
+              }
+            ],
+            "transformationPolicy": {
+              "orderedSteps": [
+                "resolve_category",
+                "resolve_anchor_location",
+                "rank_places",
+                "project_map_surface"
+              ],
+              "outputShape": "places_recommendation_list",
+              "rationale": "Places turns transform ranked map results into a recommendation surface with retained search context."
+            },
+            "verificationContract": {
+              "completionGate": "blocked_on_clarification",
+              "requiredChecks": [
+                "place_category_resolved",
+                "location_scope_resolved",
+                "places_surface_rendered"
+              ],
+              "strategy": "places_scope_and_presentation"
+            }
+          },
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9700000286102295,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the place category and anchor location before searching the map surface.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "places",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:places",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame_clarification_required",
+                "request_frame:places"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a places lane with category and anchor-location semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:places",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame_clarification_required",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:places",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame_clarification_required",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "Which neighborhood, city, or anchor location should Studio search around?"
+              ],
+              "fromLane": "research",
+              "reason": "Clarification is required before Studio can continue in the selected lane.",
+              "toLane": "conversation",
+              "transitionKind": "reactive"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "blocked",
+                "summary": "Which neighborhood, city, or anchor location should Studio search around?"
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "resolve_clarification",
+                "location",
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "blocked",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "Find coffee shops open now."
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the places request frame",
+                "laneFamily": "research",
+                "status": "blocked",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "blocked",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "blocked",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "category": "coffee shops",
+            "clarificationRequiredSlots": [
+              "location"
+            ],
+            "kind": "places",
+            "locationScope": null,
+            "missingSlots": [
+              "location"
+            ],
+            "searchAnchor": null
+          },
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "research",
+            "activeToolWidgetFamily": "places",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "specialized_tool",
+            "unresolvedClarificationQuestion": "Which neighborhood, city, or anchor location should Studio search around?"
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "clarification_required",
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:places",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested",
+                "route_hint:request_frame_clarification_required"
+              ],
+              "primary_tools": [
+                "places_search",
+                "places_map_display_v0"
+              ],
+              "projected_tools": [
+                "places_search",
+                "places_map_display_v0"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_places",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "specialized_tool",
+              "web_search"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": "places execution is blocked until anchor or category scope is clarified",
+            "selectedSource": "specialized_tool"
+          },
+          "topology": "planner_specialist",
+          "verifier_outcome": null,
+          "verifier_state": "blocked"
+        },
+        "details": {
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": true,
+            "laneConfidence": 0.9700000286102295,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the place category and anchor location before searching the map surface.",
+            "primaryLane": "research",
+            "secondaryLanes": [
+              "tool_widget",
+              "conversation"
+            ],
+            "toolWidgetFamily": "places",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:places",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame_clarification_required",
+                "request_frame:places"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a places lane with category and anchor-location semantics.",
+              "toLane": "research",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:places",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame_clarification_required",
+                "secondary_lane:research->toolwidget"
+              ],
+              "fromLane": "research",
+              "reason": "The research lane can land through a specialized tool-widget surface.",
+              "toLane": "tool_widget",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "tool_widget:places",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested",
+                "request_frame_clarification_required",
+                "secondary_lane:research->conversation"
+              ],
+              "fromLane": "research",
+              "reason": "studio retained the conversation lane as a secondary assist for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            },
+            {
+              "evidence": [
+                "Which neighborhood, city, or anchor location should Studio search around?"
+              ],
+              "fromLane": "research",
+              "reason": "Clarification is required before Studio can continue in the selected lane.",
+              "toLane": "conversation",
+              "transitionKind": "reactive"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "blocked",
+                "summary": "Which neighborhood, city, or anchor location should Studio search around?"
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "resolve_clarification",
+                "location",
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "The answer is grounded in the selected fresh-information lane."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "blocked",
+              "successCriteria": [
+                "Resolve the required scope for the research lane.",
+                "Return a grounded answer rather than a speculative reply."
+              ],
+              "title": "Find coffee shops open now."
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the places request frame",
+                "laneFamily": "research",
+                "status": "blocked",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "research",
+                "status": "blocked",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "blocked",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "category": "coffee shops",
+            "clarificationRequiredSlots": [
+              "location"
+            ],
+            "kind": "places",
+            "locationScope": null,
+            "missingSlots": [
+              "location"
+            ],
+            "searchAnchor": null
+          },
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "research",
+            "activeToolWidgetFamily": "places",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "specialized_tool",
+            "unresolvedClarificationQuestion": "Which neighborhood, city, or anchor location should Studio search around?"
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "clarification_required",
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [
+                "web_search"
+              ],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:places",
+                "route_hint:narrow_surface_preferred",
+                "route_hint:no_persistent_artifact_requested",
+                "route_hint:request_frame_clarification_required"
+              ],
+              "primary_tools": [
+                "places_search",
+                "places_map_display_v0"
+              ],
+              "projected_tools": [
+                "places_search",
+                "places_map_display_v0"
+              ]
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "research",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "research",
+          "selected_route": "tool_widget_places",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "specialized_tool",
+              "web_search"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": "places execution is blocked until anchor or category scope is clarified",
+            "selectedSource": "specialized_tool"
+          },
+          "summary": "Studio paused before selecting the outcome surface because it needs clarification: Which neighborhood, city, or anchor location should Studio search around?",
+          "topology": "planner_specialist",
+          "verifier_outcome": null,
+          "verifier_state": "blocked"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "09f81ce3-8a38-4c96-8f76-81e4c82f5fc7"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "99c902a2-ba99-476b-bfe3-5c6975d7c3cf",
+        "timestamp": "2026-04-16T19:44:17.628054487+00:00",
+        "thread_id": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "Near Williamsburg, Brooklyn."
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "Near Williamsburg, Brooklyn."
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "0ecd6595-29bc-4e1b-b5e5-1daa17c8d917",
+        "timestamp": "2026-04-16T19:44:26.181211519+00:00",
+        "thread_id": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+        "step_index": 2,
+        "event_type": "RECEIPT",
+        "title": "Studio route decision",
+        "digest": {
+          "domain_policy_bundle": {
+            "clarificationPolicy": {
+              "assumedBindings": [
+                "places.location_scope"
+              ],
+              "blockingSlots": [
+                "category"
+              ],
+              "mode": "block_until_clarified",
+              "rationale": "Places routes clarify only when the category or anchor location is still unresolved."
+            },
+            "fallbackPolicy": {
+              "fallbackLanes": [],
+              "mode": "block_until_clarified",
+              "primaryLane": "conversation",
+              "rationale": "Places stays in its specialized lane unless search scope is unresolved or a ranked fallback is explicitly required.",
+              "triggerSignals": [
+                "retained_widget_state_applied"
+              ]
+            },
+            "policyContract": {
+              "bindings": [
+                "lane_frame",
+                "request_frame",
+                "source_selection",
+                "route_decision.effective_tool_surface",
+                "domain_policy_bundle"
+              ],
+              "hiddenInstructionDependency": false,
+              "rationale": "Lane choice, fallback posture, source ranking, presentation, and verification are retained as typed runtime receipts."
+            },
+            "presentationPolicy": {
+              "primarySurface": "places_widget",
+              "rationale": "Places answers should keep the map-oriented parity surface so ranking and anchor scope stay visible.",
+              "renderer": "html_iframe",
+              "tabPriority": [
+                "render",
+                "evidence"
+              ],
+              "widgetFamily": "places"
+            },
+            "retainedWidgetState": {
+              "bindings": [
+                {
+                  "key": "places.location_scope",
+                  "source": "request_frame",
+                  "value": "williamsburg, brooklyn"
+                }
+              ],
+              "lastUpdatedAt": null,
+              "widgetFamily": "places"
+            },
+            "riskProfile": {
+              "approvalRequired": false,
+              "reasons": [
+                "place recommendations must stay grounded in the requested location scope",
+                "ranked lists should preserve category and anchor assumptions",
+                "ranked place recommendations should stay grounded in the requested location scope"
+              ],
+              "sensitivity": "medium",
+              "userVisibleGuardrails": [
+                "Show the selected search anchor and ranking source before answering."
+              ]
+            },
+            "sourceRanking": [
+              {
+                "rank": 1,
+                "rationale": "The specialized places surface outranks broad search because it preserves anchor scope, category, and ranked map results.",
+                "source": "artifact_context"
+              },
+              {
+                "rank": 2,
+                "rationale": "Conversation context and web search remain ordered fallbacks when the places surface cannot satisfy the scope.",
+                "source": "conversation_context"
+              }
+            ],
+            "transformationPolicy": {
+              "orderedSteps": [
+                "resolve_category",
+                "resolve_anchor_location",
+                "rank_places",
+                "project_map_surface"
+              ],
+              "outputShape": "places_recommendation_list",
+              "rationale": "Places turns transform ranked map results into a recommendation surface with retained search context."
+            },
+            "verificationContract": {
+              "completionGate": "blocked_on_clarification",
+              "requiredChecks": [
+                "place_category_resolved",
+                "location_scope_resolved",
+                "places_surface_rendered"
+              ],
+              "strategy": "places_scope_and_presentation"
+            }
+          },
+          "lane_frame": {
+            "activeArtifactFollowUp": true,
+            "currentnessPressure": true,
+            "laneConfidence": 0.8999999761581421,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the place category and anchor location before searching the map surface.",
+            "primaryLane": "conversation",
+            "secondaryLanes": [],
+            "toolWidgetFamily": "places",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:places",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface",
+                "retained_widget_state_applied",
+                "request_frame_clarification_required",
+                "request_frame:places"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a places lane with category and anchor-location semantics.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "blocked",
+                "summary": "What kind of place should Studio look for?"
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "resolve_clarification",
+                "category",
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "Studio finishes the selected lane without hiding blockers or substitutions."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "blocked",
+              "successCriteria": [
+                "Finish the selected Studio lane truthfully."
+              ],
+              "title": "Near Williamsburg, Brooklyn."
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the places request frame",
+                "laneFamily": "conversation",
+                "status": "blocked",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "conversation",
+                "status": "blocked",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "blocked",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "category": null,
+            "clarificationRequiredSlots": [
+              "category"
+            ],
+            "kind": "places",
+            "locationScope": "williamsburg, brooklyn",
+            "missingSlots": [
+              "category"
+            ],
+            "searchAnchor": "williamsburg, brooklyn"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": "d0c99c29-e89b-46c9-be9c-d26eb5d5ff4a",
+            "activeLane": "conversation",
+            "activeToolWidgetFamily": "places",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "artifact_context",
+            "unresolvedClarificationQuestion": "What kind of place should Studio look for?"
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "clarification_required",
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:places",
+                "route_hint:no_persistent_artifact_requested",
+                "route_hint:shared_answer_surface",
+                "route_hint:retained_widget_state_applied",
+                "route_hint:request_frame_clarification_required"
+              ],
+              "primary_tools": [],
+              "projected_tools": []
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "general",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "general",
+          "selected_route": "conversation_single_pass",
+          "source_selection": {
+            "candidateSources": [
+              "artifact_context",
+              "conversation_context"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": "places execution is blocked until anchor or category scope is clarified",
+            "selectedSource": "artifact_context"
+          },
+          "topology": "single_agent",
+          "verifier_outcome": null,
+          "verifier_state": "blocked"
+        },
+        "details": {
+          "lane_frame": {
+            "activeArtifactFollowUp": true,
+            "currentnessPressure": true,
+            "laneConfidence": 0.8999999761581421,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Resolve the place category and anchor location before searching the map surface.",
+            "primaryLane": "conversation",
+            "secondaryLanes": [],
+            "toolWidgetFamily": "places",
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "tool_widget:places",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface",
+                "retained_widget_state_applied",
+                "request_frame_clarification_required",
+                "request_frame:places"
+              ],
+              "fromLane": null,
+              "reason": "The prompt maps to a places lane with category and anchor-location semantics.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": {
+            "checkpoints": [
+              {
+                "checkpointId": "route_contract",
+                "label": "Route contract recorded",
+                "status": "complete",
+                "summary": "Studio captured a typed route, source, and lane contract."
+              },
+              {
+                "checkpointId": "lane_readiness",
+                "label": "Lane readiness",
+                "status": "blocked",
+                "summary": "What kind of place should Studio look for?"
+              }
+            ],
+            "completionInvariant": {
+              "outstandingRequirements": [
+                "resolve_clarification",
+                "category",
+                "execute_lane",
+                "deliver_response"
+              ],
+              "satisfied": false,
+              "summary": "Studio finishes the selected lane without hiding blockers or substitutions."
+            },
+            "objective": {
+              "objectiveId": "studio_objective",
+              "status": "blocked",
+              "successCriteria": [
+                "Finish the selected Studio lane truthfully."
+              ],
+              "title": "Near Williamsburg, Brooklyn."
+            },
+            "tasks": [
+              {
+                "dependsOn": [],
+                "label": "Resolve the places request frame",
+                "laneFamily": "conversation",
+                "status": "blocked",
+                "summary": "Studio should make the lane contract explicit before execution.",
+                "taskId": "lane_inputs"
+              },
+              {
+                "dependsOn": [
+                  "lane_inputs"
+                ],
+                "label": "Execute the selected lane",
+                "laneFamily": "conversation",
+                "status": "blocked",
+                "summary": null,
+                "taskId": "lane_execute"
+              },
+              {
+                "dependsOn": [
+                  "lane_execute"
+                ],
+                "label": "Finish the response truthfully",
+                "laneFamily": "conversation",
+                "status": "blocked",
+                "summary": null,
+                "taskId": "lane_finish"
+              }
+            ]
+          },
+          "planner_authority": "kernel",
+          "request_frame": {
+            "category": null,
+            "clarificationRequiredSlots": [
+              "category"
+            ],
+            "kind": "places",
+            "locationScope": "williamsburg, brooklyn",
+            "missingSlots": [
+              "category"
+            ],
+            "searchAnchor": "williamsburg, brooklyn"
+          },
+          "retained_lane_state": {
+            "activeArtifactId": "d0c99c29-e89b-46c9-be9c-d26eb5d5ff4a",
+            "activeLane": "conversation",
+            "activeToolWidgetFamily": "places",
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "artifact_context",
+            "unresolvedClarificationQuestion": "What kind of place should Studio look for?"
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": false,
+            "direct_answer_blockers": [
+              "clarification_required",
+              "tool_widget_surface_selected"
+            ],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:tool_widget:places",
+                "route_hint:no_persistent_artifact_requested",
+                "route_hint:shared_answer_surface",
+                "route_hint:retained_widget_state_applied",
+                "route_hint:request_frame_clarification_required"
+              ],
+              "primary_tools": [],
+              "projected_tools": []
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": true,
+            "output_intent": "tool_execution",
+            "route_family": "general",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "general",
+          "selected_route": "conversation_single_pass",
+          "source_selection": {
+            "candidateSources": [
+              "artifact_context",
+              "conversation_context"
+            ],
+            "explicitUserSource": true,
+            "fallbackReason": "places execution is blocked until anchor or category scope is clarified",
+            "selectedSource": "artifact_context"
+          },
+          "summary": "Studio paused before selecting the outcome surface because it needs clarification: What kind of place should Studio look for?",
+          "topology": "single_agent",
+          "verifier_outcome": null,
+          "verifier_state": "blocked"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "99c902a2-ba99-476b-bfe3-5c6975d7c3cf"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "ea2c1c9c-2940-43b7-a857-b4ce0dd65c38",
+        "created_at": "2026-04-16T19:43:53.112242011+00:00",
+        "thread_id": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/ea2c1c9c-2940-43b7-a857-b4ce0dd65c38",
+        "metadata": {
+          "refs": [],
+          "run_id": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      }
+    ],
+    "studio_session": {
+      "sessionId": "9d8b3a2d-4d62-46d2-b316-172eed85460a",
+      "threadId": "437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d",
+      "artifactId": "67e788af-d61d-4533-93ae-3b020236f385",
+      "title": "Conversation route \u00b7 Near Williamsburg, Brooklyn",
+      "summary": "Studio paused before selecting the outcome surface because it needs clarification: What kind of place should Studio look for?",
+      "currentLens": "render",
+      "navigatorBackingMode": "logical",
+      "navigatorNodes": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "description": "Interact with the artifact through its renderer-specific presentation.",
+          "badge": null,
+          "status": null,
+          "lens": "render",
+          "path": "surface/index.html",
+          "children": []
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": "surface/route.md",
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "attachedArtifactIds": [],
+      "availableLenses": [
+        "render",
+        "source",
+        "evidence"
+      ],
+      "materialization": {
+        "version": 7,
+        "requestKind": "conversation",
+        "normalizedIntent": "Near Williamsburg, Brooklyn.",
+        "summary": "Studio paused before selecting the outcome surface because it needs clarification: What kind of place should Studio look for?",
+        "artifactBrief": null,
+        "preparationNeeds": null,
+        "preparedContextResolution": null,
+        "skillDiscoveryResolution": null,
+        "blueprint": null,
+        "artifactIr": null,
+        "selectedSkills": [],
+        "retrievedExemplars": [],
+        "editIntent": null,
+        "candidateSummaries": [],
+        "winningCandidateId": null,
+        "winningCandidateRationale": null,
+        "executionEnvelope": {
+          "version": 1,
+          "strategy": "single_pass",
+          "modeDecision": {
+            "requestedStrategy": "single_pass",
+            "resolvedStrategy": "single_pass",
+            "modeConfidence": 0.93499994,
+            "oneShotSufficiency": 0.945,
+            "ambiguity": 0.100000024,
+            "workGraphSizeEstimate": 1,
+            "hiddenDependencyLikelihood": 0.1,
+            "verificationPressure": 0.1,
+            "revisionCost": 0.1,
+            "evidenceBreadth": 0.1,
+            "mergeBurden": 0.0,
+            "decompositionPayoff": 0.045,
+            "workGraphRequired": false,
+            "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 60000,
+              "maxTokens": 2048,
+              "maxToolCalls": 1,
+              "maxRepairs": 0,
+              "expansionPolicy": "fixed"
+            }
+          },
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 60000,
+            "maxTokens": 2048,
+            "maxToolCalls": 1,
+            "maxRepairs": 0,
+            "expansionPolicy": "fixed"
+          },
+          "executionDomain": "studio_conversation",
+          "domainKind": "conversation",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "blocked",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff",
+              "clarification_gate"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "satisfiedVerificationIds": [],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [
+              "work_item:clarification_gate",
+              "verification:route_verification",
+              "verification:reply_surface"
+            ],
+            "allowsEarlyExit": false
+          },
+          "plan": {
+            "version": 3,
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [
+                "clarification_gate"
+              ],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Conversation handoff",
+                "role": "responder",
+                "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner",
+                  "clarification_gate"
+                ],
+                "blockedOnIds": [
+                  "clarification_gate"
+                ],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "clarification_gate",
+                "title": "Clarification gate",
+                "role": "coordinator",
+                "summary": "Hold the response until the user answers the required clarification questions.",
+                "spawnedFromId": "planner",
+                "readPaths": [
+                  "request",
+                  "clarification_questions"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Clarification questions stay visible.",
+                  "Responder stays blocked until clarification arrives."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": "blocking",
+                "retryBudget": 0,
+                "status": "blocked"
+              }
+            ]
+          },
+          "executionSummary": {
+            "enabled": true,
+            "currentStage": "routing",
+            "executionStage": "dispatch",
+            "activeWorkerRole": null,
+            "totalWorkItems": 3,
+            "completedWorkItems": 2,
+            "failedWorkItems": 1,
+            "verificationStatus": "blocked",
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "workerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "dependency_discovered",
+              "summary": "Selected the conversation route with the single_pass strategy.",
+              "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [
+                "clarification_gate"
+              ],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "What kind of place should Studio look for?"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "clarification_gate",
+              "role": "coordinator",
+              "status": "blocked",
+              "resultKind": "blocked",
+              "summary": "Clarification is required before the shared responder can safely finalize the route.",
+              "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "clarification_questions"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "What kind of place should Studio look for?"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "blocked",
+              "summary": "Conversation stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [
+                "clarification_gate"
+              ],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:places \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface \u00b7 retained_widget_state_applied \u00b7 request_frame_clarification_required"
+              ],
+              "failure": "Clarification is still required before reply handoff can complete."
+            }
+          ],
+          "changeReceipts": [],
+          "mergeReceipts": [],
+          "verificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "blocked",
+              "summary": "Studio blocked execution because clarification is still required.",
+              "details": [
+                "What kind of place should Studio look for?"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "blocked",
+              "summary": "The shared reply lane is blocked until the user answers the clarification.",
+              "details": [
+                "strategy:single_pass",
+                "tool_widget:places",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface",
+                "retained_widget_state_applied",
+                "request_frame_clarification_required"
+              ]
+            }
+          ],
+          "graphMutationReceipts": [
+            {
+              "id": "clarification-gate-spawned",
+              "mutationKind": "subtask_spawned",
+              "status": "applied",
+              "summary": "The planner discovered a clarification dependency and spawned a gate before reply handoff.",
+              "triggeredByWorkItemId": "planner",
+              "affectedWorkItemIds": [
+                "clarification_gate",
+                "handoff"
+              ],
+              "details": [
+                "What kind of place should Studio look for?"
+              ]
+            }
+          ],
+          "dispatchBatches": [
+            {
+              "id": "dispatch-batch-1",
+              "sequence": 1,
+              "status": "planned",
+              "workItemIds": [
+                "clarification_gate"
+              ],
+              "deferredWorkItemIds": [],
+              "blockedWorkItemIds": [],
+              "details": []
+            }
+          ],
+          "repairReceipts": [],
+          "replanReceipts": [
+            {
+              "id": "clarification-replan",
+              "status": "blocked",
+              "summary": "Shared execution widened the plan with a clarification gate before the responder could finalize.",
+              "triggeredByWorkItemId": "planner",
+              "spawnedWorkItemIds": [
+                "clarification_gate"
+              ],
+              "blockedWorkItemIds": [
+                "handoff"
+              ],
+              "details": [
+                "What kind of place should Studio look for?"
+              ]
+            }
+          ],
+          "budgetSummary": {
+            "plannedWorkerCount": 3,
+            "dispatchedWorkerCount": 1,
+            "tokenBudget": null,
+            "tokenUsage": null,
+            "wallClockMs": null,
+            "coordinationOverheadMs": null,
+            "status": "blocked"
+          },
+          "livePreviews": []
+        },
+        "swarmPlan": {
+          "version": 3,
+          "strategy": "single_pass",
+          "executionDomain": "studio_conversation",
+          "adapterLabel": "conversation_single_pass_v1",
+          "parallelismMode": "sequential_by_default",
+          "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+          "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+          "decompositionType": "small_graph_functional_decomposition",
+          "firstFrontierIds": [
+            "handoff"
+          ],
+          "spawnConditions": [
+            "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+          ],
+          "pruneConditions": [
+            "Prune clarification work once the reply handoff is already unblocked."
+          ],
+          "mergeStrategy": "deterministic_reply_surface_projection",
+          "verificationStrategy": "route_truth_before_reply",
+          "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [
+              "clarification_gate"
+            ],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_truth"
+            ],
+            "satisfiedVerificationIds": [
+              "route_truth"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": true
+          },
+          "workItems": [
+            {
+              "id": "planner",
+              "title": "Outcome planner",
+              "role": "planner",
+              "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Outcome route is explicit.",
+                "Execution strategy is explicit."
+              ],
+              "dependencyIds": [],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            },
+            {
+              "id": "handoff",
+              "title": "Conversation handoff",
+              "role": "responder",
+              "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Studio reply remains truthful about the chosen surface.",
+                "No artifact renderer is implied when none was invoked."
+              ],
+              "dependencyIds": [
+                "planner",
+                "clarification_gate"
+              ],
+              "blockedOnIds": [
+                "clarification_gate"
+              ],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            },
+            {
+              "id": "clarification_gate",
+              "title": "Clarification gate",
+              "role": "coordinator",
+              "summary": "Hold the response until the user answers the required clarification questions.",
+              "spawnedFromId": "planner",
+              "readPaths": [
+                "request",
+                "clarification_questions"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Clarification questions stay visible.",
+                "Responder stays blocked until clarification arrives."
+              ],
+              "dependencyIds": [
+                "planner"
+              ],
+              "blockedOnIds": [],
+              "verificationPolicy": "blocking",
+              "retryBudget": 0,
+              "status": "blocked"
+            }
+          ]
+        },
+        "swarmExecution": {
+          "enabled": true,
+          "currentStage": "routing",
+          "executionStage": "dispatch",
+          "activeWorkerRole": null,
+          "totalWorkItems": 3,
+          "completedWorkItems": 2,
+          "failedWorkItems": 1,
+          "verificationStatus": "blocked",
+          "strategy": "single_pass",
+          "executionDomain": "studio_conversation",
+          "adapterLabel": "conversation_single_pass_v1",
+          "parallelismMode": "sequential_by_default"
+        },
+        "swarmWorkerReceipts": [
+          {
+            "workItemId": "planner",
+            "role": "planner",
+            "status": "succeeded",
+            "resultKind": "dependency_discovered",
+            "summary": "Selected the conversation route with the single_pass strategy.",
+            "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+            "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "route_context"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [
+              "clarification_gate"
+            ],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "What kind of place should Studio look for?"
+            ],
+            "failure": null
+          },
+          {
+            "workItemId": "clarification_gate",
+            "role": "coordinator",
+            "status": "blocked",
+            "resultKind": "blocked",
+            "summary": "Clarification is required before the shared responder can safely finalize the route.",
+            "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+            "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "clarification_questions"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "What kind of place should Studio look for?"
+            ],
+            "failure": null
+          },
+          {
+            "workItemId": "handoff",
+            "role": "responder",
+            "status": "succeeded",
+            "resultKind": "blocked",
+            "summary": "Conversation stayed primary and no artifact renderer was launched.",
+            "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+            "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "execution_plan"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [
+              "clarification_gate"
+            ],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+              "tool_widget:places \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface \u00b7 retained_widget_state_applied \u00b7 request_frame_clarification_required"
+            ],
+            "failure": "Clarification is still required before reply handoff can complete."
+          }
+        ],
+        "swarmChangeReceipts": [],
+        "swarmMergeReceipts": [],
+        "swarmVerificationReceipts": [
+          {
+            "id": "route_verification",
+            "kind": "route_verification",
+            "status": "blocked",
+            "summary": "Studio blocked execution because clarification is still required.",
+            "details": [
+              "What kind of place should Studio look for?"
+            ]
+          },
+          {
+            "id": "reply_surface",
+            "kind": "reply_surface",
+            "status": "blocked",
+            "summary": "The shared reply lane is blocked until the user answers the clarification.",
+            "details": [
+              "strategy:single_pass",
+              "tool_widget:places",
+              "no_persistent_artifact_requested",
+              "shared_answer_surface",
+              "retained_widget_state_applied",
+              "request_frame_clarification_required"
+            ]
+          }
+        ],
+        "renderEvaluation": null,
+        "judge": null,
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "fallbackUsed": false,
+        "uxLifecycle": "judged",
+        "failure": null,
+        "navigatorNodes": [
+          {
+            "id": "render",
+            "label": "Render",
+            "kind": "render",
+            "description": "Interact with the artifact through its renderer-specific presentation.",
+            "badge": null,
+            "status": null,
+            "lens": "render",
+            "path": "surface/index.html",
+            "children": []
+          },
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "description": "Inspect the source form of the artifact.",
+            "badge": null,
+            "status": null,
+            "lens": "source",
+            "path": "surface/route.md",
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "fileWrites": [],
+        "commandIntents": [],
+        "previewIntent": null,
+        "verificationSteps": [
+          {
+            "id": "route",
+            "label": "Verify route",
+            "kind": "route",
+            "status": "success"
+          },
+          {
+            "id": "reply_surface",
+            "label": "Verify reply surface",
+            "kind": "reply_surface",
+            "status": "blocked"
+          }
+        ],
+        "pipelineSteps": [
+          {
+            "id": "intake",
+            "stage": "plan",
+            "label": "Intake",
+            "status": "complete",
+            "summary": "Studio captured the request and preserved it as a typed outcome turn.",
+            "outputs": [
+              "Near Williamsburg, Brooklyn."
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "routing",
+            "stage": "dispatch",
+            "label": "Outcome routing",
+            "status": "blocked",
+            "summary": "The typed router intentionally kept this request on the conversation surface.",
+            "outputs": [
+              "conversation",
+              "conversation",
+              "strategy:single_pass",
+              "tool_widget:places",
+              "no_persistent_artifact_requested",
+              "shared_answer_surface"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "planner",
+            "stage": "plan",
+            "label": "Planner",
+            "status": "blocked",
+            "summary": "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+            "outputs": [
+              "single_pass",
+              "work_items:3",
+              "sequential_by_default"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "swarm_execution",
+            "stage": "work",
+            "label": "Shared execution",
+            "status": "blocked",
+            "summary": "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+            "outputs": [
+              "worker_receipts:3",
+              "progress:2/3",
+              "adapter:conversation_single_pass_v1",
+              "dispatch_batches:1",
+              "graph_mutations:1",
+              "replans:1"
+            ],
+            "verificationGate": "Shared execution receipts must remain truthful about the active outcome surface."
+          },
+          {
+            "id": "verification",
+            "stage": "verify",
+            "label": "Verification",
+            "status": "blocked",
+            "summary": "Studio verified the selected non-artifact route before composing the reply state.",
+            "outputs": [
+              "route_verification (blocked)",
+              "reply_surface (blocked)"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          },
+          {
+            "id": "reply",
+            "stage": "finalize",
+            "label": "Reply",
+            "status": "blocked",
+            "summary": "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+            "outputs": [
+              "Studio paused before selecting the outcome surface because it needs clarification: What kind of place should Studio look for?",
+              "tool_widget:places",
+              "no_persistent_artifact_requested",
+              "shared_answer_surface"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          }
+        ],
+        "runtimeNarrationEvents": [],
+        "notes": [
+          "Studio intentionally kept this request off the artifact materialization path.",
+          "The shared execution envelope still records plan, worker, and verification state.",
+          "No renderer-specific fallback artifact was injected for this route.",
+          "routing_hints:tool_widget:places | no_persistent_artifact_requested | shared_answer_surface | retained_widget_state_applied | request_frame_clarification_required",
+          "Route family: general",
+          "Output intent: tool_execution"
+        ]
+      },
+      "outcomeRequest": {
+        "requestId": "aa3aff0c-182e-491f-8077-c5143884c191",
+        "rawPrompt": "Near Williamsburg, Brooklyn.",
+        "activeArtifactId": "d0c99c29-e89b-46c9-be9c-d26eb5d5ff4a",
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "executionModeDecision": {
+          "requestedStrategy": "single_pass",
+          "resolvedStrategy": "single_pass",
+          "modeConfidence": 0.93499994,
+          "oneShotSufficiency": 0.945,
+          "ambiguity": 0.100000024,
+          "workGraphSizeEstimate": 1,
+          "hiddenDependencyLikelihood": 0.1,
+          "verificationPressure": 0.1,
+          "revisionCost": 0.1,
+          "evidenceBreadth": 0.1,
+          "mergeBurden": 0.0,
+          "decompositionPayoff": 0.045,
+          "workGraphRequired": false,
+          "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 60000,
+            "maxTokens": 2048,
+            "maxToolCalls": 1,
+            "maxRepairs": 0,
+            "expansionPolicy": "fixed"
+          }
+        },
+        "confidence": 0.9,
+        "needsClarification": true,
+        "clarificationQuestions": [
+          "What kind of place should Studio look for?"
+        ],
+        "routingHints": [
+          "tool_widget:places",
+          "no_persistent_artifact_requested",
+          "shared_answer_surface",
+          "retained_widget_state_applied",
+          "request_frame_clarification_required"
+        ],
+        "laneFrame": {
+          "primaryLane": "conversation",
+          "secondaryLanes": [],
+          "primaryGoal": "Resolve the place category and anchor location before searching the map surface.",
+          "toolWidgetFamily": "places",
+          "currentnessPressure": true,
+          "workspaceGroundingRequired": false,
+          "persistentDeliverableRequested": false,
+          "activeArtifactFollowUp": true,
+          "laneConfidence": 0.9
+        },
+        "requestFrame": {
+          "kind": "places",
+          "searchAnchor": "williamsburg, brooklyn",
+          "category": null,
+          "locationScope": "williamsburg, brooklyn",
+          "missingSlots": [
+            "category"
+          ],
+          "clarificationRequiredSlots": [
+            "category"
+          ]
+        },
+        "sourceSelection": {
+          "candidateSources": [
+            "artifact_context",
+            "conversation_context"
+          ],
+          "selectedSource": "artifact_context",
+          "explicitUserSource": true,
+          "fallbackReason": "places execution is blocked until anchor or category scope is clarified"
+        },
+        "retainedLaneState": {
+          "activeLane": "conversation",
+          "activeToolWidgetFamily": "places",
+          "activeArtifactId": "d0c99c29-e89b-46c9-be9c-d26eb5d5ff4a",
+          "unresolvedClarificationQuestion": null,
+          "selectedProviderFamily": null,
+          "selectedProviderRouteLabel": null,
+          "selectedSourceFamily": "artifact_context"
+        },
+        "laneTransitions": [
+          {
+            "transitionKind": "planned",
+            "fromLane": null,
+            "toLane": "conversation",
+            "reason": "The prompt maps to a places lane with category and anchor-location semantics.",
+            "evidence": [
+              "tool_widget:places",
+              "no_persistent_artifact_requested",
+              "shared_answer_surface",
+              "retained_widget_state_applied",
+              "request_frame:places"
+            ]
+          }
+        ],
+        "orchestrationState": null,
+        "artifact": null
+      },
+      "artifactManifest": {
+        "artifactId": "67e788af-d61d-4533-93ae-3b020236f385",
+        "title": "Conversation route \u00b7 Near Williamsburg, Brooklyn",
+        "artifactClass": "document",
+        "renderer": "html_iframe",
+        "primaryTab": "render",
+        "tabs": [
+          {
+            "id": "render",
+            "label": "Render",
+            "kind": "render",
+            "renderer": "html_iframe",
+            "filePath": "surface/index.html",
+            "lens": "render"
+          },
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "renderer": null,
+            "filePath": "surface/route.md",
+            "lens": "source"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [
+          {
+            "path": "surface/index.html",
+            "mime": "text/html",
+            "role": "primary",
+            "renderable": true,
+            "downloadable": false,
+            "artifactId": null,
+            "externalUrl": "data:text/html;base64,PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KICA8aGVhZD4KICAgIDxtZXRhIGNoYXJzZXQ9InV0Zi04IiAvPgogICAgPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xIiAvPgogICAgPHRpdGxlPkNvbnZlcnNhdGlvbiByb3V0ZSDCtyBOZWFyIFdpbGxpYW1zYnVyZywgQnJvb2tseW48L3RpdGxlPgogICAgPHN0eWxlPgogICAgICA6cm9vdCB7CiAgICAgICAgY29sb3Itc2NoZW1lOiBkYXJrOwogICAgICAgIC0tYmc6ICMwZDExMTc7CiAgICAgICAgLS1wYW5lbDogIzExMTgyMTsKICAgICAgICAtLW11dGVkOiAjOGI5OWFkOwogICAgICAgIC0tdGV4dDogI2VjZjFmNzsKICAgICAgICAtLWxpbmU6IHJnYmEoMjU1LDI1NSwyNTUsMC4wOCk7CiAgICAgICAgLS1hY2NlbnQ6ICM1OWIzZmY7CiAgICAgIH0KICAgICAgYm9keSB7CiAgICAgICAgbWFyZ2luOiAwOwogICAgICAgIHBhZGRpbmc6IDI0cHg7CiAgICAgICAgZm9udC1mYW1pbHk6IHVpLXNhbnMtc2VyaWYsIHN5c3RlbS11aSwgc2Fucy1zZXJpZjsKICAgICAgICBiYWNrZ3JvdW5kOiByYWRpYWwtZ3JhZGllbnQoY2lyY2xlIGF0IHRvcCwgIzE4MjMzNCAwJSwgdmFyKC0tYmcpIDYwJSk7CiAgICAgICAgY29sb3I6IHZhcigtLXRleHQpOwogICAgICB9CiAgICAgIC5zaGVsbCB7CiAgICAgICAgbWF4LXdpZHRoOiA5MjBweDsKICAgICAgICBtYXJnaW46IDAgYXV0bzsKICAgICAgICBiYWNrZ3JvdW5kOiByZ2JhKDEwLCAxNCwgMjAsIDAuOCk7CiAgICAgICAgYm9yZGVyOiAxcHggc29saWQgdmFyKC0tbGluZSk7CiAgICAgICAgYm9yZGVyLXJhZGl1czogMjBweDsKICAgICAgICBwYWRkaW5nOiAyNHB4OwogICAgICAgIGJveC1zaGFkb3c6IDAgMjRweCA2MHB4IHJnYmEoMCwgMCwgMCwgMC4yOCk7CiAgICAgIH0KICAgICAgLmV5ZWJyb3cgewogICAgICAgIGZvbnQtc2l6ZTogMTJweDsKICAgICAgICB0ZXh0LXRyYW5zZm9ybTogdXBwZXJjYXNlOwogICAgICAgIGxldHRlci1zcGFjaW5nOiAwLjEyZW07CiAgICAgICAgY29sb3I6IHZhcigtLW11dGVkKTsKICAgICAgfQogICAgICBoMSB7CiAgICAgICAgbWFyZ2luOiA4cHggMCAwOwogICAgICAgIGZvbnQtc2l6ZTogMjhweDsKICAgICAgfQogICAgICAuY2hpcHMgewogICAgICAgIGRpc3BsYXk6IGZsZXg7CiAgICAgICAgZmxleC13cmFwOiB3cmFwOwogICAgICAgIGdhcDogOHB4OwogICAgICAgIG1hcmdpbjogMThweCAwIDIwcHg7CiAgICAgIH0KICAgICAgLmNoaXAgewogICAgICAgIGZvbnQtc2l6ZTogMTJweDsKICAgICAgICBwYWRkaW5nOiA2cHggMTBweDsKICAgICAgICBib3JkZXItcmFkaXVzOiA5OTlweDsKICAgICAgICBib3JkZXI6IDFweCBzb2xpZCB2YXIoLS1saW5lKTsKICAgICAgICBiYWNrZ3JvdW5kOiByZ2JhKDI1NSwyNTUsMjU1LDAuMDQpOwogICAgICB9CiAgICAgIHNlY3Rpb24gewogICAgICAgIG1hcmdpbi10b3A6IDIycHg7CiAgICAgICAgcGFkZGluZy10b3A6IDE4cHg7CiAgICAgICAgYm9yZGVyLXRvcDogMXB4IHNvbGlkIHZhcigtLWxpbmUpOwogICAgICB9CiAgICAgIGgzIHsKICAgICAgICBtYXJnaW46IDAgMCAxMHB4OwogICAgICAgIGZvbnQtc2l6ZTogMTRweDsKICAgICAgICBsZXR0ZXItc3BhY2luZzogMC4wNGVtOwogICAgICAgIHRleHQtdHJhbnNmb3JtOiB1cHBlcmNhc2U7CiAgICAgICAgY29sb3I6IHZhcigtLW11dGVkKTsKICAgICAgfQogICAgICBwLCBsaSB7CiAgICAgICAgbGluZS1oZWlnaHQ6IDEuNTU7CiAgICAgIH0KICAgICAgY29kZSB7CiAgICAgICAgY29sb3I6IHZhcigtLWFjY2VudCk7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9oZWFkPgogIDxib2R5PgogICAgPG1haW4gY2xhc3M9InNoZWxsIj4KICAgICAgPGRpdiBjbGFzcz0iZXllYnJvdyI+U3R1ZGlvIHBhcml0eSBzdXJmYWNlPC9kaXY+CiAgICAgIDxoMT5Db252ZXJzYXRpb24gcm91dGUgwrcgTmVhciBXaWxsaWFtc2J1cmcsIEJyb29rbHluPC9oMT4KICAgICAgPGRpdiBjbGFzcz0iY2hpcHMiPjxzcGFuIGNsYXNzPSJjaGlwIj5Sb3V0ZTogZ2VuZXJhbDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+T3V0cHV0OiB0b29sX2V4ZWN1dGlvbjwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+U3VyZmFjZTogcGxhY2VzX3dpZGdldDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+cmlzazogbWVkaXVtPC9zcGFuPjwvZGl2PgogICAgICA8c2VjdGlvbj4KICAgICAgICA8aDM+T3V0Y29tZTwvaDM+CiAgICAgICAgPHA+U3R1ZGlvIHBhdXNlZCBiZWZvcmUgc2VsZWN0aW5nIHRoZSBvdXRjb21lIHN1cmZhY2UgYmVjYXVzZSBpdCBuZWVkcyBjbGFyaWZpY2F0aW9uOiBXaGF0IGtpbmQgb2YgcGxhY2Ugc2hvdWxkIFN0dWRpbyBsb29rIGZvcj88L3A+CiAgICAgIDwvc2VjdGlvbj4KICAgICAgPHNlY3Rpb24+PGgzPlNvdXJjZSByYW5raW5nPC9oMz48b2w+PGxpPjxzdHJvbmc+QXJ0aWZhY3RDb250ZXh0PC9zdHJvbmc+IMK3IFRoZSBzcGVjaWFsaXplZCBwbGFjZXMgc3VyZmFjZSBvdXRyYW5rcyBicm9hZCBzZWFyY2ggYmVjYXVzZSBpdCBwcmVzZXJ2ZXMgYW5jaG9yIHNjb3BlLCBjYXRlZ29yeSwgYW5kIHJhbmtlZCBtYXAgcmVzdWx0cy48L2xpPjxsaT48c3Ryb25nPkNvbnZlcnNhdGlvbkNvbnRleHQ8L3N0cm9uZz4gwrcgQ29udmVyc2F0aW9uIGNvbnRleHQgYW5kIHdlYiBzZWFyY2ggcmVtYWluIG9yZGVyZWQgZmFsbGJhY2tzIHdoZW4gdGhlIHBsYWNlcyBzdXJmYWNlIGNhbm5vdCBzYXRpc2Z5IHRoZSBzY29wZS48L2xpPjwvb2w+PC9zZWN0aW9uPgogICAgICA8c2VjdGlvbj48aDM+Q2xhcmlmaWNhdGlvbjwvaDM+PHVsPjxsaT5XaGF0IGtpbmQgb2YgcGxhY2Ugc2hvdWxkIFN0dWRpbyBsb29rIGZvcj88L2xpPjwvdWw+PC9zZWN0aW9uPgogICAgPC9tYWluPgogICAgPHNjcmlwdD4KICAgICAgY29uc3Qgd2lkZ2V0U3RhdGUgPSB7IndpZGdldEZhbWlseSI6InBsYWNlcyIsImJpbmRpbmdzIjpbeyJrZXkiOiJwbGFjZXMubG9jYXRpb25fc2NvcGUiLCJ2YWx1ZSI6IndpbGxpYW1zYnVyZywgYnJvb2tseW4iLCJzb3VyY2UiOiJyZXF1ZXN0X2ZyYW1lIn1dLCJsYXN0VXBkYXRlZEF0IjpudWxsfTsKICAgICAgaWYgKHdpZGdldFN0YXRlKSB7CiAgICAgICAgd2luZG93LnBhcmVudC5wb3N0TWVzc2FnZSh7CiAgICAgICAgICBfX3N0dWRpb1dpZGdldFN0YXRlOiB0cnVlLAogICAgICAgICAgd2lkZ2V0U3RhdGUsCiAgICAgICAgfSwgIioiKTsKICAgICAgfQogICAgPC9zY3JpcHQ+CiAgPC9ib2R5Pgo8L2h0bWw+"
+          },
+          {
+            "path": "surface/route.md",
+            "mime": "text/markdown",
+            "role": "source",
+            "renderable": false,
+            "downloadable": false,
+            "artifactId": null,
+            "externalUrl": "data:text/markdown;base64,IyBDb252ZXJzYXRpb24gcm91dGUgwrcgTmVhciBXaWxsaWFtc2J1cmcsIEJyb29rbHluCgpTdHVkaW8gcGF1c2VkIGJlZm9yZSBzZWxlY3RpbmcgdGhlIG91dGNvbWUgc3VyZmFjZSBiZWNhdXNlIGl0IG5lZWRzIGNsYXJpZmljYXRpb246IFdoYXQga2luZCBvZiBwbGFjZSBzaG91bGQgU3R1ZGlvIGxvb2sgZm9yPwoKIyMgUm91dGUgY29udHJhY3QKLSByb3V0ZSBmYW1pbHk6IGdlbmVyYWwKLSBvdXRwdXQgaW50ZW50OiB0b29sX2V4ZWN1dGlvbgotIGRpcmVjdCBhbnN3ZXIgYWxsb3dlZDogZmFsc2UKLSBwcmVzZW50YXRpb24gc3VyZmFjZTogcGxhY2VzX3dpZGdldAoKIyMgU291cmNlIHJhbmtpbmcKLSAxLiBBcnRpZmFjdENvbnRleHQ6IFRoZSBzcGVjaWFsaXplZCBwbGFjZXMgc3VyZmFjZSBvdXRyYW5rcyBicm9hZCBzZWFyY2ggYmVjYXVzZSBpdCBwcmVzZXJ2ZXMgYW5jaG9yIHNjb3BlLCBjYXRlZ29yeSwgYW5kIHJhbmtlZCBtYXAgcmVzdWx0cy4KLSAyLiBDb252ZXJzYXRpb25Db250ZXh0OiBDb252ZXJzYXRpb24gY29udGV4dCBhbmQgd2ViIHNlYXJjaCByZW1haW4gb3JkZXJlZCBmYWxsYmFja3Mgd2hlbiB0aGUgcGxhY2VzIHN1cmZhY2UgY2Fubm90IHNhdGlzZnkgdGhlIHNjb3BlLgoKIyMgUmV0YWluZWQgd2lkZ2V0IHN0YXRlCi0gcGxhY2VzLmxvY2F0aW9uX3Njb3BlID0gd2lsbGlhbXNidXJnLCBicm9va2x5biAocmVxdWVzdF9mcmFtZSkKCiMjIENsYXJpZmljYXRpb24KLSBXaGF0IGtpbmQgb2YgcGxhY2Ugc2hvdWxkIFN0dWRpbyBsb29rIGZvcj8="
+          }
+        ],
+        "verification": {
+          "status": "blocked",
+          "lifecycleState": "blocked",
+          "summary": "Studio paused before selecting the outcome surface because it needs clarification: What kind of place should Studio look for?",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null
+        },
+        "storage": null
+      },
+      "verifiedReply": {
+        "status": "blocked",
+        "lifecycleState": "blocked",
+        "title": "Conversation route \u00b7 Near Williamsburg, Brooklyn",
+        "summary": "Studio paused before selecting the outcome surface because it needs clarification: What kind of place should Studio look for?",
+        "evidence": [
+          "outcome:conversation",
+          "strategy:single_pass",
+          "provenance:openai-compatible",
+          "route_hint:tool_widget:places",
+          "route_hint:no_persistent_artifact_requested",
+          "route_hint:shared_answer_surface",
+          "route_hint:retained_widget_state_applied",
+          "route_hint:request_frame_clarification_required"
+        ],
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "failure": null,
+        "updatedAt": "2026-04-16T19:44:26.180654345+00:00"
+      },
+      "lifecycleState": "blocked",
+      "status": "blocked",
+      "activeRevisionId": "4ed68156-f85b-4703-8584-aef5b66b219d",
+      "revisions": [
+        {
+          "revisionId": "4ed68156-f85b-4703-8584-aef5b66b219d",
+          "parentRevisionId": null,
+          "branchId": "main",
+          "branchLabel": "Main",
+          "prompt": "Near Williamsburg, Brooklyn.",
+          "createdAt": "2026-04-16T19:44:26.180774305+00:00",
+          "uxLifecycle": "judged",
+          "artifactManifest": {
+            "artifactId": "67e788af-d61d-4533-93ae-3b020236f385",
+            "title": "Conversation route \u00b7 Near Williamsburg, Brooklyn",
+            "artifactClass": "document",
+            "renderer": "html_iframe",
+            "primaryTab": "render",
+            "tabs": [
+              {
+                "id": "render",
+                "label": "Render",
+                "kind": "render",
+                "renderer": "html_iframe",
+                "filePath": "surface/index.html",
+                "lens": "render"
+              },
+              {
+                "id": "source",
+                "label": "Source",
+                "kind": "source",
+                "renderer": null,
+                "filePath": "surface/route.md",
+                "lens": "source"
+              },
+              {
+                "id": "evidence",
+                "label": "Evidence",
+                "kind": "evidence",
+                "renderer": null,
+                "filePath": null,
+                "lens": "evidence"
+              }
+            ],
+            "files": [
+              {
+                "path": "surface/index.html",
+                "mime": "text/html",
+                "role": "primary",
+                "renderable": true,
+                "downloadable": false,
+                "artifactId": null,
+                "externalUrl": "data:text/html;base64,PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KICA8aGVhZD4KICAgIDxtZXRhIGNoYXJzZXQ9InV0Zi04IiAvPgogICAgPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xIiAvPgogICAgPHRpdGxlPkNvbnZlcnNhdGlvbiByb3V0ZSDCtyBOZWFyIFdpbGxpYW1zYnVyZywgQnJvb2tseW48L3RpdGxlPgogICAgPHN0eWxlPgogICAgICA6cm9vdCB7CiAgICAgICAgY29sb3Itc2NoZW1lOiBkYXJrOwogICAgICAgIC0tYmc6ICMwZDExMTc7CiAgICAgICAgLS1wYW5lbDogIzExMTgyMTsKICAgICAgICAtLW11dGVkOiAjOGI5OWFkOwogICAgICAgIC0tdGV4dDogI2VjZjFmNzsKICAgICAgICAtLWxpbmU6IHJnYmEoMjU1LDI1NSwyNTUsMC4wOCk7CiAgICAgICAgLS1hY2NlbnQ6ICM1OWIzZmY7CiAgICAgIH0KICAgICAgYm9keSB7CiAgICAgICAgbWFyZ2luOiAwOwogICAgICAgIHBhZGRpbmc6IDI0cHg7CiAgICAgICAgZm9udC1mYW1pbHk6IHVpLXNhbnMtc2VyaWYsIHN5c3RlbS11aSwgc2Fucy1zZXJpZjsKICAgICAgICBiYWNrZ3JvdW5kOiByYWRpYWwtZ3JhZGllbnQoY2lyY2xlIGF0IHRvcCwgIzE4MjMzNCAwJSwgdmFyKC0tYmcpIDYwJSk7CiAgICAgICAgY29sb3I6IHZhcigtLXRleHQpOwogICAgICB9CiAgICAgIC5zaGVsbCB7CiAgICAgICAgbWF4LXdpZHRoOiA5MjBweDsKICAgICAgICBtYXJnaW46IDAgYXV0bzsKICAgICAgICBiYWNrZ3JvdW5kOiByZ2JhKDEwLCAxNCwgMjAsIDAuOCk7CiAgICAgICAgYm9yZGVyOiAxcHggc29saWQgdmFyKC0tbGluZSk7CiAgICAgICAgYm9yZGVyLXJhZGl1czogMjBweDsKICAgICAgICBwYWRkaW5nOiAyNHB4OwogICAgICAgIGJveC1zaGFkb3c6IDAgMjRweCA2MHB4IHJnYmEoMCwgMCwgMCwgMC4yOCk7CiAgICAgIH0KICAgICAgLmV5ZWJyb3cgewogICAgICAgIGZvbnQtc2l6ZTogMTJweDsKICAgICAgICB0ZXh0LXRyYW5zZm9ybTogdXBwZXJjYXNlOwogICAgICAgIGxldHRlci1zcGFjaW5nOiAwLjEyZW07CiAgICAgICAgY29sb3I6IHZhcigtLW11dGVkKTsKICAgICAgfQogICAgICBoMSB7CiAgICAgICAgbWFyZ2luOiA4cHggMCAwOwogICAgICAgIGZvbnQtc2l6ZTogMjhweDsKICAgICAgfQogICAgICAuY2hpcHMgewogICAgICAgIGRpc3BsYXk6IGZsZXg7CiAgICAgICAgZmxleC13cmFwOiB3cmFwOwogICAgICAgIGdhcDogOHB4OwogICAgICAgIG1hcmdpbjogMThweCAwIDIwcHg7CiAgICAgIH0KICAgICAgLmNoaXAgewogICAgICAgIGZvbnQtc2l6ZTogMTJweDsKICAgICAgICBwYWRkaW5nOiA2cHggMTBweDsKICAgICAgICBib3JkZXItcmFkaXVzOiA5OTlweDsKICAgICAgICBib3JkZXI6IDFweCBzb2xpZCB2YXIoLS1saW5lKTsKICAgICAgICBiYWNrZ3JvdW5kOiByZ2JhKDI1NSwyNTUsMjU1LDAuMDQpOwogICAgICB9CiAgICAgIHNlY3Rpb24gewogICAgICAgIG1hcmdpbi10b3A6IDIycHg7CiAgICAgICAgcGFkZGluZy10b3A6IDE4cHg7CiAgICAgICAgYm9yZGVyLXRvcDogMXB4IHNvbGlkIHZhcigtLWxpbmUpOwogICAgICB9CiAgICAgIGgzIHsKICAgICAgICBtYXJnaW46IDAgMCAxMHB4OwogICAgICAgIGZvbnQtc2l6ZTogMTRweDsKICAgICAgICBsZXR0ZXItc3BhY2luZzogMC4wNGVtOwogICAgICAgIHRleHQtdHJhbnNmb3JtOiB1cHBlcmNhc2U7CiAgICAgICAgY29sb3I6IHZhcigtLW11dGVkKTsKICAgICAgfQogICAgICBwLCBsaSB7CiAgICAgICAgbGluZS1oZWlnaHQ6IDEuNTU7CiAgICAgIH0KICAgICAgY29kZSB7CiAgICAgICAgY29sb3I6IHZhcigtLWFjY2VudCk7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9oZWFkPgogIDxib2R5PgogICAgPG1haW4gY2xhc3M9InNoZWxsIj4KICAgICAgPGRpdiBjbGFzcz0iZXllYnJvdyI+U3R1ZGlvIHBhcml0eSBzdXJmYWNlPC9kaXY+CiAgICAgIDxoMT5Db252ZXJzYXRpb24gcm91dGUgwrcgTmVhciBXaWxsaWFtc2J1cmcsIEJyb29rbHluPC9oMT4KICAgICAgPGRpdiBjbGFzcz0iY2hpcHMiPjxzcGFuIGNsYXNzPSJjaGlwIj5Sb3V0ZTogZ2VuZXJhbDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+T3V0cHV0OiB0b29sX2V4ZWN1dGlvbjwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+U3VyZmFjZTogcGxhY2VzX3dpZGdldDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+cmlzazogbWVkaXVtPC9zcGFuPjwvZGl2PgogICAgICA8c2VjdGlvbj4KICAgICAgICA8aDM+T3V0Y29tZTwvaDM+CiAgICAgICAgPHA+U3R1ZGlvIHBhdXNlZCBiZWZvcmUgc2VsZWN0aW5nIHRoZSBvdXRjb21lIHN1cmZhY2UgYmVjYXVzZSBpdCBuZWVkcyBjbGFyaWZpY2F0aW9uOiBXaGF0IGtpbmQgb2YgcGxhY2Ugc2hvdWxkIFN0dWRpbyBsb29rIGZvcj88L3A+CiAgICAgIDwvc2VjdGlvbj4KICAgICAgPHNlY3Rpb24+PGgzPlNvdXJjZSByYW5raW5nPC9oMz48b2w+PGxpPjxzdHJvbmc+QXJ0aWZhY3RDb250ZXh0PC9zdHJvbmc+IMK3IFRoZSBzcGVjaWFsaXplZCBwbGFjZXMgc3VyZmFjZSBvdXRyYW5rcyBicm9hZCBzZWFyY2ggYmVjYXVzZSBpdCBwcmVzZXJ2ZXMgYW5jaG9yIHNjb3BlLCBjYXRlZ29yeSwgYW5kIHJhbmtlZCBtYXAgcmVzdWx0cy48L2xpPjxsaT48c3Ryb25nPkNvbnZlcnNhdGlvbkNvbnRleHQ8L3N0cm9uZz4gwrcgQ29udmVyc2F0aW9uIGNvbnRleHQgYW5kIHdlYiBzZWFyY2ggcmVtYWluIG9yZGVyZWQgZmFsbGJhY2tzIHdoZW4gdGhlIHBsYWNlcyBzdXJmYWNlIGNhbm5vdCBzYXRpc2Z5IHRoZSBzY29wZS48L2xpPjwvb2w+PC9zZWN0aW9uPgogICAgICA8c2VjdGlvbj48aDM+Q2xhcmlmaWNhdGlvbjwvaDM+PHVsPjxsaT5XaGF0IGtpbmQgb2YgcGxhY2Ugc2hvdWxkIFN0dWRpbyBsb29rIGZvcj88L2xpPjwvdWw+PC9zZWN0aW9uPgogICAgPC9tYWluPgogICAgPHNjcmlwdD4KICAgICAgY29uc3Qgd2lkZ2V0U3RhdGUgPSB7IndpZGdldEZhbWlseSI6InBsYWNlcyIsImJpbmRpbmdzIjpbeyJrZXkiOiJwbGFjZXMubG9jYXRpb25fc2NvcGUiLCJ2YWx1ZSI6IndpbGxpYW1zYnVyZywgYnJvb2tseW4iLCJzb3VyY2UiOiJyZXF1ZXN0X2ZyYW1lIn1dLCJsYXN0VXBkYXRlZEF0IjpudWxsfTsKICAgICAgaWYgKHdpZGdldFN0YXRlKSB7CiAgICAgICAgd2luZG93LnBhcmVudC5wb3N0TWVzc2FnZSh7CiAgICAgICAgICBfX3N0dWRpb1dpZGdldFN0YXRlOiB0cnVlLAogICAgICAgICAgd2lkZ2V0U3RhdGUsCiAgICAgICAgfSwgIioiKTsKICAgICAgfQogICAgPC9zY3JpcHQ+CiAgPC9ib2R5Pgo8L2h0bWw+"
+              },
+              {
+                "path": "surface/route.md",
+                "mime": "text/markdown",
+                "role": "source",
+                "renderable": false,
+                "downloadable": false,
+                "artifactId": null,
+                "externalUrl": "data:text/markdown;base64,IyBDb252ZXJzYXRpb24gcm91dGUgwrcgTmVhciBXaWxsaWFtc2J1cmcsIEJyb29rbHluCgpTdHVkaW8gcGF1c2VkIGJlZm9yZSBzZWxlY3RpbmcgdGhlIG91dGNvbWUgc3VyZmFjZSBiZWNhdXNlIGl0IG5lZWRzIGNsYXJpZmljYXRpb246IFdoYXQga2luZCBvZiBwbGFjZSBzaG91bGQgU3R1ZGlvIGxvb2sgZm9yPwoKIyMgUm91dGUgY29udHJhY3QKLSByb3V0ZSBmYW1pbHk6IGdlbmVyYWwKLSBvdXRwdXQgaW50ZW50OiB0b29sX2V4ZWN1dGlvbgotIGRpcmVjdCBhbnN3ZXIgYWxsb3dlZDogZmFsc2UKLSBwcmVzZW50YXRpb24gc3VyZmFjZTogcGxhY2VzX3dpZGdldAoKIyMgU291cmNlIHJhbmtpbmcKLSAxLiBBcnRpZmFjdENvbnRleHQ6IFRoZSBzcGVjaWFsaXplZCBwbGFjZXMgc3VyZmFjZSBvdXRyYW5rcyBicm9hZCBzZWFyY2ggYmVjYXVzZSBpdCBwcmVzZXJ2ZXMgYW5jaG9yIHNjb3BlLCBjYXRlZ29yeSwgYW5kIHJhbmtlZCBtYXAgcmVzdWx0cy4KLSAyLiBDb252ZXJzYXRpb25Db250ZXh0OiBDb252ZXJzYXRpb24gY29udGV4dCBhbmQgd2ViIHNlYXJjaCByZW1haW4gb3JkZXJlZCBmYWxsYmFja3Mgd2hlbiB0aGUgcGxhY2VzIHN1cmZhY2UgY2Fubm90IHNhdGlzZnkgdGhlIHNjb3BlLgoKIyMgUmV0YWluZWQgd2lkZ2V0IHN0YXRlCi0gcGxhY2VzLmxvY2F0aW9uX3Njb3BlID0gd2lsbGlhbXNidXJnLCBicm9va2x5biAocmVxdWVzdF9mcmFtZSkKCiMjIENsYXJpZmljYXRpb24KLSBXaGF0IGtpbmQgb2YgcGxhY2Ugc2hvdWxkIFN0dWRpbyBsb29rIGZvcj8="
+              }
+            ],
+            "verification": {
+              "status": "blocked",
+              "lifecycleState": "blocked",
+              "summary": "Studio paused before selecting the outcome surface because it needs clarification: What kind of place should Studio look for?",
+              "productionProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "acceptanceProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "failure": null
+            },
+            "storage": null
+          },
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "single_pass",
+            "modeDecision": {
+              "requestedStrategy": "single_pass",
+              "resolvedStrategy": "single_pass",
+              "modeConfidence": 0.93499994,
+              "oneShotSufficiency": 0.945,
+              "ambiguity": 0.100000024,
+              "workGraphSizeEstimate": 1,
+              "hiddenDependencyLikelihood": 0.1,
+              "verificationPressure": 0.1,
+              "revisionCost": 0.1,
+              "evidenceBreadth": 0.1,
+              "mergeBurden": 0.0,
+              "decompositionPayoff": 0.045,
+              "workGraphRequired": false,
+              "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 60000,
+                "maxTokens": 2048,
+                "maxToolCalls": 1,
+                "maxRepairs": 0,
+                "expansionPolicy": "fixed"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 60000,
+              "maxTokens": 2048,
+              "maxToolCalls": 1,
+              "maxRepairs": 0,
+              "expansionPolicy": "fixed"
+            },
+            "executionDomain": "studio_conversation",
+            "domainKind": "conversation",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "blocked",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff",
+                "clarification_gate"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "satisfiedVerificationIds": [],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [
+                "work_item:clarification_gate",
+                "verification:route_verification",
+                "verification:reply_surface"
+              ],
+              "allowsEarlyExit": false
+            },
+            "plan": {
+              "version": 3,
+              "strategy": "single_pass",
+              "executionDomain": "studio_conversation",
+              "adapterLabel": "conversation_single_pass_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [
+                  "clarification_gate"
+                ],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Conversation handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner",
+                    "clarification_gate"
+                  ],
+                  "blockedOnIds": [
+                    "clarification_gate"
+                  ],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "clarification_gate",
+                  "title": "Clarification gate",
+                  "role": "coordinator",
+                  "summary": "Hold the response until the user answers the required clarification questions.",
+                  "spawnedFromId": "planner",
+                  "readPaths": [
+                    "request",
+                    "clarification_questions"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Clarification questions stay visible.",
+                    "Responder stays blocked until clarification arrives."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": "blocking",
+                  "retryBudget": 0,
+                  "status": "blocked"
+                }
+              ]
+            },
+            "executionSummary": {
+              "enabled": true,
+              "currentStage": "routing",
+              "executionStage": "dispatch",
+              "activeWorkerRole": null,
+              "totalWorkItems": 3,
+              "completedWorkItems": 2,
+              "failedWorkItems": 1,
+              "verificationStatus": "blocked",
+              "strategy": "single_pass",
+              "executionDomain": "studio_conversation",
+              "adapterLabel": "conversation_single_pass_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "workerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "dependency_discovered",
+                "summary": "Selected the conversation route with the single_pass strategy.",
+                "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+                "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [
+                  "clarification_gate"
+                ],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "What kind of place should Studio look for?"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "clarification_gate",
+                "role": "coordinator",
+                "status": "blocked",
+                "resultKind": "blocked",
+                "summary": "Clarification is required before the shared responder can safely finalize the route.",
+                "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+                "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "clarification_questions"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "What kind of place should Studio look for?"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "blocked",
+                "summary": "Conversation stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+                "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [
+                  "clarification_gate"
+                ],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "tool_widget:places \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface \u00b7 retained_widget_state_applied \u00b7 request_frame_clarification_required"
+                ],
+                "failure": "Clarification is still required before reply handoff can complete."
+              }
+            ],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "blocked",
+                "summary": "Studio blocked execution because clarification is still required.",
+                "details": [
+                  "What kind of place should Studio look for?"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "blocked",
+                "summary": "The shared reply lane is blocked until the user answers the clarification.",
+                "details": [
+                  "strategy:single_pass",
+                  "tool_widget:places",
+                  "no_persistent_artifact_requested",
+                  "shared_answer_surface",
+                  "retained_widget_state_applied",
+                  "request_frame_clarification_required"
+                ]
+              }
+            ],
+            "graphMutationReceipts": [
+              {
+                "id": "clarification-gate-spawned",
+                "mutationKind": "subtask_spawned",
+                "status": "applied",
+                "summary": "The planner discovered a clarification dependency and spawned a gate before reply handoff.",
+                "triggeredByWorkItemId": "planner",
+                "affectedWorkItemIds": [
+                  "clarification_gate",
+                  "handoff"
+                ],
+                "details": [
+                  "What kind of place should Studio look for?"
+                ]
+              }
+            ],
+            "dispatchBatches": [
+              {
+                "id": "dispatch-batch-1",
+                "sequence": 1,
+                "status": "planned",
+                "workItemIds": [
+                  "clarification_gate"
+                ],
+                "deferredWorkItemIds": [],
+                "blockedWorkItemIds": [],
+                "details": []
+              }
+            ],
+            "repairReceipts": [],
+            "replanReceipts": [
+              {
+                "id": "clarification-replan",
+                "status": "blocked",
+                "summary": "Shared execution widened the plan with a clarification gate before the responder could finalize.",
+                "triggeredByWorkItemId": "planner",
+                "spawnedWorkItemIds": [
+                  "clarification_gate"
+                ],
+                "blockedWorkItemIds": [
+                  "handoff"
+                ],
+                "details": [
+                  "What kind of place should Studio look for?"
+                ]
+              }
+            ],
+            "budgetSummary": {
+              "plannedWorkerCount": 3,
+              "dispatchedWorkerCount": 1,
+              "tokenBudget": null,
+              "tokenUsage": null,
+              "wallClockMs": null,
+              "coordinationOverheadMs": null,
+              "status": "blocked"
+            },
+            "livePreviews": []
+          },
+          "swarmPlan": {
+            "version": 3,
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [
+                "clarification_gate"
+              ],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Conversation handoff",
+                "role": "responder",
+                "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner",
+                  "clarification_gate"
+                ],
+                "blockedOnIds": [
+                  "clarification_gate"
+                ],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "clarification_gate",
+                "title": "Clarification gate",
+                "role": "coordinator",
+                "summary": "Hold the response until the user answers the required clarification questions.",
+                "spawnedFromId": "planner",
+                "readPaths": [
+                  "request",
+                  "clarification_questions"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Clarification questions stay visible.",
+                  "Responder stays blocked until clarification arrives."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": "blocking",
+                "retryBudget": 0,
+                "status": "blocked"
+              }
+            ]
+          },
+          "swarmExecution": {
+            "enabled": true,
+            "currentStage": "routing",
+            "executionStage": "dispatch",
+            "activeWorkerRole": null,
+            "totalWorkItems": 3,
+            "completedWorkItems": 2,
+            "failedWorkItems": 1,
+            "verificationStatus": "blocked",
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "swarmWorkerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "dependency_discovered",
+              "summary": "Selected the conversation route with the single_pass strategy.",
+              "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [
+                "clarification_gate"
+              ],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "What kind of place should Studio look for?"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "clarification_gate",
+              "role": "coordinator",
+              "status": "blocked",
+              "resultKind": "blocked",
+              "summary": "Clarification is required before the shared responder can safely finalize the route.",
+              "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "clarification_questions"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "What kind of place should Studio look for?"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "blocked",
+              "summary": "Conversation stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "finishedAt": "2026-04-16T19:44:26.180279399+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [
+                "clarification_gate"
+              ],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:places \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface \u00b7 retained_widget_state_applied \u00b7 request_frame_clarification_required"
+              ],
+              "failure": "Clarification is still required before reply handoff can complete."
+            }
+          ],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "blocked",
+              "summary": "Studio blocked execution because clarification is still required.",
+              "details": [
+                "What kind of place should Studio look for?"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "blocked",
+              "summary": "The shared reply lane is blocked until the user answers the clarification.",
+              "details": [
+                "strategy:single_pass",
+                "tool_widget:places",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface",
+                "retained_widget_state_applied",
+                "request_frame_clarification_required"
+              ]
+            }
+          ],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null,
+          "fileWrites": [],
+          "tasteMemory": null,
+          "selectedTargets": []
+        }
+      ],
+      "tasteMemory": null,
+      "retrievedExemplars": [],
+      "selectedTargets": [],
+      "widgetState": {
+        "widgetFamily": "places",
+        "bindings": [
+          {
+            "key": "places.location_scope",
+            "value": "williamsburg, brooklyn",
+            "source": "request_frame"
+          }
+        ],
+        "lastUpdatedAt": null
+      },
+      "uxLifecycle": "judged",
+      "createdAt": "2026-04-16T19:44:26.180638697+00:00",
+      "updatedAt": "2026-04-16T19:44:26.180638697+00:00",
+      "buildSessionId": null,
+      "workspaceRoot": null,
+      "rendererSessionId": null
+    },
+    "studio_outcome": {
+      "requestId": "aa3aff0c-182e-491f-8077-c5143884c191",
+      "rawPrompt": "Near Williamsburg, Brooklyn.",
+      "activeArtifactId": "d0c99c29-e89b-46c9-be9c-d26eb5d5ff4a",
+      "outcomeKind": "conversation",
+      "executionStrategy": "single_pass",
+      "executionModeDecision": {
+        "requestedStrategy": "single_pass",
+        "resolvedStrategy": "single_pass",
+        "modeConfidence": 0.93499994,
+        "oneShotSufficiency": 0.945,
+        "ambiguity": 0.100000024,
+        "workGraphSizeEstimate": 1,
+        "hiddenDependencyLikelihood": 0.1,
+        "verificationPressure": 0.1,
+        "revisionCost": 0.1,
+        "evidenceBreadth": 0.1,
+        "mergeBurden": 0.0,
+        "decompositionPayoff": 0.045,
+        "workGraphRequired": false,
+        "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+        "budgetEnvelope": {
+          "maxWorkers": 1,
+          "maxParallelDepth": 1,
+          "maxReplans": 0,
+          "maxWallClockMs": 60000,
+          "maxTokens": 2048,
+          "maxToolCalls": 1,
+          "maxRepairs": 0,
+          "expansionPolicy": "fixed"
+        }
+      },
+      "confidence": 0.9,
+      "needsClarification": true,
+      "clarificationQuestions": [
+        "What kind of place should Studio look for?"
+      ],
+      "routingHints": [
+        "tool_widget:places",
+        "no_persistent_artifact_requested",
+        "shared_answer_surface",
+        "retained_widget_state_applied",
+        "request_frame_clarification_required"
+      ],
+      "laneFrame": {
+        "primaryLane": "conversation",
+        "secondaryLanes": [],
+        "primaryGoal": "Resolve the place category and anchor location before searching the map surface.",
+        "toolWidgetFamily": "places",
+        "currentnessPressure": true,
+        "workspaceGroundingRequired": false,
+        "persistentDeliverableRequested": false,
+        "activeArtifactFollowUp": true,
+        "laneConfidence": 0.9
+      },
+      "requestFrame": {
+        "kind": "places",
+        "searchAnchor": "williamsburg, brooklyn",
+        "category": null,
+        "locationScope": "williamsburg, brooklyn",
+        "missingSlots": [
+          "category"
+        ],
+        "clarificationRequiredSlots": [
+          "category"
+        ]
+      },
+      "sourceSelection": {
+        "candidateSources": [
+          "artifact_context",
+          "conversation_context"
+        ],
+        "selectedSource": "artifact_context",
+        "explicitUserSource": true,
+        "fallbackReason": "places execution is blocked until anchor or category scope is clarified"
+      },
+      "retainedLaneState": {
+        "activeLane": "conversation",
+        "activeToolWidgetFamily": "places",
+        "activeArtifactId": "d0c99c29-e89b-46c9-be9c-d26eb5d5ff4a",
+        "unresolvedClarificationQuestion": null,
+        "selectedProviderFamily": null,
+        "selectedProviderRouteLabel": null,
+        "selectedSourceFamily": "artifact_context"
+      },
+      "laneTransitions": [
+        {
+          "transitionKind": "planned",
+          "fromLane": null,
+          "toLane": "conversation",
+          "reason": "The prompt maps to a places lane with category and anchor-location semantics.",
+          "evidence": [
+            "tool_widget:places",
+            "no_persistent_artifact_requested",
+            "shared_answer_surface",
+            "retained_widget_state_applied",
+            "request_frame:places"
+          ]
+        }
+      ],
+      "orchestrationState": null,
+      "artifact": null
+    },
+    "renderer_session": null,
+    "build_session": null,
+    "run_bundle_id": "ea2c1c9c-2940-43b7-a857-b4ce0dd65c38",
+    "swarm_tree": [],
+    "generation": 0,
+    "lineage_id": "genesis",
+    "fitness_score": 0.0
+  },
+  "route_receipt_summary": {
+    "title": "Studio route decision",
+    "selected_route": "tool_widget_places",
+    "route_family": "research",
+    "planner_authority": "kernel",
+    "verifier_state": "blocked",
+    "artifact_class": null,
+    "route_decision": {
+      "artifact_output_intent": false,
+      "connector_candidate_count": 0,
+      "connector_first_preference": false,
+      "currentness_override": false,
+      "direct_answer_allowed": false,
+      "direct_answer_blockers": [
+        "clarification_required",
+        "tool_widget_surface_selected"
+      ],
+      "effective_tool_surface": {
+        "broad_fallback_tools": [
+          "web_search"
+        ],
+        "diagnostic_tools": [
+          "route_hint:tool_widget:places",
+          "route_hint:narrow_surface_preferred",
+          "route_hint:no_persistent_artifact_requested",
+          "route_hint:request_frame_clarification_required"
+        ],
+        "primary_tools": [
+          "places_search",
+          "places_map_display_v0"
+        ],
+        "projected_tools": [
+          "places_search",
+          "places_map_display_v0"
+        ]
+      },
+      "file_output_intent": false,
+      "inline_visual_intent": false,
+      "narrow_tool_preference": true,
+      "output_intent": "tool_execution",
+      "route_family": "research",
+      "selected_provider_family": null,
+      "selected_provider_route_label": null,
+      "skill_prep_required": false
+    },
+    "artifact_manifest_summary": {
+      "title": "Conversation route \u00b7 Near Williamsburg, Brooklyn",
+      "renderer": "html_iframe",
+      "primary_tab": "render",
+      "tabs": [
+        "render",
+        "source",
+        "evidence"
+      ],
+      "lifecycle_state": "blocked",
+      "verification_status": "blocked",
+      "verification_summary": "Studio paused before selecting the outcome surface because it needs clarification: What kind of place should Studio look for?"
+    }
+  },
+  "latest_agent_message": null,
+  "log_tail": [
+    "\u001b[1m\u001b[94m304\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     #[serde(default)]",
+    "\u001b[1m\u001b[94m305\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     filename: Option<String>,",
+    "    \u001b[1m\u001b[94m|\u001b[0m     \u001b[1m\u001b[33m^^^^^^^^\u001b[0m",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "    \u001b[1m\u001b[94m= \u001b[0m\u001b[1mnote\u001b[0m: `LocalAiGalleryFile` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: field `urls` is never read\u001b[0m",
+    "   \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/local_engine/mod.rs:332:5",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m323\u001b[0m \u001b[1m\u001b[94m|\u001b[0m struct LocalAiBackendGalleryEntry {",
+    "    \u001b[1m\u001b[94m|\u001b[0m        \u001b[1m\u001b[94m--------------------------\u001b[0m \u001b[1m\u001b[94mfield in this struct\u001b[0m",
+    "\u001b[1m\u001b[94m...\u001b[0m",
+    "\u001b[1m\u001b[94m332\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     urls: Vec<String>,",
+    "    \u001b[1m\u001b[94m|\u001b[0m     \u001b[1m\u001b[33m^^^^\u001b[0m",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "    \u001b[1m\u001b[94m= \u001b[0m\u001b[1mnote\u001b[0m: `LocalAiBackendGalleryEntry` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: fields `issuer_id` and `issuer_label` are never read\u001b[0m",
+    "   \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/plugins/mod.rs:434:5",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m425\u001b[0m \u001b[1m\u001b[94m|\u001b[0m struct PluginVerifiedCatalogRefreshBundle {",
+    "    \u001b[1m\u001b[94m|\u001b[0m        \u001b[1m\u001b[94m----------------------------------\u001b[0m \u001b[1m\u001b[94mfields in this struct\u001b[0m",
+    "\u001b[1m\u001b[94m...\u001b[0m",
+    "\u001b[1m\u001b[94m434\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     issuer_id: String,",
+    "    \u001b[1m\u001b[94m|\u001b[0m     \u001b[1m\u001b[33m^^^^^^^^^\u001b[0m",
+    "\u001b[1m\u001b[94m435\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     issuer_label: Option<String>,",
+    "    \u001b[1m\u001b[94m|\u001b[0m     \u001b[1m\u001b[33m^^^^^^^^^^^^\u001b[0m",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "    \u001b[1m\u001b[94m= \u001b[0m\u001b[1mnote\u001b[0m: `PluginVerifiedCatalogRefreshBundle` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: method `path` is never used\u001b[0m",
+    "  \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/plugins/manager.rs:17:19",
+    "   \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m 8\u001b[0m \u001b[1m\u001b[94m|\u001b[0m impl PluginRuntimeManager {",
+    "   \u001b[1m\u001b[94m|\u001b[0m \u001b[1m\u001b[94m-------------------------\u001b[0m \u001b[1m\u001b[94mmethod in this implementation\u001b[0m",
+    "\u001b[1m\u001b[94m...\u001b[0m",
+    "\u001b[1m\u001b[94m17\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     pub(crate) fn path(&self) -> &Path {",
+    "   \u001b[1m\u001b[94m|\u001b[0m                   \u001b[1m\u001b[33m^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: function `build_session_plugin_snapshot_for_manifests` is never used\u001b[0m",
+    "   \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/plugins/snapshot.rs:444:15",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m444\u001b[0m \u001b[1m\u001b[94m|\u001b[0m pub(crate) fn build_session_plugin_snapshot_for_manifests(",
+    "    \u001b[1m\u001b[94m|\u001b[0m               \u001b[1m\u001b[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: function `materialize_non_workspace_artifact_with_dependencies` is never used\u001b[0m",
+    "   \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/studio/materialization.rs:579:15",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m579\u001b[0m \u001b[1m\u001b[94m|\u001b[0m pub(super) fn materialize_non_workspace_artifact_with_dependencies(",
+    "    \u001b[1m\u001b[94m|\u001b[0m               \u001b[1m\u001b[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: function `materialize_non_workspace_artifact_with_dependencies_and_timeout` is never used\u001b[0m",
+    "   \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/studio/materialization.rs:841:15",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m841\u001b[0m \u001b[1m\u001b[94m|\u001b[0m pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout(",
+    "    \u001b[1m\u001b[94m|\u001b[0m               \u001b[1m\u001b[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: function `connect_cached_public_api` is never used\u001b[0m",
+    "   \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/studio/skills.rs:113:4",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m113\u001b[0m \u001b[1m\u001b[94m|\u001b[0m fn connect_cached_public_api(app: &AppHandle) -> Result<PublicApiClient<Channel>, String> {",
+    "    \u001b[1m\u001b[94m|\u001b[0m    \u001b[1m\u001b[33m^^^^^^^^^^^^^^^^^^^^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: field `log_path` is never read\u001b[0m",
+    "  \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/studio/workspace_build.rs:33:5",
+    "   \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m31\u001b[0m \u001b[1m\u001b[94m|\u001b[0m struct StudioPreviewProcess {",
+    "   \u001b[1m\u001b[94m|\u001b[0m        \u001b[1m\u001b[94m--------------------\u001b[0m \u001b[1m\u001b[94mfield in this struct\u001b[0m",
+    "\u001b[1m\u001b[94m32\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     child: Child,",
+    "\u001b[1m\u001b[94m33\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     log_path: PathBuf,",
+    "   \u001b[1m\u001b[94m|\u001b[0m     \u001b[1m\u001b[33m^^^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: methods `id` and `label` are never used\u001b[0m",
+    "  \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/kernel/studio/workspace_scaffold.rs:79:8",
+    "   \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m78\u001b[0m \u001b[1m\u001b[94m|\u001b[0m impl StudioStaticHtmlArchetype {",
+    "   \u001b[1m\u001b[94m|\u001b[0m \u001b[1m\u001b[94m------------------------------\u001b[0m \u001b[1m\u001b[94mmethods in this implementation\u001b[0m",
+    "\u001b[1m\u001b[94m79\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     fn id(self) -> &'static str {",
+    "   \u001b[1m\u001b[94m|\u001b[0m        \u001b[1m\u001b[33m^^\u001b[0m",
+    "\u001b[1m\u001b[94m...\u001b[0m",
+    "\u001b[1m\u001b[94m88\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     fn label(self) -> &'static str {",
+    "   \u001b[1m\u001b[94m|\u001b[0m        \u001b[1m\u001b[33m^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: struct `ReceiptDigest` is never constructed\u001b[0m",
+    "   \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/models.rs:838:12",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m838\u001b[0m \u001b[1m\u001b[94m|\u001b[0m pub struct ReceiptDigest {",
+    "    \u001b[1m\u001b[94m|\u001b[0m            \u001b[1m\u001b[33m^^^^^^^^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m\u001b[1m: method `resize` is never used\u001b[0m",
+    "   \u001b[1m\u001b[94m--> \u001b[0mapps/autopilot/src-tauri/src/workspace.rs:600:19",
+    "    \u001b[1m\u001b[94m|\u001b[0m",
+    "\u001b[1m\u001b[94m573\u001b[0m \u001b[1m\u001b[94m|\u001b[0m impl WorkspaceTerminalBridge {",
+    "    \u001b[1m\u001b[94m|\u001b[0m \u001b[1m\u001b[94m----------------------------\u001b[0m \u001b[1m\u001b[94mmethod in this implementation\u001b[0m",
+    "\u001b[1m\u001b[94m...\u001b[0m",
+    "\u001b[1m\u001b[94m600\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     pub(crate) fn resize(&self, cols: u16, rows: u16) -> Result<(), String> {",
+    "    \u001b[1m\u001b[94m|\u001b[0m                   \u001b[1m\u001b[33m^^^^^^\u001b[0m",
+    "",
+    "\u001b[1m\u001b[33mwarning\u001b[0m: `autopilot` (lib) generated 17 warnings",
+    "\u001b[1m\u001b[92m    Finished\u001b[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.51s",
+    "\u001b[1m\u001b[33mwarning\u001b[0m: the following packages contain code that will be rejected by a future version of Rust: imap-proto v0.10.2, xcap v0.0.14",
+    "\u001b[1m\u001b[92mnote\u001b[0m: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`",
+    "\u001b[1m\u001b[92m     Running\u001b[0m `/home/heathledger/Documents/ioi/repos/ioi/target/debug/autopilot`",
+    "[Autopilot] X11 threading initialized",
+    "[Autopilot] Display env: XDG_SESSION_TYPE='x11' WAYLAND_DISPLAY='' GDK_BACKEND='x11' WINIT_UNIX_BACKEND='x11'",
+    "[Autopilot] Initializing...",
+    "[Studio] Using Autopilot data profile 'desktop-localgpu-reuse-native-places-final16j' at /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu-reuse-native-places-final16j",
+    "[Studio] Initialized memory runtime.",
+    "[Studio] Skipping wallet-backed connector bootstrap for this local dev profile.",
+    "[Studio] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety.",
+    "[Studio] Set IOI_STUDIO_MCP_PROFILE=dev_filesystem to opt in.",
+    "[Autopilot] Setup complete.",
+    "[Autopilot] Connected to Kernel Event Stream at http://127.0.0.1:9000",
+    "[Autopilot] Event Stream Active \u2705",
+    "[Autopilot] Block #495 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#495 (1 sessions)",
+    "[Autopilot] Block #496 committed (Tx: 0)",
+    "[Autopilot] Block #497 committed (Tx: 0)",
+    "[Autopilot] Block #498 committed (Tx: 0)",
+    "[Autopilot] Block #499 committed (Tx: 0)",
+    "[Autopilot] Block #500 committed (Tx: 0)",
+    "[Autopilot] Block #501 committed (Tx: 0)",
+    "[Autopilot] Block #502 committed (Tx: 0)",
+    "[Autopilot] Block #503 committed (Tx: 0)",
+    "[Autopilot] Block #504 committed (Tx: 0)",
+    "[Autopilot] Block #505 committed (Tx: 0)",
+    "[Autopilot] Block #506 committed (Tx: 0)",
+    "[Autopilot] Block #507 committed (Tx: 0)",
+    "[Autopilot] Block #508 committed (Tx: 0)",
+    "[Autopilot] Block #509 committed (Tx: 0)",
+    "[Autopilot] Block #510 committed (Tx: 0)",
+    "[Autopilot] Block #511 committed (Tx: 0)",
+    "[Autopilot] Block #512 committed (Tx: 0)",
+    "[Autopilot] Block #513 committed (Tx: 0)",
+    "[Autopilot] Block #514 committed (Tx: 0)",
+    "[Autopilot] Block #515 committed (Tx: 0)",
+    "[Autopilot] Block #516 committed (Tx: 0)",
+    "[Autopilot] Block #517 committed (Tx: 0)",
+    "[Autopilot] Block #518 committed (Tx: 0)",
+    "[Autopilot] Block #519 committed (Tx: 0)",
+    "[Autopilot] Block #520 committed (Tx: 0)",
+    "[Autopilot] Block #521 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+    "[Autopilot] Block #522 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=queued detail={\"launch\":{\"launchId\":\"2d8929ee-1b07-4e1f-9b19-c9cdac802381\",\"request\":{\"intent\":\"Near Williamsburg, Brooklyn.\",\"kind\":\"autopilot-intent\"}}}",
+    "[Autopilot][StudioLaunch] stage=show_target_requested detail={\"launch\":{\"launchId\":\"2d8929ee-1b07-4e1f-9b19-c9cdac802381\",\"request\":{\"intent\":\"Near Williamsburg, Brooklyn.\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+    "[Autopilot] Block #523 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+    "[Autopilot][StudioLaunch] stage=show_requested detail={\"maximizedBefore\":false,\"minimizedBefore\":false,\"visibleBefore\":false,\"windowExistedBefore\":true,\"windowLabel\":\"studio\"}",
+    "[Autopilot] Block #524 committed (Tx: 0)",
+    "[Autopilot] Surfacing 'studio' (task_switcher=true, visible=Ok(true), minimized=Ok(false))",
+    "[Autopilot][StudioLaunch] stage=show_surfaced detail={\"maximizedAfter\":false,\"minimizedAfter\":false,\"recreatedWindow\":false,\"visibleAfter\":true,\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=show_target_emitted detail={\"launch\":{\"launchId\":\"2d8929ee-1b07-4e1f-9b19-c9cdac802381\",\"request\":{\"intent\":\"Near Williamsburg, Brooklyn.\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+    "[Autopilot][StudioLaunch] stage=studio_launch_event_received detail={\"kind\":\"autopilot-intent\",\"launchId\":\"2d8929ee-1b07-4e1f-9b19-c9cdac802381\",\"request\":{\"intent\":\"Near Williamsburg, Brooklyn.\",\"kind\":\"autopilot-intent\",\"sessionId\":\"437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d\"}}",
+    "[Autopilot][StudioLaunch] stage=acked detail={\"hadPendingRequest\":true,\"launch\":{\"launchId\":\"2d8929ee-1b07-4e1f-9b19-c9cdac802381\",\"request\":{\"intent\":\"Near Williamsburg, Brooklyn.\",\"kind\":\"autopilot-intent\"}},\"launchId\":\"2d8929ee-1b07-4e1f-9b19-c9cdac802381\"}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_applying detail={\"kind\":\"autopilot-intent\",\"launchId\":\"2d8929ee-1b07-4e1f-9b19-c9cdac802381\",\"request\":{\"intent\":\"Near Williamsburg, Brooklyn.\",\"kind\":\"autopilot-intent\",\"sessionId\":\"437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d\"},\"source\":\"event\"}",
+    "[Autopilot] Block #525 committed (Tx: 0)",
+    "[Autopilot] Block #526 committed (Tx: 0)",
+    "[Autopilot] Block #527 committed (Tx: 0)",
+    "[Autopilot] Block #528 committed (Tx: 0)",
+    "[Autopilot] Block #529 committed (Tx: 0)",
+    "[Autopilot] Block #530 committed (Tx: 0)",
+    "[Autopilot] Block #531 committed (Tx: 0)",
+    "[Autopilot] Block #532 committed (Tx: 0)",
+    "[Autopilot] Block #533 committed (Tx: 0)",
+    "[Autopilot] Block #534 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+    "[Autopilot] Block #535 committed (Tx: 0)",
+    "[Autopilot] Block #536 committed (Tx: 0)",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+    "[Autopilot][StudioLaunch] stage=studio_pending_launch_applied detail={\"intent\":\"Near Williamsburg, Brooklyn.\",\"kind\":\"autopilot-intent\",\"launchId\":\"2d8929ee-1b07-4e1f-9b19-c9cdac802381\",\"sessionId\":\"437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d\",\"source\":\"event\"}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_requested detail={\"intentLength\":28}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_clarification_submit_dispatching detail={\"intentLength\":28,\"optionId\":\"share_location_anchor\"}",
+    "[Autopilot][StudioLaunch] stage=studio_seed_intent_clarification_submit_called detail={\"intentLength\":28,\"optionId\":\"share_location_anchor\"}",
+    "[Autopilot] Block #537 committed (Tx: 0)",
+    "[Autopilot][StudioContinue] session=437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d studio_backed=true phase=Running current_step=Sending message...",
+    "[Autopilot][StudioContinue] preparing studio follow-up for session=437f3267bacb4dc1af920edcd9efa81d28c742cc53c248c88ee611a6921dcf5d input=Near Williamsburg, Brooklyn.",
+    "[Autopilot][StudioContinue] maybe_prepare_current_task_for_studio_turn intent=Near Williamsburg, Brooklyn.",
+    "[studio-proof-trace] outcome_route:start runtime_kind=RealLocalRuntime prompt_bytes=3899 max_tokens=224 json_mode=false",
+    "[Kernel] Session projection refreshed via block#537 (1 sessions)",
+    "[Autopilot] Block #538 committed (Tx: 0)",
+    "[Autopilot] Block #539 committed (Tx: 0)",
+    "[Autopilot] Block #540 committed (Tx: 0)",
+    "[Autopilot] Block #541 committed (Tx: 0)",
+    "[Autopilot] Block #542 committed (Tx: 0)",
+    "[Autopilot] Block #543 committed (Tx: 0)",
+    "[Autopilot] Block #544 committed (Tx: 0)",
+    "[Autopilot] Block #545 committed (Tx: 0)",
+    "[Autopilot] Block #546 committed (Tx: 0)",
+    "[Autopilot] Block #547 committed (Tx: 0)",
+    "[Autopilot] Block #548 committed (Tx: 0)",
+    "[Autopilot] Block #549 committed (Tx: 0)",
+    "[Autopilot] Block #550 committed (Tx: 0)",
+    "[Autopilot] Block #551 committed (Tx: 0)",
+    "[Autopilot] Block #552 committed (Tx: 0)",
+    "[Autopilot] Block #553 committed (Tx: 0)",
+    "[Autopilot] Block #554 committed (Tx: 0)",
+    "[Autopilot] Block #555 committed (Tx: 0)",
+    "[Autopilot] Block #556 committed (Tx: 0)",
+    "[Autopilot] Block #557 committed (Tx: 0)",
+    "[Autopilot] Block #558 committed (Tx: 0)",
+    "[Autopilot] Block #559 committed (Tx: 0)",
+    "[Autopilot] Block #560 committed (Tx: 0)",
+    "[Autopilot] Block #561 committed (Tx: 0)",
+    "[Autopilot] Block #562 committed (Tx: 0)",
+    "[Autopilot] Block #563 committed (Tx: 0)",
+    "[Autopilot] Block #564 committed (Tx: 0)",
+    "[Autopilot] Block #565 committed (Tx: 0)",
+    "[Autopilot] Block #566 committed (Tx: 0)",
+    "[Autopilot] Block #567 committed (Tx: 0)",
+    "[Autopilot] Block #568 committed (Tx: 0)",
+    "[Autopilot] Block #569 committed (Tx: 0)",
+    "[Autopilot] Block #570 committed (Tx: 0)",
+    "[Autopilot] Block #571 committed (Tx: 0)",
+    "[Autopilot] Block #572 committed (Tx: 0)",
+    "[Autopilot] Block #573 committed (Tx: 0)",
+    "[Autopilot] Block #574 committed (Tx: 0)",
+    "[Autopilot] Block #575 committed (Tx: 0)",
+    "[Autopilot] Block #576 committed (Tx: 0)",
+    "[Autopilot] Block #577 committed (Tx: 0)",
+    "[Autopilot] Block #578 committed (Tx: 0)",
+    "[Autopilot] Block #579 committed (Tx: 0)",
+    "[Autopilot] Block #580 committed (Tx: 0)",
+    "[Autopilot] Block #581 committed (Tx: 0)",
+    "[Autopilot] Block #582 committed (Tx: 0)",
+    "[Autopilot] Block #583 committed (Tx: 0)",
+    "[Autopilot] Block #584 committed (Tx: 0)",
+    "[Autopilot] Block #585 committed (Tx: 0)",
+    "[Autopilot] Block #586 committed (Tx: 0)",
+    "[Autopilot] Block #587 committed (Tx: 0)",
+    "[Autopilot] Block #588 committed (Tx: 0)",
+    "[Autopilot] Block #589 committed (Tx: 0)",
+    "[Autopilot] Block #590 committed (Tx: 0)",
+    "[Autopilot] Block #591 committed (Tx: 0)",
+    "[Autopilot] Block #592 committed (Tx: 0)",
+    "[Autopilot] Block #593 committed (Tx: 0)",
+    "[Autopilot] Block #594 committed (Tx: 0)",
+    "[Autopilot] Block #595 committed (Tx: 0)",
+    "[Autopilot] Block #596 committed (Tx: 0)",
+    "[Autopilot] Block #597 committed (Tx: 0)",
+    "[Autopilot] Block #598 committed (Tx: 0)",
+    "[Autopilot] Block #599 committed (Tx: 0)",
+    "[Autopilot] Block #600 committed (Tx: 0)",
+    "[Autopilot] Block #601 committed (Tx: 0)",
+    "[Autopilot] Block #602 committed (Tx: 0)",
+    "[Autopilot] Block #603 committed (Tx: 0)",
+    "[Autopilot] Block #604 committed (Tx: 0)",
+    "[Autopilot] Block #605 committed (Tx: 0)",
+    "[Autopilot] Block #606 committed (Tx: 0)",
+    "[Autopilot] Block #607 committed (Tx: 0)",
+    "[Autopilot] Block #608 committed (Tx: 0)",
+    "[Autopilot] Block #609 committed (Tx: 0)",
+    "[Autopilot] Block #610 committed (Tx: 0)",
+    "[Autopilot] Block #611 committed (Tx: 0)",
+    "[Autopilot] Block #612 committed (Tx: 0)",
+    "[Autopilot] Block #613 committed (Tx: 0)",
+    "[Autopilot] Block #614 committed (Tx: 0)",
+    "[Autopilot] Block #615 committed (Tx: 0)",
+    "[Autopilot] Block #616 committed (Tx: 0)",
+    "[Autopilot] Block #617 committed (Tx: 0)",
+    "[Autopilot] Block #618 committed (Tx: 0)",
+    "[Autopilot] Block #619 committed (Tx: 0)",
+    "[Autopilot] Block #620 committed (Tx: 0)",
+    "[Autopilot] Block #621 committed (Tx: 0)",
+    "[Autopilot] Block #622 committed (Tx: 0)",
+    "[Autopilot] Block #623 committed (Tx: 0)",
+    "[Autopilot] Block #624 committed (Tx: 0)",
+    "[Autopilot] Block #625 committed (Tx: 0)",
+    "[Autopilot] Block #626 committed (Tx: 0)",
+    "[Autopilot] Block #627 committed (Tx: 0)",
+    "[Autopilot] Block #628 committed (Tx: 0)",
+    "[Autopilot] Block #629 committed (Tx: 0)",
+    "[Autopilot] Block #630 committed (Tx: 0)",
+    "[Autopilot] Block #631 committed (Tx: 0)",
+    "[Autopilot] Block #632 committed (Tx: 0)",
+    "[Autopilot] Block #633 committed (Tx: 0)",
+    "[Autopilot] Block #634 committed (Tx: 0)",
+    "[Autopilot] Block #635 committed (Tx: 0)",
+    "[Autopilot] Block #636 committed (Tx: 0)",
+    "[Autopilot] Block #637 committed (Tx: 0)",
+    "[Autopilot] Block #638 committed (Tx: 0)",
+    "[Autopilot] Block #639 committed (Tx: 0)",
+    "[Autopilot] Block #640 committed (Tx: 0)",
+    "[Autopilot] Block #641 committed (Tx: 0)",
+    "[Autopilot] Block #642 committed (Tx: 0)",
+    "[Autopilot] Block #643 committed (Tx: 0)",
+    "[Autopilot] Block #644 committed (Tx: 0)",
+    "[Autopilot] Block #645 committed (Tx: 0)",
+    "[Autopilot] Block #646 committed (Tx: 0)",
+    "[Autopilot] Block #647 committed (Tx: 0)",
+    "[Autopilot] Block #648 committed (Tx: 0)",
+    "[Autopilot] Block #649 committed (Tx: 0)",
+    "[Autopilot] Block #650 committed (Tx: 0)",
+    "[Autopilot] Block #651 committed (Tx: 0)",
+    "[Autopilot] Block #652 committed (Tx: 0)",
+    "[Autopilot] Block #653 committed (Tx: 0)",
+    "[Autopilot] Block #654 committed (Tx: 0)",
+    "[Autopilot] Block #655 committed (Tx: 0)",
+    "[Autopilot] Block #656 committed (Tx: 0)",
+    "[Autopilot] Block #657 committed (Tx: 0)",
+    "[Autopilot] Block #658 committed (Tx: 0)",
+    "[Autopilot] Block #659 committed (Tx: 0)",
+    "[Autopilot] Block #660 committed (Tx: 0)",
+    "[Autopilot] Block #661 committed (Tx: 0)",
+    "[Autopilot] Block #662 committed (Tx: 0)",
+    "[Autopilot] Block #663 committed (Tx: 0)",
+    "[Autopilot] Block #664 committed (Tx: 0)",
+    "[Autopilot] Block #665 committed (Tx: 0)",
+    "[Autopilot] Block #666 committed (Tx: 0)",
+    "[Autopilot] Block #667 committed (Tx: 0)",
+    "[Autopilot] Block #668 committed (Tx: 0)",
+    "[Autopilot] Block #669 committed (Tx: 0)",
+    "[Autopilot] Block #670 committed (Tx: 0)",
+    "[Autopilot] Block #671 committed (Tx: 0)",
+    "[Autopilot] Block #672 committed (Tx: 0)",
+    "[Autopilot] Block #673 committed (Tx: 0)",
+    "[Autopilot] Block #674 committed (Tx: 0)",
+    "[Autopilot] Block #675 committed (Tx: 0)",
+    "[Autopilot] Block #676 committed (Tx: 0)",
+    "[Autopilot] Block #677 committed (Tx: 0)",
+    "[Autopilot] Block #678 committed (Tx: 0)",
+    "[Autopilot] Block #679 committed (Tx: 0)",
+    "[Autopilot] Block #680 committed (Tx: 0)",
+    "[Autopilot] Block #681 committed (Tx: 0)",
+    "[Autopilot] Block #682 committed (Tx: 0)",
+    "[Autopilot] Block #683 committed (Tx: 0)",
+    "[Autopilot] Block #684 committed (Tx: 0)",
+    "[Autopilot] Block #685 committed (Tx: 0)",
+    "[Autopilot] Block #686 committed (Tx: 0)",
+    "[Autopilot] Block #687 committed (Tx: 0)",
+    "[Autopilot] Block #688 committed (Tx: 0)",
+    "[Autopilot] Block #689 committed (Tx: 0)",
+    "[Autopilot] Block #690 committed (Tx: 0)",
+    "[Autopilot] Block #691 committed (Tx: 0)",
+    "[Autopilot] Block #692 committed (Tx: 0)",
+    "[Autopilot] Block #693 committed (Tx: 0)",
+    "[Autopilot] Block #694 committed (Tx: 0)",
+    "[studio-proof-trace] outcome_route:raw bytes=303 preview={",
+    "  \"outcomeKind\": \"conversation\",",
+    "  \"executionStrategy\": \"single_pass\",",
+    "  \"confidence\": 0.9,",
+    "  \"needsClarification\": false,",
+    "  \"clarificationQuestions\": [],",
+    "  \"routingHints\": [",
+    "    \"tool_widget:places\"",
+    "  ],",
+    "  \"artifact\": null,",
+    "  \"context\": ...",
+    "[studio-proof-trace] outcome_route:parsed outcome=Conversation strategy=SinglePass confidence=0.9 needs_clarification=false artifact_present=false",
+    "[Autopilot] Block #695 committed (Tx: 0)",
+    "[Autopilot] Block #696 committed (Tx: 0)",
+    "[Autopilot] Block #697 committed (Tx: 0)",
+    "[Autopilot] Block #698 committed (Tx: 0)",
+    "[Autopilot] Block #699 committed (Tx: 0)",
+    "[Autopilot] Block #700 committed (Tx: 0)",
+    "[Autopilot] Block #701 committed (Tx: 0)",
+    "[Autopilot][StudioContinue] routed follow-up outcome_kind=Conversation hints=[\"tool_widget:places\", \"no_persistent_artifact_requested\", \"shared_answer_surface\", \"retained_widget_state_applied\"]",
+    "[Autopilot] Block #702 committed (Tx: 0)",
+    "[Kernel] Session projection refreshed via block#702 (1 sessions)",
+    "[Autopilot] Block #703 committed (Tx: 0)",
+    "[Autopilot] Block #704 committed (Tx: 0)",
+    "[Autopilot] Block #705 committed (Tx: 0)",
+    "[Autopilot] Block #706 committed (Tx: 0)",
+    "[Autopilot] Block #707 committed (Tx: 0)",
+    "[Autopilot] Block #708 committed (Tx: 0)",
+    "[Autopilot] Block #709 committed (Tx: 0)",
+    "[Autopilot] Block #710 committed (Tx: 0)",
+    "[Autopilot] Block #711 committed (Tx: 0)",
+    "[Autopilot] Block #712 committed (Tx: 0)",
+    "[Autopilot] Block #713 committed (Tx: 0)",
+    "[Autopilot] Block #714 committed (Tx: 0)",
+    "[Autopilot] Block #715 committed (Tx: 0)",
+    "[Autopilot] Block #716 committed (Tx: 0)",
+    "[Autopilot] Block #717 committed (Tx: 0)",
+    "[Autopilot] Block #718 committed (Tx: 0)",
+    "[Autopilot] Block #719 committed (Tx: 0)",
+    "[Autopilot] Block #720 committed (Tx: 0)",
+    "[Autopilot] Block #721 committed (Tx: 0)",
+    "[Autopilot] Block #722 committed (Tx: 0)",
+    "[Autopilot] Block #723 committed (Tx: 0)",
+    "[Autopilot] Block #724 committed (Tx: 0)",
+    "[Autopilot] Block #725 committed (Tx: 0)",
+    "[Autopilot] Block #726 committed (Tx: 0)",
+    "[Autopilot] Block #727 committed (Tx: 0)",
+    "[Autopilot] Block #728 committed (Tx: 0)",
+    "[Autopilot] Block #729 committed (Tx: 0)",
+    "[Autopilot] Block #730 committed (Tx: 0)",
+    "[Autopilot] Block #731 committed (Tx: 0)",
+    "[Autopilot] Block #732 committed (Tx: 0)",
+    "[Autopilot] Block #733 committed (Tx: 0)",
+    "[Autopilot] Block #734 committed (Tx: 0)",
+    "[Autopilot] Block #735 committed (Tx: 0)",
+    "[Autopilot] Block #736 committed (Tx: 0)",
+    "[Autopilot] Block #737 committed (Tx: 0)",
+    "[Autopilot] Block #738 committed (Tx: 0)",
+    "[Autopilot] Block #739 committed (Tx: 0)",
+    "[Autopilot] Block #740 committed (Tx: 0)",
+    "[Autopilot] Block #741 committed (Tx: 0)",
+    "[Autopilot] Block #742 committed (Tx: 0)",
+    "[Autopilot] Block #743 committed (Tx: 0)"
+  ],
+  "follow_up_submission_mode": "seed_intent_session_target_relaunch",
+  "probe_error": null,
+  "follow_up_metadata": {
+    "follow_up_user_occurrences": 1,
+    "follow_up_user_index": 1,
+    "follow_up_agent_reply_present": false,
+    "follow_up_agent_reply": null,
+    "session_reused": true
+  }
+}

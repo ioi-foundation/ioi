@@ -501,3 +501,141 @@ async fn invalid_tool_repair_falls_back_to_reasoning_after_fast_error() {
         1
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn refusal_repair_recovers_direct_inline_conversation_with_chat_reply() {
+    let fast_runtime = Arc::new(RepairRecordingRuntime::default());
+    let reasoning_runtime = Arc::new(RepairRecordingRuntime::default());
+    fast_runtime
+        .outputs
+        .lock()
+        .expect("outputs mutex poisoned")
+        .push(Ok(
+            b"In a right triangle, a^2 + b^2 = c^2: the sum of the legs squared equals the hypotenuse squared."
+                .to_vec(),
+        ));
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let service = RuntimeAgentService::new_hybrid(
+        gui,
+        Arc::new(TerminalDriver::new()),
+        Arc::new(BrowserDriver::new()),
+        fast_runtime.clone(),
+        reasoning_runtime.clone(),
+    );
+
+    let mut state = IAVLTree::new(HashCommitmentScheme::new());
+    let session_id = [0x45; 32];
+    let key = get_state_key(&session_id);
+    let mut worker_state = build_worker_state(session_id);
+    worker_state.goal = "What is the Pythagorean theorem?".to_string();
+    worker_state.recent_actions.clear();
+    worker_state.consecutive_failures = 0;
+    let mut resolved_intent = resolved(IntentScopeProfile::Conversation);
+    resolved_intent.intent_id = "conversation.reply".to_string();
+    resolved_intent.required_capabilities = vec![ioi_types::app::agentic::CapabilityId::from(
+        "conversation.reply",
+    )];
+    worker_state.resolved_intent = Some(resolved_intent);
+    state
+        .insert(
+            &key,
+            &codec::to_bytes_canonical(&worker_state).expect("encode worker state"),
+        )
+        .expect("insert worker state");
+
+    let repair = attempt_refusal_repair(
+        &service,
+        &mut state,
+        &worker_state,
+        session_id,
+        "Empty content (reason: length)",
+    )
+    .await
+    .expect("refusal repair should complete");
+
+    match repair.repaired_tool.expect("expected repaired tool") {
+        AgentTool::ChatReply { message } => {
+            assert!(message.contains("a^2 + b^2 = c^2"));
+        }
+        other => panic!("expected chat__reply, got {:?}", other),
+    }
+    assert!(repair
+        .verification_checks
+        .iter()
+        .any(|check| check == "refusal_repair_route_direct_inline=true"));
+    assert!(repair
+        .verification_checks
+        .iter()
+        .any(|check| check == "refusal_repair_direct_inline_succeeded=true"));
+    assert!(repair
+        .verification_checks
+        .iter()
+        .any(|check| check == "refusal_repair_runtime=conversation_direct_inline"));
+    assert_eq!(
+        fast_runtime
+            .seen_inputs
+            .lock()
+            .expect("seen_inputs mutex poisoned")
+            .len(),
+        1
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn refusal_repair_does_not_force_direct_inline_when_currentness_blocks_it() {
+    let fast_runtime = Arc::new(RepairRecordingRuntime::default());
+    let reasoning_runtime = Arc::new(RepairRecordingRuntime::default());
+    let gui: Arc<dyn GuiDriver> = Arc::new(NoopGuiDriver);
+    let service = RuntimeAgentService::new_hybrid(
+        gui,
+        Arc::new(TerminalDriver::new()),
+        Arc::new(BrowserDriver::new()),
+        fast_runtime,
+        reasoning_runtime.clone(),
+    );
+
+    let mut state = IAVLTree::new(HashCommitmentScheme::new());
+    let session_id = [0x46; 32];
+    let key = get_state_key(&session_id);
+    let mut worker_state = build_worker_state(session_id);
+    worker_state.goal = "Who is the current Secretary-General of the UN?".to_string();
+    worker_state.recent_actions.clear();
+    worker_state.consecutive_failures = 0;
+    let mut resolved_intent = resolved(IntentScopeProfile::WebResearch);
+    resolved_intent.intent_id = "web.research.latest".to_string();
+    worker_state.resolved_intent = Some(resolved_intent);
+    state
+        .insert(
+            &key,
+            &codec::to_bytes_canonical(&worker_state).expect("encode worker state"),
+        )
+        .expect("insert worker state");
+
+    let repair = attempt_refusal_repair(
+        &service,
+        &mut state,
+        &worker_state,
+        session_id,
+        "Empty content (reason: length)",
+    )
+    .await
+    .expect("refusal repair should complete");
+
+    assert!(repair.repaired_tool.is_none());
+    assert!(repair
+        .verification_checks
+        .iter()
+        .any(|check| check == "refusal_repair_route_direct_inline=false"));
+    assert!(repair
+        .verification_checks
+        .iter()
+        .any(|check| check == "refusal_repair_skipped=unsupported_scope"));
+    assert_eq!(
+        reasoning_runtime
+            .seen_inputs
+            .lock()
+            .expect("seen_inputs mutex poisoned")
+            .len(),
+        0
+    );
+}

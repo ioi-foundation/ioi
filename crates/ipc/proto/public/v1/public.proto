@@ -700,6 +700,31 @@ message RoutingPostStateSummary {
     repeated string verification_checks = 6;
 }
 
+message RoutingEffectiveToolSurface {
+    repeated string projected_tools = 1;
+    repeated string primary_tools = 2;
+    repeated string broad_fallback_tools = 3;
+    repeated string diagnostic_tools = 4;
+}
+
+message RoutingRouteDecision {
+    string route_family = 1;
+    bool direct_answer_allowed = 2;
+    repeated string direct_answer_blockers = 3;
+    bool currentness_override = 4;
+    uint32 connector_candidate_count = 5;
+    string selected_provider_family = 6;
+    string selected_provider_route_label = 7;
+    bool connector_first_preference = 8;
+    bool narrow_tool_preference = 9;
+    bool file_output_intent = 10;
+    bool artifact_output_intent = 11;
+    bool inline_visual_intent = 12;
+    bool skill_prep_required = 13;
+    string output_intent = 14;
+    RoutingEffectiveToolSurface effective_tool_surface = 15;
+}
+
 message RoutingReceipt {
     string session_id = 1; // Hex
     uint32 step_index = 2;
@@ -728,6 +753,7 @@ message RoutingReceipt {
     string strategy_node = 25;
     string gate_state = 26;
     string resolution_action = 27;
+    RoutingRouteDecision route_decision = 28;
 }
 
 // --- Intent Drafting Types ---

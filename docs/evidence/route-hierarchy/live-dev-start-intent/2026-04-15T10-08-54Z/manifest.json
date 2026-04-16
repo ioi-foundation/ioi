@@ -1,0 +1,1975 @@
+[
+  {
+    "captured_at": "2026-04-15T10:09:05.467731+00:00",
+    "prompt": "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland",
+    "screenshot": "/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/route-hierarchy/live-dev-start-intent/2026-04-15T10-08-54Z/01-compare-the-weather-in-three-cities-i-m-considering-moving-to-au/final.png",
+    "window_id": 20971532,
+    "window_capture_error": null,
+    "task": {
+      "id": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+      "intent": "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland",
+      "agent": "Autopilot",
+      "phase": "Complete",
+      "progress": 20,
+      "total_steps": 20,
+      "current_step": "Ready for input",
+      "gate_info": null,
+      "receipt": null,
+      "visual_hash": null,
+      "pending_request_hash": null,
+      "session_id": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+      "credential_request": null,
+      "clarification_request": null,
+      "session_checklist": [
+        {
+          "itemId": "request",
+          "label": "Request captured",
+          "status": "completed",
+          "detail": "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland",
+          "updatedAtMs": 1776247742786
+        },
+        {
+          "itemId": "execution",
+          "label": "Continue execution",
+          "status": "in_progress",
+          "detail": "Initializing...",
+          "updatedAtMs": 1776247742786
+        },
+        {
+          "itemId": "review",
+          "label": "Review emerging output",
+          "status": "pending",
+          "detail": "Initializing...",
+          "updatedAtMs": 1776247742786
+        }
+      ],
+      "background_tasks": [
+        {
+          "taskId": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+          "sessionId": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+          "label": "Compare the weather in three cities I'm considering moving to: Austin, D...",
+          "status": "running",
+          "detail": "Initializing...",
+          "latestOutput": "Initializing...",
+          "canStop": true,
+          "updatedAtMs": 1776247742786
+        }
+      ],
+      "history": [
+        {
+          "role": "user",
+          "text": "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland",
+          "timestamp": 1776247742786
+        },
+        {
+          "role": "system",
+          "text": "Planning artifacts ready: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1/planning/implementation_plan.md, /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1/planning/task.md, /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1/planning/walkthrough.md",
+          "timestamp": 1776247742906
+        },
+        {
+          "role": "agent",
+          "text": "Current weather comparison:\n- austin: temp +72\u00b0F humidity 82% wind \u219113mph pressure 1014hPa as of 05:09:03-0500.\n- denver: temp +39\u00b0F humidity 72% wind \u21923mph pressure 1012hPa as of 04:09:04-0600.\n- portland: temp +49\u00b0F humidity 86% wind \u219714mph pressure 1011hPa as of 03:09:04-0700.",
+          "timestamp": 1776247744912
+        }
+      ],
+      "events": [
+        {
+          "event_id": "13e7d230-8bc6-4b16-8ffe-ffc84a91d602",
+          "timestamp": "2026-04-15T10:09:02.786320504+00:00",
+          "thread_id": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+          "step_index": 0,
+          "event_type": "INFO_NOTE",
+          "title": "User request",
+          "digest": {
+            "query": "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland"
+          },
+          "details": {
+            "kind": "user_input",
+            "text": "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland"
+          },
+          "artifact_refs": [],
+          "receipt_ref": null,
+          "input_refs": [],
+          "status": "SUCCESS",
+          "duration_ms": null
+        },
+        {
+          "event_id": "af933499-f774-4b03-bec5-e90e3905bbdf",
+          "timestamp": "2026-04-15T10:09:02.958059118+00:00",
+          "thread_id": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+          "step_index": 1,
+          "event_type": "RECEIPT",
+          "title": "Studio route decision",
+          "digest": {
+            "planner_authority": "kernel",
+            "route_decision": {
+              "artifact_output_intent": false,
+              "connector_candidate_count": 0,
+              "connector_first_preference": false,
+              "currentness_override": false,
+              "direct_answer_allowed": false,
+              "direct_answer_blockers": [
+                "tool_widget_surface_selected"
+              ],
+              "effective_tool_surface": {
+                "broad_fallback_tools": [],
+                "diagnostic_tools": [
+                  "route_hint:tool_widget:weather",
+                  "route_hint:narrow_surface_preferred",
+                  "route_hint:no_persistent_artifact_requested"
+                ],
+                "primary_tools": [
+                  "weather_fetch"
+                ],
+                "projected_tools": [
+                  "weather_fetch"
+                ]
+              },
+              "file_output_intent": false,
+              "inline_visual_intent": false,
+              "narrow_tool_preference": true,
+              "output_intent": "tool_execution",
+              "route_family": "research",
+              "selected_provider_family": null,
+              "selected_provider_route_label": null,
+              "skill_prep_required": false
+            },
+            "route_family": "research",
+            "selected_route": "tool_widget_weather",
+            "topology": "planner_specialist",
+            "verifier_outcome": null,
+            "verifier_state": "active"
+          },
+          "details": {
+            "planner_authority": "kernel",
+            "route_decision": {
+              "artifact_output_intent": false,
+              "connector_candidate_count": 0,
+              "connector_first_preference": false,
+              "currentness_override": false,
+              "direct_answer_allowed": false,
+              "direct_answer_blockers": [
+                "tool_widget_surface_selected"
+              ],
+              "effective_tool_surface": {
+                "broad_fallback_tools": [],
+                "diagnostic_tools": [
+                  "route_hint:tool_widget:weather",
+                  "route_hint:narrow_surface_preferred",
+                  "route_hint:no_persistent_artifact_requested"
+                ],
+                "primary_tools": [
+                  "weather_fetch"
+                ],
+                "projected_tools": [
+                  "weather_fetch"
+                ]
+              },
+              "file_output_intent": false,
+              "inline_visual_intent": false,
+              "narrow_tool_preference": true,
+              "output_intent": "tool_execution",
+              "route_family": "research",
+              "selected_provider_family": null,
+              "selected_provider_route_label": null,
+              "skill_prep_required": false
+            },
+            "route_family": "research",
+            "selected_route": "tool_widget_weather",
+            "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+            "topology": "planner_specialist",
+            "verifier_outcome": null,
+            "verifier_state": "active"
+          },
+          "artifact_refs": [],
+          "receipt_ref": null,
+          "input_refs": [
+            "13e7d230-8bc6-4b16-8ffe-ffc84a91d602"
+          ],
+          "status": "SUCCESS",
+          "duration_ms": null
+        },
+        {
+          "event_id": "1ae81bb5-1a36-449b-8ec3-003a0bfc3f56",
+          "timestamp": "2026-04-15T10:09:04.912838354+00:00",
+          "thread_id": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+          "step_index": 2,
+          "event_type": "RECEIPT",
+          "title": "Studio reply completed",
+          "digest": {
+            "planner_authority": "kernel",
+            "route_decision": {
+              "artifact_output_intent": false,
+              "connector_candidate_count": 0,
+              "connector_first_preference": false,
+              "currentness_override": false,
+              "direct_answer_allowed": false,
+              "direct_answer_blockers": [
+                "tool_widget_surface_selected"
+              ],
+              "effective_tool_surface": {
+                "broad_fallback_tools": [],
+                "diagnostic_tools": [
+                  "route_hint:tool_widget:weather",
+                  "route_hint:narrow_surface_preferred",
+                  "route_hint:no_persistent_artifact_requested"
+                ],
+                "primary_tools": [
+                  "weather_fetch"
+                ],
+                "projected_tools": [
+                  "weather_fetch"
+                ]
+              },
+              "file_output_intent": false,
+              "inline_visual_intent": false,
+              "narrow_tool_preference": true,
+              "output_intent": "tool_execution",
+              "route_family": "research",
+              "selected_provider_family": null,
+              "selected_provider_route_label": null,
+              "skill_prep_required": false
+            },
+            "route_family": "research",
+            "selected_route": "tool_widget_weather",
+            "topology": "planner_specialist",
+            "verifier_outcome": "pass",
+            "verifier_state": "passed"
+          },
+          "details": {
+            "planner_authority": "kernel",
+            "route_decision": {
+              "artifact_output_intent": false,
+              "connector_candidate_count": 0,
+              "connector_first_preference": false,
+              "currentness_override": false,
+              "direct_answer_allowed": false,
+              "direct_answer_blockers": [
+                "tool_widget_surface_selected"
+              ],
+              "effective_tool_surface": {
+                "broad_fallback_tools": [],
+                "diagnostic_tools": [
+                  "route_hint:tool_widget:weather",
+                  "route_hint:narrow_surface_preferred",
+                  "route_hint:no_persistent_artifact_requested"
+                ],
+                "primary_tools": [
+                  "weather_fetch"
+                ],
+                "projected_tools": [
+                  "weather_fetch"
+                ]
+              },
+              "file_output_intent": false,
+              "inline_visual_intent": false,
+              "narrow_tool_preference": true,
+              "output_intent": "tool_execution",
+              "route_family": "research",
+              "selected_provider_family": null,
+              "selected_provider_route_label": null,
+              "skill_prep_required": false
+            },
+            "route_family": "research",
+            "selected_route": "tool_widget_weather",
+            "summary": "Studio completed the weather tool-widget route directly and preserved the final route contract.",
+            "topology": "planner_specialist",
+            "verifier_outcome": "pass",
+            "verifier_state": "passed"
+          },
+          "artifact_refs": [],
+          "receipt_ref": null,
+          "input_refs": [
+            "af933499-f774-4b03-bec5-e90e3905bbdf"
+          ],
+          "status": "SUCCESS",
+          "duration_ms": null
+        }
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "1301c14f-1acb-4b41-b17d-a93ff45b9422",
+          "created_at": "2026-04-15T10:09:02.786394408+00:00",
+          "thread_id": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+          "artifact_type": "RUN_BUNDLE",
+          "title": "Run Bundle ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+          "description": "Execution receipts and artifact references",
+          "content_ref": "ioi-memory://artifact/1301c14f-1acb-4b41-b17d-a93ff45b9422",
+          "metadata": {
+            "refs": [],
+            "run_id": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1"
+          },
+          "version": 1,
+          "parent_artifact_id": null
+        },
+        {
+          "artifact_id": "f576c270-3553-4b6a-8f5f-f96a0373c508",
+          "created_at": "2026-04-15T10:09:02.808925274+00:00",
+          "thread_id": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+          "artifact_type": "FILE",
+          "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1/planning/implementation_plan.md",
+          "description": "File snapshot",
+          "content_ref": "ioi-memory://artifact/f576c270-3553-4b6a-8f5f-f96a0373c508",
+          "metadata": {
+            "mime": "text/markdown",
+            "path": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1/planning/implementation_plan.md",
+            "revision": null
+          },
+          "version": 1,
+          "parent_artifact_id": null
+        },
+        {
+          "artifact_id": "391a258f-49a1-4e01-a09c-e983e76c24a2",
+          "created_at": "2026-04-15T10:09:02.835481554+00:00",
+          "thread_id": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+          "artifact_type": "FILE",
+          "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1/planning/task.md",
+          "description": "File snapshot",
+          "content_ref": "ioi-memory://artifact/391a258f-49a1-4e01-a09c-e983e76c24a2",
+          "metadata": {
+            "mime": "text/markdown",
+            "path": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1/planning/task.md",
+            "revision": null
+          },
+          "version": 1,
+          "parent_artifact_id": null
+        },
+        {
+          "artifact_id": "0d2b0282-991b-438b-8102-d142d12334ed",
+          "created_at": "2026-04-15T10:09:02.865653807+00:00",
+          "thread_id": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+          "artifact_type": "FILE",
+          "title": "File: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1/planning/walkthrough.md",
+          "description": "File snapshot",
+          "content_ref": "ioi-memory://artifact/0d2b0282-991b-438b-8102-d142d12334ed",
+          "metadata": {
+            "mime": "text/markdown",
+            "path": "/home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu/conversation-artifacts/ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1/planning/walkthrough.md",
+            "revision": null
+          },
+          "version": 1,
+          "parent_artifact_id": null
+        }
+      ],
+      "studio_session": {
+        "sessionId": "68191467-db89-456d-a914-e572bef36a77",
+        "threadId": "ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+        "artifactId": "09668c60-6dd2-4b8c-a09b-5b8087f24531",
+        "title": "Tool widget route \u00b7 Compare the weather in three cities I'm considering moving to",
+        "summary": "Current weather comparison:\n- austin: temp +72\u00b0F humidity 82% wind \u219113mph pressure 1014hPa as of 05:09:03-0500.\n- denver: temp +39\u00b0F humidity 72% wind \u21923mph pressure 1012hPa as of 04:09:04-0600.\n- portland: temp +49\u00b0F humidity 86% wind \u219714mph pressure 1011hPa as of 03:09:04-0700.",
+        "currentLens": "source",
+        "navigatorBackingMode": "logical",
+        "navigatorNodes": [
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "description": "Inspect the source form of the artifact.",
+            "badge": null,
+            "status": null,
+            "lens": "source",
+            "path": null,
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "attachedArtifactIds": [],
+        "availableLenses": [
+          "source",
+          "evidence"
+        ],
+        "materialization": {
+          "version": 7,
+          "requestKind": "tool_widget",
+          "normalizedIntent": "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland",
+          "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "winningCandidateRationale": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "modeDecision": {
+              "requestedStrategy": "plan_execute",
+              "resolvedStrategy": "plan_execute",
+              "modeConfidence": 0.98050004,
+              "oneShotSufficiency": 0.86249995,
+              "ambiguity": 0.029999971,
+              "workGraphSizeEstimate": 1,
+              "hiddenDependencyLikelihood": 0.25,
+              "verificationPressure": 0.2,
+              "revisionCost": 0.2,
+              "evidenceBreadth": 0.15,
+              "mergeBurden": 0.15,
+              "decompositionPayoff": 0.13250001,
+              "workGraphRequired": false,
+              "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 180000,
+                "maxTokens": 8192,
+                "maxToolCalls": 4,
+                "maxRepairs": 1,
+                "expansionPolicy": "fixed"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            },
+            "executionDomain": "studio_tool_widget",
+            "domainKind": "tool_widget",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "satisfiedVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": false
+            },
+            "plan": {
+              "version": 1,
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Tool-widget handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "executionSummary": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "workerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the tool_widget route with the plan_execute strategy.",
+                "startedAt": "2026-04-15T10:09:02.957686484+00:00",
+                "finishedAt": "2026-04-15T10:09:02.957686484+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "tool_widget:weather",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-15T10:09:02.957686484+00:00",
+                "finishedAt": "2026-04-15T10:09:02.957686484+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "tool_widget:weather \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+                ],
+                "failure": null
+              }
+            ],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the tool-widget surface.",
+                "details": [
+                  "tool_widget:weather",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:plan_execute",
+                  "tool_widget:weather",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              }
+            ],
+            "graphMutationReceipts": [],
+            "dispatchBatches": [],
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "budgetSummary": {
+              "plannedWorkerCount": 2,
+              "dispatchedWorkerCount": 2,
+              "tokenBudget": null,
+              "tokenUsage": null,
+              "wallClockMs": null,
+              "coordinationOverheadMs": null,
+              "status": "completed"
+            },
+            "livePreviews": []
+          },
+          "swarmPlan": {
+            "version": 1,
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Tool-widget handoff",
+                "role": "responder",
+                "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "swarmExecution": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "plan_execute",
+            "executionDomain": "studio_tool_widget",
+            "adapterLabel": "tool_widget_plan_execute_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "swarmWorkerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the tool_widget route with the plan_execute strategy.",
+              "startedAt": "2026-04-15T10:09:02.957686484+00:00",
+              "finishedAt": "2026-04-15T10:09:02.957686484+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-15T10:09:02.957686484+00:00",
+              "finishedAt": "2026-04-15T10:09:02.957686484+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "tool_widget:weather \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+              ],
+              "failure": null
+            }
+          ],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the tool-widget surface.",
+              "details": [
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:plan_execute",
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ]
+            }
+          ],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "fallbackUsed": false,
+          "uxLifecycle": "judged",
+          "failure": null,
+          "navigatorNodes": [
+            {
+              "id": "source",
+              "label": "Source",
+              "kind": "source",
+              "description": "Inspect the source form of the artifact.",
+              "badge": null,
+              "status": null,
+              "lens": "source",
+              "path": null,
+              "children": []
+            },
+            {
+              "id": "evidence",
+              "label": "Evidence",
+              "kind": "evidence",
+              "description": "Inspect verification state, receipts, and evidence.",
+              "badge": null,
+              "status": null,
+              "lens": "evidence",
+              "path": null,
+              "children": []
+            }
+          ],
+          "fileWrites": [],
+          "commandIntents": [],
+          "previewIntent": null,
+          "verificationSteps": [
+            {
+              "id": "route",
+              "label": "Verify route",
+              "kind": "route",
+              "status": "success"
+            },
+            {
+              "id": "reply_surface",
+              "label": "Verify reply surface",
+              "kind": "reply_surface",
+              "status": "success"
+            }
+          ],
+          "pipelineSteps": [
+            {
+              "id": "intake",
+              "stage": "plan",
+              "label": "Intake",
+              "status": "complete",
+              "summary": "Studio captured the request and preserved it as a typed outcome turn.",
+              "outputs": [
+                "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portl\u2026"
+              ],
+              "verificationGate": null
+            },
+            {
+              "id": "routing",
+              "stage": "dispatch",
+              "label": "Outcome routing",
+              "status": "complete",
+              "summary": "The typed router intentionally kept this request on the tool widget surface.",
+              "outputs": [
+                "tool_widget",
+                "tool_widget",
+                "strategy:plan_execute",
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "verificationGate": null
+            },
+            {
+              "id": "planner",
+              "stage": "plan",
+              "label": "Planner",
+              "status": "complete",
+              "summary": "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+              "outputs": [
+                "plan_execute",
+                "work_items:2",
+                "sequential_by_default"
+              ],
+              "verificationGate": null
+            },
+            {
+              "id": "swarm_execution",
+              "stage": "work",
+              "label": "Shared execution",
+              "status": "complete",
+              "summary": "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+              "outputs": [
+                "worker_receipts:2",
+                "progress:2/2",
+                "adapter:tool_widget_plan_execute_v1"
+              ],
+              "verificationGate": "Shared execution receipts must remain truthful about the active outcome surface."
+            },
+            {
+              "id": "verification",
+              "stage": "verify",
+              "label": "Verification",
+              "status": "complete",
+              "summary": "Studio verified the selected non-artifact route before composing the reply state.",
+              "outputs": [
+                "route_verification (ready)",
+                "reply_surface (ready)"
+              ],
+              "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+            },
+            {
+              "id": "reply",
+              "stage": "finalize",
+              "label": "Reply",
+              "status": "complete",
+              "summary": "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+              "outputs": [
+                "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+                "tool_widget:weather",
+                "narrow_surface_preferred",
+                "no_persistent_artifact_requested"
+              ],
+              "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+            }
+          ],
+          "runtimeNarrationEvents": [],
+          "notes": [
+            "Studio intentionally kept this request off the artifact materialization path.",
+            "The shared execution envelope still records plan, worker, and verification state.",
+            "No renderer-specific fallback artifact was injected for this route.",
+            "routing_hints:tool_widget:weather | narrow_surface_preferred | no_persistent_artifact_requested",
+            "Route family: research",
+            "Output intent: tool_execution",
+            "Projected surface: weather_fetch"
+          ]
+        },
+        "outcomeRequest": {
+          "requestId": "7e53c98c-f99a-420d-b166-bb451928182e",
+          "rawPrompt": "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland",
+          "activeArtifactId": null,
+          "outcomeKind": "tool_widget",
+          "executionStrategy": "plan_execute",
+          "executionModeDecision": {
+            "requestedStrategy": "plan_execute",
+            "resolvedStrategy": "plan_execute",
+            "modeConfidence": 0.98050004,
+            "oneShotSufficiency": 0.86249995,
+            "ambiguity": 0.029999971,
+            "workGraphSizeEstimate": 1,
+            "hiddenDependencyLikelihood": 0.25,
+            "verificationPressure": 0.2,
+            "revisionCost": 0.2,
+            "evidenceBreadth": 0.15,
+            "mergeBurden": 0.15,
+            "decompositionPayoff": 0.13250001,
+            "workGraphRequired": false,
+            "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 180000,
+              "maxTokens": 8192,
+              "maxToolCalls": 4,
+              "maxRepairs": 1,
+              "expansionPolicy": "fixed"
+            }
+          },
+          "confidence": 0.97,
+          "needsClarification": false,
+          "clarificationQuestions": [],
+          "routingHints": [
+            "tool_widget:weather",
+            "narrow_surface_preferred",
+            "no_persistent_artifact_requested"
+          ],
+          "artifact": null
+        },
+        "artifactManifest": {
+          "artifactId": "09668c60-6dd2-4b8c-a09b-5b8087f24531",
+          "title": "Tool widget route \u00b7 Compare the weather in three cities I'm considering moving to",
+          "artifactClass": "report_bundle",
+          "renderer": "bundle_manifest",
+          "primaryTab": "source",
+          "tabs": [
+            {
+              "id": "source",
+              "label": "Source",
+              "kind": "source",
+              "renderer": null,
+              "filePath": null,
+              "lens": "source"
+            },
+            {
+              "id": "evidence",
+              "label": "Evidence",
+              "kind": "evidence",
+              "renderer": null,
+              "filePath": null,
+              "lens": "evidence"
+            }
+          ],
+          "files": [],
+          "verification": {
+            "status": "ready",
+            "lifecycleState": "ready",
+            "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+            "productionProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "acceptanceProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "failure": null
+          },
+          "storage": null
+        },
+        "verifiedReply": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "title": "Tool widget route \u00b7 Compare the weather in three cities I'm considering moving to",
+          "summary": "Current weather comparison:\n- austin: temp +72\u00b0F humidity 82% wind \u219113mph pressure 1014hPa as of 05:09:03-0500.\n- denver: temp +39\u00b0F humidity 72% wind \u21923mph pressure 1012hPa as of 04:09:04-0600.\n- portland: temp +49\u00b0F humidity 86% wind \u219714mph pressure 1011hPa as of 03:09:04-0700.",
+          "evidence": [
+            "outcome:tool_widget",
+            "strategy:plan_execute",
+            "provenance:openai-compatible",
+            "route_hint:tool_widget:weather",
+            "route_hint:narrow_surface_preferred",
+            "route_hint:no_persistent_artifact_requested",
+            "route_execution:studio_tool_widget_weather"
+          ],
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null,
+          "updatedAt": "2026-04-15T10:09:04.912575408+00:00"
+        },
+        "lifecycleState": "ready",
+        "status": "ready",
+        "activeRevisionId": "d2c8ff4f-59b4-4593-8c12-be304cafc80f",
+        "revisions": [
+          {
+            "revisionId": "d2c8ff4f-59b4-4593-8c12-be304cafc80f",
+            "parentRevisionId": null,
+            "branchId": "main",
+            "branchLabel": "Main",
+            "prompt": "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland",
+            "createdAt": "2026-04-15T10:09:02.957907428+00:00",
+            "uxLifecycle": "judged",
+            "artifactManifest": {
+              "artifactId": "09668c60-6dd2-4b8c-a09b-5b8087f24531",
+              "title": "Tool widget route \u00b7 Compare the weather in three cities I'm considering moving to",
+              "artifactClass": "report_bundle",
+              "renderer": "bundle_manifest",
+              "primaryTab": "source",
+              "tabs": [
+                {
+                  "id": "source",
+                  "label": "Source",
+                  "kind": "source",
+                  "renderer": null,
+                  "filePath": null,
+                  "lens": "source"
+                },
+                {
+                  "id": "evidence",
+                  "label": "Evidence",
+                  "kind": "evidence",
+                  "renderer": null,
+                  "filePath": null,
+                  "lens": "evidence"
+                }
+              ],
+              "files": [],
+              "verification": {
+                "status": "ready",
+                "lifecycleState": "ready",
+                "summary": "Studio routed this request to a tool-widget surface. The request maps cleanly to the weather tool-widget family. A narrow first-party surface beats a broad fallback here. The prompt does not ask for a persistent artifact. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+                "productionProvenance": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "acceptanceProvenance": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "failure": null
+              },
+              "storage": null
+            },
+            "artifactBrief": null,
+            "preparationNeeds": null,
+            "preparedContextResolution": null,
+            "skillDiscoveryResolution": null,
+            "blueprint": null,
+            "artifactIr": null,
+            "selectedSkills": [],
+            "retrievedExemplars": [],
+            "editIntent": null,
+            "candidateSummaries": [],
+            "winningCandidateId": null,
+            "executionEnvelope": {
+              "version": 1,
+              "strategy": "plan_execute",
+              "modeDecision": {
+                "requestedStrategy": "plan_execute",
+                "resolvedStrategy": "plan_execute",
+                "modeConfidence": 0.98050004,
+                "oneShotSufficiency": 0.86249995,
+                "ambiguity": 0.029999971,
+                "workGraphSizeEstimate": 1,
+                "hiddenDependencyLikelihood": 0.25,
+                "verificationPressure": 0.2,
+                "revisionCost": 0.2,
+                "evidenceBreadth": 0.15,
+                "mergeBurden": 0.15,
+                "decompositionPayoff": 0.13250001,
+                "workGraphRequired": false,
+                "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+                "budgetEnvelope": {
+                  "maxWorkers": 1,
+                  "maxParallelDepth": 1,
+                  "maxReplans": 0,
+                  "maxWallClockMs": 180000,
+                  "maxTokens": 8192,
+                  "maxToolCalls": 4,
+                  "maxRepairs": 1,
+                  "expansionPolicy": "fixed"
+                }
+              },
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 180000,
+                "maxTokens": 8192,
+                "maxToolCalls": 4,
+                "maxRepairs": 1,
+                "expansionPolicy": "fixed"
+              },
+              "executionDomain": "studio_tool_widget",
+              "domainKind": "tool_widget",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_verification",
+                  "reply_surface"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_verification",
+                  "reply_surface"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": false
+              },
+              "plan": {
+                "version": 1,
+                "strategy": "plan_execute",
+                "executionDomain": "studio_tool_widget",
+                "adapterLabel": "tool_widget_plan_execute_v1",
+                "parallelismMode": "sequential_by_default",
+                "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+                "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+                "decompositionType": "small_graph_functional_decomposition",
+                "firstFrontierIds": [
+                  "handoff"
+                ],
+                "spawnConditions": [
+                  "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+                ],
+                "pruneConditions": [
+                  "Prune clarification work once the reply handoff is already unblocked."
+                ],
+                "mergeStrategy": "deterministic_reply_surface_projection",
+                "verificationStrategy": "route_truth_before_reply",
+                "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+                "completionInvariant": {
+                  "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                  "status": "satisfied",
+                  "requiredWorkItemIds": [
+                    "planner",
+                    "handoff"
+                  ],
+                  "satisfiedWorkItemIds": [
+                    "planner",
+                    "handoff"
+                  ],
+                  "speculativeWorkItemIds": [],
+                  "prunedWorkItemIds": [],
+                  "requiredVerificationIds": [
+                    "route_truth"
+                  ],
+                  "satisfiedVerificationIds": [
+                    "route_truth"
+                  ],
+                  "requiredArtifactPaths": [],
+                  "remainingObligations": [],
+                  "allowsEarlyExit": true
+                },
+                "workItems": [
+                  {
+                    "id": "planner",
+                    "title": "Outcome planner",
+                    "role": "planner",
+                    "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                    "spawnedFromId": null,
+                    "readPaths": [
+                      "request",
+                      "route_context"
+                    ],
+                    "writePaths": [],
+                    "writeRegions": [],
+                    "leaseRequirements": [],
+                    "acceptanceCriteria": [
+                      "Outcome route is explicit.",
+                      "Execution strategy is explicit."
+                    ],
+                    "dependencyIds": [],
+                    "blockedOnIds": [],
+                    "verificationPolicy": null,
+                    "retryBudget": null,
+                    "status": "succeeded"
+                  },
+                  {
+                    "id": "handoff",
+                    "title": "Tool-widget handoff",
+                    "role": "responder",
+                    "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                    "spawnedFromId": null,
+                    "readPaths": [
+                      "request",
+                      "execution_plan"
+                    ],
+                    "writePaths": [],
+                    "writeRegions": [],
+                    "leaseRequirements": [],
+                    "acceptanceCriteria": [
+                      "Studio reply remains truthful about the chosen surface.",
+                      "No artifact renderer is implied when none was invoked."
+                    ],
+                    "dependencyIds": [
+                      "planner"
+                    ],
+                    "blockedOnIds": [],
+                    "verificationPolicy": null,
+                    "retryBudget": null,
+                    "status": "succeeded"
+                  }
+                ]
+              },
+              "executionSummary": {
+                "enabled": true,
+                "currentStage": "reply",
+                "executionStage": "finalize",
+                "activeWorkerRole": null,
+                "totalWorkItems": 2,
+                "completedWorkItems": 2,
+                "failedWorkItems": 0,
+                "verificationStatus": "ready",
+                "strategy": "plan_execute",
+                "executionDomain": "studio_tool_widget",
+                "adapterLabel": "tool_widget_plan_execute_v1",
+                "parallelismMode": "sequential_by_default"
+              },
+              "workerReceipts": [
+                {
+                  "workItemId": "planner",
+                  "role": "planner",
+                  "status": "succeeded",
+                  "resultKind": "completed",
+                  "summary": "Selected the tool_widget route with the plan_execute strategy.",
+                  "startedAt": "2026-04-15T10:09:02.957686484+00:00",
+                  "finishedAt": "2026-04-15T10:09:02.957686484+00:00",
+                  "runtime": {
+                    "kind": "real_local_runtime",
+                    "label": "openai-compatible",
+                    "model": "qwen3.5:9b",
+                    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                  },
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "spawnedWorkItemIds": [],
+                  "blockedOnIds": [],
+                  "promptBytes": null,
+                  "outputBytes": null,
+                  "outputPreview": null,
+                  "previewLanguage": null,
+                  "notes": [
+                    "No artifact files were requested on this route.",
+                    "tool_widget:weather",
+                    "narrow_surface_preferred",
+                    "no_persistent_artifact_requested"
+                  ],
+                  "failure": null
+                },
+                {
+                  "workItemId": "handoff",
+                  "role": "responder",
+                  "status": "succeeded",
+                  "resultKind": "completed",
+                  "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+                  "startedAt": "2026-04-15T10:09:02.957686484+00:00",
+                  "finishedAt": "2026-04-15T10:09:02.957686484+00:00",
+                  "runtime": {
+                    "kind": "real_local_runtime",
+                    "label": "openai-compatible",
+                    "model": "qwen3.5:9b",
+                    "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                  },
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "spawnedWorkItemIds": [],
+                  "blockedOnIds": [],
+                  "promptBytes": null,
+                  "outputBytes": null,
+                  "outputPreview": null,
+                  "previewLanguage": null,
+                  "notes": [
+                    "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                    "tool_widget:weather \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+                  ],
+                  "failure": null
+                }
+              ],
+              "changeReceipts": [],
+              "mergeReceipts": [],
+              "verificationReceipts": [
+                {
+                  "id": "route_verification",
+                  "kind": "route_verification",
+                  "status": "ready",
+                  "summary": "Studio verified that this request belongs on the tool-widget surface.",
+                  "details": [
+                    "tool_widget:weather",
+                    "narrow_surface_preferred",
+                    "no_persistent_artifact_requested"
+                  ]
+                },
+                {
+                  "id": "reply_surface",
+                  "kind": "reply_surface",
+                  "status": "ready",
+                  "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                  "details": [
+                    "strategy:plan_execute",
+                    "tool_widget:weather",
+                    "narrow_surface_preferred",
+                    "no_persistent_artifact_requested"
+                  ]
+                }
+              ],
+              "graphMutationReceipts": [],
+              "dispatchBatches": [],
+              "repairReceipts": [],
+              "replanReceipts": [],
+              "budgetSummary": {
+                "plannedWorkerCount": 2,
+                "dispatchedWorkerCount": 2,
+                "tokenBudget": null,
+                "tokenUsage": null,
+                "wallClockMs": null,
+                "coordinationOverheadMs": null,
+                "status": "completed"
+              },
+              "livePreviews": []
+            },
+            "swarmPlan": {
+              "version": 1,
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the tool_widget surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Tool-widget handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the tool-widget surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "swarmExecution": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "plan_execute",
+              "executionDomain": "studio_tool_widget",
+              "adapterLabel": "tool_widget_plan_execute_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "swarmWorkerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the tool_widget route with the plan_execute strategy.",
+                "startedAt": "2026-04-15T10:09:02.957686484+00:00",
+                "finishedAt": "2026-04-15T10:09:02.957686484+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "tool_widget:weather",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Tool-widget stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-15T10:09:02.957686484+00:00",
+                "finishedAt": "2026-04-15T10:09:02.957686484+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "tool_widget:weather \u00b7 narrow_surface_preferred \u00b7 no_persistent_artifact_requested"
+                ],
+                "failure": null
+              }
+            ],
+            "swarmChangeReceipts": [],
+            "swarmMergeReceipts": [],
+            "swarmVerificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the tool-widget surface.",
+                "details": [
+                  "tool_widget:weather",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:plan_execute",
+                  "tool_widget:weather",
+                  "narrow_surface_preferred",
+                  "no_persistent_artifact_requested"
+                ]
+              }
+            ],
+            "renderEvaluation": null,
+            "judge": null,
+            "outputOrigin": "live_inference",
+            "productionProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "acceptanceProvenance": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "failure": null,
+            "fileWrites": [],
+            "tasteMemory": null,
+            "selectedTargets": []
+          }
+        ],
+        "tasteMemory": null,
+        "retrievedExemplars": [],
+        "selectedTargets": [],
+        "uxLifecycle": "judged",
+        "createdAt": "2026-04-15T10:09:02.957839658+00:00",
+        "updatedAt": "2026-04-15T10:09:04.912575408+00:00",
+        "buildSessionId": null,
+        "workspaceRoot": null,
+        "rendererSessionId": null
+      },
+      "studio_outcome": {
+        "requestId": "7e53c98c-f99a-420d-b166-bb451928182e",
+        "rawPrompt": "Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland",
+        "activeArtifactId": null,
+        "outcomeKind": "tool_widget",
+        "executionStrategy": "plan_execute",
+        "executionModeDecision": {
+          "requestedStrategy": "plan_execute",
+          "resolvedStrategy": "plan_execute",
+          "modeConfidence": 0.98050004,
+          "oneShotSufficiency": 0.86249995,
+          "ambiguity": 0.029999971,
+          "workGraphSizeEstimate": 1,
+          "hiddenDependencyLikelihood": 0.25,
+          "verificationPressure": 0.2,
+          "revisionCost": 0.2,
+          "evidenceBreadth": 0.15,
+          "mergeBurden": 0.15,
+          "decompositionPayoff": 0.13250001,
+          "workGraphRequired": false,
+          "decompositionReason": "The request benefits from planning and verification, but not from a mutable work graph.",
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 180000,
+            "maxTokens": 8192,
+            "maxToolCalls": 4,
+            "maxRepairs": 1,
+            "expansionPolicy": "fixed"
+          }
+        },
+        "confidence": 0.97,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": [
+          "tool_widget:weather",
+          "narrow_surface_preferred",
+          "no_persistent_artifact_requested"
+        ],
+        "artifact": null
+      },
+      "renderer_session": null,
+      "build_session": null,
+      "run_bundle_id": "1301c14f-1acb-4b41-b17d-a93ff45b9422",
+      "swarm_tree": [],
+      "generation": 0,
+      "lineage_id": "genesis",
+      "fitness_score": 0.0
+    },
+    "route_receipt_summary": {
+      "title": "Studio route decision",
+      "selected_route": "tool_widget_weather",
+      "route_family": "research",
+      "planner_authority": "kernel",
+      "verifier_state": "active",
+      "artifact_class": null,
+      "route_decision": {
+        "artifact_output_intent": false,
+        "connector_candidate_count": 0,
+        "connector_first_preference": false,
+        "currentness_override": false,
+        "direct_answer_allowed": false,
+        "direct_answer_blockers": [
+          "tool_widget_surface_selected"
+        ],
+        "effective_tool_surface": {
+          "broad_fallback_tools": [],
+          "diagnostic_tools": [
+            "route_hint:tool_widget:weather",
+            "route_hint:narrow_surface_preferred",
+            "route_hint:no_persistent_artifact_requested"
+          ],
+          "primary_tools": [
+            "weather_fetch"
+          ],
+          "projected_tools": [
+            "weather_fetch"
+          ]
+        },
+        "file_output_intent": false,
+        "inline_visual_intent": false,
+        "narrow_tool_preference": true,
+        "output_intent": "tool_execution",
+        "route_family": "research",
+        "selected_provider_family": null,
+        "selected_provider_route_label": null,
+        "skill_prep_required": false
+      },
+      "artifact_manifest_summary": {
+        "title": null,
+        "renderer": null,
+        "primary_tab": null,
+        "tabs": [],
+        "lifecycle_state": null,
+        "verification_status": null,
+        "verification_summary": null
+      }
+    },
+    "latest_agent_message": "Current weather comparison:\n- austin: temp +72\u00b0F humidity 82% wind \u219113mph pressure 1014hPa as of 05:09:03-0500.\n- denver: temp +39\u00b0F humidity 72% wind \u21923mph pressure 1012hPa as of 04:09:04-0600.\n- portland: temp +49\u00b0F humidity 86% wind \u219714mph pressure 1011hPa as of 03:09:04-0700.",
+    "log_tail": [
+      "\u001b[1m\u001b[94m573\u001b[0m \u001b[1m\u001b[94m|\u001b[0m impl WorkspaceTerminalBridge {",
+      "    \u001b[1m\u001b[94m|\u001b[0m \u001b[1m\u001b[94m----------------------------\u001b[0m \u001b[1m\u001b[94mmethod in this implementation\u001b[0m",
+      "\u001b[1m\u001b[94m...\u001b[0m",
+      "\u001b[1m\u001b[94m600\u001b[0m \u001b[1m\u001b[94m|\u001b[0m     pub(crate) fn resize(&self, cols: u16, rows: u16) -> Result<(), String> {",
+      "    \u001b[1m\u001b[94m|\u001b[0m                   \u001b[1m\u001b[33m^^^^^^\u001b[0m",
+      "",
+      "\u001b[1m\u001b[33mwarning\u001b[0m: `autopilot` (lib) generated 17 warnings",
+      "\u001b[1m\u001b[92m    Finished\u001b[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.47s",
+      "\u001b[1m\u001b[33mwarning\u001b[0m: the following packages contain code that will be rejected by a future version of Rust: imap-proto v0.10.2, xcap v0.0.14",
+      "\u001b[1m\u001b[92mnote\u001b[0m: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`",
+      "\u001b[1m\u001b[92m     Running\u001b[0m `/home/heathledger/Documents/ioi/repos/ioi/target/debug/autopilot`",
+      "[Autopilot] X11 threading initialized",
+      "[Autopilot] Display env: XDG_SESSION_TYPE='x11' WAYLAND_DISPLAY='' GDK_BACKEND='x11' WINIT_UNIX_BACKEND='x11'",
+      "[Autopilot] Initializing...",
+      "[Studio] Using Autopilot data profile 'desktop-localgpu' at /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu",
+      "--- Encrypting New Secure Key ---",
+      "[Studio] Initialized memory runtime.",
+      "[Studio] Skipping wallet-backed connector bootstrap for this local dev profile.",
+      "[Studio] MCP disabled by default. Native filesystem drivers remain available; optional MCP filesystem server is off for safety.",
+      "[Studio] Set IOI_STUDIO_MCP_PROFILE=dev_filesystem to opt in.",
+      "[Autopilot] Setup complete.",
+      "[Autopilot] Connected to Kernel Event Stream at http://127.0.0.1:9000",
+      "[Autopilot] Event Stream Active \u2705",
+      "[Autopilot] Block #55 committed (Tx: 0)",
+      "[Autopilot] Block #56 committed (Tx: 0)",
+      "[Autopilot] Block #57 committed (Tx: 0)",
+      "[Autopilot] Block #58 committed (Tx: 0)",
+      "[Autopilot] Block #59 committed (Tx: 0)",
+      "[Autopilot] Block #60 committed (Tx: 0)",
+      "[Autopilot] Block #61 committed (Tx: 0)",
+      "[Autopilot] Block #62 committed (Tx: 0)",
+      "[Autopilot] Block #63 committed (Tx: 0)",
+      "[Autopilot] Block #64 committed (Tx: 0)",
+      "[Autopilot] Block #65 committed (Tx: 0)",
+      "[Autopilot] Block #66 committed (Tx: 0)",
+      "[Autopilot] Block #67 committed (Tx: 0)",
+      "[Autopilot] Block #68 committed (Tx: 0)",
+      "[Autopilot] Block #69 committed (Tx: 0)",
+      "[Autopilot] Block #70 committed (Tx: 0)",
+      "[Autopilot] Block #71 committed (Tx: 0)",
+      "[Autopilot] Block #72 committed (Tx: 0)",
+      "[Autopilot] Block #73 committed (Tx: 0)",
+      "[Autopilot] Block #74 committed (Tx: 0)",
+      "[Autopilot] Block #75 committed (Tx: 0)",
+      "[Autopilot] Block #76 committed (Tx: 0)",
+      "[Autopilot] Block #77 committed (Tx: 0)",
+      "[Autopilot] Block #78 committed (Tx: 0)",
+      "[Autopilot] Block #79 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+      "[Autopilot] Block #80 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+      "[Autopilot] Block #81 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=queued detail={\"launch\":{\"launchId\":\"3916b51e-1ee9-432d-9335-3dfd62cf06d3\",\"request\":{\"intent\":\"Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland\",\"kind\":\"autopilot-intent\"}}}",
+      "[Autopilot][StudioLaunch] stage=show_target_requested detail={\"launch\":{\"launchId\":\"3916b51e-1ee9-432d-9335-3dfd62cf06d3\",\"request\":{\"intent\":\"Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+      "[Autopilot][StudioLaunch] stage=show_requested detail={\"maximizedBefore\":false,\"minimizedBefore\":false,\"visibleBefore\":false,\"windowExistedBefore\":true,\"windowLabel\":\"studio\"}",
+      "[Autopilot] Surfacing 'studio' (task_switcher=true, visible=Ok(true), minimized=Ok(false))",
+      "[Autopilot][StudioLaunch] stage=show_surfaced detail={\"maximizedAfter\":false,\"minimizedAfter\":false,\"recreatedWindow\":false,\"visibleAfter\":true,\"windowLabel\":\"studio\"}",
+      "[Autopilot][StudioLaunch] stage=show_target_emitted detail={\"launch\":{\"launchId\":\"3916b51e-1ee9-432d-9335-3dfd62cf06d3\",\"request\":{\"intent\":\"Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland\",\"kind\":\"autopilot-intent\"}},\"windowLabel\":\"studio\"}",
+      "[Autopilot][StudioLaunch] stage=studio_launch_event_received detail={\"kind\":\"autopilot-intent\",\"launchId\":\"3916b51e-1ee9-432d-9335-3dfd62cf06d3\",\"request\":{\"intent\":\"Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland\",\"kind\":\"autopilot-intent\"}}",
+      "[Autopilot][StudioLaunch] stage=studio_pending_launch_applying detail={\"kind\":\"autopilot-intent\",\"launchId\":\"3916b51e-1ee9-432d-9335-3dfd62cf06d3\",\"request\":{\"intent\":\"Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland\",\"kind\":\"autopilot-intent\"},\"source\":\"event\"}",
+      "[Autopilot][StudioLaunch] stage=studio_pending_launch_applied detail={\"intent\":\"Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland\",\"kind\":\"autopilot-intent\",\"launchId\":\"3916b51e-1ee9-432d-9335-3dfd62cf06d3\",\"source\":\"event\"}",
+      "[Autopilot] Block #82 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_requested detail={\"intentLength\":91}",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_dispatching detail={\"intentLength\":91}",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_called detail={\"intentLength\":91}",
+      "[Autopilot] Block #83 committed (Tx: 0)",
+      "[Autopilot] Block #84 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=acked detail={\"hadPendingRequest\":true,\"launch\":{\"launchId\":\"3916b51e-1ee9-432d-9335-3dfd62cf06d3\",\"request\":{\"intent\":\"Compare the weather in three cities I'm considering moving to: Austin, Denver, and Portland\",\"kind\":\"autopilot-intent\"}},\"launchId\":\"3916b51e-1ee9-432d-9335-3dfd62cf06d3\"}",
+      "[Autopilot] start_task invoked origin_surface=studio intent_len=91",
+      "[Autopilot] start_task workflow expansion ready for ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1",
+      "[Autopilot] start_task knowledge injection ready for ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1 attached=false",
+      "[Autopilot] Block #85 committed (Tx: 0)",
+      "[Autopilot] Block #86 committed (Tx: 0)",
+      "[Autopilot] Block #87 committed (Tx: 0)",
+      "[Autopilot] start_task initial task saved ba99170d2a43443eb0c609e62cf78b5524571277d8d047e19282762386d9f8f1 phase=Running",
+      "[Autopilot] Block #88 committed (Tx: 0)",
+      "[Autopilot] Block #89 committed (Tx: 0)",
+      "[Kernel] Session projection refreshed via block#88 (1 sessions)",
+      "[Autopilot][StudioLaunch] stage=studio_seed_intent_submit_resolved detail={\"intentLength\":91}",
+      "[Autopilot] Block #90 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=peeked detail={\"foundPendingRequest\":false,\"launch\":null}",
+      "[Autopilot] Block #91 committed (Tx: 0)",
+      "[Autopilot][StudioLaunch] stage=studio_pending_launch_empty detail={\"source\":\"mount\"}",
+      "[Autopilot] Block #92 committed (Tx: 0)",
+      "[Autopilot] Block #93 committed (Tx: 0)",
+      "[Autopilot] Block #94 committed (Tx: 0)",
+      "[Autopilot] Block #95 committed (Tx: 0)",
+      "[Autopilot] Block #96 committed (Tx: 0)",
+      "[Autopilot] Block #97 committed (Tx: 0)",
+      "[Autopilot] Block #98 committed (Tx: 0)",
+      "[Autopilot] Block #99 committed (Tx: 0)",
+      "[Autopilot] Block #100 committed (Tx: 0)",
+      "[Autopilot] Block #101 committed (Tx: 0)",
+      "[Autopilot] Block #102 committed (Tx: 0)",
+      "[Autopilot] Block #103 committed (Tx: 0)",
+      "[Autopilot] Block #104 committed (Tx: 0)",
+      "[Autopilot] Block #105 committed (Tx: 0)",
+      "[Autopilot] Block #106 committed (Tx: 0)",
+      "[Autopilot] Block #107 committed (Tx: 0)",
+      "[Autopilot] Block #108 committed (Tx: 0)",
+      "[Autopilot] Block #109 committed (Tx: 0)",
+      "[Autopilot] Block #110 committed (Tx: 0)",
+      "[Autopilot] Block #111 committed (Tx: 0)",
+      "[Autopilot] Block #112 committed (Tx: 0)",
+      "[Autopilot] Block #113 committed (Tx: 0)",
+      "[Autopilot] Block #114 committed (Tx: 0)",
+      "[Autopilot] Block #115 committed (Tx: 0)",
+      "[Autopilot] Block #116 committed (Tx: 0)",
+      "[Autopilot] Block #117 committed (Tx: 0)",
+      "[Autopilot] Block #118 committed (Tx: 0)",
+      "[Autopilot] Block #119 committed (Tx: 0)",
+      "[Autopilot] Block #120 committed (Tx: 0)",
+      "[Autopilot] Block #121 committed (Tx: 0)",
+      "[Autopilot] Block #122 committed (Tx: 0)",
+      "[Autopilot] Block #123 committed (Tx: 0)",
+      "[Autopilot] Block #124 committed (Tx: 0)",
+      "[Autopilot] Block #125 committed (Tx: 0)",
+      "[Autopilot] Block #126 committed (Tx: 0)",
+      "[Kernel] Session projection refreshed via block#125 (1 sessions)",
+      "[Autopilot] Block #127 committed (Tx: 0)"
+    ]
+  }
+]

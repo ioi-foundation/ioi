@@ -292,6 +292,10 @@ pub async fn handle_action_execution(
     execution_call_context: Option<ServiceCallContext<'_>>,
 ) -> Result<ActionExecutionOutcome, TransactionError> {
     let mut tool = tool;
+    let effective_rules = crate::agentic::policy::augment_workspace_filesystem_policy(
+        rules,
+        Some(agent_state.working_directory.as_str()),
+    );
     let execution_started = Instant::now();
     let intent_id = resolved_intent_id(agent_state);
     let worker_assignment = execution_state
@@ -331,7 +335,7 @@ pub async fn handle_action_execution(
     let (mut foreground_window, target_app_hint) = prepare_tool_for_execution(
         service,
         &mut tool,
-        rules,
+        &effective_rules,
         session_id,
         agent_state,
         os_driver,
@@ -358,7 +362,7 @@ pub async fn handle_action_execution(
     let determinism = build_determinism_context(
         service,
         &tool,
-        rules,
+        &effective_rules,
         agent_state,
         os_driver,
         session_id,
@@ -387,7 +391,7 @@ pub async fn handle_action_execution(
     enforce_policy_and_record(
         service,
         &tool,
-        rules,
+        &effective_rules,
         agent_state,
         os_driver,
         session_id,

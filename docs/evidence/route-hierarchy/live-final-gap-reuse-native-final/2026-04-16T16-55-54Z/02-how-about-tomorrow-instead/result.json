@@ -1,0 +1,2267 @@
+{
+  "captured_at": "2026-04-16T17:00:53.101127+00:00",
+  "prompt": "How about tomorrow instead?",
+  "screenshot": "docs/evidence/route-hierarchy/live-final-gap-reuse-native-final/2026-04-16T16-55-54Z/02-how-about-tomorrow-instead/final.png",
+  "window_id": 18874380,
+  "window_capture_error": null,
+  "task": {
+    "id": "75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837",
+    "intent": "How about tomorrow instead?",
+    "agent": "Autopilot",
+    "phase": "Complete",
+    "progress": 20,
+    "total_steps": 20,
+    "current_step": "Ready for input",
+    "gate_info": null,
+    "receipt": null,
+    "visual_hash": null,
+    "pending_request_hash": null,
+    "session_id": "75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837",
+    "credential_request": null,
+    "clarification_request": null,
+    "session_checklist": [
+      {
+        "itemId": "request",
+        "label": "Request captured",
+        "status": "completed",
+        "detail": "How about tomorrow instead?",
+        "updatedAtMs": 1776356420444
+      },
+      {
+        "itemId": "execution",
+        "label": "Execution complete",
+        "status": "completed",
+        "detail": "Ready for input",
+        "updatedAtMs": 1776356420444
+      },
+      {
+        "itemId": "review",
+        "label": "Review latest output",
+        "status": "completed",
+        "detail": "That sounds like a great plan; we can definitely aim to get things done tomorrow instead. Just let me know what time wor...",
+        "updatedAtMs": 1776356420444
+      }
+    ],
+    "background_tasks": [
+      {
+        "taskId": "75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837",
+        "sessionId": "75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837",
+        "label": "How about tomorrow instead?",
+        "status": "completed",
+        "detail": "Ready for input",
+        "latestOutput": "That sounds like a great plan; we can definitely aim to get things done tomorrow instead. Just let me know what time wor...",
+        "canStop": false,
+        "updatedAtMs": 1776356420444
+      }
+    ],
+    "history": [
+      {
+        "role": "user",
+        "text": "How about tomorrow instead?",
+        "timestamp": 1776356400114
+      },
+      {
+        "role": "agent",
+        "text": "That sounds like a great plan; we can definitely aim to get things done tomorrow instead. Just let me know what time works best for you, and we can finalize the details or head straight into what needs to be done.",
+        "timestamp": 1776356420420
+      }
+    ],
+    "events": [
+      {
+        "event_id": "baffe586-101c-456d-b06d-f169ed1b9d3f",
+        "timestamp": "2026-04-16T16:20:00.114624858+00:00",
+        "thread_id": "75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837",
+        "step_index": 0,
+        "event_type": "INFO_NOTE",
+        "title": "User request",
+        "digest": {
+          "query": "How about tomorrow instead?"
+        },
+        "details": {
+          "kind": "user_input",
+          "text": "How about tomorrow instead?"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "04d930ac-325a-4c3c-ab5c-69652d891cac",
+        "timestamp": "2026-04-16T16:20:17.701011936+00:00",
+        "thread_id": "75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837",
+        "step_index": 1,
+        "event_type": "RECEIPT",
+        "title": "Studio route decision",
+        "digest": {
+          "domain_policy_bundle": {
+            "clarificationPolicy": null,
+            "fallbackPolicy": {
+              "fallbackLanes": [],
+              "mode": "allow_ranked_fallbacks",
+              "primaryLane": "conversation",
+              "rationale": "General and communication lanes may escalate through ranked fallbacks when the primary path is unavailable.",
+              "triggerSignals": []
+            },
+            "policyContract": {
+              "bindings": [
+                "lane_frame",
+                "request_frame",
+                "source_selection",
+                "route_decision.effective_tool_surface",
+                "domain_policy_bundle"
+              ],
+              "hiddenInstructionDependency": false,
+              "rationale": "Lane choice, fallback posture, source ranking, presentation, and verification are retained as typed runtime receipts."
+            },
+            "presentationPolicy": {
+              "primarySurface": "reply_surface",
+              "rationale": "Studio prefers a route-shaped parity surface so the desktop shell shows the active lane instead of collapsing to a generic summary.",
+              "renderer": "html_iframe",
+              "tabPriority": [
+                "render",
+                "evidence"
+              ],
+              "widgetFamily": null
+            },
+            "retainedWidgetState": null,
+            "riskProfile": {
+              "approvalRequired": false,
+              "reasons": [],
+              "sensitivity": "low",
+              "userVisibleGuardrails": [
+                "Show the selected lane and source before answering."
+              ]
+            },
+            "sourceRanking": [
+              {
+                "rank": 1,
+                "rationale": "Selected as the active source for this turn.",
+                "source": "direct_answer"
+              },
+              {
+                "rank": 2,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "conversation_context"
+              }
+            ],
+            "transformationPolicy": {
+              "orderedSteps": [
+                "route",
+                "answer"
+              ],
+              "outputShape": "direct_or_tool_backed_reply",
+              "rationale": "General turns either answer directly or land through the selected route-backed reply surface."
+            },
+            "verificationContract": {
+              "completionGate": "surface_and_route_verified",
+              "requiredChecks": [
+                "route_contract_recorded"
+              ],
+              "strategy": "route_contract"
+            }
+          },
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": false,
+            "laneConfidence": 0.949999988079071,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Answer the request directly: How about tomorrow instead?.",
+            "primaryLane": "conversation",
+            "secondaryLanes": [],
+            "toolWidgetFamily": null,
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "contextual_reschedule",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ],
+              "fromLane": null,
+              "reason": "studio selected the conversation lane for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": null,
+          "planner_authority": "kernel",
+          "request_frame": null,
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "conversation",
+            "activeToolWidgetFamily": null,
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "direct_answer",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": true,
+            "direct_answer_blockers": [],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:contextual_reschedule",
+                "route_hint:no_persistent_artifact_requested",
+                "route_hint:shared_answer_surface"
+              ],
+              "primary_tools": [],
+              "projected_tools": []
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": false,
+            "output_intent": "direct_inline",
+            "route_family": "general",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "general",
+          "selected_route": "conversation_single_pass",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "direct_answer"
+            ],
+            "explicitUserSource": false,
+            "fallbackReason": null,
+            "selectedSource": "direct_answer"
+          },
+          "topology": "single_agent",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "details": {
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": false,
+            "laneConfidence": 0.949999988079071,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Answer the request directly: How about tomorrow instead?.",
+            "primaryLane": "conversation",
+            "secondaryLanes": [],
+            "toolWidgetFamily": null,
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "contextual_reschedule",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ],
+              "fromLane": null,
+              "reason": "studio selected the conversation lane for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": null,
+          "planner_authority": "kernel",
+          "request_frame": null,
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "conversation",
+            "activeToolWidgetFamily": null,
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "direct_answer",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": true,
+            "direct_answer_blockers": [],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:contextual_reschedule",
+                "route_hint:no_persistent_artifact_requested",
+                "route_hint:shared_answer_surface"
+              ],
+              "primary_tools": [],
+              "projected_tools": []
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": false,
+            "output_intent": "direct_inline",
+            "route_family": "general",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "general",
+          "selected_route": "conversation_single_pass",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "direct_answer"
+            ],
+            "explicitUserSource": false,
+            "fallbackReason": null,
+            "selectedSource": "direct_answer"
+          },
+          "summary": "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+          "topology": "single_agent",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "baffe586-101c-456d-b06d-f169ed1b9d3f"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      },
+      {
+        "event_id": "f306114f-5bca-4011-8f0d-61254e9f1b4f",
+        "timestamp": "2026-04-16T16:20:20.421263314+00:00",
+        "thread_id": "75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837",
+        "step_index": 2,
+        "event_type": "RECEIPT",
+        "title": "Studio reply completed",
+        "digest": {
+          "domain_policy_bundle": {
+            "clarificationPolicy": null,
+            "fallbackPolicy": {
+              "fallbackLanes": [],
+              "mode": "allow_ranked_fallbacks",
+              "primaryLane": "conversation",
+              "rationale": "General and communication lanes may escalate through ranked fallbacks when the primary path is unavailable.",
+              "triggerSignals": []
+            },
+            "policyContract": {
+              "bindings": [
+                "lane_frame",
+                "request_frame",
+                "source_selection",
+                "route_decision.effective_tool_surface",
+                "domain_policy_bundle"
+              ],
+              "hiddenInstructionDependency": false,
+              "rationale": "Lane choice, fallback posture, source ranking, presentation, and verification are retained as typed runtime receipts."
+            },
+            "presentationPolicy": {
+              "primarySurface": "reply_surface",
+              "rationale": "Studio prefers a route-shaped parity surface so the desktop shell shows the active lane instead of collapsing to a generic summary.",
+              "renderer": "html_iframe",
+              "tabPriority": [
+                "render",
+                "evidence"
+              ],
+              "widgetFamily": null
+            },
+            "retainedWidgetState": null,
+            "riskProfile": {
+              "approvalRequired": false,
+              "reasons": [],
+              "sensitivity": "low",
+              "userVisibleGuardrails": [
+                "Show the selected lane and source before answering."
+              ]
+            },
+            "sourceRanking": [
+              {
+                "rank": 1,
+                "rationale": "Selected as the active source for this turn.",
+                "source": "direct_answer"
+              },
+              {
+                "rank": 2,
+                "rationale": "Retained as an ordered fallback or supporting source.",
+                "source": "conversation_context"
+              }
+            ],
+            "transformationPolicy": {
+              "orderedSteps": [
+                "route",
+                "answer"
+              ],
+              "outputShape": "direct_or_tool_backed_reply",
+              "rationale": "General turns either answer directly or land through the selected route-backed reply surface."
+            },
+            "verificationContract": {
+              "completionGate": "surface_and_route_verified",
+              "requiredChecks": [
+                "route_contract_recorded"
+              ],
+              "strategy": "route_contract"
+            }
+          },
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": false,
+            "laneConfidence": 0.949999988079071,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Answer the request directly: How about tomorrow instead?.",
+            "primaryLane": "conversation",
+            "secondaryLanes": [],
+            "toolWidgetFamily": null,
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "contextual_reschedule",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ],
+              "fromLane": null,
+              "reason": "studio selected the conversation lane for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": null,
+          "planner_authority": "kernel",
+          "request_frame": null,
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "conversation",
+            "activeToolWidgetFamily": null,
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "direct_answer",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": true,
+            "direct_answer_blockers": [],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:contextual_reschedule",
+                "route_hint:no_persistent_artifact_requested",
+                "route_hint:shared_answer_surface"
+              ],
+              "primary_tools": [],
+              "projected_tools": []
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": false,
+            "output_intent": "direct_inline",
+            "route_family": "general",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "general",
+          "selected_route": "conversation_single_pass",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "direct_answer"
+            ],
+            "explicitUserSource": false,
+            "fallbackReason": null,
+            "selectedSource": "direct_answer"
+          },
+          "topology": "single_agent",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "details": {
+          "lane_frame": {
+            "activeArtifactFollowUp": false,
+            "currentnessPressure": false,
+            "laneConfidence": 0.949999988079071,
+            "persistentDeliverableRequested": false,
+            "primaryGoal": "Answer the request directly: How about tomorrow instead?.",
+            "primaryLane": "conversation",
+            "secondaryLanes": [],
+            "toolWidgetFamily": null,
+            "workspaceGroundingRequired": false
+          },
+          "lane_transitions": [
+            {
+              "evidence": [
+                "contextual_reschedule",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ],
+              "fromLane": null,
+              "reason": "studio selected the conversation lane for this turn.",
+              "toLane": "conversation",
+              "transitionKind": "planned"
+            }
+          ],
+          "orchestration_state": null,
+          "planner_authority": "kernel",
+          "request_frame": null,
+          "retained_lane_state": {
+            "activeArtifactId": null,
+            "activeLane": "conversation",
+            "activeToolWidgetFamily": null,
+            "selectedProviderFamily": null,
+            "selectedProviderRouteLabel": null,
+            "selectedSourceFamily": "direct_answer",
+            "unresolvedClarificationQuestion": null
+          },
+          "route_decision": {
+            "artifact_output_intent": false,
+            "connector_candidate_count": 0,
+            "connector_first_preference": false,
+            "currentness_override": false,
+            "direct_answer_allowed": true,
+            "direct_answer_blockers": [],
+            "effective_tool_surface": {
+              "broad_fallback_tools": [],
+              "diagnostic_tools": [
+                "route_hint:contextual_reschedule",
+                "route_hint:no_persistent_artifact_requested",
+                "route_hint:shared_answer_surface"
+              ],
+              "primary_tools": [],
+              "projected_tools": []
+            },
+            "file_output_intent": false,
+            "inline_visual_intent": false,
+            "narrow_tool_preference": false,
+            "output_intent": "direct_inline",
+            "route_family": "general",
+            "selected_provider_family": null,
+            "selected_provider_route_label": null,
+            "skill_prep_required": false
+          },
+          "route_family": "general",
+          "selected_route": "conversation_single_pass",
+          "source_selection": {
+            "candidateSources": [
+              "conversation_context",
+              "direct_answer"
+            ],
+            "explicitUserSource": false,
+            "fallbackReason": null,
+            "selectedSource": "direct_answer"
+          },
+          "summary": "Studio completed the direct inline route and preserved the final route contract.",
+          "topology": "single_agent",
+          "verifier_outcome": "pass",
+          "verifier_state": "passed"
+        },
+        "artifact_refs": [],
+        "receipt_ref": null,
+        "input_refs": [
+          "04d930ac-325a-4c3c-ab5c-69652d891cac"
+        ],
+        "status": "SUCCESS",
+        "duration_ms": null
+      }
+    ],
+    "artifacts": [
+      {
+        "artifact_id": "73907f9b-2a02-4fe9-944f-0e5d139f07e4",
+        "created_at": "2026-04-16T16:20:00.114678093+00:00",
+        "thread_id": "75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837",
+        "artifact_type": "RUN_BUNDLE",
+        "title": "Run Bundle 75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837",
+        "description": "Execution receipts and artifact references",
+        "content_ref": "ioi-memory://artifact/73907f9b-2a02-4fe9-944f-0e5d139f07e4",
+        "metadata": {
+          "refs": [],
+          "run_id": "75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837"
+        },
+        "version": 1,
+        "parent_artifact_id": null
+      }
+    ],
+    "studio_session": {
+      "sessionId": "a4930bea-b602-4434-ba52-7b941c3ba47d",
+      "threadId": "75751b86b65f46419041c406bd9c2dffdb18b73cfdc84cd8b238435b30f5a837",
+      "artifactId": "37ff5e13-c230-4cf4-a513-04b866982807",
+      "title": "Conversation route \u00b7 How about tomorrow instead?",
+      "summary": "That sounds like a great plan; we can definitely aim to get things done tomorrow instead. Just let me know what time works best for you, and we can finalize the details or head straight into what needs to be done.",
+      "currentLens": "render",
+      "navigatorBackingMode": "logical",
+      "navigatorNodes": [
+        {
+          "id": "render",
+          "label": "Render",
+          "kind": "render",
+          "description": "Interact with the artifact through its renderer-specific presentation.",
+          "badge": null,
+          "status": null,
+          "lens": "render",
+          "path": "surface/index.html",
+          "children": []
+        },
+        {
+          "id": "source",
+          "label": "Source",
+          "kind": "source",
+          "description": "Inspect the source form of the artifact.",
+          "badge": null,
+          "status": null,
+          "lens": "source",
+          "path": "surface/route.md",
+          "children": []
+        },
+        {
+          "id": "evidence",
+          "label": "Evidence",
+          "kind": "evidence",
+          "description": "Inspect verification state, receipts, and evidence.",
+          "badge": null,
+          "status": null,
+          "lens": "evidence",
+          "path": null,
+          "children": []
+        }
+      ],
+      "attachedArtifactIds": [],
+      "availableLenses": [
+        "render",
+        "source",
+        "evidence"
+      ],
+      "materialization": {
+        "version": 7,
+        "requestKind": "conversation",
+        "normalizedIntent": "How about tomorrow instead?",
+        "summary": "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+        "artifactBrief": null,
+        "preparationNeeds": null,
+        "preparedContextResolution": null,
+        "skillDiscoveryResolution": null,
+        "blueprint": null,
+        "artifactIr": null,
+        "selectedSkills": [],
+        "retrievedExemplars": [],
+        "editIntent": null,
+        "candidateSummaries": [],
+        "winningCandidateId": null,
+        "winningCandidateRationale": null,
+        "executionEnvelope": {
+          "version": 1,
+          "strategy": "single_pass",
+          "modeDecision": {
+            "requestedStrategy": "single_pass",
+            "resolvedStrategy": "single_pass",
+            "modeConfidence": 0.9675,
+            "oneShotSufficiency": 0.945,
+            "ambiguity": 0.050000012,
+            "workGraphSizeEstimate": 1,
+            "hiddenDependencyLikelihood": 0.1,
+            "verificationPressure": 0.1,
+            "revisionCost": 0.1,
+            "evidenceBreadth": 0.1,
+            "mergeBurden": 0.0,
+            "decompositionPayoff": 0.045,
+            "workGraphRequired": false,
+            "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 60000,
+              "maxTokens": 2048,
+              "maxToolCalls": 1,
+              "maxRepairs": 0,
+              "expansionPolicy": "fixed"
+            }
+          },
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 60000,
+            "maxTokens": 2048,
+            "maxToolCalls": 1,
+            "maxRepairs": 0,
+            "expansionPolicy": "fixed"
+          },
+          "executionDomain": "studio_conversation",
+          "domainKind": "conversation",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "satisfiedVerificationIds": [
+              "route_verification",
+              "reply_surface"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": false
+          },
+          "plan": {
+            "version": 1,
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Conversation handoff",
+                "role": "responder",
+                "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "executionSummary": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "workerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the conversation route with the single_pass strategy.",
+              "startedAt": "2026-04-16T16:20:17.700308412+00:00",
+              "finishedAt": "2026-04-16T16:20:17.700308412+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "contextual_reschedule",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Conversation stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-16T16:20:17.700308412+00:00",
+              "finishedAt": "2026-04-16T16:20:17.700308412+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "contextual_reschedule \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface"
+              ],
+              "failure": null
+            }
+          ],
+          "changeReceipts": [],
+          "mergeReceipts": [],
+          "verificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the conversation surface.",
+              "details": [
+                "contextual_reschedule",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:single_pass",
+                "contextual_reschedule",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ]
+            }
+          ],
+          "graphMutationReceipts": [],
+          "dispatchBatches": [],
+          "repairReceipts": [],
+          "replanReceipts": [],
+          "budgetSummary": {
+            "plannedWorkerCount": 2,
+            "dispatchedWorkerCount": 2,
+            "tokenBudget": null,
+            "tokenUsage": null,
+            "wallClockMs": null,
+            "coordinationOverheadMs": null,
+            "status": "completed"
+          },
+          "livePreviews": []
+        },
+        "swarmPlan": {
+          "version": 1,
+          "strategy": "single_pass",
+          "executionDomain": "studio_conversation",
+          "adapterLabel": "conversation_single_pass_v1",
+          "parallelismMode": "sequential_by_default",
+          "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+          "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+          "decompositionType": "small_graph_functional_decomposition",
+          "firstFrontierIds": [
+            "handoff"
+          ],
+          "spawnConditions": [
+            "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+          ],
+          "pruneConditions": [
+            "Prune clarification work once the reply handoff is already unblocked."
+          ],
+          "mergeStrategy": "deterministic_reply_surface_projection",
+          "verificationStrategy": "route_truth_before_reply",
+          "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+          "completionInvariant": {
+            "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+            "status": "satisfied",
+            "requiredWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "satisfiedWorkItemIds": [
+              "planner",
+              "handoff"
+            ],
+            "speculativeWorkItemIds": [],
+            "prunedWorkItemIds": [],
+            "requiredVerificationIds": [
+              "route_truth"
+            ],
+            "satisfiedVerificationIds": [
+              "route_truth"
+            ],
+            "requiredArtifactPaths": [],
+            "remainingObligations": [],
+            "allowsEarlyExit": true
+          },
+          "workItems": [
+            {
+              "id": "planner",
+              "title": "Outcome planner",
+              "role": "planner",
+              "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Outcome route is explicit.",
+                "Execution strategy is explicit."
+              ],
+              "dependencyIds": [],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            },
+            {
+              "id": "handoff",
+              "title": "Conversation handoff",
+              "role": "responder",
+              "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+              "spawnedFromId": null,
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "leaseRequirements": [],
+              "acceptanceCriteria": [
+                "Studio reply remains truthful about the chosen surface.",
+                "No artifact renderer is implied when none was invoked."
+              ],
+              "dependencyIds": [
+                "planner"
+              ],
+              "blockedOnIds": [],
+              "verificationPolicy": null,
+              "retryBudget": null,
+              "status": "succeeded"
+            }
+          ]
+        },
+        "swarmExecution": {
+          "enabled": true,
+          "currentStage": "reply",
+          "executionStage": "finalize",
+          "activeWorkerRole": null,
+          "totalWorkItems": 2,
+          "completedWorkItems": 2,
+          "failedWorkItems": 0,
+          "verificationStatus": "ready",
+          "strategy": "single_pass",
+          "executionDomain": "studio_conversation",
+          "adapterLabel": "conversation_single_pass_v1",
+          "parallelismMode": "sequential_by_default"
+        },
+        "swarmWorkerReceipts": [
+          {
+            "workItemId": "planner",
+            "role": "planner",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Selected the conversation route with the single_pass strategy.",
+            "startedAt": "2026-04-16T16:20:17.700308412+00:00",
+            "finishedAt": "2026-04-16T16:20:17.700308412+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "route_context"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "No artifact files were requested on this route.",
+              "contextual_reschedule",
+              "no_persistent_artifact_requested",
+              "shared_answer_surface"
+            ],
+            "failure": null
+          },
+          {
+            "workItemId": "handoff",
+            "role": "responder",
+            "status": "succeeded",
+            "resultKind": "completed",
+            "summary": "Conversation stayed primary and no artifact renderer was launched.",
+            "startedAt": "2026-04-16T16:20:17.700308412+00:00",
+            "finishedAt": "2026-04-16T16:20:17.700308412+00:00",
+            "runtime": {
+              "kind": "real_local_runtime",
+              "label": "openai-compatible",
+              "model": "qwen3.5:9b",
+              "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+            },
+            "readPaths": [
+              "request",
+              "execution_plan"
+            ],
+            "writePaths": [],
+            "writeRegions": [],
+            "spawnedWorkItemIds": [],
+            "blockedOnIds": [],
+            "promptBytes": null,
+            "outputBytes": null,
+            "outputPreview": null,
+            "previewLanguage": null,
+            "notes": [
+              "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+              "contextual_reschedule \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface"
+            ],
+            "failure": null
+          }
+        ],
+        "swarmChangeReceipts": [],
+        "swarmMergeReceipts": [],
+        "swarmVerificationReceipts": [
+          {
+            "id": "route_verification",
+            "kind": "route_verification",
+            "status": "ready",
+            "summary": "Studio verified that this request belongs on the conversation surface.",
+            "details": [
+              "contextual_reschedule",
+              "no_persistent_artifact_requested",
+              "shared_answer_surface"
+            ]
+          },
+          {
+            "id": "reply_surface",
+            "kind": "reply_surface",
+            "status": "ready",
+            "summary": "The shared reply lane remains available and no artifact renderer is required.",
+            "details": [
+              "strategy:single_pass",
+              "contextual_reschedule",
+              "no_persistent_artifact_requested",
+              "shared_answer_surface"
+            ]
+          }
+        ],
+        "renderEvaluation": null,
+        "judge": null,
+        "outputOrigin": "live_inference",
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "fallbackUsed": false,
+        "uxLifecycle": "judged",
+        "failure": null,
+        "navigatorNodes": [
+          {
+            "id": "render",
+            "label": "Render",
+            "kind": "render",
+            "description": "Interact with the artifact through its renderer-specific presentation.",
+            "badge": null,
+            "status": null,
+            "lens": "render",
+            "path": "surface/index.html",
+            "children": []
+          },
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "description": "Inspect the source form of the artifact.",
+            "badge": null,
+            "status": null,
+            "lens": "source",
+            "path": "surface/route.md",
+            "children": []
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "description": "Inspect verification state, receipts, and evidence.",
+            "badge": null,
+            "status": null,
+            "lens": "evidence",
+            "path": null,
+            "children": []
+          }
+        ],
+        "fileWrites": [],
+        "commandIntents": [],
+        "previewIntent": null,
+        "verificationSteps": [
+          {
+            "id": "route",
+            "label": "Verify route",
+            "kind": "route",
+            "status": "success"
+          },
+          {
+            "id": "reply_surface",
+            "label": "Verify reply surface",
+            "kind": "reply_surface",
+            "status": "success"
+          }
+        ],
+        "pipelineSteps": [
+          {
+            "id": "intake",
+            "stage": "plan",
+            "label": "Intake",
+            "status": "complete",
+            "summary": "Studio captured the request and preserved it as a typed outcome turn.",
+            "outputs": [
+              "How about tomorrow instead?"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "routing",
+            "stage": "dispatch",
+            "label": "Outcome routing",
+            "status": "complete",
+            "summary": "The typed router intentionally kept this request on the conversation surface.",
+            "outputs": [
+              "conversation",
+              "conversation",
+              "strategy:single_pass",
+              "contextual_reschedule",
+              "no_persistent_artifact_requested",
+              "shared_answer_surface"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "planner",
+            "stage": "plan",
+            "label": "Planner",
+            "status": "complete",
+            "summary": "Studio locked the shared execution plan before handing the request to the non-artifact lane.",
+            "outputs": [
+              "single_pass",
+              "work_items:2",
+              "sequential_by_default"
+            ],
+            "verificationGate": null
+          },
+          {
+            "id": "swarm_execution",
+            "stage": "work",
+            "label": "Shared execution",
+            "status": "complete",
+            "summary": "The shared execution envelope recorded worker receipts without pretending an artifact renderer ran.",
+            "outputs": [
+              "worker_receipts:2",
+              "progress:2/2",
+              "adapter:conversation_single_pass_v1"
+            ],
+            "verificationGate": "Shared execution receipts must remain truthful about the active outcome surface."
+          },
+          {
+            "id": "verification",
+            "stage": "verify",
+            "label": "Verification",
+            "status": "complete",
+            "summary": "Studio verified the selected non-artifact route before composing the reply state.",
+            "outputs": [
+              "route_verification (ready)",
+              "reply_surface (ready)"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          },
+          {
+            "id": "reply",
+            "stage": "finalize",
+            "label": "Reply",
+            "status": "complete",
+            "summary": "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
+            "outputs": [
+              "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "contextual_reschedule",
+              "no_persistent_artifact_requested",
+              "shared_answer_surface"
+            ],
+            "verificationGate": "Verification state, not worker prose, authorizes Studio replies."
+          }
+        ],
+        "runtimeNarrationEvents": [],
+        "notes": [
+          "Studio intentionally kept this request off the artifact materialization path.",
+          "The shared execution envelope still records plan, worker, and verification state.",
+          "No renderer-specific fallback artifact was injected for this route.",
+          "routing_hints:contextual_reschedule | no_persistent_artifact_requested | shared_answer_surface",
+          "Route family: general",
+          "Output intent: direct_inline"
+        ]
+      },
+      "outcomeRequest": {
+        "requestId": "3c45ed92-0da0-4e41-a7c1-8badbcac8d85",
+        "rawPrompt": "How about tomorrow instead?",
+        "activeArtifactId": null,
+        "outcomeKind": "conversation",
+        "executionStrategy": "single_pass",
+        "executionModeDecision": {
+          "requestedStrategy": "single_pass",
+          "resolvedStrategy": "single_pass",
+          "modeConfidence": 0.9675,
+          "oneShotSufficiency": 0.945,
+          "ambiguity": 0.050000012,
+          "workGraphSizeEstimate": 1,
+          "hiddenDependencyLikelihood": 0.1,
+          "verificationPressure": 0.1,
+          "revisionCost": 0.1,
+          "evidenceBreadth": 0.1,
+          "mergeBurden": 0.0,
+          "decompositionPayoff": 0.045,
+          "workGraphRequired": false,
+          "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+          "budgetEnvelope": {
+            "maxWorkers": 1,
+            "maxParallelDepth": 1,
+            "maxReplans": 0,
+            "maxWallClockMs": 60000,
+            "maxTokens": 2048,
+            "maxToolCalls": 1,
+            "maxRepairs": 0,
+            "expansionPolicy": "fixed"
+          }
+        },
+        "confidence": 0.95,
+        "needsClarification": false,
+        "clarificationQuestions": [],
+        "routingHints": [
+          "contextual_reschedule",
+          "no_persistent_artifact_requested",
+          "shared_answer_surface"
+        ],
+        "laneFrame": {
+          "primaryLane": "conversation",
+          "secondaryLanes": [],
+          "primaryGoal": "Answer the request directly: How about tomorrow instead?.",
+          "toolWidgetFamily": null,
+          "currentnessPressure": false,
+          "workspaceGroundingRequired": false,
+          "persistentDeliverableRequested": false,
+          "activeArtifactFollowUp": false,
+          "laneConfidence": 0.95
+        },
+        "requestFrame": null,
+        "sourceSelection": {
+          "candidateSources": [
+            "conversation_context",
+            "direct_answer"
+          ],
+          "selectedSource": "direct_answer",
+          "explicitUserSource": false,
+          "fallbackReason": null
+        },
+        "retainedLaneState": {
+          "activeLane": "conversation",
+          "activeToolWidgetFamily": null,
+          "activeArtifactId": null,
+          "unresolvedClarificationQuestion": null,
+          "selectedProviderFamily": null,
+          "selectedProviderRouteLabel": null,
+          "selectedSourceFamily": "direct_answer"
+        },
+        "laneTransitions": [
+          {
+            "transitionKind": "planned",
+            "fromLane": null,
+            "toLane": "conversation",
+            "reason": "studio selected the conversation lane for this turn.",
+            "evidence": [
+              "contextual_reschedule",
+              "no_persistent_artifact_requested",
+              "shared_answer_surface"
+            ]
+          }
+        ],
+        "orchestrationState": null,
+        "artifact": null
+      },
+      "artifactManifest": {
+        "artifactId": "37ff5e13-c230-4cf4-a513-04b866982807",
+        "title": "Conversation route \u00b7 How about tomorrow instead?",
+        "artifactClass": "document",
+        "renderer": "html_iframe",
+        "primaryTab": "render",
+        "tabs": [
+          {
+            "id": "render",
+            "label": "Render",
+            "kind": "render",
+            "renderer": "html_iframe",
+            "filePath": "surface/index.html",
+            "lens": "render"
+          },
+          {
+            "id": "source",
+            "label": "Source",
+            "kind": "source",
+            "renderer": null,
+            "filePath": "surface/route.md",
+            "lens": "source"
+          },
+          {
+            "id": "evidence",
+            "label": "Evidence",
+            "kind": "evidence",
+            "renderer": null,
+            "filePath": null,
+            "lens": "evidence"
+          }
+        ],
+        "files": [
+          {
+            "path": "surface/index.html",
+            "mime": "text/html",
+            "role": "primary",
+            "renderable": true,
+            "downloadable": false,
+            "artifactId": null,
+            "externalUrl": "data:text/html;base64,PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KICA8aGVhZD4KICAgIDxtZXRhIGNoYXJzZXQ9InV0Zi04IiAvPgogICAgPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xIiAvPgogICAgPHRpdGxlPkNvbnZlcnNhdGlvbiByb3V0ZSDCtyBIb3cgYWJvdXQgdG9tb3Jyb3cgaW5zdGVhZD88L3RpdGxlPgogICAgPHN0eWxlPgogICAgICA6cm9vdCB7CiAgICAgICAgY29sb3Itc2NoZW1lOiBkYXJrOwogICAgICAgIC0tYmc6ICMwZDExMTc7CiAgICAgICAgLS1wYW5lbDogIzExMTgyMTsKICAgICAgICAtLW11dGVkOiAjOGI5OWFkOwogICAgICAgIC0tdGV4dDogI2VjZjFmNzsKICAgICAgICAtLWxpbmU6IHJnYmEoMjU1LDI1NSwyNTUsMC4wOCk7CiAgICAgICAgLS1hY2NlbnQ6ICM1OWIzZmY7CiAgICAgIH0KICAgICAgYm9keSB7CiAgICAgICAgbWFyZ2luOiAwOwogICAgICAgIHBhZGRpbmc6IDI0cHg7CiAgICAgICAgZm9udC1mYW1pbHk6IHVpLXNhbnMtc2VyaWYsIHN5c3RlbS11aSwgc2Fucy1zZXJpZjsKICAgICAgICBiYWNrZ3JvdW5kOiByYWRpYWwtZ3JhZGllbnQoY2lyY2xlIGF0IHRvcCwgIzE4MjMzNCAwJSwgdmFyKC0tYmcpIDYwJSk7CiAgICAgICAgY29sb3I6IHZhcigtLXRleHQpOwogICAgICB9CiAgICAgIC5zaGVsbCB7CiAgICAgICAgbWF4LXdpZHRoOiA5MjBweDsKICAgICAgICBtYXJnaW46IDAgYXV0bzsKICAgICAgICBiYWNrZ3JvdW5kOiByZ2JhKDEwLCAxNCwgMjAsIDAuOCk7CiAgICAgICAgYm9yZGVyOiAxcHggc29saWQgdmFyKC0tbGluZSk7CiAgICAgICAgYm9yZGVyLXJhZGl1czogMjBweDsKICAgICAgICBwYWRkaW5nOiAyNHB4OwogICAgICAgIGJveC1zaGFkb3c6IDAgMjRweCA2MHB4IHJnYmEoMCwgMCwgMCwgMC4yOCk7CiAgICAgIH0KICAgICAgLmV5ZWJyb3cgewogICAgICAgIGZvbnQtc2l6ZTogMTJweDsKICAgICAgICB0ZXh0LXRyYW5zZm9ybTogdXBwZXJjYXNlOwogICAgICAgIGxldHRlci1zcGFjaW5nOiAwLjEyZW07CiAgICAgICAgY29sb3I6IHZhcigtLW11dGVkKTsKICAgICAgfQogICAgICBoMSB7CiAgICAgICAgbWFyZ2luOiA4cHggMCAwOwogICAgICAgIGZvbnQtc2l6ZTogMjhweDsKICAgICAgfQogICAgICAuY2hpcHMgewogICAgICAgIGRpc3BsYXk6IGZsZXg7CiAgICAgICAgZmxleC13cmFwOiB3cmFwOwogICAgICAgIGdhcDogOHB4OwogICAgICAgIG1hcmdpbjogMThweCAwIDIwcHg7CiAgICAgIH0KICAgICAgLmNoaXAgewogICAgICAgIGZvbnQtc2l6ZTogMTJweDsKICAgICAgICBwYWRkaW5nOiA2cHggMTBweDsKICAgICAgICBib3JkZXItcmFkaXVzOiA5OTlweDsKICAgICAgICBib3JkZXI6IDFweCBzb2xpZCB2YXIoLS1saW5lKTsKICAgICAgICBiYWNrZ3JvdW5kOiByZ2JhKDI1NSwyNTUsMjU1LDAuMDQpOwogICAgICB9CiAgICAgIHNlY3Rpb24gewogICAgICAgIG1hcmdpbi10b3A6IDIycHg7CiAgICAgICAgcGFkZGluZy10b3A6IDE4cHg7CiAgICAgICAgYm9yZGVyLXRvcDogMXB4IHNvbGlkIHZhcigtLWxpbmUpOwogICAgICB9CiAgICAgIGgzIHsKICAgICAgICBtYXJnaW46IDAgMCAxMHB4OwogICAgICAgIGZvbnQtc2l6ZTogMTRweDsKICAgICAgICBsZXR0ZXItc3BhY2luZzogMC4wNGVtOwogICAgICAgIHRleHQtdHJhbnNmb3JtOiB1cHBlcmNhc2U7CiAgICAgICAgY29sb3I6IHZhcigtLW11dGVkKTsKICAgICAgfQogICAgICBwLCBsaSB7CiAgICAgICAgbGluZS1oZWlnaHQ6IDEuNTU7CiAgICAgIH0KICAgICAgY29kZSB7CiAgICAgICAgY29sb3I6IHZhcigtLWFjY2VudCk7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9oZWFkPgogIDxib2R5PgogICAgPG1haW4gY2xhc3M9InNoZWxsIj4KICAgICAgPGRpdiBjbGFzcz0iZXllYnJvdyI+U3R1ZGlvIHBhcml0eSBzdXJmYWNlPC9kaXY+CiAgICAgIDxoMT5Db252ZXJzYXRpb24gcm91dGUgwrcgSG93IGFib3V0IHRvbW9ycm93IGluc3RlYWQ/PC9oMT4KICAgICAgPGRpdiBjbGFzcz0iY2hpcHMiPjxzcGFuIGNsYXNzPSJjaGlwIj5Sb3V0ZTogZ2VuZXJhbDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+T3V0cHV0OiBkaXJlY3RfaW5saW5lPC9zcGFuPjxzcGFuIGNsYXNzPSJjaGlwIj5TdXJmYWNlOiByZXBseV9zdXJmYWNlPC9zcGFuPjxzcGFuIGNsYXNzPSJjaGlwIj5yaXNrOiBsb3c8L3NwYW4+PC9kaXY+CiAgICAgIDxzZWN0aW9uPgogICAgICAgIDxoMz5PdXRjb21lPC9oMz4KICAgICAgICA8cD5UaGF0IHNvdW5kcyBsaWtlIGEgZ3JlYXQgcGxhbjsgd2UgY2FuIGRlZmluaXRlbHkgYWltIHRvIGdldCB0aGluZ3MgZG9uZSB0b21vcnJvdyBpbnN0ZWFkLiBKdXN0IGxldCBtZSBrbm93IHdoYXQgdGltZSB3b3JrcyBiZXN0IGZvciB5b3UsIGFuZCB3ZSBjYW4gZmluYWxpemUgdGhlIGRldGFpbHMgb3IgaGVhZCBzdHJhaWdodCBpbnRvIHdoYXQgbmVlZHMgdG8gYmUgZG9uZS48L3A+CiAgICAgIDwvc2VjdGlvbj4KICAgICAgPHNlY3Rpb24+PGgzPlNvdXJjZSByYW5raW5nPC9oMz48b2w+PGxpPjxzdHJvbmc+RGlyZWN0QW5zd2VyPC9zdHJvbmc+IMK3IFNlbGVjdGVkIGFzIHRoZSBhY3RpdmUgc291cmNlIGZvciB0aGlzIHR1cm4uPC9saT48bGk+PHN0cm9uZz5Db252ZXJzYXRpb25Db250ZXh0PC9zdHJvbmc+IMK3IFJldGFpbmVkIGFzIGFuIG9yZGVyZWQgZmFsbGJhY2sgb3Igc3VwcG9ydGluZyBzb3VyY2UuPC9saT48L29sPjwvc2VjdGlvbj4KICAgICAgCiAgICA8L21haW4+CiAgICA8c2NyaXB0PgogICAgICBjb25zdCB3aWRnZXRTdGF0ZSA9IG51bGw7CiAgICAgIGlmICh3aWRnZXRTdGF0ZSkgewogICAgICAgIHdpbmRvdy5wYXJlbnQucG9zdE1lc3NhZ2UoewogICAgICAgICAgX19zdHVkaW9XaWRnZXRTdGF0ZTogdHJ1ZSwKICAgICAgICAgIHdpZGdldFN0YXRlLAogICAgICAgIH0sICIqIik7CiAgICAgIH0KICAgIDwvc2NyaXB0PgogIDwvYm9keT4KPC9odG1sPg=="
+          },
+          {
+            "path": "surface/route.md",
+            "mime": "text/markdown",
+            "role": "source",
+            "renderable": false,
+            "downloadable": false,
+            "artifactId": null,
+            "externalUrl": "data:text/markdown;base64,IyBDb252ZXJzYXRpb24gcm91dGUgwrcgSG93IGFib3V0IHRvbW9ycm93IGluc3RlYWQ/CgpUaGF0IHNvdW5kcyBsaWtlIGEgZ3JlYXQgcGxhbjsgd2UgY2FuIGRlZmluaXRlbHkgYWltIHRvIGdldCB0aGluZ3MgZG9uZSB0b21vcnJvdyBpbnN0ZWFkLiBKdXN0IGxldCBtZSBrbm93IHdoYXQgdGltZSB3b3JrcyBiZXN0IGZvciB5b3UsIGFuZCB3ZSBjYW4gZmluYWxpemUgdGhlIGRldGFpbHMgb3IgaGVhZCBzdHJhaWdodCBpbnRvIHdoYXQgbmVlZHMgdG8gYmUgZG9uZS4KCiMjIFJvdXRlIGNvbnRyYWN0Ci0gcm91dGUgZmFtaWx5OiBnZW5lcmFsCi0gb3V0cHV0IGludGVudDogZGlyZWN0X2lubGluZQotIGRpcmVjdCBhbnN3ZXIgYWxsb3dlZDogdHJ1ZQotIHByZXNlbnRhdGlvbiBzdXJmYWNlOiByZXBseV9zdXJmYWNlCgojIyBTb3VyY2UgcmFua2luZwotIDEuIERpcmVjdEFuc3dlcjogU2VsZWN0ZWQgYXMgdGhlIGFjdGl2ZSBzb3VyY2UgZm9yIHRoaXMgdHVybi4KLSAyLiBDb252ZXJzYXRpb25Db250ZXh0OiBSZXRhaW5lZCBhcyBhbiBvcmRlcmVkIGZhbGxiYWNrIG9yIHN1cHBvcnRpbmcgc291cmNlLg=="
+          }
+        ],
+        "verification": {
+          "status": "ready",
+          "lifecycleState": "ready",
+          "summary": "That sounds like a great plan; we can definitely aim to get things done tomorrow instead. Just let me know what time works best for you, and we can finalize the details or head straight into what needs to be done.",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null
+        },
+        "storage": null
+      },
+      "verifiedReply": {
+        "status": "ready",
+        "lifecycleState": "ready",
+        "title": "Conversation route \u00b7 How about tomorrow instead?",
+        "summary": "That sounds like a great plan; we can definitely aim to get things done tomorrow instead. Just let me know what time works best for you, and we can finalize the details or head straight into what needs to be done.",
+        "evidence": [
+          "outcome:conversation",
+          "strategy:single_pass",
+          "provenance:openai-compatible",
+          "route_hint:contextual_reschedule",
+          "route_hint:no_persistent_artifact_requested",
+          "route_hint:shared_answer_surface",
+          "route_execution:studio_direct_inline"
+        ],
+        "productionProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "acceptanceProvenance": {
+          "kind": "real_local_runtime",
+          "label": "openai-compatible",
+          "model": "qwen3.5:9b",
+          "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+        },
+        "failure": null,
+        "updatedAt": "2026-04-16T16:20:20.420709239+00:00"
+      },
+      "lifecycleState": "ready",
+      "status": "ready",
+      "activeRevisionId": "35112df0-264c-4eb9-89cb-bcfda87c3c11",
+      "revisions": [
+        {
+          "revisionId": "35112df0-264c-4eb9-89cb-bcfda87c3c11",
+          "parentRevisionId": null,
+          "branchId": "main",
+          "branchLabel": "Main",
+          "prompt": "How about tomorrow instead?",
+          "createdAt": "2026-04-16T16:20:17.700673467+00:00",
+          "uxLifecycle": "judged",
+          "artifactManifest": {
+            "artifactId": "37ff5e13-c230-4cf4-a513-04b866982807",
+            "title": "Conversation route \u00b7 How about tomorrow instead?",
+            "artifactClass": "document",
+            "renderer": "html_iframe",
+            "primaryTab": "render",
+            "tabs": [
+              {
+                "id": "render",
+                "label": "Render",
+                "kind": "render",
+                "renderer": "html_iframe",
+                "filePath": "surface/index.html",
+                "lens": "render"
+              },
+              {
+                "id": "source",
+                "label": "Source",
+                "kind": "source",
+                "renderer": null,
+                "filePath": "surface/route.md",
+                "lens": "source"
+              },
+              {
+                "id": "evidence",
+                "label": "Evidence",
+                "kind": "evidence",
+                "renderer": null,
+                "filePath": null,
+                "lens": "evidence"
+              }
+            ],
+            "files": [
+              {
+                "path": "surface/index.html",
+                "mime": "text/html",
+                "role": "primary",
+                "renderable": true,
+                "downloadable": false,
+                "artifactId": null,
+                "externalUrl": "data:text/html;base64,PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KICA8aGVhZD4KICAgIDxtZXRhIGNoYXJzZXQ9InV0Zi04IiAvPgogICAgPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCwgaW5pdGlhbC1zY2FsZT0xIiAvPgogICAgPHRpdGxlPkNvbnZlcnNhdGlvbiByb3V0ZSDCtyBIb3cgYWJvdXQgdG9tb3Jyb3cgaW5zdGVhZD88L3RpdGxlPgogICAgPHN0eWxlPgogICAgICA6cm9vdCB7CiAgICAgICAgY29sb3Itc2NoZW1lOiBkYXJrOwogICAgICAgIC0tYmc6ICMwZDExMTc7CiAgICAgICAgLS1wYW5lbDogIzExMTgyMTsKICAgICAgICAtLW11dGVkOiAjOGI5OWFkOwogICAgICAgIC0tdGV4dDogI2VjZjFmNzsKICAgICAgICAtLWxpbmU6IHJnYmEoMjU1LDI1NSwyNTUsMC4wOCk7CiAgICAgICAgLS1hY2NlbnQ6ICM1OWIzZmY7CiAgICAgIH0KICAgICAgYm9keSB7CiAgICAgICAgbWFyZ2luOiAwOwogICAgICAgIHBhZGRpbmc6IDI0cHg7CiAgICAgICAgZm9udC1mYW1pbHk6IHVpLXNhbnMtc2VyaWYsIHN5c3RlbS11aSwgc2Fucy1zZXJpZjsKICAgICAgICBiYWNrZ3JvdW5kOiByYWRpYWwtZ3JhZGllbnQoY2lyY2xlIGF0IHRvcCwgIzE4MjMzNCAwJSwgdmFyKC0tYmcpIDYwJSk7CiAgICAgICAgY29sb3I6IHZhcigtLXRleHQpOwogICAgICB9CiAgICAgIC5zaGVsbCB7CiAgICAgICAgbWF4LXdpZHRoOiA5MjBweDsKICAgICAgICBtYXJnaW46IDAgYXV0bzsKICAgICAgICBiYWNrZ3JvdW5kOiByZ2JhKDEwLCAxNCwgMjAsIDAuOCk7CiAgICAgICAgYm9yZGVyOiAxcHggc29saWQgdmFyKC0tbGluZSk7CiAgICAgICAgYm9yZGVyLXJhZGl1czogMjBweDsKICAgICAgICBwYWRkaW5nOiAyNHB4OwogICAgICAgIGJveC1zaGFkb3c6IDAgMjRweCA2MHB4IHJnYmEoMCwgMCwgMCwgMC4yOCk7CiAgICAgIH0KICAgICAgLmV5ZWJyb3cgewogICAgICAgIGZvbnQtc2l6ZTogMTJweDsKICAgICAgICB0ZXh0LXRyYW5zZm9ybTogdXBwZXJjYXNlOwogICAgICAgIGxldHRlci1zcGFjaW5nOiAwLjEyZW07CiAgICAgICAgY29sb3I6IHZhcigtLW11dGVkKTsKICAgICAgfQogICAgICBoMSB7CiAgICAgICAgbWFyZ2luOiA4cHggMCAwOwogICAgICAgIGZvbnQtc2l6ZTogMjhweDsKICAgICAgfQogICAgICAuY2hpcHMgewogICAgICAgIGRpc3BsYXk6IGZsZXg7CiAgICAgICAgZmxleC13cmFwOiB3cmFwOwogICAgICAgIGdhcDogOHB4OwogICAgICAgIG1hcmdpbjogMThweCAwIDIwcHg7CiAgICAgIH0KICAgICAgLmNoaXAgewogICAgICAgIGZvbnQtc2l6ZTogMTJweDsKICAgICAgICBwYWRkaW5nOiA2cHggMTBweDsKICAgICAgICBib3JkZXItcmFkaXVzOiA5OTlweDsKICAgICAgICBib3JkZXI6IDFweCBzb2xpZCB2YXIoLS1saW5lKTsKICAgICAgICBiYWNrZ3JvdW5kOiByZ2JhKDI1NSwyNTUsMjU1LDAuMDQpOwogICAgICB9CiAgICAgIHNlY3Rpb24gewogICAgICAgIG1hcmdpbi10b3A6IDIycHg7CiAgICAgICAgcGFkZGluZy10b3A6IDE4cHg7CiAgICAgICAgYm9yZGVyLXRvcDogMXB4IHNvbGlkIHZhcigtLWxpbmUpOwogICAgICB9CiAgICAgIGgzIHsKICAgICAgICBtYXJnaW46IDAgMCAxMHB4OwogICAgICAgIGZvbnQtc2l6ZTogMTRweDsKICAgICAgICBsZXR0ZXItc3BhY2luZzogMC4wNGVtOwogICAgICAgIHRleHQtdHJhbnNmb3JtOiB1cHBlcmNhc2U7CiAgICAgICAgY29sb3I6IHZhcigtLW11dGVkKTsKICAgICAgfQogICAgICBwLCBsaSB7CiAgICAgICAgbGluZS1oZWlnaHQ6IDEuNTU7CiAgICAgIH0KICAgICAgY29kZSB7CiAgICAgICAgY29sb3I6IHZhcigtLWFjY2VudCk7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9oZWFkPgogIDxib2R5PgogICAgPG1haW4gY2xhc3M9InNoZWxsIj4KICAgICAgPGRpdiBjbGFzcz0iZXllYnJvdyI+U3R1ZGlvIHBhcml0eSBzdXJmYWNlPC9kaXY+CiAgICAgIDxoMT5Db252ZXJzYXRpb24gcm91dGUgwrcgSG93IGFib3V0IHRvbW9ycm93IGluc3RlYWQ/PC9oMT4KICAgICAgPGRpdiBjbGFzcz0iY2hpcHMiPjxzcGFuIGNsYXNzPSJjaGlwIj5Sb3V0ZTogZ2VuZXJhbDwvc3Bhbj48c3BhbiBjbGFzcz0iY2hpcCI+T3V0cHV0OiBkaXJlY3RfaW5saW5lPC9zcGFuPjxzcGFuIGNsYXNzPSJjaGlwIj5TdXJmYWNlOiByZXBseV9zdXJmYWNlPC9zcGFuPjxzcGFuIGNsYXNzPSJjaGlwIj5yaXNrOiBsb3c8L3NwYW4+PC9kaXY+CiAgICAgIDxzZWN0aW9uPgogICAgICAgIDxoMz5PdXRjb21lPC9oMz4KICAgICAgICA8cD5TdHVkaW8gcm91dGVkIHRoaXMgcmVxdWVzdCB0byBjb252ZXJzYXRpb24uIFRoZSBwcm9tcHQgZG9lcyBub3QgYXNrIGZvciBhIHBlcnNpc3RlbnQgYXJ0aWZhY3QuIFN0dWRpbyBjYW4gcHJlc2VydmUgcm91dGUgdHJ1dGggd2l0aG91dCBzdGVhbGluZyB0aGUgbWFpbiBydW50aW1lIHJlcGx5LiBTdHVkaW8ga2VwdCB0aGUgYXJ0aWZhY3QgbGFuZSBjbG9zZWQgYW5kIHByZXNlcnZlZCByb3V0ZSByZWNlaXB0cyBmb3IgZG93bnN0cmVhbSBleGVjdXRpb24uPC9wPgogICAgICA8L3NlY3Rpb24+CiAgICAgIDxzZWN0aW9uPjxoMz5Tb3VyY2UgcmFua2luZzwvaDM+PG9sPjxsaT48c3Ryb25nPkRpcmVjdEFuc3dlcjwvc3Ryb25nPiDCtyBTZWxlY3RlZCBhcyB0aGUgYWN0aXZlIHNvdXJjZSBmb3IgdGhpcyB0dXJuLjwvbGk+PGxpPjxzdHJvbmc+Q29udmVyc2F0aW9uQ29udGV4dDwvc3Ryb25nPiDCtyBSZXRhaW5lZCBhcyBhbiBvcmRlcmVkIGZhbGxiYWNrIG9yIHN1cHBvcnRpbmcgc291cmNlLjwvbGk+PC9vbD48L3NlY3Rpb24+CiAgICAgIAogICAgPC9tYWluPgogICAgPHNjcmlwdD4KICAgICAgY29uc3Qgd2lkZ2V0U3RhdGUgPSBudWxsOwogICAgICBpZiAod2lkZ2V0U3RhdGUpIHsKICAgICAgICB3aW5kb3cucGFyZW50LnBvc3RNZXNzYWdlKHsKICAgICAgICAgIF9fc3R1ZGlvV2lkZ2V0U3RhdGU6IHRydWUsCiAgICAgICAgICB3aWRnZXRTdGF0ZSwKICAgICAgICB9LCAiKiIpOwogICAgICB9CiAgICA8L3NjcmlwdD4KICA8L2JvZHk+CjwvaHRtbD4="
+              },
+              {
+                "path": "surface/route.md",
+                "mime": "text/markdown",
+                "role": "source",
+                "renderable": false,
+                "downloadable": false,
+                "artifactId": null,
+                "externalUrl": "data:text/markdown;base64,IyBDb252ZXJzYXRpb24gcm91dGUgwrcgSG93IGFib3V0IHRvbW9ycm93IGluc3RlYWQ/CgpTdHVkaW8gcm91dGVkIHRoaXMgcmVxdWVzdCB0byBjb252ZXJzYXRpb24uIFRoZSBwcm9tcHQgZG9lcyBub3QgYXNrIGZvciBhIHBlcnNpc3RlbnQgYXJ0aWZhY3QuIFN0dWRpbyBjYW4gcHJlc2VydmUgcm91dGUgdHJ1dGggd2l0aG91dCBzdGVhbGluZyB0aGUgbWFpbiBydW50aW1lIHJlcGx5LiBTdHVkaW8ga2VwdCB0aGUgYXJ0aWZhY3QgbGFuZSBjbG9zZWQgYW5kIHByZXNlcnZlZCByb3V0ZSByZWNlaXB0cyBmb3IgZG93bnN0cmVhbSBleGVjdXRpb24uCgojIyBSb3V0ZSBjb250cmFjdAotIHJvdXRlIGZhbWlseTogZ2VuZXJhbAotIG91dHB1dCBpbnRlbnQ6IGRpcmVjdF9pbmxpbmUKLSBkaXJlY3QgYW5zd2VyIGFsbG93ZWQ6IHRydWUKLSBwcmVzZW50YXRpb24gc3VyZmFjZTogcmVwbHlfc3VyZmFjZQoKIyMgU291cmNlIHJhbmtpbmcKLSAxLiBEaXJlY3RBbnN3ZXI6IFNlbGVjdGVkIGFzIHRoZSBhY3RpdmUgc291cmNlIGZvciB0aGlzIHR1cm4uCi0gMi4gQ29udmVyc2F0aW9uQ29udGV4dDogUmV0YWluZWQgYXMgYW4gb3JkZXJlZCBmYWxsYmFjayBvciBzdXBwb3J0aW5nIHNvdXJjZS4="
+              }
+            ],
+            "verification": {
+              "status": "ready",
+              "lifecycleState": "ready",
+              "summary": "Studio routed this request to conversation. The prompt does not ask for a persistent artifact. Studio can preserve route truth without stealing the main runtime reply. Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+              "productionProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "acceptanceProvenance": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "failure": null
+            },
+            "storage": null
+          },
+          "artifactBrief": null,
+          "preparationNeeds": null,
+          "preparedContextResolution": null,
+          "skillDiscoveryResolution": null,
+          "blueprint": null,
+          "artifactIr": null,
+          "selectedSkills": [],
+          "retrievedExemplars": [],
+          "editIntent": null,
+          "candidateSummaries": [],
+          "winningCandidateId": null,
+          "executionEnvelope": {
+            "version": 1,
+            "strategy": "single_pass",
+            "modeDecision": {
+              "requestedStrategy": "single_pass",
+              "resolvedStrategy": "single_pass",
+              "modeConfidence": 0.9675,
+              "oneShotSufficiency": 0.945,
+              "ambiguity": 0.050000012,
+              "workGraphSizeEstimate": 1,
+              "hiddenDependencyLikelihood": 0.1,
+              "verificationPressure": 0.1,
+              "revisionCost": 0.1,
+              "evidenceBreadth": 0.1,
+              "mergeBurden": 0.0,
+              "decompositionPayoff": 0.045,
+              "workGraphRequired": false,
+              "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+              "budgetEnvelope": {
+                "maxWorkers": 1,
+                "maxParallelDepth": 1,
+                "maxReplans": 0,
+                "maxWallClockMs": 60000,
+                "maxTokens": 2048,
+                "maxToolCalls": 1,
+                "maxRepairs": 0,
+                "expansionPolicy": "fixed"
+              }
+            },
+            "budgetEnvelope": {
+              "maxWorkers": 1,
+              "maxParallelDepth": 1,
+              "maxReplans": 0,
+              "maxWallClockMs": 60000,
+              "maxTokens": 2048,
+              "maxToolCalls": 1,
+              "maxRepairs": 0,
+              "expansionPolicy": "fixed"
+            },
+            "executionDomain": "studio_conversation",
+            "domainKind": "conversation",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "satisfiedVerificationIds": [
+                "route_verification",
+                "reply_surface"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": false
+            },
+            "plan": {
+              "version": 1,
+              "strategy": "single_pass",
+              "executionDomain": "studio_conversation",
+              "adapterLabel": "conversation_single_pass_v1",
+              "parallelismMode": "sequential_by_default",
+              "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+              "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+              "decompositionType": "small_graph_functional_decomposition",
+              "firstFrontierIds": [
+                "handoff"
+              ],
+              "spawnConditions": [
+                "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+              ],
+              "pruneConditions": [
+                "Prune clarification work once the reply handoff is already unblocked."
+              ],
+              "mergeStrategy": "deterministic_reply_surface_projection",
+              "verificationStrategy": "route_truth_before_reply",
+              "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+              "completionInvariant": {
+                "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+                "status": "satisfied",
+                "requiredWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "satisfiedWorkItemIds": [
+                  "planner",
+                  "handoff"
+                ],
+                "speculativeWorkItemIds": [],
+                "prunedWorkItemIds": [],
+                "requiredVerificationIds": [
+                  "route_truth"
+                ],
+                "satisfiedVerificationIds": [
+                  "route_truth"
+                ],
+                "requiredArtifactPaths": [],
+                "remainingObligations": [],
+                "allowsEarlyExit": true
+              },
+              "workItems": [
+                {
+                  "id": "planner",
+                  "title": "Outcome planner",
+                  "role": "planner",
+                  "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "route_context"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Outcome route is explicit.",
+                    "Execution strategy is explicit."
+                  ],
+                  "dependencyIds": [],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                },
+                {
+                  "id": "handoff",
+                  "title": "Conversation handoff",
+                  "role": "responder",
+                  "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                  "spawnedFromId": null,
+                  "readPaths": [
+                    "request",
+                    "execution_plan"
+                  ],
+                  "writePaths": [],
+                  "writeRegions": [],
+                  "leaseRequirements": [],
+                  "acceptanceCriteria": [
+                    "Studio reply remains truthful about the chosen surface.",
+                    "No artifact renderer is implied when none was invoked."
+                  ],
+                  "dependencyIds": [
+                    "planner"
+                  ],
+                  "blockedOnIds": [],
+                  "verificationPolicy": null,
+                  "retryBudget": null,
+                  "status": "succeeded"
+                }
+              ]
+            },
+            "executionSummary": {
+              "enabled": true,
+              "currentStage": "reply",
+              "executionStage": "finalize",
+              "activeWorkerRole": null,
+              "totalWorkItems": 2,
+              "completedWorkItems": 2,
+              "failedWorkItems": 0,
+              "verificationStatus": "ready",
+              "strategy": "single_pass",
+              "executionDomain": "studio_conversation",
+              "adapterLabel": "conversation_single_pass_v1",
+              "parallelismMode": "sequential_by_default"
+            },
+            "workerReceipts": [
+              {
+                "workItemId": "planner",
+                "role": "planner",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Selected the conversation route with the single_pass strategy.",
+                "startedAt": "2026-04-16T16:20:17.700308412+00:00",
+                "finishedAt": "2026-04-16T16:20:17.700308412+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "No artifact files were requested on this route.",
+                  "contextual_reschedule",
+                  "no_persistent_artifact_requested",
+                  "shared_answer_surface"
+                ],
+                "failure": null
+              },
+              {
+                "workItemId": "handoff",
+                "role": "responder",
+                "status": "succeeded",
+                "resultKind": "completed",
+                "summary": "Conversation stayed primary and no artifact renderer was launched.",
+                "startedAt": "2026-04-16T16:20:17.700308412+00:00",
+                "finishedAt": "2026-04-16T16:20:17.700308412+00:00",
+                "runtime": {
+                  "kind": "real_local_runtime",
+                  "label": "openai-compatible",
+                  "model": "qwen3.5:9b",
+                  "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+                },
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "spawnedWorkItemIds": [],
+                "blockedOnIds": [],
+                "promptBytes": null,
+                "outputBytes": null,
+                "outputPreview": null,
+                "previewLanguage": null,
+                "notes": [
+                  "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                  "contextual_reschedule \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface"
+                ],
+                "failure": null
+              }
+            ],
+            "changeReceipts": [],
+            "mergeReceipts": [],
+            "verificationReceipts": [
+              {
+                "id": "route_verification",
+                "kind": "route_verification",
+                "status": "ready",
+                "summary": "Studio verified that this request belongs on the conversation surface.",
+                "details": [
+                  "contextual_reschedule",
+                  "no_persistent_artifact_requested",
+                  "shared_answer_surface"
+                ]
+              },
+              {
+                "id": "reply_surface",
+                "kind": "reply_surface",
+                "status": "ready",
+                "summary": "The shared reply lane remains available and no artifact renderer is required.",
+                "details": [
+                  "strategy:single_pass",
+                  "contextual_reschedule",
+                  "no_persistent_artifact_requested",
+                  "shared_answer_surface"
+                ]
+              }
+            ],
+            "graphMutationReceipts": [],
+            "dispatchBatches": [],
+            "repairReceipts": [],
+            "replanReceipts": [],
+            "budgetSummary": {
+              "plannedWorkerCount": 2,
+              "dispatchedWorkerCount": 2,
+              "tokenBudget": null,
+              "tokenUsage": null,
+              "wallClockMs": null,
+              "coordinationOverheadMs": null,
+              "status": "completed"
+            },
+            "livePreviews": []
+          },
+          "swarmPlan": {
+            "version": 1,
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default",
+            "topLevelObjective": "Route the request onto the conversation surface and preserve truthful execution evidence.",
+            "decompositionHypothesis": "The request can be satisfied with a small known non-artifact work graph.",
+            "decompositionType": "small_graph_functional_decomposition",
+            "firstFrontierIds": [
+              "handoff"
+            ],
+            "spawnConditions": [
+              "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+            ],
+            "pruneConditions": [
+              "Prune clarification work once the reply handoff is already unblocked."
+            ],
+            "mergeStrategy": "deterministic_reply_surface_projection",
+            "verificationStrategy": "route_truth_before_reply",
+            "fallbackCollapseStrategy": "Collapse to the reply handoff once clarification obligations are satisfied.",
+            "completionInvariant": {
+              "summary": "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved.",
+              "status": "satisfied",
+              "requiredWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "satisfiedWorkItemIds": [
+                "planner",
+                "handoff"
+              ],
+              "speculativeWorkItemIds": [],
+              "prunedWorkItemIds": [],
+              "requiredVerificationIds": [
+                "route_truth"
+              ],
+              "satisfiedVerificationIds": [
+                "route_truth"
+              ],
+              "requiredArtifactPaths": [],
+              "remainingObligations": [],
+              "allowsEarlyExit": true
+            },
+            "workItems": [
+              {
+                "id": "planner",
+                "title": "Outcome planner",
+                "role": "planner",
+                "summary": "Lock the correct non-artifact route and execution strategy before any downstream handoff.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "route_context"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Outcome route is explicit.",
+                  "Execution strategy is explicit."
+                ],
+                "dependencyIds": [],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              },
+              {
+                "id": "handoff",
+                "title": "Conversation handoff",
+                "role": "responder",
+                "summary": "Keep the request on the conversation surface and preserve the shared execution evidence.",
+                "spawnedFromId": null,
+                "readPaths": [
+                  "request",
+                  "execution_plan"
+                ],
+                "writePaths": [],
+                "writeRegions": [],
+                "leaseRequirements": [],
+                "acceptanceCriteria": [
+                  "Studio reply remains truthful about the chosen surface.",
+                  "No artifact renderer is implied when none was invoked."
+                ],
+                "dependencyIds": [
+                  "planner"
+                ],
+                "blockedOnIds": [],
+                "verificationPolicy": null,
+                "retryBudget": null,
+                "status": "succeeded"
+              }
+            ]
+          },
+          "swarmExecution": {
+            "enabled": true,
+            "currentStage": "reply",
+            "executionStage": "finalize",
+            "activeWorkerRole": null,
+            "totalWorkItems": 2,
+            "completedWorkItems": 2,
+            "failedWorkItems": 0,
+            "verificationStatus": "ready",
+            "strategy": "single_pass",
+            "executionDomain": "studio_conversation",
+            "adapterLabel": "conversation_single_pass_v1",
+            "parallelismMode": "sequential_by_default"
+          },
+          "swarmWorkerReceipts": [
+            {
+              "workItemId": "planner",
+              "role": "planner",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Selected the conversation route with the single_pass strategy.",
+              "startedAt": "2026-04-16T16:20:17.700308412+00:00",
+              "finishedAt": "2026-04-16T16:20:17.700308412+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "route_context"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "No artifact files were requested on this route.",
+                "contextual_reschedule",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ],
+              "failure": null
+            },
+            {
+              "workItemId": "handoff",
+              "role": "responder",
+              "status": "succeeded",
+              "resultKind": "completed",
+              "summary": "Conversation stayed primary and no artifact renderer was launched.",
+              "startedAt": "2026-04-16T16:20:17.700308412+00:00",
+              "finishedAt": "2026-04-16T16:20:17.700308412+00:00",
+              "runtime": {
+                "kind": "real_local_runtime",
+                "label": "openai-compatible",
+                "model": "qwen3.5:9b",
+                "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+              },
+              "readPaths": [
+                "request",
+                "execution_plan"
+              ],
+              "writePaths": [],
+              "writeRegions": [],
+              "spawnedWorkItemIds": [],
+              "blockedOnIds": [],
+              "promptBytes": null,
+              "outputBytes": null,
+              "outputPreview": null,
+              "previewLanguage": null,
+              "notes": [
+                "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure.",
+                "contextual_reschedule \u00b7 no_persistent_artifact_requested \u00b7 shared_answer_surface"
+              ],
+              "failure": null
+            }
+          ],
+          "swarmChangeReceipts": [],
+          "swarmMergeReceipts": [],
+          "swarmVerificationReceipts": [
+            {
+              "id": "route_verification",
+              "kind": "route_verification",
+              "status": "ready",
+              "summary": "Studio verified that this request belongs on the conversation surface.",
+              "details": [
+                "contextual_reschedule",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ]
+            },
+            {
+              "id": "reply_surface",
+              "kind": "reply_surface",
+              "status": "ready",
+              "summary": "The shared reply lane remains available and no artifact renderer is required.",
+              "details": [
+                "strategy:single_pass",
+                "contextual_reschedule",
+                "no_persistent_artifact_requested",
+                "shared_answer_surface"
+              ]
+            }
+          ],
+          "renderEvaluation": null,
+          "judge": null,
+          "outputOrigin": "live_inference",
+          "productionProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "acceptanceProvenance": {
+            "kind": "real_local_runtime",
+            "label": "openai-compatible",
+            "model": "qwen3.5:9b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions"
+          },
+          "failure": null,
+          "fileWrites": [],
+          "tasteMemory": null,
+          "selectedTargets": []
+        }
+      ],
+      "tasteMemory": null,
+      "retrievedExemplars": [],
+      "selectedTargets": [],
+      "widgetState": null,
+      "uxLifecycle": "judged",
+      "createdAt": "2026-04-16T16:20:17.700566350+00:00",
+      "updatedAt": "2026-04-16T16:20:20.420709239+00:00",
+      "buildSessionId": null,
+      "workspaceRoot": null,
+      "rendererSessionId": null
+    },
+    "studio_outcome": {
+      "requestId": "3c45ed92-0da0-4e41-a7c1-8badbcac8d85",
+      "rawPrompt": "How about tomorrow instead?",
+      "activeArtifactId": null,
+      "outcomeKind": "conversation",
+      "executionStrategy": "single_pass",
+      "executionModeDecision": {
+        "requestedStrategy": "single_pass",
+        "resolvedStrategy": "single_pass",
+        "modeConfidence": 0.9675,
+        "oneShotSufficiency": 0.945,
+        "ambiguity": 0.050000012,
+        "workGraphSizeEstimate": 1,
+        "hiddenDependencyLikelihood": 0.1,
+        "verificationPressure": 0.1,
+        "revisionCost": 0.1,
+        "evidenceBreadth": 0.1,
+        "mergeBurden": 0.0,
+        "decompositionPayoff": 0.045,
+        "workGraphRequired": false,
+        "decompositionReason": "One bounded execution unit is sufficient; decomposition is not justified.",
+        "budgetEnvelope": {
+          "maxWorkers": 1,
+          "maxParallelDepth": 1,
+          "maxReplans": 0,
+          "maxWallClockMs": 60000,
+          "maxTokens": 2048,
+          "maxToolCalls": 1,
+          "maxRepairs": 0,
+          "expansionPolicy": "fixed"
+        }
+      },
+      "confidence": 0.95,
+      "needsClarification": false,
+      "clarificationQuestions": [],
+      "routingHints": [
+        "contextual_reschedule",
+        "no_persistent_artifact_requested",
+        "shared_answer_surface"
+      ],
+      "laneFrame": {
+        "primaryLane": "conversation",
+        "secondaryLanes": [],
+        "primaryGoal": "Answer the request directly: How about tomorrow instead?.",
+        "toolWidgetFamily": null,
+        "currentnessPressure": false,
+        "workspaceGroundingRequired": false,
+        "persistentDeliverableRequested": false,
+        "activeArtifactFollowUp": false,
+        "laneConfidence": 0.95
+      },
+      "requestFrame": null,
+      "sourceSelection": {
+        "candidateSources": [
+          "conversation_context",
+          "direct_answer"
+        ],
+        "selectedSource": "direct_answer",
+        "explicitUserSource": false,
+        "fallbackReason": null
+      },
+      "retainedLaneState": {
+        "activeLane": "conversation",
+        "activeToolWidgetFamily": null,
+        "activeArtifactId": null,
+        "unresolvedClarificationQuestion": null,
+        "selectedProviderFamily": null,
+        "selectedProviderRouteLabel": null,
+        "selectedSourceFamily": "direct_answer"
+      },
+      "laneTransitions": [
+        {
+          "transitionKind": "planned",
+          "fromLane": null,
+          "toLane": "conversation",
+          "reason": "studio selected the conversation lane for this turn.",
+          "evidence": [
+            "contextual_reschedule",
+            "no_persistent_artifact_requested",
+            "shared_answer_surface"
+          ]
+        }
+      ],
+      "orchestrationState": null,
+      "artifact": null
+    },
+    "renderer_session": null,
+    "build_session": null,
+    "run_bundle_id": "73907f9b-2a02-4fe9-944f-0e5d139f07e4",
+    "swarm_tree": [],
+    "generation": 0,
+    "lineage_id": "genesis",
+    "fitness_score": 0.0
+  },
+  "route_receipt_summary": {
+    "title": "Studio route decision",
+    "selected_route": "conversation_single_pass",
+    "route_family": "general",
+    "planner_authority": "kernel",
+    "verifier_state": "passed",
+    "artifact_class": null,
+    "route_decision": {
+      "artifact_output_intent": false,
+      "connector_candidate_count": 0,
+      "connector_first_preference": false,
+      "currentness_override": false,
+      "direct_answer_allowed": true,
+      "direct_answer_blockers": [],
+      "effective_tool_surface": {
+        "broad_fallback_tools": [],
+        "diagnostic_tools": [
+          "route_hint:contextual_reschedule",
+          "route_hint:no_persistent_artifact_requested",
+          "route_hint:shared_answer_surface"
+        ],
+        "primary_tools": [],
+        "projected_tools": []
+      },
+      "file_output_intent": false,
+      "inline_visual_intent": false,
+      "narrow_tool_preference": false,
+      "output_intent": "direct_inline",
+      "route_family": "general",
+      "selected_provider_family": null,
+      "selected_provider_route_label": null,
+      "skill_prep_required": false
+    },
+    "artifact_manifest_summary": {
+      "title": "Conversation route \u00b7 How about tomorrow instead?",
+      "renderer": "html_iframe",
+      "primary_tab": "render",
+      "tabs": [
+        "render",
+        "source",
+        "evidence"
+      ],
+      "lifecycle_state": "ready",
+      "verification_status": "ready",
+      "verification_summary": "That sounds like a great plan; we can definitely aim to get things done tomorrow instead. Just let me know what time works best for you, and we can finalize the details or head straight into what needs to be done."
+    }
+  },
+  "latest_agent_message": "That sounds like a great plan; we can definitely aim to get things done tomorrow instead. Just let me know what time works best for you, and we can finalize the details or head straight into what needs to be done.",
+  "log_tail": [
+    "",
+    "> dev:desktop",
+    "> bash apps/autopilot/scripts/dev-desktop.sh x11",
+    "",
+    "Autopilot local GPU dev profile: desktop-localgpu-reuse-final6 (reset_on_boot=1, preset=ollama-openai, model=qwen3.5:9b, routing_model=qwen3.5:9b, routing_profile=fully_local, acceptance_model=qwen3.5:9b, embeddings=nomic-embed-text, http_timeout_secs=600, max_loaded_models=1, num_parallel=1, keep_alive=10m, flash_attention=1, context_length=4096, proof_trace=1)",
+    "Local GPU dev cache: /home/heathledger/.ollama/models (ollama available)",
+    "Stopping stale local kernel companion: 909253",
+    "Stopping stale local runtime preset: 909011",
+    "Reset Autopilot dev profile before launch: /home/heathledger/.local/share/ai.ioi.autopilot/profiles/desktop-localgpu-reuse-final6",
+    "Starting local runtime preset 'ollama-openai'..."
+  ],
+  "probe_error": null,
+  "follow_up_metadata": {
+    "follow_up_user_occurrences": 1,
+    "follow_up_user_index": 0,
+    "follow_up_agent_reply_present": true,
+    "follow_up_agent_reply": "That sounds like a great plan; we can definitely aim to get things done tomorrow instead. Just let me know what time works best for you, and we can finalize the details or head straight into what needs to be done.",
+    "session_reused": false
+  }
+}

@@ -1,7 +1,49 @@
 import { useEffect } from "react";
-import type {
-  SessionControllerBootstrapOptions,
-} from "./session-controller";
+import type { SessionControllerBootstrapOptions } from "./session-controller";
+
+export interface UseHydrateSessionStoreOptions<TTask> {
+  connectSessionStore: (
+    options?: SessionControllerBootstrapOptions,
+  ) => Promise<void>;
+  connectOptions?: SessionControllerBootstrapOptions;
+  session: TTask | null;
+  getSessionThreadId?: (session: TTask) => string | null;
+  loadSessionEvents?: (threadId: string) => Promise<unknown>;
+  loadSessionArtifacts?: (threadId: string) => Promise<unknown>;
+  onLoadError?: (error: unknown) => void;
+}
+
+export function useHydrateSessionStore<TTask>({
+  connectSessionStore,
+  connectOptions,
+  session,
+  getSessionThreadId,
+  loadSessionEvents,
+  loadSessionArtifacts,
+  onLoadError,
+}: UseHydrateSessionStoreOptions<TTask>) {
+  useEffect(() => {
+    void connectSessionStore(connectOptions);
+  }, [connectOptions, connectSessionStore]);
+
+  useEffect(() => {
+    const threadId =
+      session && getSessionThreadId ? getSessionThreadId(session) : null;
+    if (!threadId) {
+      return;
+    }
+
+    const handleError = onLoadError ?? console.error;
+    void loadSessionEvents?.(threadId).catch(handleError);
+    void loadSessionArtifacts?.(threadId).catch(handleError);
+  }, [
+    getSessionThreadId,
+    loadSessionArtifacts,
+    loadSessionEvents,
+    onLoadError,
+    session,
+  ]);
+}
 
 export interface UseSessionControllerHydrationOptions<TTask> {
   bootstrapSessionController: (
@@ -12,6 +54,7 @@ export interface UseSessionControllerHydrationOptions<TTask> {
   getTaskThreadId?: (task: TTask) => string | null;
   loadThreadEvents?: (threadId: string) => Promise<unknown>;
   loadThreadArtifacts?: (threadId: string) => Promise<unknown>;
+  onLoadError?: (error: unknown) => void;
 }
 
 export function useSessionControllerHydration<TTask>({
@@ -21,18 +64,15 @@ export function useSessionControllerHydration<TTask>({
   getTaskThreadId,
   loadThreadEvents,
   loadThreadArtifacts,
+  onLoadError,
 }: UseSessionControllerHydrationOptions<TTask>) {
-  useEffect(() => {
-    void bootstrapSessionController(bootstrapOptions);
-  }, [bootstrapOptions, bootstrapSessionController]);
-
-  useEffect(() => {
-    const threadId = task && getTaskThreadId ? getTaskThreadId(task) : null;
-    if (!threadId) {
-      return;
-    }
-
-    void loadThreadEvents?.(threadId).catch(console.error);
-    void loadThreadArtifacts?.(threadId).catch(console.error);
-  }, [getTaskThreadId, loadThreadArtifacts, loadThreadEvents, task]);
+  return useHydrateSessionStore({
+    connectSessionStore: bootstrapSessionController,
+    connectOptions: bootstrapOptions,
+    session: task,
+    getSessionThreadId: getTaskThreadId,
+    loadSessionEvents: loadThreadEvents,
+    loadSessionArtifacts: loadThreadArtifacts,
+    onLoadError,
+  });
 }

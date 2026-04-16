@@ -318,7 +318,7 @@ export function StudioUtilityDrawer({
     setSessionSurfaceStatus("loading");
     setSessionSurfaceError(null);
     try {
-      await runtime.stopSessionTask();
+      await runtime.stopAssistantSession();
       const store = useAgentStore.getState();
       await Promise.all([store.refreshCurrentTask(), store.refreshSessionHistory()]);
       setSessionSurfaceStatus("ready");

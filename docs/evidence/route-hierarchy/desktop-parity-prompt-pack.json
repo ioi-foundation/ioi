@@ -1,0 +1,200 @@
+[
+  {
+    "id": "direct_answer_math",
+    "prompt": "What is the Pythagorean theorem?",
+    "covers_questions": [1, 2, 3, 4, 13, 14, 33, 34, 35, 38],
+    "expectations": {
+      "route_family": "general",
+      "selected_route_contains": "conversation_single_pass",
+      "output_intent": "direct_inline",
+      "direct_answer_allowed": true,
+      "latest_agent_message_contains": "Pythagorean theorem"
+    }
+  },
+  {
+    "id": "currentness_research",
+    "prompt": "Who is the current Secretary-General of the UN?",
+    "covers_questions": [1, 2, 3, 4, 6, 7, 30, 33, 34, 35, 38, 39],
+    "expectations": {
+      "route_family": "research",
+      "selected_route_contains": "adaptive_work_graph",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "direct_answer_blockers_include": ["currentness_override"]
+    }
+  },
+  {
+    "id": "currentness_scope_clarification",
+    "prompt": "What's happening this week?",
+    "covers_questions": [2, 4, 6, 18, 30, 33, 34, 35, 38, 39],
+    "expectations": {
+      "route_family": "research",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "direct_answer_blockers_include": ["clarification_required", "currentness_override"],
+      "clarification_contains": "local events"
+    }
+  },
+  {
+    "id": "weather_widget",
+    "prompt": "What's the weather in Boston today?",
+    "covers_questions": [2, 3, 4, 13, 14, 16, 19, 33, 34, 35, 38, 39, 40],
+    "expectations": {
+      "route_family": "research",
+      "selected_route_contains": "tool_widget_weather",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "narrow_tool_preference": true,
+      "primary_tools_include": ["weather_fetch"],
+      "broad_fallback_tools_include": ["web_search"]
+    }
+  },
+  {
+    "id": "weather_advice_clarification",
+    "prompt": "Should I wear a jacket today?",
+    "covers_questions": [2, 4, 16, 18, 30, 33, 34, 35, 38, 40],
+    "expectations": {
+      "route_family": "research",
+      "selected_route_contains": "tool_widget_weather",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "direct_answer_blockers_include": ["clarification_required", "tool_widget_surface_selected"],
+      "narrow_tool_preference": true,
+      "clarification_contains": "city"
+    }
+  },
+  {
+    "id": "places_widget",
+    "prompt": "What are some good coffee shops near downtown Portland?",
+    "covers_questions": [2, 3, 4, 13, 14, 16, 19, 33, 34, 35, 38, 39, 40],
+    "expectations": {
+      "route_family": "research",
+      "selected_route_contains": "tool_widget_places",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "narrow_tool_preference": true,
+      "primary_tools_include": ["places_search", "places_map_display_v0"]
+    }
+  },
+  {
+    "id": "sports_widget",
+    "prompt": "What's the story with the Lakers this season?",
+    "covers_questions": [2, 3, 4, 13, 14, 16, 19, 33, 34, 35, 38, 39, 40],
+    "expectations": {
+      "route_family": "research",
+      "selected_route_contains": "tool_widget_sports",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "narrow_tool_preference": true,
+      "primary_tools_include": ["fetch_sports_data"]
+    }
+  },
+  {
+    "id": "mail_connector",
+    "prompt": "Summarize my unread emails",
+    "covers_questions": [3, 9, 10, 11, 12, 13, 14, 19, 30, 33, 34, 35, 38, 39, 40],
+    "expectations": {
+      "route_family": "integrations",
+      "selected_route_contains": "conversation_mail_connector",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "connector_first_preference": true,
+      "narrow_tool_preference": true,
+      "primary_tools_include": ["connector:mail.primary", "provider_route:mail_connector"],
+      "clarification_contains": "not connected yet"
+    }
+  },
+  {
+    "id": "slack_connector_missing",
+    "prompt": "Summarize my Slack unread messages",
+    "covers_questions": [3, 9, 10, 11, 12, 13, 14, 19, 30, 33, 34, 35, 38, 39, 40],
+    "expectations": {
+      "route_family": "integrations",
+      "selected_route_contains": "conversation_connector",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "connector_first_preference": true,
+      "narrow_tool_preference": true,
+      "direct_answer_blockers_include": ["connector_unavailable"],
+      "clarification_contains": "not available in this runtime yet"
+    }
+  },
+  {
+    "id": "user_input_prioritization",
+    "prompt": "Prioritize these renovation projects: kitchen, bathroom, roof, and windows",
+    "covers_questions": [2, 3, 18, 19, 30, 33, 34, 35, 38, 40],
+    "expectations": {
+      "route_family": "general",
+      "selected_route_contains": "tool_widget_user_input",
+      "output_intent": "tool_execution",
+      "direct_answer_allowed": false,
+      "direct_answer_blockers_include": ["clarification_required", "tool_widget_surface_selected"],
+      "narrow_tool_preference": true,
+      "primary_tools_include": ["ask_user_input_v0"],
+      "clarification_contains": "drive the ranking"
+    }
+  },
+  {
+    "id": "inline_guide",
+    "prompt": "Write me a guide to home brewing",
+    "covers_questions": [1, 5, 20, 23, 25, 33, 34, 35, 37, 38, 42],
+    "expectations": {
+      "route_family": "general",
+      "selected_route_contains": "conversation_single_pass",
+      "output_intent": "direct_inline",
+      "direct_answer_allowed": true
+    }
+  },
+  {
+    "id": "inline_visualizer",
+    "prompt": "Show a simple mermaid diagram of the HTTP request lifecycle.",
+    "covers_questions": [3, 5, 8, 17, 19, 33, 34, 35, 36, 37, 38, 40, 42],
+    "expectations": {
+      "route_family": "artifacts",
+      "selected_route_contains": "inline_visualizer",
+      "output_intent": "inline_visual",
+      "direct_answer_allowed": false,
+      "direct_answer_blockers_include": ["inline_visual_surface_selected"],
+      "narrow_tool_preference": true,
+      "primary_tools_include": ["visualize:show_widget"]
+    }
+  },
+  {
+    "id": "markdown_artifact",
+    "prompt": "Create a markdown report about onboarding best practices.",
+    "covers_questions": [3, 5, 15, 20, 21, 22, 23, 25, 33, 34, 35, 36, 37, 38, 41, 42],
+    "expectations": {
+      "route_family": "artifacts",
+      "selected_route_contains": "artifact_markdown",
+      "output_intent": "artifact",
+      "artifact_output_intent": true,
+      "file_output_intent": true,
+      "skill_prep_required": false
+    }
+  },
+  {
+    "id": "interactive_artifact",
+    "prompt": "A mortgage calculator where I can adjust rate, term, and down payment",
+    "covers_questions": [3, 5, 8, 15, 17, 20, 21, 22, 25, 33, 34, 35, 36, 37, 38, 41, 42],
+    "expectations": {
+      "route_family": "artifacts",
+      "selected_route_contains": "artifact_html_iframe",
+      "output_intent": "artifact",
+      "artifact_output_intent": true,
+      "file_output_intent": false
+    }
+  },
+  {
+    "id": "workspace_project",
+    "prompt": "Build a React + Vite workspace project for a task tracker with separate components, filters, and local state",
+    "covers_questions": [3, 4, 5, 15, 16, 20, 21, 22, 24, 25, 33, 34, 35, 36, 37, 38, 41, 42],
+    "expectations": {
+      "route_family": "coding",
+      "selected_route_contains": "artifact_workspace_surface",
+      "output_intent": "artifact",
+      "artifact_output_intent": true,
+      "file_output_intent": false,
+      "skill_prep_required": true
+    }
+  }
+]

@@ -1,5 +1,6 @@
 import type { AgentTask, ArtifactHubViewKey, PlanSummary } from "../../../types";
 import type { LiveValidationSummary } from "../../../hooks/useLiveValidationSummary";
+import { operatorFacingCurrentStep } from "../viewmodels/runtimeStatusCopy";
 
 type RetainedTraceSummary = {
   title: string;
@@ -30,6 +31,14 @@ function familyLabel(family: PlanSummary["routeFamily"] | null): string | null {
       return "Research";
     case "coding":
       return "Coding";
+    case "integrations":
+      return "Integrations";
+    case "communication":
+      return "Communication";
+    case "user_input":
+      return "Decision";
+    case "tool_widget":
+      return "Tool widget";
     case "computer_use":
       return "Computer use";
     case "artifacts":
@@ -128,9 +137,7 @@ export function SpotlightOperatorStrip({
       task?.gate_info,
   );
   const headline =
-    task?.current_step ||
-    planSummary?.progressSummary ||
-    planSummary?.pauseSummary ||
+    operatorFacingCurrentStep(task, planSummary) ||
     "Session ready for the next operator move.";
 
   const meta = [

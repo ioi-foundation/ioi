@@ -37,10 +37,31 @@ pub(crate) fn single_snapshot_has_metric_grounding(pending: &PendingSearchComple
     })
 }
 
+pub(crate) fn single_snapshot_has_subject_identity_grounding(
+    pending: &PendingSearchCompletion,
+) -> bool {
+    pending.successful_reads.iter().any(|source| {
+        let observed_text = format!(
+            "{} {}",
+            source.title.as_deref().unwrap_or_default(),
+            source.excerpt
+        );
+        first_subject_currentness_sentence(&observed_text).is_some()
+    })
+}
+
 pub(crate) fn single_snapshot_has_viable_followup_candidate(
     pending: &PendingSearchCompletion,
     query_contract: &str,
 ) -> bool {
+    let required_story_floor = retrieval_contract_required_story_count(
+        pending.retrieval_contract.as_ref(),
+        query_contract,
+    )
+    .max(1);
+    if story_completion_contract_ready(pending, required_story_floor) {
+        return false;
+    }
     let projection =
         build_query_constraint_projection(query_contract, 1, &pending.candidate_source_hints);
     let envelope_constraints = &projection.constraints;
@@ -234,6 +255,11 @@ pub(crate) fn single_snapshot_requires_current_metric_observation_contract(
     if !retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query_contract) {
         return false;
     }
+    if analyze_query_facets(&query_contract).time_sensitive_public_fact
+        && query_requires_subject_currentness_identity(&query_contract)
+    {
+        return false;
+    }
     let projection = build_query_constraint_projection(
         &query_contract,
         pending.min_sources.max(1),
@@ -252,6 +278,16 @@ pub(crate) fn single_snapshot_requires_current_metric_observation_contract(
             .map(|contract| contract.currentness_required)
             .unwrap_or(false);
     has_metric_objective && requires_current_observation
+}
+
+pub(crate) fn single_snapshot_requires_subject_identity_contract(
+    pending: &PendingSearchCompletion,
+) -> bool {
+    let query_contract = synthesis_query_contract(pending);
+    let retrieval_contract = pending.retrieval_contract.as_ref();
+    retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query_contract)
+        && analyze_query_facets(&query_contract).time_sensitive_public_fact
+        && query_requires_subject_currentness_identity(&query_contract)
 }
 
 pub(crate) fn web_pipeline_requires_metric_probe_followup(
@@ -286,6 +322,35 @@ pub(crate) fn web_pipeline_requires_metric_probe_followup(
     true
 }
 
+pub(crate) fn web_pipeline_requires_subject_identity_probe_followup(
+    pending: &PendingSearchCompletion,
+    now_ms: u64,
+) -> bool {
+    if !single_snapshot_requires_subject_identity_contract(pending) {
+        return false;
+    }
+    let query_contract = synthesis_query_contract(pending);
+    let min_sources = pending.min_sources.max(1) as usize;
+    if pending.successful_reads.len() < min_sources {
+        return false;
+    }
+    if single_snapshot_has_subject_identity_grounding(pending) {
+        return false;
+    }
+    if single_snapshot_additional_probe_attempt_count(pending)
+        >= SINGLE_SNAPSHOT_MAX_ADDITIONAL_PROBE_SOURCES
+    {
+        return false;
+    }
+    if !single_snapshot_probe_budget_allows_followup(pending, now_ms) {
+        return false;
+    }
+    if single_snapshot_has_viable_followup_candidate(pending, &query_contract) {
+        return true;
+    }
+    true
+}
+
 pub(crate) fn story_completion_contract_ready(
     pending: &PendingSearchCompletion,
     required_story_floor: usize,
@@ -294,6 +359,16 @@ pub(crate) fn story_completion_contract_ready(
         return true;
     }
     let facts = final_web_completion_facts(pending, WebPipelineCompletionReason::MinSourcesReached);
+    if facts.briefing_layout_profile == "single_snapshot" {
+        return facts.single_snapshot_metric_grounding
+            && facts.briefing_selected_source_quality_floor_met
+            && facts.briefing_selected_source_identifier_coverage_floor_met
+            && facts.briefing_primary_authority_source_floor_met
+            && facts.briefing_citation_read_backing_floor_met
+            && facts.story_slot_floor_met
+            && !facts.selected_source_urls.is_empty()
+            && (!facts.comparison_required || facts.comparison_ready);
+    }
     if facts.briefing_document_layout_met {
         return facts.briefing_selected_source_quality_floor_met
             && facts.briefing_selected_source_identifier_coverage_floor_met
@@ -364,6 +439,10 @@ pub(crate) fn web_pipeline_completion_reason(
 
     let single_snapshot_mode =
         retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query_contract);
+    let single_snapshot_metric_required =
+        single_snapshot_requires_current_metric_observation_contract(pending);
+    let single_snapshot_subject_identity_required =
+        single_snapshot_requires_subject_identity_contract(pending);
     let headline_collection_mode =
         retrieval_contract_is_generic_headline_collection(retrieval_contract, &query_contract);
     let layout_profile = synthesis_layout_profile(retrieval_contract, &query_contract);
@@ -432,6 +511,7 @@ pub(crate) fn web_pipeline_completion_reason(
         && pending.successful_reads.len() >= 1
         && pending.successful_reads.len() < min_sources
         && grounded_floor_met
+        && single_snapshot_metric_required
         && !single_snapshot_has_metric_grounding(pending)
         && !has_viable_followup_candidate
     {
@@ -477,7 +557,30 @@ pub(crate) fn web_pipeline_completion_reason(
         if single_snapshot_mode && web_pipeline_requires_metric_probe_followup(pending, now_ms) {
             return None;
         }
-        if single_snapshot_mode && !single_snapshot_has_metric_grounding(pending) {
+        if single_snapshot_mode
+            && single_snapshot_subject_identity_required
+            && web_pipeline_requires_subject_identity_probe_followup(pending, now_ms)
+        {
+            return None;
+        }
+        if single_snapshot_mode
+            && single_snapshot_metric_required
+            && !single_snapshot_has_metric_grounding(pending)
+        {
+            let post_probe_attempt_available =
+                single_snapshot_additional_probe_attempt_count(pending) > 0;
+            if post_probe_attempt_available
+                && remaining_candidates > 0
+                && next_pending_web_candidate(pending).is_some()
+            {
+                return None;
+            }
+            return Some(WebPipelineCompletionReason::ExhaustedCandidates);
+        }
+        if single_snapshot_mode
+            && single_snapshot_subject_identity_required
+            && !single_snapshot_has_subject_identity_grounding(pending)
+        {
             let post_probe_attempt_available =
                 single_snapshot_additional_probe_attempt_count(pending) > 0;
             if post_probe_attempt_available
@@ -489,9 +592,7 @@ pub(crate) fn web_pipeline_completion_reason(
             return Some(WebPipelineCompletionReason::ExhaustedCandidates);
         }
         if single_snapshot_mode {
-            let snapshot_facts =
-                final_web_completion_facts(pending, WebPipelineCompletionReason::MinSourcesReached);
-            if !snapshot_facts.story_citation_floor_met {
+            if !story_completion_contract_ready(pending, required_story_floor) {
                 let grounded_probe_budget_allows = if pending.deadline_ms == 0 {
                     true
                 } else {
@@ -677,6 +778,86 @@ mod tests {
                     "Anderson, Anderson County Airport (KAND) current conditions".to_string(),
                 ),
                 excerpt: "Current conditions at Anderson, Anderson County Airport (KAND); Fair; temperature 65°F (18°C); Humidity 93%; Wind Speed SW 3 mph; Barometer 30.06 in (1017.2 mb); Visibility 10.00 mi; Last update 11 Mar 8:56 am EDT.".to_string(),
+            }],
+            min_sources: 1,
+        }
+    }
+
+    fn openai_api_pricing_snapshot_pending() -> PendingSearchCompletion {
+        let query = "What is the latest OpenAI API pricing?";
+        let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+        PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(retrieval_contract),
+            url: "https://duckduckgo.com/html/?q=openai+api+pricing".to_string(),
+            started_step: 1,
+            started_at_ms: 1_776_227_441_000,
+            deadline_ms: 1_776_227_561_000,
+            candidate_urls: vec![
+                "https://openai.com/api/pricing/".to_string(),
+                "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services"
+                    .to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://openai.com/api/pricing/".to_string(),
+                    title: Some("API Pricing | OpenAI API".to_string()),
+                    excerpt: "Image: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs".to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services".to_string(),
+                    title: Some("Making Sense of the OpenAI API's Pricing and Services".to_string()),
+                    excerpt: "A guide to understanding the OpenAI API's pricing, including token costs and service tiers.".to_string(),
+                },
+            ],
+            attempted_urls: vec![
+                "https://duckduckgo.com/html/?q=openai+api+pricing".to_string(),
+                "https://openai.com/api/pricing/".to_string(),
+            ],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://openai.com/api/pricing/".to_string(),
+                title: Some("API Pricing | OpenAI API".to_string()),
+                excerpt: "Image: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs".to_string(),
+            }],
+            min_sources: 1,
+        }
+    }
+
+    fn liveish_openai_api_pricing_anchor_pending() -> PendingSearchCompletion {
+        let query = "What is the latest OpenAI API pricing?";
+        let retrieval_contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+        PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(retrieval_contract),
+            url: "https://search.brave.com/search?q=openai+api+pricing".to_string(),
+            started_step: 1,
+            started_at_ms: 1_776_229_080_000,
+            deadline_ms: 1_776_229_200_000,
+            candidate_urls: vec![
+                "https://openai.com/api/pricing/".to_string(),
+                "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services"
+                    .to_string(),
+            ],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services"
+                    .to_string(),
+                title: Some("OpenAI API Pricing & Services - A Comprehensive Guide".to_string()),
+                excerpt: "Price: Input: $1.10 per 1M tokens, Cached input: $0.275 per 1M tokens, Output: $4.40 per 1M tokens.".to_string(),
+            }],
+            attempted_urls: vec![
+                "https://search.brave.com/search?q=openai+api+pricing".to_string(),
+                "https://openai.com/api/pricing/".to_string(),
+            ],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://openai.com/api/pricing/".to_string(),
+                title: Some("OpenAI API Pricing | OpenAI".to_string()),
+                excerpt: String::new(),
             }],
             min_sources: 1,
         }
@@ -1918,6 +2099,369 @@ mod tests {
         assert!(facts.single_snapshot_rendered_temporal_signal_present);
         assert!(facts.single_snapshot_metric_grounding);
         assert!(final_web_completion_contract_ready(&facts));
+    }
+
+    #[test]
+    fn rendered_current_office_holder_snapshot_reply_satisfies_single_snapshot_contract() {
+        let pending = PendingSearchCompletion {
+            query: "Who is the current Secretary-General of the UN?".to_string(),
+            query_contract: "Who is the current Secretary-General of the UN?".to_string(),
+            retrieval_contract: Some(WebRetrievalContract {
+                contract_version: "test.v1".to_string(),
+                entity_cardinality_min: 1,
+                comparison_required: false,
+                currentness_required: true,
+                runtime_locality_required: false,
+                source_independence_min: 1,
+                citation_count_min: 1,
+                structured_record_preferred: true,
+                ordered_collection_preferred: false,
+                link_collection_preferred: false,
+                canonical_link_out_preferred: false,
+                geo_scoped_detail_required: false,
+                discovery_surface_required: false,
+                entity_diversity_required: false,
+                scalar_measure_required: false,
+                browser_fallback_allowed: true,
+            }),
+            url: "https://search.brave.com/search?q=current+Secretary-General+of+the+United+Nations"
+                .to_string(),
+            started_step: 1,
+            started_at_ms: 1_776_200_894_000,
+            deadline_ms: 1_776_200_954_000,
+            candidate_urls: vec!["https://ask.un.org/faq/14625".to_string()],
+            candidate_source_hints: vec![],
+            attempted_urls: vec!["https://ask.un.org/faq/14625".to_string()],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: "https://ask.un.org/faq/14625".to_string(),
+                title: Some(
+                    "UN Ask DAG ask.un.org faq 14625 Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                        .to_string(),
+                ),
+                excerpt:
+                    "Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+                        .to_string(),
+            }],
+            min_sources: 1,
+        };
+        let rendered_summary = "Current snapshot (as of 2026-04-14T21:08:14Z UTC):\n\nCurrent answer: Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations.\n\nCitations:\n- UN Ask DAG ask.un.org faq 14625 Who is and has been Secretary-General of the United Nations? - Ask DAG! | https://ask.un.org/faq/14625 | 2026-04-14T21:08:14Z | retrieved_utc | excerpt: Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations.\n\nRun date (UTC): 2026-04-14\nRun timestamp (UTC): 2026-04-14T21:08:14Z\nOverall confidence: high";
+
+        let facts = final_web_completion_facts_with_rendered_summary(
+            &pending,
+            WebPipelineCompletionReason::MinSourcesReached,
+            rendered_summary,
+        );
+
+        assert_eq!(facts.briefing_layout_profile, "single_snapshot");
+        assert_eq!(facts.briefing_rendered_layout_profile, "single_snapshot");
+        assert!(facts.single_snapshot_rendered_layout_met);
+        assert_eq!(facts.single_snapshot_required_citation_count, 1);
+        assert!(facts.single_snapshot_rendered_metric_line_floor_met);
+        assert_eq!(facts.single_snapshot_rendered_support_url_count, 1);
+        assert!(facts.single_snapshot_rendered_support_url_floor_met);
+        assert_eq!(facts.single_snapshot_rendered_read_backed_url_count, 1);
+        assert!(facts.single_snapshot_rendered_read_backed_url_floor_met);
+        assert!(facts.single_snapshot_rendered_temporal_signal_present);
+        assert!(facts.single_snapshot_metric_grounding);
+        assert!(final_web_completion_contract_ready(&facts));
+    }
+
+    #[test]
+    fn current_office_holder_snapshot_uses_identity_contract_not_metric_contract() {
+        let query = "Who is the current Secretary-General of the UN?";
+        let pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                    .expect("retrieval contract"),
+            ),
+            url: "https://search.brave.com/search?q=who+secretary+general".to_string(),
+            started_step: 1,
+            started_at_ms: 1_776_236_380_000,
+            deadline_ms: 1_776_236_500_000,
+            candidate_urls: vec![
+                "https://ask.un.org/faq/14625".to_string(),
+                "https://en.wikipedia.org/wiki/Ant%C3%B3nio_Guterres".to_string(),
+            ],
+            candidate_source_hints: vec![
+                PendingSearchReadSummary {
+                    url: "https://ask.un.org/faq/14625".to_string(),
+                    title: Some(
+                        "UN Ask DAG ask.un.org faq 14625 Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://en.wikipedia.org/wiki/Ant%C3%B3nio_Guterres".to_string(),
+                    title: Some(
+                        "Wikipedia en.wikipedia.org wiki Ant\u{f3}nio_Guterres Ant\u{f3}nio Guterres - Wikipedia"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "17 hours ago - Guterres was elected secretary-general in October 2016, succeeding Ban Ki-moon at the beginning of the following year."
+                            .to_string(),
+                },
+            ],
+            attempted_urls: vec![
+                "https://ask.un.org/faq/14625".to_string(),
+                "https://en.wikipedia.org/wiki/Ant%C3%B3nio_Guterres".to_string(),
+            ],
+            blocked_urls: vec![],
+            successful_reads: vec![
+                PendingSearchReadSummary {
+                    url: "https://ask.un.org/faq/14625".to_string(),
+                    title: Some(
+                        "Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://en.wikipedia.org/wiki/Ant%C3%B3nio_Guterres".to_string(),
+                    title: Some("Ant\u{f3}nio Guterres - Wikipedia".to_string()),
+                    excerpt:
+                        "17 hours ago - Guterres was elected secretary-general in October 2016, succeeding Ban Ki-moon at the beginning of the following year."
+                            .to_string(),
+                },
+            ],
+            min_sources: 1,
+        };
+
+        assert!(!single_snapshot_requires_current_metric_observation_contract(&pending));
+        assert!(single_snapshot_requires_subject_identity_contract(&pending));
+        assert!(single_snapshot_has_subject_identity_grounding(&pending));
+
+        let rendered =
+            synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+        let facts = final_web_completion_facts_with_rendered_summary(
+            &pending,
+            WebPipelineCompletionReason::MinSourcesReached,
+            &rendered,
+        );
+
+        assert!(rendered.contains("Current answer: Ant\u{f3}nio Guterres is the current Secretary-General of the United Nations."));
+        assert!(
+            rendered.contains("https://ask.un.org/faq/14625"),
+            "{rendered}"
+        );
+        assert!(facts.single_snapshot_metric_grounding, "{facts:#?}");
+        assert!(
+            final_web_completion_contract_ready(&facts),
+            "{facts:#?}\n{rendered}"
+        );
+        assert_eq!(
+            web_pipeline_completion_reason(&pending, 1_776_236_440_000),
+            Some(WebPipelineCompletionReason::MinSourcesReached)
+        );
+    }
+
+    #[test]
+    fn latest_openai_api_pricing_snapshot_stops_after_primary_authority_read() {
+        let pending = openai_api_pricing_snapshot_pending();
+        let facts =
+            final_web_completion_facts(&pending, WebPipelineCompletionReason::MinSourcesReached);
+
+        assert_eq!(facts.briefing_layout_profile, "single_snapshot");
+        assert_eq!(facts.available_primary_authority_source_count, 1);
+        assert_eq!(facts.selected_primary_authority_source_count, 1);
+        assert!(facts.briefing_primary_authority_source_floor_met);
+        assert!(facts.single_snapshot_metric_grounding);
+        assert!(story_completion_contract_ready(&pending, 1));
+        assert!(!single_snapshot_has_viable_followup_candidate(
+            &pending,
+            &pending.query_contract
+        ));
+        assert_eq!(
+            web_pipeline_completion_reason(&pending, 1_776_227_500_000),
+            Some(WebPipelineCompletionReason::MinSourcesReached)
+        );
+    }
+
+    #[test]
+    fn liveish_openai_pricing_anchor_read_is_preserved_in_merged_authority_inventory() {
+        let pending = liveish_openai_api_pricing_anchor_pending();
+        let merged = merged_story_sources(&pending);
+        let facts =
+            final_web_completion_facts(&pending, WebPipelineCompletionReason::MinSourcesReached);
+
+        assert!(
+            merged
+                .iter()
+                .any(|source| source.url == "https://openai.com/api/pricing/"),
+            "official successful read should survive merged-story filtering for host-anchored pricing queries"
+        );
+        assert_eq!(facts.available_primary_authority_source_count, 1);
+        assert_eq!(facts.selected_primary_authority_source_count, 1);
+        assert!(facts.briefing_primary_authority_source_floor_met);
+    }
+
+    #[test]
+    fn liveish_openai_pricing_anchor_plus_metric_support_completes_single_snapshot() {
+        let mut pending = liveish_openai_api_pricing_anchor_pending();
+        pending.successful_reads[0].excerpt =
+            "Image: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs"
+                .to_string();
+        pending.attempted_urls.push(
+            "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services"
+                .to_string(),
+        );
+        pending.successful_reads.push(PendingSearchReadSummary {
+            url: "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services"
+                .to_string(),
+            title: Some("OpenAI API Pricing & Services - A Comprehensive Guide".to_string()),
+            excerpt: "Price: Input: $1.10 per 1M tokens, Cached input: $0.275 per 1M tokens, Output: $4.40 per 1M tokens.".to_string(),
+        });
+
+        let facts =
+            final_web_completion_facts(&pending, WebPipelineCompletionReason::MinSourcesReached);
+
+        assert_eq!(facts.available_primary_authority_source_count, 1);
+        assert_eq!(facts.selected_primary_authority_source_count, 1);
+        assert!(facts.single_snapshot_metric_grounding);
+        assert!(facts.briefing_primary_authority_source_floor_met);
+        assert!(story_completion_contract_ready(&pending, 1), "{facts:#?}");
+    }
+
+    #[test]
+    fn rendered_latest_openai_api_pricing_snapshot_accepts_official_authority_citation() {
+        let pending = openai_api_pricing_snapshot_pending();
+        let rendered_summary = "Current snapshot (as of 2026-04-15T04:30:41Z UTC):\n\nCurrent conditions: image input is $8.00, cached image input is $2.00, and image output is $32.00.\n\nCitations:\n- API Pricing | OpenAI API | https://openai.com/api/pricing/ | 2026-04-15T04:30:41Z | retrieved_utc | excerpt: Image: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs\n\nRun date (UTC): 2026-04-15\nRun timestamp (UTC): 2026-04-15T04:30:41Z\nOverall confidence: high";
+
+        let facts = final_web_completion_facts_with_rendered_summary(
+            &pending,
+            WebPipelineCompletionReason::MinSourcesReached,
+            rendered_summary,
+        );
+
+        assert_eq!(facts.briefing_layout_profile, "single_snapshot");
+        assert_eq!(facts.selected_primary_authority_source_count, 1);
+        assert!(facts.briefing_primary_authority_source_floor_met);
+        assert!(facts.single_snapshot_rendered_layout_met);
+        assert!(facts.single_snapshot_rendered_read_backed_url_floor_met);
+        assert!(final_web_completion_contract_ready(&facts));
+    }
+
+    #[test]
+    fn synthesized_latest_openai_api_pricing_snapshot_handles_full_official_page_surface() {
+        let requested_url = "https://openai.com/api/pricing/";
+        let query = "What is the latest OpenAI API pricing?";
+        let pending = PendingSearchCompletion {
+            query: query.to_string(),
+            query_contract: query.to_string(),
+            retrieval_contract: Some(
+                crate::agentic::web::derive_web_retrieval_contract(query, None)
+                    .expect("retrieval contract"),
+            ),
+            url: "https://search.brave.com/search?q=openai+api+pricing".to_string(),
+            started_step: 1,
+            started_at_ms: 1_776_229_080_000,
+            deadline_ms: 1_776_229_200_000,
+            candidate_urls: vec![requested_url.to_string()],
+            candidate_source_hints: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("OpenAI API Pricing | OpenAI".to_string()),
+                excerpt:
+                    "Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools."
+                        .to_string(),
+            }],
+            attempted_urls: vec![requested_url.to_string()],
+            blocked_urls: vec![],
+            successful_reads: vec![PendingSearchReadSummary {
+                url: requested_url.to_string(),
+                title: Some("OpenAI API Pricing | OpenAI".to_string()),
+                excerpt: concat!(
+                    "Our frontier models are designed to spend more time thinking before producing a response, ",
+                    "making them ideal for complex, multi-step problems.\n\n",
+                    "Our cheapest GPT-5.4-class model for simple high-volume tasks.\n\n",
+                    "Pricing above reflects standard processing rates for context lengths under 270K.\n\n",
+                    "Now: 1 GB for $0.03 / 64GB for $1.92 per container. ",
+                    "Starting March 31, 2026: 1 GB for $0.03 / 64GB for $1.92 per 20-minute session pass.\n\n",
+                    "State-of-the-art image generation model.\n\n",
+                    "Image: $8.00 for inputs $2.00 for cached inputs $32.00 for outputs ",
+                    "Text: $5.00 for inputs $1.25 for cached inputs $10.00 for outputs"
+                )
+                .to_string(),
+            }],
+            min_sources: 1,
+        };
+
+        let summary =
+            synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
+        let facts = final_web_completion_facts_with_rendered_summary(
+            &pending,
+            WebPipelineCompletionReason::MinSourcesReached,
+            &summary,
+        );
+
+        assert!(
+            summary.contains("Current conditions")
+                || summary.contains("Current pricing")
+                || summary.contains("Available observed details"),
+            "expected a single-snapshot metric summary, got: {summary}"
+        );
+        assert!(
+            summary.contains("$8.00") || summary.contains("$32.00"),
+            "expected pricing metrics in rendered summary, got: {summary}"
+        );
+        assert!(
+            !summary.contains("1 GB for $0.03") && !summary.contains("per container"),
+            "expected rendered summary to avoid unrelated storage/session pricing, got: {summary}"
+        );
+        assert!(
+            !summary.contains("Estimated-right-now:")
+                && !summary.contains("Current metric status:")
+                && !summary.contains("Data caveat:")
+                && !summary.contains("Next step: Open"),
+            "expected strong official pricing snapshots to render without limitation boilerplate, got: {summary}"
+        );
+        assert_eq!(facts.briefing_layout_profile, "single_snapshot");
+        assert_eq!(facts.briefing_rendered_layout_profile, "single_snapshot");
+        assert!(facts.single_snapshot_rendered_layout_met, "{facts:#?}");
+        assert!(
+            facts.single_snapshot_rendered_metric_line_floor_met,
+            "{facts:#?}"
+        );
+        assert!(
+            facts.single_snapshot_rendered_read_backed_url_floor_met,
+            "{facts:#?}"
+        );
+        assert!(
+            final_web_completion_contract_ready(&facts),
+            "{summary}\n\n{facts:#?}"
+        );
+    }
+
+    #[test]
+    fn rendered_latest_openai_api_pricing_snapshot_rejects_non_authority_only_citation_when_official_read_is_available(
+    ) {
+        let mut pending = openai_api_pricing_snapshot_pending();
+        pending.successful_reads.push(PendingSearchReadSummary {
+            url: "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services"
+                .to_string(),
+            title: Some("Making Sense of the OpenAI API's Pricing and Services".to_string()),
+            excerpt:
+                "A guide to understanding the OpenAI API's pricing, including token costs and service tiers."
+                    .to_string(),
+        });
+        let rendered_summary = "Current snapshot (as of 2026-04-15T04:30:41Z UTC):\n\nCurrent conditions: image input is $8.00, cached image input is $2.00, and image output is $32.00.\n\nCitations:\n- Making Sense of the OpenAI API's Pricing and Services | https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services | 2026-04-15T04:30:41Z | retrieved_utc | excerpt: A guide to understanding the OpenAI API's pricing, including token costs and service tiers.\n\nRun date (UTC): 2026-04-15\nRun timestamp (UTC): 2026-04-15T04:30:41Z\nOverall confidence: high";
+
+        let facts = final_web_completion_facts_with_rendered_summary(
+            &pending,
+            WebPipelineCompletionReason::MinSourcesReached,
+            rendered_summary,
+        );
+
+        assert!(facts.single_snapshot_rendered_layout_met);
+        assert!(facts.single_snapshot_rendered_read_backed_url_floor_met);
+        assert_eq!(facts.selected_primary_authority_source_count, 0);
+        assert!(!final_web_completion_contract_ready(&facts));
     }
 
     #[test]

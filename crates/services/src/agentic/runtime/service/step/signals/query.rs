@@ -86,12 +86,14 @@ pub fn analyze_query_facets(query: &str) -> QueryFacetProfile {
                 | MetricAxis::Duration
         )
     });
-    let implicit_locality_shape =
-        goal.public_fact_hits > 0 && goal.external_hits == 0 && metric_schema.axis_hits.is_empty();
     let normalized_query = normalize_marker_text(query);
     let locality_scope_signal = marker_hits(&normalized_query, &LOCAL_DISCOVERY_LOCALITY_MARKERS)
         > 0
         || marker_hits(&normalized_query, &LOCAL_DISCOVERY_SCOPE_MARKERS) > 0;
+    let implicit_locality_shape = goal.public_fact_hits > 0
+        && goal.external_hits == 0
+        && metric_schema.axis_hits.is_empty()
+        && (locality_scope_signal || goal.locality_lookup_hits > 0);
     let structural_lookup_pressure =
         marker_hits(&normalized_query, &LOCAL_DISCOVERY_STRUCTURAL_MARKERS) > 0
             || has_explicit_small_count_hint(&normalized_query)

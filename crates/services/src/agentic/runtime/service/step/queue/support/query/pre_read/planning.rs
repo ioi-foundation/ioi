@@ -43,11 +43,14 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         retrieval_contract_is_generic_headline_collection(retrieval_contract, query_contract);
     let document_briefing_layout = query_prefers_document_briefing_layout(query_contract)
         && !query_requests_comparison(query_contract);
-    let authority_source_required_for_briefing = document_briefing_layout
-        && analyze_query_facets(query_contract).grounded_external_required
-        && retrieval_contract
-            .map(|contract| contract.currentness_required || contract.source_independence_min > 1)
-            .unwrap_or(false);
+    let subject_identity_required =
+        crate::agentic::runtime::service::step::queue::support::query_requires_subject_currentness_identity(
+            query_contract,
+        );
+    let primary_authority_source_required =
+        retrieval_contract_requires_primary_authority_source(retrieval_contract, query_contract);
+    let authority_source_required_for_briefing =
+        document_briefing_layout && primary_authority_source_required;
     let probe_source_hints = candidate_source_hints.clone();
     let constraints = &projection.constraints;
     let policy = ResolutionPolicy::default();
@@ -110,6 +113,8 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         optional_identifier_label_count: usize,
         required_identifier_labels: BTreeSet<String>,
         query_grounding_signal: bool,
+        current_holder_grounded: bool,
+        subject_identity_grounded: bool,
         intermediary_wrapper: bool,
         canonical_publication_detail: bool,
     }
@@ -254,19 +259,38 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                     title,
                     excerpt,
                 );
+            let subject_identity_grounded = subject_identity_required
+                && crate::agentic::runtime::service::step::queue::support::first_subject_currentness_sentence(
+                    format!("{} {}", title, excerpt).as_str(),
+                )
+                .is_some();
+            let current_holder_grounded = subject_identity_required
+                && crate::agentic::runtime::service::step::queue::support::first_current_role_holder_sentence(
+                    format!("{} {}", title, excerpt).as_str(),
+                )
+                .is_some();
             let source_tokens = source_anchor_tokens(trimmed, title, excerpt);
             let query_native_overlap =
                 projection.query_native_tokens.intersection(&source_tokens).count();
             let briefing_subject_overlap = query_native_overlap >= 3
                 || (query_native_overlap >= 2 && temporal_recency_score > 0);
-            let primary_authority = authority_source_required_for_briefing
-                && crate::agentic::runtime::service::step::queue::support::source_has_document_authority(
+            let primary_authority = if !primary_authority_source_required {
+                false
+            } else if authority_source_required_for_briefing {
+                crate::agentic::runtime::service::step::queue::support::source_counts_as_primary_authority(
+                    query_contract,
+                    trimmed,
+                    title,
+                    excerpt,
+                ) && (briefing_subject_overlap || identifier_bearing)
+            } else {
+                crate::agentic::runtime::service::step::queue::support::source_counts_as_primary_authority(
                     query_contract,
                     trimmed,
                     title,
                     excerpt,
                 )
-                && (briefing_subject_overlap || identifier_bearing);
+            };
             let canonical_publication_detail = canonical_publication_detail_candidate(
                 query_contract,
                 trimmed,
@@ -298,6 +322,8 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                 optional_identifier_label_count,
                 required_identifier_labels,
                 query_grounding_signal,
+                current_holder_grounded,
+                subject_identity_grounded,
                 intermediary_wrapper: crate::agentic::web::is_google_news_article_wrapper_url(
                     trimmed,
                 ),
@@ -389,8 +415,47 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         } else {
             std::cmp::Ordering::Equal
         };
+        let subject_identity_order = if subject_identity_required {
+            right
+                .current_holder_grounded
+                .cmp(&left.current_holder_grounded)
+                .then_with(|| {
+                    right
+                        .subject_identity_grounded
+                        .cmp(&left.subject_identity_grounded)
+                })
+                .then_with(|| right.query_grounding_signal.cmp(&left.query_grounding_signal))
+                .then_with(|| right.query_native_overlap.cmp(&left.query_native_overlap))
+                .then_with(|| {
+                    right
+                        .temporal_recency_score
+                        .cmp(&left.temporal_recency_score)
+                })
+        } else {
+            std::cmp::Ordering::Equal
+        };
+        let primary_authority_order = if primary_authority_source_required {
+            right
+                .primary_authority
+                .cmp(&left.primary_authority)
+                .then_with(|| right.query_native_overlap.cmp(&left.query_native_overlap))
+                .then_with(|| {
+                    right
+                        .temporal_recency_score
+                        .cmp(&left.temporal_recency_score)
+                })
+                .then_with(|| {
+                    right
+                        .document_authority_score
+                        .cmp(&left.document_authority_score)
+                })
+        } else {
+            std::cmp::Ordering::Equal
+        };
         base_order
             .then_with(|| briefing_order)
+            .then_with(|| subject_identity_order)
+            .then_with(|| primary_authority_order)
             .then_with(|| right.resolvable_payload.cmp(&left.resolvable_payload))
             .then_with(|| right_passes.cmp(&left_passes))
             .then_with(|| {
@@ -491,8 +556,8 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
     let prefer_direct_reads = direct_read_candidates >= min_required;
     let can_prune_headline_low_quality =
         headline_lookup_mode && headline_non_low_quality_candidates >= min_required;
-    let authority_candidate_for_briefing = |candidate: &RankedCandidate| {
-        authority_source_required_for_briefing
+    let primary_authority_candidate = |candidate: &RankedCandidate| {
+        primary_authority_source_required
             && candidate
                 .affordances
                 .contains(&RetrievalAffordanceKind::DirectCitationRead)
@@ -505,7 +570,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         candidate.query_grounding_signal && (strong_subject_overlap || candidate.identifier_bearing)
     };
     let briefing_grounded_candidate_for_selection = |candidate: &RankedCandidate| {
-        authority_candidate_for_briefing(candidate)
+        primary_authority_candidate(candidate)
             || briefing_query_grounded_candidate(candidate)
             || candidate.identifier_bearing
             || candidate.query_native_overlap >= 3
@@ -517,6 +582,14 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             .filter(|candidate| briefing_grounded_candidate_for_selection(candidate))
             .count()
             > 0;
+    let can_prune_off_subject_identity_candidates = subject_identity_required
+        && ranked
+            .iter()
+            .any(|candidate| candidate.subject_identity_grounded);
+    let can_prune_off_explicit_current_holder_candidates = subject_identity_required
+        && ranked
+            .iter()
+            .any(|candidate| candidate.current_holder_grounded);
     let mut requires_constraint_search_probe = if !has_constraint_objective {
         false
     } else {
@@ -550,6 +623,14 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             {
                 return None;
             }
+            if can_prune_off_explicit_current_holder_candidates
+                && !candidate.current_holder_grounded
+            {
+                return None;
+            }
+            if can_prune_off_subject_identity_candidates && !candidate.subject_identity_grounded {
+                return None;
+            }
             if prefer_direct_reads
                 && !candidate
                     .affordances
@@ -559,31 +640,31 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             }
             if can_prune
                 && !envelope_score_resolves_constraint(constraints, &candidate.score)
-                && !authority_candidate_for_briefing(candidate)
+                && !primary_authority_candidate(candidate)
             {
                 return None;
             }
             if must_require_compatibility
                 && !compatibility_passes_projection(&projection, &candidate.compatibility)
-                && !authority_candidate_for_briefing(candidate)
+                && !primary_authority_candidate(candidate)
             {
                 return None;
             }
             if can_prune_by_compatibility
                 && !compatibility_passes_projection(&projection, &candidate.compatibility)
-                && !authority_candidate_for_briefing(candidate)
+                && !primary_authority_candidate(candidate)
             {
                 return None;
             }
             if (can_prune_by_locality || explicit_locality_scope)
                 && !candidate.compatibility.locality_compatible
-                && !authority_candidate_for_briefing(candidate)
+                && !primary_authority_candidate(candidate)
             {
                 return None;
             }
             if can_prune_by_positive_compatibility
                 && candidate.compatibility.compatibility_score == 0
-                && !authority_candidate_for_briefing(candidate)
+                && !primary_authority_candidate(candidate)
             {
                 return None;
             }
@@ -633,6 +714,14 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             {
                 continue;
             }
+            if can_prune_off_explicit_current_holder_candidates
+                && !candidate.current_holder_grounded
+            {
+                continue;
+            }
+            if can_prune_off_subject_identity_candidates && !candidate.subject_identity_grounded {
+                continue;
+            }
             if prefer_direct_reads
                 && !candidate
                     .affordances
@@ -645,23 +734,23 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             }
             let compatibility_relevant = if must_require_compatibility {
                 compatibility_passes_projection(&projection, &candidate.compatibility)
-                    || authority_candidate_for_briefing(candidate)
+                    || primary_authority_candidate(candidate)
             } else {
                 candidate.compatibility.compatibility_score > 0
                     || compatibility_passes_projection(&projection, &candidate.compatibility)
-                    || authority_candidate_for_briefing(candidate)
+                    || primary_authority_candidate(candidate)
                     || (allow_floor_recovery_exploration && compatible_candidates == 0)
             };
             if !compatibility_relevant {
                 continue;
             }
             let payload_relevant = if must_require_compatibility && time_sensitive_scope {
-                candidate.resolvable_payload || authority_candidate_for_briefing(candidate)
+                candidate.resolvable_payload || primary_authority_candidate(candidate)
             } else {
                 headline_lookup_mode
                     || !time_sensitive_scope
                     || candidate.resolvable_payload
-                    || authority_candidate_for_briefing(candidate)
+                    || primary_authority_candidate(candidate)
                     || candidate_urls.len() < min_required
                     || (allow_floor_recovery_exploration && compatible_candidates == 0)
             };
@@ -676,13 +765,13 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
             requires_constraint_search_probe = true;
         }
     }
-    if authority_source_required_for_briefing && candidate_urls.len() < min_required {
+    if primary_authority_source_required && candidate_urls.len() < min_required {
         requires_constraint_search_probe = true;
     }
-    if authority_source_required_for_briefing {
+    if primary_authority_source_required {
         let authority_candidate = ranked
             .iter()
-            .find(|candidate| authority_candidate_for_briefing(candidate));
+            .find(|candidate| primary_authority_candidate(candidate));
         if let Some(authority_candidate) = authority_candidate {
             if let Some(existing_idx) = candidate_urls
                 .iter()
@@ -725,7 +814,7 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
                         .iter()
                         .any(|label| !seen_required_identifier_labels.contains(label))
             });
-            let preserves_same_domain_authority_source = authority_source_required_for_briefing
+            let preserves_same_domain_authority_source = primary_authority_source_required
                 && candidate.is_some_and(|candidate| candidate.document_authority_score > 0);
             if seen_domains.insert(domain_key) || adds_required_identifier_coverage {
                 distinct_domain_urls.push(trimmed.to_string());
@@ -1670,5 +1759,101 @@ mod tests {
 
         assert!(plan.candidate_urls.len() <= 2, "{:?}", plan.candidate_urls);
         assert!(plan.requires_constraint_search_probe);
+    }
+
+    #[test]
+    fn single_snapshot_pricing_plan_prioritizes_official_authority_surface() {
+        let query = "What is the latest OpenAI API pricing?";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let official_url = "https://openai.com/api/pricing/";
+        let third_party_url =
+            "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services";
+
+        let plan = pre_read_candidate_plan_with_contract(
+            retrieval_contract.as_ref(),
+            query,
+            1,
+            vec![third_party_url.to_string(), official_url.to_string()],
+            vec![
+                PendingSearchReadSummary {
+                    url: official_url.to_string(),
+                    title: Some("OpenAI API Pricing | OpenAI".to_string()),
+                    excerpt: "Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools. Compare token costs, realtime, image, and video pricing, plus service tiers."
+                        .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: third_party_url.to_string(),
+                    title: Some(
+                        "OpenAI API Pricing & Services - A Comprehensive Guide".to_string(),
+                    ),
+                    excerpt: "April 24, 2025 - OpenAI o4-mini: A cost-efficient alternative to the o3 model. Price: Input: $1.10 per 1M tokens."
+                        .to_string(),
+                },
+            ],
+            None,
+            false,
+        );
+
+        assert_eq!(plan.candidate_urls.first().map(String::as_str), Some(official_url));
+    }
+
+    #[test]
+    fn single_snapshot_current_role_plan_prioritizes_identity_grounded_role_holder_surface() {
+        let query = "Who is the current Secretary-General of the UN?";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query)).ok();
+        let faq_url = "https://ask.un.org/faq/14625";
+        let biography_url = "https://en.wikipedia.org/wiki/Ant%C3%B3nio_Guterres";
+        let role_definition_url =
+            "https://en.wikipedia.org/wiki/Secretary-General_of_the_United_Nations";
+
+        let plan = pre_read_candidate_plan_with_contract(
+            retrieval_contract.as_ref(),
+            query,
+            1,
+            vec![
+                role_definition_url.to_string(),
+                biography_url.to_string(),
+                faq_url.to_string(),
+            ],
+            vec![
+                PendingSearchReadSummary {
+                    url: faq_url.to_string(),
+                    title: Some(
+                        "Who is and has been Secretary-General of the United Nations? - Ask DAG!"
+                            .to_string(),
+                    ),
+                    excerpt:
+                        "António Guterres is the current Secretary-General of the United Nations."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: biography_url.to_string(),
+                    title: Some("António Guterres - Wikipedia".to_string()),
+                    excerpt:
+                        "Guterres was elected secretary-general in October 2016, succeeding Ban Ki-moon at the beginning of the following year."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: role_definition_url.to_string(),
+                    title: Some("Secretary-General of the United Nations - Wikipedia".to_string()),
+                    excerpt:
+                        "The secretary-general of the United Nations is the Head of the United Nations Secretariat."
+                            .to_string(),
+                },
+            ],
+            None,
+            false,
+        );
+
+        assert_eq!(plan.candidate_urls.first().map(String::as_str), Some(faq_url));
+        assert!(
+            !plan.candidate_urls
+                .iter()
+                .any(|url| url.eq_ignore_ascii_case(role_definition_url)),
+            "{:?}",
+            plan.candidate_urls
+        );
     }
 }

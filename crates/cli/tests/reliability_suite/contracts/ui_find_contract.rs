@@ -824,6 +824,7 @@ fn routing_receipt_contract_for_ui_find_includes_pre_state_and_binding_hash() {
         policy_binding_hash: binding_hash.clone(),
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert_eq!(receipt.pre_state.agent_status, "Running");
@@ -890,6 +891,7 @@ fn routing_receipt_for_ui_find_primary_success_exposes_fallback_visibility() {
         policy_binding_hash: binding_hash,
         policy_binding_sig: None,
         policy_binding_signer: None,
+        route_decision: Default::default(),
     };
 
     assert!(receipt.post_state.success);

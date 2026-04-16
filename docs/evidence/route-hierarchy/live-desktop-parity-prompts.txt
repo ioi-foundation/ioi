@@ -1,0 +1,23 @@
+# Direct inline answer
+What is the Pythagorean theorem?
+
+# Currentness override / narrow weather surface
+What is the weather in Boston today?
+
+# Narrow recipe surface
+Give me a simple pancake recipe for two people.
+
+# Inline visual intent
+Show a simple mermaid diagram of the HTTP request lifecycle.
+
+# Markdown artifact
+Create a markdown brief explaining the HTTP request lifecycle in five bullets.
+
+# HTML artifact
+Create an interactive HTML artifact that explains the HTTP request lifecycle.
+
+# Workspace artifact
+Build a workspace surface for a habit tracker dashboard with a weekly chart.
+
+# Clarification pressure
+Make me a report.

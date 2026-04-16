@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { AgentRuntime, RuntimeCatalogEntry } from "../../runtime/agent-runtime";
+import { AgentWorkbenchRuntime, RuntimeCatalogEntry } from "../../runtime/agent-runtime";
 import "./RuntimeCatalogView.css";
 
 interface RuntimeCatalogViewProps {
-  runtime: AgentRuntime;
+  runtime: AgentWorkbenchRuntime;
   onStageEntry: (entry: RuntimeCatalogEntry) => void;
 }
 

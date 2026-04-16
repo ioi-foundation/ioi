@@ -430,6 +430,23 @@ fn concise_metric_snapshot_line_handles_unicode_without_panicking() {
 }
 
 #[test]
+fn concise_metric_snapshot_line_compacts_multimodal_price_surface() {
+    let concise = concise_metric_snapshot_line(
+        "Current pricing from retrieved source text: Pricing: Audio: $32.00 for inputs $0.40 for cached inputs $64.00 for outputs Text: $4.00 for inputs $0.40 for cached inputs $16.00 for outputs",
+    );
+    assert!(
+        concise.contains("Audio: $32.00 input, $0.40 cached input, $64.00 output"),
+        "expected normalized audio clause, got:\n{}",
+        concise
+    );
+    assert!(
+        concise.contains("Text: $4.00 input, $0.40 cached input, $16.00 output"),
+        "expected normalized text clause, got:\n{}",
+        concise
+    );
+}
+
+#[test]
 fn web_pipeline_single_snapshot_emits_next_step_when_limitation_summary_present() {
     let pending = PendingSearchCompletion {
         query: "what's the weather right now".to_string(),

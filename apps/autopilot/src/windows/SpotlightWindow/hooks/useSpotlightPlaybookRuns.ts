@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { continueSessionTask } from "@ioi/agent-ide";
+import { submitAssistantSessionInput } from "@ioi/agent-ide";
 import {
   getSessionOperatorRuntime,
   type SessionOperatorRuntime,
@@ -335,7 +335,7 @@ export function useSpotlightPlaybookRuns(sessionId: string | null) {
       }));
 
       try {
-        await continueSessionTask(workerSessionId, trimmedMessage);
+        await submitAssistantSessionInput(workerSessionId, trimmedMessage);
         const runs = await loadRuns(getSessionOperatorRuntime(), sessionId ?? null);
         setState((current) => ({
           ...current,
@@ -366,7 +366,7 @@ export function useSpotlightPlaybookRuns(sessionId: string | null) {
       }));
 
       try {
-        await continueSessionTask(
+        await submitAssistantSessionInput(
           workerSessionId,
           [
             "Operator instruction:",
@@ -412,7 +412,7 @@ export function useSpotlightPlaybookRuns(sessionId: string | null) {
         runId,
         "Run result promotion sent to the parent session.",
         async () => {
-          await continueSessionTask(
+          await submitAssistantSessionInput(
             run.parentSessionId,
             buildPromotionPrompt({
               run,
@@ -444,7 +444,7 @@ export function useSpotlightPlaybookRuns(sessionId: string | null) {
         runId,
         `Step result promotion sent to the parent session for '${step.label}'.`,
         async () => {
-          await continueSessionTask(
+          await submitAssistantSessionInput(
             run.parentSessionId,
             buildPromotionPrompt({
               run,

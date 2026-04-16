@@ -132,5 +132,42 @@ pub(super) fn map_routing_receipt(
         strategy_node: receipt.strategy_node,
         gate_state: receipt.gate_state,
         resolution_action: receipt.resolution_action,
+        route_decision: Some(ioi_ipc::public::RoutingRouteDecision {
+            route_family: receipt.route_decision.route_family,
+            direct_answer_allowed: receipt.route_decision.direct_answer_allowed,
+            direct_answer_blockers: receipt.route_decision.direct_answer_blockers,
+            currentness_override: receipt.route_decision.currentness_override,
+            connector_candidate_count: receipt.route_decision.connector_candidate_count,
+            selected_provider_family: receipt
+                .route_decision
+                .selected_provider_family
+                .unwrap_or_default(),
+            selected_provider_route_label: receipt
+                .route_decision
+                .selected_provider_route_label
+                .unwrap_or_default(),
+            connector_first_preference: receipt.route_decision.connector_first_preference,
+            narrow_tool_preference: receipt.route_decision.narrow_tool_preference,
+            file_output_intent: receipt.route_decision.file_output_intent,
+            artifact_output_intent: receipt.route_decision.artifact_output_intent,
+            inline_visual_intent: receipt.route_decision.inline_visual_intent,
+            skill_prep_required: receipt.route_decision.skill_prep_required,
+            output_intent: receipt.route_decision.output_intent,
+            effective_tool_surface: Some(ioi_ipc::public::RoutingEffectiveToolSurface {
+                projected_tools: receipt
+                    .route_decision
+                    .effective_tool_surface
+                    .projected_tools,
+                primary_tools: receipt.route_decision.effective_tool_surface.primary_tools,
+                broad_fallback_tools: receipt
+                    .route_decision
+                    .effective_tool_surface
+                    .broad_fallback_tools,
+                diagnostic_tools: receipt
+                    .route_decision
+                    .effective_tool_surface
+                    .diagnostic_tools,
+            }),
+        }),
     }
 }

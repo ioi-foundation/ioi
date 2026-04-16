@@ -363,9 +363,10 @@ async fn enforce_policy_and_record(
         use crate::agentic::policy::PolicyEngine;
         use crate::agentic::rules::Verdict;
 
-        let verdict = PolicyEngine::evaluate(
+        let verdict = PolicyEngine::evaluate_with_working_directory(
             rules,
             &determinism.request,
+            Some(agent_state.working_directory.as_str()),
             &service.scrubber.model,
             os_driver,
             None,

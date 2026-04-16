@@ -188,6 +188,56 @@ fn search_files_traversal_is_sorted_by_filename() {
 }
 
 #[test]
+fn search_files_prioritizes_literal_filename_matches() {
+    let dir = make_temp_dir("search-filename-literal");
+    fs::write(dir.join("package.json"), "{\n  \"name\": \"root\"\n}")
+        .expect("root package file should be written");
+    fs::create_dir_all(dir.join("apps/app")).expect("nested app dir should be created");
+    fs::write(
+        dir.join("apps/app/package.json"),
+        "{\n  \"name\": \"nested\"\n}",
+    )
+    .expect("nested package file should be written");
+    fs::write(
+        dir.join("README.md"),
+        "See package.json for the available scripts.",
+    )
+    .expect("readme should be written");
+
+    let output = search_files(&dir, "package\\.json", None).expect("search should succeed");
+    let lines: Vec<&str> = output.lines().collect();
+
+    assert_eq!(lines[0], "FILE_MATCH ./package.json");
+    assert_eq!(lines[1], "FILE_MATCH ./apps/app/package.json");
+    assert_eq!(lines.len(), 2);
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn search_files_excludes_noisy_hidden_build_dirs_from_content_matches() {
+    let dir = make_temp_dir("search-excluded-hidden");
+    fs::create_dir_all(dir.join(".artifacts/cache")).expect("artifact cache dir should exist");
+    fs::create_dir_all(dir.join(".tmp/cache")).expect("tmp cache dir should exist");
+    fs::write(
+        dir.join(".artifacts/cache/noisy.txt"),
+        "needle in artifact cache",
+    )
+    .expect("artifact cache file should be written");
+    fs::write(dir.join(".tmp/cache/noisy.txt"), "needle in tmp cache")
+        .expect("tmp cache file should be written");
+    fs::write(dir.join("src.txt"), "needle in source").expect("source file should be written");
+
+    let output = search_files(&dir, "needle", Some("*.txt")).expect("search should succeed");
+    let lines: Vec<&str> = output.lines().collect();
+
+    assert_eq!(lines.len(), 1);
+    assert!(lines[0].contains("src.txt:1: needle in source"));
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn stat_path_reports_expected_metadata_fields() {
     let dir = make_temp_dir("stat");
     let file_path = dir.join("example.txt");

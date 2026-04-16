@@ -29,6 +29,7 @@ import {
   defaultVerifierOutcome,
   defaultVerifierRole,
   explicitRouteContract,
+  explicitRouteDecision,
   impliedRouteContractFromPlaybook,
   parseApprovalState,
   verifierRoleTitle,
@@ -882,6 +883,10 @@ function defaultRouteLabel(
 ): string {
   if (routeFamily === "research") return "Research route";
   if (routeFamily === "coding") return "Coding route";
+  if (routeFamily === "integrations") return "Connected route";
+  if (routeFamily === "communication") return "Communication route";
+  if (routeFamily === "user_input") return "Decision route";
+  if (routeFamily === "tool_widget") return "Specialized tool route";
   if (routeFamily === "computer_use") return "Computer-use route";
   if (routeFamily === "artifacts") return "Artifact route";
   return topology === "single_agent" ? "Primary agent route" : "Planned route";
@@ -1046,6 +1051,12 @@ export function buildPlanSummary(
     detailsRecord,
     stringFromRecord,
   );
+  const routeDecision = explicitRouteDecision(
+    events,
+    digestRecord,
+    detailsRecord,
+    stringFromRecord,
+  );
   const impliedPlaybookContract = impliedRouteContractFromPlaybook(
     events,
     digestRecord,
@@ -1074,6 +1085,7 @@ export function buildPlanSummary(
       ? explicitApproval === "pending"
       : events.some(routeEventHasApprovalSignal);
   const routeFamily =
+    routeDecision?.routeFamily ||
     explicitContract.routeFamily ||
     impliedPlaybookContract?.routeFamily ||
     inferredRouteFamily(events);
@@ -1211,6 +1223,8 @@ export function buildPlanSummary(
       workerLikeEntry(entry) ||
       routeEventHasApprovalSignal(entry) ||
       title.includes("routingreceipt") ||
+      typeof digest.route_family === "string" ||
+      typeof digest.output_intent === "string" ||
       typeof digest.selected_route === "string" ||
       typeof digest.route === "string"
     );
@@ -1307,6 +1321,7 @@ export function buildPlanSummary(
     artifactRepair,
     computerUseRecovery,
     policyBindings,
+    routeDecision,
   };
 }
 

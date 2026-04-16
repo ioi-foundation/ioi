@@ -254,11 +254,7 @@ fn lint_web_retrieval_contract(
         contract.geo_scoped_detail_required = true;
     }
 
-    if single_fact_snapshot
-        && (scalar_measure_required
-            || contract.runtime_locality_required
-            || explicit_locality_scope_present)
-    {
+    if single_fact_snapshot {
         contract.structured_record_preferred = true;
     }
 
@@ -322,10 +318,7 @@ fn deterministic_web_retrieval_contract(
     let generic_headline_collection = query_is_generic_headline_collection(structural_query);
     let single_fact_snapshot = prefers_single_fact_snapshot(structural_query)
         || (entity_cardinality_min <= 1 && scalar_measure_required && !comparison_required);
-    let direct_snapshot_surface_preferred = single_fact_snapshot
-        && (scalar_measure_required
-            || runtime_locality_required
-            || explicit_locality_scope_present);
+    let direct_snapshot_surface_preferred = single_fact_snapshot;
     let entity_diversity_required = entity_cardinality_min > 1
         && runtime_locality_required
         && !facets.time_sensitive_public_fact
@@ -773,6 +766,22 @@ mod tests {
     }
 
     #[test]
+    fn deterministic_contract_prefers_direct_snapshot_surfaces_for_subject_currentness_queries() {
+        let contract = deterministic_web_retrieval_contract(
+            "Who is the current Secretary-General of the UN?",
+            Some("Who is the current Secretary-General of the UN?"),
+        );
+
+        assert_eq!(contract.entity_cardinality_min, 1);
+        assert!(contract.currentness_required);
+        assert!(!contract.runtime_locality_required);
+        assert!(contract.structured_record_preferred);
+        assert!(!contract.geo_scoped_detail_required);
+        assert!(!contract.ordered_collection_preferred);
+        assert!(!contract.discovery_surface_required);
+    }
+
+    #[test]
     fn semantic_alignment_rejects_weather_news_for_local_current_snapshot_queries() {
         let contract = deterministic_web_retrieval_contract(
             "What's the weather like right now near me?",
@@ -814,6 +823,44 @@ mod tests {
         assert_eq!(
             aligned,
             vec!["https://forecast.weather.gov/MapClick.php?CityName=Anderson&state=SC"]
+        );
+    }
+
+    #[test]
+    fn semantic_alignment_accepts_current_role_holder_sources_for_subject_currentness_queries() {
+        let query = "Who is the current Secretary-General of the UN?";
+        let contract = deterministic_web_retrieval_contract(query, Some(query));
+        let sources = vec![
+            WebSource {
+                source_id: "leaders-meet".to_string(),
+                rank: Some(1),
+                url: "https://example.com/world/leaders-meet-for-summit".to_string(),
+                title: Some("Country leaders meet for emergency summit".to_string()),
+                snippet: Some(
+                    "World leaders will gather tomorrow for an emergency summit in Geneva."
+                        .to_string(),
+                ),
+                domain: Some("example.com".to_string()),
+            },
+            WebSource {
+                source_id: "un-bio".to_string(),
+                rank: Some(2),
+                url: "https://www.un.org/sg/en/content/sg/biography".to_string(),
+                title: Some("Secretary-General biography | United Nations".to_string()),
+                snippet: Some(
+                    "António Guterres currently serves as the Secretary-General of the United Nations."
+                        .to_string(),
+                ),
+                domain: Some("un.org".to_string()),
+            },
+        ];
+
+        let aligned = query_matching_source_urls(query, &contract, &sources)
+            .expect("alignment should succeed");
+
+        assert_eq!(
+            aligned,
+            vec!["https://www.un.org/sg/en/content/sg/biography".to_string()]
         );
     }
 

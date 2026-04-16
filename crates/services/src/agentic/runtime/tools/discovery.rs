@@ -334,6 +334,10 @@ mod tests {
         assert!(tools.iter().any(|t| t.name == "media__extract_transcript"));
         assert!(tools.iter().any(|t| t.name == "media__extract_evidence"));
         assert!(tools.iter().any(|t| t.name == "chat__reply"));
+        assert!(
+            !tools.iter().any(|t| t.name == "agent__delegate"),
+            "plain web research discovery should not surface delegation by default"
+        );
     }
 
     #[tokio::test(flavor = "current_thread")]

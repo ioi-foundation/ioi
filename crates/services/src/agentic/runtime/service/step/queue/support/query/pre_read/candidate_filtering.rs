@@ -111,6 +111,9 @@ fn single_snapshot_metric_detail_candidate_allowed_with_contract_and_projection(
         excerpt,
     );
     let resolvable_payload = candidate_time_sensitive_resolvable_payload(raw, title, excerpt);
+    let primary_authority_override =
+        retrieval_contract_requires_primary_authority_source(retrieval_contract, query_contract)
+            && source_counts_as_primary_authority(query_contract, trimmed, title, excerpt);
     let score = single_snapshot_candidate_envelope_score(
         &projection.constraints,
         ResolutionPolicy::default(),
@@ -119,8 +122,9 @@ fn single_snapshot_metric_detail_candidate_allowed_with_contract_and_projection(
         excerpt,
     );
 
-    compatibility_passes_projection(projection, &compatibility)
+    (compatibility_passes_projection(projection, &compatibility) || primary_authority_override)
         && (resolvable_payload
+            || primary_authority_override
             || envelope_score_resolves_constraint(&projection.constraints, &score))
 }
 
@@ -411,7 +415,12 @@ fn grounded_direct_citation_source_allowed_with_contract_and_projection(
         title,
         excerpt,
     );
-    if !compatibility_passes_projection(projection, &compatibility) {
+    let primary_authority_override =
+        retrieval_contract_requires_primary_authority_source(retrieval_contract, query_contract)
+            && source_counts_as_primary_authority(query_contract, trimmed, title, excerpt);
+    if !compatibility_passes_projection(projection, &compatibility)
+        && !primary_authority_override
+    {
         return false;
     }
 
@@ -446,6 +455,7 @@ fn grounded_direct_citation_source_allowed_with_contract_and_projection(
 
     if retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, query_contract)
         && !candidate_time_sensitive_resolvable_payload(trimmed, title, excerpt)
+        && !primary_authority_override
     {
         return false;
     }
@@ -933,6 +943,24 @@ mod candidate_filtering_tests {
             "https://www.tripadvisor.com",
             "Tripadvisor: Best Italian Restaurants in New York",
             "Tripadvisor rankings and ratings for Italian restaurants in New York, NY."
+        ));
+    }
+
+    #[test]
+    fn single_snapshot_direct_citation_allows_official_pricing_authority_without_inline_quote_payload(
+    ) {
+        let query = "What is the latest OpenAI API pricing?";
+        let contract = crate::agentic::web::derive_web_retrieval_contract(query, None)
+            .expect("retrieval contract");
+        let projection = build_query_constraint_projection(query, 1, &[]);
+
+        assert!(projection_candidate_url_allowed_with_contract_and_projection(
+            Some(&contract),
+            query,
+            &projection,
+            "https://openai.com/api/pricing/",
+            "OpenAI API Pricing | OpenAI",
+            "Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools. Compare token costs, realtime, image, and video pricing, plus service tiers."
         ));
     }
 }

@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { submitSessionRuntimePassword } from "./session-runtime";
+import { getSessionId } from "./session-status";
+import { submitAssistantSessionRuntimePassword } from "./session-runtime";
 
 interface SessionClarificationOptionLike {
   id: string;
@@ -23,8 +24,34 @@ interface SessionInterruptionTaskLike {
   clarification_request?: SessionClarificationRequestLike | null;
 }
 
-function resolveSessionId(task: SessionInterruptionTaskLike | null): string | null {
-  return task?.id || task?.session_id || null;
+const intentResolutionCanonicalPrompts: Record<string, string> = {
+  use_current_area: "near me",
+  general_weather_guidance:
+    "Give general weather guidance without checking a local forecast.",
+  general_layering:
+    "Give general weather guidance without checking a local forecast.",
+  broad_city_recs: "Give broader city-level recommendations.",
+  league_overview:
+    "Give a league overview instead of a specific team or matchup.",
+  recent_results_only: "Focus on recent results and headlines.",
+  nba_default: "Use the NBA.",
+  nfl_default: "Use the NFL.",
+  coffee_shops: "Search for coffee shops.",
+  restaurants: "Search for restaurants.",
+  draft_email: "Draft it as an email.",
+  draft_slack: "Draft it as a Slack message.",
+  draft_text: "Draft it as a text message.",
+  open_capabilities_to_connect:
+    "Open capabilities so I can connect the required source.",
+  wait_for_connector: "Wait for me to connect the source, then retry.",
+  paste_the_source_data: "I will paste the source data here.",
+  use_a_different_source: "Use a different available source.",
+};
+
+function resolveSessionId(
+  task: SessionInterruptionTaskLike | null,
+): string | null {
+  return getSessionId(task);
 }
 
 function buildClarificationPrompt(
@@ -45,6 +72,7 @@ function buildClarificationPrompt(
   if (isIntentResolution) {
     return (
       exactIdentifier ||
+      intentResolutionCanonicalPrompts[optionId] ||
       selected?.description ||
       intentStrategyFallback[optionId] ||
       "Continue."
@@ -55,7 +83,9 @@ function buildClarificationPrompt(
     "Clarification response:",
     request?.question ? `question=${request.question}` : undefined,
     request?.tool_name ? `tool_name=${request.tool_name}` : undefined,
-    request?.failure_class ? `failure_class=${request.failure_class}` : undefined,
+    request?.failure_class
+      ? `failure_class=${request.failure_class}`
+      : undefined,
     request?.context_hint ? `context_hint=${request.context_hint}` : undefined,
     `strategy=${optionId}`,
     selected ? `strategy_label=${selected.label}` : undefined,
@@ -108,7 +138,7 @@ export function useSessionInterruptionActions<
       setRuntimePasswordSessionId?.(sessionId);
 
       try {
-        await submitSessionRuntimePassword(sessionId, password);
+        await submitAssistantSessionRuntimePassword(sessionId, password);
       } catch (error) {
         setRuntimePasswordPending?.(false);
         setRuntimePasswordSessionId?.(null);
@@ -138,7 +168,11 @@ export function useSessionInterruptionActions<
 
       await continueTask(
         sessionId,
-        buildClarificationPrompt(task?.clarification_request, optionId, otherText),
+        buildClarificationPrompt(
+          task?.clarification_request,
+          optionId,
+          otherText,
+        ),
       );
     },
     [continueTask, onClarificationSubmit, task],
@@ -164,4 +198,12 @@ export function useSessionInterruptionActions<
     handleSubmitClarification,
     handleCancelClarification,
   };
+}
+
+export function buildClarificationPromptForTests(
+  request: SessionClarificationRequestLike | null | undefined,
+  optionId: string,
+  otherText: string,
+): string {
+  return buildClarificationPrompt(request, optionId, otherText);
 }

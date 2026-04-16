@@ -34,6 +34,14 @@ function familyLabel(family: PlanSummary["routeFamily"] | null): string | null {
       return "Research";
     case "coding":
       return "Coding";
+    case "integrations":
+      return "Integrations";
+    case "communication":
+      return "Communication";
+    case "user_input":
+      return "Decision";
+    case "tool_widget":
+      return "Tool widget";
     case "computer_use":
       return "Computer use";
     case "artifacts":

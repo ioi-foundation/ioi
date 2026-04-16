@@ -134,16 +134,32 @@ fn query_requests_research_work(query: &str) -> bool {
         &[
             " research ",
             " investigate ",
-            " look up ",
             " find sources ",
             " gather evidence ",
-            " latest ",
-            " current ",
             " compare sources ",
             " fact check ",
             " fact-check ",
         ],
     )
+}
+
+fn query_requests_deep_research_work(query: &str) -> bool {
+    let normalized = normalized_query_text(query);
+    query_requests_research_work(query)
+        || query_contains_any(
+            &normalized,
+            &[
+                " briefing ",
+                " brief ",
+                " report ",
+                " deep dive ",
+                " literature review ",
+                " source freshness ",
+                " grounded ",
+                " citations ",
+                " cited ",
+            ],
+        )
 }
 
 fn query_requests_verification_work(query: &str) -> bool {
@@ -538,21 +554,29 @@ pub fn recommended_agent_playbook(
     let intent_id = resolved_intent.intent_id.trim();
     let code_change = query_requests_code_change_work(goal);
     let evidence_heavy =
-        query_requests_research_work(goal) || query_requests_verification_work(goal);
+        query_requests_deep_research_work(goal) || query_requests_verification_work(goal);
     match intent_id {
         "workspace.ops" | "delegation.task"
             if code_change && (evidence_heavy || goal.to_ascii_lowercase().contains("port")) =>
         {
             builtin_agent_playbook(Some("evidence_audited_patch"))
         }
-        "web.research" | "memory.recall" => builtin_agent_playbook(Some("citation_grounded_brief")),
+        "web.research" | "memory.recall"
+            if query_requests_deep_research_work(goal)
+                || query_requests_verification_work(goal) =>
+        {
+            builtin_agent_playbook(Some("citation_grounded_brief"))
+        }
         "delegation.task" if query_requests_artifact_work(goal) => {
             builtin_agent_playbook(Some("artifact_generation_gate"))
         }
         "delegation.task" if query_requests_browser_work(goal) => {
             builtin_agent_playbook(Some("browser_postcondition_gate"))
         }
-        "delegation.task" if query_requests_research_work(goal) => {
+        "delegation.task"
+            if query_requests_deep_research_work(goal)
+                || query_requests_verification_work(goal) =>
+        {
             builtin_agent_playbook(Some("citation_grounded_brief"))
         }
         _ => None,
@@ -731,6 +755,21 @@ mod tests {
         )
         .expect("research playbook should be recommended");
         assert_eq!(recommendation.playbook_id, "citation_grounded_brief");
+    }
+
+    #[test]
+    fn does_not_recommend_research_playbook_for_simple_currentness_lookup() {
+        let recommendation = recommended_agent_playbook(
+            "Who is the current Secretary-General of the UN?",
+            Some(&ResolvedIntentState {
+                intent_id: "web.research".to_string(),
+                ..workspace_ops_intent()
+            }),
+        );
+        assert!(
+            recommendation.is_none(),
+            "simple currentness lookups should stay on the direct research lane"
+        );
     }
 
     #[test]

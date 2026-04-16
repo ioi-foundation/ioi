@@ -100,24 +100,24 @@ function formatPreviewStats(content: string) {
 }
 
 const suggestionPrompts = [
-  "Investigate the request first and stay conversational unless an artifact is justified",
-  "Create an interactive HTML artifact that explains a product rollout with charts",
-  "Create a markdown artifact that captures our launch checklist and open questions",
-  "Create a workspace artifact for a billing settings experience with verification steps",
+  "Investigate first",
+  "Open an HTML artifact",
+  "Capture a markdown brief",
+  "Build a workspace surface",
 ];
 
 const operatingLenses = [
   {
     label: "Route",
-    detail: "Choose conversation, widget, visualizer, or artifact from the requested outcome.",
+    detail: "Conversation, widget, visualizer, or artifact.",
   },
   {
     label: "Materialize",
-    detail: "Turn artifact requests into renderable files and renderer sessions, not vague promises.",
+    detail: "Turn good requests into working surfaces.",
   },
   {
     label: "Verify",
-    detail: "Let receipts and verification decide what Studio claims back to the user.",
+    detail: "Ground the response in receipts and evidence.",
   },
 ];
 
@@ -126,13 +126,16 @@ export function StudioConversationWelcome({
 }: StudioConversationWelcomeProps) {
   return (
     <section className="spot-studio-welcome" aria-label="Studio welcome">
+      <div className="spot-studio-welcome-mark" aria-hidden="true">
+        {icons.sparkles}
+      </div>
+
       <div className="spot-studio-welcome-copy">
         <span className="spot-studio-welcome-kicker">Outcome control plane</span>
-        <h2>Start with the outcome, not the implementation surface.</h2>
+        <h2>What do you want to materialize?</h2>
         <p>
-          Studio routes each request into the right delivery path. If the work
-          should become a durable product, it opens an artifact with the proper
-          renderer and evidence rail. If not, it stays in conversation.
+          Start with the outcome. Studio chooses the right delivery surface,
+          materializes it when needed, and keeps the response tied to evidence.
         </p>
       </div>
 

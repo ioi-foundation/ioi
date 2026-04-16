@@ -514,6 +514,7 @@ export interface StudioArtifactPreparedContextResolution {
 
 export interface StudioArtifactSkillDiscoveryResolution {
   status: string;
+  guidanceStatus?: string;
   guidanceEvaluated: boolean;
   guidanceRecommended: boolean;
   guidanceFound: boolean;
@@ -1004,6 +1005,7 @@ export interface StudioOutcomeRequest {
   confidence: number;
   needsClarification: boolean;
   clarificationQuestions: string[];
+  routingHints?: string[];
   artifact?: StudioOutcomeArtifactRequest | null;
 }
 
@@ -1014,6 +1016,7 @@ export interface StudioOutcomePlanningPayload {
   confidence: number;
   needsClarification: boolean;
   clarificationQuestions: string[];
+  routingHints?: string[];
   artifact?: StudioOutcomeArtifactRequest | null;
 }
 
@@ -1043,6 +1046,16 @@ export interface StudioArtifactManifestVerification {
   productionProvenance?: StudioRuntimeProvenance | null;
   acceptanceProvenance?: StudioRuntimeProvenance | null;
   failure?: StudioArtifactFailure | null;
+}
+
+export interface StudioRetainedWidgetState {
+  widgetFamily?: string | null;
+  bindings: {
+    key: string;
+    value: string;
+    source: string;
+  }[];
+  lastUpdatedAt?: string | null;
 }
 
 export interface StudioArtifactManifestStorage {
@@ -1157,6 +1170,7 @@ export interface StudioArtifactSession {
   tasteMemory?: StudioArtifactTasteMemory | null;
   retrievedExemplars: StudioArtifactExemplar[];
   selectedTargets: StudioArtifactSelectionTarget[];
+  widgetState?: StudioRetainedWidgetState | null;
   uxLifecycle?: StudioArtifactUxLifecycle | null;
   createdAt: string;
   updatedAt: string;
@@ -3163,8 +3177,56 @@ export type PlanRouteFamily =
   | "general"
   | "research"
   | "coding"
+  | "integrations"
+  | "communication"
+  | "user_input"
+  | "tool_widget"
   | "computer_use"
   | "artifacts";
+
+export type PlanLaneFamily =
+  | "general"
+  | "research"
+  | "coding"
+  | "integrations"
+  | "conversation"
+  | "tool_widget"
+  | "visualizer"
+  | "artifact"
+  | "communication"
+  | "user_input";
+
+export type PlanSourceFamily =
+  | "user_directed"
+  | "conversation_context"
+  | "memory"
+  | "conversation_retrieval"
+  | "connector"
+  | "specialized_tool"
+  | "web_search"
+  | "direct_answer"
+  | "workspace"
+  | "artifact_context";
+
+export type PlanClarificationMode =
+  | "assume_from_retained_state"
+  | "clarify_on_missing_slots"
+  | "block_until_clarified";
+
+export type PlanFallbackMode =
+  | "stay_in_specialized_lane"
+  | "allow_ranked_fallbacks"
+  | "block_until_clarified";
+
+export type PlanRiskSensitivity = "low" | "medium" | "high";
+
+export type PlanWorkStatus =
+  | "pending"
+  | "in_progress"
+  | "complete"
+  | "blocked";
+
+export type PlanLaneTransitionKind = "planned" | "reactive";
 
 export type PlanRouteTopology =
   | "single_agent"
@@ -3270,6 +3332,257 @@ export interface PlanSelectedSkill {
   label: string;
 }
 
+export type PlanOutputIntent =
+  | "direct_inline"
+  | "file"
+  | "artifact"
+  | "inline_visual"
+  | "delegated"
+  | "tool_execution";
+
+export interface PlanEffectiveToolSurfaceSummary {
+  projectedTools: string[];
+  primaryTools: string[];
+  broadFallbackTools: string[];
+  diagnosticTools: string[];
+}
+
+export interface PlanLaneFrameSummary {
+  primaryLane: PlanLaneFamily;
+  secondaryLanes: PlanLaneFamily[];
+  primaryGoal: string;
+  toolWidgetFamily: string | null;
+  currentnessPressure: boolean;
+  workspaceGroundingRequired: boolean;
+  persistentDeliverableRequested: boolean;
+  activeArtifactFollowUp: boolean;
+  laneConfidence: number;
+}
+
+export interface PlanSourceSelectionSummary {
+  candidateSources: PlanSourceFamily[];
+  selectedSource: PlanSourceFamily;
+  explicitUserSource: boolean;
+  fallbackReason: string | null;
+}
+
+export interface PlanClarificationPolicySummary {
+  mode: PlanClarificationMode;
+  assumedBindings: string[];
+  blockingSlots: string[];
+  rationale: string;
+}
+
+export interface PlanFallbackPolicySummary {
+  mode: PlanFallbackMode;
+  primaryLane: PlanLaneFamily;
+  fallbackLanes: PlanLaneFamily[];
+  triggerSignals: string[];
+  rationale: string;
+}
+
+export interface PlanPresentationPolicySummary {
+  primarySurface: string;
+  widgetFamily: string | null;
+  renderer: StudioRendererKind | null;
+  tabPriority: string[];
+  rationale: string;
+}
+
+export interface PlanTransformationPolicySummary {
+  outputShape: string;
+  orderedSteps: string[];
+  rationale: string;
+}
+
+export interface PlanRiskProfileSummary {
+  sensitivity: PlanRiskSensitivity;
+  reasons: string[];
+  approvalRequired: boolean;
+  userVisibleGuardrails: string[];
+}
+
+export interface PlanVerificationContractSummary {
+  strategy: string;
+  requiredChecks: string[];
+  completionGate: string;
+}
+
+export interface PlanSourceRankingEntrySummary {
+  source: PlanSourceFamily;
+  rank: number;
+  rationale: string;
+}
+
+export interface PlanWidgetStateBindingSummary {
+  key: string;
+  value: string;
+  source: string;
+}
+
+export interface PlanRetainedWidgetStateSummary {
+  widgetFamily: string | null;
+  bindings: PlanWidgetStateBindingSummary[];
+  lastUpdatedAt: string | null;
+}
+
+export interface PlanPolicyContractSummary {
+  bindings: string[];
+  hiddenInstructionDependency: boolean;
+  rationale: string;
+}
+
+export interface PlanDomainPolicyBundleSummary {
+  clarificationPolicy: PlanClarificationPolicySummary | null;
+  fallbackPolicy: PlanFallbackPolicySummary | null;
+  presentationPolicy: PlanPresentationPolicySummary | null;
+  transformationPolicy: PlanTransformationPolicySummary | null;
+  riskProfile: PlanRiskProfileSummary | null;
+  verificationContract: PlanVerificationContractSummary | null;
+  policyContract: PlanPolicyContractSummary | null;
+  sourceRanking: PlanSourceRankingEntrySummary[];
+  retainedWidgetState: PlanRetainedWidgetStateSummary | null;
+}
+
+export interface PlanWeatherRequestFrameSummary {
+  kind: "weather";
+  inferredLocations: string[];
+  assumedLocation: string | null;
+  temporalScope: string | null;
+  missingSlots: string[];
+  clarificationRequiredSlots: string[];
+}
+
+export interface PlanSportsRequestFrameSummary {
+  kind: "sports";
+  league: string | null;
+  teamOrTarget: string | null;
+  dataScope: string | null;
+  missingSlots: string[];
+  clarificationRequiredSlots: string[];
+}
+
+export interface PlanPlacesRequestFrameSummary {
+  kind: "places";
+  searchAnchor: string | null;
+  category: string | null;
+  locationScope: string | null;
+  missingSlots: string[];
+  clarificationRequiredSlots: string[];
+}
+
+export interface PlanRecipeRequestFrameSummary {
+  kind: "recipe";
+  dish: string | null;
+  servings: string | null;
+  missingSlots: string[];
+  clarificationRequiredSlots: string[];
+}
+
+export interface PlanMessageComposeRequestFrameSummary {
+  kind: "message_compose";
+  channel: string | null;
+  recipientContext: string | null;
+  purpose: string | null;
+  missingSlots: string[];
+  clarificationRequiredSlots: string[];
+}
+
+export interface PlanUserInputRequestFrameSummary {
+  kind: "user_input";
+  interactionKind: string | null;
+  explicitOptionsPresent: boolean;
+  missingSlots: string[];
+  clarificationRequiredSlots: string[];
+}
+
+export type PlanNormalizedRequestFrameSummary =
+  | PlanWeatherRequestFrameSummary
+  | PlanSportsRequestFrameSummary
+  | PlanPlacesRequestFrameSummary
+  | PlanRecipeRequestFrameSummary
+  | PlanMessageComposeRequestFrameSummary
+  | PlanUserInputRequestFrameSummary;
+
+export interface PlanRetainedLaneStateSummary {
+  activeLane: PlanLaneFamily;
+  activeToolWidgetFamily: string | null;
+  activeArtifactId: string | null;
+  unresolvedClarificationQuestion: string | null;
+  selectedProviderFamily: string | null;
+  selectedProviderRouteLabel: string | null;
+  selectedSourceFamily: PlanSourceFamily | null;
+}
+
+export interface PlanLaneTransitionSummary {
+  transitionKind: PlanLaneTransitionKind;
+  fromLane: PlanLaneFamily | null;
+  toLane: PlanLaneFamily;
+  reason: string;
+  evidence: string[];
+}
+
+export interface PlanObjectiveStateSummary {
+  objectiveId: string;
+  title: string;
+  status: PlanWorkStatus;
+  successCriteria: string[];
+}
+
+export interface PlanTaskUnitStateSummary {
+  taskId: string;
+  label: string;
+  status: PlanWorkStatus;
+  laneFamily: PlanLaneFamily;
+  dependsOn: string[];
+  summary: string | null;
+}
+
+export interface PlanCheckpointStateSummary {
+  checkpointId: string;
+  label: string;
+  status: PlanWorkStatus;
+  summary: string;
+}
+
+export interface PlanCompletionInvariantSummary {
+  summary: string;
+  satisfied: boolean;
+  outstandingRequirements: string[];
+}
+
+export interface PlanOrchestrationStateSummary {
+  objective: PlanObjectiveStateSummary | null;
+  tasks: PlanTaskUnitStateSummary[];
+  checkpoints: PlanCheckpointStateSummary[];
+  completionInvariant: PlanCompletionInvariantSummary | null;
+}
+
+export interface PlanRouteDecisionSummary {
+  routeFamily: PlanRouteFamily;
+  directAnswerAllowed: boolean;
+  directAnswerBlockers: string[];
+  currentnessOverride: boolean;
+  connectorCandidateCount: number;
+  selectedProviderFamily: string | null;
+  selectedProviderRouteLabel: string | null;
+  connectorFirstPreference: boolean;
+  narrowToolPreference: boolean;
+  fileOutputIntent: boolean;
+  artifactOutputIntent: boolean;
+  inlineVisualIntent: boolean;
+  skillPrepRequired: boolean;
+  outputIntent: PlanOutputIntent;
+  effectiveToolSurface: PlanEffectiveToolSurfaceSummary;
+  laneFrame: PlanLaneFrameSummary | null;
+  requestFrame: PlanNormalizedRequestFrameSummary | null;
+  sourceSelection: PlanSourceSelectionSummary | null;
+  retainedLaneState: PlanRetainedLaneStateSummary | null;
+  laneTransitions: PlanLaneTransitionSummary[];
+  orchestrationState: PlanOrchestrationStateSummary | null;
+  domainPolicyBundle: PlanDomainPolicyBundleSummary | null;
+}
+
 export interface PlanSummary {
   selectedRoute: string;
   routeFamily: PlanRouteFamily;
@@ -3300,6 +3613,7 @@ export interface PlanSummary {
   artifactRepair: PlanArtifactRepairSummary | null;
   computerUseRecovery: PlanComputerUseRecoverySummary | null;
   policyBindings: string[];
+  routeDecision?: PlanRouteDecisionSummary | null;
 }
 
 export type ArtifactHubViewKey =

@@ -39,223 +39,227 @@ export function StudioWindowMainContent({
   }, [controller]);
 
   return (
-    <>
-      <LocalActivityBar
-        activeView={activeView}
-        onViewChange={controller.changePrimaryView}
-        notificationCount={notificationBadgeCount}
+    <div className="studio-shell">
+      <StudioIdeHeader
+        workspaceName={WORKSPACE_NAME}
         currentProject={currentProject}
+        projects={projects}
+        activeView={activeView}
+        workflowSurface={controller.workflow.surface}
+        chatVisible={auxiliaryChatVisible}
+        notificationCount={notificationBadgeCount}
+        onSelectProject={controller.workflow.selectProject}
+        onToggleChat={controller.chat.togglePaneVisibility}
+        onOpenCommandPalette={controller.modals.openCommandPalette}
+        onOpenNewTerminal={openNewTerminal}
       />
 
-      <div className="studio-main">
-        <StudioIdeHeader
-          workspaceName={WORKSPACE_NAME}
-          currentProject={currentProject}
-          projects={projects}
+      <div className="studio-workspace">
+        <LocalActivityBar
           activeView={activeView}
-          workflowSurface={controller.workflow.surface}
-          chatVisible={auxiliaryChatVisible}
+          onViewChange={controller.changePrimaryView}
           notificationCount={notificationBadgeCount}
-          onSelectProject={controller.workflow.selectProject}
-          onToggleChat={controller.chat.togglePaneVisibility}
-          onOpenCommandPalette={controller.modals.openCommandPalette}
-          onOpenNewTerminal={openNewTerminal}
+          currentProject={currentProject}
         />
 
-        <div
-          className={`studio-content ${auxiliaryChatFullscreen ? "is-chat-fullscreen" : ""}`}
-        >
-          <div className="studio-center-area">
-            <div className="studio-content-main">
-              {activeView === "studio" ? (
-                <StudioCopilotView
-                  seedIntent={controller.chat.seedIntent}
-                  onConsumeSeedIntent={controller.chat.consumeSeedIntent}
-                  sessionRuntime={runtime}
-                />
-              ) : null}
+        <div className="studio-main">
+          <div
+            className={`studio-content ${auxiliaryChatFullscreen ? "is-chat-fullscreen" : ""}`}
+          >
+            <div className="studio-center-area">
+              <div className="studio-content-main">
+                {activeView === "studio" ? (
+                  <StudioCopilotView
+                    seedIntent={controller.chat.seedIntent}
+                    onConsumeSeedIntent={controller.chat.consumeSeedIntent}
+                    sessionRuntime={runtime}
+                  />
+                ) : null}
 
-              {activeView === "workflows" ? (
-                <MissionControlWorkflowsView
+                {activeView === "workflows" ? (
+                  <MissionControlWorkflowsView
+                    runtime={runtime}
+                    surface={controller.workflow.surface}
+                    currentProject={currentProject}
+                    projects={projects}
+                    notificationCount={notificationBadgeCount}
+                    editingAgent={controller.agents.editingAgent}
+                    onSurfaceChange={controller.workflow.setSurface}
+                    onSelectProject={controller.workflow.selectProject}
+                    onOpenStudio={() => controller.changePrimaryView("studio")}
+                    onOpenInbox={() => controller.changePrimaryView("inbox")}
+                    onOpenCapabilities={() =>
+                      controller.changePrimaryView("capabilities")
+                    }
+                    onOpenPolicy={() =>
+                      controller.policy.openPolicyCenter(null)
+                    }
+                    onOpenSettings={() =>
+                      controller.changePrimaryView("settings")
+                    }
+                    onOpenAgent={controller.agents.openBuilder}
+                    onCloseAgent={controller.agents.closeBuilder}
+                    onStageCatalogEntry={controller.catalog.openStageModalForEntry}
+                    composeSeedProject={controller.workflow.composeSeedProject}
+                    onConsumeComposeSeedProject={
+                      controller.workflow.consumeComposeSeedProject
+                    }
+                    onAddBuilderConfigToCanvas={(config) => {
+                      controller.workflow.queueBuilderConfigToCanvas(config);
+                    }}
+                  />
+                ) : null}
+
+                {activeView === "runs" ? (
+                  <MissionControlRunsView runtime={runtime} />
+                ) : null}
+
+                {activeView === "inbox" ? (
+                  <NotificationsView
+                    onOpenAutopilot={() => {
+                      controller.chat.setSurface("chat");
+                      controller.chat.showPane();
+                    }}
+                    onOpenIntegrations={() =>
+                      controller.capabilities.openSurface(null)
+                    }
+                    onOpenLocalEngine={() =>
+                      controller.capabilities.openSurface("engine")
+                    }
+                    onOpenShield={(connectorId) =>
+                      controller.policy.openPolicyCenter(connectorId)
+                    }
+                    onOpenSettings={() =>
+                      controller.changePrimaryView("settings")
+                    }
+                    onOpenReplyComposer={controller.chat.openReplyComposer}
+                    onOpenMeetingPrep={controller.chat.openMeetingPrep}
+                  />
+                ) : null}
+
+                {activeView === "capabilities" ? (
+                  <CapabilitiesView
+                    runtime={runtime}
+                    getConnectorPolicySummary={(connector) =>
+                      buildConnectorPolicySummary(
+                        controller.policy.shieldPolicy,
+                        connector.id,
+                      )
+                    }
+                    getConnectorTrustProfile={(connector, options) =>
+                      buildConnectorTrustProfile(
+                        connector,
+                        controller.policy.shieldPolicy,
+                        options,
+                      )
+                    }
+                    onOpenPolicyCenter={(connector) =>
+                      controller.policy.openPolicyCenter(connector?.id ?? null)
+                    }
+                    onOpenInbox={() => controller.changePrimaryView("inbox")}
+                    onOpenSettings={() => controller.changePrimaryView("settings")}
+                    onOpenSkillSources={() =>
+                      controller.settings.openSection("skill_sources")
+                    }
+                    seedSurface={controller.capabilities.seedSurface}
+                    seedConnectorId={controller.capabilities.targetConnectorId}
+                    seedConnectionDetailSection={
+                      controller.capabilities.targetDetailSection
+                    }
+                    onConsumeSeedSurface={
+                      controller.capabilities.consumeSeedSurface
+                    }
+                    onConsumeSeedConnector={controller.capabilities.consumeTarget}
+                  />
+                ) : null}
+
+                {activeView === "policy" || activeView === "settings" ? (
+                  <MissionControlControlView
+                    runtime={runtime}
+                    surface={activeView === "settings" ? "system" : "policy"}
+                    policyState={controller.policy.shieldPolicy}
+                    profile={controller.profile.value}
+                    profileDraft={controller.profile.draft}
+                    profileSaving={controller.profile.saving}
+                    profileError={controller.profile.error}
+                    governanceRequest={controller.policy.governanceRequest}
+                    focusedConnectorId={controller.policy.focusedConnectorId}
+                    onSurfaceChange={(surface) =>
+                      controller.changePrimaryView(
+                        surface === "policy" ? "policy" : "settings",
+                      )
+                    }
+                    settingsSeedSection={controller.settings.seedSection}
+                    onConsumeSettingsSeedSection={
+                      controller.settings.consumeSeedSection
+                    }
+                    onPolicyChange={controller.policy.setShieldPolicy}
+                    onProfileDraftChange={controller.profile.updateDraft}
+                    onResetProfileDraft={controller.profile.resetDraft}
+                    onSaveProfile={controller.profile.saveDraft}
+                    onFocusConnector={controller.policy.focusConnector}
+                    onApplyGovernanceRequest={
+                      controller.policy.applyGovernanceRequest
+                    }
+                    onDismissGovernanceRequest={
+                      controller.policy.dismissGovernanceRequest
+                    }
+                    onOpenConnections={() =>
+                      controller.changePrimaryView("capabilities")
+                    }
+                  />
+                ) : null}
+              </div>
+
+              {activeView !== "studio" ? (
+                <StudioUtilityDrawer
                   runtime={runtime}
-                  surface={controller.workflow.surface}
-                  currentProject={currentProject}
-                  projects={projects}
+                  activeView={activeView}
+                  chatSurface={controller.chat.surface}
+                  operatorPaneOpen={controller.chat.paneVisible}
                   notificationCount={notificationBadgeCount}
-                  editingAgent={controller.agents.editingAgent}
-                  onSurfaceChange={controller.workflow.setSurface}
-                  onSelectProject={controller.workflow.selectProject}
-                  onOpenStudio={() => controller.changePrimaryView("studio")}
-                  onOpenInbox={() => controller.changePrimaryView("inbox")}
-                  onOpenCapabilities={() =>
-                    controller.changePrimaryView("capabilities")
-                  }
-                  onOpenPolicy={() =>
-                    controller.policy.openPolicyCenter(null)
-                  }
-                  onOpenSettings={() =>
-                    controller.changePrimaryView("settings")
-                  }
-                  onOpenAgent={controller.agents.openBuilder}
-                  onCloseAgent={controller.agents.closeBuilder}
-                  onStageCatalogEntry={controller.catalog.openStageModalForEntry}
-                  composeSeedProject={controller.workflow.composeSeedProject}
-                  onConsumeComposeSeedProject={
-                    controller.workflow.consumeComposeSeedProject
-                  }
-                  onAddBuilderConfigToCanvas={(config) => {
-                    controller.workflow.queueBuilderConfigToCanvas(config);
-                  }}
-                />
-              ) : null}
-
-              {activeView === "runs" ? (
-                <MissionControlRunsView runtime={runtime} />
-              ) : null}
-
-              {activeView === "inbox" ? (
-                <NotificationsView
-                  onOpenAutopilot={() => {
-                    controller.chat.setSurface("chat");
-                    controller.chat.showPane();
-                  }}
-                  onOpenIntegrations={() =>
-                    controller.capabilities.openSurface(null)
-                  }
-                  onOpenLocalEngine={() =>
-                    controller.capabilities.openSurface("engine")
-                  }
-                  onOpenShield={(connectorId) =>
-                    controller.policy.openPolicyCenter(connectorId)
-                  }
-                  onOpenSettings={() =>
-                    controller.changePrimaryView("settings")
-                  }
-                  onOpenReplyComposer={controller.chat.openReplyComposer}
-                  onOpenMeetingPrep={controller.chat.openMeetingPrep}
-                />
-              ) : null}
-
-              {activeView === "capabilities" ? (
-                <CapabilitiesView
-                  runtime={runtime}
-                  getConnectorPolicySummary={(connector) =>
-                    buildConnectorPolicySummary(
-                      controller.policy.shieldPolicy,
-                      connector.id,
-                    )
-                  }
-                  getConnectorTrustProfile={(connector, options) =>
-                    buildConnectorTrustProfile(
-                      connector,
-                      controller.policy.shieldPolicy,
-                      options,
-                    )
-                  }
-                  onOpenPolicyCenter={(connector) =>
-                    controller.policy.openPolicyCenter(connector?.id ?? null)
-                  }
-                  onOpenInbox={() => controller.changePrimaryView("inbox")}
-                  onOpenSettings={() => controller.changePrimaryView("settings")}
-                  onOpenSkillSources={() =>
-                    controller.settings.openSection("skill_sources")
-                  }
-                  seedSurface={controller.capabilities.seedSurface}
-                  seedConnectorId={controller.capabilities.targetConnectorId}
-                  seedConnectionDetailSection={
-                    controller.capabilities.targetDetailSection
-                  }
-                  onConsumeSeedSurface={
-                    controller.capabilities.consumeSeedSurface
-                  }
-                  onConsumeSeedConnector={controller.capabilities.consumeTarget}
-                />
-              ) : null}
-
-              {activeView === "policy" || activeView === "settings" ? (
-                <MissionControlControlView
-                  runtime={runtime}
-                  surface={activeView === "settings" ? "system" : "policy"}
-                  policyState={controller.policy.shieldPolicy}
-                  profile={controller.profile.value}
-                  profileDraft={controller.profile.draft}
-                  profileSaving={controller.profile.saving}
-                  profileError={controller.profile.error}
-                  governanceRequest={controller.policy.governanceRequest}
-                  focusedConnectorId={controller.policy.focusedConnectorId}
-                  onSurfaceChange={(surface) =>
-                    controller.changePrimaryView(
-                      surface === "policy" ? "policy" : "settings",
-                    )
-                  }
-                  settingsSeedSection={controller.settings.seedSection}
-                  onConsumeSettingsSeedSection={
-                    controller.settings.consumeSeedSection
-                  }
-                  onPolicyChange={controller.policy.setShieldPolicy}
-                  onProfileDraftChange={controller.profile.updateDraft}
-                  onResetProfileDraft={controller.profile.resetDraft}
-                  onSaveProfile={controller.profile.saveDraft}
-                  onFocusConnector={controller.policy.focusConnector}
-                  onApplyGovernanceRequest={
-                    controller.policy.applyGovernanceRequest
-                  }
-                  onDismissGovernanceRequest={
-                    controller.policy.dismissGovernanceRequest
-                  }
-                  onOpenConnections={() =>
-                    controller.changePrimaryView("capabilities")
-                  }
+                  shieldPolicy={controller.policy.shieldPolicy}
+                  currentProject={currentProject}
+                  focusedPolicyConnectorId={controller.policy.focusedConnectorId}
+                  assistantWorkbench={controller.chat.assistantWorkbench}
+                  onOpenStudioConversation={() => controller.changePrimaryView("studio")}
                 />
               ) : null}
             </div>
 
-            <StudioUtilityDrawer
-              runtime={runtime}
-              activeView={activeView}
-              chatSurface={controller.chat.surface}
-              operatorPaneOpen={controller.chat.paneVisible}
-              notificationCount={notificationBadgeCount}
-              shieldPolicy={controller.policy.shieldPolicy}
-              currentProject={currentProject}
-              focusedPolicyConnectorId={controller.policy.focusedConnectorId}
-              assistantWorkbench={controller.chat.assistantWorkbench}
-              onOpenStudioConversation={() => controller.changePrimaryView("studio")}
-            />
+            {auxiliaryChatVisible ? (
+              <StudioLeftUtilityPane
+                surface={controller.chat.surface}
+                session={controller.chat.assistantWorkbench}
+                runtime={runtime}
+                maximized={controller.chat.paneMaximized}
+                seedIntent={null}
+                onConsumeSeedIntent={undefined}
+                onClose={controller.chat.hidePane}
+                onToggleMaximize={controller.chat.toggleMaximize}
+                onBackToInbox={() => {
+                  controller.chat.setSurface("chat");
+                  controller.changePrimaryView("inbox");
+                }}
+                onOpenInbox={() => controller.changePrimaryView("inbox")}
+                onOpenAutopilot={controller.chat.openAutopilotWithIntent}
+              />
+            ) : null}
           </div>
 
-          {auxiliaryChatVisible ? (
-            <StudioLeftUtilityPane
-              surface={controller.chat.surface}
-              session={controller.chat.assistantWorkbench}
-              runtime={runtime}
-              maximized={controller.chat.paneMaximized}
-              seedIntent={controller.chat.seedIntent}
-              onConsumeSeedIntent={controller.chat.consumeSeedIntent}
-              onClose={controller.chat.hidePane}
-              onToggleMaximize={controller.chat.toggleMaximize}
-              onBackToInbox={() => {
-                controller.chat.setSurface("chat");
-                controller.changePrimaryView("inbox");
-              }}
-              onOpenInbox={() => controller.changePrimaryView("inbox")}
-              onOpenAutopilot={controller.chat.openAutopilotWithIntent}
+          {controller.showStatusBar ? (
+            <StatusBar
+              metrics={{ cost: 0.0, privacy: 0.0, risk: 0.0 }}
+              status="Ready"
+              onOpenShield={() =>
+                controller.policy.openPolicyCenter(
+                  controller.policy.focusedConnectorId,
+                )
+              }
             />
           ) : null}
         </div>
-
-        {controller.showStatusBar ? (
-          <StatusBar
-            metrics={{ cost: 0.0, privacy: 0.0, risk: 0.0 }}
-            status="Ready"
-            onOpenShield={() =>
-              controller.policy.openPolicyCenter(
-                controller.policy.focusedConnectorId,
-              )
-            }
-          />
-        ) : null}
       </div>
-    </>
+    </div>
   );
 }

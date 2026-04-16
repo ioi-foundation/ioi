@@ -1,5 +1,5 @@
 import {
-  createNormalizedRuntimeChatSessionControllerStore,
+  createNormalizedChatSessionStore,
 } from "@ioi/agent-ide";
 import type {
   AgentTask,
@@ -12,10 +12,10 @@ import {
 } from "../types";
 
 const {
-  useSessionControllerStore,
-  bootstrapSessionController,
+  useSessionStore,
+  connectSessionStore,
 } =
-  createNormalizedRuntimeChatSessionControllerStore<
+  createNormalizedChatSessionStore<
     AgentTask,
     AgentEvent,
     Artifact,
@@ -29,5 +29,5 @@ const {
 
 // Keep a tiny Autopilot-local alias so the desktop shells import one stable
 // session surface while the package-owned controller remains canonical.
-export const useAgentStore = useSessionControllerStore;
-export const bootstrapAgentSession = bootstrapSessionController;
+export const useAgentStore = useSessionStore;
+export const bootstrapAgentSession = connectSessionStore;

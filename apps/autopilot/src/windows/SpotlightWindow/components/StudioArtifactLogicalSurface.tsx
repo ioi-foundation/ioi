@@ -118,6 +118,7 @@ export function StudioArtifactLogicalSurface({
     `${preview.label}. ${formatStudioExecutionPreviewPhase(preview)}.`;
   const isNonArtifactRoute = studioSession.outcomeRequest.outcomeKind !== "artifact";
   const routeLabel = formatStatusLabel(studioSession.outcomeRequest.outcomeKind);
+  const routeHints = (studioSession.outcomeRequest.routingHints ?? []).slice(0, 4);
   const showRouteSummary = isNonArtifactRoute && manifest.files.length === 0;
   const showZeroFileArtifactStage = !showRouteSummary && manifest.files.length === 0;
 
@@ -282,6 +283,13 @@ export function StudioArtifactLogicalSurface({
               ? formatStatusLabel(studioSession.outcomeRequest.executionStrategy)
               : displayArtifactClassLabel(manifest.artifactClass)}
           </span>
+          {showRouteSummary
+            ? routeHints.map((hint) => (
+                <span key={hint} className="studio-artifact-badge is-muted">
+                  {hint}
+                </span>
+              ))
+            : null}
         </div>
       </aside>
 
@@ -322,6 +330,9 @@ export function StudioArtifactLogicalSurface({
                 <div className="studio-artifact-renderer-empty">
                   <strong>{routeLabel} route verified</strong>
                   <p>{studioSession.verifiedReply.summary}</p>
+                  {routeHints.length ? (
+                    <p>{routeHints.join(" · ")}</p>
+                  ) : null}
                   {studioSession.materialization.swarmExecution ? (
                     <p>
                       {studioSession.materialization.swarmExecution.completedWorkItems}/

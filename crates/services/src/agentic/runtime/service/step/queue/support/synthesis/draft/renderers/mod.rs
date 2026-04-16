@@ -223,6 +223,8 @@ pub(crate) fn render_user_synthesis_draft(draft: &SynthesisDraft) -> String {
         if trimmed.starts_with("Insight selector:")
             || trimmed.starts_with("Insights used:")
             || trimmed.starts_with("Completion reason:")
+            || trimmed.starts_with("Confidence:")
+            || trimmed.starts_with("Caveat:")
             || trimmed.starts_with("Overall caveat:")
             || trimmed.starts_with("Query:")
         {

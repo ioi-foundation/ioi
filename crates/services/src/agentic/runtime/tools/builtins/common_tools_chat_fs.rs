@@ -239,7 +239,7 @@
     tools.push(LlmToolDefinition {
         name: "file__search".to_string(),
         description:
-            "Recursively search for a valid Rust regex pattern in files under a directory and return matching lines. Use this only when the exact file path is still unknown; if you already know the file, read it directly."
+            "Recursively search under a directory. Literal filename queries return matching relative paths as `FILE_MATCH ...`; content regex queries return matching lines. Use this only when the exact file path is still unknown; if you already know the file, read it directly."
                 .to_string(),
         parameters: fs_search_params.to_string(),
     });

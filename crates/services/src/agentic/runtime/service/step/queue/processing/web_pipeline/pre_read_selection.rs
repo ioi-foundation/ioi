@@ -40,7 +40,7 @@ fn pre_read_url_has_allowed_affordance(
     title: &str,
     excerpt: &str,
 ) -> bool {
-    !discovery_source_affordances(
+    let affordances = discovery_source_affordances(
         retrieval_contract,
         query_contract,
         required_url_count,
@@ -49,8 +49,35 @@ fn pre_read_url_has_allowed_affordance(
         url,
         title,
         excerpt,
-    )
-    .is_empty()
+    );
+    !affordances.is_empty()
+        || pre_read_primary_authority_override_allowed(
+            retrieval_contract,
+            query_contract,
+            url,
+            title,
+            excerpt,
+        )
+}
+
+fn pre_read_primary_authority_override_allowed(
+    retrieval_contract: Option<&WebRetrievalContract>,
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    crate::agentic::runtime::service::step::queue::support::retrieval_contract_requires_primary_authority_source(
+        retrieval_contract,
+        query_contract,
+    ) && pre_read_source_counts_as_primary_authority(query_contract, url, title, excerpt)
+        && pre_read_candidate_url_allowed(url)
+        && !(title.trim().is_empty() && excerpt.trim().is_empty())
+        && !crate::agentic::runtime::service::step::queue::support::source_has_human_challenge_signal(
+            url,
+            title,
+            excerpt,
+        )
 }
 
 fn pre_read_candidate_url_allowed_for_query(
@@ -73,6 +100,12 @@ fn pre_read_candidate_url_allowed_for_query(
         retrieval_contract,
         query_contract,
         &projection,
+        url,
+        title,
+        excerpt,
+    ) || pre_read_primary_authority_override_allowed(
+        retrieval_contract,
+        query_contract,
         url,
         title,
         excerpt,
@@ -101,13 +134,24 @@ fn pre_read_authority_source_required(
     retrieval_contract: Option<&WebRetrievalContract>,
     query_contract: &str,
 ) -> bool {
-    query_prefers_document_briefing_layout(query_contract)
-        && !query_requests_comparison(query_contract)
-        && crate::agentic::runtime::service::step::signals::analyze_query_facets(query_contract)
-            .grounded_external_required
-        && retrieval_contract
-            .map(|contract| contract.currentness_required || contract.source_independence_min > 1)
-            .unwrap_or(false)
+    crate::agentic::runtime::service::step::queue::support::retrieval_contract_requires_primary_authority_source(
+        retrieval_contract,
+        query_contract,
+    )
+}
+
+fn pre_read_source_counts_as_primary_authority(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    crate::agentic::runtime::service::step::queue::support::source_counts_as_primary_authority(
+        query_contract,
+        url,
+        title,
+        excerpt,
+    )
 }
 
 fn pre_read_source_has_primary_authority(
@@ -428,7 +472,7 @@ fn lint_pre_read_payload_urls(
                 &hint.url,
                 hint.title.as_deref().unwrap_or_default(),
                 &hint.excerpt,
-            ) && pre_read_source_has_primary_authority(
+            ) && pre_read_source_counts_as_primary_authority(
                 query_contract,
                 &hint.url,
                 hint.title.as_deref().unwrap_or_default(),
@@ -544,7 +588,7 @@ fn lint_pre_read_payload_urls(
         if let Some(domain) = selected_url_domain_key(&source_hints, trimmed) {
             distinct_domains.insert(domain);
         }
-        if pre_read_source_has_primary_authority(query_contract, trimmed, title, excerpt) {
+        if pre_read_source_counts_as_primary_authority(query_contract, trimmed, title, excerpt) {
             selected_primary_authority_families.insert(pre_read_primary_authority_family_key(
                 query_contract,
                 trimmed,
@@ -722,7 +766,7 @@ fn build_pre_read_selection_payload(
     }
     if pre_read_authority_source_required(Some(&retrieval_contract), query_contract)
         && discovery_sources.iter().any(|source| {
-            pre_read_source_has_primary_authority(
+            pre_read_source_counts_as_primary_authority(
                 query_contract,
                 &source.url,
                 source.title.as_deref().unwrap_or_default(),
@@ -848,7 +892,7 @@ fn deterministic_pre_read_selection(
                 return None;
             }
 
-            let primary_authority = pre_read_source_has_primary_authority(
+            let primary_authority = pre_read_source_counts_as_primary_authority(
                 query_contract,
                 trimmed,
                 source.title.as_deref().unwrap_or_default(),
@@ -1889,6 +1933,145 @@ mod pre_read_selection_tests {
                 "https://csrc.nist.gov/pubs/fips/203/final".to_string(),
                 "https://csrc.nist.gov/pubs/fips/204/final".to_string(),
             ]
+        );
+    }
+
+    #[test]
+    fn lint_pre_read_payload_urls_requires_primary_authority_for_latest_pricing_queries() {
+        let query = "What is the latest OpenAI API pricing?";
+        let retrieval_contract =
+            crate::agentic::web::derive_web_retrieval_contract(query, Some(query))
+                .expect("contract");
+        let discovery_sources = vec![
+            WebSource {
+                source_id: "official-openai-pricing".to_string(),
+                rank: Some(1),
+                url: "https://openai.com/api/pricing/".to_string(),
+                title: Some(
+                    "OpenAI openai.com › api › pricing OpenAI API Pricing | OpenAI"
+                        .to_string(),
+                ),
+                snippet: Some(
+                    "2 days ago - Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools. Compare token costs, realtime, image, and video pricing, plus service tiers."
+                        .to_string(),
+                ),
+                domain: Some("openai.com".to_string()),
+            },
+            WebSource {
+                source_id: "third-party-pricing".to_string(),
+                rank: Some(2),
+                url: "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services"
+                    .to_string(),
+                title: Some("OpenAI API Pricing & Services - A Comprehensive Guide".to_string()),
+                snippet: Some(
+                    "April 24, 2025 - OpenAI o4-mini: A cost-efficient alternative to the o3 model with commendable performance metrics. Price: Input: $1.10 per 1M tokens, Cached input: $0.275 per 1M tokens, Output: $4.40 per 1M tokens."
+                        .to_string(),
+                ),
+                domain: Some("www.arsturn.com".to_string()),
+            },
+        ];
+
+        assert!(pre_read_authority_source_required(
+            Some(&retrieval_contract),
+            query
+        ));
+        assert!(pre_read_source_has_primary_authority(
+            query,
+            &discovery_sources[0].url,
+            discovery_sources[0].title.as_deref().unwrap_or_default(),
+            discovery_sources[0].snippet.as_deref().unwrap_or_default(),
+        ));
+        assert!(pre_read_source_counts_as_primary_authority(
+            query,
+            &discovery_sources[0].url,
+            discovery_sources[0].title.as_deref().unwrap_or_default(),
+            discovery_sources[0].snippet.as_deref().unwrap_or_default(),
+        ));
+        assert!(!pre_read_source_counts_as_primary_authority(
+            query,
+            &discovery_sources[1].url,
+            discovery_sources[1].title.as_deref().unwrap_or_default(),
+            discovery_sources[1].snippet.as_deref().unwrap_or_default(),
+        ));
+        let source_hints = discovery_source_hints(&discovery_sources);
+        assert!(pre_read_candidate_url_allowed_for_query(
+            Some(&retrieval_contract),
+            query,
+            1,
+            &source_hints,
+            None,
+            &discovery_sources[0].url,
+            discovery_sources[0].title.as_deref().unwrap_or_default(),
+            discovery_sources[0].snippet.as_deref().unwrap_or_default(),
+        ));
+        assert!(pre_read_url_has_allowed_affordance(
+            Some(&retrieval_contract),
+            query,
+            1,
+            &source_hints,
+            None,
+            &discovery_sources[0].url,
+            discovery_sources[0].title.as_deref().unwrap_or_default(),
+            discovery_sources[0].snippet.as_deref().unwrap_or_default(),
+        ));
+        let payload_primary_authority_families = source_hints
+            .iter()
+            .filter(|hint| {
+                pre_read_url_has_allowed_affordance(
+                    Some(&retrieval_contract),
+                    query,
+                    1,
+                    &source_hints,
+                    None,
+                    &hint.url,
+                    hint.title.as_deref().unwrap_or_default(),
+                    &hint.excerpt,
+                ) && pre_read_source_counts_as_primary_authority(
+                    query,
+                    &hint.url,
+                    hint.title.as_deref().unwrap_or_default(),
+                    &hint.excerpt,
+                )
+            })
+            .map(|hint| {
+                pre_read_primary_authority_family_key(
+                    query,
+                    &hint.url,
+                    hint.title.as_deref().unwrap_or_default(),
+                    &hint.excerpt,
+                )
+            })
+            .collect::<std::collections::BTreeSet<_>>()
+            .len();
+        assert_eq!(payload_primary_authority_families, 1);
+        let rejection = lint_pre_read_payload_urls(
+            Some(&retrieval_contract),
+            query,
+            &discovery_sources,
+            &[],
+            &PreReadSelectionMode::DirectDetail,
+            &[
+                "https://www.arsturn.com/blog/making-sense-of-the-openai-apis-pricing-and-services"
+                    .to_string(),
+            ],
+            1,
+        )
+        .expect_err("third-party pricing page should not satisfy authority floor");
+        assert!(rejection.contains("primary authority"));
+
+        let selected = lint_pre_read_payload_urls(
+            Some(&retrieval_contract),
+            query,
+            &discovery_sources,
+            &[],
+            &PreReadSelectionMode::DirectDetail,
+            &["https://openai.com/api/pricing/".to_string()],
+            1,
+        )
+        .expect("official pricing page should satisfy authority floor");
+        assert_eq!(
+            selected,
+            vec!["https://openai.com/api/pricing/".to_string()]
         );
     }
 

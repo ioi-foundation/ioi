@@ -748,6 +748,7 @@ pub fn run() {
                 let handle = app.handle().clone();
                 let start_surface = env_text("AUTOPILOT_DEV_START_SURFACE");
                 let start_intent = env_text("AUTOPILOT_DEV_START_INTENT");
+                let start_session_id = env_text("AUTOPILOT_DEV_START_SESSION_ID");
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                     match start_surface.as_deref() {
@@ -758,6 +759,7 @@ pub fn run() {
                                     json!({
                                         "kind": "autopilot-intent",
                                         "intent": intent,
+                                        "sessionId": start_session_id.clone(),
                                     }),
                                 );
                             } else {
@@ -782,6 +784,7 @@ pub fn run() {
                                     json!({
                                         "kind": "autopilot-intent",
                                         "intent": intent,
+                                        "sessionId": start_session_id.clone(),
                                     }),
                                 );
                             } else {
@@ -828,6 +831,7 @@ pub fn run() {
             windows::get_studio_launch_receipts,
             kernel::studio::studio_retry_renderer_session,
             kernel::studio::studio_attach_artifact_selection,
+            kernel::studio::studio_attach_widget_state,
             kernel::studio::studio_compare_artifact_revisions,
             kernel::studio::studio_restore_artifact_revision,
             kernel::studio::studio_branch_artifact_revision,
@@ -954,6 +958,8 @@ pub fn run() {
             kernel::artifacts::get_thread_events,
             kernel::artifacts::get_thread_artifacts,
             kernel::artifacts::get_artifact_content,
+            kernel::artifacts::save_artifact_content,
+            kernel::artifacts::materialize_artifact_content_to_temp,
             kernel::artifacts::get_run_bundle,
             kernel::artifacts::get_trace_bundle,
             kernel::artifacts::compare_trace_bundles,
