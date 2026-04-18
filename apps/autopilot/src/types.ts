@@ -3059,6 +3059,35 @@ export interface ActivityGroup {
   events: ActivityEventRef[];
 }
 
+export type ToolActivityKind =
+  | "search"
+  | "read"
+  | "write"
+  | "verify"
+  | "preview"
+  | "inspect"
+  | "other";
+
+export type ToolActivityStatus = "complete" | "active" | "blocked";
+
+export interface ToolActivityRow {
+  key: string;
+  kind: ToolActivityKind;
+  status: ToolActivityStatus;
+  stepIndex: number;
+  label: string;
+  detail: string | null;
+  preview: string | null;
+  sourceUrl?: string | null;
+}
+
+export interface ToolActivityGroupPresentation {
+  key: string;
+  label: string;
+  rows: ToolActivityRow[];
+  defaultOpen: boolean;
+}
+
 export type ChatContractScalar = string | number | boolean | null;
 export type ChatContractValue = ChatContractScalar | ChatContractScalar[];
 export type ChatContractSchemaVersion = "chat_contract_v1";

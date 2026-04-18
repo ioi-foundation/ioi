@@ -163,9 +163,7 @@ function parseLaneTransitionKind(
   }
 }
 
-function parseClarificationMode(
-  value?: string,
-): PlanClarificationMode | null {
+function parseClarificationMode(value?: string): PlanClarificationMode | null {
   switch ((value || "").trim().toLowerCase()) {
     case "assume_from_retained_state":
     case "clarify_on_missing_slots":
@@ -253,12 +251,17 @@ function laneFrameFromRecord(
       "secondary_lanes",
     ),
     primaryGoal:
-      stringFromRecord(record, "primaryGoal", "primary_goal") || "Runtime-selected lane",
+      stringFromRecord(record, "primaryGoal", "primary_goal") ||
+      "Runtime-selected lane",
     toolWidgetFamily:
-      stringFromRecord(record, "toolWidgetFamily", "tool_widget_family") || null,
+      stringFromRecord(record, "toolWidgetFamily", "tool_widget_family") ||
+      null,
     currentnessPressure:
-      booleanFromRecord(record, "currentnessPressure", "currentness_pressure") ===
-      true,
+      booleanFromRecord(
+        record,
+        "currentnessPressure",
+        "currentness_pressure",
+      ) === true,
     workspaceGroundingRequired:
       booleanFromRecord(
         record,
@@ -272,8 +275,11 @@ function laneFrameFromRecord(
         "persistent_deliverable_requested",
       ) === true,
     activeArtifactFollowUp:
-      booleanFromRecord(record, "activeArtifactFollowUp", "active_artifact_follow_up") ===
-      true,
+      booleanFromRecord(
+        record,
+        "activeArtifactFollowUp",
+        "active_artifact_follow_up",
+      ) === true,
     laneConfidence:
       numberFromRecord(record, "laneConfidence", "lane_confidence") ?? 0,
   };
@@ -296,8 +302,11 @@ function sourceSelectionFromRecord(
     ),
     selectedSource,
     explicitUserSource:
-      booleanFromRecord(record, "explicitUserSource", "explicit_user_source") ===
-      true,
+      booleanFromRecord(
+        record,
+        "explicitUserSource",
+        "explicit_user_source",
+      ) === true,
     fallbackReason:
       stringFromRecord(record, "fallbackReason", "fallback_reason") || null,
   };
@@ -328,7 +337,11 @@ function domainPolicyBundleFromRecord(
     "transformationPolicy",
     "transformation_policy",
   );
-  const riskProfileRecord = recordFromRecord(record, "riskProfile", "risk_profile");
+  const riskProfileRecord = recordFromRecord(
+    record,
+    "riskProfile",
+    "risk_profile",
+  );
   const verificationContractRecord = recordFromRecord(
     record,
     "verificationContract",
@@ -352,9 +365,7 @@ function domainPolicyBundleFromRecord(
             return null;
           }
           const ranking = entry as Record<string, unknown>;
-          const source = parseSourceFamily(
-            stringFromRecord(ranking, "source"),
-          );
+          const source = parseSourceFamily(stringFromRecord(ranking, "source"));
           const rank = numberFromRecord(ranking, "rank");
           if (!source || rank === null) return null;
           return {
@@ -376,10 +387,7 @@ function domainPolicyBundleFromRecord(
       ? {
           mode:
             parseClarificationMode(
-              stringFromRecord(
-                clarificationPolicyRecord,
-                "mode",
-              ),
+              stringFromRecord(clarificationPolicyRecord, "mode"),
             ) || "clarify_on_missing_slots",
           assumedBindings: arrayFromRecord(
             clarificationPolicyRecord,
@@ -515,10 +523,7 @@ function domainPolicyBundleFromRecord(
       : null,
     policyContract: policyContractRecord
       ? {
-          bindings: arrayFromRecord(
-            policyContractRecord,
-            "bindings",
-          ),
+          bindings: arrayFromRecord(policyContractRecord, "bindings"),
           hiddenInstructionDependency:
             booleanFromRecord(
               policyContractRecord,
@@ -542,7 +547,11 @@ function domainPolicyBundleFromRecord(
           bindings: Array.isArray(retainedWidgetStateRecord.bindings)
             ? retainedWidgetStateRecord.bindings
                 .map((entry) => {
-                  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+                  if (
+                    !entry ||
+                    typeof entry !== "object" ||
+                    Array.isArray(entry)
+                  ) {
                     return null;
                   }
                   const binding = entry as Record<string, unknown>;
@@ -555,7 +564,9 @@ function domainPolicyBundleFromRecord(
                   return { key, value, source };
                 })
                 .filter(
-                  (entry): entry is { key: string; value: string; source: string } =>
+                  (
+                    entry,
+                  ): entry is { key: string; value: string; source: string } =>
                     Boolean(entry),
                 )
             : [],
@@ -597,7 +608,8 @@ function requestFrameFromRecord(
           "inferred_locations",
         ),
         assumedLocation:
-          stringFromRecord(record, "assumedLocation", "assumed_location") || null,
+          stringFromRecord(record, "assumedLocation", "assumed_location") ||
+          null,
         temporalScope:
           stringFromRecord(record, "temporalScope", "temporal_scope") || null,
         missingSlots: arrayFromRecord(record, "missingSlots", "missing_slots"),
@@ -653,7 +665,8 @@ function requestFrameFromRecord(
         kind: "message_compose",
         channel: stringFromRecord(record, "channel") || null,
         recipientContext:
-          stringFromRecord(record, "recipientContext", "recipient_context") || null,
+          stringFromRecord(record, "recipientContext", "recipient_context") ||
+          null,
         purpose: stringFromRecord(record, "purpose") || null,
         missingSlots: arrayFromRecord(record, "missingSlots", "missing_slots"),
         clarificationRequiredSlots: arrayFromRecord(
@@ -666,7 +679,8 @@ function requestFrameFromRecord(
       return {
         kind: "user_input",
         interactionKind:
-          stringFromRecord(record, "interactionKind", "interaction_kind") || null,
+          stringFromRecord(record, "interactionKind", "interaction_kind") ||
+          null,
         explicitOptionsPresent:
           booleanFromRecord(
             record,
@@ -697,10 +711,14 @@ function retainedLaneStateFromRecord(
   return {
     activeLane,
     activeToolWidgetFamily:
-      stringFromRecord(record, "activeToolWidgetFamily", "active_tool_widget_family") ||
-      null,
+      stringFromRecord(
+        record,
+        "activeToolWidgetFamily",
+        "active_tool_widget_family",
+      ) || null,
     activeArtifactId:
-      stringFromRecord(record, "activeArtifactId", "active_artifact_id") || null,
+      stringFromRecord(record, "activeArtifactId", "active_artifact_id") ||
+      null,
     unresolvedClarificationQuestion:
       stringFromRecord(
         record,
@@ -708,8 +726,11 @@ function retainedLaneStateFromRecord(
         "unresolved_clarification_question",
       ) || null,
     selectedProviderFamily:
-      stringFromRecord(record, "selectedProviderFamily", "selected_provider_family") ||
-      null,
+      stringFromRecord(
+        record,
+        "selectedProviderFamily",
+        "selected_provider_family",
+      ) || null,
     selectedProviderRouteLabel:
       stringFromRecord(
         record,
@@ -718,7 +739,11 @@ function retainedLaneStateFromRecord(
       ) || null,
     selectedSourceFamily:
       parseSourceFamily(
-        stringFromRecord(record, "selectedSourceFamily", "selected_source_family"),
+        stringFromRecord(
+          record,
+          "selectedSourceFamily",
+          "selected_source_family",
+        ),
       ) || null,
   };
 }
@@ -746,10 +771,12 @@ function laneTransitionsFromRecord(
       return {
         transitionKind,
         fromLane:
-          parseLaneFamily(stringFromRecord(transition, "fromLane", "from_lane")) ||
-          null,
+          parseLaneFamily(
+            stringFromRecord(transition, "fromLane", "from_lane"),
+          ) || null,
         toLane,
-        reason: stringFromRecord(transition, "reason") || "Lane transition retained",
+        reason:
+          stringFromRecord(transition, "reason") || "Lane transition retained",
         evidence: arrayFromRecord(transition, "evidence"),
       };
     })
@@ -768,7 +795,11 @@ function objectiveStateFromRecord(
       stringFromRecord(record, "objectiveId", "objective_id") || "objective",
     title: stringFromRecord(record, "title") || "Objective",
     status,
-    successCriteria: arrayFromRecord(record, "successCriteria", "success_criteria"),
+    successCriteria: arrayFromRecord(
+      record,
+      "successCriteria",
+      "success_criteria",
+    ),
   };
 }
 
@@ -862,7 +893,12 @@ function orchestrationStateFromRecord(
     recordFromRecord(record, "completionInvariant", "completion_invariant"),
     stringFromRecord,
   );
-  if (!objective && tasks.length === 0 && checkpoints.length === 0 && !completionInvariant) {
+  if (
+    !objective &&
+    tasks.length === 0 &&
+    checkpoints.length === 0 &&
+    !completionInvariant
+  ) {
     return null;
   }
   return {
@@ -913,6 +949,13 @@ const BUILTIN_PLAYBOOK_ROUTE_CONTRACTS: Record<
     verifierRole: "artifact_validation_verifier",
     requiresVerifier: true,
   },
+  research_backed_artifact_gate: {
+    routeFamily: "artifacts",
+    topology: "planner_specialist_verifier",
+    plannerAuthority: "kernel",
+    verifierRole: "artifact_validation_verifier",
+    requiresVerifier: true,
+  },
 };
 
 const BUILTIN_ROUTE_CONTRACT_ALIASES: Record<string, string> = {
@@ -926,10 +969,10 @@ const BUILTIN_ROUTE_CONTRACT_ALIASES: Record<string, string> = {
   browser_postcondition_pass: "browser_postcondition_gate",
   browser_postcondition_audit: "browser_postcondition_gate",
   postcondition_audit: "browser_postcondition_gate",
-  artifact_context_brief: "artifact_generation_gate",
-  artifact_generate_repair: "artifact_generation_gate",
-  artifact_validation_audit: "artifact_generation_gate",
-  artifact_candidate_generation: "artifact_generation_gate",
+  artifact_context_brief: "research_backed_artifact_gate",
+  artifact_generate_repair: "research_backed_artifact_gate",
+  artifact_validation_audit: "research_backed_artifact_gate",
+  artifact_candidate_generation: "research_backed_artifact_gate",
 };
 
 function normalizePlaybookLookupKey(value?: string): string | null {
@@ -971,9 +1014,7 @@ export function parseRouteFamily(
   }
 }
 
-export function parseTopology(
-  value?: string,
-): PlanSummary["topology"] | null {
+export function parseTopology(value?: string): PlanSummary["topology"] | null {
   switch ((value || "").trim().toLowerCase()) {
     case "single_agent":
     case "planner_specialist":
@@ -1062,9 +1103,7 @@ export function parseApprovalState(
   }
 }
 
-export function parseOutputIntent(
-  value?: string,
-): PlanOutputIntent | null {
+export function parseOutputIntent(value?: string): PlanOutputIntent | null {
   switch ((value || "").trim().toLowerCase()) {
     case "direct_inline":
     case "file":
@@ -1092,7 +1131,8 @@ export function explicitRouteDecision(
       recordFromRecord(digest, "route_decision");
     const routeDecisionRecord = routeDecision || {};
     const effectiveToolSurface =
-      (routeDecision && recordFromRecord(routeDecision, "effective_tool_surface")) ||
+      (routeDecision &&
+        recordFromRecord(routeDecision, "effective_tool_surface")) ||
       recordFromRecord(details, "effective_tool_surface") ||
       recordFromRecord(digest, "effective_tool_surface");
     const laneFrame =
@@ -1106,19 +1146,35 @@ export function explicitRouteDecision(
     const sourceSelection =
       recordFromRecord(details, "source_selection", "sourceSelection") ||
       recordFromRecord(digest, "source_selection", "sourceSelection") ||
-      recordFromRecord(routeDecisionRecord, "source_selection", "sourceSelection");
+      recordFromRecord(
+        routeDecisionRecord,
+        "source_selection",
+        "sourceSelection",
+      );
     const retainedLaneState =
       recordFromRecord(details, "retained_lane_state", "retainedLaneState") ||
       recordFromRecord(digest, "retained_lane_state", "retainedLaneState") ||
-      recordFromRecord(routeDecisionRecord, "retained_lane_state", "retainedLaneState");
+      recordFromRecord(
+        routeDecisionRecord,
+        "retained_lane_state",
+        "retainedLaneState",
+      );
     const orchestrationState =
       recordFromRecord(details, "orchestration_state", "orchestrationState") ||
       recordFromRecord(digest, "orchestration_state", "orchestrationState") ||
-      recordFromRecord(routeDecisionRecord, "orchestration_state", "orchestrationState");
+      recordFromRecord(
+        routeDecisionRecord,
+        "orchestration_state",
+        "orchestrationState",
+      );
     const domainPolicyBundle =
       recordFromRecord(details, "domain_policy_bundle", "domainPolicyBundle") ||
       recordFromRecord(digest, "domain_policy_bundle", "domainPolicyBundle") ||
-      recordFromRecord(routeDecisionRecord, "domain_policy_bundle", "domainPolicyBundle");
+      recordFromRecord(
+        routeDecisionRecord,
+        "domain_policy_bundle",
+        "domainPolicyBundle",
+      );
     const laneTransitions = laneTransitionsFromRecord(
       {
         lane_transitions:
@@ -1141,10 +1197,8 @@ export function explicitRouteDecision(
         stringFromRecord(digest, "output_intent") ||
         stringFromRecord(details, "output_intent"),
     );
-    const directAnswerAllowed = booleanFromRecord(
-      routeDecisionRecord,
-      "direct_answer_allowed",
-    ) ??
+    const directAnswerAllowed =
+      booleanFromRecord(routeDecisionRecord, "direct_answer_allowed") ??
       booleanFromRecord(digest, "direct_answer_allowed") ??
       booleanFromRecord(details, "direct_answer_allowed");
 
@@ -1189,7 +1243,10 @@ export function explicitRouteDecision(
         stringFromRecord(details, "selected_provider_family") ||
         null,
       selectedProviderRouteLabel:
-        stringFromRecord(routeDecisionRecord, "selected_provider_route_label") ||
+        stringFromRecord(
+          routeDecisionRecord,
+          "selected_provider_route_label",
+        ) ||
         stringFromRecord(digest, "selected_provider_route_label") ||
         stringFromRecord(details, "selected_provider_route_label") ||
         null,
@@ -1238,7 +1295,10 @@ export function explicitRouteDecision(
       },
       laneFrame: laneFrameFromRecord(laneFrame, stringFromRecord),
       requestFrame: requestFrameFromRecord(requestFrame, stringFromRecord),
-      sourceSelection: sourceSelectionFromRecord(sourceSelection, stringFromRecord),
+      sourceSelection: sourceSelectionFromRecord(
+        sourceSelection,
+        stringFromRecord,
+      ),
       retainedLaneState: retainedLaneStateFromRecord(
         retainedLaneState,
         stringFromRecord,
@@ -1272,7 +1332,7 @@ export function explicitRouteContract(
       recordFromRecord(digest, "route_decision");
     const routeFamily = parseRouteFamily(
       stringFromRecord(routeDecision || {}, "route_family") ||
-      stringFromRecord(digest, "route_family") ||
+        stringFromRecord(digest, "route_family") ||
         stringFromRecord(details, "route_family"),
     );
     const topology = parseTopology(

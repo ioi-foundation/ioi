@@ -11,6 +11,10 @@ import {
   classifyActivityEvent,
   normalizeOutputForHash,
 } from "./contentPipeline";
+import {
+  buildReasoningDurationLabel,
+  buildTurnToolActivityGroup,
+} from "../components/conversationTranscriptModel";
 import { buildExecutionMoments } from "./contentPipeline.summaries";
 import { parseChatContractEnvelope } from "./chatContract";
 
@@ -53,7 +57,9 @@ function expectedSelectedSkills(...ids: string[]): PlanSelectedSkill[] {
   return ids.map((id) => ({
     id,
     entryId: `skill:${id}`,
-    label: id.replace(/[_-]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+    label: id
+      .replace(/[_-]+/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase()),
   }));
 }
 
@@ -337,6 +343,101 @@ function sourceSummaryReceiptOnlyTest(): void {
   assert.equal(presentation.sourceSummary?.browses.length, 1);
 }
 
+function toolActivityGroupPresentationTest(): void {
+  const searchEvent: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-tool-search",
+    step_index: 21,
+    timestamp: "2026-02-19T03:00:05Z",
+    event_type: "COMMAND_RUN",
+    digest: { tool_name: "web__search" },
+    details: {
+      output: JSON.stringify({
+        query: "quantum computers explained basics",
+        sources: [
+          {
+            url: "https://example.com/quantum-guide",
+            title: "Quantum guide",
+            domain: "example.com",
+          },
+        ],
+        documents: [],
+      }),
+    },
+  };
+
+  const readEvent: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-tool-read",
+    step_index: 22,
+    timestamp: "2026-02-19T03:00:06Z",
+    event_type: "COMMAND_RUN",
+    digest: { tool_name: "web__read" },
+    details: {
+      output: JSON.stringify({
+        url: "https://www.ibm.com/quantum",
+        sources: [
+          {
+            url: "https://www.ibm.com/quantum",
+            title: "IBM Quantum",
+            domain: "ibm.com",
+          },
+        ],
+        documents: [
+          {
+            url: "https://www.ibm.com/quantum",
+            title: "IBM Quantum",
+            content_text:
+              "Quantum computers use qubits, superposition, and entanglement to represent and transform information differently from classical bits.",
+          },
+        ],
+      }),
+    },
+  };
+
+  const writeEvent: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-tool-write",
+    step_index: 23,
+    timestamp: "2026-02-19T03:00:07Z",
+    event_type: "RECEIPT",
+    title: "Receipt: fs write",
+    digest: {
+      kind: "fs_write",
+      operation: "write_file",
+      tool_name: "file__write",
+    },
+    details: {
+      target_path: "/tmp/quantum-computers.html",
+    },
+  };
+
+  const activityRefs = activityRefsFromEvents([
+    searchEvent,
+    readEvent,
+    writeEvent,
+  ]);
+  const group = buildTurnToolActivityGroup(activityRefs, null, []);
+
+  assert.ok(group);
+  assert.equal(group?.label, "3 tool calls");
+  assert.deepEqual(
+    group?.rows.map((row) => row.label),
+    [
+      'Searched "quantum computers explained basics"',
+      "Read ibm.com",
+      "Wrote quantum-computers.html",
+    ],
+  );
+  assert.equal(
+    buildReasoningDurationLabel(
+      activityRefs,
+      Date.parse("2026-02-19T03:00:00Z"),
+    ),
+    "Thought for 7 seconds",
+  );
+}
+
 function thoughtSummaryTest(): void {
   const workerReceipt: AgentEvent = {
     ...baseEvent,
@@ -410,7 +511,11 @@ function thoughtSummaryTest(): void {
 
 function clarificationReasoningFallbackTest(): void {
   const history: ChatMessage[] = [
-    { role: "user", text: "Summarize this repo briefly.", timestamp: Date.now() - 5_000 },
+    {
+      role: "user",
+      text: "Summarize this repo briefly.",
+      timestamp: Date.now() - 5_000,
+    },
   ];
 
   const reasoningClarification: AgentEvent = {
@@ -426,17 +531,27 @@ function clarificationReasoningFallbackTest(): void {
     },
   };
 
-  const presentation = buildRunPresentation(history, [reasoningClarification], []);
+  const presentation = buildRunPresentation(
+    history,
+    [reasoningClarification],
+    [],
+  );
   assert.ok(presentation.finalAnswer);
   assert.equal(
-    presentation.finalAnswer?.displayText.includes("Could you please specify the goal"),
+    presentation.finalAnswer?.displayText.includes(
+      "Could you please specify the goal",
+    ),
     true,
   );
 }
 
 function ordinaryReasoningDoesNotBecomeAnswerTest(): void {
   const history: ChatMessage[] = [
-    { role: "user", text: "Summarize this repo briefly.", timestamp: Date.now() - 5_000 },
+    {
+      role: "user",
+      text: "Summarize this repo briefly.",
+      timestamp: Date.now() - 5_000,
+    },
   ];
 
   const reasoningEvent: AgentEvent = {
@@ -640,10 +755,7 @@ function streamedParentPlaybookRouteContractTest(): void {
 
   assert.equal(presentation.planSummary?.routeFamily, "research");
   assert.equal(presentation.planSummary?.plannerAuthority, "kernel");
-  assert.equal(
-    presentation.planSummary?.verifierRole,
-    "citation_verifier",
-  );
+  assert.equal(presentation.planSummary?.verifierRole, "citation_verifier");
   assert.equal(presentation.planSummary?.verifierOutcome, "pass");
 }
 
@@ -671,19 +783,13 @@ function routeDecisionReceiptProjectionTest(): void {
       ],
       primary_tools: ["google_gmail__draft_email"],
       broad_fallback_tools: ["chat__reply", "memory__search"],
-      direct_answer_blockers: [
-        "currentness_override",
-        "connector_preferred",
-      ],
+      direct_answer_blockers: ["currentness_override", "connector_preferred"],
     },
     details: {
       route_decision: {
         route_family: "communication",
         direct_answer_allowed: false,
-        direct_answer_blockers: [
-          "currentness_override",
-          "connector_preferred",
-        ],
+        direct_answer_blockers: ["currentness_override", "connector_preferred"],
         currentness_override: true,
         connector_candidate_count: 1,
         selected_provider_family: "mail.google.gmail",
@@ -746,14 +852,16 @@ function routeDecisionReceiptProjectionTest(): void {
           transitionKind: "planned",
           fromLane: null,
           toLane: "communication",
-          reason: "The prompt is best treated as a communication/composition task.",
+          reason:
+            "The prompt is best treated as a communication/composition task.",
           evidence: ["request_frame:message_compose"],
         },
         {
           transitionKind: "planned",
           fromLane: "communication",
           toLane: "integrations",
-          reason: "The message lane will lean on a connected provider when one is available.",
+          reason:
+            "The message lane will lean on a connected provider when one is available.",
           evidence: ["connector_intent_detected"],
         },
       ],
@@ -794,7 +902,8 @@ function routeDecisionReceiptProjectionTest(): void {
           },
         ],
         completionInvariant: {
-          summary: "The reply must remain grounded in the selected connected mailbox.",
+          summary:
+            "The reply must remain grounded in the selected connected mailbox.",
           satisfied: false,
           outstandingRequirements: ["Complete the draft generation step"],
         },
@@ -804,14 +913,16 @@ function routeDecisionReceiptProjectionTest(): void {
           mode: "clarify_on_missing_slots",
           assumedBindings: [],
           blockingSlots: [],
-          rationale: "Clarify only when the message lane still lacks required fields.",
+          rationale:
+            "Clarify only when the message lane still lacks required fields.",
         },
         fallback_policy: {
           mode: "allow_ranked_fallbacks",
           primaryLane: "communication",
           fallbackLanes: ["integrations"],
           triggerSignals: ["connector_intent_detected"],
-          rationale: "Connector-backed messaging stays primary, with ranked integration assists.",
+          rationale:
+            "Connector-backed messaging stays primary, with ranked integration assists.",
         },
         presentation_policy: {
           primarySurface: "communication_surface",
@@ -827,13 +938,20 @@ function routeDecisionReceiptProjectionTest(): void {
         },
         risk_profile: {
           sensitivity: "medium",
-          reasons: ["connector-backed communication can affect external systems"],
+          reasons: [
+            "connector-backed communication can affect external systems",
+          ],
           approvalRequired: false,
-          userVisibleGuardrails: ["Show the provider and verification gate before completion."],
+          userVisibleGuardrails: [
+            "Show the provider and verification gate before completion.",
+          ],
         },
         verification_contract: {
           strategy: "message_shape_and_audience",
-          requiredChecks: ["message_channel_resolved", "communication_surface_rendered"],
+          requiredChecks: [
+            "message_channel_resolved",
+            "communication_surface_rendered",
+          ],
           completionGate: "surface_and_route_verified",
         },
         policy_contract: {
@@ -895,8 +1013,8 @@ function routeDecisionReceiptProjectionTest(): void {
     2,
   );
   assert.equal(
-    presentation.planSummary?.routeDecision?.domainPolicyBundle?.presentationPolicy
-      ?.primarySurface,
+    presentation.planSummary?.routeDecision?.domainPolicyBundle
+      ?.presentationPolicy?.primarySurface,
     "communication_surface",
   );
   assert.equal(
@@ -1252,6 +1370,45 @@ function planSummaryUsesBuiltinPlaybookContractWhenRouteFieldsAreMissing(): void
   assert.equal(presentation.planSummary?.verifierState, "queued");
 }
 
+function researchedArtifactPlaybookContractHydrates(): void {
+  const artifactRoute: AgentEvent = {
+    ...baseEvent,
+    event_id: "evt-researched-artifact-implied-contract",
+    step_index: 61,
+    event_type: "RECEIPT",
+    title: "Route step spawned",
+    digest: {
+      kind: "parent_playbook",
+      tool_name: "agent__delegate",
+      phase: "step_spawned",
+      playbook_id: "research_backed_artifact_gate",
+      status: "running",
+      success: true,
+    },
+    details: {
+      parent_session_id: "session-researched-artifact",
+      step_label: "Capture artifact context",
+      template_id: "context_worker",
+      workflow_id: "artifact_context_brief",
+      summary: "Spawned researched artifact context step.",
+    },
+  };
+
+  const presentation = buildRunPresentation([], [artifactRoute], []);
+
+  assert.ok(presentation.planSummary);
+  assert.equal(presentation.planSummary?.routeFamily, "artifacts");
+  assert.equal(
+    presentation.planSummary?.topology,
+    "planner_specialist_verifier",
+  );
+  assert.equal(presentation.planSummary?.plannerAuthority, "kernel");
+  assert.equal(
+    presentation.planSummary?.verifierRole,
+    "artifact_validation_verifier",
+  );
+}
+
 function planSummaryUsesBuiltinWorkflowContractWhenPlaybookFieldsAreMissing(): void {
   const researchVerifier: AgentEvent = {
     ...baseEvent,
@@ -1419,7 +1576,11 @@ function planSummaryMergesPrepContextAcrossSplitReceipts(): void {
     },
   };
 
-  const presentation = buildRunPresentation([], [spawnedRoute, blockedRoute], []);
+  const presentation = buildRunPresentation(
+    [],
+    [spawnedRoute, blockedRoute],
+    [],
+  );
 
   assert.ok(presentation.planSummary);
   assert.deepEqual(
@@ -2161,6 +2322,7 @@ dedupAndAnswerTest();
 activitySummaryTest();
 sourceSummaryTest();
 sourceSummaryReceiptOnlyTest();
+toolActivityGroupPresentationTest();
 thoughtSummaryTest();
 clarificationReasoningFallbackTest();
 ordinaryReasoningDoesNotBecomeAnswerTest();
@@ -2172,6 +2334,7 @@ planSummaryUsesExplicitComputerUseRouteContract();
 planSummaryCarriesComputerUsePerceptionVerificationAndRecovery();
 planSummaryCarriesResearchPrepContext();
 planSummaryUsesBuiltinPlaybookContractWhenRouteFieldsAreMissing();
+researchedArtifactPlaybookContractHydrates();
 planSummaryUsesBuiltinWorkflowContractWhenPlaybookFieldsAreMissing();
 planSummaryCarriesPrepContextFromCompletionOnlyReceipt();
 planSummaryMergesPrepContextAcrossSplitReceipts();
