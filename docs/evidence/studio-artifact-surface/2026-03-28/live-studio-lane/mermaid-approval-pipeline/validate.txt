@@ -1,1 +1,0 @@
-Artifact manifest 'Create a Mermaid diagram of an approval pipeline' is valid.

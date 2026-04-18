@@ -1,2 +1,0 @@
-case_id,env_id,mode,agent_backend,task_set,pass,support_state,primary_gap_class,secondary_gap_tags,reward,terminated,elapsed_ms,failure_class
-miniwob_click_button_smoke,click-button,agent,live_http,smoke,false,known_gap,planner_gap,,-1.000,true,796,task_incomplete

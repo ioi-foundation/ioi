@@ -1,4 +1,0 @@
-record,detail
-summary,A downloadable artifact bundle with a CSV and README
-note_1,The bundle should include a non-empty README.md that explains the bundle contents and how each file maps to the request.
-note_2,The CSV export should have a header row plus at least two data rows with request-grounded values.

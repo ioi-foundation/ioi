@@ -1,1 +1,0 @@
-Artifact manifest 'Create a JSX artifact for a pricing configurator' is valid.

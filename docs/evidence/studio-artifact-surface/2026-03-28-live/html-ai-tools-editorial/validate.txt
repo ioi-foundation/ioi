@@ -1,1 +1,0 @@
-Artifact manifest 'an interactive HTML artifact for an AI tools editorial launch page' is valid.

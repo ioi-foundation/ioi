@@ -1,9 +1,0 @@
-{
-  "status": "ready",
-  "lifecycle_state": "ready",
-  "title": "Studio outcome: a JSX artifact for a pricing configurator",
-  "summary": "a JSX artifact for a pricing configurator The candidate stays grounded in a pricing configurator, covers the required concepts, and is strong enough to lead the stage.",
-  "evidence": [
-    "aJSXartifactforapricingconfigurator.jsx"
-  ]
-}

@@ -1,9 +1,0 @@
-{
-  "status": "ready",
-  "lifecycle_state": "ready",
-  "title": "Studio outcome: a markdown artifact that documents a release checklist",
-  "summary": "a markdown artifact that documents a release checklist The candidate stays grounded in a release checklist, covers the required concepts, and is strong enough to lead the stage.",
-  "evidence": [
-    "artifact.md"
-  ]
-}

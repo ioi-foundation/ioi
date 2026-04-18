@@ -1,1 +1,0 @@
-Artifact manifest 'Create a PDF artifact that summarizes a launch brief' is valid.
