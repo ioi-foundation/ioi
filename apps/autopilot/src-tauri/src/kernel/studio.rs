@@ -142,6 +142,52 @@ fn merge_runtime_narration_events(
     });
 }
 
+fn assign_runtime_narration_event_origin(
+    event: &mut StudioArtifactRuntimeNarrationEvent,
+    origin_prompt_event_id: Option<&str>,
+) {
+    let Some(origin_prompt_event_id) = origin_prompt_event_id.map(str::trim) else {
+        return;
+    };
+    if origin_prompt_event_id.is_empty() {
+        return;
+    }
+    if event.origin_prompt_event_id.is_none() {
+        event.origin_prompt_event_id = Some(origin_prompt_event_id.to_string());
+    }
+    if let Some(preview) = event.preview.as_mut() {
+        if preview.origin_prompt_event_id.is_none() {
+            preview.origin_prompt_event_id = Some(origin_prompt_event_id.to_string());
+        }
+    }
+}
+
+fn assign_runtime_narration_events_origin(
+    events: &mut [StudioArtifactRuntimeNarrationEvent],
+    origin_prompt_event_id: Option<&str>,
+) {
+    for event in events {
+        assign_runtime_narration_event_origin(event, origin_prompt_event_id);
+    }
+}
+
+fn assign_studio_session_turn_ownership(
+    session: &mut StudioArtifactSession,
+    origin_prompt_event_id: Option<&str>,
+) {
+    let Some(origin_prompt_event_id) = origin_prompt_event_id.map(str::trim) else {
+        return;
+    };
+    if origin_prompt_event_id.is_empty() {
+        return;
+    }
+    session.origin_prompt_event_id = Some(origin_prompt_event_id.to_string());
+    assign_runtime_narration_events_origin(
+        &mut session.materialization.runtime_narration_events,
+        Some(origin_prompt_event_id),
+    );
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StudioArtifactRevisionComparison {

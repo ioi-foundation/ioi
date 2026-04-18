@@ -53,6 +53,14 @@ if [[ "$LOCAL_GPU_DEV" == "1" ]]; then
   # drafting, and acceptance avoid cross-model residency churn.
   export AUTOPILOT_LOCAL_RUNTIME_MODEL="${AUTOPILOT_LOCAL_RUNTIME_MODEL:-qwen3.5:9b}"
   export AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL="${AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL:-http://127.0.0.1:11434/api/tags}"
+  # Local Studio HTML materialization can legitimately need longer than the
+  # default capped local timeout, especially on retained follow-up edits where
+  # the prompt carries forward artifact context and repair evidence.
+  export AUTOPILOT_STUDIO_MATERIALIZATION_TIMEOUT_MS="${AUTOPILOT_STUDIO_MATERIALIZATION_TIMEOUT_MS:-300000}"
+  export AUTOPILOT_STUDIO_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS="${AUTOPILOT_STUDIO_MATERIALIZATION_FOLLOWUP_TIMEOUT_MS:-360000}"
+  # Direct-author HTML continuations can stream a large partial document and
+  # then need extra local inference time to finish the suffix cleanly.
+  export AUTOPILOT_STUDIO_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS="${AUTOPILOT_STUDIO_DIRECT_AUTHOR_FOLLOWUP_TIMEOUT_MS:-180000}"
   export AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_URL:-$AUTOPILOT_LOCAL_RUNTIME_URL}"
   export AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_MODEL:-$AUTOPILOT_LOCAL_RUNTIME_MODEL}"
   export AUTOPILOT_STUDIO_ROUTING_RUNTIME_HEALTH_URL="${AUTOPILOT_STUDIO_ROUTING_RUNTIME_HEALTH_URL:-$AUTOPILOT_LOCAL_RUNTIME_HEALTH_URL}"

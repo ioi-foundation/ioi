@@ -192,6 +192,16 @@ pub(crate) fn studio_test_validation(
         deserves_primary_artifact_view,
         patched_existing_artifact: None,
         continuity_revision_ux: None,
+        score_total: i32::from(request_faithfulness)
+            + i32::from(concept_coverage)
+            + i32::from(interaction_relevance)
+            + i32::from(layout_coherence)
+            + i32::from(visual_hierarchy)
+            + i32::from(completeness),
+        proof_kind: "test_fixture".to_string(),
+        primary_view_cleared: deserves_primary_artifact_view,
+        validated_paths: Vec::new(),
+        issue_codes: Vec::new(),
         issue_classes: Vec::new(),
         repair_hints: Vec::new(),
         strengths: Vec::new(),
@@ -202,6 +212,7 @@ pub(crate) fn studio_test_validation(
         truthfulness_warnings: Vec::new(),
         recommended_next_pass: None,
         strongest_contradiction: None,
+        summary: "Test summary".to_string(),
         rationale: "Test rationale".to_string(),
     }
 }

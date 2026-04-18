@@ -1193,6 +1193,7 @@ fn apply_materialized_artifact_to_contract_marks_nonworkspace_steps_success_when
         recommended_next_pass: Some("polish_pass".to_string()),
         strongest_contradiction: None,
         rationale: "artifact passed acceptance".to_string(),
+        ..studio_validation_fixture()
     });
 
     apply_materialized_artifact_to_contract(
@@ -1308,6 +1309,7 @@ fn provisional_nonworkspace_session_surfaces_planning_context_before_materializa
         &summary,
         "2026-04-04T00:00:00Z",
         &outcome_request,
+        Some("prompt-evt-1"),
         materialization,
     )
     .expect("provisional session");
@@ -2019,6 +2021,7 @@ fn pipeline_steps_surface_candidates_validation_and_taste_memory() {
                 recommended_next_pass: Some("structural_repair".to_string()),
                 strongest_contradiction: Some("Panels were empty.".to_string()),
                 rationale: "Initial draft missed the mapped panel contract.".to_string(),
+                ..studio_validation_fixture()
             },
         },
         ioi_api::studio::StudioArtifactCandidateSummary {
@@ -2069,6 +2072,7 @@ fn pipeline_steps_surface_candidates_validation_and_taste_memory() {
                 recommended_next_pass: None,
                 strongest_contradiction: None,
                 rationale: "Repair pass cleared the mapped-panel contract.".to_string(),
+                ..studio_validation_fixture()
             },
         },
     ];

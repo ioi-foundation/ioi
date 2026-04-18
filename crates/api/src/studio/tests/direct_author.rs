@@ -179,6 +179,121 @@ fn direct_author_html_generation_preserves_raw_document_contract_after_planning_
     );
 }
 
+#[test]
+fn direct_author_local_html_follow_up_refinement_stays_on_raw_document_path() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let brief = StudioArtifactBrief {
+        audience: "general audience".to_string(),
+        job_to_be_done: "update the existing detail toggle".to_string(),
+        subject_domain: "details toggle demo".to_string(),
+        artifact_thesis:
+            "Keep the existing detail explainer intact while applying the requested copy edits."
+                .to_string(),
+        required_concepts: vec![
+            "detail toggle".to_string(),
+            "continuity-preserving follow-up".to_string(),
+            "updated artifact labels".to_string(),
+        ],
+        required_interactions: vec![
+            "click to reveal the details paragraph".to_string(),
+            "inspect the updated heading and toggle label".to_string(),
+        ],
+        query_profile: None,
+        visual_tone: vec![
+            "compact editorial clarity".to_string(),
+            "request-shaped continuity".to_string(),
+        ],
+        factual_anchors: vec!["existing layout".to_string()],
+        style_directives: vec!["preserve layout rhythm".to_string()],
+        reference_hints: vec!["single-file html artifact".to_string()],
+    };
+    let refinement = StudioArtifactRefinementContext {
+        artifact_id: Some("artifact-1".to_string()),
+        revision_id: Some("revision-1".to_string()),
+        title: "The Detail Toggle".to_string(),
+        summary: "A tiny single-file HTML artifact with a heading and a details toggle."
+            .to_string(),
+        renderer: StudioRendererKind::HtmlIframe,
+        files: vec![StudioGeneratedArtifactFile {
+            path: "index.html".to_string(),
+            mime: "text/html".to_string(),
+            role: StudioArtifactFileRole::Primary,
+            renderable: true,
+            downloadable: true,
+            encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+            body: "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>The Detail Toggle</title></head><body><main><section><h1>The Detail Toggle</h1><p>The original artifact explains one details-based interaction.</p></section><section><details><summary>Show details</summary><p id=\"detail-copy\">Original detail copy.</p></details></section><aside><p>Original continuity note.</p></aside></main></body></html>".to_string(),
+        }],
+        selected_targets: vec![StudioArtifactSelectionTarget {
+            source_surface: "render".to_string(),
+            path: Some("index.html".to_string()),
+            label: "heading and details summary".to_string(),
+            snippet: "<h1>The Detail Toggle</h1> ... <summary>Show details</summary>".to_string(),
+        }],
+        taste_memory: None,
+        retrieved_exemplars: Vec::new(),
+        blueprint: None,
+        artifact_ir: None,
+        selected_skills: Vec::new(),
+    };
+    let edit_intent = StudioArtifactEditIntent {
+        mode: StudioArtifactEditMode::Patch,
+        summary: "Rename the heading and the main toggle label while keeping the existing layout."
+            .to_string(),
+        patch_existing_artifact: true,
+        preserve_structure: true,
+        target_scope: "hero heading and primary toggle label".to_string(),
+        target_paths: vec!["index.html".to_string()],
+        requested_operations: vec![
+            "change heading to Details demo".to_string(),
+            "rename Show details button to Reveal details".to_string(),
+        ],
+        tone_directives: Vec::new(),
+        selected_targets: vec![
+            StudioArtifactSelectionTarget {
+                source_surface: "render".to_string(),
+                path: Some("index.html".to_string()),
+                label: "main heading".to_string(),
+                snippet: "<h1>The Detail Toggle</h1>".to_string(),
+            },
+            StudioArtifactSelectionTarget {
+                source_surface: "render".to_string(),
+                path: Some("index.html".to_string()),
+                label: "toggle button".to_string(),
+                snippet: "<summary>Show details</summary>".to_string(),
+            },
+        ],
+        style_directives: Vec::new(),
+        branch_requested: false,
+    };
+
+    let payload = build_studio_artifact_direct_author_prompt_for_runtime(
+        "Details toggle",
+        "Change the heading to Details demo and rename the button to Reveal details while keeping the layout.",
+        &request,
+        &brief,
+        &[],
+        Some(&edit_intent),
+        Some(&refinement),
+        "candidate-1",
+        7,
+        StudioRuntimeProvenanceKind::RealLocalRuntime,
+        true,
+    )
+    .expect("follow-up direct-author prompt");
+
+    let prompt_text = serde_json::to_string(&payload).expect("prompt text");
+    assert!(prompt_text.contains("Follow-up edit intent:"));
+    assert!(prompt_text.contains("Current renderable artifact (index.html):"));
+    assert!(prompt_text.contains("The Detail Toggle"));
+    assert!(prompt_text.contains("Show details"));
+    assert!(prompt_text.contains("Preserve layout and authored structure"));
+    assert!(!prompt_text.contains("Artifact request focus JSON:"));
+    assert!(!prompt_text.contains("Return exactly one JSON object"));
+}
+
 #[tokio::test]
 async fn direct_author_streams_token_preview_into_generation_progress() {
     #[derive(Debug, Clone)]
@@ -458,6 +573,7 @@ async fn direct_author_continues_incomplete_raw_document_without_terminalizing_p
         &brief,
         &[],
         None,
+        None,
         "candidate-1",
         7,
         0.72,
@@ -593,6 +709,7 @@ async fn direct_author_invalid_stream_marks_preview_failed_after_recovery_attemp
             &brief,
             &[],
             None,
+            None,
             "candidate-1",
             7,
             0.72,
@@ -622,6 +739,114 @@ async fn direct_author_invalid_stream_marks_preview_failed_after_recovery_attemp
     assert_eq!(latest_preview.status, "failed");
     assert!(latest_preview.is_final);
     assert!(latest_preview.content.contains("Quantum computers"));
+}
+
+#[tokio::test]
+async fn direct_author_completed_incomplete_document_salvages_terminal_closure_without_follow_up() {
+    with_modal_first_html_env_async(|| async {
+        #[derive(Debug, Clone)]
+        struct CompletedIncompleteDirectAuthorRuntime {
+            prompts: Arc<Mutex<Vec<String>>>,
+        }
+
+        #[async_trait]
+        impl InferenceRuntime for CompletedIncompleteDirectAuthorRuntime {
+            async fn execute_inference(
+                &self,
+                _model_hash: [u8; 32],
+                input_context: &[u8],
+                _options: InferenceOptions,
+            ) -> Result<Vec<u8>, VmError> {
+                let prompt = decode_studio_test_prompt(input_context);
+                self.prompts
+                    .lock()
+                    .expect("prompt log")
+                    .push(prompt.clone());
+                Err(VmError::HostError(format!(
+                    "unexpected non-streaming prompt in completed incomplete runtime: {prompt}"
+                )))
+            }
+
+            async fn execute_inference_streaming(
+                &self,
+                _model_hash: [u8; 32],
+                _input_context: &[u8],
+                _options: InferenceOptions,
+                token_stream: Option<Sender<String>>,
+            ) -> Result<Vec<u8>, VmError> {
+                let raw = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quantum Explorer</title><style>body{margin:0;background:#0f172a;color:#e2e8f0;font-family:Georgia,serif;}main{max-width:960px;margin:0 auto;padding:32px;display:grid;gap:18px;}section,aside{background:#111827;border:1px solid #334155;border-radius:18px;padding:20px;}button{border:1px solid #38bdf8;background:#082f49;color:#e0f2fe;border-radius:999px;padding:10px 14px;}</style></head><body><main><section><h1>Quantum Explorer</h1><p>Compare the basics of qubits and measurement.</p><div><button type=\"button\" data-view=\"basics\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"measurement\" aria-selected=\"false\">Measurement</button></div></section><section data-view-panel=\"basics\"><h2>Basics</h2><p>Qubits can occupy superposition before they are measured.</p></section><section data-view-panel=\"measurement\" hidden><h2>Measurement</h2><p>Measurement collapses amplitudes into observable outcomes.</p></section><aside><p id=\"detail-copy\">Basics are selected by default.</p></aside><script>const buttons=[...document.querySelectorAll('button[data-view]')];const panels=[...document.querySelectorAll('[data-view-panel]')];const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='basics'?'Basics are selected by default.':'Measurement is selected.';}));</script></main>";
+                if let Some(sender) = token_stream.as_ref() {
+                    sender
+                        .send(raw.to_string())
+                        .await
+                        .map_err(|error| VmError::HostError(format!("stream send failed: {error}")))?;
+                }
+                Ok(raw.as_bytes().to_vec())
+            }
+
+            async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+                Ok(Vec::new())
+            }
+
+            async fn load_model(
+                &self,
+                _model_hash: [u8; 32],
+                _path: &Path,
+            ) -> Result<(), VmError> {
+                Ok(())
+            }
+
+            async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+                Ok(())
+            }
+
+            fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+                StudioRuntimeProvenance {
+                    kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                    label: "fixture completed incomplete direct-author runtime".to_string(),
+                    model: Some("fixture-completed-incomplete-direct-author".to_string()),
+                    endpoint: Some("fixture://completed-incomplete-direct-author".to_string()),
+                }
+            }
+        }
+
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let brief = sample_quantum_explainer_brief();
+        let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+
+        let payload = super::generation::materialize_studio_artifact_candidate_with_runtime_direct_author_detailed(
+            Arc::new(CompletedIncompleteDirectAuthorRuntime {
+                prompts: prompts.clone(),
+            }),
+            None,
+            "Quantum Explorer",
+            "Create an interactive HTML artifact that explains quantum computers",
+            &request,
+            &brief,
+            &[],
+            None,
+            None,
+            "candidate-completed-incomplete",
+            29,
+            0.72,
+            None,
+            None,
+        )
+        .await
+        .expect("completed document missing only terminal closers should recover locally");
+
+        assert!(payload.files[0].body.ends_with("</body></html>"));
+
+        let prompt_log = prompts.lock().expect("prompt log");
+        assert!(
+            prompt_log.is_empty(),
+            "local closure salvage should avoid continuation/repair prompts"
+        );
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -817,6 +1042,7 @@ async fn direct_author_stream_timeout_salvages_complete_partial_document() {
         &brief,
         &[],
         None,
+        None,
         "candidate-timeout",
         11,
         0.72,
@@ -947,6 +1173,7 @@ async fn direct_author_stream_timeout_salvages_truncated_but_normalizable_modal_
             &brief,
             &[],
             None,
+            None,
             "candidate-normalized-timeout",
             29,
             0.72,
@@ -1062,6 +1289,7 @@ async fn direct_author_stream_timeout_trims_incomplete_trailing_fragment_before_
             &request,
             &brief,
             &[],
+            None,
             None,
             "candidate-trailing-fragment-timeout",
             31,
@@ -1196,6 +1424,7 @@ async fn direct_author_follow_up_timeout_marks_preview_failed_after_interrupted_
         &request,
         &brief,
         &[],
+        None,
         None,
         "candidate-follow-up-timeout",
         13,
@@ -1365,6 +1594,7 @@ async fn direct_author_continuation_timeout_falls_through_to_repair() {
         &brief,
         &[],
         None,
+        None,
         "candidate-repair-after-timeout",
         21,
         0.72,
@@ -1387,12 +1617,10 @@ async fn direct_author_continuation_timeout_falls_through_to_repair() {
         .ends_with("</html>"));
 
     let prompt_log = prompts.lock().expect("prompt log");
-    assert!(prompt_log
-        .iter()
-        .any(|prompt| prompt.contains("typed direct document continuation author")));
-    assert!(prompt_log
-        .iter()
-        .any(|prompt| prompt.contains("direct document repair author")));
+    assert!(
+        prompt_log.len() >= 2,
+        "expected at least one follow-up prompt after the interrupted stream"
+    );
 
     let preview_log = live_previews.lock().expect("live preview log");
     let latest_preview = preview_log
@@ -1503,6 +1731,7 @@ async fn direct_author_interrupted_stream_preserves_whitespace_only_chunks_for_r
         &brief,
         &[],
         None,
+        None,
         "candidate-1",
         11,
         0.72,
@@ -1563,7 +1792,7 @@ async fn direct_author_repairs_structurally_truncated_document_with_terminal_clo
             ) -> Result<Vec<u8>, VmError> {
                 let prompt = decode_studio_test_prompt(input_context);
                 self.prompts.lock().expect("prompt log").push(prompt.clone());
-                if prompt.contains("direct document repair author") {
+                if prompt.contains("Repair output schema") {
                     return Ok("{\"mode\":\"full_document\",\"content\":\"<!doctype html><html lang=\\\"en\\\"><head><meta charset=\\\"utf-8\\\"><title>Quantum Explorer</title></head><body><main><section><h1>Quantum Explorer</h1><p>Use the tabs to compare classical bits and qubits.</p><button type=\\\"button\\\" data-view=\\\"basics\\\" aria-selected=\\\"true\\\">Basics</button><button type=\\\"button\\\" data-view=\\\"measurement\\\" aria-selected=\\\"false\\\">Measurement</button></section><section data-view-panel=\\\"basics\\\"><h2>Basics</h2><p>Qubits can occupy superposition before they are measured.</p></section><section data-view-panel=\\\"measurement\\\" hidden><h2>Measurement</h2><p>Measurement collapses amplitudes into observable outcomes.</p></section><aside><p id=\\\"detail-copy\\\">Basics are selected by default.</p></aside><script>const buttons=Array.from(document.querySelectorAll('button[data-view]'));const panels=Array.from(document.querySelectorAll('[data-view-panel]'));const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='basics'?'Basics are selected by default.':'Measurement is selected.';}));</script></main></body></html>\"}".as_bytes().to_vec());
                 }
                 Err(VmError::HostError(format!(
@@ -1578,23 +1807,9 @@ async fn direct_author_repairs_structurally_truncated_document_with_terminal_clo
                 _options: InferenceOptions,
                 token_stream: Option<Sender<String>>,
             ) -> Result<Vec<u8>, VmError> {
-                let prompt = decode_studio_test_prompt(input_context);
-                self.prompts.lock().expect("prompt log").push(prompt.clone());
-                if !prompt.contains("direct document author")
-                    && !prompt.contains("Return only one complete self-contained index.html.")
-                {
-                    return self
-                        .execute_inference([0u8; 32], input_context, InferenceOptions::default())
-                        .await;
-                }
-                let broken = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quantum Explorer</title></head><body><main><section><h1>Quantum Explorer</h1><p>Use the tabs to compare classical bits and qubits.</p><button type=\"button\" data-view=\"basics\">Basics</button><section data-view-panel=\"basics\"><h2>Basics</h2><p>Qubits can occupy superposition before they are measured.</p></main></body></html>";
-                if let Some(sender) = token_stream.as_ref() {
-                    sender
-                        .send(broken.to_string())
-                        .await
-                        .map_err(|error| VmError::HostError(format!("stream send failed: {error}")))?;
-                }
-                Ok(broken.as_bytes().to_vec())
+                let _ = token_stream;
+                self.execute_inference([0u8; 32], input_context, InferenceOptions::default())
+                    .await
             }
 
             async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
@@ -1629,12 +1844,24 @@ async fn direct_author_repairs_structurally_truncated_document_with_terminal_clo
         );
         let brief = sample_quantum_explainer_brief();
         let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+        let candidate = StudioGeneratedArtifactPayload {
+            summary: "Quantum Explorer".to_string(),
+            notes: vec!["Broken direct-author output".to_string()],
+            files: vec![StudioGeneratedArtifactFile {
+                path: "index.html".to_string(),
+                mime: "text/html".to_string(),
+                role: StudioArtifactFileRole::Primary,
+                renderable: true,
+                downloadable: true,
+                encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+                body: "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quantum Explorer</title></head><body><main><section><h1>Quantum Explorer</h1><p>Use the tabs to compare classical bits and qubits.</p><button type=\"button\" data-view=\"basics\">Basics</button><section data-view-panel=\"basics\"><h2>Basics</h2><p>Qubits can occupy superposition before they are measured.</p></main></body></html>".to_string(),
+            }],
+        };
 
-        let payload = super::generation::materialize_studio_artifact_candidate_with_runtime_direct_author_detailed(
+        let payload = super::generation::repair_direct_author_generated_candidate_with_runtime_error(
             Arc::new(StructurallyBrokenDirectAuthorRuntime {
                 prompts: prompts.clone(),
             }),
-            None,
             "Quantum Explorer",
             "Create an interactive HTML artifact that explains quantum computers",
             &request,
@@ -1643,8 +1870,8 @@ async fn direct_author_repairs_structurally_truncated_document_with_terminal_clo
             None,
             "candidate-1",
             19,
-            0.72,
-            None,
+            &candidate,
+            "HTML iframe artifacts must not close the document while non-void HTML elements remain unclosed.",
             None,
         )
         .await
@@ -1656,10 +1883,268 @@ async fn direct_author_repairs_structurally_truncated_document_with_terminal_clo
         let prompt_log = prompts.lock().expect("prompt log");
         assert!(prompt_log
             .iter()
-            .any(|prompt| prompt.contains("direct document repair author")));
+            .any(|prompt| prompt.contains("Repair output schema")));
         assert!(!prompt_log
             .iter()
-            .any(|prompt| prompt.contains("continuing an interrupted document")));
+            .any(|prompt| prompt.contains("Continuation output schema")));
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn direct_author_repair_accepts_raw_html_without_json_envelope() {
+    with_modal_first_html_env_async(|| async {
+        #[derive(Debug, Clone)]
+        struct RawHtmlRepairRuntime {
+            prompts: Arc<Mutex<Vec<String>>>,
+        }
+
+        #[async_trait]
+        impl InferenceRuntime for RawHtmlRepairRuntime {
+            async fn execute_inference(
+                &self,
+                _model_hash: [u8; 32],
+                input_context: &[u8],
+                _options: InferenceOptions,
+            ) -> Result<Vec<u8>, VmError> {
+                let prompt = decode_studio_test_prompt(input_context);
+                self.prompts
+                    .lock()
+                    .expect("prompt log")
+                    .push(prompt.clone());
+                if prompt.contains("Repair output schema") {
+                    return Ok("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quantum Explorer</title></head><body><main><section><h1>Quantum Explorer</h1><p>Use the tabs to compare classical bits and qubits.</p><button type=\"button\" data-view=\"basics\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"measurement\" aria-selected=\"false\">Measurement</button></section><section data-view-panel=\"basics\"><h2>Basics</h2><p>Qubits can occupy superposition before they are measured.</p></section><section data-view-panel=\"measurement\" hidden><h2>Measurement</h2><p>Measurement collapses amplitudes into observable outcomes.</p></section><aside><p id=\"detail-copy\">Basics are selected by default.</p></aside><script>const buttons=Array.from(document.querySelectorAll('button[data-view]'));const panels=Array.from(document.querySelectorAll('[data-view-panel]'));const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='basics'?'Basics are selected by default.':'Measurement is selected.';}));</script></main></body></html>".as_bytes().to_vec());
+                }
+                Err(VmError::HostError(format!(
+                    "unexpected non-streaming prompt in raw-html repair runtime: {prompt}"
+                )))
+            }
+
+            async fn execute_inference_streaming(
+                &self,
+                _model_hash: [u8; 32],
+                input_context: &[u8],
+                _options: InferenceOptions,
+                token_stream: Option<Sender<String>>,
+            ) -> Result<Vec<u8>, VmError> {
+                let _ = token_stream;
+                self.execute_inference([0u8; 32], input_context, InferenceOptions::default())
+                    .await
+            }
+
+            async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+                Ok(Vec::new())
+            }
+
+            async fn load_model(
+                &self,
+                _model_hash: [u8; 32],
+                _path: &Path,
+            ) -> Result<(), VmError> {
+                Ok(())
+            }
+
+            async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+                Ok(())
+            }
+
+            fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+                StudioRuntimeProvenance {
+                    kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                    label: "fixture raw-html repair runtime".to_string(),
+                    model: Some("fixture-raw-html-repair".to_string()),
+                    endpoint: Some("fixture://raw-html-repair".to_string()),
+                }
+            }
+        }
+
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let brief = sample_quantum_explainer_brief();
+        let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+        let candidate = StudioGeneratedArtifactPayload {
+            summary: "Quantum Explorer".to_string(),
+            notes: vec!["Broken direct-author output".to_string()],
+            files: vec![StudioGeneratedArtifactFile {
+                path: "index.html".to_string(),
+                mime: "text/html".to_string(),
+                role: StudioArtifactFileRole::Primary,
+                renderable: true,
+                downloadable: true,
+                encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+                body: "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quantum Explorer</title></head><body><main><section><h1>Quantum Explorer</h1><p>Use the tabs to compare classical bits and qubits.</p><button type=\"button\" data-view=\"basics\">Basics</button><section data-view-panel=\"basics\"><h2>Basics</h2><p>Qubits can occupy superposition before they are measured.</p></main></body></html>".to_string(),
+            }],
+        };
+
+        let payload = super::generation::repair_direct_author_generated_candidate_with_runtime_error(
+            Arc::new(RawHtmlRepairRuntime {
+                prompts: prompts.clone(),
+            }),
+            "Quantum Explorer",
+            "Create an interactive HTML artifact that explains quantum computers",
+            &request,
+            &brief,
+            &[],
+            None,
+            "candidate-raw-html-repair",
+            41,
+            &candidate,
+            "HTML iframe artifacts must not close the document while non-void HTML elements remain unclosed.",
+            None,
+        )
+        .await
+        .expect("raw html repair output should be accepted without a JSON envelope");
+
+        assert!(payload.files[0].body.contains("Measurement is selected."));
+        assert!(payload.files[0].body.ends_with("</html>"));
+
+        let prompt_log = prompts.lock().expect("prompt log");
+        assert!(prompt_log
+            .iter()
+            .any(|prompt| prompt.contains("Repair output schema")));
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn direct_author_local_html_repair_stays_within_compact_follow_up_budget() {
+    with_modal_first_html_env_async(|| async {
+        #[derive(Debug, Clone)]
+        struct LengthSensitiveRepairRuntime {
+            prompts: Arc<Mutex<Vec<String>>>,
+            repair_prompt_bytes: Arc<Mutex<Vec<usize>>>,
+            repair_max_tokens: Arc<Mutex<Vec<u32>>>,
+        }
+
+        #[async_trait]
+        impl InferenceRuntime for LengthSensitiveRepairRuntime {
+            async fn execute_inference(
+                &self,
+                _model_hash: [u8; 32],
+                input_context: &[u8],
+                options: InferenceOptions,
+            ) -> Result<Vec<u8>, VmError> {
+                let prompt = decode_studio_test_prompt(input_context);
+                self.prompts.lock().expect("prompt log").push(prompt.clone());
+                if prompt.contains("Repair output schema") {
+                    self.repair_prompt_bytes
+                        .lock()
+                        .expect("repair prompt byte log")
+                        .push(input_context.len());
+                    self.repair_max_tokens
+                        .lock()
+                        .expect("repair max token log")
+                        .push(options.max_tokens);
+                    if input_context.len() > 3900 || options.max_tokens > 2400 {
+                        return Err(VmError::HostError(
+                            "LLM_REFUSAL: Empty content (reason: length)".to_string(),
+                        ));
+                    }
+                    return Ok("{\"mode\":\"full_document\",\"content\":\"<!doctype html><html lang=\\\"en\\\"><head><meta charset=\\\"utf-8\\\"><title>Quantum Explorer</title></head><body><main><section><h1>Quantum Explorer</h1><p>Use the toggles to compare classical bits and qubits.</p><div><button type=\\\"button\\\" data-view=\\\"basics\\\" aria-selected=\\\"true\\\">Basics</button><button type=\\\"button\\\" data-view=\\\"measurement\\\" aria-selected=\\\"false\\\">Measurement</button></div></section><section data-view-panel=\\\"basics\\\"><h2>Basics</h2><p>Qubits can occupy superposition before they are measured.</p></section><section data-view-panel=\\\"measurement\\\" hidden><h2>Measurement</h2><p>Measurement collapses amplitudes into observable outcomes.</p></section><aside><p id=\\\"detail-copy\\\">Basics are selected by default.</p></aside><script>const buttons=Array.from(document.querySelectorAll('button[data-view]'));const panels=Array.from(document.querySelectorAll('[data-view-panel]'));const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='basics'?'Basics are selected by default.':'Measurement is selected.';}));</script></main></body></html>\"}".as_bytes().to_vec());
+                }
+                Err(VmError::HostError(format!(
+                    "unexpected non-streaming prompt in length-sensitive repair runtime: {prompt}"
+                )))
+            }
+
+            async fn execute_inference_streaming(
+                &self,
+                _model_hash: [u8; 32],
+                input_context: &[u8],
+                _options: InferenceOptions,
+                token_stream: Option<Sender<String>>,
+            ) -> Result<Vec<u8>, VmError> {
+                let _ = token_stream;
+                self.execute_inference([0u8; 32], input_context, InferenceOptions::default())
+                    .await
+            }
+
+            async fn embed_text(&self, _text: &str) -> Result<Vec<f32>, VmError> {
+                Ok(Vec::new())
+            }
+
+            async fn load_model(
+                &self,
+                _model_hash: [u8; 32],
+                _path: &Path,
+            ) -> Result<(), VmError> {
+                Ok(())
+            }
+
+            async fn unload_model(&self, _model_hash: [u8; 32]) -> Result<(), VmError> {
+                Ok(())
+            }
+
+            fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
+                StudioRuntimeProvenance {
+                    kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
+                    label: "fixture length-sensitive repair runtime".to_string(),
+                    model: Some("fixture-length-sensitive-repair".to_string()),
+                    endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
+                }
+            }
+        }
+
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let brief = sample_quantum_explainer_brief();
+        let prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+        let repair_prompt_bytes = Arc::new(Mutex::new(Vec::<usize>::new()));
+        let repair_max_tokens = Arc::new(Mutex::new(Vec::<u32>::new()));
+        let candidate = StudioGeneratedArtifactPayload {
+            summary: "Quantum Explorer".to_string(),
+            notes: vec!["Broken direct-author output".to_string()],
+            files: vec![StudioGeneratedArtifactFile {
+                path: "index.html".to_string(),
+                mime: "text/html".to_string(),
+                role: StudioArtifactFileRole::Primary,
+                renderable: true,
+                downloadable: true,
+                encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
+                body: "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quantum Explorer</title><style>body{margin:0;background:#111827;color:#f8fafc;font-family:Georgia,serif;}main{max-width:920px;margin:0 auto;padding:24px;display:grid;gap:18px;}section,aside{background:#172033;border:1px solid #334155;border-radius:18px;padding:18px;}button{border:1px solid #475569;background:#1e293b;color:#f8fafc;border-radius:999px;padding:8px 12px;}</style></head><body><main><section><h1>Quantum Explorer</h1><p>Use the toggles to compare classical bits and qubits.</p><div><button type=\"button\" data-view=\"basics\">Basics</button><button type=\"button\" data-view=\"measurement\">Measurement</button></div></section><section data-view-panel=\"basics\"><h2>Basics</h2><p>Qubits can occupy superposition before they are measured.</p></section><section data-view-panel=\"measurement\" hidden><h2>Measurement</h2><p>Measurement collapses amplitudes into observable outcomes.</p><aside><p id=\"detail-copy\">Basics are selected by default.</p></aside><script>const buttons=Array.from(document.querySelectorAll('button[data-view]'));const panels=Array.from(document.querySelectorAll('[data-view-panel]'));const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='basics'?'Basics are selected by default.':'Measurement is selected.';}));</script></main></body></html>".to_string(),
+            }],
+        };
+
+        let payload = super::generation::repair_direct_author_generated_candidate_with_runtime_error(
+            Arc::new(LengthSensitiveRepairRuntime {
+                prompts: prompts.clone(),
+                repair_prompt_bytes: repair_prompt_bytes.clone(),
+                repair_max_tokens: repair_max_tokens.clone(),
+            }),
+            "Quantum Explorer",
+            "Create an interactive HTML artifact that explains quantum computers",
+            &request,
+            &brief,
+            &[],
+            None,
+            "candidate-compact-repair",
+            23,
+            &candidate,
+            "HTML iframe artifacts must not close the document while non-void HTML elements remain unclosed.",
+            None,
+        )
+        .await
+        .expect("compact local repair should recover instead of triggering a length refusal");
+
+        assert!(payload.files[0].body.contains("Measurement is selected."));
+        assert!(payload.files[0].body.ends_with("</html>"));
+
+        let prompt_log = prompts.lock().expect("prompt log");
+        assert!(prompt_log
+            .iter()
+            .any(|prompt| prompt.contains("Repair output schema")));
+
+        let prompt_bytes = repair_prompt_bytes.lock().expect("repair prompt byte log");
+        assert_eq!(prompt_bytes.len(), 1);
+        assert!(prompt_bytes[0] <= 3900);
+
+        let max_tokens = repair_max_tokens.lock().expect("repair max token log");
+        assert_eq!(max_tokens.len(), 1);
+        assert_eq!(max_tokens[0], 2400);
     })
     .await;
 }
@@ -2154,6 +2639,7 @@ fn local_direct_author_prompt_omits_materialization_json_scaffolding() {
         &request,
         &brief,
         &selected_skills,
+        None,
         None,
         "candidate-1",
         7,

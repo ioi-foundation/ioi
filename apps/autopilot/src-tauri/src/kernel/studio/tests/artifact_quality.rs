@@ -173,6 +173,7 @@ fn artifact_validation_promotes_soft_html_prefilter_findings_to_ready() {
             recommended_next_pass: None,
             strongest_contradiction: None,
             rationale: "acceptance cleared the artifact".to_string(),
+            ..studio_validation_fixture()
         },
         None,
         false,
@@ -298,6 +299,7 @@ fn render_eval_warning_keeps_html_out_of_ready_state_even_when_acceptance_passes
             recommended_next_pass: None,
             strongest_contradiction: None,
             rationale: "acceptance cleared the artifact".to_string(),
+            ..studio_validation_fixture()
         },
         Some(&render_evaluation),
         false,
@@ -417,6 +419,7 @@ fn render_eval_blocker_overrides_acceptance_pass_for_html_artifacts() {
             recommended_next_pass: None,
             strongest_contradiction: None,
             rationale: "acceptance cleared the artifact".to_string(),
+            ..studio_validation_fixture()
         },
         Some(&render_evaluation),
         false,
@@ -932,6 +935,7 @@ fn repairable_artifact_validation_keeps_html_out_of_ready_state() {
                 "Missing ingredient analysis and pH level charts".to_string(),
             ),
             rationale: "Needs another refinement pass.".to_string(),
+            ..studio_validation_fixture()
         },
         None,
         false,
@@ -1022,6 +1026,7 @@ fn draft_pending_acceptance_surfaces_viable_html_as_partial() {
                 "Acceptance validation is still pending for this draft.".to_string(),
             ),
             rationale: "Production surfaced a request-faithful draft.".to_string(),
+            ..studio_validation_fixture()
         },
         None,
         false,
@@ -1106,6 +1111,7 @@ fn external_runtime_dependency_keeps_html_prefilter_blocked() {
             recommended_next_pass: None,
             strongest_contradiction: None,
             rationale: "acceptance liked the artifact".to_string(),
+            ..studio_validation_fixture()
         },
         None,
         false,

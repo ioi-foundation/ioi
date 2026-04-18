@@ -364,6 +364,8 @@ pub struct StudioArtifactRuntimePreviewSnapshot {
     #[serde(default)]
     pub language: Option<String>,
     #[serde(default)]
+    pub origin_prompt_event_id: Option<String>,
+    #[serde(default)]
     pub is_final: bool,
 }
 
@@ -600,6 +602,8 @@ pub struct StudioArtifactRuntimeNarrationEvent {
     pub status_kind: StudioArtifactRuntimeEventStatus,
     pub occurred_at_ms: u64,
     #[serde(default)]
+    pub origin_prompt_event_id: Option<String>,
+    #[serde(default)]
     pub preview: Option<StudioArtifactRuntimePreviewSnapshot>,
 }
 
@@ -639,6 +643,7 @@ impl StudioArtifactRuntimeNarrationEvent {
             status: status.as_str().to_string(),
             status_kind: status,
             occurred_at_ms,
+            origin_prompt_event_id: None,
             preview: None,
         }
     }
@@ -652,6 +657,18 @@ impl StudioArtifactRuntimeNarrationEvent {
         self.event_kind = StudioArtifactRuntimeEventKind::Preview.as_str().to_string();
         self.event_kind_key = StudioArtifactRuntimeEventKind::Preview;
         self.preview = Some(preview);
+        self
+    }
+
+    pub fn with_origin_prompt_event_id(
+        mut self,
+        origin_prompt_event_id: impl Into<String>,
+    ) -> Self {
+        let origin_prompt_event_id = origin_prompt_event_id.into();
+        self.origin_prompt_event_id = Some(origin_prompt_event_id.clone());
+        if let Some(preview) = self.preview.as_mut() {
+            preview.origin_prompt_event_id = Some(origin_prompt_event_id);
+        }
         self
     }
 }

@@ -1313,6 +1313,17 @@ fn lifecycle_state_for_generation_progress(
     }
 }
 
+fn latest_user_request_event_id(task: &AgentTask) -> Option<String> {
+    task.events.iter().rev().find_map(|event| {
+        let is_user_input = event
+            .details
+            .get("kind")
+            .and_then(|value| value.as_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case("user_input"));
+        is_user_input.then(|| event.event_id.clone())
+    })
+}
+
 fn initial_understand_request_event(
     _outcome_request: &StudioOutcomeRequest,
 ) -> StudioArtifactRuntimeNarrationEvent {
@@ -1367,6 +1378,11 @@ fn publish_current_task_generation_progress(
         task.phase = AgentPhase::Running;
         task.current_step = progress.current_step.clone();
         if let Some(session) = task.studio_session.as_mut() {
+            let session_origin_prompt_event_id = session.origin_prompt_event_id.clone();
+            assign_studio_session_turn_ownership(
+                session,
+                session_origin_prompt_event_id.as_deref(),
+            );
             if progress.artifact_brief.is_some()
                 || progress.preparation_needs.is_some()
                 || progress.prepared_context_resolution.is_some()
@@ -1401,9 +1417,14 @@ fn publish_current_task_generation_progress(
             if progress.validation.is_some() {
                 session.materialization.validation = progress.validation.clone();
             }
+            let mut progress_runtime_narration_events = progress.runtime_narration_events.clone();
+            assign_runtime_narration_events_origin(
+                &mut progress_runtime_narration_events,
+                session_origin_prompt_event_id.as_deref(),
+            );
             merge_runtime_narration_events(
                 &mut session.materialization.runtime_narration_events,
-                &progress.runtime_narration_events,
+                &progress_runtime_narration_events,
             );
             session.lifecycle_state = lifecycle_state_for_generation_progress(progress);
             session.status = lifecycle_state_label(session.lifecycle_state).to_string();
@@ -1426,6 +1447,7 @@ pub(super) fn provisional_non_workspace_studio_session(
     summary: &str,
     created_at: &str,
     outcome_request: &StudioOutcomeRequest,
+    origin_prompt_event_id: Option<&str>,
     mut materialization: StudioArtifactMaterializationContract,
 ) -> Result<StudioArtifactSession, String> {
     let artifact_request = outcome_request
@@ -1452,11 +1474,16 @@ pub(super) fn provisional_non_workspace_studio_session(
             artifact_route_committed_event(outcome_request),
         ],
     );
+    assign_runtime_narration_events_origin(
+        &mut materialization.runtime_narration_events,
+        origin_prompt_event_id,
+    );
 
     let mut studio_session = StudioArtifactSession {
         session_id: studio_session_id.to_string(),
         thread_id: thread_id.to_string(),
         artifact_id: artifact_manifest.artifact_id.clone(),
+        origin_prompt_event_id: origin_prompt_event_id.map(ToOwned::to_owned),
         title: title.to_string(),
         summary: summary.to_string(),
         current_lens: artifact_manifest.primary_tab.clone(),
@@ -1487,6 +1514,7 @@ pub(super) fn provisional_non_workspace_studio_session(
         workspace_root: None,
         renderer_session_id: None,
     };
+    assign_studio_session_turn_ownership(&mut studio_session, origin_prompt_event_id);
     refresh_pipeline_steps(&mut studio_session, None);
     Ok(studio_session)
 }
@@ -1655,6 +1683,7 @@ fn maybe_prepare_task_for_studio_with_request(
     intent: &str,
     outcome_request: StudioOutcomeRequest,
 ) -> Result<(), String> {
+    let origin_prompt_event_id = latest_user_request_event_id(task);
     let artifact_request = outcome_request
         .artifact
         .clone()
@@ -1839,6 +1868,7 @@ fn maybe_prepare_task_for_studio_with_request(
             &summary,
             &created_at,
             &outcome_request,
+            origin_prompt_event_id.as_deref(),
             materialization.clone(),
         )?;
         provisional_session.navigator_backing_mode = "workspace".to_string();
@@ -1878,6 +1908,7 @@ fn maybe_prepare_task_for_studio_with_request(
             &summary,
             &created_at,
             &outcome_request,
+            origin_prompt_event_id.as_deref(),
             materialization.clone(),
         )?);
         super::content_session::append_route_contract_event(
@@ -1997,12 +2028,10 @@ fn maybe_prepare_task_for_studio_with_request(
             outcome_request.execution_mode_decision.clone(),
             outcome_request.execution_strategy,
         );
-        if let Some(existing_session) = task.studio_session.as_ref() {
-            merge_runtime_narration_events(
-                &mut materialization.runtime_narration_events,
-                &existing_session.materialization.runtime_narration_events,
-            );
-        }
+        assign_runtime_narration_events_origin(
+            &mut materialization.runtime_narration_events,
+            origin_prompt_event_id.as_deref(),
+        );
     } else {
         materialization.artifact_brief = artifact_brief.clone();
         materialization.edit_intent = edit_intent.clone();
@@ -2031,6 +2060,10 @@ fn maybe_prepare_task_for_studio_with_request(
         materialization.ux_lifecycle = ux_lifecycle;
         materialization.failure = failure.clone();
         materialization.retrieved_exemplars = retrieved_exemplars.clone();
+        assign_runtime_narration_events_origin(
+            &mut materialization.runtime_narration_events,
+            origin_prompt_event_id.as_deref(),
+        );
     }
 
     if let Some(artifact) = create_contract_artifact(app, &thread_id, &title, &materialization) {
@@ -2067,6 +2100,7 @@ fn maybe_prepare_task_for_studio_with_request(
             .first()
             .cloned()
             .unwrap_or_else(|| Uuid::new_v4().to_string()),
+        origin_prompt_event_id: origin_prompt_event_id.clone(),
         title,
         summary,
         current_lens: artifact_manifest.primary_tab.clone(),
@@ -2107,6 +2141,7 @@ fn maybe_prepare_task_for_studio_with_request(
             .as_ref()
             .map(|session| session.session_id.clone()),
     };
+    assign_studio_session_turn_ownership(&mut studio_session, origin_prompt_event_id.as_deref());
     refresh_pipeline_steps(&mut studio_session, build_session.as_ref());
     let initial_revision = initial_revision_for_session(&studio_session, intent);
     studio_session.active_revision_id = Some(initial_revision.revision_id.clone());
@@ -2261,6 +2296,7 @@ pub fn maybe_prepare_current_task_for_studio_turn(
         };
         (task, guard.memory_runtime.clone())
     };
+    let origin_prompt_event_id = latest_user_request_event_id(&task);
     let current_artifact_id = task
         .studio_session
         .as_ref()
@@ -2341,6 +2377,10 @@ pub fn maybe_prepare_current_task_for_studio_turn(
         }
         apply_non_artifact_route_state(&mut task, &outcome_request);
         maybe_execute_studio_primary_non_artifact_reply(app, &mut task, intent, &outcome_request)?;
+    }
+
+    if let Some(session) = task.studio_session.as_mut() {
+        assign_studio_session_turn_ownership(session, origin_prompt_event_id.as_deref());
     }
 
     if task_requires_studio_primary_execution(&task) {

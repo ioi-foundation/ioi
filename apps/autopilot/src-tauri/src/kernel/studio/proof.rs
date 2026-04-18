@@ -500,6 +500,7 @@ fn prepare_task_for_studio_with_request_for_proof(
             .first()
             .cloned()
             .unwrap_or_else(|| Uuid::new_v4().to_string()),
+        origin_prompt_event_id: None,
         title,
         summary,
         current_lens: artifact_manifest.primary_tab.clone(),

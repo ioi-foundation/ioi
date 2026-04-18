@@ -170,6 +170,7 @@ pub(super) fn runtime_preview_snapshot_from_execution_preview(
         status: preview.status.clone(),
         kind: Some(format!("{:?}", preview.kind).to_ascii_lowercase()),
         language: preview.language.clone(),
+        origin_prompt_event_id: None,
         is_final: preview.is_final,
     }
 }

@@ -123,6 +123,59 @@ fn build_compact_local_outcome_router_prompt(
     ])
 }
 
+fn build_compact_local_follow_up_outcome_router_prompt(
+    intent: &str,
+    active_artifact_id: Option<&str>,
+    active_artifact: &StudioArtifactRefinementContext,
+) -> serde_json::Value {
+    let active_artifact_context_json =
+        compact_local_outcome_router_refinement_context(Some(active_artifact)).to_string();
+    let user_content = format!(
+        "Request:\n{intent}\n\n\
+         Active artifact id: {artifact_id}\n\
+         Active artifact context summary JSON:\n{active_context}\n\n\
+         Return exactly one JSON object with this minimal camelCase schema:\n\
+         {{\n\
+           \"outcomeKind\": \"artifact\" | \"conversation\",\n\
+           \"executionStrategy\": \"single_pass\" | \"direct_author\" | \"plan_execute\" | \"micro_swarm\" | \"adaptive_work_graph\",\n\
+           \"confidence\": <0_to_1_float>,\n\
+           \"needsClarification\": <boolean>,\n\
+           \"clarificationQuestions\": [<string>],\n\
+           \"routingHints\": [<string>],\n\
+           \"artifact\": null | {{\n\
+             \"renderer\": \"markdown\" | \"html_iframe\" | \"jsx_sandbox\" | \"svg\" | \"mermaid\" | \"pdf_embed\" | \"download_card\" | \"workspace_surface\" | \"bundle_manifest\",\n\
+             \"workspaceRecipeId\": null | \"react-vite\" | \"vite-static-html\",\n\
+             \"presentationVariantId\": null | \"sport-editorial\" | \"minimal-agency\" | \"hospitality-retreat\" | \"product-launch\",\n\
+             \"scope\": {{ \"targetProject\": null | <string>, \"mutationBoundary\": [<string>] }},\n\
+             \"verification\": {{ \"requireExport\": <boolean> }}\n\
+           }}\n\
+         }}\n\
+         Defaults are derived from the active artifact and renderer when omitted: artifactClass, deliverableShape, presentationSurface, persistence, executionSubstrate, createNewWorkspace, requireRender, requireBuild, requirePreview, requireDiffReview.\n\
+         Rules:\n\
+         - This is a follow-up turn for the active artifact, so continue that artifact by default.\n\
+         - Use artifact for edits, refinements, copy changes, layout adjustments, or fixes to the active artifact.\n\
+         - Keep the current renderer family unless the user explicitly asks for a different deliverable form.\n\
+         - direct_author is preferred for bounded single-file follow-up edits; use plan_execute only when the requested change clearly needs a heavier pass.\n\
+         - Use conversation only when the user is asking about the artifact without requesting a change.\n\
+         - If required constraints are missing, set needsClarification true and ask concise questions.\n\
+         - JSON only.",
+        intent = intent,
+        artifact_id = active_artifact_id.unwrap_or("<none>"),
+        active_context = active_artifact_context_json,
+    );
+
+    json!([
+        {
+            "role": "system",
+            "content": "You are Studio's typed outcome router for local follow-up edits. Return exactly one JSON object, continue the active artifact by default, and rely on renderer-derived defaults when fields are omitted."
+        },
+        {
+            "role": "user",
+            "content": user_content
+        }
+    ])
+}
+
 pub fn studio_execution_strategy_for_outcome(
     outcome_kind: StudioOutcomeKind,
     artifact: Option<&StudioOutcomeArtifactRequest>,
@@ -248,6 +301,13 @@ pub(crate) fn build_studio_outcome_router_prompt_for_runtime(
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> serde_json::Value {
     if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
+        if let Some(active_artifact) = active_artifact {
+            return build_compact_local_follow_up_outcome_router_prompt(
+                intent,
+                active_artifact_id,
+                active_artifact,
+            );
+        }
         return build_compact_local_outcome_router_prompt(
             intent,
             active_artifact_id,

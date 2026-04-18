@@ -267,7 +267,7 @@ fn local_html_direct_author_budget_matches_local_materialization_budget() {
 }
 
 #[test]
-fn modal_first_html_direct_author_budget_expands_completion_room() {
+fn modal_first_html_direct_author_budget_stays_bounded_for_local_gpu_runs() {
     with_modal_first_html_env(|| {
         assert_eq!(
             super::generation::materialization_max_tokens_for_execution_strategy(
@@ -275,7 +275,7 @@ fn modal_first_html_direct_author_budget_expands_completion_room() {
                 StudioExecutionStrategy::DirectAuthor,
                 StudioRuntimeProvenanceKind::RealLocalRuntime,
             ),
-            4200
+            2400
         );
     });
 }
@@ -1528,6 +1528,11 @@ fn renderer_contract_allows_near_pass_html_after_normalization_repairs() {
         deserves_primary_artifact_view: true,
         patched_existing_artifact: None,
         continuity_revision_ux: None,
+        score_total: 30,
+        proof_kind: "test_fixture".to_string(),
+        primary_view_cleared: true,
+        validated_paths: vec!["index.html".to_string()],
+        issue_codes: vec!["first-paint evidence density could be higher".to_string()],
         issue_classes: vec!["first-paint evidence density could be higher".to_string()],
         repair_hints: vec!["add more populated evidence surfaces".to_string()],
         strengths: vec![
@@ -1541,6 +1546,7 @@ fn renderer_contract_allows_near_pass_html_after_normalization_repairs() {
         truthfulness_warnings: Vec::new(),
         recommended_next_pass: Some("accept".to_string()),
         strongest_contradiction: None,
+        summary: "The fixture clears the renderer contract.".to_string(),
         rationale: "Complies with the interaction contract and stays request-faithful.".to_string(),
     };
 

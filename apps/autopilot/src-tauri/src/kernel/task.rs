@@ -79,6 +79,33 @@ fn apply_studio_route_handoff_to_runtime_input(task: &AgentTask, input: &str) ->
         .unwrap_or_else(|| input.to_string())
 }
 
+fn hydrate_requested_session_for_continue(
+    state: &State<'_, Mutex<AppState>>,
+    session_id: &str,
+) -> Result<Option<AgentTask>, String> {
+    let mut guard = state
+        .lock()
+        .map_err(|_| "Failed to lock app state".to_string())?;
+
+    if let Some(current_task) = guard.current_task.as_ref() {
+        if session_hex_matches_task(current_task, session_id) {
+            return Ok(Some(current_task.clone()));
+        }
+    }
+
+    let Some(memory_runtime) = guard.memory_runtime.as_ref() else {
+        return Ok(guard.current_task.clone());
+    };
+
+    let Some(mut loaded_task) = orchestrator::load_local_task(memory_runtime, session_id) else {
+        return Ok(guard.current_task.clone());
+    };
+
+    loaded_task.sync_runtime_views();
+    guard.current_task = Some(loaded_task.clone());
+    Ok(Some(loaded_task))
+}
+
 fn session_bootstrap_commit_delay_should_reconcile(error: &str) -> bool {
     let normalized = error.to_ascii_lowercase();
     normalized.contains("did not commit")
@@ -2124,6 +2151,16 @@ pub async fn continue_task(
     session_id: String,
     user_input: String,
 ) -> Result<(), String> {
+    let hydrated_session_task = hydrate_requested_session_for_continue(&state, &session_id)?;
+    if let Some(task) = hydrated_session_task.as_ref() {
+        println!(
+            "[Autopilot][StudioContinue] hydrated session={} task_session={} studio_backed={}",
+            session_id,
+            task.session_id.as_deref().unwrap_or(task.id.as_str()),
+            task.studio_session.is_some() && task.studio_outcome.is_some()
+        );
+    }
+
     let workflow_expansion = workspace_workflow_expansion(&user_input)?;
     let knowledge_injection = {
         let (memory_runtime, inference_runtime) = app_runtime_resources(&state)?;
@@ -2202,10 +2239,14 @@ pub async fn continue_task(
         .ok()
         .and_then(|state| state.current_task.clone())
         .map(|task| {
-            let studio_backed = task.studio_session.is_some() && task.studio_outcome.is_some();
+            let session_matches = session_hex_matches_task(&task, &session_id);
+            let studio_backed =
+                session_matches && task.studio_session.is_some() && task.studio_outcome.is_some();
             println!(
-                "[Autopilot][StudioContinue] session={} studio_backed={} phase={:?} current_step={}",
+                "[Autopilot][StudioContinue] session={} task_session={} session_matches={} studio_backed={} phase={:?} current_step={}",
                 session_id,
+                task.session_id.as_deref().unwrap_or(task.id.as_str()),
+                session_matches,
                 studio_backed,
                 task.phase,
                 task.current_step

@@ -15,6 +15,7 @@ struct StudioDirectAuthorRecoveryPayload {
 }
 
 fn parse_studio_direct_author_recovery_payload(
+    request: &StudioOutcomeArtifactRequest,
     raw: &str,
 ) -> Result<StudioDirectAuthorRecoveryPayload, String> {
     let parse_json =
@@ -22,22 +23,77 @@ fn parse_studio_direct_author_recovery_payload(
             serde_json::from_str(candidate)
         };
 
-    let payload = parse_json(raw)
-        .or_else(|_| {
-            let extracted = super::extract_first_json_object(raw).ok_or_else(|| {
-                "Studio direct-author recovery output missing JSON payload".to_string()
-            })?;
-            parse_json(&extracted).map_err(|error| error.to_string())
-        })
-        .map_err(|error| {
-            format!("Failed to parse Studio direct-author recovery payload: {error}")
+    let payload = match parse_json(raw).or_else(|_| {
+        let extracted = super::extract_first_json_object(raw).ok_or_else(|| {
+            "Studio direct-author recovery output missing JSON payload".to_string()
         })?;
+        parse_json(&extracted).map_err(|error| error.to_string())
+    }) {
+        Ok(payload) => payload,
+        Err(error) => coerce_direct_author_recovery_payload_from_raw_output(request, raw)
+            .ok_or_else(|| {
+                format!("Failed to parse Studio direct-author recovery payload: {error}")
+            })?,
+    };
 
     if payload.content.trim().is_empty() {
         return Err("Studio direct-author recovery payload content was empty".to_string());
     }
 
     Ok(payload)
+}
+
+fn coerce_direct_author_recovery_payload_from_raw_output(
+    request: &StudioOutcomeArtifactRequest,
+    raw: &str,
+) -> Option<StudioDirectAuthorRecoveryPayload> {
+    let raw_document = strip_single_markdown_code_fence(raw).unwrap_or(raw).trim();
+    if raw_document.is_empty() {
+        return None;
+    }
+
+    if !direct_author_uses_raw_document(request) {
+        return None;
+    }
+
+    let raw_lower = raw_document.to_ascii_lowercase();
+    let full_document = match request.renderer {
+        StudioRendererKind::HtmlIframe => {
+            raw_lower.starts_with("<!doctype html") || raw_lower.starts_with("<html")
+        }
+        StudioRendererKind::Svg => raw_lower.starts_with("<svg"),
+        StudioRendererKind::Markdown => true,
+        StudioRendererKind::Mermaid => true,
+        StudioRendererKind::PdfEmbed => true,
+        _ => false,
+    };
+    let mode = if full_document {
+        StudioDirectAuthorRecoveryMode::FullDocument
+    } else {
+        StudioDirectAuthorRecoveryMode::Suffix
+    };
+
+    Some(StudioDirectAuthorRecoveryPayload {
+        mode,
+        content: raw_document.to_string(),
+    })
+}
+
+fn strip_single_markdown_code_fence(raw: &str) -> Option<&str> {
+    let trimmed = raw.trim();
+    if !trimmed.starts_with("```") {
+        return None;
+    }
+
+    let first_newline = trimmed.find('\n')?;
+    let remainder = &trimmed[first_newline + 1..];
+    let closing_fence = remainder.rfind("```")?;
+    let suffix = remainder[closing_fence + 3..].trim();
+    if !suffix.is_empty() {
+        return None;
+    }
+
+    Some(remainder[..closing_fence].trim())
 }
 
 fn apply_direct_author_recovery_payload(
@@ -292,7 +348,7 @@ fn direct_author_follow_up_max_tokens(
         }
         (StudioRendererKind::HtmlIframe, _) => {
             if local_runtime {
-                3200
+                2400
             } else {
                 3800
             }
@@ -503,7 +559,7 @@ pub(crate) async fn repair_direct_author_generated_candidate_with_runtime_error(
     let repair_raw = String::from_utf8(repair_output).map_err(|error| {
         format!("Studio direct-author runtime repair utf8 decode failed: {error}")
     })?;
-    let recovery_payload = parse_studio_direct_author_recovery_payload(&repair_raw)?;
+    let recovery_payload = parse_studio_direct_author_recovery_payload(request, &repair_raw)?;
     if recovery_payload.mode != StudioDirectAuthorRecoveryMode::FullDocument {
         return Err(
             "Studio direct-author runtime repair payload must use mode=full_document".to_string(),
@@ -830,6 +886,7 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
     selected_skills: &[StudioArtifactSelectedSkill],
+    edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate_id: &str,
     candidate_seed: u64,
@@ -852,6 +909,7 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
         request,
         brief,
         selected_skills,
+        edit_intent,
         refinement,
         candidate_id,
         candidate_seed,
@@ -969,7 +1027,23 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                     salvaged.len()
                 ));
             }
-            salvaged
+            if returns_raw_document {
+                if let Ok(generated) = parse_candidate(&salvaged) {
+                    emit_direct_author_live_preview(
+                        live_preview_observer.as_ref(),
+                        &preview_id,
+                        &preview_label,
+                        &preview_language,
+                        "recovered",
+                        &salvaged,
+                        true,
+                    );
+                    return Ok(generated);
+                }
+                streamed_preview
+            } else {
+                salvaged
+            }
         }
     };
     match parse_candidate(&raw) {
@@ -996,6 +1070,41 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                 first_error.message
             };
             let mut latest_raw = raw;
+            if returns_raw_document
+                && !recovered_from_partial_stream
+                && direct_author_document_is_incomplete(request, &latest_raw, &latest_error)
+            {
+                let salvaged = salvage_interrupted_direct_author_document(request, &latest_raw);
+                if salvaged != latest_raw {
+                    studio_generation_trace(format!(
+                        "artifact_generation:direct_author_inference:completed_salvage_normalized id={} original_bytes={} salvaged_bytes={}",
+                        candidate_id,
+                        latest_raw.len(),
+                        salvaged.len()
+                    ));
+                    latest_raw = salvaged;
+                    match parse_candidate(&latest_raw) {
+                        Ok(generated) => {
+                            emit_direct_author_live_preview(
+                                live_preview_observer.as_ref(),
+                                &preview_id,
+                                &preview_label,
+                                &preview_language,
+                                "recovered",
+                                &latest_raw,
+                                true,
+                            );
+                            return Ok(generated);
+                        }
+                        Err(salvage_error) => {
+                            latest_error = format!(
+                                "{latest_error}; local closure salvage failed: {}",
+                                salvage_error.message
+                            );
+                        }
+                    }
+                }
+            }
             let mut preview_status = if returns_raw_document
                 && direct_author_document_is_incomplete(request, &latest_raw, &latest_error)
             {
@@ -1097,7 +1206,7 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                             break;
                         }
                     };
-                    match parse_studio_direct_author_recovery_payload(&continuation_raw) {
+                    match parse_studio_direct_author_recovery_payload(request, &continuation_raw) {
                         Ok(recovery_payload) => {
                             latest_raw = apply_direct_author_recovery_payload(
                                 &latest_raw,
@@ -1221,7 +1330,7 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                             continue;
                         }
                     };
-                    match parse_studio_direct_author_recovery_payload(&repair_raw) {
+                    match parse_studio_direct_author_recovery_payload(request, &repair_raw) {
                         Ok(recovery_payload) => {
                             if recovery_payload.mode != StudioDirectAuthorRecoveryMode::FullDocument
                             {

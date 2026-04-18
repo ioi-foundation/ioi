@@ -195,7 +195,12 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
         repair_provenance.model,
         refinement.is_some()
     ));
-    let direct_author_mode = direct_authoring_enabled(execution_strategy, request, refinement);
+    let direct_author_mode = direct_authoring_enabled(
+        execution_strategy,
+        request,
+        refinement,
+        production_provenance.kind,
+    );
     let planning_context = planning_context.clone();
     let brief = planning_context.brief.clone();
     studio_generation_trace("artifact_generation:brief_ready");
@@ -203,32 +208,28 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
     let artifact_ir = planning_context.artifact_ir.clone();
     let selected_skills = planning_context.selected_skills.clone();
     let retrieved_exemplars = planning_context.retrieved_exemplars.clone();
-    let edit_intent = if direct_author_mode {
-        None
-    } else {
-        match refinement {
-            Some(refinement) => Some(hydrate_edit_intent_with_refinement_selection(
-                plan_studio_artifact_edit_intent_with_runtime(
-                    planning_runtime.clone(),
-                    intent,
-                    request,
-                    &brief,
-                    refinement,
-                )
-                .await
-                .map_err(|message| StudioArtifactGenerationError {
-                    message,
-                    brief: Some(brief.clone()),
-                    blueprint: blueprint.clone(),
-                    artifact_ir: artifact_ir.clone(),
-                    selected_skills: selected_skills.clone(),
-                    edit_intent: None,
-                    candidate_summaries: Vec::new(),
-                })?,
+    let edit_intent = match refinement {
+        Some(refinement) => Some(hydrate_edit_intent_with_refinement_selection(
+            plan_studio_artifact_edit_intent_with_runtime(
+                planning_runtime.clone(),
+                intent,
+                request,
+                &brief,
                 refinement,
-            )),
-            None => None,
-        }
+            )
+            .await
+            .map_err(|message| StudioArtifactGenerationError {
+                message,
+                brief: Some(brief.clone()),
+                blueprint: blueprint.clone(),
+                artifact_ir: artifact_ir.clone(),
+                selected_skills: selected_skills.clone(),
+                edit_intent: None,
+                candidate_summaries: Vec::new(),
+            })?,
+            refinement,
+        )),
+        None => None,
     };
     studio_generation_trace(format!(
         "artifact_generation:edit_intent_ready present={}",
@@ -393,6 +394,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                         request,
                         &brief,
                         &selected_skills,
+                        edit_intent.as_ref(),
                         refinement,
                         &candidate_id,
                         seed,

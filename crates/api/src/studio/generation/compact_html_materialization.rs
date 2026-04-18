@@ -212,10 +212,11 @@ pub(super) fn direct_authoring_enabled(
     execution_strategy: StudioExecutionStrategy,
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
+    runtime_kind: StudioRuntimeProvenanceKind,
 ) -> bool {
     execution_strategy == StudioExecutionStrategy::DirectAuthor
         && direct_author_uses_raw_document(request)
-        && refinement.is_none()
+        && (refinement.is_none() || runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime)
 }
 
 pub(super) fn direct_author_uses_raw_document(request: &StudioOutcomeArtifactRequest) -> bool {
