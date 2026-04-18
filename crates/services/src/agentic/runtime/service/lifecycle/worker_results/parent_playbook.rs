@@ -303,6 +303,41 @@ pub(crate) fn inject_parent_playbook_context(
             ));
         }
     }
+    if run.playbook_id.trim() == "research_backed_artifact_gate"
+        && next_step.worker_workflow_id.trim() == "artifact_generate_repair"
+    {
+        if let Some(research_handoff) = load_step_raw_output(state, run, "research")
+            .map(|value| compact_parent_playbook_context(&value, 2400))
+            .filter(|value| !value.trim().is_empty())
+        {
+            dependency_lines.push(format!(
+                "- Gather current sources full_handoff (research_full):\n{}",
+                research_handoff
+            ));
+        }
+    }
+    if run.playbook_id.trim() == "research_backed_artifact_gate"
+        && next_step.worker_workflow_id.trim() == "artifact_validation_audit"
+    {
+        if let Some(research_handoff) = load_step_raw_output(state, run, "research")
+            .map(|value| compact_parent_playbook_context(&value, 2400))
+            .filter(|value| !value.trim().is_empty())
+        {
+            dependency_lines.push(format!(
+                "- Gather current sources full_handoff (research_full):\n{}",
+                research_handoff
+            ));
+        }
+        if let Some(build_handoff) = load_step_raw_output(state, run, "build")
+            .map(|value| compact_parent_playbook_context(&value, 2400))
+            .filter(|value| !value.trim().is_empty())
+        {
+            dependency_lines.push(format!(
+                "- Generate artifact full_handoff (build_full):\n{}",
+                build_handoff
+            ));
+        }
+    }
 
     format!(
         "{}\n\n{}\n{}",
@@ -353,6 +388,30 @@ pub(crate) fn parent_playbook_completion_output(
                 "{}\n\nVerification verdict\n{}",
                 research_output, verification_output
             );
+        }
+    }
+    if run.playbook_id.trim() == "research_backed_artifact_gate" {
+        let research_output = load_step_raw_output(state, run, "research").unwrap_or_default();
+        let build_output = load_step_raw_output(state, run, "build").unwrap_or_default();
+        let validation_output = load_step_raw_output(state, run, "validation")
+            .or_else(|| result.raw_output.clone())
+            .unwrap_or_else(|| result.merged_output.clone());
+        let research_output = research_output.trim();
+        let build_output = build_output.trim();
+        let validation_output = validation_output.trim();
+
+        let mut sections = Vec::new();
+        if !research_output.is_empty() {
+            sections.push(format!("Research handoff\n{}", research_output));
+        }
+        if !build_output.is_empty() {
+            sections.push(format!("Artifact handoff\n{}", build_output));
+        }
+        if !validation_output.is_empty() {
+            sections.push(format!("Validation verdict\n{}", validation_output));
+        }
+        if !sections.is_empty() {
+            return sections.join("\n\n");
         }
     }
 

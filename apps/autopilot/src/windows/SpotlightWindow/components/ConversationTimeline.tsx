@@ -10,6 +10,9 @@ import { AnswerCard } from "./AnswerCard";
 import { ExecutionMomentList } from "./ExecutionMomentList";
 import { ExecutionRouteCard } from "./ExecutionRouteCard";
 import { MarkdownMessage } from "./MarkdownMessage";
+import { ReasoningDisclosure } from "./ReasoningDisclosure";
+import { SourceChipRow } from "./SourceChipRow";
+import { ToolActivityGroup } from "./ToolActivityGroup";
 import { VisualEvidenceCard } from "./VisualEvidenceCard";
 
 function formatLifecycleLabel(value: string | null | undefined): string {
@@ -102,8 +105,11 @@ function artifactReplyText(turnContext: TurnContext | null): string | null {
       return null;
     }
     const summary =
-      artifact.studioSession.verifiedReply.summary.trim() || artifact.summary.trim();
-    const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
+      artifact.studioSession.verifiedReply.summary.trim() ||
+      artifact.summary.trim();
+    const lifecycleState = String(artifact.lifecycleState || "")
+      .trim()
+      .toLowerCase();
     const failedLifecycle =
       lifecycleState === "blocked" || lifecycleState === "failed";
 
@@ -119,7 +125,9 @@ function artifactReplyText(turnContext: TurnContext | null): string | null {
   }
 
   const failedArtifacts = turnContext.artifacts.filter((artifact) => {
-    const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
+    const lifecycleState = String(artifact.lifecycleState || "")
+      .trim()
+      .toLowerCase();
     return lifecycleState === "blocked" || lifecycleState === "failed";
   });
   if (failedArtifacts.length === turnContext.artifacts.length) {
@@ -138,25 +146,41 @@ function artifactReplyText(turnContext: TurnContext | null): string | null {
     .slice(0, 3)
     .map((artifact) => `**${artifact.title}**`)
     .join(", ");
-  const overflowCount = turnContext.artifacts.length - Math.min(turnContext.artifacts.length, 3);
-  const overflowSuffix =
-    overflowCount > 0 ? `, and ${overflowCount} more` : "";
+  const overflowCount =
+    turnContext.artifacts.length - Math.min(turnContext.artifacts.length, 3);
+  const overflowSuffix = overflowCount > 0 ? `, and ${overflowCount} more` : "";
 
   return `Created ${turnContext.artifacts.length} artifacts for this request: ${previewTitles}${overflowSuffix}. Open one from the cards below.`;
 }
 
-function artifactTurnMetaLabel(artifact: NonNullable<TurnContext>["artifacts"][number]): string {
-  const lifecycleLabel = formatLifecycleLabel(artifact.lifecycleState || artifact.status);
+function artifactTurnMetaLabel(
+  artifact: NonNullable<TurnContext>["artifacts"][number],
+): string {
+  const lifecycleLabel = formatLifecycleLabel(
+    artifact.lifecycleState || artifact.status,
+  );
   const fileCountLabel = `${artifact.fileCount} ${
     artifact.fileCount === 1 ? "file" : "files"
   }`;
-  const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
+  const lifecycleState = String(artifact.lifecycleState || "")
+    .trim()
+    .toLowerCase();
 
   if (lifecycleState === "blocked" || lifecycleState === "failed") {
     return `${lifecycleLabel} · ${fileCountLabel}`;
   }
 
   return fileCountLabel;
+}
+
+function inlineAnswerText(
+  answer: NonNullable<RunPresentation["finalAnswer"]>,
+): string {
+  const display = answer.displayText.trim();
+  if (display.length > 0) {
+    return display;
+  }
+  return answer.message.text;
 }
 
 export function ConversationTimeline({
@@ -222,9 +246,19 @@ export function ConversationTimeline({
           !!turn.prompt &&
           !turn.answer &&
           !!runPresentation.finalAnswer &&
-          runPresentation.finalAnswer.message.timestamp >= turn.prompt.timestamp;
+          runPresentation.finalAnswer.message.timestamp >=
+            turn.prompt.timestamp;
         const hasThoughtSummary = !!runPresentation.thoughtSummary;
         const hasPlanSummary = !!turnPlanSummary;
+        const toolActivityGroup = turnContext?.toolActivityGroup || null;
+        const turnSourceSummary =
+          turnContext?.sourceSummary ||
+          (latestAnswerMatches ? runPresentation.sourceSummary : null);
+        const inlineTranscriptRoute =
+          turnContext?.planSummary?.routeFamily === "artifacts" ||
+          (turnContext?.planSummary?.routeFamily === "research" &&
+            !!toolActivityGroup);
+        const showInlineTranscript = !!turn.prompt && inlineTranscriptRoute;
         const showLiveThinking =
           isLatestTurn &&
           !!turn.prompt &&
@@ -241,7 +275,11 @@ export function ConversationTimeline({
           !turnPlanSummary.artifactGeneration &&
           !turnPlanSummary.computerUsePerception;
         const showExecutionRouteCard =
-          !!turn.prompt && hasPlanSummary && !showLiveThinking && !showInlineStatusCard;
+          !!turn.prompt &&
+          hasPlanSummary &&
+          !showLiveThinking &&
+          !showInlineStatusCard &&
+          !showInlineTranscript;
         const showAssistantPendingBubble =
           isLatestTurn &&
           !!turn.prompt &&
@@ -254,6 +292,7 @@ export function ConversationTimeline({
         const showThoughtTrigger =
           !showExecutionRouteCard &&
           !showInlineStatusCard &&
+          !showInlineTranscript &&
           !!turn.prompt &&
           (showLiveThinking || !!turn.answer);
         const thoughtCount = turnContext?.thoughtCount || 0;
@@ -308,6 +347,19 @@ export function ConversationTimeline({
                 {inlineStatusCard}
               </div>
             )}
+
+            {showInlineTranscript && toolActivityGroup ? (
+              <ToolActivityGroup group={toolActivityGroup} />
+            ) : null}
+
+            {showInlineTranscript &&
+            turnContext?.reasoningDurationLabel &&
+            turnContext.thoughtSummary ? (
+              <ReasoningDisclosure
+                label={turnContext.reasoningDurationLabel}
+                thoughtSummary={turnContext.thoughtSummary}
+              />
+            ) : null}
 
             {showExecutionRouteCard && turnPlanSummary && (
               <>
@@ -409,6 +461,84 @@ export function ConversationTimeline({
 
             {turn.answer &&
               (latestAnswerMatches && runPresentation.finalAnswer ? (
+                showInlineTranscript ? (
+                  <>
+                    <div className="spot-message agent spot-message--inline-answer">
+                      <MarkdownMessage
+                        text={inlineAnswerText(runPresentation.finalAnswer)}
+                      />
+                    </div>
+                    <SourceChipRow
+                      sourceSummary={turnSourceSummary}
+                      onOpenSummary={onOpenSourceSummary}
+                    />
+                  </>
+                ) : (
+                  <AnswerCard
+                    answer={runPresentation.finalAnswer}
+                    sourceSummary={runPresentation.sourceSummary}
+                    sourceDurationLabel={sourceDurationLabel}
+                    onExportTraceBundle={onExportTraceBundle}
+                    onOpenArtifacts={() =>
+                      onOpenArtifactHub(
+                        turnContext?.defaultView ||
+                          (runPresentation.thoughtSummary
+                            ? "thoughts"
+                            : runPresentation.sourceSummary
+                              ? "sources"
+                              : "kernel_logs"),
+                        turnContext?.turnId || null,
+                      )
+                    }
+                    onOpenSources={onOpenSourceSummary}
+                  />
+                )
+              ) : (
+                <>
+                  <div className="spot-message agent spot-message--inline-answer">
+                    <MarkdownMessage text={turn.answer.text} />
+                  </div>
+                  {showInlineTranscript ? (
+                    <SourceChipRow
+                      sourceSummary={turnSourceSummary}
+                      onOpenSummary={onOpenSourceSummary}
+                    />
+                  ) : null}
+                </>
+              ))}
+
+            {showArtifactReplyBubble && inlineArtifactReply ? (
+              <>
+                <div className="spot-message agent spot-message--inline-answer">
+                  <MarkdownMessage text={inlineArtifactReply} />
+                </div>
+                {showInlineTranscript ? (
+                  <SourceChipRow
+                    sourceSummary={turnSourceSummary}
+                    onOpenSummary={onOpenSourceSummary}
+                  />
+                ) : null}
+              </>
+            ) : null}
+
+            {!turn.answer &&
+              showPendingRunAnswer &&
+              runPresentation.finalAnswer &&
+              (showInlineTranscript ? (
+                <>
+                  <div className="spot-message agent spot-message--inline-answer">
+                    <MarkdownMessage
+                      text={inlineAnswerText(runPresentation.finalAnswer)}
+                    />
+                  </div>
+                  <SourceChipRow
+                    sourceSummary={
+                      turnSourceSummary || runPresentation.sourceSummary
+                    }
+                    onOpenSummary={onOpenSourceSummary}
+                  />
+                </>
+              ) : (
                 <AnswerCard
                   answer={runPresentation.finalAnswer}
                   sourceSummary={runPresentation.sourceSummary}
@@ -427,54 +557,16 @@ export function ConversationTimeline({
                   }
                   onOpenSources={onOpenSourceSummary}
                 />
-              ) : (
-                <div className="spot-message agent">
-                  <MarkdownMessage text={turn.answer.text} />
-                </div>
               ))}
-
-            {showArtifactReplyBubble && inlineArtifactReply ? (
-              <div className="spot-message agent">
-                <MarkdownMessage text={inlineArtifactReply} />
-              </div>
-            ) : null}
-
-            {!turn.answer && showPendingRunAnswer && runPresentation.finalAnswer && (
-              <AnswerCard
-                answer={runPresentation.finalAnswer}
-                sourceSummary={runPresentation.sourceSummary}
-                sourceDurationLabel={sourceDurationLabel}
-                onExportTraceBundle={onExportTraceBundle}
-                onOpenArtifacts={() =>
-                  onOpenArtifactHub(
-                    turnContext?.defaultView ||
-                      (runPresentation.thoughtSummary
-                        ? "thoughts"
-                        : runPresentation.sourceSummary
-                          ? "sources"
-                          : "kernel_logs"),
-                    turnContext?.turnId || null,
-                  )
-                }
-                onOpenSources={onOpenSourceSummary}
-              />
-            )}
 
             {turnContext &&
             turnContext.artifacts.length > 0 &&
             onOpenStudioArtifact ? (
-              <section
-                className="spot-conversation-artifacts"
-                aria-label="Turn artifacts"
-              >
-                <div className="spot-conversation-artifacts-head">
-                  <span>Artifacts</span>
-                  <small>
-                    {turnContext.artifacts.length}{" "}
-                    {turnContext.artifacts.length === 1 ? "artifact" : "artifacts"}
-                  </small>
-                </div>
-                <div className="spot-conversation-artifact-list">
+              showInlineTranscript ? (
+                <div
+                  className="spot-inline-artifact-actions"
+                  aria-label="Artifact actions"
+                >
                   {turnContext.artifacts.map((artifact) => {
                     const active =
                       artifact.sessionId === activeStudioArtifactSessionId;
@@ -482,33 +574,72 @@ export function ConversationTimeline({
                       <button
                         key={artifact.key}
                         type="button"
-                        className={`spot-conversation-artifact-card ${
+                        className={`spot-inline-artifact-chip ${
                           active ? "is-active" : ""
                         }`}
                         onClick={() => onOpenStudioArtifact(artifact.sessionId)}
                         aria-pressed={active}
                       >
-                        <span
-                          className="spot-conversation-artifact-icon"
-                          aria-hidden="true"
-                        >
-                          {icons.artifacts}
-                        </span>
-                        <span className="spot-conversation-artifact-copy">
-                          <strong>{artifact.title}</strong>
-                          <span>
-                            {compactArtifactClassLabel(artifact.artifactClass)} ·{" "}
-                            {compactRendererLabel(artifact.renderer)}
-                          </span>
-                        </span>
-                        <span className="spot-conversation-artifact-meta">
-                          {artifactTurnMetaLabel(artifact)}
-                        </span>
+                        <span aria-hidden="true">{icons.artifacts}</span>
+                        <span>{artifact.title}</span>
                       </button>
                     );
                   })}
                 </div>
-              </section>
+              ) : (
+                <section
+                  className="spot-conversation-artifacts"
+                  aria-label="Turn artifacts"
+                >
+                  <div className="spot-conversation-artifacts-head">
+                    <span>Artifacts</span>
+                    <small>
+                      {turnContext.artifacts.length}{" "}
+                      {turnContext.artifacts.length === 1
+                        ? "artifact"
+                        : "artifacts"}
+                    </small>
+                  </div>
+                  <div className="spot-conversation-artifact-list">
+                    {turnContext.artifacts.map((artifact) => {
+                      const active =
+                        artifact.sessionId === activeStudioArtifactSessionId;
+                      return (
+                        <button
+                          key={artifact.key}
+                          type="button"
+                          className={`spot-conversation-artifact-card ${
+                            active ? "is-active" : ""
+                          }`}
+                          onClick={() =>
+                            onOpenStudioArtifact(artifact.sessionId)
+                          }
+                          aria-pressed={active}
+                        >
+                          <span
+                            className="spot-conversation-artifact-icon"
+                            aria-hidden="true"
+                          >
+                            {icons.artifacts}
+                          </span>
+                          <span className="spot-conversation-artifact-copy">
+                            <strong>{artifact.title}</strong>
+                            <span>
+                              {compactArtifactClassLabel(
+                                artifact.artifactClass,
+                              )}{" "}
+                              · {compactRendererLabel(artifact.renderer)}
+                            </span>
+                          </span>
+                          <span className="spot-conversation-artifact-meta">
+                            {artifactTurnMetaLabel(artifact)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )
             ) : null}
           </React.Fragment>
         );

@@ -42,6 +42,13 @@ pub fn playbook_route_contract(playbook_id: &str) -> AgentPlaybookRouteContract 
             verifier_role: Some("artifact_validation_verifier"),
             requires_verifier: true,
         },
+        "research_backed_artifact_gate" => AgentPlaybookRouteContract {
+            route_family: "artifacts",
+            topology: "planner_specialist_verifier",
+            planner_authority: "kernel",
+            verifier_role: Some("artifact_validation_verifier"),
+            requires_verifier: true,
+        },
         _ => AgentPlaybookRouteContract {
             route_family: "general",
             topology: "planner_specialist",
@@ -245,6 +252,66 @@ fn query_requests_artifact_work(query: &str) -> bool {
         ],
     );
     artifact_action && artifact_context
+}
+
+fn query_requests_research_backed_artifact_work(query: &str) -> bool {
+    if !query_requests_artifact_work(query) {
+        return false;
+    }
+
+    let normalized = normalized_query_text(query);
+    let currentness_or_sources = query_contains_any(
+        &normalized,
+        &[
+            " latest ",
+            " recent ",
+            " current ",
+            " today ",
+            " citations ",
+            " cited ",
+            " source ",
+            " sources ",
+            " references ",
+            " compare ",
+            " comparison ",
+            " benchmark ",
+            " trends ",
+            " practices ",
+            " up to date ",
+        ],
+    );
+    let explainer_shape = query_contains_any(
+        &normalized,
+        &[
+            " explain ",
+            " explains ",
+            " explained ",
+            " explainer ",
+            " overview ",
+            " guide ",
+            " primer ",
+            " tutorial ",
+            " introduction ",
+            " basics ",
+        ],
+    );
+    let likely_private_branding = query_contains_any(
+        &normalized,
+        &[
+            " my product ",
+            " our product ",
+            " my startup ",
+            " our startup ",
+            " my company ",
+            " our company ",
+            " marketing site ",
+            " product launch ",
+        ],
+    );
+
+    query_requests_deep_research_work(query)
+        || currentness_or_sources
+        || (explainer_shape && !likely_private_branding)
 }
 
 pub fn builtin_agent_playbooks() -> Vec<AgentPlaybookDefinition> {
@@ -534,6 +601,89 @@ pub fn builtin_agent_playbooks() -> Vec<AgentPlaybookDefinition> {
                 },
             ],
         },
+        AgentPlaybookDefinition {
+            playbook_id: "research_backed_artifact_gate".to_string(),
+            label: "Research-Backed Artifact Gate".to_string(),
+            summary:
+                "Parent playbook for researched artifact work that captures artifact context, gathers fresh source material, then builds and validates the retained deliverable."
+                    .to_string(),
+            goal_template:
+                "Create {topic} as a researched file-backed artifact by first bounding the artifact brief, then gathering current source material, then generating the deliverable, then validating whether the retained output is ready for presentation."
+                    .to_string(),
+            trigger_intents: vec!["delegation.task".to_string()],
+            recommended_for: vec![
+                "Explainer pages, researched HTML artifacts, and citation-sensitive artifact asks where the builder should write from fresh evidence instead of memory."
+                    .to_string(),
+            ],
+            default_budget: 228,
+            completion_contract: WorkerCompletionContract {
+                success_criteria:
+                    "Return the artifact context brief, a retained research handoff, produced artifact files, retained verification signals, and a validation outcome that says whether the artifact is ready or still needs repair."
+                        .to_string(),
+                expected_output:
+                    "Artifact context brief, research handoff, generation handoff, and validation outcome."
+                        .to_string(),
+                merge_mode: WorkerMergeMode::AppendSummaryToParent,
+                verification_hint: Some(
+                    "Parent confirms the builder wrote from the retained research handoff, the output files are preserved, and the validation verdict matches the actual presentation state."
+                        .to_string(),
+                ),
+            },
+            steps: vec![
+                AgentPlaybookStepDefinition {
+                    step_id: "context".to_string(),
+                    label: "Capture artifact context".to_string(),
+                    summary:
+                        "Bound the artifact request with the intended deliverable shape, likely output files, relevant frontend or UX skills, and targeted presentation checks before research or generation begins."
+                            .to_string(),
+                    worker_template_id: "context_worker".to_string(),
+                    worker_workflow_id: "artifact_context_brief".to_string(),
+                    goal_template:
+                        "Inspect available context for {topic}, identify the intended artifact shape, likely output files, relevant frontend or UX skills, and targeted presentation checks, then return a bounded artifact context brief."
+                            .to_string(),
+                    depends_on: Vec::new(),
+                },
+                AgentPlaybookStepDefinition {
+                    step_id: "research".to_string(),
+                    label: "Gather current sources".to_string(),
+                    summary:
+                        "Collect current web or memory evidence that should directly inform the artifact structure, claims, and citations."
+                            .to_string(),
+                    worker_template_id: "researcher".to_string(),
+                    worker_workflow_id: "live_research_brief".to_string(),
+                    goal_template:
+                        "Research {topic} using current web and local memory evidence, then return a cited artifact research handoff with findings, source highlights, freshness notes, and unresolved questions that should shape the artifact."
+                            .to_string(),
+                    depends_on: vec!["context".to_string()],
+                },
+                AgentPlaybookStepDefinition {
+                    step_id: "build".to_string(),
+                    label: "Generate artifact".to_string(),
+                    summary:
+                        "Create or refine the requested artifact using the captured context and retained research handoff, then preserve the important file outputs for the parent."
+                            .to_string(),
+                    worker_template_id: "artifact_builder".to_string(),
+                    worker_workflow_id: "artifact_generate_repair".to_string(),
+                    goal_template:
+                        "Generate or refine {topic} as a researched file-backed artifact using the captured context and retained research handoff, retain the important output files and verification signals, and return a concise handoff with produced_files, verification_signals, presentation_status, repair_status, citations_used, and remaining visual or structural gaps."
+                            .to_string(),
+                    depends_on: vec!["context".to_string(), "research".to_string()],
+                },
+                AgentPlaybookStepDefinition {
+                    step_id: "validation".to_string(),
+                    label: "Validate artifact quality".to_string(),
+                    summary:
+                        "Validate whether the retained researched artifact output is request-faithful, grounded, and presentation-ready or still needs repair."
+                            .to_string(),
+                    worker_template_id: "verifier".to_string(),
+                    worker_workflow_id: "artifact_validation_audit".to_string(),
+                    goal_template:
+                        "Validate whether the generated researched artifact for {topic} is faithful, grounded, and presentation-ready by inspecting the retained files, research handoff, and generation handoff, then return an artifact validation scorecard with verdict, fidelity_status, presentation_status, repair_status, and notes."
+                            .to_string(),
+                    depends_on: vec!["build".to_string()],
+                },
+            ],
+        },
     ]
 }
 
@@ -566,6 +716,9 @@ pub fn recommended_agent_playbook(
                 || query_requests_verification_work(goal) =>
         {
             builtin_agent_playbook(Some("citation_grounded_brief"))
+        }
+        "delegation.task" if query_requests_research_backed_artifact_work(goal) => {
+            builtin_agent_playbook(Some("research_backed_artifact_gate"))
         }
         "delegation.task" if query_requests_artifact_work(goal) => {
             builtin_agent_playbook(Some("artifact_generation_gate"))
@@ -679,7 +832,7 @@ mod tests {
     #[test]
     fn builtin_agent_playbook_catalog_contains_evidence_audited_patch() {
         let playbooks = builtin_agent_playbooks();
-        assert_eq!(playbooks.len(), 4);
+        assert_eq!(playbooks.len(), 5);
         let playbook = playbooks
             .into_iter()
             .find(|entry| entry.playbook_id == "evidence_audited_patch")
@@ -799,6 +952,19 @@ mod tests {
     }
 
     #[test]
+    fn recommends_research_backed_artifact_gate_for_explainer_artifact_task() {
+        let recommendation = recommended_agent_playbook(
+            "Create an html file that explains quantum computers.",
+            Some(&ResolvedIntentState {
+                intent_id: "delegation.task".to_string(),
+                ..workspace_ops_intent()
+            }),
+        )
+        .expect("researched artifact playbook should be recommended");
+        assert_eq!(recommendation.playbook_id, "research_backed_artifact_gate");
+    }
+
+    #[test]
     fn builtin_agent_playbook_catalog_contains_artifact_generation_gate() {
         let playbook = builtin_agent_playbooks()
             .into_iter()
@@ -819,6 +985,29 @@ mod tests {
         assert_eq!(playbook.steps[2].worker_template_id, "verifier");
         assert_eq!(
             playbook.steps[2].worker_workflow_id,
+            "artifact_validation_audit"
+        );
+    }
+
+    #[test]
+    fn builtin_agent_playbook_catalog_contains_research_backed_artifact_gate() {
+        let playbook = builtin_agent_playbooks()
+            .into_iter()
+            .find(|entry| entry.playbook_id == "research_backed_artifact_gate")
+            .expect("research_backed_artifact_gate playbook should exist");
+        assert_eq!(playbook.default_budget, 228);
+        assert_eq!(playbook.steps.len(), 4);
+        assert_eq!(
+            playbook.steps[0].worker_workflow_id,
+            "artifact_context_brief"
+        );
+        assert_eq!(playbook.steps[1].worker_workflow_id, "live_research_brief");
+        assert_eq!(
+            playbook.steps[2].worker_workflow_id,
+            "artifact_generate_repair"
+        );
+        assert_eq!(
+            playbook.steps[3].worker_workflow_id,
             "artifact_validation_audit"
         );
     }
@@ -865,6 +1054,16 @@ mod tests {
                 requires_verifier: true,
             }
         );
+        assert_eq!(
+            playbook_route_contract("research_backed_artifact_gate"),
+            AgentPlaybookRouteContract {
+                route_family: "artifacts",
+                topology: "planner_specialist_verifier",
+                planner_authority: "kernel",
+                verifier_role: Some("artifact_validation_verifier"),
+                requires_verifier: true,
+            }
+        );
     }
 
     #[test]
@@ -885,6 +1084,7 @@ mod tests {
         assert!(rendered.contains("citation_grounded_brief"));
         assert!(rendered.contains("browser_postcondition_gate"));
         assert!(rendered.contains("artifact_generation_gate"));
+        assert!(rendered.contains("research_backed_artifact_gate"));
         assert!(rendered.contains("context_worker/repo_context_brief"));
         assert!(rendered.contains("coder/patch_build_verify"));
         assert!(rendered.contains("verifier/targeted_test_audit"));
@@ -895,5 +1095,6 @@ mod tests {
         assert!(rendered.contains("context_worker/artifact_context_brief"));
         assert!(rendered.contains("artifact_builder/artifact_generate_repair"));
         assert!(rendered.contains("verifier/artifact_validation_audit"));
+        assert!(rendered.contains("researcher/live_research_brief"));
     }
 }

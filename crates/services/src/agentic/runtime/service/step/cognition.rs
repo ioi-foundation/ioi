@@ -958,6 +958,9 @@ fn render_selected_parent_playbook_instruction(
         "artifact_generation_gate" => {
             "Do not materialize the artifact directly from the root session. The context worker shapes the brief, the builder produces the candidate, and the verifier validates whether it is launch-ready."
         }
+        "research_backed_artifact_gate" => {
+            "Do not materialize the researched artifact directly from the root session. The context worker shapes the brief, the research worker gathers current source material, the builder writes from that retained evidence, and the verifier validates whether the retained artifact is launch-ready."
+        }
         "browser_postcondition_gate" => {
             "Do not run the entire UI action loop from the root session. The perception worker captures state, the operator executes the route, and the verifier confirms the postcondition or recovery need."
         }

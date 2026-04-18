@@ -346,3 +346,247 @@ async fn artifact_generation_gate_surfaces_context_generation_and_quality_receip
         Some("warning")
     );
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn research_backed_artifact_gate_threads_research_handoffs_into_build_and_validation() {
+    let (tx, _rx) = tokio::sync::broadcast::channel(64);
+    let (service, _temp_dir) = build_test_service(tx);
+    let mut state = IAVLTree::new(HashCommitmentScheme::new());
+    let topic = "Create an html file that explains quantum computers.";
+
+    let preview_assignment = resolve_worker_assignment(
+        [0x91; 32],
+        21,
+        128,
+        topic,
+        Some("research_backed_artifact_gate"),
+        Some("context_worker"),
+        Some("artifact_context_brief"),
+        None,
+        None,
+        None,
+        None,
+    );
+    seed_runtime_artifact_skill(&service, &mut state, &preview_assignment.goal).await;
+
+    let mut parent_state = build_parent_state_with_goal(topic, 420);
+    let context = spawn_delegated_child_session(
+        &service,
+        &mut state,
+        &mut parent_state,
+        [0x92; 32],
+        topic,
+        256,
+        Some("research_backed_artifact_gate"),
+        Some("context_worker"),
+        Some("artifact_context_brief"),
+        None,
+        None,
+        None,
+        None,
+        21,
+        0,
+    )
+    .await
+    .expect("researched artifact context step should spawn");
+
+    let context_key = get_state_key(&context.child_session_id);
+    let context_bytes = state
+        .get(&context_key)
+        .expect("context state lookup should succeed")
+        .expect("context state should exist");
+    let mut context_state: AgentState =
+        codec::from_bytes_canonical(&context_bytes).expect("context state should decode");
+    context_state.status = AgentStatus::Completed(Some(
+        "- artifact_goal: Educational single-file HTML explainer.\n- likely_output_files: artifacts/quantum.html\n- selected_skills: artifact__frontend_validation_spine\n- verification_plan: Verify claims against cited research and confirm the layout reads clearly on mobile.\n- notes: Keep the visuals approachable and grounded."
+            .to_string(),
+    ));
+    persist_agent_state(
+        &mut state,
+        &context_key,
+        &context_state,
+        service.memory_runtime.as_ref(),
+    )
+    .expect("context state update should persist");
+
+    await_child_worker_result(
+        &service,
+        &mut state,
+        &mut parent_state,
+        22,
+        0,
+        &hex::encode(context.child_session_id),
+    )
+    .await
+    .expect("context merge should advance researched artifact playbook");
+
+    let run_after_context = load_parent_playbook_run(
+        &state,
+        parent_state.session_id,
+        "research_backed_artifact_gate",
+    )
+    .expect("researched artifact playbook lookup should succeed")
+    .expect("researched artifact playbook should exist");
+    assert_eq!(
+        run_after_context.steps[1].status,
+        ParentPlaybookStepStatus::Running
+    );
+    let research_id = run_after_context
+        .active_child_session_id
+        .expect("research worker should be active");
+
+    let research_key = get_state_key(&research_id);
+    let research_bytes = state
+        .get(&research_key)
+        .expect("research state lookup should succeed")
+        .expect("research state should exist");
+    let mut research_state: AgentState =
+        codec::from_bytes_canonical(&research_bytes).expect("research state should decode");
+    assert!(research_state.goal.contains(PARENT_PLAYBOOK_CONTEXT_MARKER));
+    research_state.status = AgentStatus::Completed(Some(
+        "- summary: Quantum computers manipulate qubits using superposition and entanglement.\n- source_highlights: IBM explains qubits and circuits; NIST frames quantum concepts for measurement and security.\n- citations_used: https://www.ibm.com/quantum ; https://www.nist.gov/quantum-information-science\n- freshness_notes: Sources reviewed this session.\n- unresolved_questions: None."
+            .to_string(),
+    ));
+    persist_agent_state(
+        &mut state,
+        &research_key,
+        &research_state,
+        service.memory_runtime.as_ref(),
+    )
+    .expect("research state update should persist");
+
+    await_child_worker_result(
+        &service,
+        &mut state,
+        &mut parent_state,
+        23,
+        0,
+        &hex::encode(research_id),
+    )
+    .await
+    .expect("research merge should advance researched artifact playbook");
+
+    let run_after_research = load_parent_playbook_run(
+        &state,
+        parent_state.session_id,
+        "research_backed_artifact_gate",
+    )
+    .expect("researched artifact playbook lookup should succeed")
+    .expect("researched artifact playbook should exist");
+    assert_eq!(
+        run_after_research.steps[2].status,
+        ParentPlaybookStepStatus::Running
+    );
+    let build_id = run_after_research
+        .active_child_session_id
+        .expect("artifact builder should be active");
+
+    let build_key = get_state_key(&build_id);
+    let build_bytes = state
+        .get(&build_key)
+        .expect("build state lookup should succeed")
+        .expect("build state should exist");
+    let mut build_state: AgentState =
+        codec::from_bytes_canonical(&build_bytes).expect("build state should decode");
+    assert!(build_state.goal.contains(PARENT_PLAYBOOK_CONTEXT_MARKER));
+    assert!(build_state.goal.contains("research_full"));
+    assert!(build_state.goal.contains("https://www.ibm.com/quantum"));
+    build_state.status = AgentStatus::Completed(Some(
+        "- produced_files: artifacts/quantum.html\n- verification_signals: Inline citations included; responsive preview passed.\n- presentation_status: ready\n- repair_status: not_required\n- citations_used: https://www.ibm.com/quantum ; https://www.nist.gov/quantum-information-science\n- remaining_visual_or_structural_gaps: None."
+            .to_string(),
+    ));
+    persist_agent_state(
+        &mut state,
+        &build_key,
+        &build_state,
+        service.memory_runtime.as_ref(),
+    )
+    .expect("build state update should persist");
+
+    await_child_worker_result(
+        &service,
+        &mut state,
+        &mut parent_state,
+        24,
+        0,
+        &hex::encode(build_id),
+    )
+    .await
+    .expect("build merge should advance researched artifact playbook");
+
+    let run_after_build = load_parent_playbook_run(
+        &state,
+        parent_state.session_id,
+        "research_backed_artifact_gate",
+    )
+    .expect("researched artifact playbook lookup should succeed")
+    .expect("researched artifact playbook should exist");
+    assert_eq!(
+        run_after_build.steps[3].status,
+        ParentPlaybookStepStatus::Running
+    );
+    let validation_id = run_after_build
+        .active_child_session_id
+        .expect("artifact validation should be active");
+
+    let validation_key = get_state_key(&validation_id);
+    let validation_bytes = state
+        .get(&validation_key)
+        .expect("validation state lookup should succeed")
+        .expect("validation state should exist");
+    let mut validation_state: AgentState =
+        codec::from_bytes_canonical(&validation_bytes).expect("validation state should decode");
+    assert!(validation_state
+        .goal
+        .contains(PARENT_PLAYBOOK_CONTEXT_MARKER));
+    assert!(validation_state.goal.contains("research_full"));
+    assert!(validation_state.goal.contains("build_full"));
+    validation_state.status = AgentStatus::Completed(Some(
+        "- verdict: passed\n- fidelity_status: faithful\n- presentation_status: ready\n- repair_status: not_required\n- notes: The artifact stays grounded in the research handoff and is ready to present."
+            .to_string(),
+    ));
+    persist_agent_state(
+        &mut state,
+        &validation_key,
+        &validation_state,
+        service.memory_runtime.as_ref(),
+    )
+    .expect("validation state update should persist");
+
+    await_child_worker_result(
+        &service,
+        &mut state,
+        &mut parent_state,
+        25,
+        0,
+        &hex::encode(validation_id),
+    )
+    .await
+    .expect("validation merge should complete researched artifact playbook");
+
+    let parent_completion_output = match &parent_state.status {
+        AgentStatus::Completed(Some(output)) => output.clone(),
+        other => {
+            panic!("expected completed parent state after researched artifact run, got {other:?}")
+        }
+    };
+    assert!(parent_completion_output.contains("Research handoff"));
+    assert!(parent_completion_output.contains("Artifact handoff"));
+    assert!(parent_completion_output.contains("Validation verdict"));
+
+    let final_run = load_parent_playbook_run(
+        &state,
+        parent_state.session_id,
+        "research_backed_artifact_gate",
+    )
+    .expect("final researched artifact playbook lookup should succeed")
+    .expect("final researched artifact playbook should exist");
+    assert_eq!(final_run.status, ParentPlaybookStatus::Completed);
+    assert_eq!(
+        final_run.steps[3]
+            .artifact_quality
+            .as_ref()
+            .map(|scorecard| scorecard.verdict.as_str()),
+        Some("passed")
+    );
+}

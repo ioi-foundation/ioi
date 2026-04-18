@@ -484,6 +484,66 @@ fn query_requests_artifact_work(query: &str) -> bool {
     artifact_action && artifact_context
 }
 
+fn query_requests_research_backed_artifact_work(query: &str) -> bool {
+    if !query_requests_artifact_work(query) {
+        return false;
+    }
+
+    let normalized = normalized_query_text(query);
+    let currentness_or_sources = query_contains_any(
+        &normalized,
+        &[
+            " latest ",
+            " recent ",
+            " current ",
+            " today ",
+            " citations ",
+            " cited ",
+            " source ",
+            " sources ",
+            " references ",
+            " compare ",
+            " comparison ",
+            " benchmark ",
+            " trends ",
+            " practices ",
+            " up to date ",
+        ],
+    );
+    let explainer_shape = query_contains_any(
+        &normalized,
+        &[
+            " explain ",
+            " explains ",
+            " explained ",
+            " explainer ",
+            " overview ",
+            " guide ",
+            " primer ",
+            " tutorial ",
+            " introduction ",
+            " basics ",
+        ],
+    );
+    let likely_private_branding = query_contains_any(
+        &normalized,
+        &[
+            " my product ",
+            " our product ",
+            " my startup ",
+            " our startup ",
+            " my company ",
+            " our company ",
+            " marketing site ",
+            " product launch ",
+        ],
+    );
+
+    query_requests_deep_research_work(query)
+        || currentness_or_sources
+        || (explainer_shape && !likely_private_branding)
+}
+
 fn preferred_agent_playbook_for_intent(query: &str, intent_id: &str) -> Option<&'static str> {
     match intent_id.trim() {
         "workspace.ops" | "delegation.task"
@@ -499,6 +559,9 @@ fn preferred_agent_playbook_for_intent(query: &str, intent_id: &str) -> Option<&
                 || query_requests_verification_work(query) =>
         {
             Some("citation_grounded_brief")
+        }
+        "delegation.task" if query_requests_research_backed_artifact_work(query) => {
+            Some("research_backed_artifact_gate")
         }
         "delegation.task" if query_requests_artifact_work(query) => {
             Some("artifact_generation_gate")
@@ -524,6 +587,7 @@ fn preferred_delegation_template_for_intent(query: &str, intent_id: &str) -> Opt
         Some("citation_grounded_brief") => {
             return Some("researcher");
         }
+        Some("research_backed_artifact_gate") => return Some("context_worker"),
         Some("browser_postcondition_gate") => return Some("perception_worker"),
         Some("artifact_generation_gate") => return Some("context_worker"),
         _ => {}
@@ -555,6 +619,9 @@ fn preferred_delegation_workflow_for_intent(
         }
         Some("citation_grounded_brief") if template_id.trim() == "verifier" => {
             return Some("citation_audit");
+        }
+        Some("research_backed_artifact_gate") if template_id.trim() == "context_worker" => {
+            return Some("artifact_context_brief");
         }
         Some("browser_postcondition_gate") if template_id.trim() == "perception_worker" => {
             return Some("ui_state_brief");
@@ -1208,6 +1275,42 @@ mod tests {
         assert_eq!(
             playbook_binding.value.as_deref(),
             Some("artifact_generation_gate")
+        );
+        let template_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "template_id")
+            .expect("artifact context template binding should be added");
+        assert_eq!(template_binding.value.as_deref(), Some("context_worker"));
+        let workflow_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "workflow_id")
+            .expect("artifact workflow binding should be added");
+        assert_eq!(
+            workflow_binding.value.as_deref(),
+            Some("artifact_context_brief")
+        );
+    }
+
+    #[test]
+    fn seeds_research_backed_artifact_playbook_for_explainer_artifact_task() {
+        let mut contract = InstructionContract::default();
+
+        finalize_instruction_contract(
+            "Create an html file that explains quantum computers.",
+            "delegation.task",
+            &mut contract,
+        );
+
+        let playbook_binding = contract
+            .slot_bindings
+            .iter()
+            .find(|binding| binding.slot == "playbook_id")
+            .expect("researched artifact playbook binding should be added");
+        assert_eq!(
+            playbook_binding.value.as_deref(),
+            Some("research_backed_artifact_gate")
         );
         let template_binding = contract
             .slot_bindings

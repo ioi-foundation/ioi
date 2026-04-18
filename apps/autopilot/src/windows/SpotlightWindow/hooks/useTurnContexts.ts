@@ -10,8 +10,15 @@ import type {
   ChatMessage,
   ExecutionMoment,
   RunPresentation,
+  SourceSummary,
+  ThoughtSummary,
+  ToolActivityGroupPresentation,
 } from "../../../types";
 import type { StudioConversationArtifactEntry } from "../components/studioArtifactConversationModel";
+import {
+  buildReasoningDurationLabel,
+  buildTurnToolActivityGroup,
+} from "../components/conversationTranscriptModel";
 import { collectStudioConversationArtifacts } from "../components/studioArtifactConversationModel";
 import { collectScreenshotReceipts } from "../utils/screenshotEvidence";
 import {
@@ -24,8 +31,11 @@ import {
   eventBelongsToTurnWindow,
 } from "../utils/turnWindows";
 import {
+  buildActivityGroups,
   buildExecutionMoments,
   buildPlanSummary,
+  buildSourceSummary,
+  buildThoughtSummary,
 } from "../viewmodels/contentPipeline.summaries";
 
 export type ConversationTurn = SessionConversationTurn<ChatMessage>;
@@ -35,6 +45,10 @@ export type TurnContext = SessionTurnContext<
   ArtifactHubViewKey
 > & {
   artifacts: StudioConversationArtifactEntry[];
+  sourceSummary: SourceSummary | null;
+  thoughtSummary: ThoughtSummary | null;
+  toolActivityGroup: ToolActivityGroupPresentation | null;
+  reasoningDurationLabel: string | null;
 };
 
 type UseTurnContextsOptions = {
@@ -119,14 +133,32 @@ export function useTurnContexts({
 
   const turnContexts = base.turnContexts.map((context, index) => {
     const turn = base.conversationTurns[index] || null;
-    const window = turn?.prompt ? eventTurnWindows[promptOrdinal++] || null : null;
+    const window = turn?.prompt
+      ? eventTurnWindows[promptOrdinal++] || null
+      : null;
     const windowEvents = window
       ? activeEvents.filter((event) => eventBelongsToTurnWindow(event, window))
       : [];
+    const activityRefs = toActivityEventRefs(windowEvents);
+    const sourceSummary = buildSourceSummary(activityRefs);
+    const thoughtSummary = buildThoughtSummary(
+      buildActivityGroups(activityRefs),
+    );
+    const artifacts = collectStudioConversationArtifacts(windowEvents);
 
     return {
       ...context,
-      artifacts: collectStudioConversationArtifacts(windowEvents),
+      artifacts,
+      sourceSummary,
+      thoughtSummary,
+      toolActivityGroup: buildTurnToolActivityGroup(
+        activityRefs,
+        context.planSummary,
+        artifacts,
+      ),
+      reasoningDurationLabel: turn?.prompt
+        ? buildReasoningDurationLabel(activityRefs, turn.prompt.timestamp)
+        : null,
     };
   });
 

@@ -80,14 +80,24 @@ export function buildSourceSummary(
     if (entry.kind !== "workload_event" && entry.kind !== "receipt_event")
       continue;
     const normalizedTool = (entry.toolName || "").trim().toLowerCase();
-    if (
-      !normalizedTool.includes(WEB_SEARCH_TOOL) &&
-      !normalizedTool.includes(WEB_READ_TOOL)
-    ) {
+    const bundle = parseWebBundle(entry.event);
+    const receiptKind = toValueString(entry.event.digest?.kind)
+      .trim()
+      .toLowerCase();
+    const isSearchEvent =
+      normalizedTool.includes(WEB_SEARCH_TOOL) ||
+      (!!bundle?.query && !bundle?.url) ||
+      (receiptKind === "web_retrieve" &&
+        toValueString(entry.event.details?.query).trim().length > 0);
+    const isReadEvent =
+      normalizedTool.includes(WEB_READ_TOOL) ||
+      !!bundle?.url ||
+      (receiptKind === "web_retrieve" &&
+        toValueString(entry.event.details?.url).trim().length > 0);
+    if (!isSearchEvent && !isReadEvent) {
       continue;
     }
 
-    const bundle = parseWebBundle(entry.event);
     const sourceCandidateUrls =
       bundle?.sources.map((source) => source.url) ||
       extractUrls(eventOutput(entry.event));
@@ -95,18 +105,22 @@ export function buildSourceSummary(
       includeSourceUrl(url, sourceUrls, domainCounts);
     }
 
-    if (normalizedTool.includes(WEB_SEARCH_TOOL)) {
+    if (isSearchEvent) {
       searches.push({
-        query: bundle?.query || "web search",
+        query:
+          bundle?.query ||
+          toValueString(entry.event.details?.query).trim() ||
+          "web search",
         resultCount: sourceCandidateUrls.length,
         stepIndex: entry.event.step_index,
       });
       continue;
     }
 
-    if (normalizedTool.includes(WEB_READ_TOOL)) {
+    if (isReadEvent) {
       const readUrl = firstStringValue(
         bundle?.url,
+        entry.event.details?.url,
         bundle?.documents[0]?.url,
         bundle?.sources[0]?.url,
         sourceCandidateUrls[0],
@@ -484,10 +498,14 @@ function thoughtAgentKind(
     if (candidateKeys.some((value) => VERIFIER_AGENT_KEYS.has(value))) {
       return "verifier";
     }
-    if (candidateKeys.some((value) => PATCH_SYNTHESIZER_AGENT_KEYS.has(value))) {
+    if (
+      candidateKeys.some((value) => PATCH_SYNTHESIZER_AGENT_KEYS.has(value))
+    ) {
       return "patch_synthesizer";
     }
-    if (candidateKeys.some((value) => ARTIFACT_GENERATOR_AGENT_KEYS.has(value))) {
+    if (
+      candidateKeys.some((value) => ARTIFACT_GENERATOR_AGENT_KEYS.has(value))
+    ) {
       return "artifact_generator";
     }
     if (
@@ -1328,9 +1346,7 @@ export function buildPlanSummary(
 function joinHumanizedList(values: string[]): string {
   const unique = Array.from(
     new Set(
-      values
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0),
+      values.map((value) => value.trim()).filter((value) => value.length > 0),
     ),
   );
   if (unique.length === 0) return "";
@@ -1397,7 +1413,9 @@ function verifierMomentStatus(
   }
 }
 
-function latestVerifierEntry(events: ActivityEventRef[]): ActivityEventRef | null {
+function latestVerifierEntry(
+  events: ActivityEventRef[],
+): ActivityEventRef | null {
   return [...events].reverse().find(isVerifierEntry) || null;
 }
 
@@ -1519,10 +1537,15 @@ export function buildExecutionMoments(
     .filter((value): value is string => !!value);
   const branchSessionIds = new Set(
     branchEntries
-      .map((entry) => stringFromRecord(detailsRecord(entry), "child_session_id"))
+      .map((entry) =>
+        stringFromRecord(detailsRecord(entry), "child_session_id"),
+      )
       .filter((value): value is string => !!value),
   );
-  const branchCount = Math.max(branchSessionIds.size, planSummary?.branchCount || 0);
+  const branchCount = Math.max(
+    branchSessionIds.size,
+    planSummary?.branchCount || 0,
+  );
   if (branchCount > 0) {
     const branchSummary = branchLabels.length
       ? branchCount === 1
@@ -1535,7 +1558,9 @@ export function buildExecutionMoments(
       status: "info",
       stepIndex: branchEntries[0]?.event.step_index || 0,
       title:
-        branchCount === 1 ? "Opened worker branch" : `Opened ${branchCount} worker branches`,
+        branchCount === 1
+          ? "Opened worker branch"
+          : `Opened ${branchCount} worker branches`,
       summary: branchSummary,
     });
   }
@@ -1544,14 +1569,18 @@ export function buildExecutionMoments(
     [...events]
       .reverse()
       .find(
-        (entry) => entryApprovalState(entry) !== null || routeEventHasApprovalSignal(entry),
+        (entry) =>
+          entryApprovalState(entry) !== null ||
+          routeEventHasApprovalSignal(entry),
       ) || null;
   const approvalState =
     (latestApprovalEntry
       ? entryApprovalState(latestApprovalEntry) ||
         (routeEventHasApprovalSignal(latestApprovalEntry) ? "pending" : null)
       : null) ||
-    (planSummary?.approvalState !== "clear" ? planSummary?.approvalState : null);
+    (planSummary?.approvalState !== "clear"
+      ? planSummary?.approvalState
+      : null);
   const approvalSummary =
     firstStringValue(
       latestApprovalEntry ? eventPauseNarrative(latestApprovalEntry) : null,
@@ -1582,7 +1611,8 @@ export function buildExecutionMoments(
           : approvalState === "denied"
             ? "Approval denied"
             : "Approval required",
-      summary: approvalSummary || "Approval state changed for the selected route.",
+      summary:
+        approvalSummary || "Approval state changed for the selected route.",
     });
   }
 
@@ -1623,12 +1653,14 @@ export function buildExecutionMoments(
   };
 
   return moments
-    .filter((moment, index, list) =>
-      list.findIndex((candidate) => candidate.key === moment.key) === index,
+    .filter(
+      (moment, index, list) =>
+        list.findIndex((candidate) => candidate.key === moment.key) === index,
     )
     .sort(
       (left, right) =>
-        left.stepIndex - right.stepIndex || kindOrder[left.kind] - kindOrder[right.kind],
+        left.stepIndex - right.stepIndex ||
+        kindOrder[left.kind] - kindOrder[right.kind],
     );
 }
 

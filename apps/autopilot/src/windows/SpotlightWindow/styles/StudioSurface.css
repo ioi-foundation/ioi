@@ -31,8 +31,7 @@
   overflow: hidden;
   border-right: 1px solid var(--spot-border-subtle);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 18%),
-    #252525;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 18%), #252525;
 }
 
 .spot-studio-conversation-shell-item {
@@ -60,11 +59,17 @@
 }
 
 .spot-studio-shell.is-artifact-open {
-  grid-template-columns: clamp(264px, 19vw, 294px) minmax(0, 1fr) minmax(50%, 1fr);
+  grid-template-columns: clamp(264px, 19vw, 294px) minmax(0, 1fr) minmax(
+      50%,
+      1fr
+    );
 }
 
 .spot-studio-shell.is-artifact-menu-open {
-  grid-template-columns: clamp(264px, 19vw, 294px) minmax(0, 1fr) minmax(300px, 360px);
+  grid-template-columns: clamp(264px, 19vw, 294px) minmax(0, 1fr) minmax(
+      300px,
+      360px
+    );
 }
 
 .spot-studio-shell.is-artifact-collapsed {
@@ -366,8 +371,15 @@
   flex: 1 1 0;
   min-height: 0;
   height: auto;
-  padding-top: 18px;
-  padding-bottom: 18px;
+  padding-top: 56px;
+  padding-bottom: 24px;
+}
+
+.spot-studio-conversation:not(.is-empty) .spot-chat,
+.spot-studio-conversation:not(.is-empty) > .spot-gate-dock,
+.spot-studio-conversation:not(.is-empty) > .spot-input-section {
+  --spot-content-lane-template: minmax(20px, 1fr) minmax(0, 44rem)
+    minmax(20px, 1fr);
 }
 
 .spot-studio-conversation.is-empty {
@@ -379,7 +391,8 @@
   overflow: visible;
   padding: clamp(28px, 7vh, 84px) 0 18px;
   align-content: end;
-  --spot-content-lane-template: minmax(24px, 1fr) minmax(0, 760px) minmax(24px, 1fr);
+  --spot-content-lane-template: minmax(24px, 1fr) minmax(0, 760px)
+    minmax(24px, 1fr);
 }
 
 .spot-studio-conversation.is-empty .spot-chat > * {
@@ -406,7 +419,8 @@
 
 .spot-studio-conversation.is-empty > .spot-gate-dock,
 .spot-studio-conversation.is-empty > .spot-input-section {
-  --spot-content-lane-template: minmax(24px, 1fr) minmax(0, 760px) minmax(24px, 1fr);
+  --spot-content-lane-template: minmax(24px, 1fr) minmax(0, 760px)
+    minmax(24px, 1fr);
 }
 
 .spot-studio-conversation.is-empty > .spot-input-section {
@@ -417,7 +431,8 @@
 .spot-studio-shell.is-artifact-collapsed .spot-chat,
 .spot-studio-shell.is-artifact-collapsed .spot-input-section,
 .spot-studio-shell.is-artifact-collapsed .spot-gate-dock {
-  --spot-content-lane-template: minmax(24px, 40px) minmax(0, 1fr) minmax(24px, 40px);
+  --spot-content-lane-template: minmax(24px, 40px) minmax(0, 1fr)
+    minmax(24px, 40px);
 }
 
 .spot-studio-shell.is-artifact-collapsed .spot-chat > * {
@@ -1357,7 +1372,8 @@
   gap: 8px;
 }
 
-.studio-artifact-source-breadcrumb + .studio-artifact-source-breadcrumb::before {
+.studio-artifact-source-breadcrumb
+  + .studio-artifact-source-breadcrumb::before {
   content: "›";
   color: #596273;
   margin-right: 8px;

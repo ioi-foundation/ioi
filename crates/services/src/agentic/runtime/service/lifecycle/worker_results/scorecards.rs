@@ -94,7 +94,10 @@ pub(crate) fn build_artifact_generation_summary(
     step_idx: usize,
     result: &WorkerSessionResult,
 ) -> Option<ArtifactGenerationSummary> {
-    if run.playbook_id.trim() != "artifact_generation_gate" {
+    if !matches!(
+        run.playbook_id.trim(),
+        "artifact_generation_gate" | "research_backed_artifact_gate"
+    ) {
         return None;
     }
     let step = playbook.steps.get(step_idx)?;
@@ -171,7 +174,10 @@ pub(crate) fn build_artifact_quality_scorecard(
     step_idx: usize,
     result: &WorkerSessionResult,
 ) -> Option<ArtifactQualityScorecard> {
-    if run.playbook_id.trim() != "artifact_generation_gate" {
+    if !matches!(
+        run.playbook_id.trim(),
+        "artifact_generation_gate" | "research_backed_artifact_gate"
+    ) {
         return None;
     }
     let step = playbook.steps.get(step_idx)?;
@@ -240,7 +246,10 @@ pub(crate) fn build_artifact_repair_summary(
     step_idx: usize,
     result: &WorkerSessionResult,
 ) -> Option<ArtifactRepairSummary> {
-    if run.playbook_id.trim() != "artifact_generation_gate" {
+    if !matches!(
+        run.playbook_id.trim(),
+        "artifact_generation_gate" | "research_backed_artifact_gate"
+    ) {
         return None;
     }
     let step = playbook.steps.get(step_idx)?;

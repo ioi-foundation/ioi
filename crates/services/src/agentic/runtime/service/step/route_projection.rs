@@ -118,8 +118,10 @@ fn artifact_output_intent(
     current_tool_name: &str,
 ) -> bool {
     route_family.eq_ignore_ascii_case("artifacts")
-        || playbook_slot_value_opt(resolved_intent, "playbook_id")
-            .is_some_and(|playbook_id| playbook_id.eq_ignore_ascii_case("artifact_generation_gate"))
+        || playbook_slot_value_opt(resolved_intent, "playbook_id").is_some_and(|playbook_id| {
+            playbook_id.eq_ignore_ascii_case("artifact_generation_gate")
+                || playbook_id.eq_ignore_ascii_case("research_backed_artifact_gate")
+        })
         || tool_name_has_prefix(current_tool_name, &["media__", "visualize__"])
 }
 
