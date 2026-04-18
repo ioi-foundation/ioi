@@ -824,7 +824,7 @@ async fn invalid_tool_repair_prefers_fast_runtime_before_reasoning() {
                 )
             })
             .name_string(),
-        "filesystem__patch"
+        "file__edit"
     );
     assert!(repair
         .verification_checks

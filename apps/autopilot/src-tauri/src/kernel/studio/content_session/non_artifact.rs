@@ -97,7 +97,7 @@ fn non_artifact_swarm_plan(outcome_request: &StudioOutcomeRequest) -> SwarmPlan 
         prune_conditions: vec![
             "Prune clarification work once the reply handoff is already unblocked.".to_string(),
         ],
-        merge_strategy: Some("deterministic_reply_surface_projection".to_string()),
+        merge_strategy: Some("typed_reply_surface_projection".to_string()),
         verification_strategy: Some("route_truth_before_reply".to_string()),
         fallback_collapse_strategy: Some(
             "Collapse to the reply handoff once clarification obligations are satisfied."
@@ -548,12 +548,12 @@ fn non_artifact_materialization_contract(
         swarm_merge_receipts: Vec::new(),
         swarm_verification_receipts,
         render_evaluation: None,
-        judge: None,
+        validation: None,
         output_origin: Some(output_origin_from_runtime_provenance(provenance)),
         production_provenance: Some(provenance.clone()),
         acceptance_provenance: Some(provenance.clone()),
         fallback_used: false,
-        ux_lifecycle: Some(StudioArtifactUxLifecycle::Judged),
+        ux_lifecycle: Some(StudioArtifactUxLifecycle::Validated),
         failure: None,
         navigator_nodes: Vec::new(),
         file_writes: Vec::new(),
@@ -1185,7 +1185,7 @@ pub(in crate::kernel::studio) fn attach_non_artifact_studio_session(
         retrieved_exemplars: Vec::new(),
         selected_targets: Vec::new(),
         widget_state: domain_policy_bundle.retained_widget_state.clone(),
-        ux_lifecycle: Some(StudioArtifactUxLifecycle::Judged),
+        ux_lifecycle: Some(StudioArtifactUxLifecycle::Validated),
         created_at: created_at.clone(),
         updated_at: created_at,
         build_session_id: None,

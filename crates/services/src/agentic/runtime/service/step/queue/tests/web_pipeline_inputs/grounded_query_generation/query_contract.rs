@@ -98,12 +98,11 @@ fn web_pipeline_select_query_contract_drops_probe_term_inflation_from_retrieval_
 
 #[test]
 fn web_pipeline_select_query_contract_prefers_runtime_scope_over_probe_expansion() {
-    std::env::set_var("IOI_SESSION_LOCALITY", "Anderson, SC");
-    let selected = select_web_pipeline_query_contract(
+    let selected = select_web_pipeline_query_contract_with_locality_hint(
         "What's the weather like right now?",
         "weather current conditions temperature humidity wind in Anderson, SC \"Anderson, SC\" \"observed now\"",
+        Some("Anderson, SC"),
     );
-    std::env::remove_var("IOI_SESSION_LOCALITY");
     assert_eq!(
         selected,
         "What's the weather like right now in Anderson, SC?"

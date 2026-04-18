@@ -19,7 +19,7 @@ pub(super) fn emit_studio_swarm_generation_progress(
     verification_status: &str,
     current_step: impl Into<String>,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-    judge: Option<&StudioArtifactJudgeResult>,
+    validation: Option<&StudioArtifactValidationResult>,
 ) {
     let Some(observer) = observer else {
         return;
@@ -72,7 +72,7 @@ pub(super) fn emit_studio_swarm_generation_progress(
         swarm_merge_receipts: merge_receipts.to_vec(),
         swarm_verification_receipts: verification_receipts.to_vec(),
         render_evaluation: render_evaluation.cloned(),
-        judge: judge.cloned(),
+        validation: validation.cloned(),
         runtime_narration_events: Vec::new(),
     });
 }
@@ -293,7 +293,7 @@ pub(super) fn studio_swarm_skip_summary_for_html_work_item(
         && production_provenance == StudioRuntimeProvenanceKind::RealLocalRuntime
     {
         return Some(
-            "The merged local HTML artifact now goes straight to judging; keep integrator reserve for targeted repair only."
+            "The merged local HTML artifact now goes straight to validation; keep integrator reserve for targeted repair only."
                 .to_string(),
         );
     }

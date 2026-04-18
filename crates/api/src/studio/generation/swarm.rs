@@ -97,13 +97,11 @@ pub(super) fn studio_swarm_soft_validation_error(error: &str) -> bool {
     .any(|needle| error.contains(needle))
 }
 
-pub(super) fn judge_classification_id(
-    classification: StudioArtifactJudgeClassification,
-) -> &'static str {
+pub(super) fn validation_status_id(classification: StudioArtifactValidationStatus) -> &'static str {
     match classification {
-        StudioArtifactJudgeClassification::Pass => "pass",
-        StudioArtifactJudgeClassification::Repairable => "repairable",
-        StudioArtifactJudgeClassification::Blocked => "blocked",
+        StudioArtifactValidationStatus::Pass => "pass",
+        StudioArtifactValidationStatus::Repairable => "repairable",
+        StudioArtifactValidationStatus::Blocked => "blocked",
     }
 }
 

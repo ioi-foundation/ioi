@@ -305,6 +305,11 @@ pub(crate) fn collect_projection_candidate_urls_with_contract_and_locality_hint(
 
     let local_business_entity_diversity_flow =
         retrieval_contract_entity_diversity_required(retrieval_contract, query_contract);
+    let local_business_menu_surface_required = query_requires_local_business_menu_surface(
+        query_contract,
+        retrieval_contract,
+        projection.locality_scope.as_deref(),
+    );
     let preserve_local_business_seed = |candidate: &CandidateRecord| {
         local_business_entity_diversity_flow
             && !candidate.low_priority
@@ -312,13 +317,68 @@ pub(crate) fn collect_projection_candidate_urls_with_contract_and_locality_hint(
                 .affordances
                 .contains(&RetrievalAffordanceKind::DiscoveryExpansionSeedRead)
     };
+    let local_business_direct_detail_candidate = |candidate: &CandidateRecord| {
+        if !local_business_entity_diversity_flow
+            || candidate.low_priority
+            || !candidate
+                .affordances
+                .contains(&RetrievalAffordanceKind::DirectCitationRead)
+        {
+            return false;
+        }
+
+        let source = PendingSearchReadSummary {
+            url: candidate.url.clone(),
+            title: (!candidate.title.trim().is_empty()).then(|| candidate.title.clone()),
+            excerpt: candidate.excerpt.clone(),
+        };
+        let menu_bearing_detail_excerpt = candidate
+            .excerpt
+            .to_ascii_lowercase()
+            .contains(" on the menu")
+            || candidate
+                .excerpt
+                .to_ascii_lowercase()
+                .contains("menu specials")
+            || candidate
+                .excerpt
+                .to_ascii_lowercase()
+                .contains("menu classics")
+            || candidate
+                .excerpt
+                .to_ascii_lowercase()
+                .contains("menu items")
+            || candidate.excerpt.to_ascii_lowercase().contains("dinner menu")
+            || candidate.excerpt.to_ascii_lowercase().contains("lunch menu")
+            || candidate.excerpt.to_ascii_lowercase().contains("brunch menu");
+
+        local_business_target_name_from_source(&source, projection.locality_scope.as_deref())
+            .is_some()
+            && local_business_scope_matches_source(
+                projection.locality_scope.as_deref(),
+                &candidate.url,
+                &candidate.title,
+                &candidate.excerpt,
+            )
+            && (!local_business_menu_surface_required
+                || local_business_menu_surface_url(&candidate.url)
+                || local_business_menu_inventory_excerpt(
+                    &candidate.excerpt,
+                    candidate.excerpt.chars().count(),
+                )
+                .is_some()
+                || menu_bearing_detail_excerpt)
+    };
     let strict_quality_candidate = |candidate: &CandidateRecord| {
-        compatibility_passes_projection(&projection, &candidate.compatibility) && !candidate.low_priority
+        (compatibility_passes_projection(&projection, &candidate.compatibility)
+            || local_business_direct_detail_candidate(candidate))
+            && !candidate.low_priority
     };
     let strict_or_seed_candidate =
         |candidate: &CandidateRecord| strict_quality_candidate(candidate) || preserve_local_business_seed(candidate);
     let compatible_or_seed_candidate = |candidate: &CandidateRecord| {
         compatibility_passes_projection(&projection, &candidate.compatibility)
+            || local_business_direct_detail_candidate(candidate)
             || preserve_local_business_seed(candidate)
     };
 

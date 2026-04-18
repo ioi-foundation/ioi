@@ -1,36 +1,129 @@
 # Runtime Agent Service
 
-The `RuntimeAgentService` is the "Brain" of the local User Node. It manages the lifecycle of autonomous tasks, maintaining the state (memory, history, goals) across blocks.
+The runtime under `crates/services/src/agentic/runtime` is the durable execution
+engine for desktop-agent sessions. It owns:
 
-## Session Lifecycle
+- session lifecycle: `start@v1`, `step@v1`, `resume@v1`, `post_message@v1`
+- canonical pending-action resume state
+- approval, PII, and policy enforcement
+- execution queue dispatch and verification receipts
+- delegation and worker-result lifecycle
+- transcript continuity and state persistence
 
-An agent session follows a strict state machine:
+The goal of the runtime is not to look simple. The goal is to keep the hard
+behavior explicit, testable, and easy to trace.
 
-1.  **`start@v1`**:
-    *   Initializes a new session with a `goal` and `budget`.
-    *   Creates the initial `AgentState` in the blockchain state.
-    *   Logs the user's prompt into the history.
+## Runtime Shape
 
-2.  **`step@v1`**:
-    *   The "Heartbeat" of the agent. Called repeatedly by the `AgentDriver` background task.
-    *   **Observe:** Captures the screen and accessibility tree (via `GuiDriver`).
-    *   **Think:** Sends the context + history to the Inference Engine (e.g., GPT-4 or Local Llama).
-    *   **Act:** Parses the tool call (e.g., `browser__navigate`) from the response.
-    *   **Firewall:** Passes the action to the **Agency Firewall**. If blocked, the step fails or pauses.
-    *   **Execute:** If allowed, executes the action via hardware drivers.
-    *   **Record:** Saves the `StepTrace` (Input -> Thought -> Action -> Result) to the chain state.
+### State model
 
-3.  **`resume@v1`**:
-    *   Used when an agent is `Paused` (e.g., waiting for user approval on a dangerous action).
-    *   Takes a signed `ApprovalToken` from the user.
-    *   Unblocks the agent, allowing it to retry the action that triggered the pause.
+`types.rs` is the source of truth for durable runtime state.
 
-## State Management (`types.rs`)
+Important invariants:
 
-The service persists the agent's cognition in the state tree:
+- `AgentState` remains the persisted session record.
+- pending resume metadata is grouped through `PendingActionState`.
+- pause legality is classified through `AgentPauseReason`.
+- callers should derive wait and retry behavior from typed helpers such as:
+  `pending_action_state()`, `pause_reason()`, `is_waiting_for_approval()`,
+  `is_waiting_for_sudo_password()`, and related predicates.
 
-*   **`AgentState`**:
-    *   `history`: A list of `ChatMessage` (User/Assistant/System) objects.
-    *   `short_term_memory`: Recent observations.
-    *   `long_term_memory`: References to runtime archival-memory records and embeddings.
-    *   `status`: Running, Paused, Completed, Failed.
+If a new runtime feature needs more lifecycle state, prefer extending a typed
+substructure or helper API instead of adding more top-level scalar fields.
+
+### Step path
+
+`service/step/mod.rs` is the public entrypoint and should stay a thin
+orchestrator.
+
+The main phase seams are:
+
+- `step/clarification.rs`
+- `step/pending_resume.rs`
+- `step/direct_inline.rs`
+- `step/playbook.rs`
+- `step/orchestration.rs`
+- `step/queue/processing/*`
+
+The intent is that `handle_step` reads like a runtime script, while branch-heavy
+behavior lives behind focused modules with seam-specific tests.
+
+### Lifecycle path
+
+Lifecycle responsibilities are intentionally split:
+
+- `service/lifecycle/handlers/*` owns start, resume, post-message, and delete
+  session entrypoints
+- `service/lifecycle/delegation/*` owns child goal shaping, prep, and bootstrap
+- `service/lifecycle/worker_results/*` owns await and merge behavior
+
+Parent/child legality should be traceable without scanning a single monolithic
+file.
+
+## Validation
+
+For a fast runtime-focused local gate, run:
+
+```bash
+./scripts/check-agent-runtime.sh
+```
+
+That script runs the minimum checks we expect before landing runtime cleanup
+work:
+
+- `cargo check -p ioi-api`
+- `cargo check -p ioi-services`
+- focused runtime seam tests
+- `pii_hard_gates` integration coverage
+
+For a fuller pass, run:
+
+```bash
+cargo test -p ioi-services --lib
+cargo test -p ioi-services --test envelope_integration
+cargo test -p ioi-services --test pii_hard_gates
+```
+
+The live timer-planner harness remains valuable but is intentionally separate
+from the lightweight local gate:
+
+```bash
+cargo test -p ioi-services --test timer_planner_live_e2e
+```
+
+## Maintainability Guardrails
+
+Use these as review rules for runtime changes:
+
+- No new top-level `AgentState` scalars without a strong reason.
+- No new non-test hot-path `unwrap()` in runtime lifecycle or execution code.
+- New pause or resume paths must use typed pause or pending-state helpers.
+- New receipt or verification markers should use typed helpers where available
+  before falling back to raw strings.
+- Keep public orchestration entrypoints thin and push branch-heavy logic into
+  focused submodules.
+- Add a seam-level test when introducing a new lifecycle branch.
+
+Guidance budgets for hotspot entrypoints:
+
+- `service/step/mod.rs`: target under 900 lines
+- `service/step/queue/processing/mod.rs`: target under 800 lines
+- `service/lifecycle/delegation.rs`: target under 1000 lines
+- `service/lifecycle/handlers.rs`: target under 300 lines
+
+These are not hard bans, but crossing them should trigger an explicit cleanup
+conversation.
+
+## Practical Editing Notes
+
+- Use `timestamp_ms_now()` and `timestamp_secs_now()` instead of repeating
+  `SystemTime` plumbing in hot paths.
+- Prefer the typed pause helpers over matching on `AgentStatus::Paused` message
+  text.
+- Prefer typed receipt helpers in `step/action/support.rs` for core execution
+  markers.
+- Keep state persistence and transcript writes close to the lifecycle edge so
+  invariants stay obvious.
+
+When in doubt, optimize for traceability over cleverness. A runtime branch that
+looks slightly repetitive but is easy to audit is often the better choice.

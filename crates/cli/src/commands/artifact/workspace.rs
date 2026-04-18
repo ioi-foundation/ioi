@@ -1,6 +1,6 @@
 use ioi_api::studio::{
-    judge_studio_artifact_candidate_with_runtime, plan_studio_artifact_brief_with_runtime,
-    plan_studio_artifact_edit_intent_with_runtime, StudioArtifactBrief, StudioArtifactEditIntent,
+    plan_studio_artifact_brief_with_runtime, plan_studio_artifact_edit_intent_with_runtime,
+    validate_studio_artifact_candidate_with_runtime, StudioArtifactBrief, StudioArtifactEditIntent,
     StudioArtifactGenerationBundle, StudioArtifactRefinementContext, StudioArtifactUxLifecycle,
     StudioGeneratedArtifactFile, StudioGeneratedArtifactPayload,
 };
@@ -56,7 +56,7 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
     };
     let winner =
         materialize_workspace_artifact_payload(title, request, &brief, edit_intent.as_ref());
-    let judge = judge_studio_artifact_candidate_with_runtime(
+    let validation = validate_studio_artifact_candidate_with_runtime(
         acceptance_runtime.clone(),
         title,
         request,
@@ -90,7 +90,7 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
         raw_output_preview: None,
         convergence: None,
         render_evaluation: None,
-        judge: judge.clone(),
+        validation: validation.clone(),
     };
 
     Ok(StudioArtifactGenerationBundle {
@@ -101,7 +101,7 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
         edit_intent,
         candidate_summaries: vec![summary],
         winning_candidate_id: Some(candidate_id),
-        winning_candidate_rationale: Some(judge.rationale.clone()),
+        winning_candidate_rationale: Some(validation.rationale.clone()),
         execution_envelope: None,
         swarm_plan: None,
         swarm_execution: None,
@@ -111,14 +111,14 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
         swarm_verification_receipts: Vec::new(),
         winner,
         render_evaluation: None,
-        judge,
+        validation,
         origin,
         production_provenance,
         acceptance_provenance,
         runtime_policy: None,
         adaptive_search_budget: None,
         fallback_used: false,
-        ux_lifecycle: StudioArtifactUxLifecycle::Judged,
+        ux_lifecycle: StudioArtifactUxLifecycle::Validated,
         taste_memory: refinement.and_then(|context| context.taste_memory.clone()),
         failure: None,
     })

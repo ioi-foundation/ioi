@@ -2,7 +2,8 @@ use crate::models::{
     StudioArtifactLifecycleState, StudioOutcomeArtifactRequest, StudioRendererKind,
 };
 use ioi_api::studio::{
-    StudioArtifactJudgeResult, StudioArtifactRenderEvaluation, StudioArtifactRenderFindingSeverity,
+    StudioArtifactRenderEvaluation, StudioArtifactRenderFindingSeverity,
+    StudioArtifactValidationResult,
 };
 
 pub(super) fn truncate_preview(content: &str) -> String {
@@ -349,7 +350,7 @@ pub(super) fn assess_materialized_artifact_presentation(
 pub(super) fn finalize_presentation_assessment(
     request: &StudioOutcomeArtifactRequest,
     assessment: ArtifactPresentationAssessment,
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
     fallback_used: bool,
     draft_pending_acceptance: bool,
@@ -360,10 +361,10 @@ pub(super) fn finalize_presentation_assessment(
 
     if draft_pending_acceptance {
         let mut findings = assessment.findings;
-        let acceptance_reason = judge
+        let acceptance_reason = validation
             .strongest_contradiction
             .clone()
-            .unwrap_or_else(|| "Acceptance judging remains pending for this draft.".to_string());
+            .unwrap_or_else(|| "Acceptance validation remains pending for this draft.".to_string());
         if !findings.iter().any(|finding| finding == &acceptance_reason) {
             findings.push(acceptance_reason.clone());
         }
@@ -380,7 +381,7 @@ pub(super) fn finalize_presentation_assessment(
                 acceptance_reason
             ),
             _ => format!(
-                "Studio surfaced a request-faithful draft while final acceptance judging remains pending: {}",
+                "Studio surfaced a request-faithful draft while final acceptance validation remains pending: {}",
                 acceptance_reason
             ),
         };
@@ -396,14 +397,14 @@ pub(super) fn finalize_presentation_assessment(
     let acceptance_clears_primary_view = !fallback_used
         && !assessment.has_structural_blocker
         && render_clears_primary_view
-        && judge.classification == ioi_api::studio::StudioArtifactJudgeClassification::Pass
-        && judge.deserves_primary_artifact_view;
+        && validation.classification == ioi_api::studio::StudioArtifactValidationStatus::Pass
+        && validation.deserves_primary_artifact_view;
 
     if acceptance_clears_primary_view {
         let mut findings = assessment.findings;
         if !findings.is_empty() {
             findings.push(
-                "Acceptance judging cleared the artifact for primary presentation despite softer prefilter findings."
+                "Acceptance validation cleared the artifact for primary presentation despite softer prefilter findings."
                     .to_string(),
             );
         }
@@ -411,7 +412,7 @@ pub(super) fn finalize_presentation_assessment(
         return ArtifactPresentationAssessment {
             lifecycle_state: StudioArtifactLifecycleState::Ready,
             summary:
-                "Studio materialized the artifact and final acceptance judging cleared it for the primary artifact view."
+                "Studio materialized the artifact and final acceptance validation cleared it for the primary artifact view."
                     .to_string(),
             findings,
             has_structural_blocker: false,
@@ -419,24 +420,27 @@ pub(super) fn finalize_presentation_assessment(
     }
 
     let acceptance_denies_primary_view = fallback_used
-        || judge.classification != ioi_api::studio::StudioArtifactJudgeClassification::Pass
-        || !judge.deserves_primary_artifact_view
-        || judge.generic_shell_detected
-        || judge.trivial_shell_detected;
+        || validation.classification != ioi_api::studio::StudioArtifactValidationStatus::Pass
+        || !validation.deserves_primary_artifact_view
+        || validation.generic_shell_detected
+        || validation.trivial_shell_detected;
     if !acceptance_denies_primary_view {
         return assessment;
     }
 
     let mut findings = assessment.findings;
-    let acceptance_reason = judge.strongest_contradiction.clone().unwrap_or_else(|| {
-        "Acceptance judging did not clear the artifact for primary presentation.".to_string()
-    });
+    let acceptance_reason = validation
+        .strongest_contradiction
+        .clone()
+        .unwrap_or_else(|| {
+            "Acceptance validation did not clear the artifact for primary presentation.".to_string()
+        });
     if !findings.iter().any(|finding| finding == &acceptance_reason) {
         findings.push(acceptance_reason.clone());
     }
 
-    let lifecycle_state = match judge.classification {
-        ioi_api::studio::StudioArtifactJudgeClassification::Blocked => {
+    let lifecycle_state = match validation.classification {
+        ioi_api::studio::StudioArtifactValidationStatus::Blocked => {
             StudioArtifactLifecycleState::Blocked
         }
         _ => match assessment.lifecycle_state {
@@ -446,11 +450,11 @@ pub(super) fn finalize_presentation_assessment(
     };
     let summary = match lifecycle_state {
         StudioArtifactLifecycleState::Blocked => format!(
-            "Studio materialized files, but acceptance judging blocked the primary presentation: {}",
+            "Studio materialized files, but acceptance validation blocked the primary presentation: {}",
             acceptance_reason
         ),
         StudioArtifactLifecycleState::Partial => format!(
-            "Studio materialized the artifact, but acceptance judging kept it out of the primary view: {}",
+            "Studio materialized the artifact, but acceptance validation kept it out of the primary view: {}",
             acceptance_reason
         ),
         _ => assessment.summary,

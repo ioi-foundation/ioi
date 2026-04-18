@@ -1,6 +1,6 @@
 use super::super::*;
 use crate::agentic::runtime::service::step::action::verified_command_probe_completion_summary;
-use crate::agentic::runtime::utils::persist_agent_state;
+use crate::agentic::runtime::utils::{persist_agent_state, timestamp_ms_now};
 
 pub(crate) struct LifecycleStatusPhaseContext<'a, 's> {
     pub service: &'a RuntimeAgentService,
@@ -242,10 +242,7 @@ pub(crate) async fn run_lifecycle_status_phase(
     let msg = ioi_types::app::agentic::ChatMessage {
         role: "tool".to_string(),
         content: content.clone(),
-        timestamp: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64,
+        timestamp: timestamp_ms_now(),
         trace_hash: None,
     };
     service
@@ -274,10 +271,7 @@ pub(crate) async fn run_lifecycle_status_phase(
             role: "system".to_string(),
             content: "System: WAIT_FOR_SUDO_PASSWORD. Install requires sudo password. Enter password to retry once."
                 .to_string(),
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64,
+            timestamp: timestamp_ms_now(),
             trace_hash: None,
         };
         service
@@ -302,10 +296,7 @@ pub(crate) async fn run_lifecycle_status_phase(
             content:
                 "System: WAIT_FOR_CLARIFICATION. Target identity could not be resolved. Provide clarification input to continue."
                     .to_string(),
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64,
+            timestamp: timestamp_ms_now(),
             trace_hash: None,
         };
         service

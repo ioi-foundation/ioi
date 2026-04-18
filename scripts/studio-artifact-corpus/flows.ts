@@ -49,11 +49,11 @@ import type {
   ComposedArtifactReply,
   CorpusCase,
   GeneratedArtifactEvidence,
-  JudgeClassification,
+  ValidationClassification,
   LiveStudioLaneSummary,
   RepeatedRunVariationFlowSummary,
   RevisionFlowSummary,
-  StudioJudgeResult,
+  StudioValidationResult,
 } from "./types";
 
 const INFERENCE_RUNTIME_ENV_KEYS = [
@@ -147,7 +147,7 @@ function liveParityContradiction(
   return null;
 }
 
-function missingJudgeResult(reason: string): StudioJudgeResult {
+function missingJudgeResult(reason: string): StudioValidationResult {
   return {
     classification: "blocked",
     requestFaithfulness: 1,
@@ -185,7 +185,7 @@ function missingRevisionFlowSummary(reason: string): RevisionFlowSummary {
         stderr: reason,
       },
       inspect: missingArtifactInspection(),
-      judge: missingJudgeResult(reason),
+      validation: missingJudgeResult(reason),
       classification: "blocked",
     },
     branch: {
@@ -333,13 +333,13 @@ async function summarizeArtifactCase(
   ]) as ArtifactInspection;
   await writeJson(path.join(caseDir, "inspect.json"), inspect);
 
-  const judge = runCliJson([
+  const validation = runCliJson([
     "artifact",
-    "judge",
+    "validation",
     artifactDir,
     "--json",
-  ]) as StudioJudgeResult;
-  await writeJson(path.join(caseDir, "judge.json"), judge);
+  ]) as StudioValidationResult;
+  await writeJson(path.join(caseDir, "validation.json"), validation);
 
   const composeReply = runCliJson([
     "artifact",
@@ -395,7 +395,7 @@ async function summarizeArtifactCase(
     caseConfig,
     {
       ...evidence,
-      judge,
+      validation,
     },
     artifactText,
     validate,
@@ -438,8 +438,8 @@ async function summarizeArtifactCase(
     validate,
     materialize,
     composeReply,
-    judge,
-    rubric: judge,
+    validation,
+    rubric: validation,
     classification: derived.classification,
     strongestContradiction: derived.contradiction,
     outputOrigin: evidence.outputOrigin,
@@ -623,7 +623,7 @@ export async function summarizeLiveCase(
     runtimeProvenanceMatches(productionProvenance, acceptanceProvenance)
   ) {
     notes.push(
-      "production and acceptance judging shared the same runtime provenance for this live run",
+      "production and acceptance validation shared the same runtime provenance for this live run",
     );
   }
 
@@ -680,7 +680,7 @@ export async function executeInferenceUnavailableLiveCase(): Promise<CaseSummary
     summary.failure?.code === "inference_unavailable" &&
     summary.productionProvenance?.kind === "inference_unavailable" &&
     summary.acceptanceProvenance?.kind === "inference_unavailable" &&
-    summary.judge?.classification === "blocked";
+    summary.validation?.classification === "blocked";
 
   const notes = [
     "This case intentionally verifies the product-path fail-fast contract when inference is unavailable.",
@@ -720,7 +720,7 @@ export async function buildRevisionFlow(
   }
 
   const changedPaths = await diffArtifactFiles(base.artifactDir, refined.artifactDir);
-  const compareClassification: JudgeClassification =
+  const compareClassification: ValidationClassification =
     changedPaths.length > 0 ? "pass" : "repairable";
 
   const restoreRoot = path.join(contractEvidenceRoot, "revision-restore");
@@ -741,10 +741,10 @@ export async function buildRevisionFlow(
   ]) as ArtifactInspection;
   const restoreJudge = runCliJson([
     "artifact",
-    "judge",
+    "validation",
     restoreDir,
     "--json",
-  ]) as StudioJudgeResult;
+  ]) as StudioValidationResult;
   const restoredMatchesSource =
     (
       await diffArtifactFiles(base.artifactDir, restoreDir, {
@@ -765,7 +765,7 @@ export async function buildRevisionFlow(
       restoredMatchesSource,
       validate: restoreValidate,
       inspect: restoreInspect,
-      judge: restoreJudge,
+      validation: restoreJudge,
       classification:
         restoreValidate.status === 0 && restoredMatchesSource ? "pass" : "repairable",
     },
@@ -821,7 +821,7 @@ export async function buildLiveRevisionFlow(
     "--target-revision-id",
     refinedRevisionId,
   ], { envOverrides: htmlEnvOverrides }) as RevisionFlowSummary["compare"] & { changedPaths: string[] };
-  const compareClassification: JudgeClassification =
+  const compareClassification: ValidationClassification =
     compare.changedPaths.length > 0 ? "pass" : "repairable";
 
   const restoreRoot = path.join(liveEvidenceRoot, "revision-restore");
@@ -855,10 +855,10 @@ export async function buildLiveRevisionFlow(
   ]) as ArtifactInspection;
   const restoreJudge = runCliJson([
     "artifact",
-    "judge",
+    "validation",
     restoreArtifactDir,
     "--json",
-  ]) as StudioJudgeResult;
+  ]) as StudioValidationResult;
   const restoredMatchesSource = await restoredMatchesRevisionSource(
     base,
     refined.artifactDir,
@@ -908,7 +908,7 @@ export async function buildLiveRevisionFlow(
       restoredMatchesSource,
       validate: restoreValidate,
       inspect: restoreInspect,
-      judge: restoreJudge,
+      validation: restoreJudge,
       classification:
         restoreValidate.status === 0 && restoredMatchesSource ? "pass" : "repairable",
     },

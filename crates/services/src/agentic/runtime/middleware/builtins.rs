@@ -1,6 +1,6 @@
 use ioi_types::app::agentic::AgentTool;
 
-pub(super) fn is_deterministic_tool_name(name: &str) -> bool {
+pub(crate) fn is_deterministic_tool_name(name: &str) -> bool {
     AgentTool::is_reserved_tool_name(name)
 }
 
@@ -8,11 +8,16 @@ fn legacy_deterministic_tool_name(name: &str) -> Option<&'static str> {
     match name {
         "computer" => Some("screen"),
         "filesystem__write_file" => Some("file__write"),
+        "filesystem__edit_line" => Some("file__write"),
+        "filesystem__patch" => Some("file__edit"),
         "filesystem__edit_file" => Some("file__edit"),
         "filesystem__read_file" => Some("file__read"),
         "filesystem__list_dir" => Some("file__list"),
+        "filesystem__list_directory" => Some("file__list"),
         "filesystem__search_files" => Some("file__search"),
+        "filesystem__search" => Some("file__search"),
         "filesystem__stat_path" => Some("file__info"),
+        "filesystem__stat" => Some("file__info"),
         "filesystem__move_path" => Some("file__move"),
         "filesystem__copy_path" => Some("file__copy"),
         "filesystem__delete_path" => Some("file__delete"),
@@ -64,7 +69,7 @@ fn legacy_deterministic_tool_name(name: &str) -> Option<&'static str> {
     }
 }
 
-pub(super) fn canonical_deterministic_tool_name(name: &str) -> Option<String> {
+pub(crate) fn canonical_deterministic_tool_name(name: &str) -> Option<String> {
     let normalized = name
         .trim_matches(|ch: char| ch == '"' || ch == '\'')
         .trim()

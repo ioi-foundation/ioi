@@ -382,11 +382,11 @@ pub(crate) fn create_acceptance_inference_runtime(
                 acceptance_model
                     .clone()
                     .or_else(|| production_provenance.model.clone())
-                    .unwrap_or_else(|| "acceptance-judge".to_string()),
+                    .unwrap_or_else(|| "acceptance-validation".to_string()),
             ))
         } else {
             Arc::new(UnavailableInferenceRuntime::new(format!(
-                "Acceptance judging is unavailable because the configured runtime at {} is not healthy.",
+                "Acceptance validation is unavailable because the configured runtime at {} is not healthy.",
                 acceptance_health_url.as_deref().unwrap_or(url.as_str())
             )))
         }
@@ -403,12 +403,12 @@ pub(crate) fn create_acceptance_inference_runtime(
             ))
         } else {
             Arc::new(UnavailableInferenceRuntime::new(
-                "Acceptance judging requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
+                "Acceptance validation requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
             ))
         }
     } else {
         Arc::new(UnavailableInferenceRuntime::new(
-            "Acceptance judging requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
+            "Acceptance validation requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
         ))
     };
 
@@ -417,7 +417,7 @@ pub(crate) fn create_acceptance_inference_runtime(
         && runtime_provenance_matches(&acceptance_provenance, &production_provenance)
     {
         return wrap_kernel_runtime(Arc::new(UnavailableInferenceRuntime::new(
-            "Acceptance judging requires runtime provenance distinct from the production artifact runtime. Configure AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL so the acceptance judge does not collapse into production.",
+            "Acceptance validation requires runtime provenance distinct from the production artifact runtime. Configure AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL so the acceptance validation does not collapse into production.",
         )));
     }
 

@@ -4,7 +4,7 @@ use super::runtime::*;
 use super::*;
 use axum::{extract::State, routing::post, Json, Router};
 use ioi_api::studio::{
-    pdf_artifact_bytes, StudioArtifactJudgeClassification, StudioArtifactSelectionTarget,
+    pdf_artifact_bytes, StudioArtifactSelectionTarget, StudioArtifactValidationStatus,
     StudioGeneratedArtifactFile, StudioGeneratedArtifactPayload,
 };
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, HttpInferenceRuntime};
@@ -452,7 +452,7 @@ async fn route_uses_local_http_runtime_path() -> Result<()> {
 }
 
 #[tokio::test]
-async fn workspace_generate_uses_scaffold_path_and_judges_pass() -> Result<()> {
+async fn workspace_generate_uses_scaffold_path_and_validates_pass() -> Result<()> {
     let request: StudioOutcomeArtifactRequest = serde_json::from_value(json!({
         "artifactClass": "workspace_project",
         "deliverableShape": "workspace_project",
@@ -488,8 +488,8 @@ async fn workspace_generate_uses_scaffold_path_and_judges_pass() -> Result<()> {
     .map_err(anyhow::Error::msg)?;
 
     assert_eq!(
-        bundle.judge.classification,
-        StudioArtifactJudgeClassification::Pass
+        bundle.validation.classification,
+        StudioArtifactValidationStatus::Pass
     );
     assert_eq!(bundle.winning_candidate_id.as_deref(), Some("candidate-1"));
     assert!(bundle
@@ -635,7 +635,8 @@ fn validate_materialized_html_ready_manifest_still_requires_quality_contract() -
         verification: StudioArtifactManifestVerification {
             status: StudioArtifactVerificationStatus::Ready,
             lifecycle_state: StudioArtifactLifecycleState::Ready,
-            summary: "Acceptance judged the artifact ready for primary presentation.".to_string(),
+            summary: "Acceptance validated the artifact ready for primary presentation."
+                .to_string(),
             production_provenance: Some(StudioRuntimeProvenance {
                 kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
@@ -696,7 +697,8 @@ fn validate_materialized_html_rejects_empty_svg_chart_shells_even_when_ready() -
         verification: StudioArtifactManifestVerification {
             status: StudioArtifactVerificationStatus::Ready,
             lifecycle_state: StudioArtifactLifecycleState::Ready,
-            summary: "Acceptance judged the artifact ready for primary presentation.".to_string(),
+            summary: "Acceptance validated the artifact ready for primary presentation."
+                .to_string(),
             production_provenance: Some(StudioRuntimeProvenance {
                 kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
@@ -759,7 +761,8 @@ fn validate_materialized_html_rejects_empty_chart_container_shells_even_when_rea
         verification: StudioArtifactManifestVerification {
             status: StudioArtifactVerificationStatus::Ready,
             lifecycle_state: StudioArtifactLifecycleState::Ready,
-            summary: "Acceptance judged the artifact ready for primary presentation.".to_string(),
+            summary: "Acceptance validated the artifact ready for primary presentation."
+                .to_string(),
             production_provenance: Some(StudioRuntimeProvenance {
                 kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
@@ -823,7 +826,8 @@ fn validate_materialized_html_rejects_placeholder_comments_and_missing_ids_even_
         verification: StudioArtifactManifestVerification {
             status: StudioArtifactVerificationStatus::Ready,
             lifecycle_state: StudioArtifactLifecycleState::Ready,
-            summary: "Acceptance judged the artifact ready for primary presentation.".to_string(),
+            summary: "Acceptance validated the artifact ready for primary presentation."
+                .to_string(),
             production_provenance: Some(StudioRuntimeProvenance {
                 kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
@@ -890,7 +894,8 @@ fn validate_materialized_html_rejects_empty_shared_detail_regions_even_when_read
         verification: StudioArtifactManifestVerification {
             status: StudioArtifactVerificationStatus::Ready,
             lifecycle_state: StudioArtifactLifecycleState::Ready,
-            summary: "Acceptance judged the artifact ready for primary presentation.".to_string(),
+            summary: "Acceptance validated the artifact ready for primary presentation."
+                .to_string(),
             production_provenance: Some(StudioRuntimeProvenance {
                 kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
@@ -953,7 +958,8 @@ fn validate_materialized_html_rejects_unlabeled_chart_svg_shells_even_when_ready
         verification: StudioArtifactManifestVerification {
             status: StudioArtifactVerificationStatus::Ready,
             lifecycle_state: StudioArtifactLifecycleState::Ready,
-            summary: "Acceptance judged the artifact ready for primary presentation.".to_string(),
+            summary: "Acceptance validated the artifact ready for primary presentation."
+                .to_string(),
             production_provenance: Some(StudioRuntimeProvenance {
                 kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
@@ -1016,7 +1022,8 @@ fn validate_materialized_html_rejects_empty_sectioning_shells_even_when_ready() 
         verification: StudioArtifactManifestVerification {
             status: StudioArtifactVerificationStatus::Ready,
             lifecycle_state: StudioArtifactLifecycleState::Ready,
-            summary: "Acceptance judged the artifact ready for primary presentation.".to_string(),
+            summary: "Acceptance validated the artifact ready for primary presentation."
+                .to_string(),
             production_provenance: Some(StudioRuntimeProvenance {
                 kind: StudioRuntimeProvenanceKind::RealLocalRuntime,
                 label: "openai-compatible".to_string(),
@@ -1314,7 +1321,7 @@ fn load_generated_evidence_accepts_blocked_verified_reply_envelope() -> Result<(
             "candidateSummaries": [],
             "winningCandidateId": null,
             "winningCandidateRationale": null,
-            "judge": {
+            "validation": {
                 "classification": "blocked",
                 "requestFaithfulness": 1,
                 "conceptCoverage": 1,

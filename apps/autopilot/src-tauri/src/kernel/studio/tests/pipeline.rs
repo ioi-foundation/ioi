@@ -92,10 +92,10 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
         ),
         decomposition_type: Some("functional_decomposition".to_string()),
         first_frontier_ids: vec!["planner".to_string()],
-        spawn_conditions: vec!["Spawn repair only if judge blocks.".to_string()],
+        spawn_conditions: vec!["Spawn repair only if validation blocks.".to_string()],
         prune_conditions: vec!["Prune repair when verification clears.".to_string()],
-        merge_strategy: Some("deterministic_patch_merge".to_string()),
-        verification_strategy: Some("judge_then_verify".to_string()),
+        merge_strategy: Some("structured_patch_merge".to_string()),
+        verification_strategy: Some("validate_then_verify".to_string()),
         fallback_collapse_strategy: Some("collapse_to_remaining_frontier".to_string()),
         completion_invariant: Some(ioi_api::execution::ExecutionCompletionInvariant {
             summary: "Complete once the markdown graph is satisfied.".to_string(),
@@ -104,10 +104,10 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
             satisfied_work_item_ids: vec!["planner".to_string()],
             speculative_work_item_ids: vec!["repair".to_string()],
             pruned_work_item_ids: Vec::new(),
-            required_verification_ids: vec!["acceptance-judge".to_string()],
+            required_verification_ids: vec!["artifact-validation".to_string()],
             satisfied_verification_ids: Vec::new(),
             required_artifact_paths: vec!["artifact.md".to_string()],
-            remaining_obligations: vec!["verification:acceptance-judge".to_string()],
+            remaining_obligations: vec!["verification:artifact-validation".to_string()],
             allows_early_exit: true,
         }),
         work_items: vec![
@@ -139,7 +139,7 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
                 write_regions: Vec::new(),
                 lease_requirements: Vec::new(),
                 acceptance_criteria: vec!["bounded".to_string()],
-                dependency_ids: vec!["judge".to_string()],
+                dependency_ids: vec!["validation".to_string()],
                 blocked_on_ids: Vec::new(),
                 verification_policy: Some(ioi_api::studio::SwarmVerificationPolicy::Blocking),
                 retry_budget: Some(1),
@@ -209,10 +209,10 @@ fn pipeline_steps_surface_swarm_execution_merge_and_repair() {
         rejected_reason: Some("out-of-scope path".to_string()),
     }];
     materialization.swarm_verification_receipts = vec![StudioArtifactVerificationReceipt {
-        id: "acceptance-judge".to_string(),
-        kind: "acceptance_judge".to_string(),
+        id: "artifact-validation".to_string(),
+        kind: "artifact_validation".to_string(),
         status: "blocked".to_string(),
-        summary: "Judge blocked the merged artifact.".to_string(),
+        summary: "Validation blocked the merged artifact.".to_string(),
         details: vec!["interaction gap".to_string()],
     }];
 
@@ -421,12 +421,12 @@ fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
             satisfied_work_item_ids: vec!["planner".to_string()],
             speculative_work_item_ids: vec!["repair".to_string()],
             pruned_work_item_ids: Vec::new(),
-            required_verification_ids: vec!["acceptance-judge".to_string()],
+            required_verification_ids: vec!["artifact-validation".to_string()],
             satisfied_verification_ids: Vec::new(),
             required_artifact_paths: vec!["index.html".to_string()],
             remaining_obligations: vec![
                 "work_item:draft".to_string(),
-                "verification:acceptance-judge".to_string(),
+                "verification:artifact-validation".to_string(),
             ],
             allows_early_exit: false,
         }),
@@ -457,8 +457,8 @@ fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
         first_frontier_ids: vec!["planner".to_string(), "draft".to_string()],
         spawn_conditions: vec!["Spawn repair only if verification blocks.".to_string()],
         prune_conditions: vec!["Prune repair when verification passes.".to_string()],
-        merge_strategy: Some("deterministic_patch_merge".to_string()),
-        verification_strategy: Some("judge_then_verify".to_string()),
+        merge_strategy: Some("structured_patch_merge".to_string()),
+        verification_strategy: Some("validate_then_verify".to_string()),
         fallback_collapse_strategy: Some("collapse_to_remaining_frontier".to_string()),
         completion_invariant: materialization
             .execution_envelope

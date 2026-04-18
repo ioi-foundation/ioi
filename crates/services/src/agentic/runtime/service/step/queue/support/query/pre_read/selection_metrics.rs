@@ -209,15 +209,27 @@ pub(crate) fn selected_source_quality_observation_with_contract_and_locality_hin
                 excerpt,
             ))
         };
+        let excerpt_lower = excerpt.to_ascii_lowercase();
+        let menu_bearing_detail_excerpt = excerpt_lower.contains(" on the menu")
+            || excerpt_lower.contains("menu specials")
+            || excerpt_lower.contains("menu classics")
+            || excerpt_lower.contains("menu items")
+            || excerpt_lower.contains("dinner menu")
+            || excerpt_lower.contains("lunch menu")
+            || excerpt_lower.contains("brunch menu");
+        let local_business_menu_surface_compatible = !local_business_menu_surface_required
+            || local_business_menu_surface_url(selected_trimmed)
+            || local_business_menu_inventory_excerpt(excerpt, excerpt.chars().count()).is_some()
+            || menu_bearing_detail_excerpt;
         let local_business_entity_compatible = admissible_for_document_briefing
             && entity_anchor_compatible
-            && (!local_business_menu_surface_required
-                || local_business_menu_surface_url(selected_trimmed));
+            && local_business_menu_surface_compatible;
         let local_business_locality_compatible = !projection.locality_scope.is_some()
             || compatibility
                 .as_ref()
                 .map(|value| value.locality_compatible)
-                .unwrap_or(true);
+                .unwrap_or(false)
+            || local_business_scope_matches_source(locality_hint, selected_trimmed, title, excerpt);
         if headline_lookup_mode {
             let headline_source = PendingSearchReadSummary {
                 url: selected_trimmed.to_string(),

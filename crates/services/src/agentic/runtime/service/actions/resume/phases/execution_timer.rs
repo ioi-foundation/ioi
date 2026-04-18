@@ -1,5 +1,8 @@
 use super::super::*;
-use crate::agentic::runtime::service::step::action::command_contract::timer_payload_requires_allowlisted_scheduler;
+use crate::agentic::runtime::service::step::action::{
+    command_contract::timer_payload_requires_allowlisted_scheduler, mark_execution_receipt_for,
+    receipt_marker_for, RuntimeReceipt,
+};
 use ioi_api::vm::drivers::os::OsDriver;
 use std::sync::Arc;
 
@@ -293,8 +296,11 @@ pub(crate) async fn run_execution_timer_phase(
     }
 
     if success && command_scope && is_command_provider_tool {
-        mark_execution_receipt(&mut agent_state.tool_execution_log, "execution");
-        verification_checks.push(receipt_marker("execution"));
+        mark_execution_receipt_for(
+            &mut agent_state.tool_execution_log,
+            RuntimeReceipt::Execution,
+        );
+        verification_checks.push(receipt_marker_for(RuntimeReceipt::Execution));
         verification_checks.push("capability_execution_phase=verification".to_string());
         record_verification_receipts(
             &mut agent_state.tool_execution_log,

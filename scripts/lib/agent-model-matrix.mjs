@@ -172,7 +172,7 @@ function scorecardValue(category, metricId) {
 
 function preferredMetricId(categoryId, category, schemaMetrics) {
   const preferredByCategory = {
-    artifactQuality: "averageJudgeScore",
+    artifactQuality: "averageValidationScore",
     codingCompletion: "taskPassRate",
     researchQuality: "citationVerifierPassRate",
     computerUseCompletion: "rewardFloorPassRate",
@@ -807,9 +807,9 @@ export function renderAgentModelMatrixMarkdown(summary) {
     const researchMetrics = preset.scorecards.researchQuality.metrics;
     const toolApiMetrics = preset.scorecards.toolApiReliability.metrics;
     const generalAgentMetrics = preset.scorecards.generalAgentQuality.metrics;
-    const artifactJudge =
-      typeof artifactMetrics.averageJudgeScore === "number"
-        ? artifactMetrics.averageJudgeScore.toFixed(3)
+    const artifactValidation =
+      typeof artifactMetrics.averageValidationScore === "number"
+        ? artifactMetrics.averageValidationScore.toFixed(3)
         : preset.scorecards.artifactQuality.available
           ? "run"
           : "pending";
@@ -861,7 +861,7 @@ export function renderAgentModelMatrixMarkdown(summary) {
           ? "run"
           : "pending";
     lines.push(
-      `| ${preset.label} | ${preset.deploymentProfile ?? "unknown"} | ${preset.role} | ${baseModel} | ${artifactJudge} | ${coding} | ${research} | ${computerUse} | ${toolApi} | ${generalAgent} | ${latency} | ${conformance} |`,
+      `| ${preset.label} | ${preset.deploymentProfile ?? "unknown"} | ${preset.role} | ${baseModel} | ${artifactValidation} | ${coding} | ${research} | ${computerUse} | ${toolApi} | ${generalAgent} | ${latency} | ${conformance} |`,
     );
   }
   return `${lines.join("\n")}\n`;

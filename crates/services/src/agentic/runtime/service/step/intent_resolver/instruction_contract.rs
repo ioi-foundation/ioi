@@ -597,7 +597,7 @@ fn preferred_delegation_workflow_for_intent(
         ("delegation.task", "verifier")
             if query_requests_artifact_work(query) && query_requests_verification_work(query) =>
         {
-            Some("artifact_quality_audit")
+            Some("artifact_validation_audit")
         }
         ("delegation.task", "verifier")
             if query_requests_code_change_work(query)

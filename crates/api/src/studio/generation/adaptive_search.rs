@@ -90,7 +90,7 @@ pub(crate) fn derive_studio_adaptive_search_budget(
     } else {
         i32::MAX
     };
-    let mut target_judge_score_for_early_stop = match request.renderer {
+    let mut target_validation_score_for_early_stop = match request.renderer {
         StudioRendererKind::HtmlIframe => 356,
         StudioRendererKind::JsxSandbox => 348,
         StudioRendererKind::Svg => 340,
@@ -143,7 +143,7 @@ pub(crate) fn derive_studio_adaptive_search_budget(
         shortlist_limit = shortlist_limit.max(2);
         max_semantic_refinement_passes = max_semantic_refinement_passes.saturating_add(1);
         plateau_limit = plateau_limit.max(1);
-        target_judge_score_for_early_stop += 6;
+        target_validation_score_for_early_stop += 6;
         expansion_score_margin += 4;
     }
 
@@ -165,13 +165,13 @@ pub(crate) fn derive_studio_adaptive_search_budget(
         max_candidate_count += 1;
         shortlist_limit = shortlist_limit.max(2);
         max_semantic_refinement_passes = max_semantic_refinement_passes.saturating_add(1);
-        target_judge_score_for_early_stop += 4;
+        target_validation_score_for_early_stop += 4;
     }
 
     if !selected_skills.is_empty() {
         record_adaptive_search_signal(&mut signals, StudioAdaptiveSearchSignal::SkillBackedDesign);
         shortlist_limit = shortlist_limit.max(2);
-        target_judge_score_for_early_stop += 4;
+        target_validation_score_for_early_stop += 4;
     }
 
     if !retrieved_exemplars.is_empty() {
@@ -184,7 +184,7 @@ pub(crate) fn derive_studio_adaptive_search_budget(
         record_adaptive_search_signal(&mut signals, StudioAdaptiveSearchSignal::ContinuationEdit);
         max_candidate_count = max_candidate_count.min(initial_candidate_count.saturating_add(1));
         shortlist_limit = 1;
-        target_judge_score_for_early_stop += 4;
+        target_validation_score_for_early_stop += 4;
     }
 
     if production_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
@@ -199,13 +199,13 @@ pub(crate) fn derive_studio_adaptive_search_budget(
         && request.renderer == StudioRendererKind::HtmlIframe
         && studio_modal_first_html_enabled()
     {
-        let judge_backed_modal_html_lane = matches!(
+        let validation_backed_modal_html_lane = matches!(
             runtime_profile,
             StudioArtifactRuntimePolicyProfile::LocalGenerationRemoteAcceptance
                 | StudioArtifactRuntimePolicyProfile::PremiumPlanningLocalGeneration
                 | StudioArtifactRuntimePolicyProfile::PremiumEndToEnd
         );
-        if judge_backed_modal_html_lane {
+        if validation_backed_modal_html_lane {
             max_candidate_count =
                 max_candidate_count.max(initial_candidate_count.saturating_add(2));
             shortlist_limit = shortlist_limit.max(3);
@@ -241,7 +241,7 @@ pub(crate) fn derive_studio_adaptive_search_budget(
         max_semantic_refinement_passes,
         plateau_limit,
         min_score_delta,
-        target_judge_score_for_early_stop,
+        target_validation_score_for_early_stop,
         expansion_score_margin,
         signals,
     }
@@ -253,7 +253,7 @@ pub(crate) fn ranked_candidate_indices_by_score(
     let mut ranked = candidate_summaries
         .iter()
         .enumerate()
-        .map(|(index, summary)| (index, judge_total_score(&summary.judge)))
+        .map(|(index, summary)| (index, validation_total_score(&summary.validation)))
         .collect::<Vec<_>>();
     ranked.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(&right.0)));
     ranked.into_iter().map(|(index, _)| index).collect()
@@ -264,11 +264,11 @@ pub(super) fn top_candidate_score_gap(
     candidate_summaries: &[StudioArtifactCandidateSummary],
 ) -> Option<i32> {
     let best_index = ranked_candidate_indices.first().copied()?;
-    let best_score = judge_total_score(&candidate_summaries.get(best_index)?.judge);
+    let best_score = validation_total_score(&candidate_summaries.get(best_index)?.validation);
     let second_score = ranked_candidate_indices
         .get(1)
         .and_then(|index| candidate_summaries.get(*index))
-        .map(|summary| judge_total_score(&summary.judge))
+        .map(|summary| validation_total_score(&summary.validation))
         .unwrap_or(best_score);
     Some((best_score - second_score).max(0))
 }
@@ -291,7 +291,7 @@ pub(crate) fn target_candidate_count_after_initial_search(
     };
     let best_score = candidate_summaries
         .get(best_index)
-        .map(|summary| judge_total_score(&summary.judge))
+        .map(|summary| validation_total_score(&summary.validation))
         .unwrap_or_default();
     let score_gap =
         top_candidate_score_gap(ranked_candidate_indices, candidate_summaries).unwrap_or_default();
@@ -310,7 +310,7 @@ pub(crate) fn target_candidate_count_after_initial_search(
     let clears_primary_view = ranked_candidate_indices.iter().copied().any(|index| {
         candidate_summaries
             .get(index)
-            .map(|summary| judge_clears_primary_view(&summary.judge))
+            .map(|summary| validation_clears_primary_view(&summary.validation))
             .unwrap_or(false)
     });
     if !clears_primary_view {
@@ -321,7 +321,7 @@ pub(crate) fn target_candidate_count_after_initial_search(
     }
     if !clears_primary_view
         && best_score + adaptive_budget.expansion_score_margin
-            >= adaptive_budget.target_judge_score_for_early_stop
+            >= adaptive_budget.target_validation_score_for_early_stop
     {
         record_adaptive_search_signal(
             &mut adaptive_budget.signals,
@@ -337,7 +337,7 @@ pub(crate) fn target_candidate_count_after_initial_search(
 
     let should_expand = !clears_primary_view
         && (failed_candidate_count > 0
-            || best_score < adaptive_budget.target_judge_score_for_early_stop
+            || best_score < adaptive_budget.target_validation_score_for_early_stop
             || score_gap <= adaptive_budget.expansion_score_margin);
     if should_expand {
         adaptive_budget.max_candidate_count
@@ -383,7 +383,7 @@ pub(crate) fn shortlisted_candidate_indices_for_budget(
         .filter(|index| {
             candidate_summaries
                 .get(*index)
-                .map(|summary| judge_clears_primary_view(&summary.judge))
+                .map(|summary| validation_clears_primary_view(&summary.validation))
                 .unwrap_or(false)
         })
         .take(adaptive_budget.shortlist_limit)
@@ -399,28 +399,31 @@ pub(crate) fn shortlisted_candidate_indices_for_budget(
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn requested_follow_up_pass(judge: &StudioArtifactJudgeResult) -> Option<&'static str> {
-    if judge.classification == StudioArtifactJudgeClassification::Repairable {
-        let render_warning_only = judge
+pub(crate) fn requested_follow_up_pass(
+    validation: &StudioArtifactValidationResult,
+) -> Option<&'static str> {
+    if validation.classification == StudioArtifactValidationStatus::Repairable {
+        let render_warning_only = validation
             .issue_classes
             .iter()
             .any(|value| value == "render_eval")
-            && judge.blocked_reasons.is_empty()
-            && !judge.generic_shell_detected
-            && !judge.trivial_shell_detected;
-        if judge.recommended_next_pass.as_deref() == Some("polish_pass") && render_warning_only {
+            && validation.blocked_reasons.is_empty()
+            && !validation.generic_shell_detected
+            && !validation.trivial_shell_detected;
+        if validation.recommended_next_pass.as_deref() == Some("polish_pass") && render_warning_only
+        {
             return Some("polish_pass");
         }
-        if judge.recommended_next_pass.as_deref() == Some("accept") && render_warning_only {
+        if validation.recommended_next_pass.as_deref() == Some("accept") && render_warning_only {
             return Some("polish_pass");
         }
         return Some("structural_repair");
     }
-    if judge.classification == StudioArtifactJudgeClassification::Blocked {
-        let recommended = judge.recommended_next_pass.as_deref();
-        let recoverable = !judge.trivial_shell_detected
+    if validation.classification == StudioArtifactValidationStatus::Blocked {
+        let recommended = validation.recommended_next_pass.as_deref();
+        let recoverable = !validation.trivial_shell_detected
             && (matches!(recommended, Some("structural_repair") | Some("polish_pass"))
-                || !judge.repair_hints.is_empty());
+                || !validation.repair_hints.is_empty());
         if recoverable {
             return match recommended {
                 Some("polish_pass") => Some("polish_pass"),
@@ -428,18 +431,18 @@ pub(crate) fn requested_follow_up_pass(judge: &StudioArtifactJudgeResult) -> Opt
             };
         }
     }
-    if judge.classification == StudioArtifactJudgeClassification::Pass
-        && !judge_clears_primary_view(judge)
-        && (judge.visual_hierarchy < 5 || judge.layout_coherence < 5)
+    if validation.classification == StudioArtifactValidationStatus::Pass
+        && !validation_clears_primary_view(validation)
+        && (validation.visual_hierarchy < 5 || validation.layout_coherence < 5)
     {
         return Some("polish_pass");
     }
 
-    match judge.recommended_next_pass.as_deref() {
+    match validation.recommended_next_pass.as_deref() {
         Some("structural_repair") => Some("structural_repair"),
         Some("polish_pass") => Some("polish_pass"),
         Some("accept") | Some("hold_block") => None,
-        _ => match judge.classification {
+        _ => match validation.classification {
             _ => None,
         },
     }

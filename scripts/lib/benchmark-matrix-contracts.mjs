@@ -84,7 +84,7 @@ export const SCORECARD_SCHEMA = {
       decisionWeight: "required",
       requiredForPromotion: true,
       metrics: [
-        "averageJudgeScore",
+        "averageValidationScore",
         "verifierPassRate",
         "averageRepairLoopIterations",
         "routeMatchRate",
@@ -353,7 +353,7 @@ export function scorecardDecisionWeight(categoryId) {
 
 export function inferRoleAssignmentsForPreset(preset) {
   const runtimeModel = preset?.runtimeModel || preset?.defaultRuntimeModel || null;
-  const judgeModel = preset?.artifactAcceptanceModel || runtimeModel;
+  const validationModel = preset?.artifactAcceptanceModel || runtimeModel;
   const role = String(preset?.role || "").trim().toLowerCase();
   const assignments = [];
 
@@ -372,17 +372,17 @@ export function inferRoleAssignmentsForPreset(preset) {
   if (role === "planner_verifier") {
     push("planner", runtimeModel, "shared planner lane");
     push("verifier", runtimeModel, "shared verifier lane");
-    push("artifact_judge", judgeModel, "artifact acceptance lane");
+    push("artifact_validation", validationModel, "artifact validation lane");
   } else if (role === "coding_executor") {
     push("coding_executor", runtimeModel, "repo-grounded patching lane");
-    push("artifact_judge", judgeModel, "artifact acceptance lane");
+    push("artifact_validation", validationModel, "artifact validation lane");
   } else if (role === "multimodal_realtime") {
     push("planner", runtimeModel, "remote planner lane");
     push("perception_worker", runtimeModel, "multimodal perception lane", "vision");
     push("speech_worker", runtimeModel, "realtime speech lane", "audio");
   } else {
     push("planner", runtimeModel, "baseline shared lane");
-    push("artifact_judge", judgeModel, "artifact acceptance lane");
+    push("artifact_validation", validationModel, "artifact validation lane");
   }
 
   return assignments;

@@ -341,39 +341,6 @@ pub(super) fn studio_artifact_exemplar_prompt_view(
     )
 }
 
-pub(super) fn blocked_candidate_generation_judge(message: &str) -> StudioArtifactJudgeResult {
-    StudioArtifactJudgeResult {
-        classification: StudioArtifactJudgeClassification::Blocked,
-        request_faithfulness: 1,
-        concept_coverage: 1,
-        interaction_relevance: 1,
-        layout_coherence: 1,
-        visual_hierarchy: 1,
-        completeness: 1,
-        generic_shell_detected: false,
-        trivial_shell_detected: false,
-        deserves_primary_artifact_view: false,
-        patched_existing_artifact: None,
-        continuity_revision_ux: None,
-        issue_classes: vec!["generation_failure".to_string()],
-        repair_hints: vec![
-            "Regenerate a structurally valid candidate before acceptance judging.".to_string(),
-        ],
-        strengths: Vec::new(),
-        blocked_reasons: vec![message.to_string()],
-        file_findings: vec![format!("materialization: {}", message)],
-        aesthetic_verdict: "No valid surfaced artifact exists yet.".to_string(),
-        interaction_verdict: "Interaction quality cannot be judged until materialization succeeds."
-            .to_string(),
-        truthfulness_warnings: vec![
-            "The candidate failed before producing a verifiable artifact.".to_string(),
-        ],
-        recommended_next_pass: Some("structural_repair".to_string()),
-        strongest_contradiction: Some(message.to_string()),
-        rationale: message.to_string(),
-    }
-}
-
 pub(super) fn failed_render_evaluation(
     request: &StudioOutcomeArtifactRequest,
     message: &str,

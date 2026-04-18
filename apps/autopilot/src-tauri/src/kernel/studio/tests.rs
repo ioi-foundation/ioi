@@ -280,10 +280,10 @@ impl InferenceRuntime for StudioArtifactGenerationTestRuntime {
                     "renderable": true,
                     "downloadable": true,
                     "encoding": "utf8",
-                    "body": "<!doctype html><html><head><style>:root{font-family:Georgia,serif;color:#1f1a16;background:#f7f1e8;}body{margin:0;}main{display:grid;gap:1rem;padding:1.5rem;}section,aside,footer{background:#fffaf3;border:1px solid #d4c7b0;border-radius:16px;padding:1rem;}button{border:1px solid #8c6f48;background:#f0dfc0;border-radius:999px;padding:0.45rem 0.85rem;}table{width:100%;border-collapse:collapse;}th,td{padding:0.35rem 0.5rem;border-bottom:1px solid #d4c7b0;}svg{width:100%;height:auto;}</style></head><body><main><section><h1>Studio rollout</h1><p>Review pilot readiness, owner alignment, and launch metrics from one artifact without leaving the side panel. The default timeline opens with real evidence already visible so the first paint is useful before any interaction runs. Operators can compare the operational story, switch to performance metrics, and keep one shared explanation panel in view while they inspect the rollout.</p><button type=\"button\" data-view=\"timeline\" aria-controls=\"timeline-panel\" aria-selected=\"true\">Timeline</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\" aria-selected=\"false\">Metrics</button></section><section id=\"timeline-panel\" data-view-panel=\"timeline\"><article><h2>Timeline</h2><p>The rollout begins with a pilot checkpoint, then moves into readiness review and final launch approval. Each bar below represents a real milestone the operator can hover or focus to inspect the detail copy in the shared aside.</p><svg viewBox=\"0 0 120 80\" role=\"img\" aria-label=\"timeline\"><rect x=\"10\" y=\"20\" width=\"20\" height=\"40\" tabindex=\"0\" data-detail=\"Pilot checkpoint\"></rect><rect x=\"44\" y=\"12\" width=\"20\" height=\"48\" tabindex=\"0\" data-detail=\"Readiness review\"></rect><rect x=\"78\" y=\"8\" width=\"20\" height=\"52\" tabindex=\"0\" data-detail=\"Launch approval\"></rect><text x=\"10\" y=\"74\">Pilot</text><text x=\"44\" y=\"74\">Review</text><text x=\"78\" y=\"74\">Launch</text></svg><p>The pilot confirms store readiness, the review aligns owners, and the launch approval clears the final release gate.</p></article></section><section id=\"metrics-panel\" data-view-panel=\"metrics\" hidden><article><h2>Metrics</h2><p>Accuracy, issue deflection, and launch velocity stay pre-rendered here for quick comparison when the operator switches views. The metrics panel is intentionally populated in the static markup so the alternative evidence surface is ready before any script runs.</p><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Accuracy</td><td>99%</td></tr><tr><td>Deflection</td><td>18%</td></tr><tr><td>Velocity</td><td>2.1x</td></tr></table></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Timeline selected by default with pilot, review, and launch evidence already visible. The detail region stays populated on first paint and updates as the operator inspects milestones or switches views.</p></aside><footer><p>The artifact stays request-faithful, interactive, and detailed enough to pass surfaced presentation once judged. It closes with a concise explanation of why the rollout is ready, who owns the next step, and which metrics matter most for launch confidence.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>{control.setAttribute('aria-selected', String(control===button));});detail.textContent=button.dataset.view + ' selected';}));document.querySelectorAll('[data-detail]').forEach((mark)=>{mark.addEventListener('mouseenter',()=>{detail.textContent=mark.dataset.detail;});mark.addEventListener('focus',()=>{detail.textContent=mark.dataset.detail;});});</script></main></body></html>"
+                    "body": "<!doctype html><html><head><style>:root{font-family:Georgia,serif;color:#1f1a16;background:#f7f1e8;}body{margin:0;}main{display:grid;gap:1rem;padding:1.5rem;}section,aside,footer{background:#fffaf3;border:1px solid #d4c7b0;border-radius:16px;padding:1rem;}button{border:1px solid #8c6f48;background:#f0dfc0;border-radius:999px;padding:0.45rem 0.85rem;}table{width:100%;border-collapse:collapse;}th,td{padding:0.35rem 0.5rem;border-bottom:1px solid #d4c7b0;}svg{width:100%;height:auto;}</style></head><body><main><section><h1>Studio rollout</h1><p>Review pilot readiness, owner alignment, and launch metrics from one artifact without leaving the side panel. The default timeline opens with real evidence already visible so the first paint is useful before any interaction runs. Operators can compare the operational story, switch to performance metrics, and keep one shared explanation panel in view while they inspect the rollout.</p><button type=\"button\" data-view=\"timeline\" aria-controls=\"timeline-panel\" aria-selected=\"true\">Timeline</button><button type=\"button\" data-view=\"metrics\" aria-controls=\"metrics-panel\" aria-selected=\"false\">Metrics</button></section><section id=\"timeline-panel\" data-view-panel=\"timeline\"><article><h2>Timeline</h2><p>The rollout begins with a pilot checkpoint, then moves into readiness review and final launch approval. Each bar below represents a real milestone the operator can hover or focus to inspect the detail copy in the shared aside.</p><svg viewBox=\"0 0 120 80\" role=\"img\" aria-label=\"timeline\"><rect x=\"10\" y=\"20\" width=\"20\" height=\"40\" tabindex=\"0\" data-detail=\"Pilot checkpoint\"></rect><rect x=\"44\" y=\"12\" width=\"20\" height=\"48\" tabindex=\"0\" data-detail=\"Readiness review\"></rect><rect x=\"78\" y=\"8\" width=\"20\" height=\"52\" tabindex=\"0\" data-detail=\"Launch approval\"></rect><text x=\"10\" y=\"74\">Pilot</text><text x=\"44\" y=\"74\">Review</text><text x=\"78\" y=\"74\">Launch</text></svg><p>The pilot confirms store readiness, the review aligns owners, and the launch approval clears the final release gate.</p></article></section><section id=\"metrics-panel\" data-view-panel=\"metrics\" hidden><article><h2>Metrics</h2><p>Accuracy, issue deflection, and launch velocity stay pre-rendered here for quick comparison when the operator switches views. The metrics panel is intentionally populated in the static markup so the alternative evidence surface is ready before any script runs.</p><table><tr><th>Metric</th><th>Value</th></tr><tr><td>Accuracy</td><td>99%</td></tr><tr><td>Deflection</td><td>18%</td></tr><tr><td>Velocity</td><td>2.1x</td></tr></table></article></section><aside><h2>Detail</h2><p id=\"detail-copy\">Timeline selected by default with pilot, review, and launch evidence already visible. The detail region stays populated on first paint and updates as the operator inspects milestones or switches views.</p></aside><footer><p>The artifact stays request-faithful, interactive, and detailed enough to pass surfaced presentation once validated. It closes with a concise explanation of why the rollout is ready, who owns the next step, and which metrics matter most for launch confidence.</p></footer><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>{control.setAttribute('aria-selected', String(control===button));});detail.textContent=button.dataset.view + ' selected';}));document.querySelectorAll('[data-detail]').forEach((mark)=>{mark.addEventListener('mouseenter',()=>{detail.textContent=mark.dataset.detail;});mark.addEventListener('focus',()=>{detail.textContent=mark.dataset.detail;});});</script></main></body></html>"
                 }]
             })
-        } else if prompt.contains("typed artifact judge") {
+        } else if prompt.contains("typed artifact validation") {
             serde_json::json!({
                 "classification": "pass",
                 "requestFaithfulness": 5,
@@ -298,7 +298,7 @@ impl InferenceRuntime for StudioArtifactGenerationTestRuntime {
                 "patchedExistingArtifact": null,
                 "continuityRevisionUx": null,
                 "strongestContradiction": null,
-                "rationale": "local runtime judged the artifact"
+                "rationale": "local runtime validated the artifact"
             })
         } else {
             return Err(VmError::HostError("unexpected Studio prompt".to_string()));
@@ -338,7 +338,7 @@ impl InferenceRuntime for StreamingDirectAuthorTestRuntime {
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context);
-        if prompt.contains("typed artifact judge") {
+        if prompt.contains("typed artifact validation") {
             return Ok(serde_json::json!({
                 "classification": "pass",
                 "requestFaithfulness": 5,
@@ -443,7 +443,7 @@ impl InferenceRuntime for SilentDirectAuthorReplanTestRuntime {
                 }]
             })
             .to_string()
-        } else if prompt.contains("typed artifact judge") {
+        } else if prompt.contains("typed artifact validation") {
             serde_json::json!({
                 "classification": "pass",
                 "requestFaithfulness": 5,
@@ -611,7 +611,7 @@ fn test_materialization_contract() -> StudioArtifactMaterializationContract {
         swarm_merge_receipts: Vec::new(),
         swarm_verification_receipts: Vec::new(),
         render_evaluation: None,
-        judge: None,
+        validation: None,
         output_origin: None,
         production_provenance: None,
         acceptance_provenance: None,
@@ -979,7 +979,7 @@ fn apply_revision_to_studio_session_restores_manifest_and_selection() {
         renderer: StudioRendererKind::HtmlIframe,
         scaffold_family: "comparison_story".to_string(),
         thesis: "Lead with evidence.".to_string(),
-        quality_rationale: "High judge score with clear structure.".to_string(),
+        quality_rationale: "High validation score with clear structure.".to_string(),
         score_total: 31,
         design_cues: vec!["editorial".to_string()],
         component_patterns: vec!["comparison_table".to_string()],

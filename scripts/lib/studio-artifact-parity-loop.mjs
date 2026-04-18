@@ -12,7 +12,7 @@ export const INTERVENTION_FAMILIES = [
   "scaffold",
   "component_pack",
   "static_audit",
-  "judge",
+  "validation",
   "repair_loop",
   "evidence_ux",
 ];
@@ -138,7 +138,7 @@ function normalizeParityReceipt(receipt) {
   };
 }
 
-function judgeClassificationRank(classification) {
+function validationClassificationRank(classification) {
   switch (classification) {
     case "pass":
       return 3;
@@ -149,36 +149,36 @@ function judgeClassificationRank(classification) {
   }
 }
 
-function judgeTotalScore(judge) {
-  if (!judge || typeof judge !== "object") {
+function validationTotalScore(validation) {
+  if (!validation || typeof validation !== "object") {
     return null;
   }
-  const issueClassCount = Array.isArray(judge.issueClasses)
-    ? judge.issueClasses.length
+  const issueClassCount = Array.isArray(validation.issueClasses)
+    ? validation.issueClasses.length
     : 0;
-  const truthfulnessWarningCount = Array.isArray(judge.truthfulnessWarnings)
-    ? judge.truthfulnessWarnings.length
+  const truthfulnessWarningCount = Array.isArray(validation.truthfulnessWarnings)
+    ? validation.truthfulnessWarnings.length
     : 0;
-  const blockedReasonCount = Array.isArray(judge.blockedReasons)
-    ? judge.blockedReasons.length
+  const blockedReasonCount = Array.isArray(validation.blockedReasons)
+    ? validation.blockedReasons.length
     : 0;
-  const strengthCount = Array.isArray(judge.strengths) ? judge.strengths.length : 0;
+  const strengthCount = Array.isArray(validation.strengths) ? validation.strengths.length : 0;
   return (
-    judgeClassificationRank(judge.classification) * 100 +
-    Number(judge.requestFaithfulness ?? 0) * 12 +
-    Number(judge.conceptCoverage ?? 0) * 10 +
-    Number(judge.interactionRelevance ?? 0) * 8 +
-    Number(judge.layoutCoherence ?? 0) * 7 +
-    Number(judge.visualHierarchy ?? 0) * 7 +
-    Number(judge.completeness ?? 0) * 9 +
-    (judge.deservesPrimaryArtifactView ? 12 : -20) +
-    (judge.genericShellDetected ? -28 : 0) +
-    (judge.trivialShellDetected ? -36 : 0) -
+    validationClassificationRank(validation.classification) * 100 +
+    Number(validation.requestFaithfulness ?? 0) * 12 +
+    Number(validation.conceptCoverage ?? 0) * 10 +
+    Number(validation.interactionRelevance ?? 0) * 8 +
+    Number(validation.layoutCoherence ?? 0) * 7 +
+    Number(validation.visualHierarchy ?? 0) * 7 +
+    Number(validation.completeness ?? 0) * 9 +
+    (validation.deservesPrimaryArtifactView ? 12 : -20) +
+    (validation.genericShellDetected ? -28 : 0) +
+    (validation.trivialShellDetected ? -36 : 0) -
     issueClassCount * 4 -
     truthfulnessWarningCount * 6 -
     blockedReasonCount * 8 +
     strengthCount * 3 +
-    Number(judge.continuityRevisionUx ?? 0)
+    Number(validation.continuityRevisionUx ?? 0)
   );
 }
 
@@ -195,14 +195,14 @@ function readyRateFromCorpus(corpusSummary) {
   return totalCases > 0 ? Number(totals.pass ?? 0) / totalCases : 0;
 }
 
-function averageJudgeScoreFromCorpus(corpusSummary) {
-  const metric = corpusSummary?.benchmarkSuite?.metrics?.averageJudgeScore;
+function averageValidationScoreFromCorpus(corpusSummary) {
+  const metric = corpusSummary?.benchmarkSuite?.metrics?.averageValidationScore;
   if (metric?.available && typeof metric.value === "number") {
     return metric.value;
   }
   const scores = Array.isArray(corpusSummary?.cases)
     ? corpusSummary.cases
-        .map((entry) => judgeTotalScore(entry?.judge))
+        .map((entry) => validationTotalScore(entry?.validation))
         .filter((value) => typeof value === "number")
     : [];
   if (scores.length === 0) {
@@ -220,13 +220,13 @@ function countTruthfulnessIssues(corpusSummary) {
       return count + 1;
     }
     const classification = entry.classification ?? "blocked";
-    const judge = entry.judge ?? null;
+    const validation = entry.validation ?? null;
     const failure = entry.failure ?? null;
     const fallbackUsed = Boolean(entry.fallbackUsed);
-    if (classification === "pass" && (!judge || failure || fallbackUsed)) {
+    if (classification === "pass" && (!validation || failure || fallbackUsed)) {
       return count + 1;
     }
-    if (judge && classification !== judge.classification) {
+    if (validation && classification !== validation.classification) {
       return count + 1;
     }
     return count;
@@ -336,11 +336,11 @@ function collectWeakestCase(corpusSummary) {
       label: entry.id,
       summary:
         entry.strongestContradiction ??
-        entry.judge?.strongestContradiction ??
-        entry.judge?.rationale ??
+        entry.validation?.strongestContradiction ??
+        entry.validation?.rationale ??
         "Case needs additional work.",
       classification: entry.classification ?? "blocked",
-      judgeScore: judgeTotalScore(entry.judge),
+      validationScore: validationTotalScore(entry.validation),
       blueprintPresent: Boolean(entry.blueprint),
       artifactIrPresent: Boolean(entry.artifactIr),
       selectedSkillCount: Array.isArray(entry.selectedSkills)
@@ -354,13 +354,13 @@ function collectWeakestCase(corpusSummary) {
       caseIds: [entry.id].filter(Boolean),
     }))
     .sort((left, right) => {
-      const leftRank = judgeClassificationRank(left.classification);
-      const rightRank = judgeClassificationRank(right.classification);
+      const leftRank = validationClassificationRank(left.classification);
+      const rightRank = validationClassificationRank(right.classification);
       if (leftRank !== rightRank) {
         return leftRank - rightRank;
       }
-      const leftScore = left.judgeScore ?? -Infinity;
-      const rightScore = right.judgeScore ?? -Infinity;
+      const leftScore = left.validationScore ?? -Infinity;
+      const rightScore = right.validationScore ?? -Infinity;
       if (leftScore !== rightScore) {
         return leftScore - rightScore;
       }
@@ -379,7 +379,7 @@ function weakestTargetForSnapshot(snapshot) {
 
 function familyForWeakestCase(weakestCase) {
   if (!weakestCase) {
-    return "judge";
+    return "validation";
   }
   if (!weakestCase.blueprintPresent || !weakestCase.artifactIrPresent) {
     return "blueprint";
@@ -396,7 +396,7 @@ function familyForWeakestCase(weakestCase) {
   if (weakestCase.classification === "repairable") {
     return "repair_loop";
   }
-  return "judge";
+  return "validation";
 }
 
 export function collectStudioArtifactParitySnapshot(corpusSummary, options = {}) {
@@ -422,7 +422,7 @@ export function collectStudioArtifactParitySnapshot(corpusSummary, options = {})
       blocked: Number(totals.blocked ?? 0),
     },
     readyRate: readyRateFromCorpus(corpusSummary),
-    averageJudgeScore: averageJudgeScoreFromCorpus(corpusSummary),
+    averageValidationScore: averageValidationScoreFromCorpus(corpusSummary),
     firstPaintEvidenceScore:
       benchmarkSuite?.metrics?.firstPaintEvidenceScore?.available &&
       typeof benchmarkSuite.metrics.firstPaintEvidenceScore.value === "number"
@@ -498,9 +498,9 @@ export function compareStudioArtifactParitySnapshots(
     "higher",
   );
   compareMetric(
-    "average_judge_score",
-    previousSnapshot.averageJudgeScore,
-    currentSnapshot.averageJudgeScore,
+    "average_validation_score",
+    previousSnapshot.averageValidationScore,
+    currentSnapshot.averageValidationScore,
     "higher",
   );
   compareMetric(

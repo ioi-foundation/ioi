@@ -257,6 +257,63 @@ impl StudioArtifactRenderEvaluation {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactValidationStatus {
+    #[default]
+    Pass,
+    Repairable,
+    Blocked,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactValidationResult {
+    pub classification: StudioArtifactValidationStatus,
+    pub request_faithfulness: u8,
+    pub concept_coverage: u8,
+    pub interaction_relevance: u8,
+    pub layout_coherence: u8,
+    pub visual_hierarchy: u8,
+    pub completeness: u8,
+    pub generic_shell_detected: bool,
+    pub trivial_shell_detected: bool,
+    pub deserves_primary_artifact_view: bool,
+    #[serde(default)]
+    pub patched_existing_artifact: Option<bool>,
+    #[serde(default)]
+    pub continuity_revision_ux: Option<u8>,
+    pub score_total: i32,
+    pub proof_kind: String,
+    pub primary_view_cleared: bool,
+    #[serde(default)]
+    pub validated_paths: Vec<String>,
+    #[serde(default)]
+    pub issue_codes: Vec<String>,
+    #[serde(default)]
+    pub repair_hints: Vec<String>,
+    #[serde(default)]
+    pub blocked_reasons: Vec<String>,
+    #[serde(default)]
+    pub issue_classes: Vec<String>,
+    #[serde(default)]
+    pub strengths: Vec<String>,
+    #[serde(default)]
+    pub file_findings: Vec<String>,
+    #[serde(default)]
+    pub aesthetic_verdict: String,
+    #[serde(default)]
+    pub interaction_verdict: String,
+    #[serde(default)]
+    pub truthfulness_warnings: Vec<String>,
+    #[serde(default)]
+    pub recommended_next_pass: Option<String>,
+    #[serde(default)]
+    pub strongest_contradiction: Option<String>,
+    pub summary: String,
+    pub rationale: String,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum StudioArtifactEditMode {
@@ -264,14 +321,6 @@ pub enum StudioArtifactEditMode {
     Patch,
     Replace,
     Branch,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum StudioArtifactJudgeClassification {
-    Pass,
-    Repairable,
-    Blocked,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -290,7 +339,7 @@ pub enum StudioArtifactOutputOrigin {
 pub enum StudioArtifactUxLifecycle {
     Draft,
     Refining,
-    Judged,
+    Validated,
     Locked,
 }
 
@@ -1168,7 +1217,7 @@ pub enum StudioArtifactRuntimeStep {
     OutcomeRouting,
     BlueprintPlanning,
     CandidateGeneration,
-    AcceptanceJudge,
+    ArtifactValidation,
     RepairPlanning,
     MemoryDistillation,
 }
@@ -1249,7 +1298,7 @@ pub struct StudioAdaptiveSearchBudget {
     pub max_semantic_refinement_passes: usize,
     pub plateau_limit: usize,
     pub min_score_delta: i32,
-    pub target_judge_score_for_early_stop: i32,
+    pub target_validation_score_for_early_stop: i32,
     pub expansion_score_margin: i32,
     #[serde(default)]
     pub signals: Vec<StudioAdaptiveSearchSignal>,
@@ -1274,46 +1323,6 @@ pub struct StudioArtifactEditIntent {
     #[serde(default)]
     pub style_directives: Vec<String>,
     pub branch_requested: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct StudioArtifactJudgeResult {
-    pub classification: StudioArtifactJudgeClassification,
-    pub request_faithfulness: u8,
-    pub concept_coverage: u8,
-    pub interaction_relevance: u8,
-    pub layout_coherence: u8,
-    pub visual_hierarchy: u8,
-    pub completeness: u8,
-    pub generic_shell_detected: bool,
-    pub trivial_shell_detected: bool,
-    pub deserves_primary_artifact_view: bool,
-    #[serde(default)]
-    pub patched_existing_artifact: Option<bool>,
-    #[serde(default)]
-    pub continuity_revision_ux: Option<u8>,
-    #[serde(default)]
-    pub issue_classes: Vec<String>,
-    #[serde(default)]
-    pub repair_hints: Vec<String>,
-    #[serde(default)]
-    pub strengths: Vec<String>,
-    #[serde(default)]
-    pub blocked_reasons: Vec<String>,
-    #[serde(default)]
-    pub file_findings: Vec<String>,
-    #[serde(default)]
-    pub aesthetic_verdict: String,
-    #[serde(default)]
-    pub interaction_verdict: String,
-    #[serde(default)]
-    pub truthfulness_warnings: Vec<String>,
-    #[serde(default)]
-    pub recommended_next_pass: Option<String>,
-    #[serde(default)]
-    pub strongest_contradiction: Option<String>,
-    pub rationale: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -1355,7 +1364,7 @@ pub struct StudioArtifactCandidateSummary {
     pub convergence: Option<StudioArtifactCandidateConvergenceTrace>,
     #[serde(default)]
     pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
-    pub judge: StudioArtifactJudgeResult,
+    pub validation: StudioArtifactValidationResult,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -1447,7 +1456,7 @@ pub struct StudioArtifactGenerationProgress {
     #[serde(default)]
     pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
     #[serde(default)]
-    pub judge: Option<StudioArtifactJudgeResult>,
+    pub validation: Option<StudioArtifactValidationResult>,
     #[serde(default)]
     pub runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
 }
@@ -1487,7 +1496,7 @@ pub struct StudioArtifactGenerationBundle {
     pub winner: StudioGeneratedArtifactPayload,
     #[serde(default)]
     pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
-    pub judge: StudioArtifactJudgeResult,
+    pub validation: StudioArtifactValidationResult,
     pub origin: StudioArtifactOutputOrigin,
     pub production_provenance: StudioRuntimeProvenance,
     pub acceptance_provenance: StudioRuntimeProvenance,

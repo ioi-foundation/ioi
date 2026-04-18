@@ -65,7 +65,7 @@
         let synthetic_click_params = json!({
             "type": "object",
             "properties": {
-                "id": { "type": "string", "description": "Optional grounded browser__inspect ID for a coordinate target. This may be a semantic ID or a numeric `som_id` from the tagged screenshot. Prefer this instead of guessing raw coordinates when the target is already named in the observation." },
+                "id": { "type": "string", "description": "Optional semantic ID from browser__inspect for a grounded coordinate target. This may also be a numeric `som_id` from the tagged screenshot. Prefer this instead of guessing raw coordinates when the target is already named in the observation." },
                 "x": { "type": "number", "description": "Optional absolute viewport x coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions. Provide this together with y when no grounded target id is available." },
                 "y": { "type": "number", "description": "Optional absolute viewport y coordinate in CSS pixels. Fractional pixel values are allowed. Do not use normalized 0-1 fractions. Provide this together with x when no grounded target id is available." },
                 "continue_with": {
@@ -75,7 +75,6 @@
                         "name": {
                             "type": "string",
                             "enum": [
-                                "browser__click",
                                 "browser__click",
                                 "browser__press_key",
                                 "browser__hover",

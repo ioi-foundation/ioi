@@ -19,7 +19,7 @@ test("normalizeAgentModelMatrixView supplies stable defaults", () => {
           scorecards: {
             artifactQuality: {
               available: true,
-              metrics: { averageJudgeScore: 0.5 },
+              metrics: { averageValidationScore: 0.5 },
             },
           },
         },
@@ -31,7 +31,7 @@ test("normalizeAgentModelMatrixView supplies stable defaults", () => {
   assert.equal(view.status, "partial");
   assert.equal(view.presets[0].presetId, "ollama-openai");
   assert.equal(
-    view.presets[0].scorecards.artifactQuality.metrics.averageJudgeScore,
+    view.presets[0].scorecards.artifactQuality.metrics.averageValidationScore,
     0.5,
   );
   assert.equal(view.presets[0].scorecards.codingCompletion.available, false);
@@ -57,7 +57,7 @@ test("renderAgentModelMatrixMarkdown includes the decision and preset table", ()
           artifactQuality: {
             available: true,
             metrics: {
-              averageJudgeScore: 0.45,
+              averageValidationScore: 0.45,
               verifierPassRate: 0.33,
             },
           },

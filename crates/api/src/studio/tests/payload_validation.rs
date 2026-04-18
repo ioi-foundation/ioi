@@ -309,7 +309,7 @@ fn simple_local_runtime_renderers_use_single_candidate_budgets() {
 fn modal_first_html_local_runtime_refinement_budget_allows_one_pass() {
     with_modal_first_html_env(|| {
         assert_eq!(
-            super::judging::semantic_refinement_pass_limit(
+            super::validation::semantic_refinement_pass_limit(
                 StudioRendererKind::HtmlIframe,
                 StudioRuntimeProvenanceKind::RealLocalRuntime,
             ),
@@ -353,7 +353,7 @@ fn modal_first_quantum_html_budget_stays_user_viable() {
 }
 
 #[test]
-fn modal_first_quantum_html_budget_reopens_for_judge_backed_runtime_profile() {
+fn modal_first_quantum_html_budget_reopens_for_validation_backed_runtime_profile() {
     with_modal_first_html_env(|| {
         let request = request_for(
             StudioArtifactClass::InteractiveSingleFile,
@@ -514,41 +514,23 @@ fn shortlist_widens_for_near_tied_primary_view_candidates() {
         max_semantic_refinement_passes: 1,
         plateau_limit: 1,
         min_score_delta: 1,
-        target_judge_score_for_early_stop: 356,
+        target_validation_score_for_early_stop: 356,
         expansion_score_margin: 12,
         signals: Vec::new(),
     };
     let candidate_summaries = vec![
         studio_test_candidate_summary(
             "candidate-1",
-            studio_test_judge(
-                StudioArtifactJudgeClassification::Pass,
-                true,
-                5,
-                5,
-                5,
-                5,
-                5,
-                5,
-            ),
+            studio_test_validation(StudioArtifactValidationStatus::Pass, true, 5, 5, 5, 5, 5, 5),
         ),
         studio_test_candidate_summary(
             "candidate-2",
-            studio_test_judge(
-                StudioArtifactJudgeClassification::Pass,
-                true,
-                5,
-                5,
-                5,
-                5,
-                5,
-                4,
-            ),
+            studio_test_validation(StudioArtifactValidationStatus::Pass, true, 5, 5, 5, 5, 5, 4),
         ),
         studio_test_candidate_summary(
             "candidate-3",
-            studio_test_judge(
-                StudioArtifactJudgeClassification::Repairable,
+            studio_test_validation(
+                StudioArtifactValidationStatus::Repairable,
                 false,
                 3,
                 3,
@@ -1090,7 +1072,7 @@ fn parse_and_validate_adds_missing_spreadsheet_export_for_download_cards() {
 }
 
 #[test]
-fn local_download_bundle_candidate_prejudge_accepts_docx_exports() {
+fn local_download_bundle_candidate_prevalidation_accepts_docx_exports() {
     let request = request_for(
         StudioArtifactClass::DownloadableFile,
         StudioRendererKind::DownloadCard,
@@ -1117,13 +1099,14 @@ fn local_download_bundle_candidate_prejudge_accepts_docx_exports() {
         &brief,
     );
 
-    let judge =
-        super::generation::local_download_bundle_candidate_prejudge(&request, &brief, &payload);
-    assert_eq!(
-        judge.classification,
-        StudioArtifactJudgeClassification::Pass
+    let validation = super::generation::local_download_bundle_candidate_prevalidation(
+        &request, &brief, &payload,
     );
-    assert!(judge
+    assert_eq!(
+        validation.classification,
+        StudioArtifactValidationStatus::Pass
+    );
+    assert!(validation
         .strengths
         .iter()
         .any(|strength| strength.contains("Word document export")));
@@ -1532,8 +1515,8 @@ fn renderer_contract_allows_near_pass_html_after_normalization_repairs() {
     validate_generated_artifact_payload_against_brief(&payload, &request, &brief)
         .expect("fixture should stay above the first-paint contract");
 
-    let judge = StudioArtifactJudgeResult {
-        classification: StudioArtifactJudgeClassification::Pass,
+    let validation = StudioArtifactValidationResult {
+        classification: StudioArtifactValidationStatus::Pass,
         request_faithfulness: 5,
         concept_coverage: 5,
         interaction_relevance: 4,
@@ -1561,12 +1544,9 @@ fn renderer_contract_allows_near_pass_html_after_normalization_repairs() {
         rationale: "Complies with the interaction contract and stays request-faithful.".to_string(),
     };
 
-    let result = enforce_renderer_judge_contract(&request, &brief, &payload, judge);
+    let result = enforce_renderer_validation_contract(&request, &brief, &payload, validation);
 
-    assert_eq!(
-        result.classification,
-        StudioArtifactJudgeClassification::Pass
-    );
+    assert_eq!(result.classification, StudioArtifactValidationStatus::Pass);
     assert!(!result.trivial_shell_detected);
     assert!(result.blocked_reasons.is_empty());
     assert_eq!(result.strongest_contradiction, None);
@@ -1765,8 +1745,8 @@ impl InferenceRuntime for StudioTestRuntime {
             "brief"
         } else if prompt.contains("typed artifact materializer") {
             "materialize"
-        } else if prompt.contains("typed artifact judge") {
-            "judge"
+        } else if prompt.contains("typed artifact validation") {
+            "validation"
         } else {
             "unknown"
         };
@@ -1821,7 +1801,7 @@ impl InferenceRuntime for StudioTestRuntime {
                     })
                 }
             }
-            "judge" => serde_json::json!({
+            "validation" => serde_json::json!({
                 "classification": "pass",
                 "requestFaithfulness": 5,
                 "conceptCoverage": 4,
@@ -1835,7 +1815,7 @@ impl InferenceRuntime for StudioTestRuntime {
                 "patchedExistingArtifact": null,
                 "continuityRevisionUx": null,
                 "strongestContradiction": null,
-                "rationale": format!("judged by {}", self.role)
+                "rationale": format!("validated by {}", self.role)
             }),
             _ => return Err(VmError::HostError("unexpected Studio prompt".to_string())),
         };
@@ -1894,7 +1874,7 @@ fn local_generation_remote_acceptance_policy_falls_back_truthfully_when_acceptan
         .policy
         .bindings
         .iter()
-        .find(|binding| binding.step == StudioArtifactRuntimeStep::AcceptanceJudge)
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::ArtifactValidation)
         .expect("acceptance binding");
     assert!(acceptance_binding.fallback_applied);
     assert_eq!(
@@ -1962,7 +1942,7 @@ fn local_generation_remote_acceptance_prefers_local_specialist_for_markdown_gene
         .policy
         .bindings
         .iter()
-        .find(|binding| binding.step == StudioArtifactRuntimeStep::AcceptanceJudge)
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::ArtifactValidation)
         .expect("acceptance binding");
     assert_eq!(acceptance_binding.provenance.label, "local specialist");
     assert!(acceptance_binding.fallback_applied);
@@ -2006,7 +1986,7 @@ fn local_generation_remote_acceptance_prefers_local_specialist_for_download_bund
         .policy
         .bindings
         .iter()
-        .find(|binding| binding.step == StudioArtifactRuntimeStep::AcceptanceJudge)
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::ArtifactValidation)
         .expect("acceptance binding");
     assert_eq!(acceptance_binding.provenance.label, "local specialist");
     assert!(acceptance_binding.fallback_applied);
@@ -2068,7 +2048,7 @@ fn local_generation_remote_acceptance_keeps_html_generation_on_primary_runtime()
         .policy
         .bindings
         .iter()
-        .find(|binding| binding.step == StudioArtifactRuntimeStep::AcceptanceJudge)
+        .find(|binding| binding.step == StudioArtifactRuntimeStep::ArtifactValidation)
         .expect("acceptance binding");
     assert_eq!(acceptance_binding.provenance.label, "local specialist");
     assert!(!acceptance_binding.fallback_applied);
@@ -2136,7 +2116,7 @@ fn modal_first_local_generation_remote_acceptance_keeps_html_generation_on_prima
             .policy
             .bindings
             .iter()
-            .find(|binding| binding.step == StudioArtifactRuntimeStep::AcceptanceJudge)
+            .find(|binding| binding.step == StudioArtifactRuntimeStep::ArtifactValidation)
             .expect("acceptance binding");
         assert_eq!(acceptance_binding.provenance.label, "local specialist");
         assert!(!acceptance_binding.fallback_applied);
@@ -2219,8 +2199,8 @@ async fn local_html_swarm_strategy_repairs_and_passes_quantum_artifact_regressio
                 "repair"
             } else if prompt.contains("typed swarm Integrator worker") {
                 "integrator"
-            } else if prompt.contains("typed artifact judge") {
-                "judge"
+            } else if prompt.contains("typed artifact validation") {
+                "validation"
             } else {
                 "unknown"
             };
@@ -2288,7 +2268,7 @@ async fn local_html_swarm_strategy_repairs_and_passes_quantum_artifact_regressio
                     "notes": ["The local HTML swarm keeps the integrator in reserve."],
                     "operations": []
                 }),
-                "judge" => {
+                "validation" => {
                     if prompt.contains("Repair completed with a stronger quantum comparison.")
                         || prompt.contains("qubit-focused comparison module")
                         || (prompt.contains("Measurement comparison")
@@ -2495,8 +2475,8 @@ async fn local_html_swarm_strategy_repairs_and_passes_quantum_artifact_regressio
             Some("ready")
         );
         assert_eq!(
-            bundle.judge.classification,
-            StudioArtifactJudgeClassification::Pass
+            bundle.validation.classification,
+            StudioArtifactValidationStatus::Pass
         );
         assert!(bundle
             .swarm_worker_receipts
@@ -2522,7 +2502,7 @@ async fn local_html_swarm_strategy_repairs_and_passes_quantum_artifact_regressio
         assert!(bundle
             .swarm_verification_receipts
             .iter()
-            .any(|receipt| receipt.kind == "acceptance_judge"));
+            .any(|receipt| receipt.kind == "artifact_validation"));
         assert!(bundle
             .execution_envelope
             .as_ref()
@@ -2570,7 +2550,7 @@ async fn local_html_swarm_strategy_repairs_and_passes_quantum_artifact_regressio
         assert_eq!(
             recorded_calls
                 .iter()
-                .filter(|call| call.ends_with(":judge"))
+                .filter(|call| call.ends_with(":validation"))
                 .count(),
             0
         );
@@ -2632,8 +2612,8 @@ async fn local_html_swarm_strategy_breaks_complex_mission_control_query_into_ite
                 "repair".to_string()
             } else if prompt.contains("typed swarm Integrator worker") {
                 "integrator".to_string()
-            } else if prompt.contains("typed artifact judge") {
-                "judge".to_string()
+            } else if prompt.contains("typed artifact validation") {
+                "validation".to_string()
             } else {
                 "unknown".to_string()
             };
@@ -2718,7 +2698,7 @@ async fn local_html_swarm_strategy_breaks_complex_mission_control_query_into_ite
                     "notes": ["Local HTML path keeps the integrator as a reserve seam."],
                     "operations": []
                 })
-            } else if stage == "judge" {
+            } else if stage == "validation" {
                 let repaired_already = self
                     .calls
                     .lock()
@@ -2932,8 +2912,8 @@ async fn local_html_swarm_strategy_breaks_complex_mission_control_query_into_ite
 
         assert!(bundle.candidate_summaries.is_empty());
         assert_eq!(
-            bundle.judge.classification,
-            StudioArtifactJudgeClassification::Pass
+            bundle.validation.classification,
+            StudioArtifactValidationStatus::Pass
         );
 
         let envelope = bundle
@@ -3011,7 +2991,7 @@ async fn local_html_swarm_strategy_breaks_complex_mission_control_query_into_ite
         assert!(bundle
             .swarm_verification_receipts
             .iter()
-            .any(|receipt| receipt.kind == "acceptance_judge"));
+            .any(|receipt| receipt.kind == "artifact_validation"));
         assert!(bundle.winner.files.iter().any(|file| {
             file.path == "index.html"
                 && file.body.contains("Fleet rollout phases")
@@ -3047,7 +3027,7 @@ async fn local_html_swarm_strategy_breaks_complex_mission_control_query_into_ite
         assert_eq!(
             recorded_calls
                 .iter()
-                .filter(|call| call.ends_with(":judge"))
+                .filter(|call| call.ends_with(":validation"))
                 .count(),
             0
         );

@@ -359,7 +359,7 @@ mod tests {
         assert!(verifier
             .workflows
             .iter()
-            .any(|workflow| workflow.workflow_id == "artifact_quality_audit"));
+            .any(|workflow| workflow.workflow_id == "artifact_validation_audit"));
         assert!(verifier
             .workflows
             .iter()
@@ -485,7 +485,7 @@ mod tests {
         assert_eq!(playbook.steps[2].worker_template_id, "verifier");
         assert_eq!(
             playbook.steps[2].worker_workflow_id,
-            "artifact_quality_audit"
+            "artifact_validation_audit"
         );
     }
 

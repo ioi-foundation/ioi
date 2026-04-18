@@ -340,7 +340,7 @@ function executionScopeIsValid(value) {
 function runtimeModelFingerprint(preset, availability) {
   return {
     modelId: preset?.runtimeModel || preset?.defaultRuntimeModel || null,
-    artifactJudgeModelId: artifactAcceptanceModelForPreset(preset),
+    artifactValidationModelId: artifactAcceptanceModelForPreset(preset),
     runtimeKind: preset?.runtimeKind || null,
     backendId: preset?.backendId || null,
     backendSource: preset?.backendSource || null,
@@ -508,8 +508,8 @@ function normalizeCaseResult(benchmark, preset, availability, caseResult, runCon
     caseResult,
   );
   const normalizedScore =
-    typeof caseResult?.judgeScore === "number"
-      ? round(caseResult.judgeScore)
+    typeof caseResult?.validationScore === "number"
+      ? round(caseResult.validationScore)
       : typeof caseResult?.localScore === "number"
         ? round(caseResult.localScore)
         : typeof caseResult?.rewardFloorMet === "boolean"
@@ -609,8 +609,8 @@ function deploymentProfileForPreset(preset) {
   return deploymentProfileForPresetLike(preset);
 }
 
-function judgeScore(judge) {
-  if (!judge || typeof judge !== "object") {
+function validationScore(validation) {
+  if (!validation || typeof validation !== "object") {
     return null;
   }
   const fields = [
@@ -622,7 +622,7 @@ function judgeScore(judge) {
     "completeness",
   ];
   const values = fields
-    .map((field) => judge[field])
+    .map((field) => validation[field])
     .filter((value) => typeof value === "number");
   if (values.length !== fields.length) {
     return null;
@@ -1696,7 +1696,7 @@ async function runArtifactBenchmark(preset, benchmark, benchmarkRoot) {
 
   const generationPath = path.join(outputRoot, "generation.json");
   const generation = readJsonIfExists(generationPath);
-  const judge = generation?.judge ?? null;
+  const validation = generation?.validation ?? null;
   const manifestVerification = generation?.manifest?.verification ?? {};
   const repairLoopIterations = Array.isArray(generation?.candidateSummaries)
     ? generation.candidateSummaries.filter((entry) => {
@@ -1707,7 +1707,7 @@ async function runArtifactBenchmark(preset, benchmark, benchmarkRoot) {
     : 0;
   const caseResult =
     result.status === 0 && generation
-      ? benchmarkResultFromClassification(judge?.classification)
+      ? benchmarkResultFromClassification(validation?.classification)
       : "red";
   return {
     benchmarkId: benchmark.benchmarkId,
@@ -1723,7 +1723,7 @@ async function runArtifactBenchmark(preset, benchmark, benchmarkRoot) {
     timedOut: result.timedOut === true,
     interrupted: result.interrupted === true,
     signal: result.signal || null,
-    judgeScore: judgeScore(judge),
+    validationScore: validationScore(validation),
     verifierPass: manifestVerification?.status === "ready",
     repairLoopIterations,
     routeMatched:
@@ -1737,7 +1737,7 @@ async function runArtifactBenchmark(preset, benchmark, benchmarkRoot) {
         ? artifactTimeoutSummary(timeoutMs, diagnostics)
         : null) ||
       generation?.verifiedReply?.summary ||
-      judge?.rationale ||
+      validation?.rationale ||
       compactFailureSummary(
         result,
         "Artifact benchmark did not produce retained evidence.",
@@ -2070,7 +2070,7 @@ function dependencyBlockedBenchmarkResult(benchmark, benchmarkRoot, summary) {
 function summarizePreset(preset, availability, caseResults, presetRoot, runContext = {}) {
   const artifactCases = caseResults.filter((entry) => entry.benchmarkFamily === "artifacts");
   const attemptedArtifactCases = artifactCases.filter(benchmarkAttempted);
-  const artifactJudgeScores = attemptedArtifactCases.map((entry) => entry.judgeScore);
+  const artifactValidationScores = attemptedArtifactCases.map((entry) => entry.validationScore);
   const artifactVerifierPasses = attemptedArtifactCases.filter(
     (entry) => entry.verifierPass === true,
   ).length;
@@ -2267,7 +2267,7 @@ function summarizePreset(preset, availability, caseResults, presetRoot, runConte
                     attemptedArtifactCases.length,
                 )
               : null,
-          averageJudgeScore: mean(artifactJudgeScores),
+          averageValidationScore: mean(artifactValidationScores),
           verifierPassRate:
             attemptedArtifactCases.length > 0
               ? round(artifactVerifierPasses / attemptedArtifactCases.length)
@@ -2500,7 +2500,7 @@ function comparePresetCategory(leftPreset, rightPreset, categoryId) {
     case "artifactQuality":
       return compareMetricSeries([
         [leftMetrics.passRate, rightMetrics.passRate, "higher"],
-        [leftMetrics.averageJudgeScore, rightMetrics.averageJudgeScore, "higher"],
+        [leftMetrics.averageValidationScore, rightMetrics.averageValidationScore, "higher"],
         [leftMetrics.verifierPassRate, rightMetrics.verifierPassRate, "higher"],
         [leftMetrics.routeMatchRate, rightMetrics.routeMatchRate, "higher"],
         [
@@ -2825,9 +2825,9 @@ function promotionContextForRun(presets) {
     .filter((preset) => preset.scorecards.artifactQuality.available)
     .sort((left, right) => {
       const leftScore =
-        left.scorecards.artifactQuality.metrics.averageJudgeScore ?? -Infinity;
+        left.scorecards.artifactQuality.metrics.averageValidationScore ?? -Infinity;
       const rightScore =
-        right.scorecards.artifactQuality.metrics.averageJudgeScore ?? -Infinity;
+        right.scorecards.artifactQuality.metrics.averageValidationScore ?? -Infinity;
       if (leftScore !== rightScore) {
         return rightScore - leftScore;
       }

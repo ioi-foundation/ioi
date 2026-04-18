@@ -1,7 +1,4 @@
 use super::*;
-use crate::studio::payload::{
-    synthesize_bundle_manifest_payload, synthesize_download_bundle_payload,
-};
 use ioi_types::error::VmError;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
@@ -584,29 +581,6 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_detailed(
     activity_observer: Option<StudioArtifactActivityObserver>,
 ) -> Result<StudioGeneratedArtifactPayload, StudioCandidateMaterializationError> {
     let runtime_kind = runtime.studio_runtime_provenance().kind;
-    let deterministic_download_bundle_fallback =
-        |reason: &str| -> Option<StudioGeneratedArtifactPayload> {
-            if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
-                match request.renderer {
-                    StudioRendererKind::DownloadCard => {
-                        studio_generation_trace(format!(
-                            "artifact_generation:materialization_download_bundle_fallback id={} reason={reason}",
-                            candidate_id
-                        ));
-                        return Some(synthesize_download_bundle_payload(intent, brief));
-                    }
-                    StudioRendererKind::BundleManifest => {
-                        studio_generation_trace(format!(
-                            "artifact_generation:materialization_bundle_manifest_fallback id={} reason={reason}",
-                            candidate_id
-                        ));
-                        return Some(synthesize_bundle_manifest_payload(intent, brief));
-                    }
-                    _ => {}
-                }
-            }
-            None
-        };
     let parse_candidate = |raw: &str| -> Result<
         StudioGeneratedArtifactPayload,
         StudioCandidateMaterializationError,
@@ -691,9 +665,6 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_detailed(
                 "Studio artifact materialization inference failed: {}",
                 error
             );
-            if let Some(payload) = deterministic_download_bundle_fallback(&message) {
-                return Ok(payload);
-            }
             return Err(StudioCandidateMaterializationError {
                 message,
                 raw_output_preview: None,
@@ -841,10 +812,6 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_detailed(
                         );
                     }
                 }
-            }
-
-            if let Some(payload) = deterministic_download_bundle_fallback(&latest_error) {
-                return Ok(payload);
             }
 
             Err(StudioCandidateMaterializationError {
@@ -1489,7 +1456,7 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate: &StudioGeneratedArtifactPayload,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
     candidate_id: &str,
     candidate_seed: u64,
     refinement_temperature: f32,
@@ -1532,7 +1499,7 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
         refinement,
         candidate,
         render_evaluation,
-        judge,
+        validation,
         candidate_id,
         candidate_seed,
         runtime_kind,
@@ -1600,7 +1567,7 @@ pub(crate) async fn refine_studio_artifact_candidate_with_runtime(
                         edit_intent,
                         refinement,
                         candidate,
-                        judge,
+                        validation,
                         candidate_id,
                         candidate_seed,
                         &latest_raw,

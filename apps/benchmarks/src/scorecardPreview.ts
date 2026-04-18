@@ -153,7 +153,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
     deploymentProfile: "local_workstation",
     availabilityStatus: "ready",
     runtimeModel: "local-32b-instruct",
-    artifactAcceptanceModel: "local-14b-judge",
+    artifactAcceptanceModel: "local-14b-validation",
     caseCount: 24,
     comparisonContext: {
       comparisonIntent: "model_change",
@@ -163,7 +163,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
     },
     roleAssignments: [
       { roleId: "planner", modelId: "local-32b-instruct", modalityUse: "text_tools" },
-      { roleId: "verifier", modelId: "local-14b-judge", modalityUse: "artifact_review" },
+      { roleId: "verifier", modelId: "local-14b-validation", modalityUse: "artifact_review" },
     ],
     conformanceSummary: {
       status: "pass",
@@ -200,7 +200,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
     benchmarkPrograms: ["repo_native_retained"],
     metrics: withMetrics(workstationPreset.scorecards.artifactQuality.metrics, {
       benchmarkCount: 6,
-      averageJudgeScore: 0.84,
+      averageValidationScore: 0.84,
       verifierPassRate: 0.79,
       averageRepairLoopIterations: 1.2,
       routeMatchRate: 0.91,
@@ -314,7 +314,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
     deploymentProfile: "blind_cloud_standard",
     availabilityStatus: "ready",
     runtimeModel: "blind-cloud-max",
-    artifactAcceptanceModel: "blind-cloud-judge",
+    artifactAcceptanceModel: "blind-cloud-validation",
     caseCount: 24,
     comparisonContext: {
       comparisonIntent: "full_stack_change",
@@ -324,7 +324,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
     },
     roleAssignments: [
       { roleId: "planner", modelId: "blind-cloud-max", modalityUse: "text_tools" },
-      { roleId: "verifier", modelId: "blind-cloud-judge", modalityUse: "artifact_review" },
+      { roleId: "verifier", modelId: "blind-cloud-validation", modalityUse: "artifact_review" },
       { roleId: "researcher", modelId: "blind-cloud-max", modalityUse: "web_research" },
     ],
     conformanceSummary: {
@@ -362,7 +362,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
     benchmarkPrograms: ["repo_native_retained"],
     metrics: withMetrics(cloudPreset.scorecards.artifactQuality.metrics, {
       benchmarkCount: 6,
-      averageJudgeScore: 0.91,
+      averageValidationScore: 0.91,
       verifierPassRate: 0.88,
       averageRepairLoopIterations: 0.7,
       routeMatchRate: 0.95,

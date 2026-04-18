@@ -184,6 +184,26 @@ pub(super) fn render_single_snapshot_layout(
                 .then(|| extract_temperature_phrase(value))
                 .flatten()
         });
+        let story_current_observation_lead = {
+            let lowered = story.what_happened.trim().to_ascii_lowercase();
+            lowered.contains("current weather report")
+                || story
+                    .citation_ids
+                    .iter()
+                    .filter_map(|id| draft.citations_by_id.get(id))
+                    .any(|citation| {
+                        citation
+                            .excerpt
+                            .to_ascii_lowercase()
+                            .contains("current weather report")
+                    })
+        };
+        let plain_structured_metric_summary_label = story_current_observation_lead
+            && metric_lines.len() > 1
+            && !single_snapshot_prefers_price_summary_label(&draft.query, &story.what_happened)
+            && !metric_lines
+                .iter()
+                .any(|(_, value)| single_snapshot_prefers_price_summary_label(&draft.query, value));
         let first_metric_value = metric_lines
             .first()
             .map(|(_, value)| concise_metric_snapshot_line(value));
@@ -203,19 +223,30 @@ pub(super) fn render_single_snapshot_layout(
                 strip_single_snapshot_direct_fact_prefix(&story.what_happened)
             )
         } else if let Some(temp) = temperature_phrase {
-            format!("Current conditions: It's **{}**.", temp)
+            let prefix = if plain_structured_metric_summary_label {
+                "Current conditions:"
+            } else {
+                single_snapshot_current_metric_prefix(&draft.query, &temp, false)
+            };
+            format!("{} {}", prefix, temp)
         } else if contains_current_condition_metric_signal(&story.what_happened) {
+            let prefix = if plain_structured_metric_summary_label {
+                "Current conditions:"
+            } else {
+                single_snapshot_current_metric_prefix(&draft.query, &story.what_happened, false)
+            };
             format!(
                 "{} {}",
-                single_snapshot_current_metric_prefix(&draft.query, &story.what_happened, false),
+                prefix,
                 concise_metric_snapshot_line(&story.what_happened)
             )
         } else if let Some(value) = first_metric_value {
-            format!(
-                "{} {}",
-                single_snapshot_current_metric_prefix(&draft.query, &value, false),
-                value
-            )
+            let prefix = if plain_structured_metric_summary_label {
+                "Current conditions:"
+            } else {
+                single_snapshot_current_metric_prefix(&draft.query, &value, false)
+            };
+            format!("{} {}", prefix, value)
         } else if let Some(metric) = citation_current_metric.as_deref() {
             format!(
                 "{} {}",

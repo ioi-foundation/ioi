@@ -64,7 +64,7 @@ async fn artifact_generation_gate_surfaces_context_generation_and_quality_receip
     assert!(run_after_spawn.steps[0]
         .selected_skills
         .iter()
-        .any(|skill| skill == "artifact__frontend_judge_spine"));
+        .any(|skill| skill == "artifact__frontend_validation_spine"));
     assert!(run_after_spawn.steps[0]
         .prep_summary
         .as_deref()
@@ -79,7 +79,7 @@ async fn artifact_generation_gate_surfaces_context_generation_and_quality_receip
     let mut context_state: AgentState =
         codec::from_bytes_canonical(&context_bytes).expect("context state should decode");
     context_state.status = AgentStatus::Completed(Some(
-            "- artifact_goal: Bold editorial landing page with a clear launch narrative.\n- likely_output_files: apps/site/index.html; apps/site/styles.css\n- selected_skills: artifact__frontend_judge_spine\n- verification_plan: Check runtime/mobile hierarchy, hero contrast, and CTA visibility.\n- notes: Keep motion restrained and typography expressive."
+            "- artifact_goal: Bold editorial landing page with a clear launch narrative.\n- likely_output_files: apps/site/index.html; apps/site/styles.css\n- selected_skills: artifact__frontend_validation_spine\n- verification_plan: Check runtime/mobile hierarchy, hero contrast, and CTA visibility.\n- notes: Keep motion restrained and typography expressive."
                 .to_string(),
         ));
     persist_agent_state(
@@ -127,7 +127,9 @@ async fn artifact_generation_gate_surfaces_context_generation_and_quality_receip
     let mut build_state: AgentState =
         codec::from_bytes_canonical(&build_bytes).expect("build state should decode");
     assert!(build_state.goal.contains(PARENT_PLAYBOOK_CONTEXT_MARKER));
-    assert!(build_state.goal.contains("artifact__frontend_judge_spine"));
+    assert!(build_state
+        .goal
+        .contains("artifact__frontend_validation_spine"));
     build_state.status = AgentStatus::Completed(Some(
             "- produced_files: apps/site/index.html; apps/site/styles.css\n- verification_signals: Preview build passed; responsive screenshot captured.\n- presentation_status: needs_repair\n- repair_status: required\n- notes: Mobile hero copy overlaps the CTA at the narrow breakpoint."
                 .to_string(),
@@ -153,7 +155,7 @@ async fn artifact_generation_gate_surfaces_context_generation_and_quality_receip
     assert!(
         merged_build.contains("Playbook: Artifact Generate and Repair (artifact_generate_repair)")
     );
-    assert!(merged_build.contains("advanced to 'Judge artifact quality'"));
+    assert!(merged_build.contains("advanced to 'Validate artifact quality'"));
 
     let run_after_build =
         load_parent_playbook_run(&state, parent_state.session_id, "artifact_generation_gate")
@@ -181,43 +183,46 @@ async fn artifact_generation_gate_surfaces_context_generation_and_quality_receip
         run_after_build.steps[2].status,
         ParentPlaybookStepStatus::Running
     );
-    let judge_id = run_after_build
+    let validation_id = run_after_build
         .active_child_session_id
-        .expect("artifact judge should be active");
+        .expect("artifact validation should be active");
 
-    let judge_key = get_state_key(&judge_id);
-    let judge_bytes = state
-        .get(&judge_key)
-        .expect("judge state lookup should succeed")
-        .expect("judge state should exist");
-    let mut judge_state: AgentState =
-        codec::from_bytes_canonical(&judge_bytes).expect("judge state should decode");
-    assert!(judge_state.goal.contains(PARENT_PLAYBOOK_CONTEXT_MARKER));
-    assert!(judge_state.goal.contains("artifact_generation="));
-    judge_state.status = AgentStatus::Completed(Some(
+    let validation_key = get_state_key(&validation_id);
+    let validation_bytes = state
+        .get(&validation_key)
+        .expect("validation state lookup should succeed")
+        .expect("validation state should exist");
+    let mut validation_state: AgentState =
+        codec::from_bytes_canonical(&validation_bytes).expect("validation state should decode");
+    assert!(validation_state
+        .goal
+        .contains(PARENT_PLAYBOOK_CONTEXT_MARKER));
+    assert!(validation_state.goal.contains("artifact_generation="));
+    validation_state.status = AgentStatus::Completed(Some(
             "- verdict: needs_attention\n- fidelity_status: faithful\n- presentation_status: needs_repair\n- repair_status: required\n- next_repair_step: Fix the mobile hero stacking before presentation.\n- notes: Layout intent is strong, but mobile CTA overlap blocks presentation readiness."
                 .to_string(),
         ));
     persist_agent_state(
         &mut state,
-        &judge_key,
-        &judge_state,
+        &validation_key,
+        &validation_state,
         service.memory_runtime.as_ref(),
     )
-    .expect("judge state update should persist");
+    .expect("validation state update should persist");
 
-    let merged_judge = await_child_worker_result(
+    let merged_validation = await_child_worker_result(
         &service,
         &mut state,
         &mut parent_state,
         16,
         0,
-        &hex::encode(judge_id),
+        &hex::encode(validation_id),
     )
     .await
-    .expect("judge merge should complete artifact playbook");
-    assert!(merged_judge.contains("Playbook: Artifact Quality Audit (artifact_quality_audit)"));
-    assert!(merged_judge.contains("Parent playbook 'Artifact Generation Gate' completed."));
+    .expect("validation merge should complete artifact playbook");
+    assert!(merged_validation
+        .contains("Playbook: Artifact Validation Audit (artifact_validation_audit)"));
+    assert!(merged_validation.contains("Parent playbook 'Artifact Generation Gate' completed."));
 
     let final_run =
         load_parent_playbook_run(&state, parent_state.session_id, "artifact_generation_gate")
@@ -277,7 +282,7 @@ async fn artifact_generation_gate_surfaces_context_generation_and_quality_receip
         .all(|receipt| receipt.planner_authority == "kernel"));
     assert!(parent_receipts
         .iter()
-        .all(|receipt| receipt.verifier_role == "artifact_quality_verifier"));
+        .all(|receipt| receipt.verifier_role == "artifact_validation_verifier"));
     assert_eq!(
         parent_receipts
             .iter()
@@ -286,7 +291,7 @@ async fn artifact_generation_gate_surfaces_context_generation_and_quality_receip
             })
             .map(|receipt| receipt.selected_skills.clone())
             .unwrap_or_default(),
-        vec!["artifact__frontend_judge_spine".to_string()]
+        vec!["artifact__frontend_validation_spine".to_string()]
     );
     assert_eq!(
         parent_receipts
@@ -302,7 +307,8 @@ async fn artifact_generation_gate_surfaces_context_generation_and_quality_receip
         parent_receipts
             .iter()
             .find(|receipt| {
-                receipt.phase == "step_completed" && receipt.step_id.as_deref() == Some("judge")
+                receipt.phase == "step_completed"
+                    && receipt.step_id.as_deref() == Some("validation")
             })
             .and_then(|receipt| receipt.artifact_quality.as_ref())
             .map(|scorecard| scorecard.presentation_status.as_str()),
@@ -313,7 +319,7 @@ async fn artifact_generation_gate_surfaces_context_generation_and_quality_receip
             .last()
             .map(|receipt| receipt.selected_skills.clone())
             .unwrap_or_default(),
-        vec!["artifact__frontend_judge_spine".to_string()]
+        vec!["artifact__frontend_validation_spine".to_string()]
     );
     assert!(parent_receipts
         .last()

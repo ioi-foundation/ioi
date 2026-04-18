@@ -1,4 +1,4 @@
-export type JudgeClassification = "pass" | "repairable" | "blocked";
+export type ValidationClassification = "pass" | "repairable" | "blocked";
 
 export type RendererKind =
   | "markdown"
@@ -10,8 +10,8 @@ export type RendererKind =
   | "download_card"
   | "workspace_surface";
 
-export interface StudioJudgeResult {
-  classification: JudgeClassification;
+export interface StudioValidationResult {
+  classification: ValidationClassification;
   requestFaithfulness: number;
   conceptCoverage: number;
   interactionRelevance: number;
@@ -144,12 +144,12 @@ export interface GeneratedArtifactEvidence {
     failure?: string | null;
     rawOutputPreview?: string | null;
     renderEvaluation?: StudioRenderEvaluation | null;
-    judge: StudioJudgeResult;
+    validation: StudioValidationResult;
   }>;
   winningCandidateId: string | null;
   winningCandidateRationale: string | null;
   renderEvaluation?: StudioRenderEvaluation | null;
-  judge: StudioJudgeResult | null;
+  validation: StudioValidationResult | null;
   outputOrigin: string | null;
   productionProvenance?: RuntimeProvenance | null;
   acceptanceProvenance?: RuntimeProvenance | null;
@@ -328,9 +328,9 @@ export interface CaseSummary {
   validate: CommandCapture;
   materialize: CommandCapture;
   composeReply: ComposedArtifactReply;
-  judge: StudioJudgeResult | null;
-  rubric: StudioJudgeResult | null;
-  classification: JudgeClassification;
+  validation: StudioValidationResult | null;
+  rubric: StudioValidationResult | null;
+  classification: ValidationClassification;
   strongestContradiction: string | null;
   outputOrigin: string | null;
   productionProvenance: RuntimeProvenance | null;
@@ -344,7 +344,7 @@ export interface CaseSummary {
 }
 
 export interface LiveStudioLaneSummary {
-  status: JudgeClassification;
+  status: ValidationClassification;
   fullStudioPath: true;
   runtimeConfigured: boolean;
   runtimeEndpoint: string | null;
@@ -363,7 +363,7 @@ export interface RevisionFlowSummary {
     baseCaseId: string;
     refinedCaseId: string;
     changedPaths: string[];
-    classification: JudgeClassification;
+    classification: ValidationClassification;
   };
   restore: {
     sourceCaseId: string;
@@ -371,13 +371,13 @@ export interface RevisionFlowSummary {
     restoredMatchesSource: boolean;
     validate: CommandCapture;
     inspect: ArtifactInspection;
-    judge: StudioJudgeResult;
-    classification: JudgeClassification;
+    validation: StudioValidationResult;
+    classification: ValidationClassification;
   };
   branch: {
     caseId: string;
     editMode: string | null;
-    classification: JudgeClassification;
+    classification: ValidationClassification;
   };
 }
 
@@ -387,14 +387,14 @@ export interface RepeatedRunVariationFlowSummary {
   prompt: string;
   runCount: number;
   uniqueSignatureCount: number;
-  classification: JudgeClassification;
+  classification: ValidationClassification;
   strongestContradiction: string | null;
   failingRunIds: string[];
   runs: Array<{
     caseId: string;
     artifactDir: string;
     stateRoot?: string;
-    classification: JudgeClassification;
+    classification: ValidationClassification;
     strongestContradiction: string | null;
     signature: string | null;
   }>;
@@ -407,7 +407,7 @@ export interface CorpusSummary {
   lanes: {
     contract: {
       evidenceRoot: string;
-      status: JudgeClassification;
+      status: ValidationClassification;
     };
     liveStudio: LiveStudioLaneSummary;
   };

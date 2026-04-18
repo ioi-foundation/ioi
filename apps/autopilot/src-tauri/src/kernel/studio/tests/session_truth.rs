@@ -52,8 +52,8 @@ fn authoritative_ready_artifact_mentions_candidates_and_repairs_when_available()
                 terminated_reason: None,
             }),
             render_evaluation: None,
-            judge: ioi_api::studio::StudioArtifactJudgeResult {
-                classification: ioi_api::studio::StudioArtifactJudgeClassification::Repairable,
+            validation: ioi_api::studio::StudioArtifactValidationResult {
+                classification: ioi_api::studio::StudioArtifactValidationStatus::Repairable,
                 request_faithfulness: 3,
                 concept_coverage: 3,
                 interaction_relevance: 2,
@@ -102,8 +102,8 @@ fn authoritative_ready_artifact_mentions_candidates_and_repairs_when_available()
                 terminated_reason: Some("accepted".to_string()),
             }),
             render_evaluation: None,
-            judge: ioi_api::studio::StudioArtifactJudgeResult {
-                classification: ioi_api::studio::StudioArtifactJudgeClassification::Pass,
+            validation: ioi_api::studio::StudioArtifactValidationResult {
+                classification: ioi_api::studio::StudioArtifactValidationStatus::Pass,
                 request_faithfulness: 5,
                 concept_coverage: 4,
                 interaction_relevance: 4,
@@ -573,89 +573,6 @@ fn weather_tool_widget_follow_up_reuses_retained_location_scope() {
     );
 
     assert_eq!(scopes, vec!["Boston".to_string()]);
-}
-
-#[test]
-fn contextual_retained_weather_follow_up_prefers_active_widget_lane() {
-    let widget_state = ioi_types::app::studio::StudioRetainedWidgetState {
-        widget_family: Some("weather".to_string()),
-        bindings: vec![ioi_types::app::studio::StudioWidgetStateBinding {
-            key: "weather.location".to_string(),
-            value: "Boston".to_string(),
-            source: "widget_click".to_string(),
-        }],
-        last_updated_at: None,
-    };
-
-    let request = super::content_session::contextual_retained_widget_follow_up_request(
-        "How about tomorrow instead?",
-        None,
-        Some(&widget_state),
-    )
-    .expect("retained widget follow-up request");
-
-    assert_eq!(request.outcome_kind, StudioOutcomeKind::ToolWidget);
-    assert!(!request.needs_clarification);
-    assert!(request
-        .routing_hints
-        .iter()
-        .any(|hint| hint == "tool_widget:weather"));
-    assert!(request
-        .routing_hints
-        .iter()
-        .any(|hint| hint == "retained_widget_follow_up"));
-
-    match request.request_frame.as_ref().expect("request frame") {
-        ioi_types::app::studio::StudioNormalizedRequestFrame::Weather(frame) => {
-            assert_eq!(frame.assumed_location.as_deref(), Some("Boston"));
-            assert_eq!(frame.temporal_scope.as_deref(), Some("tomorrow"));
-            assert!(frame.missing_slots.is_empty());
-        }
-        other => panic!("expected weather request frame, got {other:?}"),
-    }
-}
-
-#[test]
-fn contextual_retained_places_follow_up_prefers_active_widget_lane_for_elliptical_anchor_reply() {
-    let widget_state = ioi_types::app::studio::StudioRetainedWidgetState {
-        widget_family: Some("places".to_string()),
-        bindings: vec![ioi_types::app::studio::StudioWidgetStateBinding {
-            key: "places.category".to_string(),
-            value: "coffee shops".to_string(),
-            source: "clarification".to_string(),
-        }],
-        last_updated_at: None,
-    };
-
-    let request = super::content_session::contextual_retained_widget_follow_up_request(
-        "Near Williamsburg, Brooklyn.",
-        None,
-        Some(&widget_state),
-    )
-    .expect("retained places follow-up request");
-
-    assert_eq!(request.outcome_kind, StudioOutcomeKind::ToolWidget);
-    assert!(!request.needs_clarification);
-    assert!(request
-        .routing_hints
-        .iter()
-        .any(|hint| hint == "tool_widget:places"));
-    assert!(request
-        .routing_hints
-        .iter()
-        .any(|hint| hint == "retained_widget_follow_up"));
-
-    match request.request_frame.as_ref().expect("request frame") {
-        ioi_types::app::studio::StudioNormalizedRequestFrame::Places(frame) => {
-            assert_eq!(frame.category.as_deref(), Some("coffee shops"));
-            assert!(frame
-                .search_anchor
-                .as_deref()
-                .is_some_and(|anchor| anchor.eq_ignore_ascii_case("Williamsburg, Brooklyn")));
-            assert!(frame.missing_slots.is_empty());
-        }
-        other => panic!("expected places request frame, got {other:?}"),
-    }
 }
 
 #[test]

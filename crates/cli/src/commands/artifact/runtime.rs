@@ -173,7 +173,7 @@ pub(super) fn build_acceptance_inference_runtime(
             explicit_model
                 .clone()
                 .or_else(|| production_provenance.model.clone())
-                .unwrap_or_else(|| "acceptance-judge".to_string()),
+                .unwrap_or_else(|| "acceptance-validation".to_string()),
         ))
     } else if production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
         || explicit_model.is_some()
@@ -188,12 +188,12 @@ pub(super) fn build_acceptance_inference_runtime(
             ))
         } else {
             Arc::new(UnavailableInferenceRuntime::new(
-                "Acceptance judging requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
+                "Acceptance validation requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
             ))
         }
     } else {
         Arc::new(UnavailableInferenceRuntime::new(
-            "Acceptance judging requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
+            "Acceptance validation requires a distinct configured runtime. Set AUTOPILOT_ACCEPTANCE_RUNTIME_URL or AUTOPILOT_ACCEPTANCE_OPENAI_API_KEY/AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL.",
         ))
     };
 
@@ -202,7 +202,7 @@ pub(super) fn build_acceptance_inference_runtime(
         && runtime_provenance_matches(&acceptance_provenance, &production_provenance)
     {
         return Ok(Arc::new(UnavailableInferenceRuntime::new(
-            "Acceptance judging requires runtime provenance distinct from the production artifact runtime.",
+            "Acceptance validation requires runtime provenance distinct from the production artifact runtime.",
         )));
     }
 

@@ -87,10 +87,10 @@ use ioi_api::studio::materialize_studio_artifact_with_runtime;
 use ioi_api::studio::pdf_artifact_bytes;
 use ioi_api::studio::{
     plan_studio_outcome_with_runtime, StudioArtifactBrief, StudioArtifactCandidateSummary,
-    StudioArtifactEditIntent, StudioArtifactEditMode, StudioArtifactJudgeResult,
-    StudioArtifactOutputOrigin, StudioArtifactRefinementContext,
-    StudioArtifactRuntimeNarrationEvent, StudioArtifactSelectionTarget, StudioArtifactTasteMemory,
-    StudioArtifactUxLifecycle,
+    StudioArtifactEditIntent, StudioArtifactEditMode, StudioArtifactOutputOrigin,
+    StudioArtifactRefinementContext, StudioArtifactRuntimeNarrationEvent,
+    StudioArtifactSelectionTarget, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    StudioArtifactValidationResult,
 };
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_memory::MemoryRuntime;

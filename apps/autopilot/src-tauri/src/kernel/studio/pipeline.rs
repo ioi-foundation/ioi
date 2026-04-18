@@ -5,7 +5,7 @@ use crate::models::{
     StudioArtifactSession, StudioOutcomeArtifactRequest, StudioOutcomeKind, StudioRendererKind,
 };
 use ioi_api::studio::{
-    ExecutionStage, StudioArtifactJudgeClassification, StudioArtifactTasteMemory,
+    ExecutionStage, StudioArtifactTasteMemory, StudioArtifactValidationStatus,
     StudioArtifactWorkItemStatus, StudioArtifactWorkerRole,
 };
 use ioi_types::app::StudioExecutionStrategy;
@@ -99,7 +99,7 @@ fn worker_role_id(role: StudioArtifactWorkerRole) -> &'static str {
         StudioArtifactWorkerRole::StyleSystem => "style_system",
         StudioArtifactWorkerRole::Interaction => "interaction",
         StudioArtifactWorkerRole::Integrator => "integrator",
-        StudioArtifactWorkerRole::Judge => "judge",
+        StudioArtifactWorkerRole::Validation => "validation",
         StudioArtifactWorkerRole::Repair => "repair",
     }
 }
@@ -357,11 +357,11 @@ fn validation_obligation_counts(
     ))
 }
 
-fn judge_classification_id(classification: StudioArtifactJudgeClassification) -> &'static str {
+fn validation_status_id(classification: StudioArtifactValidationStatus) -> &'static str {
     match classification {
-        StudioArtifactJudgeClassification::Pass => "pass",
-        StudioArtifactJudgeClassification::Repairable => "repairable",
-        StudioArtifactJudgeClassification::Blocked => "blocked",
+        StudioArtifactValidationStatus::Pass => "pass",
+        StudioArtifactValidationStatus::Repairable => "repairable",
+        StudioArtifactValidationStatus::Blocked => "blocked",
     }
 }
 
@@ -753,16 +753,16 @@ pub(super) fn pipeline_steps_for_state(
             ));
         }
     }
-    if let Some(judge) = materialization.judge.as_ref() {
+    if let Some(validation) = materialization.validation.as_ref() {
         verification_outputs.push(format!(
-            "judge:{}",
-            judge_classification_id(judge.classification)
+            "validation:{}",
+            validation_status_id(validation.classification)
         ));
-        if !judge.issue_classes.is_empty() {
-            verification_outputs.push(format!("issues:{}", judge.issue_classes.join(" · ")));
+        if !validation.issue_classes.is_empty() {
+            verification_outputs.push(format!("issues:{}", validation.issue_classes.join(" · ")));
         }
-        if !judge.repair_hints.is_empty() {
-            verification_outputs.push(format!("repair_hints:{}", judge.repair_hints.len()));
+        if !validation.repair_hints.is_empty() {
+            verification_outputs.push(format!("repair_hints:{}", validation.repair_hints.len()));
         }
     }
     if has_swarm_execution {
@@ -1231,10 +1231,10 @@ pub(super) fn pipeline_steps_for_state(
         lifecycle_state,
         has_files,
         preview_ready,
-        if let Some(judge) = materialization.judge.as_ref() {
+        if let Some(validation) = materialization.validation.as_ref() {
             format!(
-                "Static audits and acceptance judging classified the artifact as {} before Studio surfaced it.",
-                judge_classification_id(judge.classification)
+                "Static audits and acceptance validation classified the artifact as {} before Studio surfaced it.",
+                validation_status_id(validation.classification)
             )
         } else {
             manifest.verification.summary.clone()
@@ -1253,7 +1253,7 @@ pub(super) fn pipeline_steps_for_state(
             has_files,
             preview_ready,
             if has_swarm_execution {
-                "Repair stays bounded to cited judge or verification failures on the merged artifact."
+                "Repair stays bounded to cited validation or verification failures on the merged artifact."
                     .to_string()
             } else {
                 "Repair tracks bounded follow-up passes when verification cites contradictions."

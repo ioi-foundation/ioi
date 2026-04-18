@@ -56,7 +56,7 @@ function makePreset({
     scorecards: {
       artifactQuality: makeScorecard({
         passRate: 0,
-        averageJudgeScore: 0,
+        averageValidationScore: 0,
         verifierPassRate: 0,
         routeMatchRate: 0,
         averageRepairLoopIterations: 0,
@@ -133,7 +133,7 @@ test("candidateLedgerForRun emits lineage and validation summaries", () => {
       shippedDefault: true,
       experimental: false,
       topFindings: ["Artifact lane still coverage-light."],
-      artifact: { averageJudgeScore: 0.2, verifierPassRate: 0.5 },
+      artifact: { averageValidationScore: 0.2, verifierPassRate: 0.5 },
       latency: { meanWallClockMs: 180, p95WallClockMs: 220 },
     }),
     makePreset({
@@ -141,7 +141,7 @@ test("candidateLedgerForRun emits lineage and validation summaries", () => {
       label: "Local Challenger",
       deploymentProfile: "local_workstation",
       topFindings: ["Research verifier still soft on long-horizon tasks."],
-      artifact: { averageJudgeScore: 0.8, verifierPassRate: 1, passRate: 1 },
+      artifact: { averageValidationScore: 0.8, verifierPassRate: 1, passRate: 1 },
       coding: {
         taskPassRate: 1,
         targetedTestPassRate: 1,
@@ -165,7 +165,7 @@ test("candidateLedgerForRun emits lineage and validation summaries", () => {
       benchmarkTier: "tier3",
       deploymentProfile: "blind_cloud_standard",
       topFindings: ["Blind-cloud posture keeps this in shadow."],
-      artifact: { averageJudgeScore: 0.9, verifierPassRate: 1, passRate: 1 },
+      artifact: { averageValidationScore: 0.9, verifierPassRate: 1, passRate: 1 },
       coding: {
         taskPassRate: 1,
         targetedTestPassRate: 1,
@@ -227,13 +227,13 @@ test("decisionForRun keeps the default when a challenger regresses latency", () 
       label: "Baseline",
       shippedDefault: true,
       experimental: false,
-      artifact: { averageJudgeScore: 0.1 },
+      artifact: { averageValidationScore: 0.1 },
       latency: { meanWallClockMs: 100, p95WallClockMs: 120 },
     }),
     makePreset({
       presetId: "challenger",
       label: "Challenger",
-      artifact: { averageJudgeScore: 0.1 },
+      artifact: { averageValidationScore: 0.1 },
       computer: { rewardFloorPassRate: 1, postconditionPassRate: 1 },
       latency: { meanWallClockMs: 220, p95WallClockMs: 260 },
     }),
@@ -251,13 +251,13 @@ test("decisionForRun does not promote on a single challenger win", () => {
       label: "Baseline",
       shippedDefault: true,
       experimental: false,
-      artifact: { averageJudgeScore: 0.1 },
+      artifact: { averageValidationScore: 0.1 },
       latency: { meanWallClockMs: 180, p95WallClockMs: 220 },
     }),
     makePreset({
       presetId: "challenger",
       label: "Challenger",
-      artifact: { averageJudgeScore: 0.8, verifierPassRate: 1, passRate: 1 },
+      artifact: { averageValidationScore: 0.8, verifierPassRate: 1, passRate: 1 },
       coding: {
         taskPassRate: 1,
         targetedTestPassRate: 1,
@@ -294,13 +294,13 @@ test("decisionForRun promotes after repeated retained challenger wins", () => {
       label: "Baseline",
       shippedDefault: true,
       experimental: false,
-      artifact: { averageJudgeScore: 0.1 },
+      artifact: { averageValidationScore: 0.1 },
       latency: { meanWallClockMs: 180, p95WallClockMs: 220 },
     }),
     makePreset({
       presetId: "challenger",
       label: "Challenger",
-      artifact: { averageJudgeScore: 0.8, verifierPassRate: 1, passRate: 1 },
+      artifact: { averageValidationScore: 0.8, verifierPassRate: 1, passRate: 1 },
       coding: {
         taskPassRate: 1,
         targetedTestPassRate: 1,

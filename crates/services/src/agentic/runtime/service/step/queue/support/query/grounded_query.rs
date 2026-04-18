@@ -125,6 +125,19 @@ pub(crate) fn constraint_grounded_search_query_with_contract_and_hints_and_local
         locality_hint,
     );
     let mut constraint_terms = projection_constraint_search_terms(&projection);
+    if projection.query_facets.grounded_external_required
+        && projection.query_facets.service_status_lookup
+    {
+        for term in [
+            "official status page",
+            "service health dashboard",
+            "incident update",
+        ] {
+            if !constraint_terms.iter().any(|existing| existing == term) {
+                constraint_terms.push(term.to_string());
+            }
+        }
+    }
     let bootstrap_without_hints = candidate_hints.is_empty();
     let authority_site_terms = if bootstrap_without_hints {
         query_document_authority_site_terms(&resolved, retrieval_contract, candidate_hints, false)

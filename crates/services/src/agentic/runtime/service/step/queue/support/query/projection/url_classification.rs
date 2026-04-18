@@ -224,6 +224,70 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(
         schema.axis_hits.contains(&MetricAxis::Price) && !has_price_quote_payload(text)
     }
 
+    fn price_detail_surface_signal(url: &str, title: &str, excerpt: &str) -> bool {
+        let trimmed = url.trim();
+        if trimmed.is_empty() || !is_citable_web_url(trimmed) || is_search_hub_url(trimmed) {
+            return false;
+        }
+        let Ok(parsed) = Url::parse(trimmed) else {
+            return false;
+        };
+
+        let path = parsed.path().to_ascii_lowercase();
+        let combined = compact_whitespace(&format!("{} {}", title, excerpt)).to_ascii_lowercase();
+        let explicit_price_surface = combined.contains(" price today ")
+            || combined.contains(" price today is ")
+            || combined.contains(" live price ")
+            || combined.contains(" live btc usd rate ")
+            || combined.contains(" btc to usd ")
+            || combined.contains(" currently at ");
+        let quote_context = combined.contains('$')
+            || combined.contains(" usd ")
+            || combined.contains(" btc usd ")
+            || combined.contains(" to usd ")
+            || combined.contains(" rate ");
+        let path_detail_surface = path.contains("/price/") || path.contains("/crypto/");
+        let numeric_signal = combined.chars().any(|ch| ch.is_ascii_digit());
+
+        path_detail_surface && explicit_price_surface && quote_context && numeric_signal
+    }
+
+    fn weather_detail_surface_signal(url: &str, title: &str, excerpt: &str) -> bool {
+        let trimmed = url.trim();
+        if trimmed.is_empty() || !is_citable_web_url(trimmed) || is_search_hub_url(trimmed) {
+            return false;
+        }
+        let Ok(parsed) = Url::parse(trimmed) else {
+            return false;
+        };
+
+        let host = parsed.host_str().unwrap_or_default().to_ascii_lowercase();
+        let path = parsed.path().to_ascii_lowercase();
+        let query = parsed.query().unwrap_or_default().to_ascii_lowercase();
+        let combined = compact_whitespace(&format!("{} {}", title, excerpt)).to_ascii_lowercase();
+        let weather_surface_signal = combined.contains("current weather")
+            || combined.contains("current conditions")
+            || combined.contains("weather today")
+            || combined.contains("weather report")
+            || combined.contains("hourly forecast")
+            || combined.contains("local radar");
+        let structural_weather_detail = host == "wttr.in"
+            || path.contains("/weather/today")
+            || path.contains("/mapclick.php")
+            || path.contains("/forecasts/latest")
+            || path.contains("/hourly")
+            || query.contains("cityname=")
+            || query.contains("inputstring=");
+        let title_locality_tokens = ordered_normalized_locality_tokens(title);
+        let path_locality_tokens = ordered_normalized_locality_tokens(parsed.path());
+        let query_locality_tokens = ordered_normalized_locality_tokens(parsed.query().unwrap_or_default());
+        let locality_signal = title_locality_tokens.len() >= 2
+            || path_locality_tokens.len() >= 2
+            || query_locality_tokens.len() >= 2;
+
+        locality_signal && (weather_surface_signal || structural_weather_detail)
+    }
+
     if source_has_human_challenge_signal(url, title, excerpt) {
         return false;
     }
@@ -248,26 +312,33 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(
             || excerpt_lower.contains(" output")
             || excerpt_lower.contains(" cached"));
     if source_price_axis {
-        if has_price_quote_payload(&source_text) {
+        if has_price_quote_payload(&source_text) || price_detail_surface_signal(url, title, excerpt)
+        {
             return true;
         }
+        return false;
     }
     if title_pricing_context && excerpt_currency_dense {
         return true;
-    } else if has_subject_currentness_payload(&source_text) {
+    } else if !source_price_axis && has_subject_currentness_payload(&source_text) {
         return true;
     } else if source_schema.has_current_observation_payload()
-        || (source_schema.numeric_token_hits > 0 && source_schema.unit_hits > 0)
+        || (!source_price_axis
+            && source_schema.numeric_token_hits > 0
+            && source_schema.unit_hits > 0)
     {
+        return true;
+    } else if weather_detail_surface_signal(url, title, excerpt) {
         return true;
     }
 
     let excerpt_schema = analyze_metric_schema(excerpt);
     let excerpt_has_price_without_quote = schema_has_price_without_quote(&excerpt_schema, excerpt);
     if excerpt_schema.axis_hits.contains(&MetricAxis::Price) {
-        if has_price_quote_payload(excerpt) {
+        if has_price_quote_payload(excerpt) || price_detail_surface_signal(url, title, excerpt) {
             return true;
         }
+        return false;
     } else if has_subject_currentness_payload(excerpt) {
         return true;
     } else if observation_surface_signal(&excerpt_schema) && !excerpt_has_price_without_quote {
@@ -280,7 +351,7 @@ pub(crate) fn candidate_time_sensitive_resolvable_payload(
 
     let title_schema = analyze_metric_schema(title);
     if title_schema.axis_hits.contains(&MetricAxis::Price) {
-        return has_price_quote_payload(title);
+        return has_price_quote_payload(title) || price_detail_surface_signal(url, title, excerpt);
     }
     if has_subject_currentness_payload(title) {
         return true;

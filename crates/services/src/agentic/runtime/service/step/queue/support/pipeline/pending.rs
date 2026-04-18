@@ -175,6 +175,104 @@ fn observed_source_surface_for_url<'a>(
         })
 }
 
+fn single_snapshot_current_observation_surface_signal(
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    if contains_current_condition_metric_signal(&format!("{title} {excerpt}")) {
+        return true;
+    }
+    if has_subject_currentness_payload(&format!("{title} {excerpt}")) {
+        return true;
+    }
+
+    let trimmed = url.trim();
+    if trimmed.is_empty() || !is_citable_web_url(trimmed) || is_search_hub_url(trimmed) {
+        return false;
+    }
+
+    let Ok(parsed) = ::url::Url::parse(trimmed) else {
+        return false;
+    };
+    let path = parsed.path().to_ascii_lowercase();
+    let combined = compact_whitespace(&format!("{title} {excerpt}")).to_ascii_lowercase();
+    let metric_axis_signal = [
+        "temperature",
+        "humidity",
+        "wind",
+        "pressure",
+        "visibility",
+        "air quality",
+        "price",
+        "quote",
+        "usd",
+        "btc",
+    ]
+    .iter()
+    .any(|marker| combined.contains(marker));
+    let current_surface_signal = [
+        "current weather",
+        "current conditions",
+        "current weather report",
+        "right now",
+        "as of ",
+        "feels like",
+        "current btc quote",
+        "current quote",
+        "live price",
+    ]
+    .iter()
+    .any(|marker| combined.contains(marker));
+    let forecast_heavy = [
+        "10-day forecast",
+        "12 day forecast",
+        "long-range",
+        "next 3 days",
+        "next three days",
+        "weekly forecast",
+    ]
+    .iter()
+    .any(|marker| combined.contains(marker));
+    let structural_current_surface = path.contains("/hourly")
+        || path.contains("/current-weather")
+        || path.contains("/weather/today")
+        || path.contains("/price/");
+
+    !forecast_heavy && metric_axis_signal && current_surface_signal && structural_current_surface
+}
+
+fn single_snapshot_observed_surface_qualifies_for_grounding(
+    pending: &PendingSearchCompletion,
+    projection: &QueryConstraintProjection,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    let observed_text = format!("{title} {excerpt}");
+    if single_snapshot_requires_current_metric_observation_contract(pending) {
+        return single_snapshot_current_observation_surface_signal(url, title, excerpt)
+            || contains_current_condition_metric_signal(&observed_text);
+    }
+    if single_snapshot_requires_subject_identity_contract(pending) {
+        return first_subject_currentness_sentence(&observed_text).is_some();
+    }
+
+    let compatibility = candidate_constraint_compatibility(
+        &projection.constraints,
+        &projection.query_facets,
+        &projection.query_native_tokens,
+        &projection.query_tokens,
+        &projection.locality_tokens,
+        projection.locality_scope.is_some(),
+        url,
+        title,
+        excerpt,
+    );
+    compatibility_passes_projection(projection, &compatibility)
+        || candidate_time_sensitive_resolvable_payload(url, title, excerpt)
+}
+
 fn observed_single_snapshot_nonqualifying_count(
     pending: &PendingSearchCompletion,
     projection: &QueryConstraintProjection,
@@ -192,20 +290,108 @@ fn observed_single_snapshot_nonqualifying_count(
             let Some((title, excerpt)) = observed_source_surface_for_url(pending, url) else {
                 return true;
             };
-            let compatibility = candidate_constraint_compatibility(
-                &projection.constraints,
-                &projection.query_facets,
-                &projection.query_native_tokens,
-                &projection.query_tokens,
-                &projection.locality_tokens,
-                projection.locality_scope.is_some(),
-                url,
-                title,
-                excerpt,
-            );
-            !compatibility_passes_projection(projection, &compatibility)
+            !single_snapshot_observed_surface_qualifies_for_grounding(
+                pending, projection, url, title, excerpt,
+            )
         })
         .count()
+}
+
+fn next_pending_headline_article_candidate(
+    pending: &PendingSearchCompletion,
+    attempted: &BTreeSet<String>,
+    query_contract: &str,
+    retrieval_contract: Option<&ioi_types::app::agentic::WebRetrievalContract>,
+) -> Option<String> {
+    if !retrieval_contract_is_generic_headline_collection(retrieval_contract, query_contract) {
+        return None;
+    }
+
+    let required_story_floor =
+        retrieval_contract_required_story_count(retrieval_contract, query_contract).max(1);
+    let min_sources_required = pending.min_sources.max(1) as usize;
+    let (actionable_sources_observed, actionable_domains_observed) =
+        headline_actionable_source_inventory(&pending.successful_reads);
+    if actionable_sources_observed >= required_story_floor
+        && actionable_domains_observed >= required_story_floor
+    {
+        return None;
+    }
+
+    let observed_domains = observed_pending_domain_keys(pending);
+    let preferred_distinct_domain_floor = required_story_floor.max(min_sources_required);
+    let prefer_new_domain = observed_domains.len() < preferred_distinct_domain_floor;
+    let mut ranked_candidates = pending_candidate_inventory(pending)
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, candidate)| {
+            let trimmed = candidate.trim();
+            if trimmed.is_empty()
+                || attempted.contains(trimmed)
+                || pending_url_already_observed(pending, trimmed)
+                || !projection_candidate_url_allowed(trimmed)
+                || is_multi_item_listing_url(trimmed)
+            {
+                return None;
+            }
+
+            let hint = hint_for_url(pending, trimmed);
+            let fallback_source = PendingSearchReadSummary {
+                url: trimmed.to_string(),
+                title: hint.and_then(|entry| entry.title.clone()),
+                excerpt: hint.map(|entry| entry.excerpt.clone()).unwrap_or_default(),
+            };
+            let title = fallback_source.title.as_deref().unwrap_or_default();
+            let excerpt = fallback_source.excerpt.as_str();
+            let actionable = headline_source_is_actionable(&fallback_source);
+            let low_quality = headline_source_is_low_quality(trimmed, title, excerpt);
+            if low_quality && !actionable {
+                return None;
+            }
+
+            let deep_article = looks_like_deep_article_url(trimmed);
+            let title_specific = !title.trim().is_empty()
+                && !is_low_signal_title(title)
+                && headline_story_title_has_specificity(title)
+                && !headline_title_is_multi_story_roundup_surface(title);
+            let claim_signal = excerpt_has_claim_signal(title) || excerpt_has_claim_signal(excerpt);
+            if !(actionable || deep_article || title_specific || claim_signal) {
+                return None;
+            }
+
+            let domain_key = source_host(trimmed)
+                .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
+                .unwrap_or_else(|| trimmed.to_ascii_lowercase());
+            let adds_new_domain = !observed_domains.contains(&domain_key);
+
+            Some((
+                idx,
+                trimmed.to_string(),
+                actionable,
+                prefer_new_domain && adds_new_domain,
+                deep_article,
+                title_specific,
+                claim_signal,
+            ))
+        })
+        .collect::<Vec<_>>();
+
+    ranked_candidates.sort_by(|left, right| {
+        right
+            .2
+            .cmp(&left.2)
+            .then_with(|| right.3.cmp(&left.3))
+            .then_with(|| right.4.cmp(&left.4))
+            .then_with(|| right.5.cmp(&left.5))
+            .then_with(|| right.6.cmp(&left.6))
+            .then_with(|| left.0.cmp(&right.0))
+            .then_with(|| left.1.cmp(&right.1))
+    });
+
+    ranked_candidates
+        .into_iter()
+        .map(|(_, candidate, _, _, _, _, _)| candidate)
+        .next()
 }
 
 fn next_pending_grounded_candidate(
@@ -368,8 +554,6 @@ fn next_pending_grounded_candidate(
             } else {
                 has_signal
             };
-            let grounded_viable =
-                (!enforce_grounded_compatibility || compatibility_passes) && resolves_constraint;
             let signals = analyze_source_record_signals(trimmed, title, excerpt);
             let low_priority = signals.low_priority_hits > 0 || signals.low_priority_dominates();
             let document_authority_score =
@@ -413,6 +597,14 @@ fn next_pending_grounded_candidate(
                 title,
                 excerpt,
             );
+            let authoritative_current_briefing_followup =
+                query_prefers_document_briefing_layout(query_contract)
+                    && retrieval_contract
+                        .map(|contract| contract.currentness_required)
+                        .unwrap_or(false)
+                    && document_authority_score > 0
+                    && temporal_recency_score > 0
+                    && (query_grounding_signal || strong_subject_overlap);
             let briefing_support_viable = !low_priority
                 && (!document_briefing_layout
                     || document_authority_score > 0
@@ -420,6 +612,9 @@ fn next_pending_grounded_candidate(
                     || grounded_external_publication_artifact
                     || query_grounding_signal
                     || strong_subject_overlap);
+            let grounded_viable = ((!enforce_grounded_compatibility || compatibility_passes)
+                && resolves_constraint)
+                || authoritative_current_briefing_followup;
             let canonical_publication_detail = canonical_publication_detail_candidate(
                 query_contract,
                 trimmed,
@@ -640,6 +835,36 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
 
     let query_contract = synthesis_query_contract(pending);
     let retrieval_contract = pending.retrieval_contract.as_ref();
+    let headline_lookup_mode =
+        retrieval_or_query_is_generic_headline_collection(retrieval_contract, &query_contract);
+    if headline_lookup_mode {
+        let observed_domains = observed_pending_domain_keys(pending);
+        let preferred_distinct_domain_floor =
+            retrieval_contract_required_story_count(retrieval_contract, &query_contract)
+                .max(pending.min_sources.max(1) as usize);
+        if observed_domains.len() < preferred_distinct_domain_floor {
+            let has_new_domain_candidate =
+                pending_candidate_inventory(pending)
+                    .iter()
+                    .any(|candidate| {
+                        let trimmed = candidate.trim();
+                        if trimmed.is_empty()
+                            || attempted.contains(trimmed)
+                            || pending_url_already_observed(pending, trimmed)
+                            || is_search_hub_url(trimmed)
+                        {
+                            return false;
+                        }
+                        let domain_key = source_host(trimmed)
+                            .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
+                            .unwrap_or_else(|| trimmed.to_ascii_lowercase());
+                        !observed_domains.contains(&domain_key)
+                    });
+            if !has_new_domain_candidate {
+                return None;
+            }
+        }
+    }
     let prefer_host_diversity =
         retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query_contract);
     if prefer_host_diversity {
@@ -693,14 +918,16 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
                     envelope_score,
                     compatibility,
                     resolvable_payload,
+                    single_snapshot_current_observation_surface_signal(trimmed, title, excerpt),
                     source_relevance_score,
                 ))
             })
             .collect::<Vec<_>>();
         ranked_candidates.sort_by(|left, right| {
             right
-                .4
-                .cmp(&left.4)
+                .5
+                .cmp(&left.5)
+                .then_with(|| right.4.cmp(&left.4))
                 .then_with(|| {
                     let right_passes = compatibility_passes_projection(&projection, &right.3);
                     let left_passes = compatibility_passes_projection(&projection, &left.3);
@@ -708,14 +935,14 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
                 })
                 .then_with(|| right.3.compatibility_score.cmp(&left.3.compatibility_score))
                 .then_with(|| compare_candidate_evidence_scores_desc(&left.2, &right.2))
-                .then_with(|| right.5.cmp(&left.5))
+                .then_with(|| right.6.cmp(&left.6))
                 .then_with(|| left.0.cmp(&right.0))
                 .then_with(|| left.1.cmp(&right.1))
         });
         let has_compatible_candidates =
             ranked_candidates
                 .iter()
-                .any(|(_, _, _, compatibility, _, _)| {
+                .any(|(_, _, _, compatibility, _, _, _)| {
                     compatibility_passes_projection(&projection, compatibility)
                 });
         let requires_semantic_locality_alignment = projection
@@ -759,7 +986,7 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
             }
         }
 
-        for (_, candidate, _, compatibility, _, _) in &ranked_candidates {
+        for (_, candidate, _, compatibility, _, _, _) in &ranked_candidates {
             if has_compatible_candidates
                 && !compatibility_passes_projection(&projection, compatibility)
             {
@@ -774,10 +1001,10 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
         }
 
         if has_compatible_candidates {
-            if let Some((_, candidate, _, _, _, _)) =
+            if let Some((_, candidate, _, _, _, _, _)) =
                 ranked_candidates
                     .iter()
-                    .find(|(_, _, _, compatibility, _, _)| {
+                    .find(|(_, _, _, compatibility, _, _, _)| {
                         compatibility_passes_projection(&projection, compatibility)
                     })
             {
@@ -787,14 +1014,14 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
 
         if grounded_anchor_constrained {
             if !has_compatible_candidates && can_issue_exploratory_read {
-                if let Some((_, candidate, _, _, _, _)) = ranked_candidates.first() {
+                if let Some((_, candidate, _, _, _, _, _)) = ranked_candidates.first() {
                     return Some(candidate.clone());
                 }
             }
             return None;
         }
 
-        if let Some((_, candidate, _, _, _, _)) = ranked_candidates.first() {
+        if let Some((_, candidate, _, _, _, _, _)) = ranked_candidates.first() {
             return Some(candidate.clone());
         }
     }
@@ -802,13 +1029,50 @@ pub(crate) fn next_pending_web_candidate(pending: &PendingSearchCompletion) -> O
     match next_pending_grounded_candidate(pending, &attempted, &query_contract, retrieval_contract)
     {
         (_, Some(candidate)) => return Some(candidate),
-        (PendingGroundedCandidateSelection::Applicable, None) => return None,
+        (PendingGroundedCandidateSelection::Applicable, None) => {
+            if headline_lookup_mode {
+                if let Some(candidate) = next_pending_headline_article_candidate(
+                    pending,
+                    &attempted,
+                    &query_contract,
+                    retrieval_contract,
+                ) {
+                    return Some(candidate);
+                }
+            }
+            return None;
+        }
         (PendingGroundedCandidateSelection::NotApplicable, None) => {}
     }
 
     let required_distinct_domains =
         retrieval_contract_required_distinct_domain_floor(retrieval_contract, &query_contract);
     let candidate_inventory = pending_candidate_inventory(pending);
+    if headline_lookup_mode {
+        let observed_domains = observed_pending_domain_keys(pending);
+        let preferred_distinct_domain_floor =
+            retrieval_contract_required_story_count(retrieval_contract, &query_contract)
+                .max(pending.min_sources.max(1) as usize);
+        if observed_domains.len() < preferred_distinct_domain_floor {
+            let has_new_domain_candidate = candidate_inventory.iter().any(|candidate| {
+                let trimmed = candidate.trim();
+                if trimmed.is_empty()
+                    || attempted.contains(trimmed)
+                    || pending_url_already_observed(pending, trimmed)
+                    || is_search_hub_url(trimmed)
+                {
+                    return false;
+                }
+                let domain_key = source_host(trimmed)
+                    .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
+                    .unwrap_or_else(|| trimmed.to_ascii_lowercase());
+                !observed_domains.contains(&domain_key)
+            });
+            if !has_new_domain_candidate {
+                return None;
+            }
+        }
+    }
     if required_distinct_domains > 1 {
         let observed_domains = observed_pending_domain_keys(pending);
 
@@ -1997,5 +2261,64 @@ mod tests {
         };
 
         assert_eq!(next_pending_web_candidate(&pending), None);
+    }
+
+    #[test]
+    fn next_pending_web_candidate_keeps_sparse_headline_article_probe_alive() {
+        let pending = PendingSearchCompletion {
+            query: "Tell me today's top news headlines.".to_string(),
+            query_contract: "Tell me today's top news headlines.".to_string(),
+            retrieval_contract: None,
+            url: "https://www.bing.com/search?q=today+top+news+headlines".to_string(),
+            started_step: 1,
+            started_at_ms: 1_771_465_364_000,
+            deadline_ms: 1_771_465_424_000,
+            candidate_urls: vec![
+                "https://www.today.com/parents/family/viral-teacher-tiktok-cursing-rule-rcna262092"
+                    .to_string(),
+            ],
+            candidate_source_hints: vec![],
+            attempted_urls: vec![
+                "https://www.bing.com/search?q=today+top+news+headlines".to_string(),
+            ],
+            blocked_urls: vec![],
+            successful_reads: vec![
+                PendingSearchReadSummary {
+                    url: "https://sundayguardianlive.com/news/school-assembly-news-headlines-today-march-05-top-national-business-news-sports-news-education-news-world-news-with-weather-updates-thought-of-the-day-174036/".to_string(),
+                    title: Some(
+                        "School Assembly News Headlines Today March 05 Top National Business News Sports News Education News World News with Weather Updates Thought of the Day".to_string(),
+                    ),
+                    excerpt:
+                        "Daily school assembly roundup with thought of the day and headline digest."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://m.economictimes.com/news/new-updates/school-assembly-news-headlines-for-march-7-top-national-international-business-sports-update-and-thought-of-the-day/articleshow/129151758.cms".to_string(),
+                    title: Some(
+                        "School Assembly News Headlines for March 7 Top National International Business Sports Update and Thought of the Day".to_string(),
+                    ),
+                    excerpt:
+                        "School assembly roundup with top national and international updates."
+                            .to_string(),
+                },
+                PendingSearchReadSummary {
+                    url: "https://bestcolleges.indiatoday.in/news-detail/school-assembly-news-headlines-today-march-7-top-national-sports-and-world-news-curated-for-you-8335".to_string(),
+                    title: Some(
+                        "School Assembly News Headlines Today March 7 Top National Sports and World News Curated for You".to_string(),
+                    ),
+                    excerpt:
+                        "Curated school assembly headlines and thought of the day."
+                            .to_string(),
+                },
+            ],
+            min_sources: 3,
+        };
+
+        assert_eq!(
+            next_pending_web_candidate(&pending).as_deref(),
+            Some(
+                "https://www.today.com/parents/family/viral-teacher-tiktok-cursing-rule-rcna262092"
+            )
+        );
     }
 }

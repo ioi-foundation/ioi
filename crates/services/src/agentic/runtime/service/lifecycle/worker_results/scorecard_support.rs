@@ -169,7 +169,7 @@ pub(crate) fn normalize_artifact_presentation_status(
         .as_str()
     {
         "ready" | "presentation_ready" | "ship" | "shippable" => "ready".to_string(),
-        "needs_judge" | "review" | "open" => "needs_judge".to_string(),
+        "needs_validation" | "review" | "open" => "needs_validation".to_string(),
         "needs_repair" | "repairable" | "not_ready" | "fix" => "needs_repair".to_string(),
         "blocked" => "blocked".to_string(),
         "unknown" | "" => "unknown".to_string(),
@@ -220,7 +220,7 @@ pub(crate) fn normalize_artifact_repair_status(value: Option<&str>, fallback: &s
         .as_str()
     {
         "none" | "not_needed" | "clear" => "not_needed".to_string(),
-        "recommended" | "suggested" | "follow_up" | "needs_judge" => "recommended".to_string(),
+        "recommended" | "suggested" | "follow_up" | "needs_validation" => "recommended".to_string(),
         "required" | "needed" | "needs_repair" | "repairable" => "required".to_string(),
         "blocked" => "blocked".to_string(),
         "unknown" | "" => "unknown".to_string(),

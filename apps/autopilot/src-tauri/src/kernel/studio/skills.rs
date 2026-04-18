@@ -264,7 +264,7 @@ fn emit_planning_context_progress(
         swarm_merge_receipts: Vec::new(),
         swarm_verification_receipts: Vec::new(),
         render_evaluation: None,
-        judge: None,
+        validation: None,
         runtime_narration_events,
     });
 }
@@ -299,7 +299,7 @@ fn emit_skill_discovery_progress(
         swarm_merge_receipts: Vec::new(),
         swarm_verification_receipts: Vec::new(),
         render_evaluation: None,
-        judge: None,
+        validation: None,
         runtime_narration_events,
     });
 }

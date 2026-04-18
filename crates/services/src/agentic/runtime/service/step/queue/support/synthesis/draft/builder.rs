@@ -47,9 +47,13 @@ pub(crate) fn build_deterministic_story_draft(
     let completion_reason = completion_reason_line(reason).to_string();
     let min_sources = pending.min_sources.max(1) as usize;
     let required_readable_sources = if headline_lookup_mode && required_story_count > 1 {
-        min_sources
-            .saturating_sub(pending.blocked_urls.len())
-            .clamp(2, min_sources)
+        if min_sources <= 1 {
+            1
+        } else {
+            min_sources
+                .saturating_sub(pending.blocked_urls.len())
+                .clamp(2, min_sources)
+        }
     } else {
         min_sources
     };

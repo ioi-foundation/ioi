@@ -55,9 +55,9 @@ function defaultReleaseGateConfig() {
         required: true,
       },
       {
-        id: "average_judge_score",
-        label: "Average judge score",
-        source: { kind: "benchmark_metric", metricId: "averageJudgeScore" },
+        id: "average_validation_score",
+        label: "Average validation score",
+        source: { kind: "benchmark_metric", metricId: "averageValidationScore" },
         operator: "minimum",
         shipThreshold: 0.85,
         ratchetFloor: 0.8,

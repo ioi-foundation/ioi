@@ -1324,7 +1324,7 @@ pub(crate) fn local_business_entity_discovery_query_contract(
     }
 }
 
-fn local_business_scope_matches_source(
+pub(crate) fn local_business_scope_matches_source(
     locality_hint: Option<&str>,
     url: &str,
     title: &str,

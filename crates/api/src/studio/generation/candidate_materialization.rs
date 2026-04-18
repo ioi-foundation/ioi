@@ -5,7 +5,212 @@ use crate::studio::payload::{
 };
 use std::time::Duration;
 
-pub(super) async fn materialize_and_locally_judge_candidate(
+fn renderable_paths_for_payload(payload: &StudioGeneratedArtifactPayload) -> Vec<String> {
+    payload
+        .files
+        .iter()
+        .filter(|file| file.renderable)
+        .map(|file| file.path.clone())
+        .collect()
+}
+
+fn validation_status_rank(status: StudioArtifactValidationStatus) -> i32 {
+    match status {
+        StudioArtifactValidationStatus::Pass => 300,
+        StudioArtifactValidationStatus::Repairable => 200,
+        StudioArtifactValidationStatus::Blocked => 100,
+    }
+}
+
+pub(crate) fn validation_total_score(validation: &StudioArtifactValidationResult) -> i32 {
+    validation.score_total
+}
+
+pub(crate) fn validation_clears_primary_view(validation: &StudioArtifactValidationResult) -> bool {
+    validation.primary_view_cleared
+        && validation.classification == StudioArtifactValidationStatus::Pass
+}
+
+fn validation_score(
+    status: StudioArtifactValidationStatus,
+    renderable_paths: &[String],
+    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
+) -> i32 {
+    let render_score = render_evaluation
+        .map(|evaluation| i32::from(evaluation.overall_score))
+        .unwrap_or_else(|| if renderable_paths.is_empty() { 0 } else { 24 });
+    validation_status_rank(status) + render_score + (renderable_paths.len().min(3) as i32 * 4)
+}
+
+fn build_validation_result(
+    classification: StudioArtifactValidationStatus,
+    proof_kind: impl Into<String>,
+    primary_view_cleared: bool,
+    validated_paths: Vec<String>,
+    issue_codes: Vec<String>,
+    repair_hints: Vec<String>,
+    blocked_reasons: Vec<String>,
+    summary: impl Into<String>,
+    rationale: impl Into<String>,
+) -> StudioArtifactValidationResult {
+    let summary = summary.into();
+    let rationale = rationale.into();
+    let strongest_contradiction = blocked_reasons
+        .first()
+        .cloned()
+        .or_else(|| repair_hints.first().cloned());
+    let default_score = match classification {
+        StudioArtifactValidationStatus::Pass => 5,
+        StudioArtifactValidationStatus::Repairable => 3,
+        StudioArtifactValidationStatus::Blocked => 1,
+    };
+    StudioArtifactValidationResult {
+        classification,
+        request_faithfulness: default_score,
+        concept_coverage: default_score,
+        interaction_relevance: default_score,
+        layout_coherence: default_score,
+        visual_hierarchy: default_score,
+        completeness: default_score,
+        generic_shell_detected: false,
+        trivial_shell_detected: validated_paths.is_empty()
+            && classification == StudioArtifactValidationStatus::Blocked,
+        deserves_primary_artifact_view: primary_view_cleared,
+        patched_existing_artifact: None,
+        continuity_revision_ux: None,
+        score_total: validation_score(classification, &validated_paths, None),
+        proof_kind: proof_kind.into(),
+        primary_view_cleared,
+        validated_paths: validated_paths.clone(),
+        issue_codes: issue_codes.clone(),
+        repair_hints: repair_hints.clone(),
+        blocked_reasons: blocked_reasons.clone(),
+        issue_classes: issue_codes,
+        strengths: if classification == StudioArtifactValidationStatus::Pass {
+            vec![summary.clone()]
+        } else {
+            Vec::new()
+        },
+        file_findings: validated_paths
+            .iter()
+            .map(|path| format!("validated: {path}"))
+            .collect(),
+        aesthetic_verdict: summary.clone(),
+        interaction_verdict: rationale.clone(),
+        truthfulness_warnings: Vec::new(),
+        recommended_next_pass: Some(
+            match classification {
+                StudioArtifactValidationStatus::Pass => "accept",
+                StudioArtifactValidationStatus::Repairable => "structural_repair",
+                StudioArtifactValidationStatus::Blocked => "hold_block",
+            }
+            .to_string(),
+        ),
+        strongest_contradiction,
+        summary,
+        rationale,
+    }
+}
+
+fn hydrate_validation_result(
+    validation: &StudioArtifactValidationResult,
+    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
+    patched_existing_artifact: Option<bool>,
+    continuity_revision_ux: Option<u8>,
+) -> StudioArtifactValidationResult {
+    let classification = validation.classification;
+    let default_score = match validation.classification {
+        StudioArtifactValidationStatus::Pass => 5,
+        StudioArtifactValidationStatus::Repairable => 3,
+        StudioArtifactValidationStatus::Blocked => 1,
+    };
+    let layout_score = render_evaluation
+        .map(|evaluation| ((u16::from(evaluation.layout_density_score) + 19) / 20) as u8)
+        .unwrap_or(default_score)
+        .clamp(1, 5);
+    let hierarchy_score = render_evaluation
+        .map(|evaluation| ((u16::from(evaluation.visual_hierarchy_score) + 19) / 20) as u8)
+        .unwrap_or(default_score)
+        .clamp(1, 5);
+    let completeness_score = render_evaluation
+        .map(|evaluation| ((u16::from(evaluation.overall_score) + 19) / 20) as u8)
+        .unwrap_or(default_score)
+        .clamp(1, 5);
+    let contradiction = validation
+        .blocked_reasons
+        .first()
+        .cloned()
+        .or_else(|| validation.repair_hints.first().cloned());
+
+    StudioArtifactValidationResult {
+        classification,
+        request_faithfulness: default_score,
+        concept_coverage: default_score,
+        interaction_relevance: default_score,
+        layout_coherence: layout_score,
+        visual_hierarchy: hierarchy_score,
+        completeness: completeness_score,
+        generic_shell_detected: false,
+        trivial_shell_detected: validation.validated_paths.is_empty()
+            && validation.classification == StudioArtifactValidationStatus::Blocked,
+        deserves_primary_artifact_view: validation.primary_view_cleared,
+        patched_existing_artifact,
+        continuity_revision_ux,
+        issue_classes: validation.issue_codes.clone(),
+        repair_hints: validation.repair_hints.clone(),
+        strengths: if validation.classification == StudioArtifactValidationStatus::Pass {
+            vec![validation.summary.clone()]
+        } else {
+            Vec::new()
+        },
+        blocked_reasons: validation.blocked_reasons.clone(),
+        file_findings: validation
+            .validated_paths
+            .iter()
+            .map(|path| format!("validated: {path}"))
+            .collect(),
+        aesthetic_verdict: validation.summary.clone(),
+        interaction_verdict: validation.rationale.clone(),
+        truthfulness_warnings: Vec::new(),
+        recommended_next_pass: Some(
+            match validation.classification {
+                StudioArtifactValidationStatus::Pass => "accept",
+                StudioArtifactValidationStatus::Repairable => "structural_repair",
+                StudioArtifactValidationStatus::Blocked => "hold_block",
+            }
+            .to_string(),
+        ),
+        score_total: validation.score_total,
+        proof_kind: validation.proof_kind.clone(),
+        primary_view_cleared: validation.primary_view_cleared,
+        validated_paths: validation.validated_paths.clone(),
+        issue_codes: validation.issue_codes.clone(),
+        strongest_contradiction: contradiction,
+        summary: validation.summary.clone(),
+        rationale: validation.rationale.clone(),
+    }
+}
+
+pub(crate) fn blocked_candidate_generation_validation(
+    message: &str,
+) -> StudioArtifactValidationResult {
+    build_validation_result(
+        StudioArtifactValidationStatus::Blocked,
+        "materialization",
+        false,
+        Vec::new(),
+        vec!["generation_failure".to_string()],
+        vec![
+            "Repair the materialization failure and rerun validation before surfacing the artifact."
+                .to_string(),
+        ],
+        vec![message.to_string()],
+        "Candidate failed during materialization.",
+        message.to_string(),
+    )
+}
+
+pub(super) async fn materialize_and_locally_validation_candidate(
     production_runtime: Arc<dyn InferenceRuntime>,
     repair_runtime: Arc<dyn InferenceRuntime>,
     render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
@@ -71,7 +276,8 @@ pub(super) async fn materialize_and_locally_judge_candidate(
                 "artifact_generation:candidate_materialize:error id={} error={}",
                 candidate_id, error.message
             ));
-            let judge = blocked_candidate_generation_judge(&error.message);
+            let validation = blocked_candidate_generation_validation(&error.message);
+            let validation = hydrate_validation_result(&validation, None, None, None);
             return Err(StudioArtifactCandidateSummary {
                 candidate_id: candidate_id.to_string(),
                 seed,
@@ -89,10 +295,10 @@ pub(super) async fn materialize_and_locally_judge_candidate(
                 convergence: Some(initial_candidate_convergence_trace(
                     candidate_id,
                     "generation_failure",
-                    judge_total_score(&judge),
+                    validation_total_score(&validation),
                 )),
                 render_evaluation: None,
-                judge,
+                validation,
             });
         }
     };
@@ -129,10 +335,12 @@ pub(super) async fn materialize_and_locally_judge_candidate(
             StudioRendererKind::DownloadCard | StudioRendererKind::BundleManifest
         )
     {
-        let judge = local_download_bundle_candidate_prejudge(request, brief, &payload);
+        let validation = local_download_bundle_candidate_validation(request, brief, &payload);
+        let validation =
+            hydrate_validation_result(&validation, render_evaluation.as_ref(), None, None);
         studio_generation_trace(format!(
-            "artifact_generation:candidate_judge:deterministic id={} classification={:?}",
-            candidate_id, judge.classification
+            "artifact_generation:candidate_validation:deterministic id={} status={:?}",
+            candidate_id, validation.classification
         ));
         return Ok((
             StudioArtifactCandidateSummary {
@@ -157,23 +365,25 @@ pub(super) async fn materialize_and_locally_judge_candidate(
                 convergence: Some(initial_candidate_convergence_trace(
                     candidate_id,
                     "initial_generation",
-                    judge_total_score(&judge),
+                    validation_total_score(&validation),
                 )),
                 render_evaluation,
-                judge,
+                validation,
             },
             payload,
         ));
     }
 
     studio_generation_trace(format!(
-        "artifact_generation:candidate_judge:render_sanity id={}",
+        "artifact_generation:candidate_validation:render_sanity id={}",
         candidate_id
     ));
-    let judge = render_sanity_candidate_judge(request, brief, &payload, render_evaluation.as_ref());
+    let validation =
+        render_sanity_candidate_validation(request, brief, &payload, render_evaluation.as_ref());
+    let validation = hydrate_validation_result(&validation, render_evaluation.as_ref(), None, None);
     studio_generation_trace(format!(
-        "artifact_generation:candidate_judge:ok id={} classification={:?}",
-        candidate_id, judge.classification
+        "artifact_generation:candidate_validation:ok id={} status={:?}",
+        candidate_id, validation.classification
     ));
 
     Ok((
@@ -199,20 +409,20 @@ pub(super) async fn materialize_and_locally_judge_candidate(
             convergence: Some(initial_candidate_convergence_trace(
                 candidate_id,
                 "initial_generation",
-                judge_total_score(&judge),
+                validation_total_score(&validation),
             )),
             render_evaluation,
-            judge,
+            validation,
         },
         payload,
     ))
 }
 
-pub(crate) fn local_download_bundle_candidate_prejudge(
-    request: &StudioOutcomeArtifactRequest,
+pub(crate) fn local_download_bundle_candidate_validation(
+    _request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
     payload: &StudioGeneratedArtifactPayload,
-) -> StudioArtifactJudgeResult {
+) -> StudioArtifactValidationResult {
     let has_readme = payload
         .files
         .iter()
@@ -236,10 +446,7 @@ pub(crate) fn local_download_bundle_candidate_prejudge(
     let has_usable_export = recognized_exports
         .iter()
         .any(|(file, format)| download_bundle_export_body_looks_complete(*format, &file.body));
-    let export_labels = recognized_exports
-        .iter()
-        .map(|(_, format)| download_bundle_export_format_label(*format))
-        .collect::<Vec<_>>();
+    let all_downloadable = payload.files.iter().all(|file| file.downloadable);
     let required_terms = brief
         .required_concepts
         .iter()
@@ -256,102 +463,78 @@ pub(crate) fn local_download_bundle_candidate_prejudge(
         .iter()
         .filter(|term| !term.is_empty() && body_lower.contains(term.as_str()))
         .count();
-    let all_downloadable = payload.files.iter().all(|file| file.downloadable);
-    let classification = if has_readme && has_usable_export && all_downloadable {
-        StudioArtifactJudgeClassification::Pass
+    let status = if has_readme && has_usable_export && all_downloadable {
+        StudioArtifactValidationStatus::Pass
     } else if has_readme || has_usable_export {
-        StudioArtifactJudgeClassification::Repairable
+        StudioArtifactValidationStatus::Repairable
     } else {
-        StudioArtifactJudgeClassification::Blocked
+        StudioArtifactValidationStatus::Blocked
     };
-    let request_faithfulness = if has_readme && has_usable_export {
-        4
-    } else {
-        2
-    };
-    let concept_coverage = if concept_hits >= brief.required_concepts.len().min(2).max(1) {
-        4
-    } else if has_readme && has_usable_export {
-        3
-    } else {
-        2
-    };
-    let completeness = if has_readme && has_usable_export {
-        4
-    } else {
-        2
-    };
-    let deserves_primary_artifact_view = classification == StudioArtifactJudgeClassification::Pass;
-    let mut strengths = Vec::new();
-    if has_readme {
-        strengths.push("README.md is present for bundle guidance.".to_string());
-    }
-    if !export_labels.is_empty() && has_usable_export {
-        strengths.push(format!(
-            "{} is present with usable content.",
-            export_labels.join(" + ")
-        ));
-    }
+    let mut issue_codes = Vec::new();
     let mut blocked_reasons = Vec::new();
     if !has_readme {
+        issue_codes.push("missing_readme".to_string());
         blocked_reasons.push("Bundle is missing a usable README.md.".to_string());
     }
     if !has_usable_export {
+        issue_codes.push("missing_usable_export".to_string());
         blocked_reasons
             .push("Bundle is missing a usable request-grounded export file.".to_string());
     }
     if !all_downloadable {
+        issue_codes.push("non_downloadable_file".to_string());
         blocked_reasons.push("All bundle files must remain downloadable.".to_string());
     }
-    let rationale = match &classification {
-        StudioArtifactJudgeClassification::Pass => {
-            "Download bundle includes the required files with usable contents.".to_string()
+    if concept_hits == 0 && !brief.required_concepts.is_empty() {
+        issue_codes.push("concept_coverage_thin".to_string());
+    }
+    let export_labels = recognized_exports
+        .iter()
+        .map(|(_, format)| download_bundle_export_format_label(*format))
+        .collect::<Vec<_>>();
+    let repair_hints = blocked_reasons.clone();
+    let summary = match status {
+        StudioArtifactValidationStatus::Pass => {
+            "Bundle contract validated with a usable README and export file.".to_string()
         }
-        StudioArtifactJudgeClassification::Repairable => {
-            "Download bundle is close, but a required file is thin or incomplete.".to_string()
+        StudioArtifactValidationStatus::Repairable => {
+            "Bundle contract is close, but one required file is thin or incomplete.".to_string()
         }
-        StudioArtifactJudgeClassification::Blocked => {
-            "Download bundle is missing a required usable file.".to_string()
+        StudioArtifactValidationStatus::Blocked => {
+            "Bundle contract is missing a required usable file.".to_string()
         }
     };
+    let rationale = if export_labels.is_empty() {
+        summary.clone()
+    } else {
+        format!("Validated bundle exports: {}.", export_labels.join(" + "))
+    };
+    let validated_paths = payload
+        .files
+        .iter()
+        .map(|file| file.path.clone())
+        .collect::<Vec<_>>();
 
-    let recommended_next_pass = match &classification {
-        StudioArtifactJudgeClassification::Pass => "accept",
-        StudioArtifactJudgeClassification::Repairable => "structural_repair",
-        StudioArtifactJudgeClassification::Blocked => "hold_block",
-    }
-    .to_string();
-
-    super::enforce_renderer_judge_contract(
-        request,
-        brief,
-        payload,
-        StudioArtifactJudgeResult {
-            classification,
-            request_faithfulness,
-            concept_coverage,
-            interaction_relevance: 4,
-            layout_coherence: 4,
-            visual_hierarchy: 4,
-            completeness,
-            generic_shell_detected: false,
-            trivial_shell_detected: !(has_readme || has_usable_export),
-            deserves_primary_artifact_view,
-            patched_existing_artifact: None,
-            continuity_revision_ux: None,
-            issue_classes: Vec::new(),
-            repair_hints: Vec::new(),
-            strengths,
-            blocked_reasons,
-            file_findings: Vec::new(),
-            aesthetic_verdict: String::new(),
-            interaction_verdict: String::new(),
-            truthfulness_warnings: Vec::new(),
-            recommended_next_pass: Some(recommended_next_pass),
-            strongest_contradiction: None,
-            rationale,
-        },
+    build_validation_result(
+        status,
+        "bundle_contract",
+        status == StudioArtifactValidationStatus::Pass,
+        validated_paths,
+        issue_codes,
+        repair_hints,
+        blocked_reasons,
+        summary,
+        rationale,
     )
+}
+
+pub(crate) fn local_download_bundle_candidate_prevalidation(
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    payload: &StudioGeneratedArtifactPayload,
+) -> StudioArtifactValidationResult {
+    let validation = local_download_bundle_candidate_validation(request, brief, payload);
+    hydrate_validation_result(&validation, None, None, None)
 }
 
 fn render_sanity_issue_snapshot(
@@ -463,144 +646,28 @@ pub(super) fn render_sanity_repair_reason(
         .map(|finding| finding.summary.clone())
 }
 
-pub(super) fn render_sanity_candidate_judge(
+pub(super) fn render_sanity_candidate_validation_preview(
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
     payload: &StudioGeneratedArtifactPayload,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-) -> StudioArtifactJudgeResult {
-    let renderable_paths = payload
-        .files
-        .iter()
-        .filter(|file| file.renderable)
-        .map(|file| file.path.clone())
-        .collect::<Vec<_>>();
-    let blocked_reason = render_sanity_block_reason(render_evaluation);
-    let repair_reason = render_sanity_repair_reason(render_evaluation);
-    let classification = if renderable_paths.is_empty() {
-        StudioArtifactJudgeClassification::Blocked
-    } else if repair_reason.is_some() {
-        StudioArtifactJudgeClassification::Repairable
-    } else {
-        StudioArtifactJudgeClassification::Pass
-    };
-    let mut blocked_reasons = Vec::new();
-    if renderable_paths.is_empty() {
-        blocked_reasons.push("Artifact did not surface a renderable file.".to_string());
-    }
-    if let Some(reason) = blocked_reason.as_ref() {
-        blocked_reasons.push(reason.clone());
-    }
-
-    let (mut issue_classes, mut repair_hints) = render_sanity_issue_snapshot(render_evaluation);
-    if let Some(reason) = repair_reason.as_ref() {
-        if !repair_hints.iter().any(|hint| hint == reason) {
-            repair_hints.insert(0, reason.clone());
-        }
-        let synthetic_issue = if direct_author_runtime_failure_reason(render_evaluation).is_some() {
-            "runtime_error"
-        } else {
-            "render_sanity"
-        };
-        if !issue_classes.iter().any(|issue| issue == synthetic_issue) {
-            issue_classes.push(synthetic_issue.to_string());
-        }
-    }
-
-    super::enforce_renderer_judge_contract(
-        request,
-        brief,
-        payload,
-        StudioArtifactJudgeResult {
-            classification,
-            request_faithfulness: if renderable_paths.is_empty() { 1 } else { 4 },
-            concept_coverage: if renderable_paths.is_empty() { 1 } else { 4 },
-            interaction_relevance: if renderable_paths.is_empty() {
-                1
-            } else if repair_reason.is_some() {
-                3
-            } else {
-                4
-            },
-            layout_coherence: if renderable_paths.is_empty() { 1 } else { 4 },
-            visual_hierarchy: if renderable_paths.is_empty() { 1 } else { 4 },
-            completeness: if renderable_paths.is_empty() {
-                1
-            } else if repair_reason.is_some() {
-                3
-            } else {
-                4
-            },
-            generic_shell_detected: false,
-            trivial_shell_detected: renderable_paths.is_empty(),
-            deserves_primary_artifact_view: !renderable_paths.is_empty(),
-            patched_existing_artifact: None,
-            continuity_revision_ux: None,
-            issue_classes,
-            repair_hints,
-            strengths: if renderable_paths.is_empty() {
-                Vec::new()
-            } else if repair_reason.is_some() {
-                vec![
-                    "Studio surfaced the artifact quickly while keeping repair bounded to concrete render issues."
-                        .to_string(),
-                ]
-            } else {
-                vec![
-                    "Fast render sanity cleared the artifact for immediate presentation."
-                        .to_string(),
-                ]
-            },
-            blocked_reasons,
-            file_findings: renderable_paths
-                .iter()
-                .map(|path| format!("draft surfaced: {path}"))
-                .collect(),
-            aesthetic_verdict: if renderable_paths.is_empty() {
-                "No renderable artifact surfaced yet.".to_string()
-            } else {
-                "A request-specific artifact surfaced for immediate review.".to_string()
-            },
-            interaction_verdict: if let Some(reason) = repair_reason.as_ref() {
-                format!("Render sanity found a concrete issue that should drive bounded repair: {reason}")
-            } else if renderable_paths.is_empty() {
-                "Interaction quality cannot be judged until a renderable file exists.".to_string()
-            } else {
-                "Render sanity cleared the surfaced artifact without a blocking runtime or render failure."
-                    .to_string()
-            },
-            truthfulness_warnings: Vec::new(),
-            recommended_next_pass: Some(
-                if renderable_paths.is_empty() || repair_reason.is_some() {
-                    "structural_repair"
-                } else {
-                    "surface"
-                }
-                .to_string(),
-            ),
-            strongest_contradiction: repair_reason.clone(),
-            rationale: if renderable_paths.is_empty() {
-                "Studio could not surface a renderable artifact.".to_string()
-            } else if repair_reason.is_some() {
-                "Studio surfaced the artifact and kept follow-up repair bounded to concrete render sanity failures."
-                    .to_string()
-            } else {
-                "Studio used fast render sanity to clear the artifact for immediate presentation."
-                    .to_string()
-            },
-        },
-    )
+) -> StudioArtifactValidationResult {
+    let validation = render_sanity_candidate_validation(request, brief, payload, render_evaluation);
+    hydrate_validation_result(&validation, render_evaluation, None, None)
 }
 
 pub(super) fn candidate_supports_fast_surface(summary: &StudioArtifactCandidateSummary) -> bool {
-    if summary.judge.classification == StudioArtifactJudgeClassification::Blocked
-        || summary.judge.generic_shell_detected
-        || summary.judge.trivial_shell_detected
+    if summary.validation.classification == StudioArtifactValidationStatus::Blocked
+        || summary.validation.generic_shell_detected
+        || summary.validation.trivial_shell_detected
     {
         return false;
     }
 
-    if summary.renderable_paths.is_empty() && !summary.judge.deserves_primary_artifact_view {
+    if summary.renderable_paths.is_empty()
+        && !summary.validation.primary_view_cleared
+        && !summary.validation.deserves_primary_artifact_view
+    {
         return false;
     }
 
@@ -617,27 +684,123 @@ pub(super) fn candidate_supports_fast_surface(summary: &StudioArtifactCandidateS
         .unwrap_or(true)
 }
 
-pub(super) fn direct_author_provisional_candidate_judge(
+pub(super) fn render_sanity_candidate_validation(
+    _request: &StudioOutcomeArtifactRequest,
+    _brief: &StudioArtifactBrief,
     payload: &StudioGeneratedArtifactPayload,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-) -> StudioArtifactJudgeResult {
-    let renderable_paths = payload
-        .files
-        .iter()
-        .filter(|file| file.renderable)
-        .map(|file| file.path.clone())
-        .collect::<Vec<_>>();
+) -> StudioArtifactValidationResult {
+    let renderable_paths = renderable_paths_for_payload(payload);
+    let blocked_reason = render_sanity_block_reason(render_evaluation);
+    let repair_reason = render_sanity_repair_reason(render_evaluation);
+    let (mut issue_codes, mut repair_hints) = render_sanity_issue_snapshot(render_evaluation);
+    let status = if renderable_paths.is_empty() || blocked_reason.is_some() {
+        StudioArtifactValidationStatus::Blocked
+    } else if repair_reason.is_some()
+        || render_evaluation.is_some_and(|evaluation| {
+            evaluation.supported && !evaluation.clears_primary_view_by_policy()
+        })
+    {
+        StudioArtifactValidationStatus::Repairable
+    } else {
+        StudioArtifactValidationStatus::Pass
+    };
+    let mut blocked_reasons = Vec::new();
+    if renderable_paths.is_empty() {
+        blocked_reasons.push("Artifact did not surface a renderable file.".to_string());
+    }
+    if let Some(reason) = blocked_reason.as_ref() {
+        blocked_reasons.push(reason.clone());
+    }
+    if let Some(reason) = repair_reason.as_ref() {
+        if !repair_hints.iter().any(|hint| hint == reason) {
+            repair_hints.insert(0, reason.clone());
+        }
+        if blocked_reason.is_none() && !issue_codes.iter().any(|code| code == "render_warning") {
+            issue_codes.push("render_warning".to_string());
+        }
+    }
+    let summary = match status {
+        StudioArtifactValidationStatus::Pass => {
+            "Render validation cleared the artifact for presentation.".to_string()
+        }
+        StudioArtifactValidationStatus::Repairable => {
+            "Render validation surfaced a concrete issue that should drive a bounded repair."
+                .to_string()
+        }
+        StudioArtifactValidationStatus::Blocked => {
+            "Render validation blocked the artifact from primary presentation.".to_string()
+        }
+    };
+    let rationale = blocked_reason
+        .clone()
+        .or(repair_reason.clone())
+        .unwrap_or_else(|| {
+            "Renderable artifact passed the current validation contract.".to_string()
+        });
+
+    let primary_view_cleared = status == StudioArtifactValidationStatus::Pass
+        && render_evaluation
+            .map(|evaluation| !evaluation.supported || evaluation.clears_primary_view_by_policy())
+            .unwrap_or(true);
+    let mut validation = build_validation_result(
+        status,
+        if render_evaluation.is_some() {
+            "render_evaluation"
+        } else {
+            "artifact_contract"
+        },
+        primary_view_cleared,
+        renderable_paths,
+        issue_codes,
+        repair_hints,
+        blocked_reasons,
+        summary,
+        rationale,
+    );
+    validation.score_total =
+        validation_score(status, &validation.validated_paths, render_evaluation);
+    validation
+}
+
+pub(super) fn direct_author_provisional_candidate_validation_preview(
+    payload: &StudioGeneratedArtifactPayload,
+    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
+) -> StudioArtifactValidationResult {
+    let validation = direct_author_provisional_candidate_validation(payload, render_evaluation);
+    hydrate_validation_result(&validation, render_evaluation, None, None)
+}
+
+pub(super) fn direct_author_provisional_candidate_validation(
+    payload: &StudioGeneratedArtifactPayload,
+    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
+) -> StudioArtifactValidationResult {
+    let renderable_paths = renderable_paths_for_payload(payload);
     let blocked_render_finding = render_evaluation.and_then(|evaluation| {
         evaluation
             .findings
             .iter()
             .find(|finding| finding.severity == StudioArtifactRenderFindingSeverity::Blocked)
     });
-    let classification = if renderable_paths.is_empty() || blocked_render_finding.is_some() {
-        StudioArtifactJudgeClassification::Blocked
+    let status = if renderable_paths.is_empty() {
+        StudioArtifactValidationStatus::Blocked
+    } else if blocked_render_finding.is_some() {
+        StudioArtifactValidationStatus::Repairable
     } else {
-        StudioArtifactJudgeClassification::Pass
+        StudioArtifactValidationStatus::Pass
     };
+    let mut issue_codes = Vec::new();
+    let mut repair_hints = Vec::new();
+    if let Some(evaluation) = render_evaluation {
+        for finding in evaluation.findings.iter().take(3) {
+            if !issue_codes.contains(&finding.code) {
+                issue_codes.push(finding.code.clone());
+            }
+            if repair_hints.len() < 3 {
+                repair_hints.push(finding.summary.clone());
+            }
+        }
+    }
     let mut blocked_reasons = Vec::new();
     if renderable_paths.is_empty() {
         blocked_reasons.push("Direct authoring did not surface a renderable document.".to_string());
@@ -645,76 +808,41 @@ pub(super) fn direct_author_provisional_candidate_judge(
     if let Some(finding) = blocked_render_finding {
         blocked_reasons.push(finding.summary.clone());
     }
-    let mut issue_classes = Vec::new();
-    let mut repair_hints = Vec::new();
-    if let Some(evaluation) = render_evaluation {
-        for finding in evaluation.findings.iter().take(3) {
-            if !issue_classes.contains(&finding.code) {
-                issue_classes.push(finding.code.clone());
-            }
-            if repair_hints.len() < 3 {
-                repair_hints.push(finding.summary.clone());
-            }
+    let summary = match status {
+        StudioArtifactValidationStatus::Pass => {
+            "Direct-author validation surfaced a renderable artifact immediately.".to_string()
         }
-    }
-    let rationale = if classification == StudioArtifactJudgeClassification::Blocked {
-        blocked_reasons
-            .first()
-            .cloned()
-            .unwrap_or_else(|| "Direct-authored artifact could not be surfaced.".to_string())
-    } else {
-        "Studio surfaced a renderable direct-authored artifact without waiting on the slow acceptance gate."
-            .to_string()
-    };
-    StudioArtifactJudgeResult {
-        classification,
-        request_faithfulness: if renderable_paths.is_empty() { 1 } else { 4 },
-        concept_coverage: if renderable_paths.is_empty() { 1 } else { 4 },
-        interaction_relevance: if renderable_paths.is_empty() { 1 } else { 4 },
-        layout_coherence: if renderable_paths.is_empty() { 1 } else { 4 },
-        visual_hierarchy: if renderable_paths.is_empty() { 1 } else { 4 },
-        completeness: if renderable_paths.is_empty() { 1 } else { 4 },
-        generic_shell_detected: false,
-        trivial_shell_detected: renderable_paths.is_empty(),
-        deserves_primary_artifact_view: !renderable_paths.is_empty()
-            && blocked_render_finding.is_none(),
-        patched_existing_artifact: None,
-        continuity_revision_ux: None,
-        issue_classes,
-        repair_hints,
-        strengths: if renderable_paths.is_empty() {
-            Vec::new()
-        } else {
-            vec!["Renderable direct-authored artifact surfaced immediately.".to_string()]
-        },
-        blocked_reasons,
-        file_findings: renderable_paths
-            .iter()
-            .map(|path| format!("draft surfaced: {path}"))
-            .collect(),
-        aesthetic_verdict: if renderable_paths.is_empty() {
-            "No renderable direct-authored artifact surfaced.".to_string()
-        } else {
-            "Renderable artifact surfaced cleanly enough for immediate review.".to_string()
-        },
-        interaction_verdict: if renderable_paths.is_empty() {
-            "Interaction quality cannot be judged until a renderable file exists.".to_string()
-        } else {
-            "Interaction quality is judged from the surfaced artifact and any render findings."
+        StudioArtifactValidationStatus::Repairable => {
+            "Direct-author validation surfaced a renderable artifact, but repair is still warranted."
                 .to_string()
+        }
+        StudioArtifactValidationStatus::Blocked => {
+            "Direct-author validation could not clear the surfaced artifact.".to_string()
+        }
+    };
+    let rationale = blocked_reasons
+        .first()
+        .cloned()
+        .unwrap_or_else(|| summary.clone());
+
+    let mut validation = build_validation_result(
+        status,
+        if render_evaluation.is_some() {
+            "direct_author_render"
+        } else {
+            "artifact_contract"
         },
-        truthfulness_warnings: Vec::new(),
-        recommended_next_pass: Some(
-            if classification == StudioArtifactJudgeClassification::Blocked {
-                "structural_repair"
-            } else {
-                "surface"
-            }
-            .to_string(),
-        ),
-        strongest_contradiction: blocked_render_finding.map(|finding| finding.summary.clone()),
+        status == StudioArtifactValidationStatus::Pass,
+        renderable_paths,
+        issue_codes,
+        repair_hints,
+        blocked_reasons,
+        summary,
         rationale,
-    }
+    );
+    validation.score_total =
+        validation_score(status, &validation.validated_paths, render_evaluation);
+    validation
 }
 
 pub(super) fn direct_author_fast_runtime_sanity_enabled(
@@ -786,126 +914,82 @@ pub(super) fn direct_author_runtime_failure_reason(
         .map(|finding| finding.summary.clone())
 }
 
-pub(super) fn direct_author_runtime_sanity_judge(
+pub(super) fn direct_author_runtime_sanity_validation_preview(
     payload: &StudioGeneratedArtifactPayload,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-) -> StudioArtifactJudgeResult {
-    let renderable_paths = payload
-        .files
-        .iter()
-        .filter(|file| file.renderable)
-        .map(|file| file.path.clone())
-        .collect::<Vec<_>>();
+) -> StudioArtifactValidationResult {
+    let validation = direct_author_runtime_sanity_validation(payload, render_evaluation);
+    hydrate_validation_result(&validation, render_evaluation, None, None)
+}
+
+pub(super) fn direct_author_runtime_sanity_validation(
+    payload: &StudioGeneratedArtifactPayload,
+    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
+) -> StudioArtifactValidationResult {
+    let renderable_paths = renderable_paths_for_payload(payload);
     let runtime_failure = direct_author_runtime_failure_reason(render_evaluation);
-    let classification = if renderable_paths.is_empty() {
-        StudioArtifactJudgeClassification::Blocked
+    let status = if renderable_paths.is_empty() {
+        StudioArtifactValidationStatus::Blocked
     } else if runtime_failure.is_some() {
-        StudioArtifactJudgeClassification::Repairable
+        StudioArtifactValidationStatus::Repairable
     } else {
-        StudioArtifactJudgeClassification::Pass
+        StudioArtifactValidationStatus::Pass
     };
-    let contradiction = runtime_failure.clone();
-    let mut issue_classes = Vec::new();
+    let mut issue_codes = Vec::new();
     let mut repair_hints = Vec::new();
     if let Some(render_evaluation) = render_evaluation {
         for finding in render_evaluation.findings.iter().take(3) {
-            if !issue_classes.contains(&finding.code) {
-                issue_classes.push(finding.code.clone());
+            if !issue_codes.contains(&finding.code) {
+                issue_codes.push(finding.code.clone());
             }
             if repair_hints.len() < 3 {
                 repair_hints.push(finding.summary.clone());
             }
         }
     }
-    if runtime_failure.is_some() && !issue_classes.iter().any(|issue| issue == "runtime_error") {
-        issue_classes.push("runtime_error".to_string());
+    if runtime_failure.is_some() && !issue_codes.iter().any(|issue| issue == "runtime_error") {
+        issue_codes.push("runtime_error".to_string());
     }
     if let Some(reason) = runtime_failure.as_ref() {
         if !repair_hints.iter().any(|hint| hint == reason) {
             repair_hints.insert(0, reason.clone());
         }
     }
+    let blocked_reasons = if renderable_paths.is_empty() {
+        vec!["Direct-authored draft could not be surfaced.".to_string()]
+    } else {
+        runtime_failure.clone().into_iter().collect()
+    };
+    let summary = match status {
+        StudioArtifactValidationStatus::Pass => {
+            "Runtime sanity cleared the direct-authored draft for presentation.".to_string()
+        }
+        StudioArtifactValidationStatus::Repairable => {
+            "Runtime sanity found a concrete issue that should drive a bounded repair.".to_string()
+        }
+        StudioArtifactValidationStatus::Blocked => {
+            "Runtime sanity could not clear the direct-authored draft.".to_string()
+        }
+    };
+    let rationale = blocked_reasons
+        .first()
+        .cloned()
+        .unwrap_or_else(|| summary.clone());
 
-    StudioArtifactJudgeResult {
-        classification,
-        request_faithfulness: if renderable_paths.is_empty() { 1 } else { 4 },
-        concept_coverage: if renderable_paths.is_empty() { 1 } else { 4 },
-        interaction_relevance: if renderable_paths.is_empty() {
-            1
-        } else if runtime_failure.is_some() {
-            3
-        } else {
-            4
-        },
-        layout_coherence: if renderable_paths.is_empty() { 1 } else { 4 },
-        visual_hierarchy: if renderable_paths.is_empty() { 1 } else { 4 },
-        completeness: if renderable_paths.is_empty() {
-            1
-        } else if runtime_failure.is_some() {
-            3
-        } else {
-            4
-        },
-        generic_shell_detected: false,
-        trivial_shell_detected: renderable_paths.is_empty(),
-        deserves_primary_artifact_view: !renderable_paths.is_empty(),
-        patched_existing_artifact: None,
-        continuity_revision_ux: None,
-        issue_classes,
+    let mut validation = build_validation_result(
+        status,
+        "runtime_sanity",
+        status == StudioArtifactValidationStatus::Pass,
+        renderable_paths,
+        issue_codes,
         repair_hints,
-        strengths: if renderable_paths.is_empty() {
-            Vec::new()
-        } else if runtime_failure.is_some() {
-            vec![
-                "Studio kept a surfaced draft available while runtime repair remained bounded."
-                    .to_string(),
-            ]
-        } else {
-            vec![
-                "Runtime sanity cleared the surfaced direct-authored draft for immediate presentation."
-                    .to_string(),
-            ]
-        },
-        blocked_reasons: contradiction.clone().into_iter().collect(),
-        file_findings: renderable_paths
-            .iter()
-            .map(|path| format!("draft surfaced: {path}"))
-            .collect(),
-        aesthetic_verdict: if renderable_paths.is_empty() {
-            "No renderable direct-authored draft surfaced yet.".to_string()
-        } else {
-            "Studio surfaced a request-specific direct-authored artifact.".to_string()
-        },
-        interaction_verdict: if let Some(reason) = runtime_failure.as_ref() {
-            format!("Runtime sanity still found a concrete execution issue: {reason}")
-        } else if renderable_paths.is_empty() {
-            "Interaction quality cannot be judged until a renderable file exists.".to_string()
-        } else {
-            "Runtime sanity cleared the rendered interaction path without a blocking console failure."
-                .to_string()
-        },
-        truthfulness_warnings: Vec::new(),
-        recommended_next_pass: Some(
-            if renderable_paths.is_empty() {
-                "structural_repair"
-            } else if runtime_failure.is_some() {
-                "structural_repair"
-            } else {
-                "accept"
-            }
-            .to_string(),
-        ),
-        strongest_contradiction: contradiction,
-        rationale: if renderable_paths.is_empty() {
-            "Direct-authored draft could not be surfaced.".to_string()
-        } else if runtime_failure.is_some() {
-            "Studio surfaced the draft immediately after bounded runtime repair attempts."
-                .to_string()
-        } else {
-            "Studio replaced slow acceptance with a fast runtime-sanity pass and surfaced the draft immediately."
-                .to_string()
-        },
-    }
+        blocked_reasons,
+        summary,
+        rationale,
+    );
+    validation.score_total =
+        validation_score(status, &validation.validated_paths, render_evaluation);
+    validation
 }
 
 pub(super) fn record_adaptive_search_signal(

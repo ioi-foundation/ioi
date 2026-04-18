@@ -4,7 +4,7 @@ use super::{
     maybe_rewrite_patch_build_verify_post_success_completion,
     maybe_rewrite_patch_build_verify_redundant_refresh_read,
     patch_build_verify_deterministic_allowed_tool_names, patch_build_verify_primary_patch_file,
-    synthesize_patch_build_verify_code_block_edit_repair,
+    repair_tool_names_match, synthesize_patch_build_verify_code_block_edit_repair,
     upconvert_patch_build_verify_runtime_line_edit_repair,
     updated_python_block_candidate_from_raw_output,
     validate_patch_build_verify_deterministic_edit_repair,

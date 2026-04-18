@@ -9,7 +9,7 @@ const DEFAULT_EVIDENCE_ROOT = path.join(
 const DEFAULT_PRODUCTION_SOURCE_PATHS = [
   path.join("crates", "api", "src", "studio", "planning.rs"),
   path.join("crates", "api", "src", "studio", "generation.rs"),
-  path.join("crates", "api", "src", "studio", "judging.rs"),
+  path.join("crates", "api", "src", "studio", "validation.rs"),
   path.join("crates", "api", "src", "studio", "payload.rs"),
   path.join("crates", "api", "src", "studio", "html_registry.rs"),
   path.join("apps", "autopilot", "src-tauri", "src", "kernel", "studio", "skills.rs"),

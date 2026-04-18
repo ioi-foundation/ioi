@@ -65,8 +65,8 @@ function compareEntriesForWinner(left, right) {
   if (leftClassification !== rightClassification) {
     return rightClassification - leftClassification;
   }
-  const leftJudge = left?.judgeScore ?? -Infinity;
-  const rightJudge = right?.judgeScore ?? -Infinity;
+  const leftJudge = left?.validationScore ?? -Infinity;
+  const rightJudge = right?.validationScore ?? -Infinity;
   if (leftJudge !== rightJudge) {
     return rightJudge - leftJudge;
   }
@@ -108,7 +108,7 @@ function entrySummary(entry) {
     dateRoot: entry?.dateRoot ?? null,
     renderer: entry?.renderer ?? null,
     classification: entry?.effectiveClassification ?? entry?.classification ?? "blocked",
-    judgeScore: entry?.judgeScore ?? null,
+    validationScore: entry?.validationScore ?? null,
     firstPaintEvidenceScore: entry?.firstPaintEvidenceScore ?? null,
     shimDependent: entry?.shimDependent === true,
     blueprintPresent: entry?.blueprintPresent === true,
@@ -126,8 +126,8 @@ function buildStructuralDiff(winner, loser) {
   const classificationDelta =
     classificationRank(winner?.effectiveClassification ?? winner?.classification) -
     classificationRank(loser?.effectiveClassification ?? loser?.classification);
-  const judgeScoreDelta = roundMetric(
-    Number(winner?.judgeScore ?? 0) - Number(loser?.judgeScore ?? 0),
+  const validationScoreDelta = roundMetric(
+    Number(winner?.validationScore ?? 0) - Number(loser?.validationScore ?? 0),
   );
   const firstPaintEvidenceDelta = roundMetric(
     Number(winner?.firstPaintEvidenceScore ?? 0) -
@@ -145,11 +145,11 @@ function buildStructuralDiff(winner, loser) {
 
   if (classificationDelta > 0) {
     reasons.push("classification_improved");
-    targetUpgrades.add("judge_calibration_example");
+    targetUpgrades.add("validation_calibration_example");
   }
-  if (judgeScoreDelta != null && judgeScoreDelta >= MIN_MATERIAL_SCORE_DELTA) {
-    reasons.push("judge_score_gain");
-    targetUpgrades.add("judge_calibration_example");
+  if (validationScoreDelta != null && validationScoreDelta >= MIN_MATERIAL_SCORE_DELTA) {
+    reasons.push("validation_score_gain");
+    targetUpgrades.add("validation_calibration_example");
   }
   if (
     firstPaintEvidenceDelta != null &&
@@ -179,11 +179,11 @@ function buildStructuralDiff(winner, loser) {
     material:
       reasons.length > 0 ||
       classificationDelta > 0 ||
-      (judgeScoreDelta != null && judgeScoreDelta >= MIN_MATERIAL_SCORE_DELTA) ||
+      (validationScoreDelta != null && validationScoreDelta >= MIN_MATERIAL_SCORE_DELTA) ||
       (firstPaintEvidenceDelta != null &&
         firstPaintEvidenceDelta >= MIN_MATERIAL_SCORE_DELTA),
     classificationDelta,
-    judgeScoreDelta,
+    validationScoreDelta,
     firstPaintEvidenceDelta,
     selectedSkillDelta,
     retrievedExemplarDelta,
@@ -275,7 +275,7 @@ function buildProposal({
     typedReasons: diff.typedReasons,
     structuralChanges: {
       classificationDelta: diff.classificationDelta,
-      judgeScoreDelta: diff.judgeScoreDelta,
+      validationScoreDelta: diff.validationScoreDelta,
       firstPaintEvidenceDelta: diff.firstPaintEvidenceDelta,
       selectedSkillDelta: diff.selectedSkillDelta,
       retrievedExemplarDelta: diff.retrievedExemplarDelta,
@@ -379,8 +379,8 @@ export function collectStudioArtifactDistillationLedger(options = {}) {
     if (leftClassification !== rightClassification) {
       return rightClassification - leftClassification;
     }
-    const leftJudge = Number(left.structuralChanges.judgeScoreDelta ?? 0);
-    const rightJudge = Number(right.structuralChanges.judgeScoreDelta ?? 0);
+    const leftJudge = Number(left.structuralChanges.validationScoreDelta ?? 0);
+    const rightJudge = Number(right.structuralChanges.validationScoreDelta ?? 0);
     if (leftJudge !== rightJudge) {
       return rightJudge - leftJudge;
     }
@@ -396,7 +396,7 @@ export function collectStudioArtifactDistillationLedger(options = {}) {
   const measuredGain = roundMetric(
     average(
       applied
-        .map((proposal) => proposal?.measuredGain?.judgeScoreDelta)
+        .map((proposal) => proposal?.measuredGain?.validationScoreDelta)
         .filter((value) => typeof value === "number"),
     ),
   );

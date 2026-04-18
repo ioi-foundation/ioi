@@ -766,7 +766,7 @@ function buildStudioArtifactTrace(entry) {
       artifactLinks: summarizeTraceArtifactLinks([entry.routePath], studioArtifactLinkOptions),
     },
     {
-      id: "step:judge",
+      id: "step:validation",
       lane: "step",
       parentSpanId: "case",
       stepIndex: 1,
@@ -788,7 +788,7 @@ function buildStudioArtifactTrace(entry) {
         220,
       ),
       artifactLinks: summarizeTraceArtifactLinks(
-        [entry.judgePath, entry.generationPath],
+        [entry.validationPath, entry.generationPath],
         studioArtifactLinkOptions,
       ),
     },
@@ -865,7 +865,7 @@ function buildStudioArtifactTrace(entry) {
     spanCount: spans.length,
     bookmarks: [
       { label: "Route", spanId: "step:route", kind: "route" },
-      { label: "Judge", spanId: "step:judge", kind: "judge" },
+      { label: "Validation", spanId: "step:validation", kind: "validation" },
       { label: "Verify", spanId: "receipt:verification", kind: "verification" },
     ],
     lanes,
@@ -944,7 +944,7 @@ function collectStudioArtifactCases(corpus = collectStudioArtifactCorpusIndex({ 
             `candidates=${entry.candidateCount} pass=${entry.passCandidateCount} repairable=${entry.repairableCandidateCount} blocked=${entry.blockedCandidateCount}`,
             220,
           ),
-          supportingSpanIds: ["step:judge"],
+          supportingSpanIds: ["step:validation"],
         },
         {
           metricId: "artifact_shim_dependency",
@@ -983,7 +983,7 @@ function collectStudioArtifactCases(corpus = collectStudioArtifactCorpusIndex({ 
           resolveStudioArtifactEvidencePath(entry.materializedReadmePath),
         ),
         inferenceCalls: toFileHref(resolveStudioArtifactEvidencePath(entry.generationPath)),
-        inferenceTrace: toFileHref(resolveStudioArtifactEvidencePath(entry.judgePath)),
+        inferenceTrace: toFileHref(resolveStudioArtifactEvidencePath(entry.validationPath)),
         bridgeState: toFileHref(resolveStudioArtifactEvidencePath(entry.routePath)),
         traceBundle: toFileHref(resolveStudioArtifactEvidencePath(entry.manifestPath)),
         traceAnalysis: toFileHref(resolveStudioArtifactEvidencePath(entry.inspectPath)),

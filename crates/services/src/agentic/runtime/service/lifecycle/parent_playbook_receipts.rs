@@ -24,7 +24,7 @@ fn playbook_step_is_verifier(step: &AgentPlaybookStepDefinition) -> bool {
     step.worker_template_id.trim() == "verifier"
         || matches!(
             step.worker_workflow_id.trim(),
-            "artifact_quality_audit"
+            "artifact_validation_audit"
                 | "postcondition_audit"
                 | "browser_postcondition_audit"
                 | "citation_audit"

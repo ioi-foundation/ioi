@@ -17,7 +17,7 @@ function buildCase(id, overrides = {}) {
     summaryPath: `/tmp/${id}/case-summary.json`,
     effectiveClassification: "pass",
     classification: "pass",
-    judgeScore: 0.84,
+    validationScore: 0.84,
     firstPaintEvidenceScore: 0.8,
     screenshotQualityScore: 0.82,
     responsivenessScore: 0.78,
@@ -29,7 +29,7 @@ function buildCase(id, overrides = {}) {
     retrievedExemplarCount: 1,
     productionProvenanceKind: "studio_runtime",
     productionModel: "gpt-5.4",
-    acceptanceProvenanceKind: "judge_runtime",
+    acceptanceProvenanceKind: "validation_runtime",
     acceptanceModel: "gpt-5.4",
     scaffoldFamily: "editorial_explainer",
     componentFamilies: ["comparison_table", "timeline"],
@@ -43,7 +43,7 @@ test("arena ledger derives benchmark leaders, pairwise winners, and pending blin
     cases: [
       buildCase("html-quantum-explainer-a"),
       buildCase("html-quantum-explainer-b", {
-        judgeScore: 0.62,
+        validationScore: 0.62,
         firstPaintEvidenceScore: 0.58,
         screenshotQualityScore: 0.57,
         responsivenessScore: 0.61,
@@ -77,7 +77,7 @@ test("arena ledger derives benchmark leaders, pairwise winners, and pending blin
           participant: "reference:external_quantum_a",
           label: "External reference quantum A",
           generatorStackId: "generator:claude_opus",
-          judgeStackId: "judge:claude_opus",
+          validationStackId: "validation:claude_opus",
           scaffoldFamilyId: "scaffold:editorial_explainer",
           componentPackProfileId: "component_profile:comparison_table_timeline",
           skillSpineId: "skill_spine:frontend_skill",
@@ -88,7 +88,7 @@ test("arena ledger derives benchmark leaders, pairwise winners, and pending blin
       matches: [
         {
           benchmarkId: "html-quantum-explainer",
-          leftParticipant: "stack:generator_studio_runtime_gpt_5_4__judge_judge_runtime_gpt_5_4__scaffold_editorial_explainer__component_profile_comparison_table_timeline__skill_spine_frontend_skill",
+          leftParticipant: "stack:generator_studio_runtime_gpt_5_4__validation_validation_runtime_gpt_5_4__scaffold_editorial_explainer__component_profile_comparison_table_timeline__skill_spine_frontend_skill",
           leftExecutionId: "html-quantum-explainer:html-quantum-explainer-a:2026_03_30",
           rightParticipant: "reference:external_quantum_a",
           winner: "left",

@@ -7,7 +7,7 @@
 //! atomically upgrade their own agents/services without permission from the network.
 
 use async_trait::async_trait;
-use ioi_api::services::{BlockchainService, UpgradableService};
+use ioi_api::services::UpgradableService;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_macros::service_interface;
@@ -15,7 +15,7 @@ use ioi_types::app::agentic::AgentManifest;
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use ioi_types::keys::active_service_key;
-use ioi_types::service_configs::{ActiveServiceMeta, Capabilities};
+use ioi_types::service_configs::ActiveServiceMeta;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 

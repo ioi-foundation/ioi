@@ -290,7 +290,7 @@ export type ScorecardCellViewModel = {
 
 const CATEGORY_PRIMARY_METRIC: Record<string, string> = {
   baseModelQuality: "normalizedScore",
-  artifactQuality: "averageJudgeScore",
+  artifactQuality: "averageValidationScore",
   codingCompletion: "taskPassRate",
   researchQuality: "citationVerifierPassRate",
   computerUseCompletion: "rewardFloorPassRate",
@@ -315,7 +315,7 @@ const CATEGORY_SHORT_LABELS: Record<string, string> = {
 const METRIC_LABELS: Record<string, string> = {
   normalizedScore: "score",
   passRate: "pass rate",
-  averageJudgeScore: "judge",
+  averageValidationScore: "validation",
   verifierPassRate: "verifier",
   averageRepairLoopIterations: "repair loops",
   routeMatchRate: "route match",
@@ -984,7 +984,7 @@ export function buildScorecardViewModel(
     const runtimeTags = [
       preset.runtimeModel,
       preset.artifactAcceptanceModel
-        ? `judge ${preset.artifactAcceptanceModel}`
+        ? `validation ${preset.artifactAcceptanceModel}`
         : null,
       preset.comparisonContext?.comparisonIntent
         ? preset.comparisonContext.comparisonIntent.replace(/_/g, " ")
@@ -1168,7 +1168,7 @@ export function buildDeploymentsViewModel(
       ? [
           winner.runtimeModel,
           winner.artifactAcceptanceModel
-            ? `judge ${winner.artifactAcceptanceModel}`
+            ? `validation ${winner.artifactAcceptanceModel}`
             : null,
           winner.roleAssignments?.length
             ? `${winner.roleAssignments.length} roles`
@@ -1296,7 +1296,7 @@ export function buildCandidatesViewModel(
       const runtimeTags = [
         preset.runtimeModel,
         preset.artifactAcceptanceModel
-          ? `judge ${preset.artifactAcceptanceModel}`
+          ? `validation ${preset.artifactAcceptanceModel}`
           : null,
         entry.comparisonIntent ? humanizeToken(entry.comparisonIntent) : null,
         entry.executionScope ? humanizeToken(entry.executionScope) : null,
@@ -1376,7 +1376,7 @@ export function buildCandidatesViewModel(
       const runtimeTags = [
         preset.runtimeModel,
         preset.artifactAcceptanceModel
-          ? `judge ${preset.artifactAcceptanceModel}`
+          ? `validation ${preset.artifactAcceptanceModel}`
           : null,
         `${preset.caseCount} retained cases`,
       ].filter((value): value is string => Boolean(value));

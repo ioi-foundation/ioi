@@ -145,7 +145,7 @@ pub enum ViewHandle {
 /// A trait for a component that can resolve state handles into concrete, usable views.
 #[async_trait]
 pub trait ViewResolver: Send + Sync {
-    /// The concrete `Verifier` type used to check proofs for this state.
+    /// The concrete verifier type used to check proofs for this state.
     type Verifier: Verifier;
     /// Resolves a `StateRef` into a usable `AnchoredStateView`.
     async fn resolve_anchored(

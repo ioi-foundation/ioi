@@ -40,7 +40,7 @@
       "family": "ollama_openai",
       "shippedDefault": false,
       "experimental": true,
-      "routingIntent": "Task decomposition, verifier passes, artifact judging, and longer-horizon local reasoning.",
+      "routingIntent": "Task decomposition, verifier passes, artifact validation, and longer-horizon local reasoning.",
       "runtimeUrl": "http://127.0.0.1:11434/v1/chat/completions",
       "runtimeHealthUrl": "http://127.0.0.1:11434/api/tags",
       "runtimeModel": "qwen2.5:14b",
@@ -53,7 +53,7 @@
       "workloadIntents": [
         "planning",
         "verification",
-        "artifact_judging"
+        "artifact_validation"
       ],
       "notes": [
         "The guide target for this slot is gpt-oss-20b or a Qwen3.5-27B-class local reasoner.",
@@ -93,7 +93,7 @@
       "workloadIntents": [
         "planning",
         "verification",
-        "artifact_judging"
+        "artifact_validation"
       ],
       "notes": [
         "This is now the default local preset for the desktop local-GPU path so Studio stays on one warmed model for routing, generation, and acceptance.",

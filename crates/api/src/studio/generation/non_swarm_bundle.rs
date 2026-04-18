@@ -593,13 +593,16 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                 },
                             )],
                         );
-                        let judge = if direct_author_fast_runtime_sanity_enabled(
+                        let validation = if direct_author_fast_runtime_sanity_enabled(
                             request,
                             production_provenance.kind,
                         ) {
-                            direct_author_runtime_sanity_judge(&payload, render_evaluation.as_ref())
+                            direct_author_runtime_sanity_validation_preview(
+                                &payload,
+                                render_evaluation.as_ref(),
+                            )
                         } else {
-                            direct_author_provisional_candidate_judge(
+                            direct_author_provisional_candidate_validation_preview(
                                 &payload,
                                 render_evaluation.as_ref(),
                             )
@@ -627,10 +630,10 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                 convergence: Some(initial_candidate_convergence_trace(
                                     &candidate_id,
                                     "direct_author",
-                                    judge_total_score(&judge),
+                                    validation_total_score(&validation),
                                 )),
                                 render_evaluation,
-                                judge,
+                                validation,
                             },
                             payload,
                         ))
@@ -652,14 +655,16 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                         convergence: Some(initial_candidate_convergence_trace(
                             &candidate_id,
                             "direct_author_failure",
-                            judge_total_score(&blocked_candidate_generation_judge(&error.message)),
+                            validation_total_score(&blocked_candidate_generation_validation(
+                                &error.message,
+                            )),
                         )),
                         render_evaluation: None,
-                        judge: blocked_candidate_generation_judge(&error.message),
+                        validation: blocked_candidate_generation_validation(&error.message),
                     }),
                 }
             } else {
-                materialize_and_locally_judge_candidate(
+                materialize_and_locally_validation_candidate(
                     production_runtime.clone(),
                     repair_runtime.clone(),
                     render_evaluator,
@@ -781,7 +786,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
     let selected_winner_index = ranked_candidate_indices.iter().copied().find(|index| {
         candidate_summaries
             .get(*index)
-            .map(|summary| judge_clears_primary_view(&summary.judge))
+            .map(|summary| validation_clears_primary_view(&summary.validation))
             .unwrap_or(false)
     });
     let best_available_index = ranked_candidate_indices

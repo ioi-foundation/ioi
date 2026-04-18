@@ -9,7 +9,7 @@ pub fn build_studio_artifact_candidate_refinement_prompt(
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate: &StudioGeneratedArtifactPayload,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
     candidate_id: &str,
     candidate_seed: u64,
 ) -> Result<serde_json::Value, String> {
@@ -26,7 +26,7 @@ pub fn build_studio_artifact_candidate_refinement_prompt(
         refinement,
         candidate,
         render_evaluation,
-        judge,
+        validation,
         candidate_id,
         candidate_seed,
         StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
@@ -46,7 +46,7 @@ pub(crate) fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate: &StudioGeneratedArtifactPayload,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
     candidate_id: &str,
     candidate_seed: u64,
     runtime_kind: StudioRuntimeProvenanceKind,
@@ -144,17 +144,21 @@ pub(crate) fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
             false,
         )?
     };
-    let judge_json = if compact_prompt {
+    let validation_json = if compact_prompt {
         serialize_materialization_prompt_json(
-            &compact_local_html_refinement_judge_focus(judge),
-            "Studio artifact judge focus",
+            &compact_local_html_refinement_validation_focus(validation),
+            "Studio artifact validation focus",
             true,
         )?
     } else {
-        serialize_materialization_prompt_json(judge, "Studio artifact judge result", false)?
+        serialize_materialization_prompt_json(
+            validation,
+            "Studio artifact validation result",
+            false,
+        )?
     };
     let render_eval_json = serialize_materialization_prompt_json(
-        &super::super::judging::studio_artifact_judge_render_eval_focus(render_evaluation),
+        &super::super::validation::studio_artifact_validation_render_eval_focus(render_evaluation),
         if compact_prompt {
             "Studio artifact render evaluation focus"
         } else {
@@ -182,7 +186,7 @@ pub(crate) fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
         )
     };
     let refinement_directives =
-        super::studio_artifact_candidate_refinement_directives(request, brief, judge);
+        super::studio_artifact_candidate_refinement_directives(request, brief, validation);
     let refinement_directives = if compact_prompt {
         compact_local_html_directives_text(&refinement_directives)
     } else {
@@ -204,12 +208,12 @@ pub(crate) fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
         return Ok(json!([
             {
                 "role": "system",
-                "content": "You are Studio's typed artifact refiner. Patch the current candidate in place to resolve the judge's cited contradictions while preserving working structure and strong request-specific content. Output JSON only."
+                "content": "You are Studio's typed artifact refiner. Patch the current candidate in place to resolve the validation's cited contradictions while preserving working structure and strong request-specific content. Output JSON only."
             },
             {
                 "role": "user",
                 "content": format!(
-                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief focus JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent focus JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate focus JSON:\n{}\n\nAcceptance judgment focus JSON:\n{}\n\nRender evaluation focus JSON:\n{}\n\nPatch the current candidate so it keeps the strongest working structure, but fixes the cited request-faithfulness, interaction, hierarchy, completeness, and witnessed execution failures. Preserve file paths unless they are actively wrong.\n\nRefinement output contract:\nReturn the patched artifact inside the exact JSON schema below; do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object.\n\nRefinement directives:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
+                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief focus JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent focus JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate focus JSON:\n{}\n\nAcceptance validation result focus JSON:\n{}\n\nRender evaluation focus JSON:\n{}\n\nPatch the current candidate so it keeps the strongest working structure, but fixes the cited request-faithfulness, interaction, hierarchy, completeness, and witnessed execution failures. Preserve file paths unless they are actively wrong.\n\nRefinement output contract:\nReturn the patched artifact inside the exact JSON schema below; do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object.\n\nRefinement directives:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
                     title,
                     intent,
                     request_focus_json,
@@ -220,7 +224,7 @@ pub(crate) fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
                     candidate_id,
                     candidate_seed,
                     candidate_json,
-                    judge_json,
+                    validation_json,
                     render_eval_json,
                     refinement_directives,
                     scaffold_execution_block,
@@ -236,12 +240,12 @@ pub(crate) fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
     Ok(json!([
         {
             "role": "system",
-            "content": "You are Studio's typed artifact refiner. Patch the current candidate in place to resolve the judge's cited contradictions while preserving working structure and strong request-specific content. Output JSON only."
+            "content": "You are Studio's typed artifact refiner. Patch the current candidate in place to resolve the validation's cited contradictions while preserving working structure and strong request-specific content. Output JSON only."
         },
         {
             "role": "user",
             "content": format!(
-                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nArtifact blueprint JSON:\n{}\n\nArtifact IR JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nRetrieved exemplar JSON:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate JSON:\n{}\n\nAcceptance judgment JSON:\n{}\n\nRender evaluation JSON:\n{}\n\nPatch the current candidate so it keeps the strongest working structure, but fixes the cited request-faithfulness, interaction, hierarchy, completeness, and witnessed execution failures. Preserve file paths unless they are actively wrong.\n\nRefinement output contract:\nReturn the patched artifact inside the exact JSON schema below; do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object.\n\nRefinement directives:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nArtifact blueprint JSON:\n{}\n\nArtifact IR JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nRetrieved exemplar JSON:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate JSON:\n{}\n\nAcceptance validation result JSON:\n{}\n\nRender evaluation JSON:\n{}\n\nPatch the current candidate so it keeps the strongest working structure, but fixes the cited request-faithfulness, interaction, hierarchy, completeness, and witnessed execution failures. Preserve file paths unless they are actively wrong.\n\nRefinement output contract:\nReturn the patched artifact inside the exact JSON schema below; do not answer with raw HTML, raw JSX, raw SVG, or prose outside the JSON object.\n\nRefinement directives:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
                 title,
                 intent,
                 request_json,
@@ -262,7 +266,7 @@ pub(crate) fn build_studio_artifact_candidate_refinement_prompt_for_runtime(
                 candidate_id,
                 candidate_seed,
                 candidate_json,
-                judge_json,
+                validation_json,
                 render_eval_json,
                 refinement_directives,
                 scaffold_execution_block,
@@ -281,7 +285,7 @@ pub fn build_studio_artifact_candidate_refinement_repair_prompt(
     edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate: &StudioGeneratedArtifactPayload,
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
     candidate_id: &str,
     candidate_seed: u64,
     raw_output: &str,
@@ -299,7 +303,7 @@ pub fn build_studio_artifact_candidate_refinement_repair_prompt(
         edit_intent,
         refinement,
         candidate,
-        judge,
+        validation,
         candidate_id,
         candidate_seed,
         raw_output,
@@ -320,7 +324,7 @@ pub(super) fn build_studio_artifact_candidate_refinement_repair_prompt_for_runti
     edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate: &StudioGeneratedArtifactPayload,
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
     candidate_id: &str,
     candidate_seed: u64,
     raw_output: &str,
@@ -420,14 +424,18 @@ pub(super) fn build_studio_artifact_candidate_refinement_repair_prompt_for_runti
             false,
         )?
     };
-    let judge_json = if compact_prompt {
+    let validation_json = if compact_prompt {
         serialize_materialization_prompt_json(
-            &compact_local_html_refinement_judge_focus(judge),
-            "Studio artifact judge focus",
+            &compact_local_html_refinement_validation_focus(validation),
+            "Studio artifact validation focus",
             true,
         )?
     } else {
-        serialize_materialization_prompt_json(judge, "Studio artifact judge result", false)?
+        serialize_materialization_prompt_json(
+            validation,
+            "Studio artifact validation result",
+            false,
+        )?
     };
     let renderer_guidance = studio_artifact_renderer_authoring_guidance_for_runtime(
         request,
@@ -471,7 +479,7 @@ pub(super) fn build_studio_artifact_candidate_refinement_repair_prompt_for_runti
             {
                 "role": "user",
                 "content": format!(
-                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief focus JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent focus JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate focus JSON:\n{}\n\nAcceptance judgment focus JSON:\n{}\n\nThe previous refinement payload was rejected.\nFailure:\n{}\n\nPrevious raw refinement output:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\nFailure-specific repair directives:\n{}\n\nRepair the refinement payload so it stays request-faithful, preserves working structure, and fully validates.\n\n{}",
+                    "Title:\n{}\n\nRequest:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief focus JSON:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent focus JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate focus JSON:\n{}\n\nAcceptance validation result focus JSON:\n{}\n\nThe previous refinement payload was rejected.\nFailure:\n{}\n\nPrevious raw refinement output:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\nFailure-specific repair directives:\n{}\n\nRepair the refinement payload so it stays request-faithful, preserves working structure, and fully validates.\n\n{}",
                     title,
                     intent,
                     request_focus_json,
@@ -482,7 +490,7 @@ pub(super) fn build_studio_artifact_candidate_refinement_repair_prompt_for_runti
                     candidate_id,
                     candidate_seed,
                     candidate_json,
-                    judge_json,
+                    validation_json,
                     failure,
                     truncate_candidate_failure_preview(raw_output, 1600)
                         .unwrap_or_else(|| "(empty)".to_string()),
@@ -505,7 +513,7 @@ pub(super) fn build_studio_artifact_candidate_refinement_repair_prompt_for_runti
         {
             "role": "user",
             "content": format!(
-                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nArtifact blueprint JSON:\n{}\n\nArtifact IR JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nRetrieved exemplar JSON:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate JSON:\n{}\n\nAcceptance judgment JSON:\n{}\n\nThe previous refinement payload was rejected.\nFailure:\n{}\n\nPrevious raw refinement output:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\nFailure-specific repair directives:\n{}\n\nRepair the refinement payload so it stays request-faithful, preserves working structure, and fully validates.\n\n{}",
+                "Title:\n{}\n\nRequest:\n{}\n\nArtifact request JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nArtifact blueprint JSON:\n{}\n\nArtifact IR JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nRetrieved exemplar JSON:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\n{}:\n{}\n\nInteraction contract JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\nCurrent candidate JSON:\n{}\n\nAcceptance validation result JSON:\n{}\n\nThe previous refinement payload was rejected.\nFailure:\n{}\n\nPrevious raw refinement output:\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\nFailure-specific repair directives:\n{}\n\nRepair the refinement payload so it stays request-faithful, preserves working structure, and fully validates.\n\n{}",
                 title,
                 intent,
                 request_json,
@@ -526,7 +534,7 @@ pub(super) fn build_studio_artifact_candidate_refinement_repair_prompt_for_runti
                 candidate_id,
                 candidate_seed,
                 candidate_json,
-                judge_json,
+                validation_json,
                 failure,
                 raw_output,
                 scaffold_execution_block,

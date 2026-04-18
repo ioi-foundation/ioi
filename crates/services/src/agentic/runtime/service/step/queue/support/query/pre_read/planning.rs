@@ -529,12 +529,12 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
     let enforce_grounded_compatibility = projection.enforce_grounded_compatibility();
     let strict_grounded_compatibility = projection.strict_grounded_compatibility();
     let must_require_compatibility = enforce_grounded_compatibility && !headline_lookup_mode;
-    let can_prune_by_compatibility = if strict_grounded_compatibility {
+    let can_prune_by_compatibility = if headline_lookup_mode {
+        false
+    } else if strict_grounded_compatibility {
         !(allow_floor_recovery_exploration
             && compatible_candidates > 0
             && compatible_candidates < min_required)
-    } else if headline_lookup_mode {
-        false
     } else {
         enforce_grounded_compatibility
             && (compatible_candidates >= min_required
@@ -845,6 +845,9 @@ pub(crate) fn pre_read_candidate_plan_with_contract(
         }
         if seen_domains.len() < distinct_domain_floor {
             requires_constraint_search_probe = true;
+            if headline_lookup_mode && seen_domains.len() <= 1 {
+                candidate_urls.clear();
+            }
         }
     }
     if candidate_urls.is_empty()
@@ -1081,6 +1084,7 @@ pub(crate) fn pre_read_candidate_plan_from_bundle_with_recovery_mode(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_types::app::agentic::WebSource;
 
     #[test]
     fn document_briefing_plan_preserves_authority_candidates_while_enforcing_domain_diversity() {
@@ -1855,5 +1859,105 @@ mod tests {
             "{:?}",
             plan.candidate_urls
         );
+    }
+
+    #[test]
+    fn headline_plan_keeps_distinct_article_domains_from_constrained_inventory() {
+        let query = "Tell me today's top news headlines.";
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 0,
+            tool: "web__search".to_string(),
+            backend: "edge:google-news-rss".to_string(),
+            query: Some(query.to_string()),
+            url: Some("https://news.google.com/rss/search?q=top+headlines".to_string()),
+            sources: vec![
+                WebSource {
+                    source_id: "fox-main".to_string(),
+                    rank: Some(1),
+                    url: "https://www.foxnews.com/us/example-breaking-story".to_string(),
+                    title: Some("Emergency response declared after major storm".to_string()),
+                    snippet: Some(
+                        "Officials declared an emergency response Wednesday morning."
+                            .to_string(),
+                    ),
+                    domain: Some("foxnews.com".to_string()),
+                },
+                WebSource {
+                    source_id: "fox-politics".to_string(),
+                    rank: Some(2),
+                    url: "https://www.foxnews.com/politics/example-policy-shift".to_string(),
+                    title: Some("Senate leaders announce policy framework".to_string()),
+                    snippet: Some(
+                        "Leaders announced a bipartisan framework in Washington."
+                            .to_string(),
+                    ),
+                    domain: Some("foxnews.com".to_string()),
+                },
+                WebSource {
+                    source_id: "reuters".to_string(),
+                    rank: Some(3),
+                    url: "https://www.reuters.com/world/europe/example-story/".to_string(),
+                    title: Some("European ministers agree on emergency aid package".to_string()),
+                    snippet: Some(
+                        "Ministers agreed to an aid package after overnight talks."
+                            .to_string(),
+                    ),
+                    domain: Some("reuters.com".to_string()),
+                },
+                WebSource {
+                    source_id: "ap".to_string(),
+                    rank: Some(4),
+                    url: "https://apnews.com/article/example-story".to_string(),
+                    title: Some("Federal agency expands investigation into outage".to_string()),
+                    snippet: Some(
+                        "Agency officials expanded an investigation late Tuesday.".to_string(),
+                    ),
+                    domain: Some("apnews.com".to_string()),
+                },
+            ],
+            source_observations: vec![],
+            documents: vec![],
+            provider_candidates: vec![],
+            retrieval_contract: None,
+        };
+        assert!(retrieval_contract_is_generic_headline_collection(None, query));
+
+        let (candidate_urls, candidate_source_hints) =
+            constrained_candidate_inventory_from_bundle_with_locality_hint(query, 3, &bundle, None);
+        let diagnostics = candidate_source_hints
+            .iter()
+            .map(|hint| {
+                (
+                    hint.url.clone(),
+                    headline_source_is_low_quality(
+                        &hint.url,
+                        hint.title.as_deref().unwrap_or_default(),
+                        &hint.excerpt,
+                    ),
+                    retrieval_affordances_with_locality_hint(
+                        query,
+                        3,
+                        &candidate_source_hints,
+                        None,
+                        &hint.url,
+                        hint.title.as_deref().unwrap_or_default(),
+                        &hint.excerpt,
+                    ),
+                    is_search_hub_url(&hint.url),
+                )
+            })
+            .collect::<Vec<_>>();
+        let plan = pre_read_candidate_plan_with_contract(
+            None,
+            query,
+            3,
+            candidate_urls,
+            candidate_source_hints,
+            None,
+            false,
+        );
+
+        assert_eq!(plan.candidate_urls.len(), 3, "{plan:?} diagnostics={diagnostics:?}");
     }
 }

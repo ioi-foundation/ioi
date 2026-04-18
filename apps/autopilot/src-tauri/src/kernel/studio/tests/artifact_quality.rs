@@ -110,7 +110,7 @@ fn weak_html_artifact_is_downgraded_to_blocked() {
 }
 
 #[test]
-fn acceptance_judge_promotes_soft_html_prefilter_findings_to_ready() {
+fn artifact_validation_promotes_soft_html_prefilter_findings_to_ready() {
     let request = StudioOutcomeArtifactRequest {
         artifact_class: StudioArtifactClass::InteractiveSingleFile,
         deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
@@ -149,8 +149,8 @@ fn acceptance_judge_promotes_soft_html_prefilter_findings_to_ready() {
     let promoted = finalize_presentation_assessment(
         &request,
         assessment,
-        &StudioArtifactJudgeResult {
-            classification: ioi_api::studio::StudioArtifactJudgeClassification::Pass,
+        &StudioArtifactValidationResult {
+            classification: ioi_api::studio::StudioArtifactValidationStatus::Pass,
             request_faithfulness: 5,
             concept_coverage: 4,
             interaction_relevance: 4,
@@ -183,7 +183,7 @@ fn acceptance_judge_promotes_soft_html_prefilter_findings_to_ready() {
         promoted.lifecycle_state,
         StudioArtifactLifecycleState::Ready
     );
-    assert!(promoted.summary.contains("acceptance judging cleared"));
+    assert!(promoted.summary.contains("acceptance validation cleared"));
 }
 
 #[test]
@@ -218,7 +218,7 @@ fn render_eval_warning_keeps_html_out_of_ready_state_even_when_acceptance_passes
             renderable: true,
             downloadable: true,
             text_content: Some(
-                "<!doctype html><html><head><style>body { font-family: 'Avenir Next', sans-serif; background: #f6f1e7; color: #1b1a17; } main { display: grid; gap: 1.5rem; padding: 2rem; } .hero, .grid, .evidence, footer { background: #fffdf8; border: 1px solid #d5c7ad; border-radius: 20px; padding: 1.25rem; } .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } .metric { background: #f0e2c8; border-radius: 14px; padding: 0.85rem; }</style></head><body><main><section class=\"hero\"><h1>Dog shampoo rollout command center</h1><p>The launch page keeps merchandisers, veterinary advisers, and regional channel leads aligned on the first four weeks of the dog shampoo launch. A compact narrative explains the gentle skin positioning, fragrance-free formula, and retail education plan so the first visible artifact already feels like a real launch surface instead of a placeholder shell.</p><p>Operators can compare mass retail, ecommerce, and boutique pet-store readiness without leaving the page, then use the follow-up refinement pass to deepen ingredient and pH evidence.</p></section><section class=\"grid\"><article class=\"metric\"><h2>Mass Retail</h2><p>Floor sets complete in 81% of target doors, with sampling carts scheduled for the highest-volume weekend windows.</p></article><article class=\"metric\"><h2>Ecommerce</h2><p>Subscription attach is pacing above plan because the bundle pairs the shampoo with a coat brush and refill reminder.</p></article><article class=\"metric\"><h2>Boutique</h2><p>Independent stores are asking for more shelf talkers and a clearer ingredient story before launch week.</p></article></section><article class=\"evidence\"><h2>Launch evidence rail</h2><p>Retail readiness notes, customer language, and merchandising checkpoints stay visible together so the surface can support real refinement decisions. Teams can inspect the copy, compare channels, and extend the page with more charts in the next judged revision.</p><button type=\"button\">Inspect rollout detail</button></article><aside><p>Readiness evidence remains visible beside the command surface so approval notes do not drift away from the rendered artifact.</p></aside><footer><p>Current gap: ingredient and pH comparison charts still need a dedicated visual treatment.</p></footer></main></body></html>"
+                "<!doctype html><html><head><style>body { font-family: 'Avenir Next', sans-serif; background: #f6f1e7; color: #1b1a17; } main { display: grid; gap: 1.5rem; padding: 2rem; } .hero, .grid, .evidence, footer { background: #fffdf8; border: 1px solid #d5c7ad; border-radius: 20px; padding: 1.25rem; } .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } .metric { background: #f0e2c8; border-radius: 14px; padding: 0.85rem; }</style></head><body><main><section class=\"hero\"><h1>Dog shampoo rollout command center</h1><p>The launch page keeps merchandisers, veterinary advisers, and regional channel leads aligned on the first four weeks of the dog shampoo launch. A compact narrative explains the gentle skin positioning, fragrance-free formula, and retail education plan so the first visible artifact already feels like a real launch surface instead of a placeholder shell.</p><p>Operators can compare mass retail, ecommerce, and boutique pet-store readiness without leaving the page, then use the follow-up refinement pass to deepen ingredient and pH evidence.</p></section><section class=\"grid\"><article class=\"metric\"><h2>Mass Retail</h2><p>Floor sets complete in 81% of target doors, with sampling carts scheduled for the highest-volume weekend windows.</p></article><article class=\"metric\"><h2>Ecommerce</h2><p>Subscription attach is pacing above plan because the bundle pairs the shampoo with a coat brush and refill reminder.</p></article><article class=\"metric\"><h2>Boutique</h2><p>Independent stores are asking for more shelf talkers and a clearer ingredient story before launch week.</p></article></section><article class=\"evidence\"><h2>Launch evidence rail</h2><p>Retail readiness notes, customer language, and merchandising checkpoints stay visible together so the surface can support real refinement decisions. Teams can inspect the copy, compare channels, and extend the page with more charts in the next validated revision.</p><button type=\"button\">Inspect rollout detail</button></article><aside><p>Readiness evidence remains visible beside the command surface so approval notes do not drift away from the rendered artifact.</p></aside><footer><p>Current gap: ingredient and pH comparison charts still need a dedicated visual treatment.</p></footer></main></body></html>"
                     .to_string(),
             ),
         }],
@@ -274,8 +274,8 @@ fn render_eval_warning_keeps_html_out_of_ready_state_even_when_acceptance_passes
     let promoted = finalize_presentation_assessment(
         &request,
         assessment,
-        &StudioArtifactJudgeResult {
-            classification: ioi_api::studio::StudioArtifactJudgeClassification::Pass,
+        &StudioArtifactValidationResult {
+            classification: ioi_api::studio::StudioArtifactValidationStatus::Pass,
             request_faithfulness: 5,
             concept_coverage: 4,
             interaction_relevance: 4,
@@ -393,8 +393,8 @@ fn render_eval_blocker_overrides_acceptance_pass_for_html_artifacts() {
     let promoted = finalize_presentation_assessment(
         &request,
         assessment,
-        &StudioArtifactJudgeResult {
-            classification: ioi_api::studio::StudioArtifactJudgeClassification::Pass,
+        &StudioArtifactValidationResult {
+            classification: ioi_api::studio::StudioArtifactValidationStatus::Pass,
             request_faithfulness: 5,
             concept_coverage: 4,
             interaction_relevance: 4,
@@ -861,7 +861,7 @@ fn mermaid_prefilter_does_not_block_valid_compact_diagram_documents() {
 }
 
 #[test]
-fn repairable_acceptance_judge_keeps_html_out_of_ready_state() {
+fn repairable_artifact_validation_keeps_html_out_of_ready_state() {
     let request = StudioOutcomeArtifactRequest {
         artifact_class: StudioArtifactClass::InteractiveSingleFile,
         deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
@@ -892,7 +892,7 @@ fn repairable_acceptance_judge_keeps_html_out_of_ready_state() {
                 renderable: true,
                 downloadable: true,
                 text_content: Some(
-                    "<!doctype html><html><head><style>body { font-family: 'Avenir Next', sans-serif; background: #f6f1e7; color: #1b1a17; } main { display: grid; gap: 1.5rem; padding: 2rem; } .hero, .grid, .evidence, footer { background: #fffdf8; border: 1px solid #d5c7ad; border-radius: 20px; padding: 1.25rem; } .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } .metric { background: #f0e2c8; border-radius: 14px; padding: 0.85rem; }</style></head><body><main><section class=\"hero\"><h1>Dog shampoo rollout command center</h1><p>The launch page keeps merchandisers, veterinary advisers, and regional channel leads aligned on the first four weeks of the dog shampoo launch. A compact narrative explains the gentle skin positioning, fragrance-free formula, and retail education plan so the first visible artifact already feels like a real launch surface instead of a placeholder shell.</p><p>Operators can compare mass retail, ecommerce, and boutique pet-store readiness without leaving the page, then use the follow-up refinement pass to deepen ingredient and pH evidence.</p></section><section class=\"grid\"><article class=\"metric\"><h2>Mass Retail</h2><p>Floor sets complete in 81% of target doors, with sampling carts scheduled for the highest-volume weekend windows.</p></article><article class=\"metric\"><h2>Ecommerce</h2><p>Subscription attach is pacing above plan because the bundle pairs the shampoo with a coat brush and refill reminder.</p></article><article class=\"metric\"><h2>Boutique</h2><p>Independent stores are asking for more shelf talkers and a clearer ingredient story before launch week.</p></article></section><article class=\"evidence\"><h2>Launch evidence rail</h2><p>Retail readiness notes, customer language, and merchandising checkpoints stay visible together so the surface can support real refinement decisions. Teams can inspect the copy, compare channels, and extend the page with more charts in the next judged revision.</p><button type=\"button\">Inspect rollout detail</button></article><aside><p>Readiness evidence remains visible beside the command surface so approval notes do not drift away from the rendered artifact.</p></aside><footer><p>Current gap: ingredient and pH comparison charts still need a dedicated visual treatment.</p></footer></main></body></html>"
+                    "<!doctype html><html><head><style>body { font-family: 'Avenir Next', sans-serif; background: #f6f1e7; color: #1b1a17; } main { display: grid; gap: 1.5rem; padding: 2rem; } .hero, .grid, .evidence, footer { background: #fffdf8; border: 1px solid #d5c7ad; border-radius: 20px; padding: 1.25rem; } .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } .metric { background: #f0e2c8; border-radius: 14px; padding: 0.85rem; }</style></head><body><main><section class=\"hero\"><h1>Dog shampoo rollout command center</h1><p>The launch page keeps merchandisers, veterinary advisers, and regional channel leads aligned on the first four weeks of the dog shampoo launch. A compact narrative explains the gentle skin positioning, fragrance-free formula, and retail education plan so the first visible artifact already feels like a real launch surface instead of a placeholder shell.</p><p>Operators can compare mass retail, ecommerce, and boutique pet-store readiness without leaving the page, then use the follow-up refinement pass to deepen ingredient and pH evidence.</p></section><section class=\"grid\"><article class=\"metric\"><h2>Mass Retail</h2><p>Floor sets complete in 81% of target doors, with sampling carts scheduled for the highest-volume weekend windows.</p></article><article class=\"metric\"><h2>Ecommerce</h2><p>Subscription attach is pacing above plan because the bundle pairs the shampoo with a coat brush and refill reminder.</p></article><article class=\"metric\"><h2>Boutique</h2><p>Independent stores are asking for more shelf talkers and a clearer ingredient story before launch week.</p></article></section><article class=\"evidence\"><h2>Launch evidence rail</h2><p>Retail readiness notes, customer language, and merchandising checkpoints stay visible together so the surface can support real refinement decisions. Teams can inspect the copy, compare channels, and extend the page with more charts in the next validated revision.</p><button type=\"button\">Inspect rollout detail</button></article><aside><p>Readiness evidence remains visible beside the command surface so approval notes do not drift away from the rendered artifact.</p></aside><footer><p>Current gap: ingredient and pH comparison charts still need a dedicated visual treatment.</p></footer></main></body></html>"
                         .to_string(),
                 ),
             }],
@@ -900,8 +900,8 @@ fn repairable_acceptance_judge_keeps_html_out_of_ready_state() {
     let promoted = finalize_presentation_assessment(
         &request,
         assessment,
-        &StudioArtifactJudgeResult {
-            classification: ioi_api::studio::StudioArtifactJudgeClassification::Repairable,
+        &StudioArtifactValidationResult {
+            classification: ioi_api::studio::StudioArtifactValidationStatus::Repairable,
             request_faithfulness: 4,
             concept_coverage: 3,
             interaction_relevance: 4,
@@ -981,7 +981,7 @@ fn draft_pending_acceptance_surfaces_viable_html_as_partial() {
             renderable: true,
             downloadable: true,
             text_content: Some(
-                "<!doctype html><html><head><style>body { font-family: 'Avenir Next', sans-serif; background: #f6f1e7; color: #1b1a17; } main { display: grid; gap: 1.5rem; padding: 2rem; } .hero, .grid, .evidence, footer { background: #fffdf8; border: 1px solid #d5c7ad; border-radius: 20px; padding: 1.25rem; } .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } .metric { background: #f0e2c8; border-radius: 14px; padding: 0.85rem; }</style></head><body><main><section class=\"hero\"><h1>Dog shampoo rollout command center</h1><p>The launch page keeps merchandisers, veterinary advisers, and regional channel leads aligned on the first four weeks of the dog shampoo launch. A compact narrative explains the gentle skin positioning, fragrance-free formula, and retail education plan so the first visible artifact already feels like a real launch surface instead of a placeholder shell.</p><p>Operators can compare mass retail, ecommerce, and boutique pet-store readiness without leaving the page, then use the follow-up refinement pass to deepen ingredient and pH evidence.</p></section><section class=\"grid\"><article class=\"metric\"><h2>Mass Retail</h2><p>Floor sets complete in 81% of target doors, with sampling carts scheduled for the highest-volume weekend windows.</p></article><article class=\"metric\"><h2>Ecommerce</h2><p>Subscription attach is pacing above plan because the bundle pairs the shampoo with a coat brush and refill reminder.</p></article><article class=\"metric\"><h2>Boutique</h2><p>Independent stores are asking for more shelf talkers and a clearer ingredient story before launch week.</p></article></section><article class=\"evidence\"><h2>Launch evidence rail</h2><p>Retail readiness notes, customer language, and merchandising checkpoints stay visible together so the surface can support real refinement decisions. Teams can inspect the copy, compare channels, and extend the page with more charts in the next judged revision.</p><button type=\"button\">Inspect rollout detail</button></article><aside><p>Readiness evidence remains visible beside the command surface so approval notes do not drift away from the rendered artifact.</p></aside><footer><p>Current gap: ingredient and pH comparison charts still need a dedicated visual treatment.</p></footer></main></body></html>"
+                "<!doctype html><html><head><style>body { font-family: 'Avenir Next', sans-serif; background: #f6f1e7; color: #1b1a17; } main { display: grid; gap: 1.5rem; padding: 2rem; } .hero, .grid, .evidence, footer { background: #fffdf8; border: 1px solid #d5c7ad; border-radius: 20px; padding: 1.25rem; } .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; } .metric { background: #f0e2c8; border-radius: 14px; padding: 0.85rem; }</style></head><body><main><section class=\"hero\"><h1>Dog shampoo rollout command center</h1><p>The launch page keeps merchandisers, veterinary advisers, and regional channel leads aligned on the first four weeks of the dog shampoo launch. A compact narrative explains the gentle skin positioning, fragrance-free formula, and retail education plan so the first visible artifact already feels like a real launch surface instead of a placeholder shell.</p><p>Operators can compare mass retail, ecommerce, and boutique pet-store readiness without leaving the page, then use the follow-up refinement pass to deepen ingredient and pH evidence.</p></section><section class=\"grid\"><article class=\"metric\"><h2>Mass Retail</h2><p>Floor sets complete in 81% of target doors, with sampling carts scheduled for the highest-volume weekend windows.</p></article><article class=\"metric\"><h2>Ecommerce</h2><p>Subscription attach is pacing above plan because the bundle pairs the shampoo with a coat brush and refill reminder.</p></article><article class=\"metric\"><h2>Boutique</h2><p>Independent stores are asking for more shelf talkers and a clearer ingredient story before launch week.</p></article></section><article class=\"evidence\"><h2>Launch evidence rail</h2><p>Retail readiness notes, customer language, and merchandising checkpoints stay visible together so the surface can support real refinement decisions. Teams can inspect the copy, compare channels, and extend the page with more charts in the next validated revision.</p><button type=\"button\">Inspect rollout detail</button></article><aside><p>Readiness evidence remains visible beside the command surface so approval notes do not drift away from the rendered artifact.</p></aside><footer><p>Current gap: ingredient and pH comparison charts still need a dedicated visual treatment.</p></footer></main></body></html>"
                     .to_string(),
             ),
         }],
@@ -989,8 +989,8 @@ fn draft_pending_acceptance_surfaces_viable_html_as_partial() {
     let promoted = finalize_presentation_assessment(
         &request,
         assessment,
-        &StudioArtifactJudgeResult {
-            classification: ioi_api::studio::StudioArtifactJudgeClassification::Repairable,
+        &StudioArtifactValidationResult {
+            classification: ioi_api::studio::StudioArtifactValidationStatus::Repairable,
             request_faithfulness: 4,
             concept_coverage: 4,
             interaction_relevance: 4,
@@ -1011,13 +1011,15 @@ fn draft_pending_acceptance_surfaces_viable_html_as_partial() {
                 "Production surfaced a request-faithful draft with viable structure.".to_string(),
             ],
             blocked_reasons: Vec::new(),
-            file_findings: vec!["Acceptance judging is still pending for this draft.".to_string()],
+            file_findings: vec![
+                "Acceptance validation is still pending for this draft.".to_string()
+            ],
             aesthetic_verdict: "provisionally_viable".to_string(),
             interaction_verdict: "awaiting_acceptance_confirmation".to_string(),
             truthfulness_warnings: Vec::new(),
             recommended_next_pass: Some("acceptance_pass".to_string()),
             strongest_contradiction: Some(
-                "Acceptance judging is still pending for this draft.".to_string(),
+                "Acceptance validation is still pending for this draft.".to_string(),
             ),
             rationale: "Production surfaced a request-faithful draft.".to_string(),
         },
@@ -1034,7 +1036,7 @@ fn draft_pending_acceptance_surfaces_viable_html_as_partial() {
     assert!(promoted
         .findings
         .iter()
-        .any(|finding| finding.contains("Acceptance judging is still pending")));
+        .any(|finding| finding.contains("Acceptance validation is still pending")));
 }
 
 #[test]
@@ -1077,8 +1079,8 @@ fn external_runtime_dependency_keeps_html_prefilter_blocked() {
     let promoted = finalize_presentation_assessment(
         &request,
         assessment,
-        &StudioArtifactJudgeResult {
-            classification: ioi_api::studio::StudioArtifactJudgeClassification::Pass,
+        &StudioArtifactValidationResult {
+            classification: ioi_api::studio::StudioArtifactValidationStatus::Pass,
             request_faithfulness: 5,
             concept_coverage: 5,
             interaction_relevance: 5,

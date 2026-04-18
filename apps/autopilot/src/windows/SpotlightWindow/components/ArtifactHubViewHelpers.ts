@@ -137,7 +137,7 @@ export function buildVerificationNotes(planSummary: PlanSummary | null): string[
 
   if (planSummary.artifactQuality) {
     notes.push(
-      `Artifact judge: ${humanizeStatus(planSummary.artifactQuality.verdict)} · fidelity ${humanizeStatus(planSummary.artifactQuality.fidelityStatus)} · presentation ${humanizeStatus(planSummary.artifactQuality.presentationStatus)}.`,
+      `Artifact validation: ${humanizeStatus(planSummary.artifactQuality.verdict)} · fidelity ${humanizeStatus(planSummary.artifactQuality.fidelityStatus)} · presentation ${humanizeStatus(planSummary.artifactQuality.presentationStatus)}.`,
     );
   }
 

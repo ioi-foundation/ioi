@@ -756,7 +756,7 @@ pub struct ArtifactQualityScorecard {
     pub presentation_status: String,
     /// Whether repair is unnecessary, recommended, required, or blocked.
     pub repair_status: String,
-    /// Optional compact judge note.
+    /// Optional compact validation note.
     #[serde(default)]
     pub notes: Option<String>,
 }
@@ -778,7 +778,7 @@ pub struct PatchSynthesisSummary {
 /// Artifact-repair summary surfaced through parent-playbook receipts.
 #[derive(Clone, Debug, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
 pub struct ArtifactRepairSummary {
-    /// Repair state derived from generator and judge evidence.
+    /// Repair state derived from generator and validation evidence.
     pub status: String,
     /// Optional reason for the chosen repair path.
     #[serde(default)]
@@ -863,7 +863,7 @@ pub struct WorkloadParentPlaybookReceipt {
     /// Optional research-specific scorecard emitted by citation-verifier routes.
     #[serde(default)]
     pub research_scorecard: Option<ResearchVerificationScorecard>,
-    /// Optional artifact-quality scorecard emitted by artifact judge routes.
+    /// Optional artifact-quality scorecard emitted by artifact validation routes.
     #[serde(default)]
     pub artifact_quality: Option<ArtifactQualityScorecard>,
     /// Optional computer-use verification scorecard emitted by browser verifier routes.
@@ -875,7 +875,7 @@ pub struct WorkloadParentPlaybookReceipt {
     /// Optional coding patch-synthesis summary emitted by synthesis routes.
     #[serde(default)]
     pub patch_synthesis: Option<PatchSynthesisSummary>,
-    /// Optional artifact-repair summary emitted by artifact generation or judge routes.
+    /// Optional artifact-repair summary emitted by artifact generation or validation routes.
     #[serde(default)]
     pub artifact_repair: Option<ArtifactRepairSummary>,
     /// Optional computer-use recovery summary emitted by browser execution or verification routes.

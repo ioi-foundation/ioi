@@ -52,7 +52,7 @@ function baseEvidence(): GeneratedArtifactEvidence {
     candidateSummaries: [],
     winningCandidateId: "candidate-1",
     winningCandidateRationale: "rationale",
-    judge: {
+    validation: {
       classification: "pass",
       requestFaithfulness: 5,
       conceptCoverage: 5,
@@ -82,7 +82,7 @@ function baseEvidence(): GeneratedArtifactEvidence {
       endpoint: "http://127.0.0.1:11434/v1/chat/completions?lane=acceptance",
     },
     fallbackUsed: false,
-    uxLifecycle: "judged",
+    uxLifecycle: "validated",
     manifest: {
       artifactId: "artifact-id",
       title: "title",
@@ -208,7 +208,7 @@ function baseSummary(
       summary: `${id} summary`,
       evidence: [primaryFile],
     },
-    judge: {
+    validation: {
       classification: "pass",
       requestFaithfulness: 5,
       conceptCoverage: 5,
@@ -246,7 +246,7 @@ function baseSummary(
     productionProvenance: null,
     acceptanceProvenance: null,
     fallbackUsed: false,
-    uxLifecycle: "judged",
+    uxLifecycle: "validated",
     failure: null,
     notes: [],
     proofPath: "contract_path",
@@ -287,8 +287,8 @@ test("deriveCaseClassification falls back to blocked manifest summary", () => {
     summary:
       "Studio materialized files, but blocked the primary presentation: repair shims still dominate the artifact.",
   };
-  evidence.judge = {
-    ...evidence.judge,
+  evidence.validation = {
+    ...evidence.validation,
     strongestContradiction: null,
   };
 

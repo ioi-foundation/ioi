@@ -22,7 +22,6 @@ mod signals;
 mod tests;
 
 pub(super) use self::signals::{
-    build_browser_observation_context_from_snapshot,
     build_browser_observation_context_from_snapshot_with_history,
     build_browser_snapshot_success_signal_context, build_recent_browser_observation_context,
     build_recent_command_history_context, build_recent_session_events_context,

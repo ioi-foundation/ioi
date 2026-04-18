@@ -173,6 +173,10 @@ pub(crate) fn candidate_constraint_compatibility(
         && (has_time_sensitive_resolvable_payload
             || has_current_observation_payload
             || axis_overlap_count > 0);
+    let locality_structured_observation_override = locality_scope_active
+        && query_facets.locality_sensitive_public_fact
+        && typed_structural_match
+        && semantic_anchor_token_count <= QUERY_COMPATIBILITY_MIN_ANCHOR_OVERLAP;
     let requires_semantic_anchor_overlap =
         locality_scope_active && semantic_anchor_token_count > 0 && !typed_structural_match;
     let min_native_overlap_required = if query_facets.grounded_external_required
@@ -205,7 +209,7 @@ pub(crate) fn candidate_constraint_compatibility(
     let mut is_compatible = if time_sensitive_scope {
         let anchor_requirement =
             if query_facets.grounded_external_required && query_anchor_count > 0 {
-                has_native_anchor_overlap
+                has_native_anchor_overlap || locality_structured_observation_override
             } else if query_anchor_count > 0 {
                 has_anchor_overlap || has_native_anchor_overlap
             } else {

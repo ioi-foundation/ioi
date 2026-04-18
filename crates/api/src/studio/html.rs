@@ -3227,7 +3227,7 @@ pub(super) fn studio_artifact_materialization_failure_directives(
 pub(super) fn studio_artifact_candidate_refinement_directives(
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
 ) -> String {
     let mut directives = vec![
         "- Patch the current artifact instead of restarting from a new shell.".to_string(),
@@ -3295,7 +3295,7 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
         );
     }
 
-    if judge.request_faithfulness <= 3 || judge.concept_coverage <= 3 {
+    if validation.request_faithfulness <= 3 || validation.concept_coverage <= 3 {
         directives.push(
             "- Surface the requiredConcepts in visible headings, labels, legends, captions, or explanatory copy, not only in the title."
                 .to_string(),
@@ -3488,7 +3488,7 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
         }
     }
 
-    if judge.interaction_relevance <= 2 {
+    if validation.interaction_relevance <= 2 {
         directives.push(
             "- Strengthen interaction density with actual handlers and response regions; a single disclosure or dead control is not enough."
                 .to_string(),
@@ -3499,14 +3499,14 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
         );
     }
 
-    if judge.layout_coherence <= 3 || judge.completeness <= 3 {
+    if validation.layout_coherence <= 3 || validation.completeness <= 3 {
         directives.push(
             "- Increase first-paint completeness by filling each primary region with visible content, not placeholders or deferred shells."
                 .to_string(),
         );
     }
 
-    if judge.generic_shell_detected || judge.trivial_shell_detected {
+    if validation.generic_shell_detected || validation.trivial_shell_detected {
         directives.push(
             "- Remove placeholder-grade filler and generic shell patterns; the artifact should only fit this request, not nearby prompts."
                 .to_string(),
@@ -3517,7 +3517,7 @@ pub(super) fn studio_artifact_candidate_refinement_directives(
         );
     }
 
-    if let Some(contradiction) = judge.strongest_contradiction.as_ref() {
+    if let Some(contradiction) = validation.strongest_contradiction.as_ref() {
         let contradiction_lower = contradiction.to_ascii_lowercase();
         directives.push(format!(
             "- Resolve this contradiction directly: {}",

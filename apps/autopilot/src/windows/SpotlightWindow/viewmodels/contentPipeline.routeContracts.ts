@@ -910,7 +910,7 @@ const BUILTIN_PLAYBOOK_ROUTE_CONTRACTS: Record<
     routeFamily: "artifacts",
     topology: "planner_specialist_verifier",
     plannerAuthority: "kernel",
-    verifierRole: "artifact_quality_verifier",
+    verifierRole: "artifact_validation_verifier",
     requiresVerifier: true,
   },
 };
@@ -928,7 +928,7 @@ const BUILTIN_ROUTE_CONTRACT_ALIASES: Record<string, string> = {
   postcondition_audit: "browser_postcondition_gate",
   artifact_context_brief: "artifact_generation_gate",
   artifact_generate_repair: "artifact_generation_gate",
-  artifact_quality_audit: "artifact_generation_gate",
+  artifact_validation_audit: "artifact_generation_gate",
   artifact_candidate_generation: "artifact_generation_gate",
 };
 
@@ -1019,7 +1019,7 @@ export function parseVerifierRole(
     case "citation_verifier":
     case "test_verifier":
     case "postcondition_verifier":
-    case "artifact_quality_verifier":
+    case "artifact_validation_verifier":
       return value!.trim().toLowerCase() as PlanSummary["verifierRole"];
     default:
       return null;
@@ -1371,7 +1371,7 @@ export function defaultVerifierRole(
     case "computer_use":
       return "postcondition_verifier";
     case "artifacts":
-      return "artifact_quality_verifier";
+      return "artifact_validation_verifier";
     default:
       return "verifier";
   }
@@ -1419,7 +1419,7 @@ export function verifierRoleTitle(
       return "Test verifier";
     case "postcondition_verifier":
       return "Postcondition verifier";
-    case "artifact_quality_verifier":
+    case "artifact_validation_verifier":
       return "Artifact quality verifier";
     default:
       return "Verifier";

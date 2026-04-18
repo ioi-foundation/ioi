@@ -20,10 +20,10 @@ function buildCorpusSummary(metricOverrides = {}) {
           method: "ready rate",
           supportingBenchmarkIds: ["html-quantum-explainer"],
         },
-        averageJudgeScore: {
+        averageValidationScore: {
           value: 0.87,
           available: true,
-          method: "judge score",
+          method: "validation score",
           supportingBenchmarkIds: ["html-quantum-explainer"],
         },
         screenshotQualityScore: {

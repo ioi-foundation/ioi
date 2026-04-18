@@ -1398,8 +1398,8 @@ fn publish_current_task_generation_progress(
             if progress.render_evaluation.is_some() {
                 session.materialization.render_evaluation = progress.render_evaluation.clone();
             }
-            if progress.judge.is_some() {
-                session.materialization.judge = progress.judge.clone();
+            if progress.validation.is_some() {
+                session.materialization.validation = progress.validation.clone();
             }
             merge_runtime_narration_events(
                 &mut session.materialization.runtime_narration_events,
@@ -1698,7 +1698,7 @@ fn maybe_prepare_task_for_studio_with_request(
     let mut swarm_merge_receipts = Vec::<StudioArtifactMergeReceipt>::new();
     let mut swarm_verification_receipts = Vec::<StudioArtifactVerificationReceipt>::new();
     let mut render_evaluation: Option<ioi_api::studio::StudioArtifactRenderEvaluation> = None;
-    let mut judge: Option<StudioArtifactJudgeResult> = None;
+    let mut validation: Option<StudioArtifactValidationResult> = None;
     let mut output_origin: Option<StudioArtifactOutputOrigin> = None;
     let mut production_provenance: Option<crate::models::StudioRuntimeProvenance> = None;
     let mut acceptance_provenance: Option<crate::models::StudioRuntimeProvenance> = None;
@@ -1939,7 +1939,7 @@ fn maybe_prepare_task_for_studio_with_request(
         swarm_merge_receipts = materialized_artifact.swarm_merge_receipts.clone();
         swarm_verification_receipts = materialized_artifact.swarm_verification_receipts.clone();
         render_evaluation = materialized_artifact.render_evaluation.clone();
-        judge = materialized_artifact.judge.clone();
+        validation = materialized_artifact.validation.clone();
         output_origin = Some(materialized_artifact.output_origin);
         production_provenance = materialized_artifact.production_provenance.clone();
         acceptance_provenance = materialized_artifact.acceptance_provenance.clone();
@@ -2023,7 +2023,7 @@ fn maybe_prepare_task_for_studio_with_request(
             )
         });
         materialization.render_evaluation = render_evaluation;
-        materialization.judge = judge.clone();
+        materialization.validation = validation.clone();
         materialization.output_origin = output_origin;
         materialization.production_provenance = production_provenance.clone();
         materialization.acceptance_provenance = acceptance_provenance.clone();
