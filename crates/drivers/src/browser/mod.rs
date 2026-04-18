@@ -275,6 +275,13 @@ pub struct BrowserDriver {
 
 impl Drop for BrowserDriver {
     fn drop(&mut self) {
+        let preserve_profile = std::env::var("IOI_BROWSER_PERSIST_PROFILE")
+            .ok()
+            .map(|raw| raw.trim().to_ascii_lowercase())
+            .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on" | "enabled"));
+        if preserve_profile {
+            return;
+        }
         if let Ok(mut guard) = self.profile_dir.try_lock() {
             if let Some(path) = guard.take() {
                 let _ = std::fs::remove_dir_all(path);
