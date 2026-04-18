@@ -1,2 +1,0 @@
-Materialized artifact package 'Edit only this chart section to show adoption by channel' into '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/materialized'.
-Packaged 1 file(s) and wrote '/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/studio-artifact-surface/2026-03-28-live/html-dog-shampoo-targeted-chart/materialized/artifact-manifest.json'.

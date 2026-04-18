@@ -1,9 +1,0 @@
-{
-  "status": "ready",
-  "lifecycle_state": "ready",
-  "title": "Studio outcome: a Mermaid diagram of an approval pipeline",
-  "summary": "a Mermaid diagram of an approval pipeline The candidate stays grounded in an approval pipeline, covers the required concepts, and is strong enough to lead the stage.",
-  "evidence": [
-    "diagram.mermaid"
-  ]
-}

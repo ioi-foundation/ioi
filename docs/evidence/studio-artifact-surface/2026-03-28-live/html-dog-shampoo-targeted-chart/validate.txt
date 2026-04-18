@@ -1,1 +1,0 @@
-Artifact manifest 'Edit only this chart section to show adoption by channel' is valid.

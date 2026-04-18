@@ -1,1 +1,0 @@
-Artifact manifest 'Create an interactive HTML artifact that explains a product rollo...' is valid.

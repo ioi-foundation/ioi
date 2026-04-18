@@ -1,1 +1,0 @@
-Artifact manifest 'Create a downloadable artifact bundle with a CSV and README' is valid.

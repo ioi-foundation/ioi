@@ -1,8 +1,0 @@
-
-running 1 test
-COMPUTER_USE_SUITE_INFERENCE_MODEL_SELECTED=qwen2.5:14b
-computer_use_suite mode=agent task_set=smoke pass=0/1 task_successes=0 kernel_successes=1 artifacts=/home/heathledger/Documents/ioi/repos/ioi/docs/evidence/agent-model-matrix/runs/2026-03-31T13-53-35-801Z/planner-grade-local-oss/computer-use-click-button-smoke/artifacts
-test computer_use_suite_from_env ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 28.18s
-
