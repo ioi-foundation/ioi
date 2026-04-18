@@ -28,7 +28,7 @@ pub(super) fn studio_swarm_work_item_context(
     work_item: &StudioArtifactWorkItem,
     blueprint: Option<&StudioArtifactBlueprint>,
     artifact_ir: Option<&StudioArtifactIR>,
-    judge: Option<&StudioArtifactJudgeResult>,
+    validation: Option<&StudioArtifactValidationResult>,
 ) -> serde_json::Value {
     match work_item.role {
         StudioArtifactWorkerRole::Skeleton => json!({
@@ -63,27 +63,27 @@ pub(super) fn studio_swarm_work_item_context(
             "density": blueprint
                 .map(|value| value.design_system.density.clone())
                 .unwrap_or_default(),
-            "judge": judge,
+            "validation": validation,
         }),
         StudioArtifactWorkerRole::Interaction => json!({
             "interactionPlan": blueprint.map(|value| value.interaction_plan.clone()).unwrap_or_default(),
             "interactionGraph": artifact_ir.map(|value| value.interaction_graph.clone()).unwrap_or_default(),
-            "judge": judge,
+            "validation": validation,
         }),
         StudioArtifactWorkerRole::Integrator | StudioArtifactWorkerRole::Repair => json!({
             "sectionPlan": blueprint.map(|value| value.section_plan.clone()).unwrap_or_default(),
             "interactionPlan": blueprint.map(|value| value.interaction_plan.clone()).unwrap_or_default(),
-            "judge": judge,
+            "validation": validation,
         }),
         _ => json!({}),
     }
 }
 
 pub(super) fn html_swarm_targeted_repair_template_ids(
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
 ) -> Vec<&'static str> {
     let has_any_issue = |needles: &[&str]| {
-        judge
+        validation
             .issue_classes
             .iter()
             .any(|issue| needles.iter().any(|needle| issue == needle))
@@ -161,13 +161,13 @@ pub(super) fn studio_swarm_worker_role_directive(
             "Patch only the regions needed to reconcile visual hierarchy, copy seams, and interaction coherence across the merged artifact. Preserve strong sections; do not restart the artifact from scratch.".to_string()
         }
         (StudioRendererKind::HtmlIframe, StudioArtifactWorkerRole::Repair) => {
-            "Patch only the cited failures from judging or verification against the current canonical artifact. Preserve strong authored structure and avoid global rewrites when a narrower region patch will solve the problem.".to_string()
+            "Patch only the cited failures from validation or verification against the current canonical artifact. Preserve strong authored structure and avoid global rewrites when a narrower region patch will solve the problem.".to_string()
         }
         (_, StudioArtifactWorkerRole::Skeleton) => {
             "Produce the initial renderer-native file set once under a bounded patch envelope. Use create_file or replace_file operations only.".to_string()
         }
         (_, StudioArtifactWorkerRole::Repair) => {
-            "Patch the current canonical artifact only where the judge or verification cited concrete failures. Preserve working files and strong request-specific content.".to_string()
+            "Patch the current canonical artifact only where the validation or verification cited concrete failures. Preserve working files and strong request-specific content.".to_string()
         }
         (_, StudioArtifactWorkerRole::Integrator) => {
             "Only patch cross-file or cross-section seams that prevent coherence. Skip the work item instead of rewriting the artifact without need.".to_string()

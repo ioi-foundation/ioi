@@ -1658,6 +1658,13 @@ pub(crate) fn headline_source_is_low_quality(url: &str, title: &str, excerpt: &s
     let actionable_signal_present = effective_primary_event_hits(signals) > 0
         || signals.impact_hits > 0
         || signals.mitigation_hits > 0;
+    let article_like_story_surface = looks_like_deep_article_url(url)
+        && !is_multi_item_listing_url(url)
+        && headline_story_title_has_specificity(title)
+        && !headline_title_is_multi_story_roundup_surface(title);
+    if article_like_story_surface && (claim_signal_present || actionable_signal_present) {
+        return false;
+    }
     if signals.low_priority_hits > 0
         && !has_primary_status_authority(signals)
         && !claim_signal_present

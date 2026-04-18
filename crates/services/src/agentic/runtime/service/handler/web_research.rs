@@ -8,8 +8,9 @@ use crate::agentic::runtime::service::step::queue::web_pipeline::{
     constraint_grounded_search_query_with_contract_and_hints_and_locality_hint,
     explicit_query_scope_hint, local_business_discovery_query_contract,
     local_business_entity_discovery_query_contract, next_pending_web_candidate,
-    query_prefers_document_briefing_layout, query_requests_comparison,
-    resolved_query_contract_with_locality_hint, select_web_pipeline_query_contract,
+    query_native_anchor_tokens, query_prefers_document_briefing_layout, query_requests_comparison,
+    query_requires_local_business_menu_surface, resolved_query_contract_with_locality_hint,
+    select_web_pipeline_query_contract,
     semantic_retrieval_query_contract_with_contract_and_locality_hint, url_structurally_equivalent,
     web_pipeline_min_sources, WEB_PIPELINE_SEARCH_LIMIT,
 };
@@ -261,7 +262,7 @@ fn resolved_intent_uses_receipt_bound_verifier_lane(
                                 value,
                                 "citation_audit"
                                     | "postcondition_audit"
-                                    | "artifact_quality_audit"
+                                    | "artifact_validation_audit"
                                     | "targeted_test_audit"
                                     | "browser_postcondition_audit"
                             )))
@@ -287,20 +288,132 @@ fn pending_url_already_exhausted(pending: &PendingSearchCompletion, url: &str) -
         })
 }
 
+fn pending_url_matches(left: &str, right: &str) -> bool {
+    let left = left.trim();
+    let right = right.trim();
+    !left.is_empty()
+        && !right.is_empty()
+        && (left.eq_ignore_ascii_case(right) || url_structurally_equivalent(left, right))
+}
+
+fn pending_url_already_observed_for_redirect(
+    pending: &PendingSearchCompletion,
+    candidate_url: &str,
+) -> bool {
+    pending
+        .attempted_urls
+        .iter()
+        .chain(pending.blocked_urls.iter())
+        .chain(pending.successful_reads.iter().map(|source| &source.url))
+        .any(|existing| pending_url_matches(existing, candidate_url))
+}
+
+fn query_requests_synthesized_output(query: &str) -> bool {
+    let padded = format!(" {} ", query.trim().to_ascii_lowercase());
+    [
+        " summarize ",
+        " summarise ",
+        " write ",
+        " draft ",
+        " rewrite ",
+        " return ",
+        " prepare ",
+        " produce ",
+        " generate ",
+        " briefing ",
+        " brief ",
+        " memo ",
+    ]
+    .iter()
+    .any(|marker| padded.contains(marker))
+}
+
+fn strict_pending_web_read_fallback_contract(pending: &PendingSearchCompletion) -> bool {
+    if let Some(retrieval_contract) = pending.retrieval_contract.as_ref() {
+        return !retrieval_contract.browser_fallback_allowed;
+    }
+
+    let query_contract = pending.query_contract.trim();
+    !query_contract.is_empty()
+        && query_prefers_document_briefing_layout(query_contract)
+        && !query_requests_comparison(query_contract)
+        && query_requests_synthesized_output(query_contract)
+}
+
+fn next_pending_redirect_candidate(
+    pending: &PendingSearchCompletion,
+    current_url: &str,
+) -> Option<String> {
+    if let Some(candidate) = next_pending_web_candidate(pending) {
+        if !pending_url_matches(&candidate, current_url) {
+            return Some(candidate);
+        }
+    }
+
+    let mut seen = BTreeSet::new();
+    for candidate in pending
+        .candidate_urls
+        .iter()
+        .chain(pending.candidate_source_hints.iter().map(|hint| &hint.url))
+    {
+        let trimmed = candidate.trim();
+        if trimmed.is_empty()
+            || !seen.insert(trimmed.to_string())
+            || pending_url_matches(trimmed, current_url)
+            || pending_url_already_observed_for_redirect(pending, trimmed)
+        {
+            continue;
+        }
+        return Some(trimmed.to_string());
+    }
+
+    None
+}
+
+fn normalized_browser_research_query(fallback_query: &str) -> Option<String> {
+    let query_contract = normalized_web_query_contract(fallback_query, fallback_query)?;
+    let locality_hint = explicit_query_scope_hint(&query_contract);
+
+    if query_requires_local_business_menu_surface(&query_contract, None, locality_hint.as_deref()) {
+        let menu_axis_query = query_native_anchor_tokens(&query_contract)
+            .into_iter()
+            .filter(|token| {
+                matches!(token.as_str(), "menu" | "menus")
+                    || !matches!(
+                        token.as_str(),
+                        "bar"
+                            | "bars"
+                            | "cafe"
+                            | "cafes"
+                            | "diner"
+                            | "diners"
+                            | "food"
+                            | "foods"
+                            | "restaurant"
+                            | "restaurants"
+                    )
+            })
+            .collect::<Vec<_>>();
+        let has_menu_surface = menu_axis_query
+            .iter()
+            .any(|token| matches!(token.as_str(), "menu" | "menus"));
+        let has_subject_anchor = menu_axis_query
+            .iter()
+            .any(|token| !matches!(token.as_str(), "menu" | "menus"));
+        if has_menu_surface && has_subject_anchor {
+            return Some(menu_axis_query.join(" "));
+        }
+    }
+
+    normalized_web_search_query(fallback_query, fallback_query)
+}
+
 pub(crate) fn reconcile_pending_web_research_tool_call(
     tool: &mut AgentTool,
     pending: Option<&PendingSearchCompletion>,
 ) -> Option<(String, String)> {
     let pending = pending?;
-    let strict_no_fallback_contract = pending
-        .retrieval_contract
-        .as_ref()
-        .map(|contract| !contract.browser_fallback_allowed)
-        .unwrap_or_else(|| {
-            query_prefers_document_briefing_layout(&pending.query_contract)
-                && !query_requests_comparison(&pending.query_contract)
-        });
-    if strict_no_fallback_contract {
+    if strict_pending_web_read_fallback_contract(pending) {
         return None;
     }
     let current_url = match tool {
@@ -311,10 +424,8 @@ pub(crate) fn reconcile_pending_web_research_tool_call(
         return None;
     }
 
-    let replacement_url = next_pending_web_candidate(pending)?;
-    if current_url.eq_ignore_ascii_case(replacement_url.as_str())
-        || url_structurally_equivalent(current_url.as_str(), replacement_url.as_str())
-    {
+    let replacement_url = next_pending_redirect_candidate(pending, &current_url)?;
+    if pending_url_matches(current_url.as_str(), replacement_url.as_str()) {
         return None;
     }
 
@@ -486,7 +597,7 @@ pub(crate) fn normalize_web_research_tool_call(
         | AgentTool::BrowserTabList {}
         | AgentTool::BrowserTabSwitch { .. }
         | AgentTool::BrowserTabClose { .. } => {
-            let normalized_query = normalized_web_search_query(fallback_query, fallback_query)
+            let normalized_query = normalized_browser_research_query(fallback_query)
                 .unwrap_or_else(|| fallback_query.trim().to_string());
             if normalized_query.is_empty() {
                 return;

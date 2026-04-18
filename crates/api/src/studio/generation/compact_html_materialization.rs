@@ -340,7 +340,7 @@ pub(super) fn direct_author_search_budget(
         } else {
             i32::MAX
         },
-        target_judge_score_for_early_stop: match request.renderer {
+        target_validation_score_for_early_stop: match request.renderer {
             StudioRendererKind::HtmlIframe => 356,
             StudioRendererKind::JsxSandbox => 348,
             StudioRendererKind::Svg => 340,

@@ -77,47 +77,47 @@ pub(super) fn compact_local_html_refinement_candidate_focus(
     })
 }
 
-pub(super) fn compact_local_html_refinement_judge_focus(
-    judge: &StudioArtifactJudgeResult,
+pub(super) fn compact_local_html_refinement_validation_focus(
+    validation: &StudioArtifactValidationResult,
 ) -> serde_json::Value {
     json!({
-        "classification": judge.classification,
-        "requestFaithfulness": judge.request_faithfulness,
-        "conceptCoverage": judge.concept_coverage,
-        "interactionRelevance": judge.interaction_relevance,
-        "layoutCoherence": judge.layout_coherence,
-        "visualHierarchy": judge.visual_hierarchy,
-        "completeness": judge.completeness,
-        "issueClasses": judge
+        "classification": validation.classification,
+        "requestFaithfulness": validation.request_faithfulness,
+        "conceptCoverage": validation.concept_coverage,
+        "interactionRelevance": validation.interaction_relevance,
+        "layoutCoherence": validation.layout_coherence,
+        "visualHierarchy": validation.visual_hierarchy,
+        "completeness": validation.completeness,
+        "issueClasses": validation
             .issue_classes
             .iter()
             .take(3)
             .map(|item| truncate_materialization_focus_text(item, 80))
             .collect::<Vec<_>>(),
-        "repairHints": judge
+        "repairHints": validation
             .repair_hints
             .iter()
             .take(3)
             .map(|item| truncate_materialization_focus_text(item, 120))
             .collect::<Vec<_>>(),
-        "strengths": judge
+        "strengths": validation
             .strengths
             .iter()
             .take(2)
             .map(|item| truncate_materialization_focus_text(item, 120))
             .collect::<Vec<_>>(),
-        "fileFindings": judge
+        "fileFindings": validation
             .file_findings
             .iter()
             .take(2)
             .map(|item| truncate_materialization_focus_text(item, 140))
             .collect::<Vec<_>>(),
-        "recommendedNextPass": judge.recommended_next_pass,
-        "strongestContradiction": judge
+        "recommendedNextPass": validation.recommended_next_pass,
+        "strongestContradiction": validation
             .strongest_contradiction
             .as_ref()
             .map(|value| truncate_materialization_focus_text(value, 140)),
-        "rationale": truncate_materialization_focus_text(&judge.rationale, 160),
+        "rationale": truncate_materialization_focus_text(&validation.rationale, 160),
     })
 }
 
@@ -476,7 +476,7 @@ pub(super) fn compact_local_html_swarm_worker_context_focus(
                 4,
                 120,
             ),
-            "judge": worker_context.get("judge").cloned().unwrap_or(serde_json::Value::Null),
+            "validation": worker_context.get("validation").cloned().unwrap_or(serde_json::Value::Null),
         }),
         StudioArtifactWorkerRole::Repair => json!({
             "sectionPlan": worker_context
@@ -505,11 +505,11 @@ pub(super) fn compact_local_html_swarm_worker_context_focus(
                 2,
                 96,
             ),
-            "judge": compact_local_html_refinement_judge_focus(
-                &serde_json::from_value::<StudioArtifactJudgeResult>(
-                    worker_context.get("judge").cloned().unwrap_or(serde_json::Value::Null),
+            "validation": compact_local_html_refinement_validation_focus(
+                &serde_json::from_value::<StudioArtifactValidationResult>(
+                    worker_context.get("validation").cloned().unwrap_or(serde_json::Value::Null),
                 )
-                .unwrap_or_else(|_| blocked_candidate_generation_judge("Repair context judge summary unavailable.")),
+                .unwrap_or_else(|_| blocked_candidate_generation_validation("Repair context validation summary unavailable.")),
             ),
         }),
         _ => worker_context.clone(),

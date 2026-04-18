@@ -39,7 +39,7 @@ struct ProofGenerationEvidence {
     candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     winning_candidate_id: Option<String>,
     winning_candidate_rationale: Option<String>,
-    judge: Option<ioi_api::studio::StudioArtifactJudgeResult>,
+    validation: Option<ioi_api::studio::StudioArtifactValidationResult>,
     output_origin: Option<StudioArtifactOutputOrigin>,
     production_provenance: Option<crate::models::StudioRuntimeProvenance>,
     acceptance_provenance: Option<crate::models::StudioRuntimeProvenance>,
@@ -378,14 +378,14 @@ fn materialize_current_task_output(
     )
     .map_err(|error| format!("failed to write '{}': {}", revisions_path.display(), error))?;
 
-    let judge = studio_session.materialization.judge.clone().or_else(|| {
+    let validation = studio_session.materialization.validation.clone().or_else(|| {
         let contradiction = studio_session
             .artifact_manifest
             .verification
             .summary
             .clone();
-        Some(ioi_api::studio::StudioArtifactJudgeResult {
-            classification: ioi_api::studio::StudioArtifactJudgeClassification::Blocked,
+        Some(ioi_api::studio::StudioArtifactValidationResult {
+            classification: ioi_api::studio::StudioArtifactValidationStatus::Blocked,
             request_faithfulness: 1,
             concept_coverage: 1,
             interaction_relevance: 1,
@@ -397,19 +397,26 @@ fn materialize_current_task_output(
             deserves_primary_artifact_view: false,
             patched_existing_artifact: None,
             continuity_revision_ux: None,
+            score_total: 0,
+            proof_kind: "verification_summary".to_string(),
+            primary_view_cleared: false,
+            validated_paths: Vec::new(),
+            issue_codes: vec!["verification_summary_only".to_string()],
             issue_classes: vec!["verification_summary_only".to_string()],
             repair_hints: vec![
-                "Re-run judging so the proof export can include a full structured acceptance verdict."
+                "Re-run validation so the proof export can include a full structured acceptance verdict."
                     .to_string(),
             ],
             strengths: Vec::new(),
             blocked_reasons: vec![contradiction.clone()],
             file_findings: Vec::new(),
-            aesthetic_verdict: "not_evaluated_due_to_missing_judge_record".to_string(),
-            interaction_verdict: "not_evaluated_due_to_missing_judge_record".to_string(),
+            aesthetic_verdict: "not_evaluated_due_to_missing_validation_record".to_string(),
+            interaction_verdict: "not_evaluated_due_to_missing_validation_record".to_string(),
             truthfulness_warnings: Vec::new(),
             recommended_next_pass: Some("acceptance_pass".to_string()),
             strongest_contradiction: Some(contradiction.clone()),
+            summary: "Proof export only has verification summary evidence; structured validation is missing."
+                .to_string(),
             rationale: contradiction,
         })
     });
@@ -433,7 +440,7 @@ fn materialize_current_task_output(
             .materialization
             .winning_candidate_rationale
             .clone(),
-        judge,
+        validation,
         output_origin: studio_session.materialization.output_origin.or_else(|| {
             studio_session
                 .materialization
@@ -616,18 +623,20 @@ fn apply_revision_to_session(
     studio_session.materialization.edit_intent = revision.edit_intent.clone();
     studio_session.materialization.candidate_summaries = revision.candidate_summaries.clone();
     studio_session.materialization.winning_candidate_id = revision.winning_candidate_id.clone();
-    studio_session.materialization.winning_candidate_rationale =
-        revision.judge.as_ref().map(|judge| judge.rationale.clone());
-    studio_session.materialization.judge = revision.judge.clone();
+    studio_session.materialization.winning_candidate_rationale = revision
+        .validation
+        .as_ref()
+        .map(|validation| validation.rationale.clone());
+    studio_session.materialization.validation = revision.validation.clone();
     studio_session.materialization.output_origin = revision.output_origin;
     studio_session.materialization.production_provenance = revision.production_provenance.clone();
     studio_session.materialization.acceptance_provenance = revision.acceptance_provenance.clone();
     studio_session.materialization.failure = revision.failure.clone();
     studio_session.materialization.file_writes = revision.file_writes.clone();
     studio_session.materialization.summary = revision
-        .judge
+        .validation
         .as_ref()
-        .map(|judge| judge.rationale.clone())
+        .map(|validation| validation.rationale.clone())
         .unwrap_or_else(|| studio_session.materialization.summary.clone());
     studio_session.materialization.ux_lifecycle = Some(revision.ux_lifecycle);
     let mut evidence = revision

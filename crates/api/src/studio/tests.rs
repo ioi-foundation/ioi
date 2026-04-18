@@ -8,12 +8,12 @@ use super::generation::{
     validate_swarm_generated_artifact_payload, StudioArtifactPatchEnvelope,
     StudioArtifactPatchOperation, StudioArtifactPatchOperationKind,
 };
-use super::judging::candidate_generation_config;
 use super::planning::{
     build_studio_artifact_brief_field_repair_prompt,
     build_studio_artifact_brief_prompt_for_runtime, build_studio_outcome_router_prompt_for_runtime,
     canonicalize_studio_artifact_brief_for_request, validate_studio_artifact_brief_against_request,
 };
+use super::validation::candidate_generation_config;
 use super::*;
 use crate::vm::inference::InferenceRuntime;
 use async_trait::async_trait;
@@ -40,8 +40,8 @@ mod planning_and_routing;
 mod swarm_plans;
 
 pub(super) use artifact_contract::{
-    studio_test_candidate_summary, studio_test_judge, studio_test_render_capture,
-    studio_test_render_evaluation, StudioPassingRenderEvaluator,
+    studio_test_candidate_summary, studio_test_render_capture, studio_test_render_evaluation,
+    studio_test_validation, StudioPassingRenderEvaluator,
 };
 
 fn decode_studio_test_prompt(input_context: &[u8]) -> String {

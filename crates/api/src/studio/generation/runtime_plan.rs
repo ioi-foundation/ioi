@@ -303,7 +303,7 @@ pub(super) fn runtime_step_policies(
             require_distinct_runtime: false,
         },
         StudioArtifactRuntimeStepPolicy {
-            step: StudioArtifactRuntimeStep::AcceptanceJudge,
+            step: StudioArtifactRuntimeStep::ArtifactValidation,
             preferred_tier: match profile {
                 StudioArtifactRuntimePolicyProfile::FullyLocal => StudioArtifactRuntimeTier::Local,
                 _ => StudioArtifactRuntimeTier::Premium,
@@ -495,7 +495,7 @@ pub fn resolve_studio_artifact_runtime_plan(
         .expect("generation policy");
     let acceptance_policy = step_policies
         .iter()
-        .find(|policy| policy.step == StudioArtifactRuntimeStep::AcceptanceJudge)
+        .find(|policy| policy.step == StudioArtifactRuntimeStep::ArtifactValidation)
         .cloned()
         .expect("acceptance policy");
     let repair_policy = step_policies
@@ -645,7 +645,7 @@ pub fn resolve_studio_artifact_runtime_plan(
         (
             resolved_generation_runtime.clone(),
             build_runtime_binding(
-                StudioArtifactRuntimeStep::AcceptanceJudge,
+                StudioArtifactRuntimeStep::ArtifactValidation,
                 acceptance_policy.preferred_tier,
                 StudioArtifactRuntimeTier::Local,
                 &resolved_generation_runtime,
@@ -660,7 +660,7 @@ pub fn resolve_studio_artifact_runtime_plan(
         (
             generation_runtime.clone(),
             build_runtime_binding(
-                StudioArtifactRuntimeStep::AcceptanceJudge,
+                StudioArtifactRuntimeStep::ArtifactValidation,
                 acceptance_policy.preferred_tier,
                 generation_tier,
                 &generation_runtime,
@@ -674,7 +674,7 @@ pub fn resolve_studio_artifact_runtime_plan(
         (
             runtime.clone(),
             build_runtime_binding(
-                StudioArtifactRuntimeStep::AcceptanceJudge,
+                StudioArtifactRuntimeStep::ArtifactValidation,
                 acceptance_policy.preferred_tier,
                 StudioArtifactRuntimeTier::Premium,
                 runtime,

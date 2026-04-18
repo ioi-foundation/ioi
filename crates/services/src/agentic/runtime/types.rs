@@ -636,6 +636,76 @@ pub struct RecordedMessage {
     pub privacy_metadata: MessagePrivacyMetadata,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct PendingActionState {
+    pub approval: Option<ApprovalToken>,
+    pub tool_call: Option<String>,
+    pub tool_jcs: Option<Vec<u8>>,
+    pub tool_hash: Option<[u8; 32]>,
+    pub request_nonce: Option<u64>,
+    pub visual_hash: Option<[u8; 32]>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AgentPauseReason {
+    WaitingForApproval,
+    WaitingForHumanApproval,
+    WaitingForSudoPassword,
+    WaitingForIntentClarification,
+    WaitingForTargetClarification,
+    ApprovalLoopDetected,
+    RetryBlocked(String),
+    ModelRefusal(String),
+    Other(String),
+}
+
+impl AgentPauseReason {
+    pub fn message(&self) -> String {
+        match self {
+            Self::WaitingForApproval => "Waiting for approval".to_string(),
+            Self::WaitingForHumanApproval => "Waiting for human approval".to_string(),
+            Self::WaitingForSudoPassword => "Waiting for sudo password".to_string(),
+            Self::WaitingForIntentClarification => "Waiting for intent clarification".to_string(),
+            Self::WaitingForTargetClarification => {
+                "Waiting for clarification on target identity.".to_string()
+            }
+            Self::ApprovalLoopDetected => {
+                "Approval loop detected for the same incident/action. Automatic retries paused."
+                    .to_string()
+            }
+            Self::RetryBlocked(detail) => format!("Retry blocked: {}", detail.trim()),
+            Self::ModelRefusal(detail) => format!("Model Refusal: {}", detail.trim()),
+            Self::Other(detail) => detail.clone(),
+        }
+    }
+
+    pub fn from_message(raw: &str) -> Self {
+        let trimmed = raw.trim();
+        if trimmed.eq_ignore_ascii_case("Waiting for approval") {
+            Self::WaitingForApproval
+        } else if trimmed.eq_ignore_ascii_case("Waiting for human approval") {
+            Self::WaitingForHumanApproval
+        } else if trimmed.eq_ignore_ascii_case("Waiting for sudo password") {
+            Self::WaitingForSudoPassword
+        } else if trimmed.eq_ignore_ascii_case("Waiting for intent clarification") {
+            Self::WaitingForIntentClarification
+        } else if trimmed.eq_ignore_ascii_case("Waiting for clarification on target identity.") {
+            Self::WaitingForTargetClarification
+        } else if trimmed.eq_ignore_ascii_case(
+            "Approval loop detected for the same incident/action. Automatic retries paused.",
+        ) {
+            Self::ApprovalLoopDetected
+        } else if let Some(detail) = trimmed.strip_prefix("Retry blocked:") {
+            Self::RetryBlocked(detail.trim().to_string())
+        } else if let Some(detail) = trimmed.strip_prefix("Model Refusal:") {
+            Self::ModelRefusal(detail.trim().to_string())
+        } else {
+            Self::Other(trimmed.to_string())
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
 pub struct AgentState {
     pub session_id: [u8; 32],
@@ -777,4 +847,77 @@ pub struct SessionResult {
     pub cost_incurred: u64,
     pub success: bool,
     pub timestamp: u64,
+}
+
+impl AgentState {
+    pub fn pending_action_state(&self) -> PendingActionState {
+        PendingActionState {
+            approval: self.pending_approval.clone(),
+            tool_call: self.pending_tool_call.clone(),
+            tool_jcs: self.pending_tool_jcs.clone(),
+            tool_hash: self.pending_tool_hash,
+            request_nonce: self.pending_request_nonce,
+            visual_hash: self.pending_visual_hash,
+        }
+    }
+
+    pub fn replace_pending_action_state(&mut self, pending: PendingActionState) {
+        self.pending_approval = pending.approval;
+        self.pending_tool_call = pending.tool_call;
+        self.pending_tool_jcs = pending.tool_jcs;
+        self.pending_tool_hash = pending.tool_hash;
+        self.pending_request_nonce = pending.request_nonce;
+        self.pending_visual_hash = pending.visual_hash;
+    }
+
+    pub fn clear_pending_action_state(&mut self) {
+        self.replace_pending_action_state(PendingActionState::default());
+    }
+
+    pub fn has_canonical_pending_action(&self) -> bool {
+        self.pending_tool_jcs.is_some()
+    }
+
+    pub fn pause_reason(&self) -> Option<AgentPauseReason> {
+        match &self.status {
+            AgentStatus::Paused(reason) => Some(AgentPauseReason::from_message(reason)),
+            _ => None,
+        }
+    }
+
+    pub fn set_pause_reason(&mut self, reason: AgentPauseReason) {
+        self.status = AgentStatus::Paused(reason.message());
+    }
+
+    pub fn set_running(&mut self) {
+        self.status = AgentStatus::Running;
+    }
+
+    pub fn is_waiting_for_approval(&self) -> bool {
+        matches!(
+            self.pause_reason(),
+            Some(AgentPauseReason::WaitingForApproval | AgentPauseReason::WaitingForHumanApproval)
+        )
+    }
+
+    pub fn is_waiting_for_sudo_password(&self) -> bool {
+        matches!(
+            self.pause_reason(),
+            Some(AgentPauseReason::WaitingForSudoPassword)
+        )
+    }
+
+    pub fn is_waiting_for_intent_clarification(&self) -> bool {
+        matches!(
+            self.pause_reason(),
+            Some(AgentPauseReason::WaitingForIntentClarification)
+        )
+    }
+
+    pub fn is_waiting_for_target_clarification(&self) -> bool {
+        matches!(
+            self.pause_reason(),
+            Some(AgentPauseReason::WaitingForTargetClarification)
+        )
+    }
 }

@@ -10,42 +10,48 @@ pub(crate) enum SynthesisLayoutProfile {
 
 pub(crate) fn retrieval_contract_prefers_single_fact_snapshot(
     contract: Option<&WebRetrievalContract>,
-    _query: &str,
+    query: &str,
 ) -> bool {
     contract
         .map(|contract| {
             contract.entity_cardinality_min <= 1
-                && contract.structured_record_preferred
                 && !contract.comparison_required
+                && (contract.structured_record_preferred || prefers_single_fact_snapshot(query))
         })
-        .unwrap_or(false)
+        .unwrap_or_else(|| prefers_single_fact_snapshot(query))
 }
 
 pub(crate) fn retrieval_contract_requires_runtime_locality(
     contract: Option<&WebRetrievalContract>,
-    _query: &str,
+    query: &str,
 ) -> bool {
     contract
-        .map(|contract| contract.runtime_locality_required)
-        .unwrap_or(false)
+        .map(|contract| {
+            contract.runtime_locality_required || query_requires_runtime_locality_scope(query)
+        })
+        .unwrap_or_else(|| query_requires_runtime_locality_scope(query))
 }
 
 pub(crate) fn retrieval_contract_prefers_multi_item_cardinality(
     contract: Option<&WebRetrievalContract>,
-    _query: &str,
+    query: &str,
 ) -> bool {
     contract
-        .map(|contract| contract.entity_cardinality_min > 1 || contract.comparison_required)
-        .unwrap_or(false)
+        .map(|contract| {
+            contract.entity_cardinality_min > 1
+                || contract.comparison_required
+                || query_prefers_multi_item_cardinality(query)
+        })
+        .unwrap_or_else(|| query_prefers_multi_item_cardinality(query))
 }
 
 pub(crate) fn retrieval_contract_requests_comparison(
     contract: Option<&WebRetrievalContract>,
-    _query: &str,
+    query: &str,
 ) -> bool {
     contract
-        .map(|contract| contract.comparison_required)
-        .unwrap_or(false)
+        .map(|contract| contract.comparison_required || query_requests_comparison(query))
+        .unwrap_or_else(|| query_requests_comparison(query))
 }
 
 pub(crate) fn retrieval_or_query_requests_comparison(
@@ -57,15 +63,15 @@ pub(crate) fn retrieval_or_query_requests_comparison(
 
 pub(crate) fn retrieval_contract_is_generic_headline_collection(
     contract: Option<&WebRetrievalContract>,
-    _query: &str,
+    query: &str,
 ) -> bool {
     contract
         .map(|contract| {
-            contract.ordered_collection_preferred
+            (contract.ordered_collection_preferred || query_is_generic_headline_collection(query))
                 && contract.entity_cardinality_min > 1
                 && !crate::agentic::web::contract_requires_geo_scoped_entity_expansion(contract)
         })
-        .unwrap_or(false)
+        .unwrap_or_else(|| query_is_generic_headline_collection(query))
 }
 
 pub(crate) fn retrieval_or_query_prefers_single_fact_snapshot(
@@ -89,7 +95,10 @@ pub(crate) fn retrieval_contract_entity_diversity_required(
     query: &str,
 ) -> bool {
     contract
-        .map(crate::agentic::web::contract_requires_geo_scoped_entity_expansion)
+        .map(|contract| {
+            crate::agentic::web::contract_requires_geo_scoped_entity_expansion(contract)
+                || query_requires_local_business_entity_diversity(query)
+        })
         .unwrap_or_else(|| query_requires_local_business_entity_diversity(query))
 }
 
@@ -344,6 +353,10 @@ pub(crate) fn required_citations_per_story(query: &str) -> usize {
 
     if prefers_single_fact_snapshot(query) {
         return 1;
+    }
+
+    if query_is_generic_headline_collection(query) {
+        return WEB_PIPELINE_CITATIONS_PER_STORY;
     }
 
     if query_prefers_multi_item_cardinality(query) {

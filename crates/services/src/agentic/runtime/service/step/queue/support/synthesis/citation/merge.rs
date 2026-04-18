@@ -19,6 +19,8 @@ pub(crate) fn merged_story_sources(
         retrieval_contract_requires_primary_authority_source(retrieval_contract, &query_contract)
             && query_requires_host_anchored_primary_authority(&query_contract);
     let subject_identity_required = query_requires_subject_currentness_identity(&query_contract);
+    let structured_hint_fallback_allowed =
+        pending.successful_reads.is_empty() && query_requires_structured_synthesis(&query_contract);
     let projection = build_query_constraint_projection(
         &query_contract,
         pending.min_sources,
@@ -104,7 +106,13 @@ pub(crate) fn merged_story_sources(
                 &source.excerpt,
             );
             if !compatibility_passes_projection(&projection, &compatibility) {
-                continue;
+                let signals = source_evidence_signals(source);
+                let retains_structured_hint = structured_hint_fallback_allowed
+                    && has_primary_status_authority(signals)
+                    && !signals.low_priority_dominates();
+                if !retains_structured_hint {
+                    continue;
+                }
             }
         }
         if !seen.insert(trimmed.to_string()) {

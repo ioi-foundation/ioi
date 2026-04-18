@@ -1,8 +1,8 @@
 use crate::studio::{
     parse_studio_artifact_brief, parse_studio_artifact_edit_intent,
     parse_studio_generated_artifact_payload, StudioArtifactBrief, StudioArtifactEditIntent,
-    StudioArtifactEditMode, StudioArtifactJudgeClassification, StudioArtifactJudgeResult,
-    StudioArtifactRefinementContext, StudioArtifactSelectionTarget, StudioArtifactTasteMemory,
+    StudioArtifactEditMode, StudioArtifactRefinementContext, StudioArtifactSelectionTarget,
+    StudioArtifactTasteMemory, StudioArtifactValidationResult, StudioArtifactValidationStatus,
     StudioGeneratedArtifactFile, StudioGeneratedArtifactPayload,
 };
 use ioi_types::app::{
@@ -102,11 +102,11 @@ pub(crate) fn maybe_handle_studio_prompt(input: &str) -> Option<String> {
     if normalized.contains("Studio's typed artifact materializer") {
         return Some(mock_materialization_payload(&normalized).to_string());
     }
-    if normalized.contains("Studio's typed artifact judge repairer") {
-        return Some(mock_judge_payload(&normalized).to_string());
+    if normalized.contains("Studio's typed artifact validation repairer") {
+        return Some(mock_validation_payload(&normalized).to_string());
     }
-    if normalized.contains("Studio's typed artifact judge") {
-        return Some(mock_judge_payload(&normalized).to_string());
+    if normalized.contains("Studio's typed artifact validation") {
+        return Some(mock_validation_payload(&normalized).to_string());
     }
     None
 }
@@ -541,7 +541,7 @@ fn mock_materialization_payload(input: &str) -> Value {
     serde_json::to_value(payload).unwrap_or_else(|_| json!({}))
 }
 
-fn mock_judge_payload(input: &str) -> Value {
+fn mock_validation_payload(input: &str) -> Value {
     let request: StudioOutcomeArtifactRequest =
         extract_json_after(input, "Artifact request JSON:\n")
             .and_then(|json| serde_json::from_str(&json).ok())
@@ -569,18 +569,20 @@ fn mock_judge_payload(input: &str) -> Value {
         .and_then(|json| {
             parse_studio_generated_artifact_payload(&json)
                 .ok()
-                .or_else(|| parse_mock_judge_candidate_view(&json).ok())
-                .or_else(|| Some(mock_candidate_from_raw_judge_json(&json)))
+                .or_else(|| parse_mock_validation_candidate_view(&json).ok())
+                .or_else(|| Some(mock_candidate_from_raw_validation_json(&json)))
         })
         .unwrap_or_else(default_payload);
 
-    let judge = evaluate_candidate(&request, &brief, edit_intent.as_ref(), &candidate);
-    serde_json::to_value(judge).unwrap_or_else(|_| json!({}))
+    let validation = evaluate_candidate(&request, &brief, edit_intent.as_ref(), &candidate);
+    serde_json::to_value(validation).unwrap_or_else(|_| json!({}))
 }
 
-fn parse_mock_judge_candidate_view(raw: &str) -> Result<StudioGeneratedArtifactPayload, String> {
+fn parse_mock_validation_candidate_view(
+    raw: &str,
+) -> Result<StudioGeneratedArtifactPayload, String> {
     let value: Value = serde_json::from_str(raw)
-        .map_err(|error| format!("invalid judge candidate JSON: {error}"))?;
+        .map_err(|error| format!("invalid validation candidate JSON: {error}"))?;
     let summary = value
         .get("summary")
         .and_then(Value::as_str)
@@ -600,9 +602,9 @@ fn parse_mock_judge_candidate_view(raw: &str) -> Result<StudioGeneratedArtifactP
     let files = value
         .get("files")
         .and_then(Value::as_array)
-        .ok_or_else(|| "judge candidate view is missing files".to_string())?
+        .ok_or_else(|| "validation candidate view is missing files".to_string())?
         .iter()
-        .map(parse_mock_judge_candidate_file)
+        .map(parse_mock_validation_candidate_file)
         .collect::<Result<Vec<_>, _>>()?;
     Ok(StudioGeneratedArtifactPayload {
         summary,
@@ -611,7 +613,9 @@ fn parse_mock_judge_candidate_view(raw: &str) -> Result<StudioGeneratedArtifactP
     })
 }
 
-fn parse_mock_judge_candidate_file(value: &Value) -> Result<StudioGeneratedArtifactFile, String> {
+fn parse_mock_validation_candidate_file(
+    value: &Value,
+) -> Result<StudioGeneratedArtifactFile, String> {
     let path = value
         .get("path")
         .and_then(Value::as_str)
@@ -627,7 +631,7 @@ fn parse_mock_judge_candidate_file(value: &Value) -> Result<StudioGeneratedArtif
         .cloned()
         .map(serde_json::from_value)
         .transpose()
-        .map_err(|error| format!("invalid judge candidate file role: {error}"))?
+        .map_err(|error| format!("invalid validation candidate file role: {error}"))?
         .unwrap_or(StudioArtifactFileRole::Primary);
     let encoding = value
         .get("encoding")
@@ -635,7 +639,7 @@ fn parse_mock_judge_candidate_file(value: &Value) -> Result<StudioGeneratedArtif
         .cloned()
         .map(serde_json::from_value)
         .transpose()
-        .map_err(|error| format!("invalid judge candidate file encoding: {error}"))?
+        .map_err(|error| format!("invalid validation candidate file encoding: {error}"))?
         .or(Some(crate::studio::StudioGeneratedArtifactEncoding::Utf8));
     let body = value
         .get("bodyPreview")
@@ -659,9 +663,9 @@ fn parse_mock_judge_candidate_file(value: &Value) -> Result<StudioGeneratedArtif
     })
 }
 
-fn mock_candidate_from_raw_judge_json(raw: &str) -> StudioGeneratedArtifactPayload {
+fn mock_candidate_from_raw_validation_json(raw: &str) -> StudioGeneratedArtifactPayload {
     StudioGeneratedArtifactPayload {
-        summary: "Mock judge candidate".to_string(),
+        summary: "Mock validation candidate".to_string(),
         notes: Vec::new(),
         files: vec![StudioGeneratedArtifactFile {
             path: "candidate.json".to_string(),
@@ -1919,7 +1923,7 @@ fn build_mermaid_payload(
 ) -> StudioGeneratedArtifactPayload {
     let body = if intent.to_ascii_lowercase().contains("approval") {
         format!(
-            "flowchart TD\n  Intake[Approval request enters pipeline] --> Route[Typed approval route]\n  Route --> Brief[Approval pipeline brief]\n  Brief --> Materialize[Candidate generation]\n  Materialize --> Judge[Request-faithfulness judge]\n  Judge -->|pass| Present[Approved artifact view]\n  Judge -->|repairable| Refine[Patch current approval revision]\n  Refine --> Materialize\n  Present --> History[Approval pipeline history compare / restore]\n  History --> Archive[Approved record for {subject}]\n",
+            "flowchart TD\n  Intake[Approval request enters pipeline] --> Route[Typed approval route]\n  Route --> Brief[Approval pipeline brief]\n  Brief --> Materialize[Candidate generation]\n  Materialize --> Validation[Request-faithfulness validation]\n  Validation -->|pass| Present[Approved artifact view]\n  Validation -->|repairable| Refine[Patch current approval revision]\n  Refine --> Materialize\n  Present --> History[Approval pipeline history compare / restore]\n  History --> Archive[Approved record for {subject}]\n",
             subject = brief.subject_domain
         )
     } else {
@@ -2073,7 +2077,7 @@ fn evaluate_candidate(
     brief: &StudioArtifactBrief,
     edit_intent: Option<&StudioArtifactEditIntent>,
     candidate: &StudioGeneratedArtifactPayload,
-) -> StudioArtifactJudgeResult {
+) -> StudioArtifactValidationResult {
     let all_text = candidate
         .files
         .iter()
@@ -2165,15 +2169,15 @@ fn evaluate_candidate(
         })
     });
     let classification = if trivial_shell_detected {
-        StudioArtifactJudgeClassification::Blocked
+        StudioArtifactValidationStatus::Blocked
     } else if generic_shell_detected {
-        StudioArtifactJudgeClassification::Repairable
+        StudioArtifactValidationStatus::Repairable
     } else {
-        StudioArtifactJudgeClassification::Pass
+        StudioArtifactValidationStatus::Pass
     };
-    let deserves_primary_artifact_view = classification == StudioArtifactJudgeClassification::Pass;
+    let deserves_primary_artifact_view = classification == StudioArtifactValidationStatus::Pass;
 
-    StudioArtifactJudgeResult {
+    StudioArtifactValidationResult {
         classification,
         request_faithfulness,
         concept_coverage,
@@ -2192,6 +2196,26 @@ fn evaluate_candidate(
                 3
             }
         }),
+        score_total: i32::from(request_faithfulness)
+            + i32::from(concept_coverage)
+            + i32::from(interaction_relevance)
+            + i32::from(layout_coherence)
+            + i32::from(visual_hierarchy)
+            + i32::from(completeness),
+        proof_kind: "mock_validation".to_string(),
+        primary_view_cleared: deserves_primary_artifact_view,
+        validated_paths: candidate
+            .files
+            .iter()
+            .map(|file| file.path.clone())
+            .collect(),
+        issue_codes: if generic_shell_detected {
+            vec!["generic_shell".to_string()]
+        } else if trivial_shell_detected {
+            vec!["first_paint_incomplete".to_string()]
+        } else {
+            Vec::new()
+        },
         issue_classes: if generic_shell_detected {
             vec!["generic_shell".to_string()]
         } else if trivial_shell_detected {
@@ -2212,7 +2236,7 @@ fn evaluate_candidate(
         } else {
             Vec::new()
         },
-        blocked_reasons: if classification == StudioArtifactJudgeClassification::Blocked {
+        blocked_reasons: if classification == StudioArtifactValidationStatus::Blocked {
             vec!["The candidate is too thin to serve as the primary artifact surface.".to_string()]
         } else {
             Vec::new()
@@ -2249,7 +2273,7 @@ fn evaluate_candidate(
         recommended_next_pass: Some(
             if deserves_primary_artifact_view {
                 "accept"
-            } else if classification == StudioArtifactJudgeClassification::Blocked {
+            } else if classification == StudioArtifactValidationStatus::Blocked {
                 "hold_block"
             } else {
                 "structural_repair"
@@ -2274,6 +2298,11 @@ fn evaluate_candidate(
         } else {
             "The candidate needs another pass before it deserves the primary artifact view."
                 .to_string()
+        },
+        summary: if deserves_primary_artifact_view {
+            "Mock validation cleared the candidate for the primary artifact view.".to_string()
+        } else {
+            "Mock validation kept the candidate below the primary artifact threshold.".to_string()
         },
     }
 }
@@ -2371,12 +2400,13 @@ mod tests {
     use super::maybe_handle_studio_prompt;
     use crate::studio::{
         build_studio_artifact_brief_prompt, build_studio_artifact_candidate_refinement_prompt,
-        build_studio_artifact_judge_prompt, build_studio_artifact_materialization_prompt,
-        build_studio_artifact_materialization_repair_prompt, build_studio_outcome_router_prompt,
-        parse_studio_artifact_judge_result, parse_studio_generated_artifact_payload,
+        build_studio_artifact_materialization_prompt,
+        build_studio_artifact_materialization_repair_prompt,
+        build_studio_artifact_validation_prompt, build_studio_outcome_router_prompt,
+        parse_studio_artifact_validation_result, parse_studio_generated_artifact_payload,
         StudioArtifactBrief, StudioArtifactEditIntent, StudioArtifactEditMode,
-        StudioArtifactJudgeClassification, StudioArtifactRefinementContext,
-        StudioArtifactSelectionTarget, StudioArtifactTasteMemory, StudioGeneratedArtifactFile,
+        StudioArtifactRefinementContext, StudioArtifactSelectionTarget, StudioArtifactTasteMemory,
+        StudioArtifactValidationStatus, StudioGeneratedArtifactFile,
         StudioGeneratedArtifactPayload,
     };
     use ioi_types::app::{StudioArtifactFileRole, StudioRendererKind};
@@ -2615,7 +2645,7 @@ mod tests {
     }
 
     #[test]
-    fn mock_pdf_judge_accepts_substantial_pdf_brief() {
+    fn mock_pdf_validation_accepts_substantial_pdf_brief() {
         let brief = StudioArtifactBrief {
             audience: "product, operations, and leadership stakeholders".to_string(),
             job_to_be_done:
@@ -2649,22 +2679,25 @@ mod tests {
         let candidate = parse_studio_generated_artifact_payload(&response).expect("parse payload");
         assert!(candidate.files[0].body.contains("## Executive summary"));
 
-        let judge_prompt = build_studio_artifact_judge_prompt(
+        let validation_prompt = build_studio_artifact_validation_prompt(
             "a PDF artifact that summarizes a launch brief",
             &pdf_request(),
             &brief,
             None,
             &candidate,
         )
-        .expect("judge prompt");
-        let judge_serialized = serde_json::to_string(&judge_prompt).expect("serialize judge");
-        let judge_response = maybe_handle_studio_prompt(&judge_serialized).expect("mock judge");
-        let judge = parse_studio_artifact_judge_result(&judge_response).expect("parse judge");
+        .expect("validation prompt");
+        let validation_serialized =
+            serde_json::to_string(&validation_prompt).expect("serialize validation");
+        let validation_response =
+            maybe_handle_studio_prompt(&validation_serialized).expect("mock validation");
+        let validation = parse_studio_artifact_validation_result(&validation_response)
+            .expect("parse validation");
         assert_eq!(
-            judge.classification,
-            StudioArtifactJudgeClassification::Pass
+            validation.classification,
+            StudioArtifactValidationStatus::Pass
         );
-        assert!(!judge.trivial_shell_detected);
+        assert!(!validation.trivial_shell_detected);
     }
 
     #[test]
@@ -2779,7 +2812,7 @@ mod tests {
                 body: "<!doctype html><html><body><main><section><h1>Dog shampoo</h1></section><section><p>Rollout</p></section><aside><p>Notes</p></aside></main></body></html>".to_string(),
             }],
         };
-        let judge =
+        let validation =
             super::evaluate_candidate(&super::default_html_request(), &brief, None, &candidate);
         let prompt = build_studio_artifact_candidate_refinement_prompt(
             "dog shampoo rollout artifact",
@@ -2790,7 +2823,7 @@ mod tests {
             None,
             &candidate,
             None,
-            &judge,
+            &validation,
             "candidate-1",
             1,
         )
@@ -2807,7 +2840,7 @@ mod tests {
     }
 
     #[test]
-    fn mock_judge_marks_targeted_patch_as_patched_existing_artifact() {
+    fn mock_validation_marks_targeted_patch_as_patched_existing_artifact() {
         let brief = StudioArtifactBrief {
             audience: "launch operators".to_string(),
             job_to_be_done: "Patch the current artifact without losing identity.".to_string(),
@@ -2857,16 +2890,17 @@ mod tests {
             }],
         };
 
-        let judge_prompt = build_studio_artifact_judge_prompt(
+        let validation_prompt = build_studio_artifact_validation_prompt(
             "dog shampoo chart patch",
             &super::default_html_request(),
             &brief,
             Some(&edit_intent),
             &candidate,
         )
-        .expect("judge prompt");
-        let judge_serialized = serde_json::to_string(&judge_prompt).expect("serialize judge");
-        let normalized = super::normalize_prompt_input(&judge_serialized);
+        .expect("validation prompt");
+        let validation_serialized =
+            serde_json::to_string(&validation_prompt).expect("serialize validation");
+        let normalized = super::normalize_prompt_input(&validation_serialized);
         let extracted_edit_json =
             super::extract_json_after(&normalized, "Edit intent focus JSON:\n").expect("edit json");
         let parsed_edit_intent = serde_json::from_str::<serde_json::Value>(&extracted_edit_json)
@@ -2876,7 +2910,8 @@ mod tests {
         let extracted_candidate_json =
             super::extract_json_after(&normalized, "Candidate JSON:\n").expect("candidate json");
         let parsed_candidate =
-            super::parse_mock_judge_candidate_view(&extracted_candidate_json).expect("candidate");
+            super::parse_mock_validation_candidate_view(&extracted_candidate_json)
+                .expect("candidate");
         assert_eq!(
             parsed_candidate
                 .files
@@ -2884,10 +2919,12 @@ mod tests {
                 .map(|file| file.path.as_str()),
             Some("index.html")
         );
-        let judge_response = maybe_handle_studio_prompt(&judge_serialized).expect("mock judge");
-        let judge = parse_studio_artifact_judge_result(&judge_response).expect("parse judge");
+        let validation_response =
+            maybe_handle_studio_prompt(&validation_serialized).expect("mock validation");
+        let validation = parse_studio_artifact_validation_result(&validation_response)
+            .expect("parse validation");
 
-        assert_eq!(judge.patched_existing_artifact, Some(true));
-        assert_eq!(judge.continuity_revision_ux, Some(5));
+        assert_eq!(validation.patched_existing_artifact, Some(true));
+        assert_eq!(validation.continuity_revision_ux, Some(5));
     }
 }

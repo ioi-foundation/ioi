@@ -1,9 +1,9 @@
-use super::judging::{
+use super::validation::{
     candidate_generation_config, candidate_seed_for, html_first_paint_section_blueprint,
-    judge_clears_primary_view, judge_total_score, materialization_max_tokens,
-    output_origin_from_provenance, refined_candidate_root, renderer_supports_semantic_refinement,
-    runtime_model_label, semantic_refinement_pass_limit, studio_artifact_refinement_candidate_view,
-    studio_artifact_refinement_context_view, summarized_guidance_terms,
+    materialization_max_tokens, output_origin_from_provenance, refined_candidate_root,
+    renderer_supports_semantic_refinement, runtime_model_label, semantic_refinement_pass_limit,
+    studio_artifact_refinement_candidate_view, studio_artifact_refinement_context_view,
+    summarized_guidance_terms, validation_clears_primary_view, validation_total_score,
 };
 use super::*;
 use crate::execution::{
@@ -32,7 +32,7 @@ mod materialization_repair_prompt;
 mod non_swarm_bundle;
 mod non_swarm_entrypoints;
 mod non_swarm_finalize;
-mod planning_and_judging;
+mod planning_and_validation;
 mod refinement_prompt;
 mod runtime_materialization;
 mod runtime_plan;
@@ -53,7 +53,7 @@ pub(crate) use adaptive_search::{
     shortlisted_candidate_indices_for_budget, target_candidate_count_after_initial_search,
 };
 #[cfg(test)]
-pub(crate) use candidate_materialization::local_download_bundle_candidate_prejudge;
+pub(crate) use candidate_materialization::local_download_bundle_candidate_prevalidation;
 use candidate_materialization::*;
 use common::*;
 use compact_html_materialization::*;
@@ -75,11 +75,11 @@ pub use non_swarm_entrypoints::{
     generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
 };
 use non_swarm_finalize::*;
-pub use planning_and_judging::derive_studio_artifact_prepared_context;
-pub(crate) use planning_and_judging::evaluate_candidate_render_with_fallback;
+pub use planning_and_validation::derive_studio_artifact_prepared_context;
+pub(crate) use planning_and_validation::evaluate_candidate_render_with_fallback;
 #[allow(unused_imports)]
-pub(crate) use planning_and_judging::render_evaluation_required;
-use planning_and_judging::*;
+pub(crate) use planning_and_validation::render_evaluation_required;
+use planning_and_validation::*;
 pub(crate) use refinement_prompt::build_studio_artifact_candidate_refinement_prompt_for_runtime;
 use refinement_prompt::*;
 pub use refinement_prompt::{
@@ -110,10 +110,9 @@ pub use runtime_plan::{
 };
 use swarm::{
     default_generated_artifact_file_for_renderer, default_studio_artifact_execution_strategy,
-    judge_classification_id, push_unique_focus_strings, section_region_id,
-    studio_artifact_uses_swarm_execution, studio_swarm_execution_summary, studio_swarm_now_iso,
-    studio_swarm_soft_validation_error, studio_swarm_strategy_for_request,
-    update_swarm_work_item_status,
+    push_unique_focus_strings, section_region_id, studio_artifact_uses_swarm_execution,
+    studio_swarm_execution_summary, studio_swarm_now_iso, studio_swarm_soft_validation_error,
+    studio_swarm_strategy_for_request, update_swarm_work_item_status, validation_status_id,
 };
 use swarm_bundle::*;
 use swarm_bundle_finalize::*;

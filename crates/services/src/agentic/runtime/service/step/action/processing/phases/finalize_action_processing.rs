@@ -1432,15 +1432,8 @@ fn workspace_package_manifest_path(agent_state: &AgentState) -> Option<std::path
 }
 
 fn workspace_package_manifest_read_path(agent_state: &AgentState) -> String {
-    let working_directory = agent_state.working_directory.trim();
-    if working_directory.is_empty() || working_directory == "." {
-        "./package.json".to_string()
-    } else {
-        format!(
-            "{}/package.json",
-            expand_runtime_home_alias(working_directory).trim_end_matches('/')
-        )
-    }
+    let _ = agent_state;
+    "./package.json".to_string()
 }
 
 fn select_manifest_script_recovery_candidate(

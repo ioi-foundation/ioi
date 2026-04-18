@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use ioi_api::studio::{
     parse_studio_generated_artifact_payload, pdf_artifact_bytes, StudioArtifactBlueprint,
-    StudioArtifactCandidateSummary, StudioArtifactJudgeClassification, StudioArtifactJudgeResult,
-    StudioArtifactSelectedSkill, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    StudioArtifactCandidateSummary, StudioArtifactSelectedSkill, StudioArtifactTasteMemory,
+    StudioArtifactUxLifecycle, StudioArtifactValidationResult, StudioArtifactValidationStatus,
     StudioGeneratedArtifactFile, StudioGeneratedArtifactPayload,
 };
 use ioi_types::app::{
@@ -19,25 +19,27 @@ use uuid::Uuid;
 use super::types::{ArtifactLaneReceipt, GeneratedArtifactEvidence, LoadedRefinementEvidence};
 use super::workspace::workspace_recipe_for_request;
 
-pub(super) fn run_judge(evidence_path: &Path, json_output: bool) -> Result<()> {
+pub(super) fn run_validation_result(evidence_path: &Path, json_output: bool) -> Result<()> {
     let evidence = load_generated_evidence(evidence_path)?;
-    let judge = evidence
-        .judge
+    let validation = evidence
+        .validation
         .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("Generated evidence is missing a judge result."))?;
+        .ok_or_else(|| anyhow::anyhow!("Generated evidence is missing a validation result."))?;
     if json_output {
-        println!("{}", serde_json::to_string_pretty(judge)?);
+        println!("{}", serde_json::to_string_pretty(validation)?);
         return Ok(());
     }
 
-    println!("Judge: {}", format_judge_label(judge));
-    println!("  rationale: {}", judge.rationale);
-    if let Some(contradiction) = &judge.strongest_contradiction {
+    println!("Validation: {}", format_validation_label(validation));
+    println!("  rationale: {}", validation.rationale);
+    if let Some(contradiction) = &validation.strongest_contradiction {
         println!("  strongest contradiction: {}", contradiction);
     }
     println!(
         "  faithfulness / coverage / interaction: {}/{}/{}",
-        judge.request_faithfulness, judge.concept_coverage, judge.interaction_relevance
+        validation.request_faithfulness,
+        validation.concept_coverage,
+        validation.interaction_relevance
     );
     Ok(())
 }
@@ -77,7 +79,7 @@ pub(super) fn build_artifact_lane_receipts(
     blueprint: Option<&StudioArtifactBlueprint>,
     selected_skills: &[StudioArtifactSelectedSkill],
     candidate_summaries: &[StudioArtifactCandidateSummary],
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
     ux_lifecycle: StudioArtifactUxLifecycle,
 ) -> Vec<ArtifactLaneReceipt> {
     let component_families = blueprint
@@ -203,45 +205,48 @@ pub(super) fn build_artifact_lane_receipts(
         ),
         artifact_lane_receipt(
             "audit_findings",
-            if judge.issue_classes.is_empty() && judge.truthfulness_warnings.is_empty() {
+            if validation.issue_classes.is_empty() && validation.truthfulness_warnings.is_empty() {
                 "success"
-            } else if judge.classification == StudioArtifactJudgeClassification::Blocked {
+            } else if validation.classification == StudioArtifactValidationStatus::Blocked {
                 "blocked"
             } else {
                 "warning"
             },
             "Audit findings",
-            if judge.issue_classes.is_empty() && judge.truthfulness_warnings.is_empty() {
+            if validation.issue_classes.is_empty() && validation.truthfulness_warnings.is_empty() {
                 "Static audit retained no structural or truthfulness warnings.".to_string()
             } else {
                 format!(
                     "{} issue classes and {} truthfulness warnings retained.",
-                    judge.issue_classes.len(),
-                    judge.truthfulness_warnings.len()
+                    validation.issue_classes.len(),
+                    validation.truthfulness_warnings.len()
                 )
             },
-            judge
+            validation
                 .issue_classes
                 .iter()
                 .cloned()
-                .chain(judge.truthfulness_warnings.iter().cloned())
-                .chain(judge.file_findings.iter().cloned())
+                .chain(validation.truthfulness_warnings.iter().cloned())
+                .chain(validation.file_findings.iter().cloned())
                 .collect(),
         ),
         artifact_lane_receipt(
-            "judge_findings",
-            match judge.classification {
-                StudioArtifactJudgeClassification::Pass => "success",
-                StudioArtifactJudgeClassification::Repairable => "warning",
-                StudioArtifactJudgeClassification::Blocked => "blocked",
+            "validation_findings",
+            match validation.classification {
+                StudioArtifactValidationStatus::Pass => "success",
+                StudioArtifactValidationStatus::Repairable => "warning",
+                StudioArtifactValidationStatus::Blocked => "blocked",
             },
-            "Judge findings",
-            format!("{:?} :: {}", judge.classification, judge.rationale),
-            judge
+            "Validation findings",
+            format!(
+                "{:?} :: {}",
+                validation.classification, validation.rationale
+            ),
+            validation
                 .strengths
                 .iter()
                 .cloned()
-                .chain(judge.blocked_reasons.iter().cloned())
+                .chain(validation.blocked_reasons.iter().cloned())
                 .collect(),
         ),
         artifact_lane_receipt(
@@ -264,7 +269,7 @@ pub(super) fn build_artifact_lane_receipts(
         ),
         artifact_lane_receipt(
             "presentation_gate",
-            if judge.deserves_primary_artifact_view {
+            if validation.deserves_primary_artifact_view {
                 "success"
             } else {
                 "warning"
@@ -272,12 +277,18 @@ pub(super) fn build_artifact_lane_receipts(
             "Final presentation gate",
             format!(
                 "Primary artifact eligibility={} with lifecycle {:?}.",
-                judge.deserves_primary_artifact_view, ux_lifecycle
+                validation.deserves_primary_artifact_view, ux_lifecycle
             ),
             vec![
-                format!("classification={:?}", judge.classification),
-                format!("generic_shell_detected={}", judge.generic_shell_detected),
-                format!("trivial_shell_detected={}", judge.trivial_shell_detected),
+                format!("classification={:?}", validation.classification),
+                format!(
+                    "generic_shell_detected={}",
+                    validation.generic_shell_detected
+                ),
+                format!(
+                    "trivial_shell_detected={}",
+                    validation.trivial_shell_detected
+                ),
             ],
         ),
     ]
@@ -433,16 +444,16 @@ pub(super) fn generated_tabs_for_request(
     }
 }
 
-pub(super) fn manifest_verification_from_judge(
-    judge: &StudioArtifactJudgeResult,
+pub(super) fn manifest_verification_from_validation(
+    validation: &StudioArtifactValidationResult,
     production_provenance: &StudioRuntimeProvenance,
     acceptance_provenance: &StudioRuntimeProvenance,
     failure: Option<&StudioArtifactFailure>,
 ) -> StudioArtifactManifestVerification {
-    let lifecycle_state = match judge.classification {
-        StudioArtifactJudgeClassification::Pass => StudioArtifactLifecycleState::Ready,
-        StudioArtifactJudgeClassification::Repairable => StudioArtifactLifecycleState::Partial,
-        StudioArtifactJudgeClassification::Blocked => StudioArtifactLifecycleState::Blocked,
+    let lifecycle_state = match validation.classification {
+        StudioArtifactValidationStatus::Pass => StudioArtifactLifecycleState::Ready,
+        StudioArtifactValidationStatus::Repairable => StudioArtifactLifecycleState::Partial,
+        StudioArtifactValidationStatus::Blocked => StudioArtifactLifecycleState::Blocked,
     };
     let status = match lifecycle_state {
         StudioArtifactLifecycleState::Ready => StudioArtifactVerificationStatus::Ready,
@@ -454,7 +465,7 @@ pub(super) fn manifest_verification_from_judge(
     StudioArtifactManifestVerification {
         status,
         lifecycle_state,
-        summary: judge.rationale.clone(),
+        summary: validation.rationale.clone(),
         production_provenance: Some(production_provenance.clone()),
         acceptance_provenance: Some(acceptance_provenance.clone()),
         failure: failure.cloned(),
@@ -465,7 +476,7 @@ pub(super) fn build_generated_manifest(
     title: &str,
     request: &StudioOutcomeArtifactRequest,
     payload: &StudioGeneratedArtifactPayload,
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
     production_provenance: &StudioRuntimeProvenance,
     acceptance_provenance: &StudioRuntimeProvenance,
     failure: Option<&StudioArtifactFailure>,
@@ -514,8 +525,8 @@ pub(super) fn build_generated_manifest(
         },
         tabs: generated_tabs_for_request(request, payload),
         files,
-        verification: manifest_verification_from_judge(
-            judge,
+        verification: manifest_verification_from_validation(
+            validation,
             production_provenance,
             acceptance_provenance,
             failure,
@@ -606,11 +617,11 @@ pub(super) fn load_refinement_evidence(
     }))
 }
 
-pub(super) fn format_judge_label(judge: &StudioArtifactJudgeResult) -> &'static str {
-    match judge.classification {
-        StudioArtifactJudgeClassification::Pass => "pass",
-        StudioArtifactJudgeClassification::Repairable => "repairable",
-        StudioArtifactJudgeClassification::Blocked => "blocked",
+pub(super) fn format_validation_label(validation: &StudioArtifactValidationResult) -> &'static str {
+    match validation.classification {
+        StudioArtifactValidationStatus::Pass => "pass",
+        StudioArtifactValidationStatus::Repairable => "repairable",
+        StudioArtifactValidationStatus::Blocked => "blocked",
     }
 }
 
@@ -687,9 +698,9 @@ mod tests {
         }
     }
 
-    fn sample_judge() -> StudioArtifactJudgeResult {
-        StudioArtifactJudgeResult {
-            classification: StudioArtifactJudgeClassification::Repairable,
+    fn sample_validation() -> StudioArtifactValidationResult {
+        StudioArtifactValidationResult {
+            classification: StudioArtifactValidationStatus::Repairable,
             request_faithfulness: 4,
             concept_coverage: 4,
             interaction_relevance: 4,
@@ -716,7 +727,7 @@ mod tests {
     }
 
     fn sample_candidate_summary(
-        judge: &StudioArtifactJudgeResult,
+        validation: &StudioArtifactValidationResult,
     ) -> StudioArtifactCandidateSummary {
         StudioArtifactCandidateSummary {
             candidate_id: "candidate-1".to_string(),
@@ -742,19 +753,19 @@ mod tests {
                 terminated_reason: None,
             }),
             render_evaluation: None,
-            judge: judge.clone(),
+            validation: validation.clone(),
         }
     }
 
     #[test]
     fn build_artifact_lane_receipts_captures_all_conformance_categories() {
-        let judge = sample_judge();
+        let validation = sample_validation();
         let receipts = build_artifact_lane_receipts(
             Some(&sample_blueprint()),
             &[sample_selected_skill()],
-            &[sample_candidate_summary(&judge)],
-            &judge,
-            StudioArtifactUxLifecycle::Judged,
+            &[sample_candidate_summary(&validation)],
+            &validation,
+            StudioArtifactUxLifecycle::Validated,
         );
 
         let kinds = receipts
@@ -770,7 +781,7 @@ mod tests {
                 "scaffold_family",
                 "component_pack_inventory",
                 "audit_findings",
-                "judge_findings",
+                "validation_findings",
                 "repair_passes",
                 "presentation_gate",
             ]

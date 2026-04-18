@@ -40,6 +40,10 @@ fn looks_like_single_key_tool_wrapper(candidate: &str, value: &Value) -> bool {
         || normalized.contains('.')
 }
 
+fn single_key_tool_wrapper_records_raw_name(wrapped_name: &str) -> bool {
+    matches!(wrapped_name, "file__search")
+}
+
 fn bare_tool_token_rewrite(raw: &str) -> Option<(String, Value, Vec<&'static str>)> {
     let normalized = canonical_deterministic_tool_name(raw.trim())?;
     match normalized.as_str() {
@@ -347,10 +351,12 @@ impl ToolNormalizer {
             new_map.insert("arguments".to_string(), json!({ "result": result }));
             raw_val = Value::Object(new_map);
         } else if let Some((wrapped_name, wrapped_args, canonicalized)) = single_key_tool_wrapper {
-            observation.raw_name = Some(wrapped_name.clone());
             observation.push_label("single_key_tool_wrapper_unwrapped");
             if canonicalized {
                 observation.push_label("deterministic_alias_canonicalized");
+            }
+            if single_key_tool_wrapper_records_raw_name(&wrapped_name) {
+                observation.raw_name = Some(wrapped_name.clone());
             }
             let mut new_map = serde_json::Map::new();
             new_map.insert("name".to_string(), json!(wrapped_name));

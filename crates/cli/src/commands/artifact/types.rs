@@ -83,7 +83,7 @@ pub(crate) struct GeneratedArtifactEvidence {
     #[serde(default)]
     pub(crate) render_evaluation: Option<StudioArtifactRenderEvaluation>,
     #[serde(default)]
-    pub(crate) judge: Option<ioi_api::studio::StudioArtifactJudgeResult>,
+    pub(crate) validation: Option<ioi_api::studio::StudioArtifactValidationResult>,
     #[serde(default)]
     pub(crate) output_origin: Option<StudioArtifactOutputOrigin>,
     #[serde(default)]

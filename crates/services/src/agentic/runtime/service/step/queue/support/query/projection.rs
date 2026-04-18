@@ -40,6 +40,24 @@ mod tests {
     }
 
     #[test]
+    fn time_sensitive_resolvable_payload_accepts_structural_weather_detail_surface() {
+        assert!(candidate_time_sensitive_resolvable_payload(
+            "https://www.weather-atlas.com/en/south-carolina-usa/anderson",
+            "Weather today - Anderson, SC",
+            "Current weather and hourly forecast page for Anderson, SC.",
+        ));
+    }
+
+    #[test]
+    fn time_sensitive_resolvable_payload_accepts_market_quote_detail_surface() {
+        assert!(candidate_time_sensitive_resolvable_payload(
+            "https://www.coincodex.com/crypto/bitcoin/",
+            "Bitcoin Price: Live BTC/USD Rate, Market Cap & BTC Price Chart | CoinCodex",
+            "Bitcoin price today is $68,026 with a trading volume of $56.53B and market cap of $1.36T. BTC price decreased -4.1% in the last 24 hours.",
+        ));
+    }
+
+    #[test]
     fn time_sensitive_resolvable_payload_rejects_marketing_percentages_on_price_pages() {
         assert!(!candidate_time_sensitive_resolvable_payload(
             "https://crypto.com/en/price/bitcoin",

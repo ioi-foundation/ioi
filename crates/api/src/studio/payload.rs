@@ -2938,47 +2938,49 @@ fn renderer_primary_view_contract_failure(
     }
 }
 
-pub(crate) fn enforce_renderer_judge_contract(
+pub(crate) fn enforce_renderer_validation_contract(
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
     candidate: &StudioGeneratedArtifactPayload,
-    mut judge: StudioArtifactJudgeResult,
-) -> StudioArtifactJudgeResult {
-    neutralize_false_sequence_browsing_penalty(brief, &mut judge);
+    mut validation: StudioArtifactValidationResult,
+) -> StudioArtifactValidationResult {
+    neutralize_false_sequence_browsing_penalty(brief, &mut validation);
 
     let Some(contradiction) = renderer_primary_view_contract_failure(request, brief, candidate)
     else {
-        return judge;
+        return validation;
     };
 
-    if judge.classification != StudioArtifactJudgeClassification::Blocked {
-        judge.classification = StudioArtifactJudgeClassification::Repairable;
+    if validation.classification != StudioArtifactValidationStatus::Blocked {
+        validation.classification = StudioArtifactValidationStatus::Repairable;
     }
-    judge.interaction_relevance = judge.interaction_relevance.min(2);
-    judge.layout_coherence = judge.layout_coherence.min(2);
-    judge.visual_hierarchy = judge.visual_hierarchy.min(2);
-    judge.completeness = judge.completeness.min(2);
-    judge.trivial_shell_detected = true;
-    judge.deserves_primary_artifact_view = false;
-    judge.strongest_contradiction = Some(contradiction.to_string());
-    judge.rationale =
+    validation.interaction_relevance = validation.interaction_relevance.min(2);
+    validation.layout_coherence = validation.layout_coherence.min(2);
+    validation.visual_hierarchy = validation.visual_hierarchy.min(2);
+    validation.completeness = validation.completeness.min(2);
+    validation.trivial_shell_detected = true;
+    validation.deserves_primary_artifact_view = false;
+    validation.strongest_contradiction = Some(contradiction.to_string());
+    validation.rationale =
         "Renderer contract failures keep the first paint from qualifying as primary output."
             .to_string();
-    if !judge
+    if !validation
         .issue_classes
         .iter()
         .any(|value| value == "renderer_contract")
     {
-        judge.issue_classes.push("renderer_contract".to_string());
+        validation
+            .issue_classes
+            .push("renderer_contract".to_string());
     }
-    if !judge
+    if !validation
         .blocked_reasons
         .iter()
         .any(|value| value == contradiction)
     {
-        judge.blocked_reasons.push(contradiction.to_string());
+        validation.blocked_reasons.push(contradiction.to_string());
     }
-    if !judge
+    if !validation
         .file_findings
         .iter()
         .any(|value| value.contains("renderer contract failure"))
@@ -2989,62 +2991,65 @@ pub(crate) fn enforce_renderer_judge_contract(
             .find(|file| file.renderable)
             .map(|file| file.path.clone())
             .unwrap_or_else(|| "primary-surface".to_string());
-        judge
+        validation
             .file_findings
             .push(format!("{file_path}: renderer contract failure"));
     }
-    if !judge
+    if !validation
         .repair_hints
         .iter()
         .any(|value| value.contains("pre-rendered"))
     {
-        judge.repair_hints.push(
+        validation.repair_hints.push(
             "Repair the first paint with pre-rendered panels, populated evidence surfaces, and a visible default detail state.".to_string(),
         );
     }
-    judge.aesthetic_verdict =
+    validation.aesthetic_verdict =
         "Renderer contract failure keeps the surface below the artifact presentation bar."
             .to_string();
-    judge.interaction_verdict =
+    validation.interaction_verdict =
         "Interaction contract does not hold on first paint yet.".to_string();
-    if judge.truthfulness_warnings.is_empty() {
-        judge.truthfulness_warnings.push(
+    if validation.truthfulness_warnings.is_empty() {
+        validation.truthfulness_warnings.push(
             "The surfaced artifact is still relying on incomplete or structurally misleading first-paint output."
                 .to_string(),
         );
     }
-    judge.recommended_next_pass = Some("structural_repair".to_string());
-    judge
+    validation.recommended_next_pass = Some("structural_repair".to_string());
+    validation
 }
 
 fn neutralize_false_sequence_browsing_penalty(
     brief: &StudioArtifactBrief,
-    judge: &mut StudioArtifactJudgeResult,
+    validation: &mut StudioArtifactValidationResult,
 ) {
     if brief_requires_sequence_browsing(brief)
-        || !judge_false_positive_sequence_penalty(judge)
-        || judge.generic_shell_detected
-        || judge.trivial_shell_detected
-        || !judge.deserves_primary_artifact_view
-        || judge.request_faithfulness < 4
-        || judge.concept_coverage < 4
-        || judge.layout_coherence < 4
-        || judge.visual_hierarchy < 4
+        || !validation_false_positive_sequence_penalty(validation)
+        || validation.generic_shell_detected
+        || validation.trivial_shell_detected
+        || !validation.deserves_primary_artifact_view
+        || validation.request_faithfulness < 4
+        || validation.concept_coverage < 4
+        || validation.layout_coherence < 4
+        || validation.visual_hierarchy < 4
     {
         return;
     }
 
-    judge.classification = StudioArtifactJudgeClassification::Pass;
-    judge.interaction_relevance = judge.interaction_relevance.max(4);
-    judge.completeness = judge.completeness.max(4);
-    judge.strongest_contradiction = None;
-    if judge
+    validation.classification = StudioArtifactValidationStatus::Pass;
+    validation.interaction_relevance = validation.interaction_relevance.max(4);
+    validation.completeness = validation.completeness.max(4);
+    validation.strongest_contradiction = None;
+    if validation
         .rationale
         .to_ascii_lowercase()
         .contains("sequence browsing")
-        || judge.rationale.to_ascii_lowercase().contains("timeline")
+        || validation
+            .rationale
+            .to_ascii_lowercase()
+            .contains("timeline")
     {
-        judge.rationale =
+        validation.rationale =
             "Complies with the interaction contract and stays request-faithful.".to_string();
     }
 }
@@ -3128,13 +3133,13 @@ fn bracket_placeholder_hits(text: &str) -> usize {
     hits
 }
 
-fn judge_false_positive_sequence_penalty(judge: &StudioArtifactJudgeResult) -> bool {
-    let contradiction = judge
+fn validation_false_positive_sequence_penalty(validation: &StudioArtifactValidationResult) -> bool {
+    let contradiction = validation
         .strongest_contradiction
         .as_deref()
         .unwrap_or_default()
         .to_ascii_lowercase();
-    let rationale = judge.rationale.to_ascii_lowercase();
+    let rationale = validation.rationale.to_ascii_lowercase();
     [contradiction.as_str(), rationale.as_str()]
         .iter()
         .any(|text| {

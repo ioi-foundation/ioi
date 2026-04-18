@@ -286,15 +286,12 @@ pub(crate) async fn attempt_refusal_repair(
     )
     .await;
     if route_decision.direct_answer_allowed
-        && route_decision
-            .output_intent
-            .eq_ignore_ascii_case("direct_inline")
         && route_decision.route_family.eq_ignore_ascii_case("general")
         && route_decision
             .effective_tool_surface
             .projected_tools
             .iter()
-            .any(|tool_name| tool_name.eq_ignore_ascii_case("chat__reply"))
+            .any(|tool_name| repair_tool_names_match(tool_name, "chat__reply"))
     {
         verification_checks.push("refusal_repair_route_direct_inline=true".to_string());
         if let Some(repaired_tool) = attempt_direct_inline_refusal_chat_reply_repair(

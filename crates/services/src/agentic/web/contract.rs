@@ -203,7 +203,7 @@ fn lint_web_retrieval_contract(
         contract.browser_fallback_allowed = false;
     }
 
-    if contract.runtime_locality_required
+    if (contract.runtime_locality_required || explicit_locality_scope_present)
         && contract.comparison_required
         && contract.entity_cardinality_min > 1
         && !contract.scalar_measure_required
@@ -320,7 +320,7 @@ fn deterministic_web_retrieval_contract(
         || (entity_cardinality_min <= 1 && scalar_measure_required && !comparison_required);
     let direct_snapshot_surface_preferred = single_fact_snapshot;
     let entity_diversity_required = entity_cardinality_min > 1
-        && runtime_locality_required
+        && (runtime_locality_required || explicit_locality_scope_present)
         && !facets.time_sensitive_public_fact
         && !scalar_measure_required;
     let mut contract = WebRetrievalContract {

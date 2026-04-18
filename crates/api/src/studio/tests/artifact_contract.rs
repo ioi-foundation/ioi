@@ -20,7 +20,7 @@ fn direct_author_fast_surface_skips_acceptance_runtime() {
             } else if prompt.contains("direct document author") {
                 "# Quantum computers\n\nQuantum computing uses qubits, interference, and measurement to solve certain classes of problems differently from classical machines.\n\n## Core concepts\n- Superposition keeps multiple amplitudes in play.\n- Entanglement links qubit states.\n- Measurement samples a concrete result."
                     .to_string()
-            } else if prompt.contains("typed artifact judge") {
+            } else if prompt.contains("typed artifact validation") {
                 serde_json::json!({
                     "classification": "pass",
                     "requestFaithfulness": 4,
@@ -154,23 +154,23 @@ fn direct_author_fast_surface_skips_acceptance_runtime() {
             )
             .await
         })
-        .expect("direct author fast surface should return a judged bundle");
+        .expect("direct author fast surface should return a validated bundle");
 
-    assert_eq!(bundle.ux_lifecycle, StudioArtifactUxLifecycle::Judged);
+    assert_eq!(bundle.ux_lifecycle, StudioArtifactUxLifecycle::Validated);
     assert_eq!(
-        bundle.judge.classification,
-        StudioArtifactJudgeClassification::Pass
+        bundle.validation.classification,
+        StudioArtifactValidationStatus::Pass
     );
     assert!(bundle
-        .judge
+        .validation
         .rationale
         .contains("without waiting on the slow acceptance gate"));
     assert_eq!(bundle.winner.files[0].path, "artifact.md");
     assert!(bundle.winning_candidate_id.is_some());
 }
 
-pub(crate) fn studio_test_judge(
-    classification: StudioArtifactJudgeClassification,
+pub(crate) fn studio_test_validation(
+    classification: StudioArtifactValidationStatus,
     deserves_primary_artifact_view: bool,
     request_faithfulness: u8,
     concept_coverage: u8,
@@ -178,8 +178,8 @@ pub(crate) fn studio_test_judge(
     layout_coherence: u8,
     visual_hierarchy: u8,
     completeness: u8,
-) -> StudioArtifactJudgeResult {
-    StudioArtifactJudgeResult {
+) -> StudioArtifactValidationResult {
+    StudioArtifactValidationResult {
         classification,
         request_faithfulness,
         concept_coverage,
@@ -208,8 +208,8 @@ pub(crate) fn studio_test_judge(
 
 #[test]
 fn requested_follow_up_pass_prefers_structural_repair_for_repairable_accept_mismatch() {
-    let mut judge = studio_test_judge(
-        StudioArtifactJudgeClassification::Repairable,
+    let mut validation = studio_test_validation(
+        StudioArtifactValidationStatus::Repairable,
         false,
         5,
         5,
@@ -218,15 +218,18 @@ fn requested_follow_up_pass_prefers_structural_repair_for_repairable_accept_mism
         5,
         4,
     );
-    judge.recommended_next_pass = Some("accept".to_string());
+    validation.recommended_next_pass = Some("accept".to_string());
 
-    assert_eq!(requested_follow_up_pass(&judge), Some("structural_repair"));
+    assert_eq!(
+        requested_follow_up_pass(&validation),
+        Some("structural_repair")
+    );
 }
 
 #[test]
 fn requested_follow_up_pass_prefers_polish_for_warning_only_render_eval_repairs() {
-    let mut judge = studio_test_judge(
-        StudioArtifactJudgeClassification::Repairable,
+    let mut validation = studio_test_validation(
+        StudioArtifactValidationStatus::Repairable,
         false,
         5,
         5,
@@ -235,33 +238,25 @@ fn requested_follow_up_pass_prefers_polish_for_warning_only_render_eval_repairs(
         5,
         4,
     );
-    judge.issue_classes = vec!["render_eval".to_string()];
-    judge.recommended_next_pass = Some("accept".to_string());
+    validation.issue_classes = vec!["render_eval".to_string()];
+    validation.recommended_next_pass = Some("accept".to_string());
 
-    assert_eq!(requested_follow_up_pass(&judge), Some("polish_pass"));
+    assert_eq!(requested_follow_up_pass(&validation), Some("polish_pass"));
 }
 
 #[test]
 fn requested_follow_up_pass_stops_for_clean_acceptance_clear() {
-    let mut judge = studio_test_judge(
-        StudioArtifactJudgeClassification::Pass,
-        true,
-        5,
-        5,
-        5,
-        5,
-        5,
-        5,
-    );
-    judge.recommended_next_pass = Some("accept".to_string());
+    let mut validation =
+        studio_test_validation(StudioArtifactValidationStatus::Pass, true, 5, 5, 5, 5, 5, 5);
+    validation.recommended_next_pass = Some("accept".to_string());
 
-    assert_eq!(requested_follow_up_pass(&judge), None);
+    assert_eq!(requested_follow_up_pass(&validation), None);
 }
 
 #[test]
 fn requested_follow_up_pass_keeps_repairing_nontrivial_blocks() {
-    let mut judge = studio_test_judge(
-        StudioArtifactJudgeClassification::Blocked,
+    let mut validation = studio_test_validation(
+        StudioArtifactValidationStatus::Blocked,
         false,
         4,
         5,
@@ -270,12 +265,15 @@ fn requested_follow_up_pass_keeps_repairing_nontrivial_blocks() {
         2,
         3,
     );
-    judge.repair_hints = vec![
+    validation.repair_hints = vec![
         "Increase text contrast.".to_string(),
         "Strengthen visible interaction change.".to_string(),
     ];
 
-    assert_eq!(requested_follow_up_pass(&judge), Some("structural_repair"));
+    assert_eq!(
+        requested_follow_up_pass(&validation),
+        Some("structural_repair")
+    );
 }
 
 #[test]
@@ -286,8 +284,8 @@ fn modal_first_refinement_directives_do_not_force_shared_detail_panels() {
             StudioRendererKind::HtmlIframe,
         );
         let brief = sample_quantum_explainer_brief();
-        let judge = studio_test_judge(
-            StudioArtifactJudgeClassification::Repairable,
+        let validation = studio_test_validation(
+            StudioArtifactValidationStatus::Repairable,
             false,
             4,
             5,
@@ -298,7 +296,7 @@ fn modal_first_refinement_directives_do_not_force_shared_detail_panels() {
         );
 
         let directives =
-            super::studio_artifact_candidate_refinement_directives(&request, &brief, &judge);
+            super::studio_artifact_candidate_refinement_directives(&request, &brief, &validation);
 
         assert!(!directives
             .contains("Use a named control bar plus a shared detail or comparison panel"));
@@ -309,7 +307,7 @@ fn modal_first_refinement_directives_do_not_force_shared_detail_panels() {
 
 pub(crate) fn studio_test_candidate_summary(
     candidate_id: &str,
-    judge: StudioArtifactJudgeResult,
+    validation: StudioArtifactValidationResult,
 ) -> StudioArtifactCandidateSummary {
     StudioArtifactCandidateSummary {
         candidate_id: candidate_id.to_string(),
@@ -332,7 +330,7 @@ pub(crate) fn studio_test_candidate_summary(
         raw_output_preview: None,
         convergence: None,
         render_evaluation: None,
-        judge,
+        validation,
     }
 }
 
@@ -477,16 +475,8 @@ fn render_eval_merge_blocks_primary_view_when_first_paint_fails() {
         StudioArtifactClass::InteractiveSingleFile,
         StudioRendererKind::HtmlIframe,
     );
-    let judge = studio_test_judge(
-        StudioArtifactJudgeClassification::Pass,
-        true,
-        5,
-        5,
-        5,
-        5,
-        5,
-        5,
-    );
+    let validation =
+        studio_test_validation(StudioArtifactValidationStatus::Pass, true, 5, 5, 5, 5, 5, 5);
     let render_evaluation = studio_test_render_evaluation(
         8,
         false,
@@ -503,15 +493,15 @@ fn render_eval_merge_blocks_primary_view_when_first_paint_fails() {
         )],
     );
 
-    let merged = merge_studio_artifact_render_evaluation_into_judge(
+    let merged = merge_studio_artifact_render_evaluation_into_validation(
         &request,
-        judge,
+        validation,
         Some(&render_evaluation),
     );
 
     assert_eq!(
         merged.classification,
-        StudioArtifactJudgeClassification::Blocked
+        StudioArtifactValidationStatus::Blocked
     );
     assert!(!merged.deserves_primary_artifact_view);
     assert!(merged.trivial_shell_detected);
@@ -535,16 +525,8 @@ fn render_eval_merge_adds_strength_for_clean_desktop_and_mobile_captures() {
         StudioArtifactClass::InteractiveSingleFile,
         StudioRendererKind::HtmlIframe,
     );
-    let judge = studio_test_judge(
-        StudioArtifactJudgeClassification::Pass,
-        true,
-        4,
-        4,
-        4,
-        4,
-        4,
-        4,
-    );
+    let validation =
+        studio_test_validation(StudioArtifactValidationStatus::Pass, true, 4, 4, 4, 4, 4, 4);
     let render_evaluation = studio_test_render_evaluation(
         22,
         true,
@@ -555,16 +537,13 @@ fn render_eval_merge_adds_strength_for_clean_desktop_and_mobile_captures() {
         ],
     );
 
-    let merged = merge_studio_artifact_render_evaluation_into_judge(
+    let merged = merge_studio_artifact_render_evaluation_into_validation(
         &request,
-        judge,
+        validation,
         Some(&render_evaluation),
     );
 
-    assert_eq!(
-        merged.classification,
-        StudioArtifactJudgeClassification::Pass
-    );
+    assert_eq!(merged.classification, StudioArtifactValidationStatus::Pass);
     assert!(merged.deserves_primary_artifact_view);
     assert!(merged
         .strengths
@@ -579,17 +558,9 @@ fn render_eval_merge_overrides_accept_to_polish_for_warning_only_regressions() {
         StudioArtifactClass::InteractiveSingleFile,
         StudioRendererKind::HtmlIframe,
     );
-    let mut judge = studio_test_judge(
-        StudioArtifactJudgeClassification::Pass,
-        true,
-        5,
-        5,
-        5,
-        4,
-        5,
-        4,
-    );
-    judge.recommended_next_pass = Some("accept".to_string());
+    let mut validation =
+        studio_test_validation(StudioArtifactValidationStatus::Pass, true, 5, 5, 5, 4, 5, 4);
+    validation.recommended_next_pass = Some("accept".to_string());
     let render_evaluation = studio_test_render_evaluation(
         17,
         true,
@@ -605,15 +576,15 @@ fn render_eval_merge_overrides_accept_to_polish_for_warning_only_regressions() {
         ],
     );
 
-    let merged = merge_studio_artifact_render_evaluation_into_judge(
+    let merged = merge_studio_artifact_render_evaluation_into_validation(
         &request,
-        judge,
+        validation,
         Some(&render_evaluation),
     );
 
     assert_eq!(
         merged.classification,
-        StudioArtifactJudgeClassification::Repairable
+        StudioArtifactValidationStatus::Repairable
     );
     assert_eq!(merged.recommended_next_pass.as_deref(), Some("polish_pass"));
     assert_eq!(
@@ -625,16 +596,8 @@ fn render_eval_merge_overrides_accept_to_polish_for_warning_only_regressions() {
 #[test]
 fn render_eval_merge_ignores_unsupported_markdown_failures() {
     let request = request_for(StudioArtifactClass::Document, StudioRendererKind::Markdown);
-    let judge = studio_test_judge(
-        StudioArtifactJudgeClassification::Pass,
-        true,
-        4,
-        4,
-        4,
-        4,
-        4,
-        4,
-    );
+    let validation =
+        studio_test_validation(StudioArtifactValidationStatus::Pass, true, 4, 4, 4, 4, 4, 4);
     let render_evaluation = StudioArtifactRenderEvaluation {
         supported: false,
         first_paint_captured: false,
@@ -658,16 +621,16 @@ fn render_eval_merge_ignores_unsupported_markdown_failures() {
         acceptance_policy: None,
     };
 
-    let merged = merge_studio_artifact_render_evaluation_into_judge(
+    let merged = merge_studio_artifact_render_evaluation_into_validation(
         &request,
-        judge.clone(),
+        validation.clone(),
         Some(&render_evaluation),
     );
 
-    assert_eq!(merged.classification, judge.classification);
+    assert_eq!(merged.classification, validation.classification);
     assert_eq!(
         merged.deserves_primary_artifact_view,
-        judge.deserves_primary_artifact_view
+        validation.deserves_primary_artifact_view
     );
     assert!(!merged
         .issue_classes
@@ -678,16 +641,8 @@ fn render_eval_merge_ignores_unsupported_markdown_failures() {
 #[test]
 fn render_eval_merge_downgrades_markdown_typography_block_to_warning() {
     let request = request_for(StudioArtifactClass::Document, StudioRendererKind::Markdown);
-    let judge = studio_test_judge(
-        StudioArtifactJudgeClassification::Pass,
-        true,
-        4,
-        4,
-        4,
-        4,
-        4,
-        4,
-    );
+    let validation =
+        studio_test_validation(StudioArtifactValidationStatus::Pass, true, 4, 4, 4, 4, 4, 4);
     let render_evaluation = StudioArtifactRenderEvaluation {
         supported: true,
         first_paint_captured: true,
@@ -733,15 +688,15 @@ fn render_eval_merge_downgrades_markdown_typography_block_to_warning() {
         acceptance_policy: None,
     };
 
-    let merged = merge_studio_artifact_render_evaluation_into_judge(
+    let merged = merge_studio_artifact_render_evaluation_into_validation(
         &request,
-        judge,
+        validation,
         Some(&render_evaluation),
     );
 
     assert_eq!(
         merged.classification,
-        StudioArtifactJudgeClassification::Repairable
+        StudioArtifactValidationStatus::Repairable
     );
     assert_eq!(merged.recommended_next_pass.as_deref(), Some("polish_pass"));
     assert_eq!(merged.strongest_contradiction.as_deref(), Some("Render evaluation observed minor typography weakness but preserved the document surface."));
@@ -776,16 +731,8 @@ fn render_eval_merge_blocks_pass_when_required_execution_obligations_fail() {
         StudioArtifactClass::InteractiveSingleFile,
         StudioRendererKind::HtmlIframe,
     );
-    let judge = studio_test_judge(
-        StudioArtifactJudgeClassification::Pass,
-        true,
-        5,
-        5,
-        5,
-        5,
-        5,
-        5,
-    );
+    let validation =
+        studio_test_validation(StudioArtifactValidationStatus::Pass, true, 5, 5, 5, 5, 5, 5);
     let render_evaluation = StudioArtifactRenderEvaluation {
         supported: true,
         first_paint_captured: true,
@@ -827,15 +774,15 @@ fn render_eval_merge_blocks_pass_when_required_execution_obligations_fail() {
         acceptance_policy: None,
     };
 
-    let merged = merge_studio_artifact_render_evaluation_into_judge(
+    let merged = merge_studio_artifact_render_evaluation_into_validation(
         &request,
-        judge,
+        validation,
         Some(&render_evaluation),
     );
 
     assert_eq!(
         merged.classification,
-        StudioArtifactJudgeClassification::Repairable
+        StudioArtifactValidationStatus::Repairable
     );
     assert!(!merged.deserves_primary_artifact_view);
     assert_eq!(
@@ -1549,7 +1496,7 @@ fn studio_artifact_production_sources_do_not_special_case_quantum_fixture() {
     for source in [
         include_str!("../planning.rs"),
         include_str!("../generation/mod.rs"),
-        include_str!("../judging.rs"),
+        include_str!("../validation.rs"),
         include_str!("../payload.rs"),
     ] {
         assert!(

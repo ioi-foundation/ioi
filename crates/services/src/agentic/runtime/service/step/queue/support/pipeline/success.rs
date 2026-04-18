@@ -4,6 +4,22 @@ use ioi_types::app::agentic::{WebDocument, WebRetrievalContract};
 const HUMAN_CHALLENGE_DOCUMENT_PROBE_CHARS: usize = 600;
 const AUTHORITY_IDENTIFIER_DISCOVERY_CHARS: usize = 2400;
 
+fn preserve_retrieved_excerpt_over_hint(
+    query_contract: &str,
+    url: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    let trimmed = excerpt.trim();
+    if trimmed.is_empty() || is_low_signal_excerpt(trimmed) {
+        return false;
+    }
+
+    has_quantitative_metric_payload(trimmed, false)
+        || local_business_menu_inventory_excerpt(trimmed, trimmed.chars().count()).is_some()
+        || source_has_briefing_standard_identifier_signal(query_contract, url, title, trimmed)
+}
+
 pub(crate) fn push_pending_web_success(
     pending: &mut PendingSearchCompletion,
     url: &str,
@@ -47,9 +63,10 @@ pub(crate) fn push_pending_web_success(
             resolved_excerpt = hint_excerpt.to_string();
         }
     }
+    let query_contract = synthesis_query_contract(pending);
     let menu_inventory_grounded_excerpt = local_business_menu_surface_grounded_excerpt(
         pending.retrieval_contract.as_ref(),
-        &synthesis_query_contract(pending),
+        &query_contract,
         trimmed,
         &resolved_excerpt,
     );
@@ -69,8 +86,13 @@ pub(crate) fn push_pending_web_success(
         return;
     }
 
-    let query_contract = synthesis_query_contract(pending);
     let retrieval_contract = pending.retrieval_contract.as_ref();
+    let preserve_retrieved_excerpt = preserve_retrieved_excerpt_over_hint(
+        &query_contract,
+        trimmed,
+        resolved_title.as_deref().unwrap_or_default(),
+        &resolved_excerpt,
+    );
     let single_snapshot_contract =
         retrieval_contract_prefers_single_fact_snapshot(retrieval_contract, &query_contract);
     let host_anchored_primary_authority_alignment =
@@ -114,7 +136,8 @@ pub(crate) fn push_pending_web_success(
         }
         let base_url_allowed = is_citable_web_url(trimmed)
             && !is_search_hub_url(trimmed)
-            && !is_multi_item_listing_url(trimmed);
+            && !is_multi_item_listing_url(trimmed)
+            && !crate::agentic::web::is_google_news_article_wrapper_url(trimmed);
         let resolved_url = if base_url_allowed {
             trimmed.to_string()
         } else {
@@ -129,6 +152,7 @@ pub(crate) fn push_pending_web_success(
                     is_citable_web_url(candidate)
                         && !is_search_hub_url(candidate)
                         && !is_multi_item_listing_url(candidate)
+                        && !crate::agentic::web::is_google_news_article_wrapper_url(candidate)
                 })
                 .unwrap_or_else(|| trimmed.to_string())
         };
@@ -157,7 +181,7 @@ pub(crate) fn push_pending_web_success(
         // For grounded reads, retain the stronger same-URL surface between the
         // read excerpt and the search hint so identifier/currentness evidence is
         // not discarded simply because the read returned a weaker snippet.
-        if !menu_inventory_grounded_excerpt {
+        if !menu_inventory_grounded_excerpt && !preserve_retrieved_excerpt {
             resolved_excerpt = prefer_excerpt_for_query(
                 &query_contract,
                 resolved_excerpt,
@@ -208,7 +232,10 @@ pub(crate) fn push_pending_web_success(
                     {
                         resolved_title = Some(hint_title.to_string());
                     }
-                    if !menu_inventory_grounded_excerpt && !hint_excerpt.is_empty() {
+                    if !menu_inventory_grounded_excerpt
+                        && !preserve_retrieved_excerpt
+                        && !hint_excerpt.is_empty()
+                    {
                         resolved_excerpt = hint_excerpt.to_string();
                     }
                 }

@@ -523,15 +523,16 @@ pub(super) fn resolve_semantic_target_from_current_or_prompt_tree(
 
             let prompt_enriches_current =
                 prompt_target_enriches_current(&current_target, &prompt_target);
-            let merged_target = merge_semantic_target_metadata(&current_target, &prompt_target);
-            Some((
-                merged_target,
-                if prompt_enriches_current {
-                    "current_accessibility_tree+prompt_metadata"
-                } else {
-                    "current_accessibility_tree"
-                },
-            ))
+            let prompt_consistent_with_current =
+                prompt_target_is_consistent_with_current(&current_target, &prompt_target);
+            if prompt_enriches_current && prompt_consistent_with_current {
+                return Some((
+                    merge_semantic_target_metadata(&current_target, &prompt_target),
+                    "current_accessibility_tree+prompt_metadata",
+                ));
+            }
+
+            Some((current_target, "current_accessibility_tree"))
         }
         (Some(current_target), None) => Some((current_target, "current_accessibility_tree")),
         (None, Some(prompt_target)) => Some((prompt_target, "prompt_observation_tree")),
@@ -552,6 +553,41 @@ fn prompt_target_enriches_current(
         || (current_target.element_hash.is_none() && prompt_target.element_hash.is_some())
         || (current_target.stable_hash.is_none() && prompt_target.stable_hash.is_some())
         || (!current_target.dom_clickable && prompt_target.dom_clickable)
+}
+
+fn prompt_target_is_consistent_with_current(
+    current_target: &BrowserSemanticTarget,
+    prompt_target: &BrowserSemanticTarget,
+) -> bool {
+    if let (Some(current_tag), Some(prompt_tag)) = (
+        current_target.tag_name.as_deref(),
+        prompt_target.tag_name.as_deref(),
+    ) {
+        if !current_tag.eq_ignore_ascii_case(prompt_tag) {
+            return false;
+        }
+    }
+
+    let Some((current_x, current_y)) = current_target.center_point else {
+        return true;
+    };
+    let Some((prompt_x, prompt_y)) = prompt_target.center_point else {
+        return true;
+    };
+
+    if !current_x.is_finite() || !current_y.is_finite() || !prompt_x.is_finite() || !prompt_y.is_finite() {
+        return false;
+    }
+
+    let max_center_delta = current_target
+        .rect_bounds
+        .into_iter()
+        .chain(prompt_target.rect_bounds)
+        .map(|(_, _, width, height)| width.max(height).max(0) as f64)
+        .fold(48.0_f64, f64::max);
+
+    (current_x - prompt_x).abs() <= max_center_delta
+        && (current_y - prompt_y).abs() <= max_center_delta
 }
 
 fn merge_semantic_target_metadata(
@@ -1005,4 +1041,3 @@ pub(super) fn semantic_target_verification_json(
         None => serde_json::Value::Null,
     }
 }
-

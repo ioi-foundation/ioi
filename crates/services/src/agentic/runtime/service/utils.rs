@@ -2,7 +2,9 @@
 
 use crate::agentic::runtime::keys::TRACE_PREFIX;
 use crate::agentic::runtime::types::{AgentState, AgentStatus};
-use crate::agentic::runtime::utils::should_terminalize_running_agent_after_max_steps;
+use crate::agentic::runtime::utils::{
+    should_terminalize_running_agent_after_max_steps, timestamp_secs_now,
+};
 use ioi_api::state::StateAccess;
 use ioi_types::app::agentic::StepTrace;
 use ioi_types::app::KernelEvent;
@@ -11,8 +13,6 @@ use ioi_types::error::TransactionError;
 
 use image::load_from_memory;
 use image_hasher::{HashAlg, HasherConfig};
-use std::time::{SystemTime, UNIX_EPOCH};
-
 /// Helper to get a string representation of the agent status for event emission.
 fn get_status_str(status: &AgentStatus) -> String {
     format!("{:?}", status)
@@ -60,10 +60,7 @@ pub fn goto_trace_log(
         cost_incurred: 0,
         fitness_score: None,
         skill_hash,
-        timestamp: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
+        timestamp: timestamp_secs_now(),
     };
 
     let trace_key = [

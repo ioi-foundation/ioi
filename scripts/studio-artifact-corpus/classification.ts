@@ -10,7 +10,7 @@ import type {
   CorpusCase,
   FailureEnvelope,
   GeneratedArtifactEvidence,
-  JudgeClassification,
+  ValidationClassification,
   RepeatedRunVariationFlowSummary,
   RendererKind,
   RuntimeProvenance,
@@ -152,7 +152,7 @@ export function deriveCaseClassification(
   artifactText: string,
   validate: CommandCapture,
   workspaceBuild: WorkspaceBuildProof | undefined,
-): { classification: JudgeClassification; contradiction: string | null; notes: string[] } {
+): { classification: ValidationClassification; contradiction: string | null; notes: string[] } {
   const notes: string[] = [];
   const failure = effectiveFailure(evidence);
   const surfacedStatus =
@@ -170,19 +170,19 @@ export function deriveCaseClassification(
     surfacedStatus === "blocked" ||
     evidence.verifiedReply.status === "blocked" ||
     failure != null;
-  let classification: JudgeClassification = surfacedReady
+  let classification: ValidationClassification = surfacedReady
     ? "pass"
     : surfacedBlocked
       ? "blocked"
-      : (evidence.judge?.classification ?? "blocked");
+      : (evidence.validation?.classification ?? "blocked");
   let contradiction = surfacedReady
     ? null
-    : (evidence.judge?.strongestContradiction ??
+    : (evidence.validation?.strongestContradiction ??
       failure?.message ??
       (surfacedBlocked ? surfacedSummary : null));
 
-  if (surfacedReady && evidence.judge?.classification !== "pass") {
-    notes.push("surfaced lifecycle cleared a soft raw judge finding");
+  if (surfacedReady && evidence.validation?.classification !== "pass") {
+    notes.push("surfaced lifecycle cleared a soft raw validation finding");
   }
 
   if (evidence.route.artifact?.renderer !== caseConfig.expectedRenderer) {
@@ -221,10 +221,10 @@ export function deriveCaseClassification(
       }
       if (
         caseConfig.expectedEditMode === "patch" &&
-        evidence.judge?.patchedExistingArtifact === false
+        evidence.validation?.patchedExistingArtifact === false
       ) {
         classification = "repairable";
-        contradiction ??= "Judge reported that refinement did not patch the existing artifact.";
+        contradiction ??= "Validation reported that refinement did not patch the existing artifact.";
       }
     }
   }
@@ -344,7 +344,7 @@ export function buildRepeatedRunVariationCheck(
   }
 
   const uniqueSignatureCount = signatures.size;
-  let classification: JudgeClassification = runs.some(
+  let classification: ValidationClassification = runs.some(
     (run) => run.classification === "blocked",
   )
     ? "blocked"
@@ -396,7 +396,7 @@ export function buildRefinementPatchCheck(cases: Map<string, CaseSummary>) {
     return (
       !summary ||
       summary.editIntent?.patchExistingArtifact !== true ||
-      summary.judge?.patchedExistingArtifact === false
+      summary.validation?.patchedExistingArtifact === false
     );
   });
   return {

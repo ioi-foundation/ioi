@@ -92,20 +92,20 @@ function workerInsightDoesNotInferVerifierFromJudgeLikeLabel(): void {
     topology: "planner_specialist_verifier",
     plannerAuthority: "kernel",
     verifierState: "passed",
-    verifierRole: "artifact_quality_verifier",
+    verifierRole: "artifact_validation_verifier",
     verifierOutcome: "warning",
     artifactQuality: {
       verdict: "needs_attention",
       fidelityStatus: "faithful",
       presentationStatus: "needs_repair",
       repairStatus: "required",
-      notes: "Artifact judge still has feedback.",
+      notes: "Artifact validation still has feedback.",
     },
   };
 
   const insight = workerInsightForPlanSummary(
     thoughtAgent({
-      agentLabel: "Judge Judy",
+      agentLabel: "Validator Violet",
       agentRole: "Source Notes",
       agentKind: "worker",
     }),

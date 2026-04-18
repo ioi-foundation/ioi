@@ -109,16 +109,16 @@ pub fn build_studio_artifact_render_acceptance_policy(
     }
 }
 
-pub fn merge_studio_artifact_render_evaluation_into_judge(
+pub fn merge_studio_artifact_render_evaluation_into_validation(
     request: &StudioOutcomeArtifactRequest,
-    mut judge: StudioArtifactJudgeResult,
+    mut validation: StudioArtifactValidationResult,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-) -> StudioArtifactJudgeResult {
+) -> StudioArtifactValidationResult {
     let Some(render_evaluation) = render_evaluation else {
-        return judge;
+        return validation;
     };
     if !render_evaluation.supported {
-        return judge;
+        return validation;
     }
 
     let layout_signal = average_u8(
@@ -134,9 +134,9 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
         render_evaluation.layout_density_score,
     );
 
-    judge.layout_coherence = merge_visual_score(judge.layout_coherence, layout_signal);
-    judge.visual_hierarchy = merge_visual_score(judge.visual_hierarchy, hierarchy_signal);
-    judge.completeness = merge_visual_score(judge.completeness, completeness_signal);
+    validation.layout_coherence = merge_visual_score(validation.layout_coherence, layout_signal);
+    validation.visual_hierarchy = merge_visual_score(validation.visual_hierarchy, hierarchy_signal);
+    validation.completeness = merge_visual_score(validation.completeness, completeness_signal);
 
     let blocked_render_finding = render_evaluation.findings.iter().find(|finding| {
         finding.severity == StudioArtifactRenderFindingSeverity::Blocked
@@ -168,44 +168,46 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
         && render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold();
 
     if !render_clears_primary_view {
-        judge.deserves_primary_artifact_view = false;
+        validation.deserves_primary_artifact_view = false;
     }
 
     if let Some(failed_obligation) = failed_required_obligation {
-        judge.classification =
+        validation.classification =
             if render_evaluation.overall_score <= render_evaluation.blocked_score_threshold() {
-                StudioArtifactJudgeClassification::Blocked
+                StudioArtifactValidationStatus::Blocked
             } else {
-                StudioArtifactJudgeClassification::Repairable
+                StudioArtifactValidationStatus::Repairable
             };
-        judge.deserves_primary_artifact_view = false;
-        judge.recommended_next_pass = Some("structural_repair".to_string());
+        validation.deserves_primary_artifact_view = false;
+        validation.recommended_next_pass = Some("structural_repair".to_string());
         let contradiction = failed_obligation
             .detail
             .as_ref()
             .map(|detail| format!("{} {}", failed_obligation.summary, detail))
             .unwrap_or_else(|| failed_obligation.summary.clone());
-        judge.strongest_contradiction = Some(contradiction.clone());
-        if !judge
+        validation.strongest_contradiction = Some(contradiction.clone());
+        if !validation
             .issue_classes
             .iter()
             .any(|value| value == "execution_witness")
         {
-            judge.issue_classes.push("execution_witness".to_string());
+            validation
+                .issue_classes
+                .push("execution_witness".to_string());
         }
-        if !judge
+        if !validation
             .blocked_reasons
             .iter()
             .any(|value| value == &contradiction)
         {
-            judge.blocked_reasons.push(contradiction.clone());
+            validation.blocked_reasons.push(contradiction.clone());
         }
-        if !judge
+        if !validation
             .truthfulness_warnings
             .iter()
             .any(|value| value == &contradiction)
         {
-            judge.truthfulness_warnings.push(contradiction.clone());
+            validation.truthfulness_warnings.push(contradiction.clone());
         }
         for witness in render_evaluation
             .execution_witnesses
@@ -219,62 +221,64 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
             })
             .take(3)
         {
-            if !judge
+            if !validation
                 .repair_hints
                 .iter()
                 .any(|value| value == &witness.summary)
             {
-                judge.repair_hints.push(witness.summary.clone());
+                validation.repair_hints.push(witness.summary.clone());
             }
         }
-        if !judge
+        if !validation
             .file_findings
             .iter()
             .any(|value| value.contains("required obligations"))
         {
-            judge.file_findings.push(format!(
+            validation.file_findings.push(format!(
                 "{}: {} failed required obligation(s) after execution-witness validation",
                 candidate_renderable_path(request),
                 render_evaluation.failed_required_obligation_count()
             ));
         }
     } else if let Some(blocked) = blocked_render_finding {
-        judge.classification =
+        validation.classification =
             if render_evaluation.overall_score <= render_evaluation.blocked_score_threshold() {
-                StudioArtifactJudgeClassification::Blocked
+                StudioArtifactValidationStatus::Blocked
             } else {
-                StudioArtifactJudgeClassification::Repairable
+                StudioArtifactValidationStatus::Repairable
             };
-        judge.deserves_primary_artifact_view = false;
-        judge.recommended_next_pass = Some("structural_repair".to_string());
-        judge.strongest_contradiction = Some(blocked.summary.clone());
-        if !judge
+        validation.deserves_primary_artifact_view = false;
+        validation.recommended_next_pass = Some("structural_repair".to_string());
+        validation.strongest_contradiction = Some(blocked.summary.clone());
+        if !validation
             .issue_classes
             .iter()
             .any(|value| value == "render_eval")
         {
-            judge.issue_classes.push("render_eval".to_string());
+            validation.issue_classes.push("render_eval".to_string());
         }
-        if !judge
+        if !validation
             .blocked_reasons
             .iter()
             .any(|value| value == &blocked.summary)
         {
-            judge.blocked_reasons.push(blocked.summary.clone());
+            validation.blocked_reasons.push(blocked.summary.clone());
         }
-        if !judge
+        if !validation
             .truthfulness_warnings
             .iter()
             .any(|value| value == &blocked.summary)
         {
-            judge.truthfulness_warnings.push(blocked.summary.clone());
+            validation
+                .truthfulness_warnings
+                .push(blocked.summary.clone());
         }
-        if !judge
+        if !validation
             .file_findings
             .iter()
             .any(|value| value.contains("render evaluation"))
         {
-            judge.file_findings.push(format!(
+            validation.file_findings.push(format!(
                 "{}: render evaluation blocked primary presentation",
                 candidate_renderable_path(request)
             ));
@@ -282,47 +286,47 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
     } else if warning_count > 0
         || render_evaluation.overall_score < render_evaluation.primary_view_score_threshold()
     {
-        if judge.classification == StudioArtifactJudgeClassification::Pass {
-            judge.classification = StudioArtifactJudgeClassification::Repairable;
+        if validation.classification == StudioArtifactValidationStatus::Pass {
+            validation.classification = StudioArtifactValidationStatus::Repairable;
         }
-        judge.deserves_primary_artifact_view &=
+        validation.deserves_primary_artifact_view &=
             render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold();
-        if !judge
+        if !validation
             .issue_classes
             .iter()
             .any(|value| value == "render_eval")
         {
-            judge.issue_classes.push("render_eval".to_string());
+            validation.issue_classes.push("render_eval".to_string());
         }
-        if judge.recommended_next_pass.is_none()
-            || judge.recommended_next_pass.as_deref() == Some("accept")
+        if validation.recommended_next_pass.is_none()
+            || validation.recommended_next_pass.as_deref() == Some("accept")
         {
-            judge.recommended_next_pass = Some("polish_pass".to_string());
+            validation.recommended_next_pass = Some("polish_pass".to_string());
         }
-        if judge.strongest_contradiction.is_none() {
-            judge.strongest_contradiction = render_evaluation
+        if validation.strongest_contradiction.is_none() {
+            validation.strongest_contradiction = render_evaluation
                 .findings
                 .iter()
                 .find(|finding| finding.severity == StudioArtifactRenderFindingSeverity::Warning)
                 .map(|finding| finding.summary.clone())
                 .or_else(|| Some(render_evaluation.summary.clone()));
         }
-        if !judge
+        if !validation
             .truthfulness_warnings
             .iter()
             .any(|value| value == &render_evaluation.summary)
         {
-            judge
+            validation
                 .truthfulness_warnings
                 .push(render_evaluation.summary.clone());
         }
     } else if render_evaluation.captures.len() >= 2
-        && !judge
+        && !validation
             .strengths
             .iter()
             .any(|value| value.contains("desktop and mobile render"))
     {
-        judge.strengths.push(
+        validation.strengths.push(
             "Desktop and mobile render captures reinforced the surfaced hierarchy.".to_string(),
         );
     }
@@ -331,17 +335,17 @@ pub fn merge_studio_artifact_render_evaluation_into_judge(
         && request.renderer != StudioRendererKind::DownloadCard
         && request.renderer != StudioRendererKind::BundleManifest
     {
-        judge.trivial_shell_detected = true;
+        validation.trivial_shell_detected = true;
     }
 
-    if !judge.rationale.contains(&render_evaluation.summary) {
-        judge.rationale = format!(
+    if !validation.rationale.contains(&render_evaluation.summary) {
+        validation.rationale = format!(
             "{} Render evaluation: {}",
-            judge.rationale, render_evaluation.summary
+            validation.rationale, render_evaluation.summary
         );
     }
 
-    judge
+    validation
 }
 
 fn render_blocking_finding_is_advisory_for_request(

@@ -1247,7 +1247,7 @@ function planSummaryUsesBuiltinPlaybookContractWhenRouteFieldsAreMissing(): void
   assert.equal(presentation.planSummary?.plannerAuthority, "kernel");
   assert.equal(
     presentation.planSummary?.verifierRole,
-    "artifact_quality_verifier",
+    "artifact_validation_verifier",
   );
   assert.equal(presentation.planSummary?.verifierState, "queued");
 }
@@ -1320,7 +1320,7 @@ function planSummaryCarriesPrepContextFromCompletionOnlyReceipt(): void {
       tool_name: "agent__await",
       phase: "completed",
       playbook_id: "artifact_generation_gate",
-      selected_skills: ["artifact__frontend_judge_spine"],
+      selected_skills: ["artifact__frontend_validation_spine"],
       prep_summary:
         "Prior note: keep the hero contrast crisp and the mobile CTA stack stable.",
       artifact_quality: {
@@ -1335,7 +1335,7 @@ function planSummaryCarriesPrepContextFromCompletionOnlyReceipt(): void {
     },
     details: {
       parent_session_id: "session-artifact-completion-prep",
-      selected_skills: ["artifact__frontend_judge_spine"],
+      selected_skills: ["artifact__frontend_validation_spine"],
       prep_summary:
         "Prior note: keep the hero contrast crisp and the mobile CTA stack stable.",
       summary: "Artifact route completed with retained prep context.",
@@ -1354,7 +1354,7 @@ function planSummaryCarriesPrepContextFromCompletionOnlyReceipt(): void {
   assert.ok(presentation.planSummary);
   assert.deepEqual(
     presentation.planSummary?.selectedSkills,
-    expectedSelectedSkills("artifact__frontend_judge_spine"),
+    expectedSelectedSkills("artifact__frontend_validation_spine"),
   );
   assert.equal(
     presentation.planSummary?.prepSummary,
@@ -1449,7 +1449,7 @@ function planSummaryKeepsUnknownNarrativeRouteGeneral(): void {
     details: {
       parent_session_id: "session-unknown-route",
       step_label: "Do work",
-      summary: "Collect source notes before a later judge call.",
+      summary: "Collect source notes before a later validation call.",
     },
   };
 
@@ -1659,7 +1659,7 @@ function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
       route_family: "artifacts",
       topology: "planner_specialist_verifier",
       verifier_state: "queued",
-      selected_skills: ["artifact__frontend_judge_spine"],
+      selected_skills: ["artifact__frontend_validation_spine"],
       prep_summary:
         "Prior note: strong artifact runs keep the hero contrast crisp and the mobile CTA stack stable.",
       status: "running",
@@ -1671,7 +1671,7 @@ function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
       step_label: "Capture artifact context",
       template_id: "context_worker",
       workflow_id: "artifact_context_brief",
-      selected_skills: ["artifact__frontend_judge_spine"],
+      selected_skills: ["artifact__frontend_validation_spine"],
       prep_summary:
         "Prior note: strong artifact runs keep the hero contrast crisp and the mobile CTA stack stable.",
       summary: "Spawned artifact context step with explicit prep context.",
@@ -1731,12 +1731,12 @@ function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
     },
   };
 
-  const artifactJudge: AgentEvent = {
+  const artifactValidation: AgentEvent = {
     ...baseEvent,
-    event_id: "evt-artifact-judge",
+    event_id: "evt-artifact-validation",
     step_index: 66,
     event_type: "RECEIPT",
-    title: "Artifact judge completed",
+    title: "Artifact validation completed",
     digest: {
       kind: "parent_playbook",
       tool_name: "agent__await",
@@ -1765,10 +1765,10 @@ function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
     },
     details: {
       parent_session_id: "session-artifact",
-      step_id: "judge",
-      step_label: "Judge artifact quality",
+      step_id: "validation",
+      step_label: "Validate artifact quality",
       template_id: "verifier",
-      workflow_id: "artifact_quality_audit",
+      workflow_id: "artifact_validation_audit",
       artifact_quality: {
         verdict: "needs_attention",
         fidelity_status: "faithful",
@@ -1783,13 +1783,13 @@ function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
           "Layout intent is strong, but mobile CTA overlap blocks presentation readiness.",
         next_step: "Fix the mobile hero stacking before presentation.",
       },
-      summary: "Artifact judge finished with a repair-required verdict.",
+      summary: "Artifact validation finished with a repair-required verdict.",
     },
   };
 
   const presentation = buildRunPresentation(
     [],
-    [artifactContext, artifactBuild, artifactJudge],
+    [artifactContext, artifactBuild, artifactValidation],
     [],
   );
 
@@ -1797,7 +1797,7 @@ function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
   assert.equal(presentation.planSummary?.routeFamily, "artifacts");
   assert.deepEqual(
     presentation.planSummary?.selectedSkills,
-    expectedSelectedSkills("artifact__frontend_judge_spine"),
+    expectedSelectedSkills("artifact__frontend_validation_spine"),
   );
   assert.equal(
     presentation.planSummary?.artifactGeneration?.status,
@@ -1815,11 +1815,11 @@ function planSummaryCarriesArtifactGenerationQualityAndRepair(): void {
   assert.equal(presentation.planSummary?.artifactRepair?.status, "required");
   assert.equal(
     presentation.planSummary?.currentStage,
-    "Judge Artifact Quality",
+    "Validate Artifact Quality",
   );
   assert.equal(
     presentation.planSummary?.progressSummary,
-    "Artifact judge finished with a repair-required verdict.",
+    "Artifact validation finished with a repair-required verdict.",
   );
 }
 
@@ -2029,12 +2029,12 @@ function executionMomentsCaptureBranchApprovalAndVerification(): void {
 }
 
 function executionMomentsShowArtifactVerifierWarning(): void {
-  const artifactJudge: AgentEvent = {
+  const artifactValidation: AgentEvent = {
     ...baseEvent,
     event_id: "evt-artifact-warning",
     step_index: 74,
     event_type: "RECEIPT",
-    title: "Artifact judge completed",
+    title: "Artifact validation completed",
     digest: {
       kind: "parent_playbook",
       tool_name: "agent__await",
@@ -2044,7 +2044,7 @@ function executionMomentsShowArtifactVerifierWarning(): void {
       route_family: "artifacts",
       topology: "planner_specialist_verifier",
       verifier_state: "passed",
-      verifier_role: "artifact_quality_verifier",
+      verifier_role: "artifact_validation_verifier",
       artifact_quality: {
         verdict: "needs_attention",
         fidelity_status: "faithful",
@@ -2057,10 +2057,10 @@ function executionMomentsShowArtifactVerifierWarning(): void {
     },
     details: {
       parent_session_id: "session-artifact",
-      step_label: "Judge artifact quality",
+      step_label: "Validate artifact quality",
       template_id: "verifier",
-      workflow_id: "artifact_quality_audit",
-      verifier_role: "artifact_quality_verifier",
+      workflow_id: "artifact_validation_audit",
+      verifier_role: "artifact_validation_verifier",
       artifact_quality: {
         verdict: "needs_attention",
         fidelity_status: "faithful",
@@ -2068,13 +2068,13 @@ function executionMomentsShowArtifactVerifierWarning(): void {
         repair_status: "required",
         notes: "Mobile CTA overlap still needs repair before presentation.",
       },
-      summary: "Artifact judge finished with a repair-required verdict.",
+      summary: "Artifact validation finished with a repair-required verdict.",
     },
   };
 
-  const presentation = buildRunPresentation([], [artifactJudge], []);
+  const presentation = buildRunPresentation([], [artifactValidation], []);
   const moments = buildExecutionMoments(
-    activityRefsFromEvents([artifactJudge]),
+    activityRefsFromEvents([artifactValidation]),
     presentation.planSummary,
   );
 

@@ -1,5 +1,6 @@
 use super::*;
 
+#[allow(unused_imports)]
 pub(crate) use super::facts::{
     final_web_completion_contract_ready, final_web_completion_facts,
     final_web_completion_facts_with_rendered_summary, select_final_web_summary_from_candidates,
@@ -34,6 +35,26 @@ pub(crate) fn single_snapshot_has_metric_grounding(pending: &PendingSearchComple
             source.excerpt
         );
         contains_current_condition_metric_signal(&observed_text)
+    })
+}
+
+fn single_snapshot_has_explicit_price_quote_grounding(pending: &PendingSearchCompletion) -> bool {
+    let query_contract = synthesis_query_contract(pending);
+    if !analyze_query_facets(&query_contract)
+        .metric_schema
+        .axis_hits
+        .contains(&MetricAxis::Price)
+    {
+        return false;
+    }
+
+    pending.successful_reads.iter().any(|source| {
+        let observed_text = format!(
+            "{} {}",
+            source.title.as_deref().unwrap_or_default(),
+            source.excerpt
+        );
+        has_price_quote_payload(&observed_text)
     })
 }
 
@@ -519,6 +540,15 @@ pub(crate) fn web_pipeline_completion_reason(
     }
 
     if grounded_floor_met {
+        if single_snapshot_mode
+            && candidate_inventory_exhausted
+            && pending.successful_reads.len() >= min_sources
+            && single_snapshot_metric_required
+            && single_snapshot_has_metric_grounding(pending)
+            && single_snapshot_has_explicit_price_quote_grounding(pending)
+        {
+            return Some(WebPipelineCompletionReason::MinSourcesReached);
+        }
         if headline_collection_mode && !story_floor_met {
             let grounded_probe_budget_allows = if pending.deadline_ms == 0 {
                 true

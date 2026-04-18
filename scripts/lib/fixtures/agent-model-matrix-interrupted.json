@@ -22,7 +22,7 @@
         "label": "Artifact quality",
         "requiredForPromotion": true,
         "metrics": [
-          "averageJudgeScore",
+          "averageValidationScore",
           "verifierPassRate",
           "averageRepairLoopIterations",
           "routeMatchRate"
@@ -117,7 +117,7 @@
           "metrics": {
             "benchmarkCount": 1,
             "passRate": 1,
-            "averageJudgeScore": 0.8,
+            "averageValidationScore": 0.8,
             "verifierPassRate": 1,
             "averageRepairLoopIterations": 0,
             "routeMatchRate": 1
@@ -216,7 +216,7 @@
           "metrics": {
             "benchmarkCount": 1,
             "passRate": 0,
-            "averageJudgeScore": null,
+            "averageValidationScore": null,
             "verifierPassRate": 0,
             "averageRepairLoopIterations": 0,
             "routeMatchRate": 0

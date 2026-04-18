@@ -956,7 +956,7 @@ fn render_selected_parent_playbook_instruction(
             "Do not perform raw web retrieval from the root session. The research worker owns source gathering, and the verifier owns citation/freshness auditing before the final brief is accepted."
         }
         "artifact_generation_gate" => {
-            "Do not materialize the artifact directly from the root session. The context worker shapes the brief, the builder produces the candidate, and the verifier/judge decides whether it is launch-ready."
+            "Do not materialize the artifact directly from the root session. The context worker shapes the brief, the builder produces the candidate, and the verifier validates whether it is launch-ready."
         }
         "browser_postcondition_gate" => {
             "Do not run the entire UI action loop from the root session. The perception worker captures state, the operator executes the route, and the verifier confirms the postcondition or recovery need."
@@ -1196,7 +1196,7 @@ fn render_active_worker_instruction(
         Some("artifact_generate_repair") => {
             "Produce or refine the file-backed artifact, retain verification signals, and finish with `agent__complete` using markdown bullets `produced_files`, `verification_signals`, `presentation_status`, `repair_status`, and `notes`.".to_string()
         }
-        Some("artifact_quality_audit") => {
+        Some("artifact_validation_audit") => {
             "Judge the retained artifact rather than rebuilding it. Finish with `agent__complete` using markdown bullets `verdict`, `fidelity_status`, `presentation_status`, `repair_status`, `notes`, and `next_repair_step`.".to_string()
         }
         Some("ui_state_brief") => {

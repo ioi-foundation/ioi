@@ -586,10 +586,13 @@ pub(crate) fn patch_build_verify_edit_only_repair_tools(
     repair_tools
         .iter()
         .filter(|tool| {
-            matches!(
-                tool.name.as_str(),
-                "filesystem__patch" | "filesystem__edit_line" | "filesystem__write_file"
-            )
+            [
+                "filesystem__patch",
+                "filesystem__edit_line",
+                "filesystem__write_file",
+            ]
+            .iter()
+            .any(|candidate| repair_tool_names_match(&tool.name, candidate))
         })
         .cloned()
         .collect()

@@ -474,7 +474,7 @@ async fn invalid_tool_repair_falls_back_to_reasoning_after_fast_error() {
             .repaired_tool
             .expect("expected repaired tool")
             .name_string(),
-        "filesystem__patch"
+        "file__edit"
     );
     assert!(repair
         .verification_checks

@@ -34,6 +34,29 @@ pub(crate) struct InvalidToolRepairAttempt {
     pub verification_checks: Vec<String>,
 }
 
+pub(crate) fn repair_tool_names_match(left: &str, right: &str) -> bool {
+    if left.trim().eq_ignore_ascii_case(right.trim()) {
+        return true;
+    }
+
+    match (
+        middleware::canonical_deterministic_tool_name(left),
+        middleware::canonical_deterministic_tool_name(right),
+    ) {
+        (Some(left), Some(right)) => left == right,
+        _ => false,
+    }
+}
+
+pub(crate) fn repair_allowed_tool_names_include(
+    allowed_tool_names: &BTreeSet<String>,
+    candidate: &str,
+) -> bool {
+    allowed_tool_names
+        .iter()
+        .any(|allowed| repair_tool_names_match(allowed, candidate))
+}
+
 enum DeterministicEditRepairValidation {
     Accepted(AgentTool),
     Rejected(String),
@@ -571,12 +594,14 @@ async fn attempt_patch_build_verify_refusal_edit_repair(
     if latest_command_failure_summary(agent_state).is_none() {
         return Ok(None);
     }
-    if !allowed_tool_names.iter().any(|tool_name| {
-        matches!(
-            tool_name.as_str(),
-            "filesystem__patch" | "filesystem__edit_line" | "filesystem__write_file"
-        )
-    }) {
+    if ![
+        "filesystem__patch",
+        "filesystem__edit_line",
+        "filesystem__write_file",
+    ]
+    .iter()
+    .any(|tool_name| repair_allowed_tool_names_include(allowed_tool_names, tool_name))
+    {
         return Ok(None);
     }
 
@@ -785,7 +810,7 @@ async fn run_invalid_tool_call_repair_inference(
     )
     .unwrap_or(repaired_tool);
     let repaired_tool_name = repaired_tool.name_string();
-    if !allowed_tool_names.contains(&repaired_tool_name) {
+    if !repair_allowed_tool_names_include(allowed_tool_names, &repaired_tool_name) {
         verification_checks.push(format!(
             "invalid_tool_call_repair_runtime_{}_disallowed_tool={}",
             runtime_label,
@@ -902,7 +927,7 @@ async fn run_refusal_repair_inference(
     )
     .unwrap_or(repaired_tool);
 
-    if !allowed_tool_names.contains(&repaired_tool.name_string()) {
+    if !repair_allowed_tool_names_include(allowed_tool_names, &repaired_tool.name_string()) {
         verification_checks.push(format!(
             "refusal_repair_runtime_{}_disallowed_tool={}",
             runtime_label,

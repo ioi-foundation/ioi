@@ -83,7 +83,7 @@ pub(crate) fn synthesize_patch_build_verify_targeted_exec_bootstrap(
     if assignment.workflow_id.as_deref().map(str::trim) != Some("patch_build_verify") {
         return None;
     }
-    if !allowed_tool_names.contains("sys__exec_session") {
+    if !repair_allowed_tool_names_include(allowed_tool_names, "sys__exec_session") {
         return None;
     }
 
@@ -131,7 +131,7 @@ pub(crate) fn synthesize_patch_build_verify_targeted_exec_followup(
     ) {
         return None;
     }
-    if !allowed_tool_names.contains("sys__exec_session") {
+    if !repair_allowed_tool_names_include(allowed_tool_names, "sys__exec_session") {
         return None;
     }
     let command_literal = first_goal_command_literal(&assignment.goal)?;
@@ -223,7 +223,7 @@ pub(crate) fn patch_build_verify_should_prefer_non_patch_edit_repair(
     assignment
         .allowed_tools
         .iter()
-        .any(|tool_name| tool_name == "filesystem__write_file")
+        .any(|tool_name| repair_tool_names_match(tool_name, "filesystem__write_file"))
         && patch_build_verify_current_file_snapshot(agent_state, assignment, &assignment.goal)
             .is_some()
 }
@@ -254,7 +254,7 @@ pub(crate) fn maybe_prefer_non_patch_edit_repair(
     }
 
     let original_len = repair_tools.len();
-    repair_tools.retain(|tool| tool.name != "filesystem__patch");
+    repair_tools.retain(|tool| !repair_tool_names_match(&tool.name, "filesystem__patch"));
     if repair_tools.len() == original_len {
         return;
     }
@@ -287,7 +287,7 @@ pub(crate) fn patch_build_verify_deterministic_allowed_tool_names(
         if assignment
             .allowed_tools
             .iter()
-            .any(|allowed| allowed == tool_name)
+            .any(|allowed| repair_tool_names_match(allowed, tool_name))
             && deterministic_allowed_tool_names.insert(tool_name.to_string())
         {
             inserted.push(tool_name);
@@ -315,7 +315,7 @@ pub(crate) fn synthesize_patch_build_verify_refresh_read_repair(
     if assignment.workflow_id.as_deref().map(str::trim) != Some("patch_build_verify") {
         return None;
     }
-    if !allowed_tool_names.contains("filesystem__read_file") {
+    if !repair_allowed_tool_names_include(allowed_tool_names, "filesystem__read_file") {
         return None;
     }
 
@@ -406,7 +406,7 @@ pub(crate) fn synthesize_patch_build_verify_code_block_edit_repair(
         sanitize_check_value(&target_path)
     ));
 
-    if allowed_tool_names.contains("filesystem__patch") {
+    if repair_allowed_tool_names_include(allowed_tool_names, "filesystem__patch") {
         verification_checks
             .push("invalid_tool_call_repair_deterministic_recovery=code_block_patch".to_string());
         return Some(AgentTool::FsPatch {
@@ -416,7 +416,7 @@ pub(crate) fn synthesize_patch_build_verify_code_block_edit_repair(
         });
     }
 
-    if allowed_tool_names.contains("filesystem__write_file") {
+    if repair_allowed_tool_names_include(allowed_tool_names, "filesystem__write_file") {
         let updated_content = file_content.replacen(&search, &replace, 1);
         if updated_content == file_content {
             return None;
@@ -461,7 +461,7 @@ pub(crate) fn synthesize_patch_build_verify_inline_code_edit_repair(
         sanitize_check_value(&target_path)
     ));
 
-    if allowed_tool_names.contains("filesystem__patch") {
+    if repair_allowed_tool_names_include(allowed_tool_names, "filesystem__patch") {
         verification_checks
             .push("invalid_tool_call_repair_deterministic_recovery=inline_code_patch".to_string());
         return Some(AgentTool::FsPatch {
@@ -471,7 +471,7 @@ pub(crate) fn synthesize_patch_build_verify_inline_code_edit_repair(
         });
     }
 
-    if allowed_tool_names.contains("filesystem__write_file") {
+    if repair_allowed_tool_names_include(allowed_tool_names, "filesystem__write_file") {
         let updated_content = file_content.replacen(&current_block, &updated_block, 1);
         if updated_content == file_content {
             return None;
@@ -502,7 +502,7 @@ pub(crate) fn synthesize_patch_build_verify_goal_constrained_snapshot_repair(
     if latest_command_failure_summary(agent_state).is_none() {
         return None;
     }
-    if !allowed_tool_names.contains("filesystem__write_file") {
+    if !repair_allowed_tool_names_include(allowed_tool_names, "filesystem__write_file") {
         return None;
     }
 
@@ -713,8 +713,8 @@ pub(crate) fn maybe_salvage_disallowed_patch_build_verify_runtime_edit(
     if assignment.workflow_id.as_deref().map(str::trim) != Some("patch_build_verify") {
         return None;
     }
-    if !allowed_tool_names.contains("filesystem__write_file")
-        || allowed_tool_names.contains("filesystem__patch")
+    if !repair_allowed_tool_names_include(allowed_tool_names, "filesystem__write_file")
+        || repair_allowed_tool_names_include(allowed_tool_names, "filesystem__patch")
     {
         return None;
     }

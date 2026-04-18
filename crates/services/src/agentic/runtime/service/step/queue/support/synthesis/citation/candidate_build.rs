@@ -19,7 +19,9 @@ pub(crate) fn build_citation_candidates(
         if trimmed.is_empty() || !is_citable_web_url(trimmed) {
             return false;
         }
-        if is_search_hub_url(trimmed) {
+        if is_search_hub_url(trimmed)
+            || crate::agentic::web::is_google_news_article_wrapper_url(trimmed)
+        {
             return false;
         }
         if headline_lookup_mode && is_multi_item_listing_url(trimmed) {
@@ -139,6 +141,7 @@ pub(crate) fn build_citation_candidates(
             if trimmed.is_empty()
                 || !is_citable_web_url(trimmed)
                 || is_search_hub_url(trimmed)
+                || crate::agentic::web::is_google_news_article_wrapper_url(trimmed)
                 || (headline_lookup_mode && is_multi_item_listing_url(trimmed))
                 || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
                 || headline_low_quality_signal(
@@ -167,6 +170,7 @@ pub(crate) fn build_citation_candidates(
             if trimmed.is_empty()
                 || !is_citable_web_url(trimmed)
                 || is_search_hub_url(trimmed)
+                || crate::agentic::web::is_google_news_article_wrapper_url(trimmed)
                 || (headline_lookup_mode && is_multi_item_listing_url(trimmed))
                 || is_blocked_unverified_url(trimmed, &blocked_unverified_urls)
                 || headline_low_quality_signal(trimmed, "", "")

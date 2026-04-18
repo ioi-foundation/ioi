@@ -203,6 +203,31 @@ pub fn receipt_marker(name: &str) -> String {
     format!("{}{}=true", EXECUTION_RECEIPT_PREFIX, name)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeReceipt {
+    Execution,
+    Verification,
+    HostDiscovery,
+    WorkspaceReadObserved,
+    WorkspaceEditApplied,
+}
+
+impl RuntimeReceipt {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Execution => "execution",
+            Self::Verification => "verification",
+            Self::HostDiscovery => "host_discovery",
+            Self::WorkspaceReadObserved => "workspace_read_observed",
+            Self::WorkspaceEditApplied => "workspace_edit_applied",
+        }
+    }
+}
+
+pub fn receipt_marker_for(receipt: RuntimeReceipt) -> String {
+    receipt_marker(receipt.as_str())
+}
+
 pub fn postcondition_marker(name: &str) -> String {
     format!("{}{}=true", EXECUTION_POSTCONDITION_PREFIX, name)
 }
@@ -214,12 +239,27 @@ pub fn mark_execution_receipt(
     mark_execution_receipt_with_value(tool_execution_log, name, "true".to_string());
 }
 
+pub fn mark_execution_receipt_for(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    receipt: RuntimeReceipt,
+) {
+    mark_execution_receipt(tool_execution_log, receipt.as_str());
+}
+
 pub fn mark_execution_receipt_with_value(
     tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
     name: &str,
     value: String,
 ) {
     tool_execution_log.insert(receipt_marker(name), ToolCallStatus::Executed(value));
+}
+
+pub fn mark_execution_receipt_for_value(
+    tool_execution_log: &mut BTreeMap<String, ToolCallStatus>,
+    receipt: RuntimeReceipt,
+    value: String,
+) {
+    mark_execution_receipt_with_value(tool_execution_log, receipt.as_str(), value);
 }
 
 pub fn mark_execution_postcondition(

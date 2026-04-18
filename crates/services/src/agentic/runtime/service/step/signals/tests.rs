@@ -297,6 +297,26 @@ fn query_facets_capture_time_sensitive_public_fact_contract() {
 }
 
 #[test]
+fn query_facets_capture_plain_current_weather_contract() {
+    let facets = analyze_query_facets("What's the weather like right now?");
+    assert!(facets.time_sensitive_public_fact);
+    assert!(facets.locality_sensitive_public_fact);
+    assert!(facets.grounded_external_required);
+    assert!(!facets.workspace_constrained);
+}
+
+#[test]
+fn query_facets_capture_service_status_lookup_contract() {
+    let facets = analyze_query_facets(
+        "As of now (UTC), top 3 active cloud incidents from major status pages with citations.",
+    );
+    assert!(facets.time_sensitive_public_fact);
+    assert!(facets.service_status_lookup);
+    assert!(facets.grounded_external_required);
+    assert!(!facets.workspace_constrained);
+}
+
+#[test]
 fn query_facets_capture_latest_pricing_contract() {
     let facets = analyze_query_facets("What is the latest OpenAI API pricing?");
     assert!(facets.time_sensitive_public_fact);

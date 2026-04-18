@@ -21,8 +21,8 @@ mod types;
 mod workspace;
 
 use evidence::{
-    build_generated_manifest, derive_generated_artifact_title, format_judge_label,
-    load_refinement_evidence, run_judge, write_generated_payload,
+    build_generated_manifest, derive_generated_artifact_title, format_validation_label,
+    load_refinement_evidence, run_validation_result, write_generated_payload,
 };
 #[cfg(test)]
 use generation::{route_with_runtime, select_generate_route_runtime};
@@ -148,21 +148,21 @@ pub enum ArtifactCommands {
         /// Local inference model name (defaults to LOCAL_LLM_MODEL or AUTOPILOT_LOCAL_RUNTIME_MODEL).
         #[clap(long, requires = "local")]
         model_name: Option<String>,
-        /// Acceptance judge API URL for local generation proof.
+        /// Acceptance validation API URL for local generation proof.
         #[clap(long, requires = "local")]
         acceptance_api_url: Option<String>,
-        /// Acceptance judge API key when the acceptance endpoint requires authentication.
+        /// Acceptance validation API key when the acceptance endpoint requires authentication.
         #[clap(long, requires = "local")]
         acceptance_api_key: Option<String>,
-        /// Acceptance judge model name (defaults to AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL or OPENAI_MODEL).
+        /// Acceptance validation model name (defaults to AUTOPILOT_ACCEPTANCE_RUNTIME_MODEL or OPENAI_MODEL).
         #[clap(long, requires = "local")]
         acceptance_model_name: Option<String>,
         /// Emit machine-readable JSON instead of human text.
         #[clap(long)]
         json: bool,
     },
-    /// Inspect the typed judge result from a generated artifact evidence bundle.
-    Judge {
+    /// Inspect the typed validation result from a generated artifact evidence bundle.
+    Validation {
         /// Path to generation.json, or a directory containing generation.json.
         evidence: PathBuf,
         /// Emit machine-readable JSON instead of human text.
@@ -258,7 +258,7 @@ pub async fn run(args: ArtifactArgs) -> Result<()> {
             )
             .await
         }
-        ArtifactCommands::Judge { evidence, json } => run_judge(&evidence, json),
+        ArtifactCommands::Validation { evidence, json } => run_validation_result(&evidence, json),
         ArtifactCommands::ComposeReply { manifest, json } => run_compose_reply(&manifest, json),
     }
 }

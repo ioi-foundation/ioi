@@ -62,7 +62,7 @@ pub(super) fn build_non_swarm_winner_bundle(
                 &failed_candidate_summaries,
             ),
         })?;
-    let acceptance_judge = winner_summary.judge.clone();
+    let artifact_validation = winner_summary.validation.clone();
     let winner = candidate_rows
         .into_iter()
         .nth(winner_index)
@@ -94,7 +94,7 @@ pub(super) fn build_non_swarm_winner_bundle(
         request,
         execution_strategy,
         &snapshot_execution_live_previews(&live_preview_state),
-        if judge_clears_primary_view(&acceptance_judge) {
+        if validation_clears_primary_view(&artifact_validation) {
             ExecutionCompletionInvariantStatus::Satisfied
         } else {
             ExecutionCompletionInvariantStatus::Blocked
@@ -110,7 +110,7 @@ pub(super) fn build_non_swarm_winner_bundle(
         edit_intent,
         candidate_summaries: final_candidate_summaries,
         winning_candidate_id: Some(winner_summary.candidate_id.clone()),
-        winning_candidate_rationale: Some(winner_summary.judge.rationale.clone()),
+        winning_candidate_rationale: Some(winner_summary.validation.rationale.clone()),
         execution_envelope,
         swarm_plan: None,
         swarm_execution: None,
@@ -118,7 +118,7 @@ pub(super) fn build_non_swarm_winner_bundle(
         swarm_change_receipts: Vec::new(),
         swarm_merge_receipts: Vec::new(),
         swarm_verification_receipts: Vec::new(),
-        judge: acceptance_judge,
+        validation: artifact_validation,
         winner,
         render_evaluation: winner_summary.render_evaluation.clone(),
         origin,
@@ -127,7 +127,7 @@ pub(super) fn build_non_swarm_winner_bundle(
         runtime_policy: Some(runtime_policy),
         adaptive_search_budget: Some(adaptive_search_budget),
         fallback_used: false,
-        ux_lifecycle: StudioArtifactUxLifecycle::Judged,
+        ux_lifecycle: StudioArtifactUxLifecycle::Validated,
         taste_memory: refinement.and_then(|context| context.taste_memory.clone()),
         failure: None,
     })

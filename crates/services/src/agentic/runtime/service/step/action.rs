@@ -32,6 +32,7 @@ pub use support::{
     canonical_intent_hash, canonical_retry_intent_hash, canonical_tool_identity,
     execution_receipt_value, has_execution_postcondition, has_execution_receipt,
     mark_action_fingerprint_executed_at_step, mark_execution_postcondition, mark_execution_receipt,
+    mark_execution_receipt_for, mark_execution_receipt_for_value,
     mark_execution_receipt_with_value, persist_step_contract_evidence, postcondition_marker,
-    receipt_marker,
+    receipt_marker, receipt_marker_for, RuntimeReceipt,
 };

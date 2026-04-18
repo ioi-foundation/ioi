@@ -3,7 +3,7 @@ use super::shared::{
     brief_repair_max_tokens_for_runtime, compact_local_html_brief_prompt,
     outcome_artifact_renderer_defaults, studio_planning_trace, truncate_planning_preview,
 };
-use crate::studio::judging::studio_artifact_refinement_context_view;
+use crate::studio::validation::studio_artifact_refinement_context_view;
 use crate::studio::*;
 use crate::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;

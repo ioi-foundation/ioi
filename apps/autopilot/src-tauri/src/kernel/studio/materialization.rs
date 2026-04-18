@@ -375,7 +375,7 @@ fn emit_prepared_context_generation_progress(
         swarm_merge_receipts: Vec::new(),
         swarm_verification_receipts: Vec::new(),
         render_evaluation: None,
-        judge: None,
+        validation: None,
         runtime_narration_events: Vec::new(),
     });
 }
@@ -1108,7 +1108,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                             swarm_merge_receipts: bundle.swarm_merge_receipts.clone(),
                             swarm_verification_receipts: bundle.swarm_verification_receipts.clone(),
                             render_evaluation: bundle.render_evaluation.clone(),
-                            judge: Some(bundle.judge.clone()),
+                            validation: Some(bundle.validation.clone()),
                             runtime_narration_events: vec![present_artifact_complete_event()],
                         });
                     }
@@ -1216,9 +1216,9 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                                 render_evaluation: last_progress
                                     .as_ref()
                                     .and_then(|progress| progress.render_evaluation.clone()),
-                                judge: last_progress
+                                validation: last_progress
                                     .as_ref()
-                                    .and_then(|progress| progress.judge.clone()),
+                                    .and_then(|progress| progress.validation.clone()),
                                 runtime_narration_events: vec![
                                     author_blocked_event,
                                     replan_event.clone(),
@@ -1268,7 +1268,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         last_progress
                             .as_ref()
                             .and_then(|progress| progress.render_evaluation.clone()),
-                        last_progress.as_ref().and_then(|progress| progress.judge.clone()),
+                        last_progress.as_ref().and_then(|progress| progress.validation.clone()),
                         last_progress
                             .as_ref()
                             .map(|progress| progress.runtime_narration_events.clone())
@@ -1380,9 +1380,9 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                                 render_evaluation: last_progress
                                     .as_ref()
                                     .and_then(|progress| progress.render_evaluation.clone()),
-                                judge: last_progress
+                                validation: last_progress
                                     .as_ref()
-                                    .and_then(|progress| progress.judge.clone()),
+                                    .and_then(|progress| progress.validation.clone()),
                                 runtime_narration_events: vec![
                                     author_blocked_event,
                                     replan_event.clone(),
@@ -1432,7 +1432,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
                         last_progress
                             .as_ref()
                             .and_then(|progress| progress.render_evaluation.clone()),
-                        last_progress.as_ref().and_then(|progress| progress.judge.clone()),
+                        last_progress.as_ref().and_then(|progress| progress.validation.clone()),
                         {
                             let mut events = last_progress
                                 .as_ref()
@@ -1508,7 +1508,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         bundle.blueprint.as_ref(),
         bundle.artifact_ir.as_ref(),
         bundle_edit_intent.as_ref(),
-        Some(&bundle.judge),
+        Some(&bundle.validation),
     );
     let retrieved_exemplars = Some(prepared_context.retrieved_exemplars.clone())
         .filter(|exemplars| !exemplars.is_empty())
@@ -1577,7 +1577,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
     let quality_assessment = finalize_presentation_assessment(
         request,
         assess_materialized_artifact_presentation(request, &quality_files),
-        &bundle.judge,
+        &bundle.validation,
         bundle.render_evaluation.as_ref(),
         fallback_used,
         bundle.ux_lifecycle == StudioArtifactUxLifecycle::Draft,
@@ -1610,7 +1610,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         ));
     } else if let Some(winner_id) = bundle.winning_candidate_id.as_ref() {
         notes.push(format!(
-            "Winning candidate {} selected via typed judging.",
+            "Winning candidate {} selected via typed validation.",
             winner_id
         ));
     }
@@ -1641,7 +1641,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         swarm_merge_receipts: bundle.swarm_merge_receipts,
         swarm_verification_receipts: bundle.swarm_verification_receipts,
         render_evaluation: bundle.render_evaluation,
-        judge: Some(bundle.judge),
+        validation: Some(bundle.validation),
         output_origin,
         production_provenance: Some(bundle.production_provenance),
         acceptance_provenance: Some(bundle.acceptance_provenance),
@@ -1683,7 +1683,7 @@ pub(super) fn blocked_materialized_artifact_from_error(
     candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     execution_envelope: Option<ExecutionEnvelope>,
     render_evaluation: Option<StudioArtifactRenderEvaluation>,
-    _last_judge: Option<StudioArtifactJudgeResult>,
+    _last_validation: Option<StudioArtifactValidationResult>,
     mut runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
     production_runtime_provenance: Option<crate::models::StudioRuntimeProvenance>,
     acceptance_runtime_provenance: Option<crate::models::StudioRuntimeProvenance>,
@@ -1724,8 +1724,8 @@ pub(super) fn blocked_materialized_artifact_from_error(
         .to_string(),
         message: error.to_string(),
     };
-    let judge = StudioArtifactJudgeResult {
-        classification: ioi_api::studio::StudioArtifactJudgeClassification::Blocked,
+    let validation = StudioArtifactValidationResult {
+        classification: ioi_api::studio::StudioArtifactValidationStatus::Blocked,
         request_faithfulness: 1,
         concept_coverage: 1,
         interaction_relevance: 1,
@@ -1737,6 +1737,11 @@ pub(super) fn blocked_materialized_artifact_from_error(
         deserves_primary_artifact_view: false,
         patched_existing_artifact: refinement.map(|_| false),
         continuity_revision_ux: refinement.map(|_| 1),
+        score_total: 0,
+        proof_kind: "materialization".to_string(),
+        primary_view_cleared: false,
+        validated_paths: Vec::new(),
+        issue_codes: vec![failure.code.clone()],
         issue_classes: vec![failure.code.clone()],
         repair_hints: vec![
             "Restore runtime availability or repair the failing generation path before retrying the artifact."
@@ -1750,6 +1755,7 @@ pub(super) fn blocked_materialized_artifact_from_error(
         truthfulness_warnings: Vec::new(),
         recommended_next_pass: Some("generation_retry".to_string()),
         strongest_contradiction: Some(error.to_string()),
+        summary: "Artifact generation failed before validation could complete.".to_string(),
         rationale: error.to_string(),
     };
     let execution_envelope = finalize_blocked_execution_envelope(execution_envelope);
@@ -1809,7 +1815,7 @@ pub(super) fn blocked_materialized_artifact_from_error(
         swarm_merge_receipts: Vec::new(),
         swarm_verification_receipts: Vec::new(),
         render_evaluation,
-        judge: Some(judge),
+        validation: Some(validation),
         output_origin: output_origin_from_runtime_provenance(&production_provenance),
         production_provenance: Some(production_provenance),
         acceptance_provenance: Some(acceptance_provenance),

@@ -379,9 +379,9 @@ async fn seed_runtime_artifact_skill(
         .expect("memory runtime should be configured");
     let skill = AgentMacro {
             definition: LlmToolDefinition {
-                name: "artifact__frontend_judge_spine".to_string(),
+                name: "artifact__frontend_validation_spine".to_string(),
                 description:
-                    "Shape artifact generation toward bold frontend execution and presentation-first judge checks."
+                    "Shape artifact generation toward bold frontend execution and presentation-first validation checks."
                         .to_string(),
                 parameters: r#"{"type":"object","properties":{"topic":{"type":"string"}},"required":["topic"]}"#
                     .to_string(),

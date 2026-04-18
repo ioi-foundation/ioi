@@ -75,8 +75,8 @@ function runtimeLabel(value) {
       return "Remote Runtime";
     case "studio_runtime":
       return "Studio Runtime";
-    case "judge_runtime":
-      return "Judge Runtime";
+    case "validation_runtime":
+      return "Validation Runtime";
     default:
       return humanizeToken(value);
   }
@@ -122,8 +122,8 @@ function compareExecutionsForLeader(left, right) {
   if (leftClassification !== rightClassification) {
     return rightClassification - leftClassification;
   }
-  const leftJudge = left?.judgeScore ?? -Infinity;
-  const rightJudge = right?.judgeScore ?? -Infinity;
+  const leftJudge = left?.validationScore ?? -Infinity;
+  const rightJudge = right?.validationScore ?? -Infinity;
   if (leftJudge !== rightJudge) {
     return rightJudge - leftJudge;
   }
@@ -227,9 +227,9 @@ function normalizeList(values) {
 
 function deriveInternalExecution(entry, benchmarkId) {
   const generatorRuntime = sanitizeRuntimeKind(entry?.productionProvenanceKind || "default");
-  const judgeRuntime = sanitizeRuntimeKind(entry?.acceptanceProvenanceKind || "default");
+  const validationRuntime = sanitizeRuntimeKind(entry?.acceptanceProvenanceKind || "default");
   const generatorStackId = `generator:${sanitizeToken(generatorRuntime || "default")}`;
-  const judgeStackId = `judge:${sanitizeToken(judgeRuntime || "default")}`;
+  const validationStackId = `validation:${sanitizeToken(validationRuntime || "default")}`;
   const scaffoldFamilyId = `scaffold:${sanitizeToken(entry?.scaffoldFamily || "unspecified")}`;
   const componentPackFamilies = normalizeList(entry?.componentFamilies);
   const componentPackProfileId = `component_profile:${sanitizeToken(
@@ -242,7 +242,7 @@ function deriveInternalExecution(entry, benchmarkId) {
   const compositeStackId = `stack:${sanitizeToken(
     [
       generatorRuntime,
-      judgeRuntime !== generatorRuntime ? `judge_${judgeRuntime}` : null,
+      validationRuntime !== generatorRuntime ? `validation_${validationRuntime}` : null,
       entry?.scaffoldFamily || "unspecified",
       componentPackFamilies.length > 0 ? componentPackFamilies.join("+") : null,
       skillNames.length > 0 ? skillNames.join("+") : null,
@@ -252,7 +252,7 @@ function deriveInternalExecution(entry, benchmarkId) {
   )}`;
   const executionId = `${benchmarkId}:${entry.id}:${sanitizeToken(entry?.dateRoot || "latest")}`;
   const generatorStackLabel = runtimeLabel(generatorRuntime);
-  const judgeStackLabel = runtimeLabel(judgeRuntime);
+  const validationStackLabel = runtimeLabel(validationRuntime);
   const scaffoldFamilyLabel = humanizeToken(entry?.scaffoldFamily || "unspecified");
   const componentPackProfileLabel =
     componentPackFamilies.length > 0
@@ -278,7 +278,7 @@ function deriveInternalExecution(entry, benchmarkId) {
     dateRoot: entry?.dateRoot ?? null,
     summaryPath: entry?.summaryPath ?? null,
     classification: entry?.effectiveClassification ?? entry?.classification ?? "blocked",
-    judgeScore: entry?.judgeScore ?? null,
+    validationScore: entry?.validationScore ?? null,
     firstPaintEvidenceScore: entry?.firstPaintEvidenceScore ?? null,
     screenshotQualityScore: entry?.screenshotQualityScore ?? null,
     responsivenessScore: entry?.responsivenessScore ?? null,
@@ -289,8 +289,8 @@ function deriveInternalExecution(entry, benchmarkId) {
     retrievedExemplarCount: Number(entry?.retrievedExemplarCount ?? 0),
     generatorStackId,
     generatorStackLabel,
-    judgeStackId,
-    judgeStackLabel,
+    validationStackId,
+    validationStackLabel,
     scaffoldFamilyId,
     scaffoldFamilyLabel,
     componentPackFamilies,
@@ -304,7 +304,7 @@ function deriveInternalExecution(entry, benchmarkId) {
     participantAliases: normalizeList([
       compositeStackId,
       generatorStackId,
-      judgeStackId,
+      validationStackId,
       scaffoldFamilyId,
       componentPackProfileId,
       skillSpineId,
@@ -365,7 +365,7 @@ function normalizeExternalReference(entry) {
     summaryPath: typeof entry?.summaryPath === "string" ? entry.summaryPath : null,
     generatorStackId:
       typeof entry?.generatorStackId === "string" ? entry.generatorStackId : null,
-    judgeStackId: typeof entry?.judgeStackId === "string" ? entry.judgeStackId : null,
+    validationStackId: typeof entry?.validationStackId === "string" ? entry.validationStackId : null,
     scaffoldFamilyId:
       typeof entry?.scaffoldFamilyId === "string" ? entry.scaffoldFamilyId : null,
     componentPackFamilies,
@@ -378,7 +378,7 @@ function normalizeExternalReference(entry) {
       rawParticipantId,
       entry?.compositeStackId,
       entry?.generatorStackId,
-      entry?.judgeStackId,
+      entry?.validationStackId,
       entry?.scaffoldFamilyId,
       componentPackProfileId,
       skillSpineId,
@@ -547,8 +547,8 @@ function entityDimensionId(entity, dimension) {
       return entity.compositeStackId ?? entity.participantId ?? null;
     case "generatorStacks":
       return entity.generatorStackId ?? null;
-    case "judgeStacks":
-      return entity.judgeStackId ?? null;
+    case "validationStacks":
+      return entity.validationStackId ?? null;
     case "scaffoldFamilies":
       return entity.scaffoldFamilyId ?? null;
     case "componentPackProfiles":
@@ -569,8 +569,8 @@ function entityDimensionLabel(entity, dimension) {
       return entity.compositeStackLabel ?? entity.label ?? entity.compositeStackId ?? null;
     case "generatorStacks":
       return entity.generatorStackLabel ?? entity.generatorStackId ?? null;
-    case "judgeStacks":
-      return entity.judgeStackLabel ?? entity.judgeStackId ?? null;
+    case "validationStacks":
+      return entity.validationStackLabel ?? entity.validationStackId ?? null;
     case "scaffoldFamilies":
       return entity.scaffoldFamilyLabel ?? entity.scaffoldFamilyId ?? null;
     case "componentPackProfiles":
@@ -987,7 +987,7 @@ export function collectStudioArtifactArenaLedger(options = {}) {
               executionId: provisionalLeader.executionId,
               caseId: provisionalLeader.caseId,
               classification: provisionalLeader.classification,
-              judgeScore: provisionalLeader.judgeScore,
+              validationScore: provisionalLeader.validationScore,
               screenshotQualityScore: provisionalLeader.screenshotQualityScore,
               responsivenessScore: provisionalLeader.responsivenessScore,
               shimDependent: provisionalLeader.shimDependent,
@@ -1000,13 +1000,13 @@ export function collectStudioArtifactArenaLedger(options = {}) {
         dateRoot: execution.dateRoot,
         label: execution.label,
         classification: execution.classification,
-        judgeScore: execution.judgeScore,
+        validationScore: execution.validationScore,
         firstPaintEvidenceScore: execution.firstPaintEvidenceScore,
         screenshotQualityScore: execution.screenshotQualityScore,
         responsivenessScore: execution.responsivenessScore,
         shimDependent: execution.shimDependent,
         generatorStackId: execution.generatorStackId,
-        judgeStackId: execution.judgeStackId,
+        validationStackId: execution.validationStackId,
         scaffoldFamilyId: execution.scaffoldFamilyId,
         componentPackFamilies: execution.componentPackFamilies,
         componentPackProfileId: execution.componentPackProfileId,
@@ -1027,7 +1027,7 @@ export function collectStudioArtifactArenaLedger(options = {}) {
   const dimensionRatings = {
     compositeStacks: buildEloSummary(resolvedPairwiseMatches, "compositeStacks"),
     generatorStacks: buildEloSummary(resolvedPairwiseMatches, "generatorStacks"),
-    judgeStacks: buildEloSummary(resolvedPairwiseMatches, "judgeStacks"),
+    validationStacks: buildEloSummary(resolvedPairwiseMatches, "validationStacks"),
     scaffoldFamilies: buildEloSummary(resolvedPairwiseMatches, "scaffoldFamilies"),
     componentPackProfiles: buildEloSummary(
       resolvedPairwiseMatches,
@@ -1045,7 +1045,7 @@ export function collectStudioArtifactArenaLedger(options = {}) {
   const internalParticipantCatalog = {
     compositeStacks: buildParticipantCatalog(internalExecutions, "compositeStacks"),
     generatorStacks: buildParticipantCatalog(internalExecutions, "generatorStacks"),
-    judgeStacks: buildParticipantCatalog(internalExecutions, "judgeStacks"),
+    validationStacks: buildParticipantCatalog(internalExecutions, "validationStacks"),
     scaffoldFamilies: buildParticipantCatalog(internalExecutions, "scaffoldFamilies"),
     componentPackProfiles: buildParticipantCatalog(
       internalExecutions,
@@ -1133,7 +1133,7 @@ function loadStudioArtifactArenaLedger(options = {}) {
     internalParticipants: {
       compositeStacks: [],
       generatorStacks: [],
-      judgeStacks: [],
+      validationStacks: [],
       scaffoldFamilies: [],
       componentPackProfiles: [],
       skillSpines: [],
@@ -1141,7 +1141,7 @@ function loadStudioArtifactArenaLedger(options = {}) {
     dimensionRatings: {
       compositeStacks: { available: false, ratings: [] },
       generatorStacks: { available: false, ratings: [] },
-      judgeStacks: { available: false, ratings: [] },
+      validationStacks: { available: false, ratings: [] },
       scaffoldFamilies: { available: false, ratings: [] },
       componentPackProfiles: { available: false, ratings: [] },
       skillSpines: { available: false, ratings: [] },

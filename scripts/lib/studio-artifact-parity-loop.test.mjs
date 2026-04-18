@@ -11,7 +11,7 @@ import {
   planStudioArtifactParityIteration,
 } from "./studio-artifact-parity-loop.mjs";
 
-function buildJudge(classification = "repairable", overrides = {}) {
+function buildValidation(classification = "repairable", overrides = {}) {
   return {
     classification,
     requestFaithfulness: 4,
@@ -39,7 +39,7 @@ function buildCase(id, classification = "repairable", overrides = {}) {
     blueprint: {},
     artifactIr: {},
     selectedSkills: [],
-    judge: buildJudge(classification),
+    validation: buildValidation(classification),
     fallbackUsed: false,
     failure: null,
     manifest: { renderer: "html_iframe" },
@@ -106,7 +106,7 @@ function buildCorpusSummary(overrides = {}) {
       totalBenchmarks: 1,
       metrics: {
         readyRate: { available: true, value: 0.5 },
-        averageJudgeScore: { available: true, value: 240 },
+        averageValidationScore: { available: true, value: 240 },
         firstPaintEvidenceScore: { available: true, value: 180 },
       },
     },
@@ -164,7 +164,7 @@ test("parity loop keeps improving changes and resets no-improvement streak", () 
       buildCase("svg-ai-tools-hero", "blocked", {
         blueprint: null,
         artifactIr: null,
-        judge: buildJudge("blocked"),
+        validation: buildValidation("blocked"),
       }),
     ],
     benchmarkSuite: {
@@ -172,7 +172,7 @@ test("parity loop keeps improving changes and resets no-improvement streak", () 
       totalBenchmarks: 2,
       metrics: {
         readyRate: { available: true, value: 0.25 },
-        averageJudgeScore: { available: true, value: 190 },
+        averageValidationScore: { available: true, value: 190 },
         firstPaintEvidenceScore: { available: true, value: 140 },
       },
     },
@@ -182,11 +182,11 @@ test("parity loop keeps improving changes and resets no-improvement streak", () 
     cases: [
       buildCase("html-quantum-explainer", "pass", {
         selectedSkills: [{ name: "frontend" }],
-        judge: buildJudge("pass"),
+        validation: buildValidation("pass"),
       }),
       buildCase("svg-ai-tools-hero", "pass", {
         selectedSkills: [{ name: "frontend" }],
-        judge: buildJudge("pass"),
+        validation: buildValidation("pass"),
       }),
     ],
     benchmarkSuite: {
@@ -194,7 +194,7 @@ test("parity loop keeps improving changes and resets no-improvement streak", () 
       totalBenchmarks: 2,
       metrics: {
         readyRate: { available: true, value: 1 },
-        averageJudgeScore: { available: true, value: 382 },
+        averageValidationScore: { available: true, value: 382 },
         firstPaintEvidenceScore: { available: true, value: 244 },
       },
     },
@@ -280,7 +280,7 @@ test("parity loop stops immediately when thresholds are already met", () => {
     cases: [
       buildCase("html-quantum-explainer", "pass", {
         selectedSkills: [{ name: "frontend" }],
-        judge: buildJudge("pass"),
+        validation: buildValidation("pass"),
       }),
     ],
     benchmarkSuite: {
@@ -288,7 +288,7 @@ test("parity loop stops immediately when thresholds are already met", () => {
       totalBenchmarks: 1,
       metrics: {
         readyRate: { available: true, value: 1 },
-        averageJudgeScore: { available: true, value: 392 },
+        averageValidationScore: { available: true, value: 392 },
         firstPaintEvidenceScore: { available: true, value: 250 },
       },
     },

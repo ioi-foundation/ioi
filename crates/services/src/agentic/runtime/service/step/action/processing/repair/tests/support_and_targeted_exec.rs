@@ -80,7 +80,7 @@ async fn patch_build_verify_invalid_tool_repair_uses_recovery_filtered_tools() {
                 )
             })
             .name_string(),
-        "filesystem__patch"
+        "file__edit"
     );
     assert!(repair
         .verification_checks
@@ -97,7 +97,7 @@ async fn patch_build_verify_invalid_tool_repair_uses_recovery_filtered_tools() {
     assert!(repair
         .verification_checks
         .iter()
-        .any(|check| check == "invalid_tool_call_repair_tool=filesystem__patch"));
+        .any(|check| check == "invalid_tool_call_repair_tool=file__edit"));
 
     let seen_tools = runtime
         .seen_tools
@@ -109,27 +109,39 @@ async fn patch_build_verify_invalid_tool_repair_uses_recovery_filtered_tools() {
         .find(|tool_names: &&Vec<String>| {
             tool_names
                 .iter()
-                .any(|name| name == "filesystem__write_file")
+                .any(|name| repair_tool_names_match(name, "filesystem__write_file"))
         })
         .expect("repair inference should record a tool set");
     assert!(repair_tools
         .iter()
-        .any(|name| name == "filesystem__write_file"));
+        .any(|name| repair_tool_names_match(name, "filesystem__write_file")));
     assert!(repair_tools
         .iter()
-        .any(|name| name == "filesystem__edit_line"));
-    assert!(repair_tools.iter().any(|name| name == "filesystem__patch"));
-    assert!(repair_tools.iter().any(|name| name == "sys__exec_session"));
-    assert!(repair_tools.iter().any(|name| name == "agent__complete"));
-    assert!(repair_tools.iter().any(|name| name == "system__fail"));
+        .any(|name| repair_tool_names_match(name, "filesystem__edit_line")));
+    assert!(repair_tools
+        .iter()
+        .any(|name| repair_tool_names_match(name, "filesystem__patch")));
+    assert!(repair_tools
+        .iter()
+        .any(|name| repair_tool_names_match(name, "sys__exec_session")));
+    assert!(repair_tools
+        .iter()
+        .any(|name| repair_tool_names_match(name, "agent__complete")));
+    assert!(repair_tools
+        .iter()
+        .any(|name| repair_tool_names_match(name, "system__fail")));
     assert!(!repair_tools
         .iter()
-        .any(|name| name == "filesystem__read_file"));
-    assert!(!repair_tools.iter().any(|name| name == "filesystem__search"));
+        .any(|name| repair_tool_names_match(name, "filesystem__read_file")));
     assert!(!repair_tools
         .iter()
-        .any(|name| name == "filesystem__list_directory"));
-    assert!(!repair_tools.iter().any(|name| name == "filesystem__stat"));
+        .any(|name| repair_tool_names_match(name, "filesystem__search")));
+    assert!(!repair_tools
+        .iter()
+        .any(|name| repair_tool_names_match(name, "filesystem__list_directory")));
+    assert!(!repair_tools
+        .iter()
+        .any(|name| repair_tool_names_match(name, "filesystem__stat")));
 
     let seen_inputs = runtime
         .seen_inputs
@@ -142,7 +154,7 @@ async fn patch_build_verify_invalid_tool_repair_uses_recovery_filtered_tools() {
         .find(|input: &String| input.contains("Malformed response to repair"))
         .expect("repair prompt should be recorded");
     assert!(prompt.contains("path_utils.py"));
-    assert!(prompt.contains("filesystem__patch"));
+    assert!(prompt.contains("filesystem__patch") || prompt.contains("file__edit"));
     assert!(prompt.contains("JSON Syntax Error"));
 }
 
@@ -419,7 +431,7 @@ async fn patch_build_verify_invalid_tool_repair_does_not_replay_targeted_exec_af
             .repaired_tool
             .expect("expected repaired tool")
             .name_string(),
-        "filesystem__write_file"
+        "file__write"
     );
     assert!(!repair
         .verification_checks

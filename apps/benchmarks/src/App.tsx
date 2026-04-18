@@ -233,7 +233,7 @@ type StudioArtifactBenchmarkCase = {
   matchedRunId: string | null;
   matchedVerificationStatus: string | null;
   matchedClassification: string | null;
-  judgeScore: number | null;
+  validationScore: number | null;
   firstPaintEvidenceScore: number | null;
   iterationsToClear: number | null;
   shimDependent: boolean | null;
@@ -296,7 +296,7 @@ type StudioArtifactArenaView = {
       executionId?: string | null;
       caseId?: string | null;
       classification?: string | null;
-      judgeScore?: number | null;
+      validationScore?: number | null;
     } | null;
     blindWinner: {
       participant?: string | null;
@@ -405,16 +405,16 @@ type StudioArtifactDistillationProposal = {
   before: {
     caseId: string | null;
     classification: string | null;
-    judgeScore: number | null;
+    validationScore: number | null;
   } | null;
   after: {
     caseId: string | null;
     classification: string | null;
-    judgeScore: number | null;
+    validationScore: number | null;
   } | null;
   structuralChanges: {
     classificationDelta?: number | null;
-    judgeScoreDelta?: number | null;
+    validationScoreDelta?: number | null;
     firstPaintEvidenceDelta?: number | null;
   } | null;
   generalization: {
@@ -649,7 +649,7 @@ function studioArtifactParticipantLabel(participant: string, label?: string | nu
     .replace(/^reference:/, "external ")
     .replace(/^stack:/, "")
     .replace(/^generator:/, "")
-    .replace(/^judge:/, "")
+    .replace(/^validation:/, "")
     .replace(/^scaffold:/, "")
     .replace(/^component_profile:/, "")
     .replace(/^skill_spine:/, "")
@@ -1414,10 +1414,10 @@ function App() {
                     </strong>
                   </article>
                   <article className="artifact-benchmark-stat">
-                    <span>Judge score</span>
+                    <span>Validation score</span>
                     <strong>
                       {fmtScore(
-                        studioArtifactBenchmarkSuite.metrics.averageJudgeScore?.value ??
+                        studioArtifactBenchmarkSuite.metrics.averageValidationScore?.value ??
                           null,
                       )}
                     </strong>
@@ -1470,7 +1470,7 @@ function App() {
                           </div>
                           <div className="artifact-benchmark-score">
                             <span>{entry.matchedClassification ?? "unrun"}</span>
-                            <strong>{fmtScore(entry.judgeScore)}</strong>
+                            <strong>{fmtScore(entry.validationScore)}</strong>
                             <small>
                               {entry.shimDependent === true
                                 ? "shimmed"

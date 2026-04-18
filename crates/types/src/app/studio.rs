@@ -612,7 +612,7 @@ pub enum StudioArtifactVerificationStatus {
     Partial,
 }
 
-/// Truthful runtime provenance for Studio generation and judging.
+/// Truthful runtime provenance for Studio generation and validation.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum StudioRuntimeProvenanceKind {
@@ -638,7 +638,7 @@ pub struct StudioRuntimeProvenance {
 }
 
 /// Explicit typed artifact failure surfaced when Studio cannot truthfully
-/// produce or judge an artifact.
+/// produce or validate an artifact.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum StudioArtifactFailureKind {

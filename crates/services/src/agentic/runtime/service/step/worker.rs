@@ -1,5 +1,6 @@
 use crate::agentic::rules::ActionRules;
 use crate::agentic::runtime::keys::get_state_key;
+use crate::agentic::runtime::middleware::canonical_deterministic_tool_name;
 use crate::agentic::runtime::service::lifecycle::load_worker_assignment;
 use crate::agentic::runtime::service::step::action::execution_receipt_value;
 use crate::agentic::runtime::service::step::anti_loop::{latest_failure_class, FailureClass};
@@ -37,9 +38,23 @@ pub(crate) fn worker_assignment_allows_tool_name(
                 || assignment
                     .allowed_tools
                     .iter()
-                    .any(|allowed| allowed == tool_name)
+                    .any(|allowed| worker_assignment_tool_names_match(allowed, tool_name))
         })
         .unwrap_or(true)
+}
+
+fn worker_assignment_tool_names_match(allowed: &str, candidate: &str) -> bool {
+    if allowed == candidate {
+        return true;
+    }
+
+    match (
+        canonical_deterministic_tool_name(allowed),
+        canonical_deterministic_tool_name(candidate),
+    ) {
+        (Some(left), Some(right)) => left == right,
+        _ => false,
+    }
 }
 
 pub(crate) fn worker_assignment_disallowed_tool_error(

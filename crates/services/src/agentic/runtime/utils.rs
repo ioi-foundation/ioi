@@ -16,6 +16,22 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const AGENT_STATE_CHECKPOINT_NAME: &str = "desktop.agent_state.v1";
 
+pub fn timestamp_ms_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+pub fn timestamp_secs_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
+}
+
 /// Helper to get a string representation of the agent status for event emission.
 fn get_status_str(status: &AgentStatus) -> String {
     format!("{:?}", status)
@@ -339,10 +355,7 @@ pub fn goto_trace_log(
         cost_incurred: 0,
         fitness_score: None,
         skill_hash,
-        timestamp: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
+        timestamp: timestamp_secs_now(),
     };
 
     let trace_key = [

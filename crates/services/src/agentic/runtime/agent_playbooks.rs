@@ -39,7 +39,7 @@ pub fn playbook_route_contract(playbook_id: &str) -> AgentPlaybookRouteContract 
             route_family: "artifacts",
             topology: "planner_specialist_verifier",
             planner_authority: "kernel",
-            verifier_role: Some("artifact_quality_verifier"),
+            verifier_role: Some("artifact_validation_verifier"),
             requires_verifier: true,
         },
         _ => AgentPlaybookRouteContract {
@@ -471,7 +471,7 @@ pub fn builtin_agent_playbooks() -> Vec<AgentPlaybookDefinition> {
                 "Parent playbook for artifact work that captures artifact context first, then separates file-backed generation from the final quality gate."
                     .to_string(),
             goal_template:
-                "Create or refine {topic} as a file-backed artifact by first capturing artifact context, then generating the deliverable, then judging whether the retained output is ready for presentation."
+                "Create or refine {topic} as a file-backed artifact by first capturing artifact context, then generating the deliverable, then validating whether the retained output is ready for presentation."
                     .to_string(),
             trigger_intents: vec!["delegation.task".to_string()],
             recommended_for: vec![
@@ -481,14 +481,14 @@ pub fn builtin_agent_playbooks() -> Vec<AgentPlaybookDefinition> {
             default_budget: 196,
             completion_contract: WorkerCompletionContract {
                 success_criteria:
-                    "Return the artifact context brief, produced artifact files, retained verification signals, and a quality verdict that says whether the artifact is ready or still needs repair."
+                    "Return the artifact context brief, produced artifact files, retained verification signals, and a validation outcome that says whether the artifact is ready or still needs repair."
                         .to_string(),
                 expected_output:
-                    "Artifact context brief, generation handoff, and quality verdict."
+                    "Artifact context brief, generation handoff, and validation outcome."
                         .to_string(),
                 merge_mode: WorkerMergeMode::AppendSummaryToParent,
                 verification_hint: Some(
-                    "Parent confirms the captured artifact context, retained output files, and judge verdict before presenting the final artifact route."
+                    "Parent confirms the captured artifact context, retained output files, and validation verdict before presenting the final artifact route."
                         .to_string(),
                 ),
             },
@@ -520,15 +520,15 @@ pub fn builtin_agent_playbooks() -> Vec<AgentPlaybookDefinition> {
                     depends_on: vec!["context".to_string()],
                 },
                 AgentPlaybookStepDefinition {
-                    step_id: "judge".to_string(),
-                    label: "Judge artifact quality".to_string(),
+                    step_id: "validation".to_string(),
+                    label: "Validate artifact quality".to_string(),
                     summary:
-                        "Judge whether the retained artifact output is request-faithful and presentation-ready or still needs repair."
+                        "Validate whether the retained artifact output is request-faithful and presentation-ready or still needs repair."
                             .to_string(),
                     worker_template_id: "verifier".to_string(),
-                    worker_workflow_id: "artifact_quality_audit".to_string(),
+                    worker_workflow_id: "artifact_validation_audit".to_string(),
                     goal_template:
-                        "Judge whether the generated artifact for {topic} is faithful and presentation-ready by inspecting the retained files and generation handoff, then return an artifact quality scorecard with verdict, fidelity_status, presentation_status, repair_status, and notes."
+                        "Validate whether the generated artifact for {topic} is faithful and presentation-ready by inspecting the retained files and generation handoff, then return an artifact validation scorecard with verdict, fidelity_status, presentation_status, repair_status, and notes."
                             .to_string(),
                     depends_on: vec!["build".to_string()],
                 },
@@ -819,7 +819,7 @@ mod tests {
         assert_eq!(playbook.steps[2].worker_template_id, "verifier");
         assert_eq!(
             playbook.steps[2].worker_workflow_id,
-            "artifact_quality_audit"
+            "artifact_validation_audit"
         );
     }
 
@@ -861,7 +861,7 @@ mod tests {
                 route_family: "artifacts",
                 topology: "planner_specialist_verifier",
                 planner_authority: "kernel",
-                verifier_role: Some("artifact_quality_verifier"),
+                verifier_role: Some("artifact_validation_verifier"),
                 requires_verifier: true,
             }
         );
@@ -894,6 +894,6 @@ mod tests {
         assert!(rendered.contains("verifier/browser_postcondition_audit"));
         assert!(rendered.contains("context_worker/artifact_context_brief"));
         assert!(rendered.contains("artifact_builder/artifact_generate_repair"));
-        assert!(rendered.contains("verifier/artifact_quality_audit"));
+        assert!(rendered.contains("verifier/artifact_validation_audit"));
     }
 }

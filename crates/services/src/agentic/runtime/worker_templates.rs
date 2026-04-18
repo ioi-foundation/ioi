@@ -333,13 +333,13 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 }),
             },
             WorkerTemplateWorkflowDefinition {
-                workflow_id: "artifact_quality_audit".to_string(),
-                label: "Artifact Quality Audit".to_string(),
+                workflow_id: "artifact_validation_audit".to_string(),
+                label: "Artifact Validation Audit".to_string(),
                 summary:
-                    "Artifact-specific verification pass that judges brief fidelity, presentation readiness, and repair need from the retained artifact handoff."
+                    "Artifact-specific verification pass that validates brief fidelity, presentation readiness, and repair need from the retained artifact handoff."
                         .to_string(),
                 goal_template:
-                    "Judge whether the generated artifact for {topic} is faithful and presentation-ready by inspecting the retained files and generation handoff, then return an artifact quality scorecard with verdict, fidelity_status, presentation_status, repair_status, and notes."
+                    "Validate whether the generated artifact for {topic} is faithful and presentation-ready by inspecting the retained files and generation handoff, then return an artifact validation scorecard with verdict, fidelity_status, presentation_status, repair_status, and notes."
                         .to_string(),
                 trigger_intents: vec!["delegation.task".to_string()],
                 default_budget: Some(52),
@@ -353,7 +353,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 ],
                 completion_contract: Some(WorkerCompletionContract {
                     success_criteria:
-                        "Return a deterministic artifact quality scorecard with verdict, fidelity status, presentation status, repair status, and clearly named blockers."
+                        "Return a deterministic artifact validation scorecard with verdict, fidelity status, presentation status, repair status, and clearly named blockers."
                             .to_string(),
                     expected_output:
                         "Artifact quality scorecard using markdown bullets for verdict, fidelity_status, presentation_status, repair_status, notes, and next_repair_step."
@@ -781,7 +781,7 @@ pub fn builtin_worker_templates() -> Vec<WorkerTemplateDefinition> {
                 workflow_id: "artifact_generate_repair".to_string(),
                 label: "Artifact Generate and Repair".to_string(),
                 summary:
-                    "Bounded artifact-generation pass that creates or refines file-backed deliverables, records retained evidence, and calls out remaining judgment gaps."
+                    "Bounded artifact-generation pass that creates or refines file-backed deliverables, records retained evidence, and calls out remaining validation gaps."
                         .to_string(),
                 goal_template:
                     "Generate or refine {topic} as a file-backed artifact, retain the important output files and verification signals, and return a concise handoff with produced_files, verification_signals, presentation_status, repair_status, and remaining visual or structural gaps."
@@ -1073,14 +1073,14 @@ mod tests {
             .as_ref()
             .and_then(|contract| contract.verification_hint.as_deref())
             .is_some_and(|hint| hint.contains("freshness")));
-        let artifact_quality_audit = verifier
+        let artifact_validation_audit = verifier
             .workflows
             .iter()
-            .find(|workflow| workflow.workflow_id == "artifact_quality_audit")
-            .expect("artifact quality workflow should exist");
-        assert_eq!(artifact_quality_audit.default_budget, Some(52));
-        assert_eq!(artifact_quality_audit.max_retries, Some(0));
-        assert!(artifact_quality_audit
+            .find(|workflow| workflow.workflow_id == "artifact_validation_audit")
+            .expect("artifact validation workflow should exist");
+        assert_eq!(artifact_validation_audit.default_budget, Some(52));
+        assert_eq!(artifact_validation_audit.max_retries, Some(0));
+        assert!(artifact_validation_audit
             .completion_contract
             .as_ref()
             .and_then(|contract| contract

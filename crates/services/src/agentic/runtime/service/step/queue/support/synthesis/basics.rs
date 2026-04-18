@@ -1149,6 +1149,9 @@ pub(crate) fn single_snapshot_summary_line_with_contract(
 ) -> String {
     let title = source.title.as_deref().unwrap_or_default();
     let excerpt = source.excerpt.as_str();
+    let query_facets = analyze_query_facets(query_contract);
+    let metric_snapshot_query = !query_metric_axes(query_contract).is_empty()
+        || (query_facets.time_sensitive_public_fact && query_facets.locality_sensitive_public_fact);
     if let Some(metric) = first_metric_sentence(excerpt) {
         if contains_current_condition_metric_signal(&metric) {
             return format!(
@@ -1160,6 +1163,20 @@ pub(crate) fn single_snapshot_summary_line_with_contract(
         if has_quantitative_metric_payload(&metric, false) {
             return single_snapshot_best_available_with_limitation(source, &metric);
         }
+    }
+    if metric_snapshot_query {
+        let fallback = actionable_excerpt(excerpt).unwrap_or_else(|| source_bullet(source));
+        if contains_current_condition_metric_signal(&fallback) {
+            return format!(
+                "{} {}",
+                single_snapshot_current_metric_prefix(query_contract, &fallback, false),
+                concise_metric_snapshot_line(&fallback)
+            );
+        }
+        if has_quantitative_metric_payload(&fallback, false) {
+            return single_snapshot_best_available_with_limitation(source, &fallback);
+        }
+        return single_snapshot_metric_limitation_line(source);
     }
     if let Some(subject_currentness) =
         first_subject_currentness_sentence(&format!("{} {}", title, excerpt))
@@ -1263,12 +1280,108 @@ pub(crate) fn metric_axis_display_priority(axis: MetricAxis) -> usize {
 }
 
 pub(crate) fn axis_specific_metric_line(axis: MetricAxis, text: &str) -> Option<String> {
+    fn axis_keyword_markers(axis: MetricAxis) -> &'static [&'static str] {
+        match axis {
+            MetricAxis::Temperature => &["temperature", "feels like"],
+            MetricAxis::Humidity => &["humidity"],
+            MetricAxis::Wind => &["wind speed", "wind"],
+            MetricAxis::Pressure => &["pressure", "barometer"],
+            MetricAxis::Visibility => &["visibility"],
+            MetricAxis::AirQuality => &["air quality", "aqi"],
+            MetricAxis::Price => &["price", "quote", "rate"],
+            MetricAxis::Rate => &["rate"],
+            MetricAxis::Precipitation => &["precipitation"],
+            MetricAxis::Score => &["score"],
+            MetricAxis::Duration => &["duration"],
+        }
+    }
+
+    fn axis_keyword_metric_excerpt(axis: MetricAxis, text: &str) -> Option<String> {
+        const STOP_MARKERS: &[&str] = &[
+            "temperature",
+            "feels like",
+            "humidity",
+            "wind speed",
+            "wind",
+            "pressure",
+            "barometer",
+            "visibility",
+            "air quality",
+            "aqi",
+            "price",
+            "quote",
+            "rate",
+        ];
+
+        let compact = compact_whitespace(text);
+        if compact.is_empty() {
+            return None;
+        }
+        let lowered = compact.to_ascii_lowercase();
+        for marker in axis_keyword_markers(axis) {
+            let Some(start) = lowered.find(marker) else {
+                continue;
+            };
+            let after = start + marker.len();
+            let next_marker = STOP_MARKERS
+                .iter()
+                .filter_map(|candidate| {
+                    lowered[after..]
+                        .find(candidate)
+                        .map(|offset| after + offset)
+                })
+                .min();
+            let punctuation_end = compact[after..]
+                .find(['.', ';', ','])
+                .map(|offset| after + offset);
+            let end = next_marker
+                .into_iter()
+                .chain(punctuation_end)
+                .min()
+                .unwrap_or(compact.len());
+            let segment = compact_whitespace(&compact[start..end]);
+            if segment.is_empty() || !segment.chars().any(|ch| ch.is_ascii_digit()) {
+                continue;
+            }
+            let concise = concise_metric_snapshot_line(&segment);
+            if !concise.is_empty() && concise.chars().any(|ch| ch.is_ascii_digit()) {
+                return Some(concise);
+            }
+        }
+        None
+    }
+
     let schema = analyze_metric_schema(text);
     if !schema.axis_hits.contains(&axis) || !has_quantitative_metric_payload(text, true) {
         return None;
     }
     if axis == MetricAxis::Price && !has_price_quote_payload(text) {
         return None;
+    }
+    if let Some(keyword_excerpt) = axis_keyword_metric_excerpt(axis, text) {
+        return Some(keyword_excerpt);
+    }
+    for sentence in metric_sentence_like_segments(text) {
+        for segment in sentence
+            .split([',', ';'])
+            .map(compact_whitespace)
+            .filter(|segment| !segment.is_empty())
+        {
+            let segment_schema = analyze_metric_schema(&segment);
+            if !segment_schema.axis_hits.contains(&axis) {
+                continue;
+            }
+            if axis == MetricAxis::Price && !has_price_quote_payload(&segment) {
+                continue;
+            }
+            if axis != MetricAxis::Price && !has_quantitative_metric_payload(&segment, true) {
+                continue;
+            }
+            let concise = concise_metric_snapshot_line(&segment);
+            if !concise.is_empty() && concise.chars().any(|ch| ch.is_ascii_digit()) {
+                return Some(concise);
+            }
+        }
     }
     let focused = compact_metric_focus(text);
     if focused.is_empty() || !focused.chars().any(|ch| ch.is_ascii_digit()) {

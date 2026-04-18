@@ -636,7 +636,7 @@ pub(super) fn emit_non_swarm_generation_progress(
     live_previews: &[ExecutionLivePreview],
     current_step: impl Into<String>,
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
-    judge: Option<&StudioArtifactJudgeResult>,
+    validation: Option<&StudioArtifactValidationResult>,
     invariant_status: ExecutionCompletionInvariantStatus,
     required_artifact_paths: Vec<String>,
     runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
@@ -669,7 +669,7 @@ pub(super) fn emit_non_swarm_generation_progress(
         swarm_merge_receipts: Vec::new(),
         swarm_verification_receipts: Vec::new(),
         render_evaluation: render_evaluation.cloned(),
-        judge: judge.cloned(),
+        validation: validation.cloned(),
         runtime_narration_events,
     });
 }

@@ -192,8 +192,8 @@ const VERIFIER_AGENT_KEYS = new Set([
   "postcondition_audit",
   "postcondition_verifier",
   "browser_postcondition_audit",
-  "artifact_quality_audit",
-  "artifact_quality_verifier",
+  "artifact_validation_audit",
+  "artifact_validation_verifier",
 ]);
 
 const PATCH_SYNTHESIZER_AGENT_KEYS = new Set([
@@ -961,7 +961,7 @@ function isVerifierEntry(entry: ActivityEventRef): boolean {
   return (
     signal.includes("verifier") ||
     signal.includes("audit") ||
-    signal.includes("judge") ||
+    signal.includes("validation") ||
     signal.includes("postcondition")
   );
 }

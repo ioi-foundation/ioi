@@ -12,7 +12,7 @@ function buildEntry(id, dateRoot, overrides = {}) {
     renderer: "html_iframe",
     classification: "repairable",
     effectiveClassification: "repairable",
-    judgeScore: 0.42,
+    validationScore: 0.42,
     firstPaintEvidenceScore: 0.38,
     shimDependent: true,
     blueprintPresent: false,
@@ -31,14 +31,14 @@ test("distillation ledger promotes typed upgrade targets from case history delta
       buildEntry("html-ai-tools-editorial", "2026-03-28", {
         classification: "blocked",
         effectiveClassification: "blocked",
-        judgeScore: 0.21,
+        validationScore: 0.21,
         firstPaintEvidenceScore: 0.16,
         shimDependent: true,
       }),
       buildEntry("html-ai-tools-editorial", "2026-03-30", {
         classification: "pass",
         effectiveClassification: "pass",
-        judgeScore: 0.88,
+        validationScore: 0.88,
         firstPaintEvidenceScore: 0.81,
         shimDependent: false,
         blueprintPresent: true,
@@ -77,7 +77,7 @@ test("distillation ledger promotes typed upgrade targets from case history delta
     [
       "component_pack_upgrade",
       "ir_compiler_rule",
-      "judge_calibration_example",
+      "validation_calibration_example",
       "scaffold_upgrade",
       "skill_guidance_upgrade",
       "taste_memory_default",
@@ -95,7 +95,7 @@ test("distillation ledger skips groups without material structural gain", () => 
       buildEntry("svg-ai-tools-hero", "2026-03-28", {
         classification: "pass",
         effectiveClassification: "pass",
-        judgeScore: 0.7,
+        validationScore: 0.7,
         firstPaintEvidenceScore: 0.67,
         shimDependent: false,
         blueprintPresent: true,
@@ -104,7 +104,7 @@ test("distillation ledger skips groups without material structural gain", () => 
       buildEntry("svg-ai-tools-hero", "2026-03-30", {
         classification: "pass",
         effectiveClassification: "pass",
-        judgeScore: 0.71,
+        validationScore: 0.71,
         firstPaintEvidenceScore: 0.68,
         shimDependent: false,
         blueprintPresent: true,

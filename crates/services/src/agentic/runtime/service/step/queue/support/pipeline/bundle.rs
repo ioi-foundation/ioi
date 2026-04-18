@@ -469,6 +469,77 @@ mod tests {
             "{urls:?}"
         );
     }
+
+    #[test]
+    fn constrained_inventory_preserves_distinct_headline_article_domains() {
+        let query = "Tell me today's top news headlines.";
+        let bundle = WebEvidenceBundle {
+            schema_version: 1,
+            retrieved_at_ms: 0,
+            tool: "web__search".to_string(),
+            backend: "edge:google-news-rss".to_string(),
+            query: Some(query.to_string()),
+            url: Some("https://news.google.com/rss/search?q=top+headlines".to_string()),
+            sources: vec![
+                WebSource {
+                    source_id: "fox-main".to_string(),
+                    rank: Some(1),
+                    url: "https://www.foxnews.com/us/example-breaking-story".to_string(),
+                    title: Some("Emergency response declared after major storm".to_string()),
+                    snippet: Some(
+                        "Officials declared an emergency response Wednesday morning.".to_string(),
+                    ),
+                    domain: Some("foxnews.com".to_string()),
+                },
+                WebSource {
+                    source_id: "fox-politics".to_string(),
+                    rank: Some(2),
+                    url: "https://www.foxnews.com/politics/example-policy-shift".to_string(),
+                    title: Some("Senate leaders announce policy framework".to_string()),
+                    snippet: Some(
+                        "Leaders announced a bipartisan framework in Washington.".to_string(),
+                    ),
+                    domain: Some("foxnews.com".to_string()),
+                },
+                WebSource {
+                    source_id: "reuters".to_string(),
+                    rank: Some(3),
+                    url: "https://www.reuters.com/world/europe/example-story/".to_string(),
+                    title: Some("European ministers agree on emergency aid package".to_string()),
+                    snippet: Some(
+                        "Ministers agreed to an aid package after overnight talks.".to_string(),
+                    ),
+                    domain: Some("reuters.com".to_string()),
+                },
+                WebSource {
+                    source_id: "ap".to_string(),
+                    rank: Some(4),
+                    url: "https://apnews.com/article/example-story".to_string(),
+                    title: Some("Federal agency expands investigation into outage".to_string()),
+                    snippet: Some(
+                        "Agency officials expanded an investigation late Tuesday.".to_string(),
+                    ),
+                    domain: Some("apnews.com".to_string()),
+                },
+            ],
+            source_observations: vec![],
+            documents: vec![],
+            provider_candidates: vec![],
+            retrieval_contract: None,
+        };
+
+        let (urls, hints) =
+            constrained_candidate_inventory_from_bundle_with_locality_hint(query, 3, &bundle, None);
+
+        let distinct_domains = urls
+            .iter()
+            .filter_map(|url| source_host(url))
+            .map(|host| host.strip_prefix("www.").unwrap_or(&host).to_string())
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(hints.len(), 4, "{hints:?}");
+        assert_eq!(distinct_domains.len(), 3, "{urls:?}");
+    }
 }
 
 pub(crate) fn document_source_hints_from_bundle(

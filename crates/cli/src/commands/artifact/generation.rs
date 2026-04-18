@@ -381,7 +381,7 @@ pub(super) async fn run_generate(
         &title,
         &request,
         &bundle.winner,
-        &bundle.judge,
+        &bundle.validation,
         &bundle.production_provenance,
         &bundle.acceptance_provenance,
         bundle.failure.as_ref(),
@@ -397,7 +397,7 @@ pub(super) async fn run_generate(
         bundle.blueprint.as_ref(),
         bundle.selected_skills.as_slice(),
         bundle.candidate_summaries.as_slice(),
-        &bundle.judge,
+        &bundle.validation,
         bundle.ux_lifecycle,
     );
     let evidence = GeneratedArtifactEvidence {
@@ -413,7 +413,7 @@ pub(super) async fn run_generate(
         winning_candidate_id: bundle.winning_candidate_id,
         winning_candidate_rationale: bundle.winning_candidate_rationale,
         render_evaluation: bundle.render_evaluation,
-        judge: Some(bundle.judge),
+        validation: Some(bundle.validation),
         output_origin: Some(bundle.origin),
         runtime_policy: bundle.runtime_policy,
         adaptive_search_budget: bundle.adaptive_search_budget,
@@ -454,12 +454,12 @@ pub(super) async fn run_generate(
 
     println!("Generated: {}", evidence.title);
     println!("  renderer: {}", renderer_label(request.renderer));
-    let judge_label = evidence
-        .judge
+    let validation_label = evidence
+        .validation
         .as_ref()
-        .map(format_judge_label)
+        .map(format_validation_label)
         .unwrap_or("unavailable");
-    println!("  judge: {}", judge_label);
+    println!("  validation: {}", validation_label);
     println!("  output: {}", output.display());
     println!("  evidence: {}", evidence_path.display());
     Ok(())

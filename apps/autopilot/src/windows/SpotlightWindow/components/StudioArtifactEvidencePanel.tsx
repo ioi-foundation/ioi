@@ -113,7 +113,7 @@ export function StudioArtifactEvidencePanel({
   const blueprint = studioSession.materialization.blueprint ?? null;
   const artifactIr = studioSession.materialization.artifactIr ?? null;
   const selectedSkills = studioSession.materialization.selectedSkills ?? [];
-  const judge = studioSession.materialization.judge ?? null;
+  const validation = studioSession.materialization.validation ?? null;
   const executionEnvelope = studioSession.materialization.executionEnvelope ?? null;
   const swarmPlan = studioSession.materialization.swarmPlan ?? executionEnvelope?.plan ?? null;
   const swarmExecution =
@@ -193,9 +193,9 @@ export function StudioArtifactEvidencePanel({
   const verificationHeadline = manifest.verification.failure
     ? "Verification blocked"
     : "Verification retained";
-  const judgeHeadline = judge
-    ? formatStatusLabel(judge.classification)
-    : "Judge pending";
+  const validationHeadline = validation
+    ? formatStatusLabel(validation.classification)
+    : "Validation pending";
   const deliveryHeadline = hasSwarmExecution
     ? `${swarmWorkerReceipts.length} worker receipt${
         swarmWorkerReceipts.length === 1 ? "" : "s"
@@ -341,7 +341,7 @@ export function StudioArtifactEvidencePanel({
         <div className="studio-artifact-summary-copy">
           <span className="studio-artifact-panel-label">At a glance</span>
           <p>
-            Summary-first trust, judge, and delivery view for the current
+            Summary-first trust, validation, and delivery view for the current
             artifact run.
           </p>
         </div>
@@ -364,19 +364,22 @@ export function StudioArtifactEvidencePanel({
             </p>
           </article>
           <article className="studio-artifact-summary-card">
-            <span>Judge</span>
-            <strong>{judgeHeadline}</strong>
+            <span>Validation</span>
+            <strong>{validationHeadline}</strong>
             <p>
-              {judge ? judge.rationale : "No judge decision is attached yet."}
+              {validation
+                ? validation.rationale
+                : "No validation result is attached yet."}
             </p>
-            {judge ? (
+            {validation ? (
               <p>
-                Faithfulness {judge.requestFaithfulness}/5 · Layout{" "}
-                {judge.layoutCoherence}/5 · Completeness {judge.completeness}/5
+                Faithfulness {validation.requestFaithfulness}/5 · Layout{" "}
+                {validation.layoutCoherence}/5 · Completeness{" "}
+                {validation.completeness}/5
               </p>
             ) : null}
-            {judge?.recommendedNextPass ? (
-              <p>Next pass: {judge.recommendedNextPass}</p>
+            {validation?.recommendedNextPass ? (
+              <p>Next pass: {validation.recommendedNextPass}</p>
             ) : null}
           </article>
           <article className="studio-artifact-summary-card">
@@ -697,56 +700,57 @@ export function StudioArtifactEvidencePanel({
         </section>
       ) : null}
 
-      {judge ? (
+      {validation ? (
         <section className="studio-artifact-inspector-section">
-          <span className="studio-artifact-panel-label">Judge</span>
+          <span className="studio-artifact-panel-label">Validation</span>
           <div className="studio-artifact-note-list">
             <p>
-              <strong>{formatStatusLabel(judge.classification)}</strong> ·{" "}
-              {judge.rationale}
+              <strong>{formatStatusLabel(validation.classification)}</strong> ·{" "}
+              {validation.rationale}
             </p>
             <p>
-              Faithfulness {judge.requestFaithfulness}/5 · Coverage{" "}
-              {judge.conceptCoverage}/5 · Interaction{" "}
-              {judge.interactionRelevance}/5
+              Faithfulness {validation.requestFaithfulness}/5 · Coverage{" "}
+              {validation.conceptCoverage}/5 · Interaction{" "}
+              {validation.interactionRelevance}/5
             </p>
             <p>
-              Layout {judge.layoutCoherence}/5 · Hierarchy{" "}
-              {judge.visualHierarchy}/5 · Completeness {judge.completeness}/5
+              Layout {validation.layoutCoherence}/5 · Hierarchy{" "}
+              {validation.visualHierarchy}/5 · Completeness{" "}
+              {validation.completeness}/5
             </p>
-            {judge.issueClasses.length ? (
+            {validation.issueClasses.length ? (
               <p>
-                <strong>Issues:</strong> {judge.issueClasses.join(" · ")}
+                <strong>Issues:</strong> {validation.issueClasses.join(" · ")}
               </p>
             ) : null}
-            {judge.strengths.length ? (
+            {validation.strengths.length ? (
               <p>
-                <strong>Strengths:</strong> {judge.strengths.join(" · ")}
+                <strong>Strengths:</strong> {validation.strengths.join(" · ")}
               </p>
             ) : null}
             <p>
-              <strong>Aesthetic:</strong> {judge.aestheticVerdict}
+              <strong>Aesthetic:</strong> {validation.aestheticVerdict}
             </p>
             <p>
-              <strong>Interaction:</strong> {judge.interactionVerdict}
+              <strong>Interaction:</strong> {validation.interactionVerdict}
             </p>
-            {judge.strongestContradiction ? (
-              <p>{judge.strongestContradiction}</p>
+            {validation.strongestContradiction ? (
+              <p>{validation.strongestContradiction}</p>
             ) : null}
-            {judge.repairHints.length ? (
+            {validation.repairHints.length ? (
               <p>
-                <strong>Repair hints:</strong> {judge.repairHints.join(" · ")}
+                <strong>Repair hints:</strong> {validation.repairHints.join(" · ")}
               </p>
             ) : null}
-            {judge.truthfulnessWarnings.length ? (
+            {validation.truthfulnessWarnings.length ? (
               <p>
                 <strong>Truthfulness warnings:</strong>{" "}
-                {judge.truthfulnessWarnings.join(" · ")}
+                {validation.truthfulnessWarnings.join(" · ")}
               </p>
             ) : null}
-            {judge.recommendedNextPass ? (
+            {validation.recommendedNextPass ? (
               <p>
-                <strong>Next pass:</strong> {judge.recommendedNextPass}
+                <strong>Next pass:</strong> {validation.recommendedNextPass}
               </p>
             ) : null}
           </div>
@@ -1058,7 +1062,9 @@ export function StudioArtifactEvidencePanel({
                   ) : null}
                   {candidate.failure ? <p>{candidate.failure}</p> : null}
                 </div>
-                <span>{formatStatusLabel(candidate.judge.classification)}</span>
+                <span>
+                  {formatStatusLabel(candidate.validation.classification)}
+                </span>
               </div>
             ))}
           </div>

@@ -280,8 +280,8 @@ export const DOC_PAGES: DocPage[] = [
                 Studio, gates, receipts, and a growing operator shell.
               </li>
               <li>
-                <strong>Studio artifact pipeline:</strong> shared planning, generation, judging,
-                and materialization helpers in the API and CLI layers.
+                <strong>Studio artifact pipeline:</strong> shared planning, generation,
+                validation, and materialization helpers in the API and CLI layers.
               </li>
               <li>
                 <strong>ioi-swarm:</strong> a Python SDK for agent construction with policy and
@@ -423,7 +423,7 @@ npm run lint --workspace=apps/developers-ioi-ai`}
     section: 'get-started',
     status: 'Current',
     lastVerified: '2026-03-31',
-    keywords: ['studio', 'artifact', 'generate', 'judge', 'mock', 'cli'],
+    keywords: ['studio', 'artifact', 'generate', 'validation', 'mock', 'cli'],
     sources: ['crates/cli/src/commands/artifact.rs', 'crates/api/src/studio.rs'],
     canonicalLinks: [],
     nextSteps: [
@@ -439,7 +439,7 @@ npm run lint --workspace=apps/developers-ioi-ai`}
           <div className={bodyClass(isDark)}>
             <p>
               The artifact path is one of the most implementation-backed builder flows in the repo
-              today. It has a real CLI surface, a shared planning/generation/judging module, and a
+              today. It has a real CLI surface, a shared planning/generation/validation module, and a
               mock mode that lets you learn the workflow without immediately wiring a local model.
             </p>
             <Callout isDark={isDark} tone="current" title="Best first-run posture">
@@ -465,9 +465,9 @@ npm run lint --workspace=apps/developers-ioi-ai`}
                   code: 'cargo run -p ioi-cli --bin cli -- artifact generate "Create a markdown release checklist for an IOI app launch." --output outputs/release-checklist --mock --force',
                 },
                 {
-                  title: 'Inspect the typed judge result',
-                  body: 'The judge command accepts the output directory or a direct path to generation.json.',
-                  code: 'cargo run -p ioi-cli --bin cli -- artifact judge outputs/release-checklist --json',
+                  title: 'Inspect the typed validation result',
+                  body: 'The validation command accepts the output directory or a direct path to generation.json.',
+                  code: 'cargo run -p ioi-cli --bin cli -- artifact validation outputs/release-checklist --json',
                 },
                 {
                   title: 'Route a prompt without generating a full bundle',
@@ -496,8 +496,8 @@ npm run lint --workspace=apps/developers-ioi-ai`}
             />
             <p>
               The exact inference endpoint and model will depend on your local setup. The CLI also
-              exposes acceptance judge parameters when you want a separate runtime for the proof or
-              judging lane.
+              exposes acceptance validation parameters when you want a separate runtime for the proof or
+              validation lane.
             </p>
           </div>
         ),
@@ -734,7 +734,7 @@ agent.run("Check my vault balance and alert me if it's below 50")`}
               headers={['Workflow', 'Command family', 'Best first use']}
               rows={[
                 ['Scaffold a project', 'init / scaffold', 'Create a new IOI project shape or add services/contracts to a workspace.'],
-                ['Generate artifacts', 'artifact', 'Run route/generate/judge/materialize flows through the shared Studio path.'],
+                ['Generate artifacts', 'artifact', 'Run route/generate/validate/materialize flows through the shared Studio path.'],
                 ['Run a local node', 'node / query', 'Bring up a local validator and inspect state or chain status.'],
                 ['Inspect execution', 'trace / verify', 'Understand traces and determinism evidence after a run.'],
                 ['Synthesize policy', 'policy / ghost', 'Turn recorded traces into a first-pass least-privilege policy.'],
@@ -1158,7 +1158,7 @@ cargo run -p ioi-cli --bin cli -- node`}
             rows={[
               ['init', 'Initialize a new IOI project structure', 'Creates a starter project shape with services, contracts, and config directories.'],
               ['scaffold', 'Add services or contracts', 'Scaffolds native service modules or WASM contract modules.'],
-              ['artifact', 'Plan, generate, inspect, validate, judge, materialize', 'One of the strongest implementation-backed workflows in the repo today.'],
+              ['artifact', 'Plan, generate, inspect, validate, materialize', 'One of the strongest implementation-backed workflows in the repo today.'],
               ['node', 'Run a local chain or validator flow', 'Use this when you need a local state/rpc surface.'],
               ['test', 'Run the project test suite', 'Builder and devnet validation path.'],
               ['keys', 'Manage identities and connector keys', 'Includes generation and inspection paths.'],

@@ -85,7 +85,7 @@ export type SwarmWorkerRole =
   | "style_system"
   | "interaction"
   | "integrator"
-  | "judge"
+  | "validation"
   | "repair";
 
 export type SwarmLeaseMode = "shared_read" | "exclusive_write";

@@ -656,6 +656,40 @@ pub(crate) fn semantic_retrieval_query_contract_with_contract_and_locality_hint(
         .filter(|token| !metric_tokens.contains(*token))
         .cloned()
         .collect::<Vec<_>>();
+    let locality_snapshot_subject_tokens = semantic_subject_tokens
+        .iter()
+        .filter(|token| {
+            !matches!(
+                token.as_str(),
+                "current" | "currently" | "latest" | "now" | "right" | "today"
+            )
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    let weather_snapshot_query = semantic_tokens
+        .iter()
+        .any(|token| matches!(token.as_str(), "weather" | "forecast"));
+
+    if retrieval_or_query_prefers_single_fact_snapshot(retrieval_contract, &resolved)
+        && (weather_snapshot_query
+            || (facets.time_sensitive_public_fact && facets.locality_sensitive_public_fact))
+    {
+        let subject_tokens = if locality_snapshot_subject_tokens.is_empty() {
+            semantic_subject_tokens.clone()
+        } else {
+            locality_snapshot_subject_tokens
+        };
+        if !subject_tokens.is_empty() {
+            let mut base = format!("{} current conditions", subject_tokens.join(" "));
+            if !metric_terms.is_empty() {
+                base = format!("{base} {}", metric_terms.join(" "));
+            }
+            if let Some(scope) = scope.as_ref() {
+                return format!("{base} in {scope}");
+            }
+            return base;
+        }
+    }
 
     if scope.is_none() && semantic_tokens.len() < 2 {
         if facets.time_sensitive_public_fact && facets.locality_sensitive_public_fact {
@@ -706,7 +740,11 @@ pub(crate) fn semantic_retrieval_query_contract_with_contract_and_locality_hint(
     format!("{} in {}", semantic_non_scope.join(" "), scope)
 }
 
-pub(crate) fn select_web_pipeline_query_contract(goal: &str, retrieval_query: &str) -> String {
+pub(crate) fn select_web_pipeline_query_contract_with_locality_hint(
+    goal: &str,
+    retrieval_query: &str,
+    locality_hint: Option<&str>,
+) -> String {
     let goal_compact = compact_whitespace(strip_parent_playbook_context(goal));
     let retrieval_compact = compact_whitespace(retrieval_query);
     let goal_trimmed = goal_compact.trim();
@@ -720,7 +758,7 @@ pub(crate) fn select_web_pipeline_query_contract(goal: &str, retrieval_query: &s
         .and_then(|scope| cleaned_retrieval_scope_for_goal(goal_trimmed, &scope));
     let goal_requires_runtime_locality = query_requires_runtime_locality_scope(goal_trimmed);
     let runtime_scope = goal_requires_runtime_locality
-        .then(|| effective_locality_scope_hint(None))
+        .then(|| effective_locality_scope_hint(locality_hint))
         .flatten();
     let mut contract = runtime_scope
         .as_deref()
@@ -748,4 +786,8 @@ pub(crate) fn select_web_pipeline_query_contract(goal: &str, retrieval_query: &s
     }
 
     contract
+}
+
+pub(crate) fn select_web_pipeline_query_contract(goal: &str, retrieval_query: &str) -> String {
+    select_web_pipeline_query_contract_with_locality_hint(goal, retrieval_query, None)
 }

@@ -6,6 +6,8 @@ mod coercion;
 mod envelope;
 mod normalizer;
 
+pub(crate) use builtins::canonical_deterministic_tool_name;
+
 pub fn normalize_tool_call(raw_llm_output: &str) -> Result<AgentTool> {
     ToolNormalizer::normalize(raw_llm_output)
 }

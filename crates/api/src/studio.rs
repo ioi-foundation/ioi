@@ -18,7 +18,6 @@ mod generation;
 mod html;
 mod html_registry;
 mod intent_signals;
-mod judging;
 mod payload;
 mod pdf;
 mod planning;
@@ -26,6 +25,7 @@ mod render_eval;
 mod runtime_locality;
 mod specialized_policy;
 mod types;
+mod validation;
 
 tokio::task_local! {
     static STUDIO_MODAL_FIRST_HTML_TASK_OVERRIDE: bool;
@@ -119,15 +119,12 @@ pub use generation::{
     StudioArtifactActivityObserver, StudioArtifactGenerationProgressObserver,
     StudioArtifactResolvedRuntimePlan,
 };
-pub use judging::{
-    build_studio_artifact_judge_prompt, build_studio_artifact_judge_repair_prompt,
-    judge_studio_artifact_candidate_with_runtime, parse_studio_artifact_judge_result,
-};
 #[cfg(test)]
 pub(crate) use payload::validate_generated_artifact_payload_against_brief;
 pub(crate) use payload::{
-    enforce_renderer_judge_contract, enrich_generated_artifact_payload, extract_first_json_object,
-    normalize_generated_artifact_payload, parse_and_validate_generated_artifact_payload,
+    enforce_renderer_validation_contract, enrich_generated_artifact_payload,
+    extract_first_json_object, normalize_generated_artifact_payload,
+    parse_and_validate_generated_artifact_payload,
     validate_generated_artifact_payload_against_brief_with_edit_intent,
 };
 pub use payload::{parse_studio_generated_artifact_payload, validate_generated_artifact_payload};
@@ -145,13 +142,17 @@ pub use planning::{
 };
 pub use render_eval::{
     build_studio_artifact_render_acceptance_policy, evaluate_studio_artifact_render_if_configured,
-    merge_studio_artifact_render_evaluation_into_judge, StudioArtifactRenderEvaluator,
+    merge_studio_artifact_render_evaluation_into_validation, StudioArtifactRenderEvaluator,
 };
 pub use runtime_locality::{
     resolve_runtime_locality_placeholder, studio_runtime_locality_scope_hint,
     with_studio_runtime_locality_scope_hint_override,
 };
 pub use types::*;
+pub use validation::{
+    build_studio_artifact_validation_prompt, build_studio_artifact_validation_repair_prompt,
+    parse_studio_artifact_validation_result, validate_studio_artifact_candidate_with_runtime,
+};
 
 #[cfg(test)]
 mod tests;

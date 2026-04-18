@@ -223,7 +223,7 @@ export interface StudioArtifactPipelineStep {
 
 export type StudioArtifactEditMode = "create" | "patch" | "replace" | "branch";
 
-export type StudioArtifactJudgeClassification =
+export type StudioArtifactValidationStatus =
   | "pass"
   | "repairable"
   | "blocked";
@@ -363,7 +363,7 @@ export interface StudioArtifactRenderEvaluation {
 export type StudioArtifactUxLifecycle =
   | "draft"
   | "refining"
-  | "judged"
+  | "validated"
   | "locked";
 
 export interface StudioArtifactSelectionTarget {
@@ -678,8 +678,8 @@ export interface StudioArtifactEditIntent {
   branchRequested: boolean;
 }
 
-export interface StudioArtifactJudgeResult {
-  classification: StudioArtifactJudgeClassification;
+export interface StudioArtifactValidationResult {
+  classification: StudioArtifactValidationStatus;
   requestFaithfulness: number;
   conceptCoverage: number;
   interactionRelevance: number;
@@ -691,6 +691,11 @@ export interface StudioArtifactJudgeResult {
   deservesPrimaryArtifactView: boolean;
   patchedExistingArtifact?: boolean | null;
   continuityRevisionUx?: number | null;
+  scoreTotal: number;
+  proofKind: string;
+  primaryViewCleared: boolean;
+  validatedPaths: string[];
+  issueCodes: string[];
   issueClasses: string[];
   repairHints: string[];
   strengths: string[];
@@ -701,6 +706,7 @@ export interface StudioArtifactJudgeResult {
   truthfulnessWarnings: string[];
   recommendedNextPass?: string | null;
   strongestContradiction?: string | null;
+  summary: string;
   rationale: string;
 }
 
@@ -720,7 +726,7 @@ export interface StudioArtifactCandidateSummary {
   rawOutputPreview?: string | null;
   convergence?: StudioArtifactCandidateConvergenceTrace | null;
   renderEvaluation?: StudioArtifactRenderEvaluation | null;
-  judge: StudioArtifactJudgeResult;
+  validation: StudioArtifactValidationResult;
 }
 
 export interface StudioArtifactCandidateConvergenceTrace {
@@ -843,7 +849,7 @@ export interface StudioArtifactMaterializationContract {
   swarmMergeReceipts: SwarmMergeReceipt[];
   swarmVerificationReceipts: SwarmVerificationReceipt[];
   renderEvaluation?: StudioArtifactRenderEvaluation | null;
-  judge?: StudioArtifactJudgeResult | null;
+  validation?: StudioArtifactValidationResult | null;
   outputOrigin?: StudioArtifactOutputOrigin | null;
   productionProvenance?: StudioRuntimeProvenance | null;
   acceptanceProvenance?: StudioRuntimeProvenance | null;
@@ -1137,7 +1143,7 @@ export interface StudioArtifactRevision {
   swarmMergeReceipts: SwarmMergeReceipt[];
   swarmVerificationReceipts: SwarmVerificationReceipt[];
   renderEvaluation?: StudioArtifactRenderEvaluation | null;
-  judge?: StudioArtifactJudgeResult | null;
+  validation?: StudioArtifactValidationResult | null;
   outputOrigin?: StudioArtifactOutputOrigin | null;
   productionProvenance?: StudioRuntimeProvenance | null;
   acceptanceProvenance?: StudioRuntimeProvenance | null;
@@ -3247,7 +3253,7 @@ export type PlanVerifierRole =
   | "citation_verifier"
   | "test_verifier"
   | "postcondition_verifier"
-  | "artifact_quality_verifier";
+  | "artifact_validation_verifier";
 
 export type PlanVerifierOutcome = "pass" | "warning" | "blocked";
 

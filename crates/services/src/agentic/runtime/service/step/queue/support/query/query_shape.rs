@@ -267,6 +267,9 @@ pub(crate) fn prefers_single_fact_snapshot(query: &str) -> bool {
         return false;
     }
     let padded = normalized_phrase_query(query);
+    let explicit_plural_collection_surface = EXPLICIT_COUNT_COLLECTION_NOUNS
+        .iter()
+        .any(|noun| padded.contains(&format!(" {noun} ")));
     let semantic_tokens = query_semantic_anchor_tokens(query);
     let plural_semantic_surface = semantic_surface_is_plural(&semantic_tokens);
     let ranked_plural_collection = plural_semantic_surface
@@ -277,7 +280,10 @@ pub(crate) fn prefers_single_fact_snapshot(query: &str) -> bool {
             .any(|marker| padded.contains(marker));
     let plural_briefing_surface =
         plural_semantic_surface && query_requests_multi_item_briefing(&padded);
-    if ranked_plural_collection || plural_briefing_surface {
+    if ranked_plural_collection
+        || plural_briefing_surface
+        || (explicit_plural_collection_surface && facets.goal.recency_hits > 0)
+    {
         return false;
     }
     true
@@ -303,14 +309,22 @@ pub(crate) fn query_prefers_multi_item_cardinality(query: &str) -> bool {
         .chain(MULTI_ITEM_COMPARISON_DIRECTIVES.iter())
         .any(|marker| padded.contains(marker));
     let has_ranked_collection = padded.contains(" top ");
+    let has_explicit_collection_noun = EXPLICIT_COUNT_COLLECTION_NOUNS
+        .iter()
+        .any(|noun| padded.contains(&format!(" {noun} ")));
     let semantic_tokens = query_semantic_anchor_tokens(query);
     let plural_semantic_surface = semantic_surface_is_plural(&semantic_tokens);
     let has_plural_briefing_surface =
         plural_semantic_surface && query_requests_multi_item_briefing(&padded);
+    let has_time_sensitive_collection_surface =
+        has_explicit_collection_noun && analyze_query_facets(query).goal.recency_hits > 0;
 
     query_requests_comparison(query)
-        || ((has_ranked_collection || has_collection_directive || has_plural_briefing_surface)
-            && plural_semantic_surface)
+        || ((has_ranked_collection
+            || has_collection_directive
+            || has_plural_briefing_surface
+            || has_time_sensitive_collection_surface)
+            && (plural_semantic_surface || has_explicit_collection_noun))
 }
 
 pub(crate) fn query_requests_comparison(query: &str) -> bool {
@@ -360,6 +374,7 @@ pub(crate) fn query_is_generic_headline_collection(query: &str) -> bool {
     let facets = analyze_query_facets(query);
     facets.time_sensitive_public_fact
         && facets.grounded_external_required
+        && !facets.service_status_lookup
         && !facets.workspace_constrained
         && !facets.locality_sensitive_public_fact
 }

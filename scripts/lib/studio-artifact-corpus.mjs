@@ -50,14 +50,14 @@ const RUNTIME_ALIASES = new Map([
   ["real_local_runtime", "local_runtime"],
   ["real_remote_runtime", "remote_runtime"],
   ["studio_runtime", "studio_runtime"],
-  ["judge_runtime", "judge_runtime"],
+  ["validation_runtime", "validation_runtime"],
 ]);
 const RUNTIME_LABELS = new Map([
   ["fixture", "Fixture"],
   ["local_runtime", "Local Runtime"],
   ["remote_runtime", "Remote Runtime"],
   ["studio_runtime", "Studio Runtime"],
-  ["judge_runtime", "Judge Runtime"],
+  ["validation_runtime", "Validation Runtime"],
 ]);
 
 function readJson(targetPath, fallback = null) {
@@ -193,13 +193,13 @@ function average(values) {
   return numeric.reduce((sum, value) => sum + value, 0) / numeric.length;
 }
 
-function normalizedJudgeAverage(judge, keys) {
-  if (!judge || typeof judge !== "object") {
+function normalizedValidationAverage(validation, keys) {
+  if (!validation || typeof validation !== "object") {
     return null;
   }
   const score = average(
     keys
-      .map((key) => judge?.[key])
+      .map((key) => validation?.[key])
       .filter((value) => typeof value === "number" && Number.isFinite(value))
       .map((value) => value / 5),
   );
@@ -365,7 +365,7 @@ function hasShimDependency(filePath) {
 function candidateClassificationCounts(candidateSetMetadata) {
   const counts = { pass: 0, repairable: 0, blocked: 0 };
   for (const candidate of Array.isArray(candidateSetMetadata) ? candidateSetMetadata : []) {
-    const classification = normalizeClassification(candidate?.judge?.classification, "");
+    const classification = normalizeClassification(candidate?.validation?.classification, "");
     if (classification) {
       counts[classification] += 1;
     }
@@ -596,7 +596,7 @@ function repeatedRunVarianceSummary({
 
     const variance = average(
       [
-        spread(runEntries.map((entry) => entry.judgeScore)),
+        spread(runEntries.map((entry) => entry.validationScore)),
         spread(runEntries.map((entry) => entry.firstPaintEvidenceScore)),
         spread(runEntries.map((entry) => entry.screenshotQualityScore)),
         spread(
@@ -616,7 +616,7 @@ function repeatedRunVarianceSummary({
     flowCount: retainedSummaryPaths.length,
     measurementCount: measurements.length,
     method:
-      "mean spread across judge, first-paint, render-eval, and classification scores for retained repeated-run variation receipts",
+      "mean spread across validation, first-paint, render-eval, and classification scores for retained repeated-run variation receipts",
   };
 }
 
@@ -739,7 +739,7 @@ function summarizeDistillationLedger(distillationLedgerPath, evidenceRoot) {
     : [];
   const applied = proposals.filter((proposal) => proposal.status === "applied");
   const measuredGains = applied
-    .map((proposal) => proposal?.measuredGain?.judgeScoreDelta)
+    .map((proposal) => proposal?.measuredGain?.validationScoreDelta)
     .filter((value) => typeof value === "number" && Number.isFinite(value));
 
   return {
@@ -857,11 +857,11 @@ function buildIndexedEntry(caseSummaryPath, evidenceRoot) {
   const shimDependent =
     hasShimDependency(primaryArtifactFsPath) || hasShimDependency(materializedPrimaryFsPath);
   const candidateCounts = candidateClassificationCounts(summary?.candidateSetMetadata);
-  const judge = summary?.judge && typeof summary.judge === "object" ? summary.judge : null;
+  const validation = summary?.validation && typeof summary.validation === "object" ? summary.validation : null;
   const renderEvaluation = resolveRenderEvaluation(summary);
-  const judgeClassification = normalizeClassification(summary?.judge?.classification, "");
-  const effectiveClassification = judgeClassification
-    ? judgeClassification
+  const validationClassification = normalizeClassification(summary?.validation?.classification, "");
+  const effectiveClassification = validationClassification
+    ? validationClassification
     : normalizeClassification(
         summary?.classification,
         mapVerificationToClassification(verificationStatus),
@@ -908,7 +908,7 @@ function buildIndexedEntry(caseSummaryPath, evidenceRoot) {
       caseRef,
       evidenceRoot,
     }),
-    judgePath: caseScopedRef(path.join(caseDir, "judge.json"), {
+    validationPath: caseScopedRef(path.join(caseDir, "validation.json"), {
       caseDir,
       caseRef,
       evidenceRoot,
@@ -978,9 +978,9 @@ function buildIndexedEntry(caseSummaryPath, evidenceRoot) {
     retrievedExemplarCount: Array.isArray(summary?.retrievedExemplars)
       ? summary.retrievedExemplars.length
       : 0,
-    judgePresent: Boolean(judge),
-    judgeScore: normalizedJudgeAverage(judge, JUDGE_SCORE_DIMENSIONS),
-    firstPaintEvidenceScore: normalizedJudgeAverage(judge, FIRST_PAINT_EVIDENCE_DIMENSIONS),
+    validationPresent: Boolean(validation),
+    validationScore: normalizedValidationAverage(validation, JUDGE_SCORE_DIMENSIONS),
+    firstPaintEvidenceScore: normalizedValidationAverage(validation, FIRST_PAINT_EVIDENCE_DIMENSIONS),
     renderEvaluationPresent: Boolean(renderEvaluation),
     screenshotQualityScore: normalizedRenderOverallScore(renderEvaluation),
     responsivenessScore: normalizedResponsivenessScore(renderEvaluation),
@@ -992,7 +992,7 @@ function buildIndexedEntry(caseSummaryPath, evidenceRoot) {
         : null,
     winningModel: null,
     strongestContradiction:
-      summary?.judge?.strongestContradiction ??
+      summary?.validation?.strongestContradiction ??
       summary?.strongestContradiction ??
       summary?.manifest?.verification?.failure?.message ??
       null,
@@ -1148,7 +1148,7 @@ export function collectStudioArtifactBenchmarkSuite(options = {}) {
       capturePaths: executedCase?.capturePaths ?? [],
       shimDependent:
         typeof executedCase?.shimDependent === "boolean" ? executedCase.shimDependent : null,
-      judgeScore: executedCase?.judgeScore ?? null,
+      validationScore: executedCase?.validationScore ?? null,
       firstPaintEvidenceScore: executedCase?.firstPaintEvidenceScore ?? null,
       iterationsToClear:
         typeof executedCase?.candidateCount === "number" ? executedCase.candidateCount : null,
@@ -1222,13 +1222,13 @@ export function collectStudioArtifactBenchmarkSuite(options = {}) {
           .filter((entry) => entry.shimDependent === true)
           .map((entry) => entry.benchmarkId),
       }),
-      averageJudgeScore: metricReading({
-        label: "Average judge score",
-        value: roundMetric(average(executedBenchmarks.map((entry) => entry.judgeScore))),
+      averageValidationScore: metricReading({
+        label: "Average validation score",
+        value: roundMetric(average(executedBenchmarks.map((entry) => entry.validationScore))),
         unit: "normalized_score",
         method: "mean of the six structured acceptance dimensions normalized to the 0-1 range",
         supportingBenchmarkIds: executedBenchmarks
-          .filter((entry) => entry.judgeScore != null)
+          .filter((entry) => entry.validationScore != null)
           .map((entry) => entry.benchmarkId),
       }),
       firstPaintEvidenceScore: metricReading({
@@ -1308,7 +1308,7 @@ export function collectStudioArtifactBenchmarkSuite(options = {}) {
         label: "Distillation gain",
         value: distillation.measuredGain,
         unit: "delta",
-        method: "mean retained judge-score delta across applied distillation upgrades once winning runs are folded back into the default stack",
+        method: "mean retained validation-score delta across applied distillation upgrades once winning runs are folded back into the default stack",
         available: distillation.appliedCount > 0 && distillation.measuredGain != null,
       }),
     },

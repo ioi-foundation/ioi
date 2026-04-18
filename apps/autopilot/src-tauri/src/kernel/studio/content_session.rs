@@ -31,9 +31,9 @@ mod connectors;
 mod non_artifact;
 mod route_contract;
 
-#[cfg(test)]
 pub(super) use self::clarification::clarification_request_for_outcome_request;
 use self::clarification::specialized_domain_clarification_question;
+#[cfg(test)]
 pub(super) use self::connectors::{
     infer_connector_route_context_from_catalog, merge_connector_route_context,
 };
@@ -98,7 +98,7 @@ pub(super) struct MaterializedContentArtifact {
     pub(super) swarm_merge_receipts: Vec<SwarmMergeReceipt>,
     pub(super) swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
     pub(super) render_evaluation: Option<StudioArtifactRenderEvaluation>,
-    pub(super) judge: Option<StudioArtifactJudgeResult>,
+    pub(super) validation: Option<StudioArtifactValidationResult>,
     pub(super) output_origin: StudioArtifactOutputOrigin,
     pub(super) production_provenance: Option<crate::models::StudioRuntimeProvenance>,
     pub(super) acceptance_provenance: Option<crate::models::StudioRuntimeProvenance>,
@@ -139,213 +139,13 @@ fn default_studio_outcome_request(
     request
 }
 
-fn is_likely_contextual_widget_follow_up(intent: &str) -> bool {
-    let normalized = intent.trim().to_ascii_lowercase();
-    if normalized.is_empty() {
-        return false;
-    }
-
-    let starts_fresh_request = [
-        "find",
-        "show",
-        "give",
-        "list",
-        "draft",
-        "write",
-        "make",
-        "create",
-        "plan",
-        "build",
-        "generate",
-        "tell",
-        "recommend",
-        "search",
-        "look up",
-        "book",
-        "buy",
-        "compose",
-        "reply",
-        "summarize",
-        "explain",
-    ]
-    .iter()
-    .any(|prefix| normalized.starts_with(&format!("{prefix} ")))
-        || [
-            "find",
-            "show",
-            "give",
-            "list",
-            "draft",
-            "write",
-            "make",
-            "create",
-            "plan",
-            "build",
-            "generate",
-            "tell",
-            "recommend",
-            "search",
-            "look up",
-            "book",
-            "buy",
-            "compose",
-            "reply",
-            "summarize",
-            "explain",
-        ]
-        .iter()
-        .any(|prefix| normalized == *prefix);
-
-    let contextual_prefix = [
-        "how about",
-        "what about",
-        "and",
-        "also",
-        "instead",
-        "then",
-        "tomorrow",
-        "next",
-        "same",
-        "that",
-        "those",
-        "them",
-    ]
-    .iter()
-    .any(|prefix| normalized.starts_with(prefix));
-    if contextual_prefix {
-        return true;
-    }
-
-    if [
-        " instead",
-        " tomorrow",
-        " next one",
-        " same one",
-        " that one",
-        " those",
-    ]
-    .iter()
-    .any(|needle| normalized.contains(needle))
-    {
-        return true;
-    }
-
-    if normalized.ends_with('?') {
-        return false;
-    }
-
-    if [
-        "near",
-        "around",
-        "within",
-        "in",
-        "at",
-        "by",
-        "for",
-        "via",
-        "through",
-        "on",
-        "slack",
-        "email",
-        "gmail",
-        "text",
-        "sms",
-        "chat",
-        "today",
-        "tomorrow",
-        "tonight",
-        "this weekend",
-        "this week",
-        "next week",
-    ]
-    .iter()
-    .any(|prefix| normalized.starts_with(prefix))
-    {
-        return true;
-    }
-
-    let word_count = normalized
-        .split_whitespace()
-        .filter(|part| !part.is_empty())
-        .count();
-    if !starts_fresh_request
-        && word_count <= 6
-        && (normalized.contains(',') || normalized.ends_with('.'))
-    {
-        return true;
-    }
-
-    !starts_fresh_request && word_count <= 3 && normalized.len() <= 48
-}
-
-fn retained_widget_follow_up_route_hint(widget_family: &str) -> Option<&'static str> {
-    match widget_family {
-        "weather" => Some("tool_widget:weather"),
-        "sports" => Some("tool_widget:sports"),
-        "places" => Some("tool_widget:places"),
-        "recipe" => Some("tool_widget:recipe"),
-        "user_input" => Some("tool_widget:user_input"),
-        _ => None,
-    }
-}
-
-pub(super) fn contextual_retained_widget_follow_up_request(
-    raw_prompt: &str,
-    active_artifact_id: Option<String>,
-    active_widget_state: Option<&StudioRetainedWidgetState>,
-) -> Option<StudioOutcomeRequest> {
-    let widget_state = active_widget_state?;
-    let widget_family = widget_state.widget_family.as_deref()?;
-    let routing_hint = retained_widget_follow_up_route_hint(widget_family)?;
-    if !is_likely_contextual_widget_follow_up(raw_prompt) {
-        return None;
-    }
-
-    let requested_strategy = execution_strategy_for_outcome(StudioOutcomeKind::ToolWidget, None);
-    let execution_mode_decision = derive_execution_mode_decision(
-        StudioOutcomeKind::ToolWidget,
-        None,
-        requested_strategy,
-        0.92,
-        false,
-        active_artifact_id.is_some(),
-    );
-    let execution_strategy = execution_mode_decision.resolved_strategy;
-    let mut outcome_request = StudioOutcomeRequest {
-        request_id: Uuid::new_v4().to_string(),
-        raw_prompt: raw_prompt.trim().to_string(),
-        active_artifact_id,
-        outcome_kind: StudioOutcomeKind::ToolWidget,
-        execution_strategy,
-        execution_mode_decision: Some(execution_mode_decision),
-        confidence: 0.92,
-        needs_clarification: false,
-        clarification_questions: Vec::new(),
-        routing_hints: vec![
-            routing_hint.to_string(),
-            "retained_widget_follow_up".to_string(),
-            "narrow_surface_preferred".to_string(),
-        ],
-        lane_frame: None,
-        request_frame: None,
-        source_selection: None,
-        retained_lane_state: None,
-        lane_transitions: Vec::new(),
-        orchestration_state: None,
-        artifact: None,
-    };
-    refresh_outcome_request_topology(&mut outcome_request, active_widget_state);
-    apply_retained_widget_state_resolution(&mut outcome_request, active_widget_state);
-    Some(outcome_request)
-}
-
-fn studio_failure_request() -> StudioOutcomeArtifactRequest {
+fn default_blocked_artifact_request() -> StudioOutcomeArtifactRequest {
     StudioOutcomeArtifactRequest {
-        artifact_class: StudioArtifactClass::ReportBundle,
-        deliverable_shape: StudioArtifactDeliverableShape::FileSet,
-        renderer: StudioRendererKind::BundleManifest,
+        artifact_class: StudioArtifactClass::Document,
+        deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
+        renderer: StudioRendererKind::Markdown,
         presentation_surface: StudioPresentationSurface::SidePanel,
-        persistence: StudioArtifactPersistenceMode::ArtifactScoped,
+        persistence: StudioArtifactPersistenceMode::SharedArtifactScoped,
         execution_substrate: StudioExecutionSubstrate::None,
         workspace_recipe_id: None,
         presentation_variant_id: None,
@@ -355,7 +155,7 @@ fn studio_failure_request() -> StudioOutcomeArtifactRequest {
             mutation_boundary: vec!["artifact".to_string()],
         },
         verification: StudioOutcomeArtifactVerificationRequest {
-            require_render: false,
+            require_render: true,
             require_build: false,
             require_preview: false,
             require_export: false,
@@ -364,162 +164,38 @@ fn studio_failure_request() -> StudioOutcomeArtifactRequest {
     }
 }
 
-pub(super) fn attach_blocked_studio_failure_session(
-    task: &mut AgentTask,
-    intent: &str,
+fn blocked_artifact_outcome_request(
+    raw_prompt: &str,
     active_artifact_id: Option<String>,
-    provenance: crate::models::StudioRuntimeProvenance,
-    failure: StudioArtifactFailure,
-) {
-    let request = studio_failure_request();
-    let mut outcome_request = StudioOutcomeRequest {
+) -> StudioOutcomeRequest {
+    let artifact = default_blocked_artifact_request();
+    let mut request = StudioOutcomeRequest {
         request_id: Uuid::new_v4().to_string(),
-        raw_prompt: intent.trim().to_string(),
+        raw_prompt: raw_prompt.trim().to_string(),
         active_artifact_id,
         outcome_kind: StudioOutcomeKind::Artifact,
         execution_strategy: execution_strategy_for_outcome(
             StudioOutcomeKind::Artifact,
-            Some(&request),
+            Some(&artifact),
         ),
         execution_mode_decision: None,
         confidence: 0.0,
         needs_clarification: false,
         clarification_questions: Vec::new(),
-        routing_hints: Vec::new(),
+        routing_hints: vec![
+            "persistent_artifact_requested".to_string(),
+            "routing_failed_closed".to_string(),
+        ],
         lane_frame: None,
         request_frame: None,
         source_selection: None,
         retained_lane_state: None,
         lane_transitions: Vec::new(),
         orchestration_state: None,
-        artifact: Some(request.clone()),
+        artifact: Some(artifact),
     };
-    refresh_outcome_request_topology(&mut outcome_request, None);
-    let title = derive_artifact_title(intent);
-    let summary = failure.message.clone();
-    let judge = StudioArtifactJudgeResult {
-        classification: ioi_api::studio::StudioArtifactJudgeClassification::Blocked,
-        request_faithfulness: 1,
-        concept_coverage: 1,
-        interaction_relevance: 1,
-        layout_coherence: 1,
-        visual_hierarchy: 1,
-        completeness: 1,
-        generic_shell_detected: false,
-        trivial_shell_detected: false,
-        deserves_primary_artifact_view: false,
-        patched_existing_artifact: None,
-        continuity_revision_ux: None,
-        issue_classes: vec!["failure_session".to_string()],
-        repair_hints: vec![
-            "Resolve the upstream studio failure and rerun materialization before surfacing the artifact."
-                .to_string(),
-        ],
-        strengths: Vec::new(),
-        blocked_reasons: vec![summary.clone()],
-        file_findings: Vec::new(),
-        aesthetic_verdict: "not_evaluated_due_to_failure_session".to_string(),
-        interaction_verdict: "not_evaluated_due_to_failure_session".to_string(),
-        truthfulness_warnings: Vec::new(),
-        recommended_next_pass: Some("generation_retry".to_string()),
-        strongest_contradiction: Some(summary.clone()),
-        rationale: summary.clone(),
-    };
-    let artifact_manifest = StudioArtifactManifest {
-        artifact_id: Uuid::new_v4().to_string(),
-        title: title.clone(),
-        artifact_class: request.artifact_class,
-        renderer: request.renderer,
-        primary_tab: "evidence".to_string(),
-        tabs: vec![StudioArtifactManifestTab {
-            id: "evidence".to_string(),
-            label: "Evidence".to_string(),
-            kind: StudioArtifactTabKind::Evidence,
-            renderer: None,
-            file_path: None,
-            lens: Some("evidence".to_string()),
-        }],
-        files: Vec::new(),
-        verification: StudioArtifactManifestVerification {
-            status: StudioArtifactVerificationStatus::Blocked,
-            lifecycle_state: StudioArtifactLifecycleState::Blocked,
-            summary: summary.clone(),
-            production_provenance: Some(provenance.clone()),
-            acceptance_provenance: Some(provenance.clone()),
-            failure: Some(failure.clone()),
-        },
-        storage: None,
-    };
-    let mut materialization = materialization_contract_for_request(
-        intent,
-        &request,
-        &summary,
-        None,
-        execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(&request)),
-    );
-    materialization.artifact_brief = Some(blocked_failure_brief(
-        &title,
-        intent,
-        request.renderer,
-        &summary,
-        Vec::new(),
-    ));
-    materialization.judge = Some(judge);
-    materialization.output_origin = Some(output_origin_from_runtime_provenance(&provenance));
-    materialization.production_provenance = Some(provenance.clone());
-    materialization.acceptance_provenance = Some(provenance.clone());
-    let failure_kind = failure.kind;
-    materialization.failure = Some(failure);
-    materialization.summary = summary.clone();
-    materialization.ux_lifecycle = Some(StudioArtifactUxLifecycle::Draft);
-    materialization.notes.push(match failure_kind {
-        StudioArtifactFailureKind::InferenceUnavailable => {
-            "Studio stopped before routing because inference was unavailable and no substitute artifact was allowed."
-                .to_string()
-        }
-        StudioArtifactFailureKind::RoutingFailure => {
-            "Studio stopped before opening the artifact because typed outcome routing did not complete successfully."
-                .to_string()
-        }
-        _ => "Studio stopped before opening the artifact because verification could not authorize a usable primary artifact view."
-            .to_string(),
-    });
-    let mut studio_session = StudioArtifactSession {
-        session_id: Uuid::new_v4().to_string(),
-        thread_id: task.session_id.clone().unwrap_or_else(|| task.id.clone()),
-        artifact_id: artifact_manifest.artifact_id.clone(),
-        title: title.clone(),
-        summary: summary.clone(),
-        current_lens: "evidence".to_string(),
-        navigator_backing_mode: "logical".to_string(),
-        navigator_nodes: Vec::new(),
-        attached_artifact_ids: Vec::new(),
-        available_lenses: vec!["evidence".to_string()],
-        materialization,
-        outcome_request: outcome_request.clone(),
-        verified_reply: verified_reply_from_manifest(&title, &artifact_manifest),
-        artifact_manifest,
-        lifecycle_state: StudioArtifactLifecycleState::Blocked,
-        status: lifecycle_state_label(StudioArtifactLifecycleState::Blocked).to_string(),
-        active_revision_id: None,
-        revisions: Vec::new(),
-        taste_memory: None,
-        retrieved_exemplars: Vec::new(),
-        selected_targets: Vec::new(),
-        widget_state: None,
-        ux_lifecycle: Some(StudioArtifactUxLifecycle::Draft),
-        created_at: now_iso(),
-        updated_at: now_iso(),
-        build_session_id: None,
-        workspace_root: None,
-        renderer_session_id: None,
-    };
-    refresh_pipeline_steps(&mut studio_session, None);
-    let initial_revision = initial_revision_for_session(&studio_session, intent);
-    studio_session.active_revision_id = Some(initial_revision.revision_id.clone());
-    studio_session.revisions = vec![initial_revision];
-    task.studio_outcome = Some(outcome_request);
-    task.studio_session = Some(studio_session);
+    refresh_outcome_request_topology(&mut request, None);
+    request
 }
 
 pub(super) fn studio_outcome_request(
@@ -529,59 +205,10 @@ pub(super) fn studio_outcome_request(
     active_artifact: Option<&StudioArtifactRefinementContext>,
     active_widget_state: Option<&StudioRetainedWidgetState>,
 ) -> Result<StudioOutcomeRequest, String> {
-    let trimmed_intent = intent.trim();
-    if trimmed_intent.is_empty() {
-        return Ok(default_studio_outcome_request(
-            trimmed_intent,
-            active_artifact_id,
-        ));
-    }
-
-    if let Some(request) = contextual_retained_widget_follow_up_request(
-        trimmed_intent,
-        active_artifact_id.clone(),
-        active_widget_state,
-    ) {
-        return Ok(request);
-    }
-
-    let Some(runtime) = app_studio_routing_inference_runtime(app) else {
-        return Ok(default_studio_outcome_request(
-            trimmed_intent,
-            active_artifact_id,
-        ));
-    };
-
-    let mut outcome_request = studio_outcome_request_with_runtime(
-        runtime,
-        trimmed_intent,
-        active_artifact_id,
-        active_artifact,
-        active_widget_state,
-    )?;
-
-    let state = app.state::<std::sync::Mutex<crate::models::AppState>>();
-    let connectors =
-        tauri::async_runtime::block_on(crate::kernel::connectors::connector_list_catalog(state))
-            .unwrap_or_default();
-    if let Some(connector_context) =
-        infer_connector_route_context_from_catalog(trimmed_intent, &connectors)
-    {
-        merge_connector_route_context(&mut outcome_request, connector_context);
-        refresh_outcome_request_topology(&mut outcome_request, active_widget_state);
-        apply_retained_widget_state_resolution(&mut outcome_request, active_widget_state);
-    }
-
-    Ok(outcome_request)
-}
-
-pub(super) fn studio_outcome_request_with_runtime(
-    runtime: Arc<dyn InferenceRuntime>,
-    intent: &str,
-    active_artifact_id: Option<String>,
-    active_artifact: Option<&StudioArtifactRefinementContext>,
-    active_widget_state: Option<&StudioRetainedWidgetState>,
-) -> Result<StudioOutcomeRequest, String> {
+    let runtime =
+        super::task_state::app_studio_routing_inference_runtime(app).ok_or_else(|| {
+            "Studio outcome routing runtime is unavailable while routing the request.".to_string()
+        })?;
     let timeout = studio_routing_timeout_for_runtime(&runtime);
     studio_outcome_request_with_runtime_timeout(
         runtime,
@@ -632,25 +259,17 @@ pub(super) fn studio_outcome_request_with_runtime_timeout(
     };
 
     let planner_execution_strategy = planning.execution_strategy;
-    let mut outcome_kind = planning.outcome_kind;
-    let mut needs_clarification = planning.needs_clarification;
-    let mut clarification_questions = planning.clarification_questions;
+    let outcome_kind = planning.outcome_kind;
+    let needs_clarification = planning.needs_clarification;
+    let clarification_questions = planning.clarification_questions;
     let artifact = planning.artifact;
     if outcome_kind == StudioOutcomeKind::Artifact && artifact.is_none() {
-        outcome_kind = StudioOutcomeKind::Conversation;
-        needs_clarification = true;
-        clarification_questions.push(
-            "What artifact should Studio create: document, visual, single-file interactive surface, downloadable file, or workspace project?"
+        return Err(
+            "Studio outcome planning returned an artifact route without an artifact contract."
                 .to_string(),
         );
     }
-    let requested_strategy = if outcome_kind != planning.outcome_kind
-        || (outcome_kind == StudioOutcomeKind::Artifact && artifact.is_none())
-    {
-        execution_strategy_for_outcome(outcome_kind, artifact.as_ref())
-    } else {
-        planner_execution_strategy
-    };
+    let requested_strategy = planner_execution_strategy;
     let execution_mode_decision = derive_execution_mode_decision(
         outcome_kind,
         artifact.as_ref(),
@@ -683,6 +302,163 @@ pub(super) fn studio_outcome_request_with_runtime_timeout(
     refresh_outcome_request_topology(&mut outcome_request, active_widget_state);
     apply_retained_widget_state_resolution(&mut outcome_request, active_widget_state);
     Ok(outcome_request)
+}
+
+pub(super) fn attach_blocked_studio_failure_session(
+    task: &mut AgentTask,
+    prompt: &str,
+    active_artifact_id: Option<String>,
+    provenance: crate::models::StudioRuntimeProvenance,
+    failure: crate::models::StudioArtifactFailure,
+) {
+    let outcome_request = task
+        .studio_outcome
+        .clone()
+        .or_else(|| {
+            task.studio_session
+                .as_ref()
+                .map(|session| session.outcome_request.clone())
+        })
+        .unwrap_or_else(|| blocked_artifact_outcome_request(prompt, active_artifact_id));
+    let request = outcome_request
+        .artifact
+        .clone()
+        .unwrap_or_else(default_blocked_artifact_request);
+    let title = task
+        .studio_session
+        .as_ref()
+        .map(|session| session.title.clone())
+        .unwrap_or_else(|| derive_artifact_title(prompt));
+    let summary = failure.message.clone();
+    let mut materialization = materialization_contract_for_request(
+        prompt,
+        &request,
+        &title,
+        outcome_request.execution_mode_decision.clone(),
+        outcome_request.execution_strategy,
+    );
+    let execution_envelope = artifact_execution_envelope_for_contract(
+        outcome_request.execution_mode_decision.clone(),
+        outcome_request.execution_strategy,
+        &materialization,
+    );
+    let materialized_artifact = blocked_materialized_artifact_from_error(
+        &title,
+        prompt,
+        &request,
+        None,
+        &failure.message,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Vec::new(),
+        Vec::new(),
+        None,
+        Vec::new(),
+        execution_envelope,
+        None,
+        None,
+        Vec::new(),
+        Some(provenance.clone()),
+        Some(provenance.clone()),
+    );
+    apply_materialized_artifact_to_contract(
+        &mut materialization,
+        &request,
+        &materialized_artifact,
+        outcome_request.execution_mode_decision.clone(),
+        outcome_request.execution_strategy,
+    );
+
+    let lifecycle_state = StudioArtifactLifecycleState::Blocked;
+    let mut artifact_manifest =
+        artifact_manifest_for_request(&title, &request, &[], None, None, lifecycle_state);
+    artifact_manifest.files = materialized_artifact.files.clone();
+    artifact_manifest.verification.summary = materialized_artifact.verification_summary.clone();
+    artifact_manifest.verification.production_provenance = Some(provenance.clone());
+    artifact_manifest.verification.acceptance_provenance = Some(provenance.clone());
+    artifact_manifest.verification.failure = Some(failure.clone());
+    let navigator_nodes = navigator_nodes_for_manifest(&artifact_manifest);
+    materialization.navigator_nodes = navigator_nodes.clone();
+
+    let mut verified_reply = verified_reply_from_manifest(&title, &artifact_manifest);
+    verified_reply.summary = failure.message.clone();
+    verified_reply.production_provenance = Some(provenance.clone());
+    verified_reply.acceptance_provenance = Some(provenance.clone());
+    verified_reply.failure = Some(failure.clone());
+    if !verified_reply
+        .evidence
+        .iter()
+        .any(|item| item == &failure.code)
+    {
+        verified_reply.evidence.push(failure.code.clone());
+    }
+    if !verified_reply
+        .evidence
+        .iter()
+        .any(|item| item == &failure.message)
+    {
+        verified_reply.evidence.push(failure.message.clone());
+    }
+
+    let created_at = now_iso();
+    let mut studio_session = StudioArtifactSession {
+        session_id: Uuid::new_v4().to_string(),
+        thread_id: task.session_id.clone().unwrap_or_else(|| task.id.clone()),
+        artifact_id: artifact_manifest.artifact_id.clone(),
+        title: title.clone(),
+        summary: summary.clone(),
+        current_lens: artifact_manifest.primary_tab.clone(),
+        navigator_backing_mode: "logical".to_string(),
+        navigator_nodes,
+        attached_artifact_ids: Vec::new(),
+        available_lenses: artifact_manifest
+            .tabs
+            .iter()
+            .map(|tab| tab.id.clone())
+            .collect(),
+        materialization,
+        outcome_request: outcome_request.clone(),
+        artifact_manifest,
+        verified_reply,
+        lifecycle_state,
+        status: lifecycle_state_label(lifecycle_state).to_string(),
+        active_revision_id: None,
+        revisions: Vec::new(),
+        taste_memory: materialized_artifact.taste_memory.clone(),
+        retrieved_exemplars: materialized_artifact.retrieved_exemplars.clone(),
+        selected_targets: materialized_artifact.selected_targets.clone(),
+        widget_state: None,
+        ux_lifecycle: Some(materialized_artifact.ux_lifecycle),
+        created_at: created_at.clone(),
+        updated_at: created_at,
+        build_session_id: None,
+        workspace_root: None,
+        renderer_session_id: None,
+    };
+    refresh_pipeline_steps(&mut studio_session, None);
+    let initial_revision = initial_revision_for_session(&studio_session, prompt);
+    studio_session.active_revision_id = Some(initial_revision.revision_id.clone());
+    studio_session.revisions = vec![initial_revision];
+
+    task.studio_outcome = Some(outcome_request.clone());
+    task.studio_session = Some(studio_session);
+    task.renderer_session = None;
+    task.build_session = None;
+    task.gate_info = None;
+    task.pending_request_hash = None;
+    task.credential_request = None;
+    task.clarification_request = clarification_request_for_outcome_request(&outcome_request);
+    append_route_contract_event(
+        task,
+        &outcome_request,
+        "Studio route blocked",
+        &summary,
+        false,
+    );
 }
 
 fn request_frame_has_clarification_slots(frame: &StudioNormalizedRequestFrame) -> bool {
@@ -972,7 +748,7 @@ pub(super) fn materialization_contract_for_request(
         swarm_merge_receipts: Vec::new(),
         swarm_verification_receipts: Vec::new(),
         render_evaluation: None,
-        judge: None,
+        validation: None,
         output_origin: None,
         production_provenance: None,
         acceptance_provenance: None,
@@ -1073,7 +849,7 @@ pub(super) fn apply_materialized_artifact_to_contract(
                 )
             });
     materialization.render_evaluation = materialized_artifact.render_evaluation.clone();
-    materialization.judge = materialized_artifact.judge.clone();
+    materialization.validation = materialized_artifact.validation.clone();
     materialization.output_origin = Some(materialized_artifact.output_origin);
     materialization.production_provenance = materialized_artifact.production_provenance.clone();
     materialization.acceptance_provenance = materialized_artifact.acceptance_provenance.clone();
@@ -1152,7 +928,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         materialized_artifact.blueprint.as_ref(),
         materialized_artifact.artifact_ir.as_ref(),
         materialized_artifact.edit_intent.as_ref(),
-        materialized_artifact.judge.as_ref(),
+        materialized_artifact.validation.as_ref(),
     );
     materialized_artifact.selected_targets = selected_targets.clone();
     materialized_artifact.taste_memory = taste_memory.clone();
@@ -1262,7 +1038,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     materialization.swarm_verification_receipts =
         materialized_artifact.swarm_verification_receipts.clone();
     materialization.render_evaluation = materialized_artifact.render_evaluation.clone();
-    materialization.judge = materialized_artifact.judge.clone();
+    materialization.validation = materialized_artifact.validation.clone();
     materialization.output_origin = Some(materialized_artifact.output_origin);
     materialization.production_provenance = materialized_artifact.production_provenance.clone();
     materialization.acceptance_provenance = materialized_artifact.acceptance_provenance.clone();

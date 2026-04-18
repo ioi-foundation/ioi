@@ -97,7 +97,7 @@ function verifierRoleLabel(role: PlanSummary["verifierRole"]): string {
       return "Test verifier";
     case "postcondition_verifier":
       return "Postcondition verifier";
-    case "artifact_quality_verifier":
+    case "artifact_validation_verifier":
       return "Artifact quality verifier";
     default:
       return "Verifier";

@@ -13,7 +13,6 @@ use crate::agentic::runtime::service::step::signals::{
 use crate::agentic::runtime::types::{
     AgentState, PendingSearchCompletion, PendingSearchReadSummary,
 };
-use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::{AgentTool, InferenceOptions, WebEvidenceBundle};
 use ioi_types::app::{ActionContext, ActionRequest, ActionTarget};
 use ioi_types::error::TransactionError;
@@ -21,7 +20,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use url::Url;
 

@@ -47,7 +47,7 @@ function fixtureCaseSummary(caseId, artifactDir, summaryPath, overrides = {}) {
         selected: true,
         model: "fixture-model",
         renderEvaluation: null,
-        judge: {
+        validation: {
           classification: "repairable",
         },
       },
@@ -125,7 +125,7 @@ function fixtureCaseSummary(caseId, artifactDir, summaryPath, overrides = {}) {
       summary: `${caseId} summary`,
       evidence: ["index.html"],
     },
-    judge: {
+    validation: {
       classification: "repairable",
       requestFaithfulness: 2,
       conceptCoverage: 2,
@@ -154,7 +154,7 @@ function fixtureCaseSummary(caseId, artifactDir, summaryPath, overrides = {}) {
       label: "fixture",
     },
     fallbackUsed: false,
-    uxLifecycle: "judged",
+    uxLifecycle: "validated",
     failure: null,
     notes: [],
     proofPath: "full_studio_path",
@@ -309,7 +309,7 @@ test("collectStudioArtifactBenchmarkSuite reports applied distillation gain when
           validation_errors: [],
         },
         classification: "pass",
-        judge: {
+        validation: {
           classification: "pass",
           requestFaithfulness: 5,
           conceptCoverage: 5,
@@ -357,7 +357,7 @@ test("collectStudioArtifactBenchmarkSuite reports applied distillation gain when
           proposalId: "case_history:html-ai-tools-editorial",
           status: "applied",
           targetUpgrades: ["scaffold_upgrade"],
-          measuredGain: { judgeScoreDelta: 0.22 },
+          measuredGain: { validationScoreDelta: 0.22 },
         },
       ],
     });
@@ -522,7 +522,7 @@ test("writeStudioArtifactCorpusIndex persists the aggregated summary", () => {
           preferred_stage_mode: "render",
         },
       },
-      judge: {
+      validation: {
         classification: "pass",
         requestFaithfulness: 5,
         conceptCoverage: 5,
@@ -580,7 +580,7 @@ test("collectStudioArtifactBenchmarkSuite joins the catalog to retained evidence
           blueprint: { scaffoldFamily: "editorial_explainer" },
           artifactIr: { evidenceSurfaces: [{ id: "surface-1" }] },
           selectedSkills: [{ skillId: "frontend-skill" }],
-          judge: {
+          validation: {
             classification: "pass",
             requestFaithfulness: 5,
             conceptCoverage: 4,
@@ -836,7 +836,7 @@ test("collectStudioArtifactCorpusIndex derives variance across retained repeated
           validation_errors: [],
         },
         classification: "pass",
-        judge: {
+        validation: {
           classification: "pass",
           requestFaithfulness: 5,
           conceptCoverage: 4,
@@ -904,7 +904,7 @@ test("collectStudioArtifactCorpusIndex derives variance across retained repeated
             validation_errors: [],
           },
           classification: "pass",
-          judge: {
+          validation: {
             classification: "pass",
             requestFaithfulness: 4,
             conceptCoverage: 4,
@@ -973,7 +973,7 @@ test("collectStudioArtifactCorpusIndex derives variance across retained repeated
             validation_errors: [],
           },
           classification: "pass",
-          judge: {
+          validation: {
             classification: "pass",
             requestFaithfulness: 5,
             conceptCoverage: 4,

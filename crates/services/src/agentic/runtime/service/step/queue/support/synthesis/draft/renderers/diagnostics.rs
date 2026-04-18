@@ -307,6 +307,21 @@ fn citation_source_independence_key_for_query(
             return Some(target_name);
         }
     }
+    let signals = analyze_source_record_signals(trimmed, &citation.source_label, &citation.excerpt);
+    if has_primary_status_authority(signals) {
+        if let Ok(parsed) = Url::parse(trimmed) {
+            let path = parsed.path().trim_matches('/').to_ascii_lowercase();
+            if !path.is_empty() {
+                if let Some(host) = parsed.host_str() {
+                    let normalized_host =
+                        host.trim().trim_start_matches("www.").to_ascii_lowercase();
+                    if !normalized_host.is_empty() {
+                        return Some(format!("{normalized_host}/{path}"));
+                    }
+                }
+            }
+        }
+    }
     if let Some(host) = source_host(trimmed) {
         return Some(host.strip_prefix("www.").unwrap_or(&host).to_string());
     }

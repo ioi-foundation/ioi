@@ -31,7 +31,7 @@ fn direct_author_html_generation_preserves_raw_document_contract_after_planning_
                     .expect("sample html brief should serialize")
             } else if prompt.contains("direct document author") {
                 "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Product rollout</title><style>body{margin:0;background:#171717;color:#f5f5f5;font-family:Georgia,serif;}main{max-width:1040px;margin:0 auto;padding:32px;display:grid;gap:20px;}section,aside{background:#202020;border:1px solid #3a3a3a;border-radius:18px;padding:18px;}button{border:1px solid #666;background:#2a2a2a;color:#f5f5f5;border-radius:999px;padding:8px 14px;}svg{width:100%;height:auto;}</style></head><body><main><section><h1>Product rollout, explained through launch confidence and adoption</h1><p>The page opens with launch confidence, customer adoption, and issue backlog already visible so the first paint is useful before any interaction. Operators can switch between rollout phases and compare what changed in launch readiness, support load, and revenue contribution.</p><div><button type=\"button\" data-view=\"readiness\" aria-selected=\"true\">Readiness</button><button type=\"button\" data-view=\"adoption\" aria-selected=\"false\">Adoption</button></div></section><section data-view-panel=\"readiness\"><h2>Readiness chart</h2><svg viewBox=\"0 0 240 120\" role=\"img\" aria-label=\"Readiness by phase\"><rect x=\"16\" y=\"42\" width=\"42\" height=\"58\"></rect><rect x=\"86\" y=\"24\" width=\"42\" height=\"76\"></rect><rect x=\"156\" y=\"10\" width=\"42\" height=\"90\"></rect><text x=\"16\" y=\"112\">Pilot</text><text x=\"86\" y=\"112\">Regional</text><text x=\"156\" y=\"112\">Global</text></svg><p>Readiness moves from 64% in pilot to 90% at global launch as training, fulfillment, and support tooling converge.</p></section><section data-view-panel=\"adoption\" hidden><h2>Adoption comparison</h2><svg viewBox=\"0 0 240 120\" role=\"img\" aria-label=\"Adoption and support comparison\"><rect x=\"16\" y=\"28\" width=\"54\" height=\"72\"></rect><rect x=\"98\" y=\"42\" width=\"54\" height=\"58\"></rect><rect x=\"180\" y=\"18\" width=\"32\" height=\"82\"></rect><text x=\"16\" y=\"112\">Signups</text><text x=\"98\" y=\"112\">Tickets</text><text x=\"170\" y=\"112\">Revenue</text></svg><p>Adoption accelerates faster than support load, which is why the comparison view keeps both signals visible instead of forcing a single-metric story.</p></section><aside><h2>Why this rollout is working</h2><p id=\"detail-copy\">Readiness is selected by default, showing how the launch moved from pilot confidence to global approval while keeping support load manageable.</p></aside><script>const buttons=[...document.querySelectorAll('button[data-view]')];const panels=[...document.querySelectorAll('[data-view-panel]')];const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='readiness'?'Readiness is selected by default, showing how the launch moved from pilot confidence to global approval while keeping support load manageable.':'Adoption is selected, comparing signups, support tickets, and revenue contribution through the rollout.';}));</script></main></body></html>".to_string()
-            } else if prompt.contains("typed artifact judge") {
+            } else if prompt.contains("typed artifact validation") {
                 serde_json::json!({
                     "classification": "pass",
                     "requestFaithfulness": 5,
@@ -174,8 +174,8 @@ fn direct_author_html_generation_preserves_raw_document_contract_after_planning_
     assert!(bundle.selected_skills.is_empty());
     assert_eq!(bundle.winner.files[0].path, "index.html");
     assert_eq!(
-        bundle.judge.classification,
-        StudioArtifactJudgeClassification::Pass
+        bundle.validation.classification,
+        StudioArtifactValidationStatus::Pass
     );
 }
 
@@ -200,7 +200,7 @@ async fn direct_author_streams_token_preview_into_generation_progress() {
                     .expect("sample markdown brief should serialize")
                     .into_bytes());
             }
-            if prompt.contains("typed artifact judge") {
+            if prompt.contains("typed artifact validation") {
                 return Ok(serde_json::json!({
                     "classification": "pass",
                     "requestFaithfulness": 5,
@@ -1665,7 +1665,7 @@ async fn direct_author_repairs_structurally_truncated_document_with_terminal_clo
 }
 
 #[tokio::test]
-async fn direct_author_local_html_uses_fast_runtime_sanity_without_acceptance_judge() {
+async fn direct_author_local_html_uses_fast_runtime_sanity_without_artifact_validation() {
     #[derive(Debug, Clone)]
     struct DirectAuthorAcceptanceRuntime {
         role: &'static str,
@@ -1690,8 +1690,8 @@ async fn direct_author_local_html_uses_fast_runtime_sanity_without_acceptance_ju
                 "author"
             } else if prompt.contains("direct document repair author") {
                 "repair"
-            } else if prompt.contains("typed artifact judge") {
-                "judge"
+            } else if prompt.contains("typed artifact validation") {
+                "validation"
             } else {
                 "unknown"
             };
@@ -1708,7 +1708,7 @@ async fn direct_author_local_html_uses_fast_runtime_sanity_without_acceptance_ju
                     "mode": "full_document",
                     "content": "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum Computing Explained</title></head><body><main><section><h1>Quantum computers explained through qubits, interference, and error correction</h1><p>Quantum computers use qubits, superposition, and interference to solve some classes of problems differently from classical machines.</p></section></main></body></html>"
                 }).to_string(),
-                "judge" if self.role == "acceptance" => serde_json::json!({
+                "validation" if self.role == "acceptance" => serde_json::json!({
                     "classification": "repairable",
                     "requestFaithfulness": 4,
                     "conceptCoverage": 4,
@@ -1734,7 +1734,7 @@ async fn direct_author_local_html_uses_fast_runtime_sanity_without_acceptance_ju
                     "rationale": "acceptance runtime evaluated the direct-authored draft"
                 })
                 .to_string(),
-                "judge" => serde_json::json!({
+                "validation" => serde_json::json!({
                     "classification": "pass",
                     "requestFaithfulness": 5,
                     "conceptCoverage": 4,
@@ -1757,7 +1757,7 @@ async fn direct_author_local_html_uses_fast_runtime_sanity_without_acceptance_ju
                     "truthfulnessWarnings": [],
                     "recommendedNextPass": "accept",
                     "strongestContradiction": null,
-                    "rationale": "producer runtime judged the draft"
+                    "rationale": "producer runtime validated the draft"
                 })
                 .to_string(),
                 _ => {
@@ -1848,17 +1848,17 @@ async fn direct_author_local_html_uses_fast_runtime_sanity_without_acceptance_ju
 
         let recorded_calls = calls.lock().expect("calls lock").clone();
         assert!(recorded_calls.iter().any(|entry| entry == "production:author"));
-        assert!(!recorded_calls.iter().any(|entry| entry == "production:judge"));
-        assert!(!recorded_calls.iter().any(|entry| entry == "acceptance:judge"));
+        assert!(!recorded_calls.iter().any(|entry| entry == "production:validation"));
+        assert!(!recorded_calls.iter().any(|entry| entry == "acceptance:validation"));
         assert!(bundle
-            .judge
+            .validation
             .rationale
             .starts_with("Studio replaced slow acceptance with a fast runtime-sanity pass"));
         assert_eq!(
-            bundle.judge.classification,
-            StudioArtifactJudgeClassification::Pass
+            bundle.validation.classification,
+            StudioArtifactValidationStatus::Pass
         );
-        assert_eq!(bundle.ux_lifecycle, StudioArtifactUxLifecycle::Judged);
+        assert_eq!(bundle.ux_lifecycle, StudioArtifactUxLifecycle::Validated);
         assert_eq!(
             bundle.acceptance_provenance.model.as_deref(),
             Some("fixture-qwen-8b")
@@ -1893,8 +1893,8 @@ async fn direct_author_local_html_repairs_runtime_failure_before_surface() {
                 || prompt.contains("Return only one complete self-contained index.html.")
             {
                 "author"
-            } else if prompt.contains("typed artifact judge") {
-                "judge"
+            } else if prompt.contains("typed artifact validation") {
+                "validation"
             } else {
                 "unknown"
             };
@@ -1911,9 +1911,9 @@ async fn direct_author_local_html_repairs_runtime_failure_before_surface() {
                     "mode": "full_document",
                     "content": "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum Computing Explained</title><style>body{margin:0;background:#111827;color:#f8fafc;font-family:Georgia,serif;}main{max-width:960px;margin:0 auto;padding:32px;display:grid;gap:20px;}section,aside{background:#172033;border:1px solid #334155;border-radius:20px;padding:20px;}button{border:1px solid #475569;background:#1e293b;color:#f8fafc;border-radius:999px;padding:8px 14px;}</style></head><body><main data-repaired=\"runtime-error\"><section><h1>Quantum computers explained through qubits, interference, and error correction</h1><p>Quantum computers use qubits, superposition, and interference to solve some classes of problems differently from classical machines.</p><div><button type=\"button\" data-view=\"concepts\" aria-selected=\"true\">Core concepts</button><button type=\"button\" data-view=\"hardware\" aria-selected=\"false\">Hardware limits</button></div></section><section data-view-panel=\"concepts\"><h2>Core concepts</h2><p>Qubits keep amplitudes in play, gates reshape those amplitudes, and measurement samples a classical answer.</p></section><section data-view-panel=\"hardware\" hidden><h2>Hardware limits</h2><p>Error rates, cooling systems, and qubit connectivity are still major constraints.</p></section><aside><p id=\"detail-copy\">Core concepts are selected by default.</p></aside><script>const buttons=[...document.querySelectorAll('button[data-view]')];const panels=[...document.querySelectorAll('[data-view-panel]')];const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='concepts'?'Core concepts are selected by default.':'Hardware limits are selected.';}));</script></main></body></html>"
                 }).to_string(),
-                "judge" => {
+                "validation" => {
                     return Err(VmError::HostError(
-                        "fast local html path should not call the acceptance judge".to_string(),
+                        "fast local html path should not call the acceptance validation".to_string(),
                     ))
                 }
                 _ => {
@@ -2107,10 +2107,10 @@ async fn direct_author_local_html_repairs_runtime_failure_before_surface() {
         let recorded_calls = calls.lock().expect("calls lock").clone();
         assert!(recorded_calls.iter().any(|entry| entry == "production:author"));
         assert!(recorded_calls.iter().any(|entry| entry.ends_with(":repair")));
-        assert!(!recorded_calls.iter().any(|entry| entry == "acceptance:judge"));
+        assert!(!recorded_calls.iter().any(|entry| entry == "acceptance:validation"));
         assert_eq!(
-            bundle.judge.classification,
-            StudioArtifactJudgeClassification::Pass
+            bundle.validation.classification,
+            StudioArtifactValidationStatus::Pass
         );
         assert!(bundle.winner.files.iter().any(|file| {
             file.path == "index.html"
@@ -2209,7 +2209,7 @@ fn direct_author_markdown_generation_uses_raw_document_contract() {
             } else if prompt.contains("direct document author") {
                 "# Quantum computers\n\n## Why they matter\nQuantum computers use superposition and interference to explore specific classes of problems differently from classical machines.\n\n## Core ideas\n- Qubits carry amplitudes instead of one fixed bit value.\n- Gates rotate state so interference can amplify useful outcomes.\n- Measurement collapses the state into a sampled result.\n\n## Practical caution\nUseful quantum workflows still depend on careful error handling, hardware constraints, and problem selection."
                     .to_string()
-            } else if prompt.contains("typed artifact judge") {
+            } else if prompt.contains("typed artifact validation") {
                 serde_json::json!({
                     "classification": "pass",
                     "requestFaithfulness": 5,

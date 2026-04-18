@@ -3,11 +3,11 @@ use crate::kernel::connectors::{ConnectorCatalogEntry, ShieldPolicyState};
 use ioi_api::studio::{
     ExecutionEnvelope, ExecutionStage, StudioArtifactBlueprint, StudioArtifactBrief,
     StudioArtifactCandidateSummary, StudioArtifactEditIntent, StudioArtifactExemplar,
-    StudioArtifactIR, StudioArtifactJudgeResult, StudioArtifactOutputOrigin,
-    StudioArtifactPreparationNeeds, StudioArtifactPreparedContextResolution,
-    StudioArtifactRenderEvaluation, StudioArtifactRuntimeNarrationEvent,
-    StudioArtifactSelectedSkill, StudioArtifactSelectionTarget,
-    StudioArtifactSkillDiscoveryResolution, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    StudioArtifactIR, StudioArtifactOutputOrigin, StudioArtifactPreparationNeeds,
+    StudioArtifactPreparedContextResolution, StudioArtifactRenderEvaluation,
+    StudioArtifactRuntimeNarrationEvent, StudioArtifactSelectedSkill,
+    StudioArtifactSelectionTarget, StudioArtifactSkillDiscoveryResolution,
+    StudioArtifactTasteMemory, StudioArtifactUxLifecycle, StudioArtifactValidationResult,
     SwarmChangeReceipt, SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan,
     SwarmVerificationReceipt, SwarmWorkerReceipt,
 };
@@ -1564,7 +1564,7 @@ pub struct StudioArtifactMaterializationContract {
     #[serde(default)]
     pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
     #[serde(default)]
-    pub judge: Option<StudioArtifactJudgeResult>,
+    pub validation: Option<StudioArtifactValidationResult>,
     #[serde(default)]
     pub output_origin: Option<StudioArtifactOutputOrigin>,
     #[serde(default)]
@@ -1646,7 +1646,7 @@ pub struct StudioArtifactRevision {
     #[serde(default)]
     pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
     #[serde(default)]
-    pub judge: Option<StudioArtifactJudgeResult>,
+    pub validation: Option<StudioArtifactValidationResult>,
     #[serde(default)]
     pub output_origin: Option<StudioArtifactOutputOrigin>,
     #[serde(default)]
@@ -4043,7 +4043,7 @@ pub struct AppState {
     // lightweight route planning does not stall behind heavier artifact generation.
     pub studio_routing_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
 
-    // Acceptance judge runtime kept distinct from the production artifact runtime
+    // Acceptance validation runtime kept distinct from the production artifact runtime
     // so Studio can surface separate provenance truthfully.
     pub acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
 

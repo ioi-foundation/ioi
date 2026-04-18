@@ -3,8 +3,8 @@ use crate::models::{StudioArtifactRevision, StudioArtifactSession};
 use crate::orchestrator;
 use ioi_api::studio::{
     StudioArtifactBlueprint, StudioArtifactBrief, StudioArtifactEditIntent, StudioArtifactExemplar,
-    StudioArtifactIR, StudioArtifactJudgeClassification, StudioArtifactJudgeResult,
-    StudioArtifactRefinementContext, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    StudioArtifactIR, StudioArtifactRefinementContext, StudioArtifactTasteMemory,
+    StudioArtifactUxLifecycle, StudioArtifactValidationResult, StudioArtifactValidationStatus,
     StudioGeneratedArtifactFile,
 };
 use ioi_api::vm::inference::InferenceRuntime;
@@ -62,24 +62,24 @@ fn merge_unique_text_values<'a>(
     }
 }
 
-fn studio_artifact_judge_total_score(judge: &StudioArtifactJudgeResult) -> i32 {
-    i32::from(judge.request_faithfulness)
-        + i32::from(judge.concept_coverage)
-        + i32::from(judge.interaction_relevance)
-        + i32::from(judge.layout_coherence)
-        + i32::from(judge.visual_hierarchy)
-        + i32::from(judge.completeness)
+fn studio_artifact_validation_total_score(validation: &StudioArtifactValidationResult) -> i32 {
+    i32::from(validation.request_faithfulness)
+        + i32::from(validation.concept_coverage)
+        + i32::from(validation.interaction_relevance)
+        + i32::from(validation.layout_coherence)
+        + i32::from(validation.visual_hierarchy)
+        + i32::from(validation.completeness)
 }
 
 fn exemplar_quality_rationale(
-    judge: &StudioArtifactJudgeResult,
+    validation: &StudioArtifactValidationResult,
     winning_candidate_rationale: Option<&str>,
 ) -> String {
     winning_candidate_rationale
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
-        .unwrap_or_else(|| judge.rationale.trim().to_string())
+        .unwrap_or_else(|| validation.rationale.trim().to_string())
 }
 
 fn exemplar_design_cues(
@@ -154,7 +154,7 @@ fn exemplar_component_patterns(
 
 fn exemplar_anti_patterns(
     prior: Option<&StudioArtifactTasteMemory>,
-    judge: Option<&StudioArtifactJudgeResult>,
+    validation: Option<&StudioArtifactValidationResult>,
 ) -> Vec<String> {
     let mut patterns = Vec::new();
     if let Some(prior) = prior {
@@ -163,16 +163,16 @@ fn exemplar_anti_patterns(
             prior.anti_patterns.iter().map(String::as_str),
         );
     }
-    if let Some(judge) = judge {
-        if judge.generic_shell_detected {
+    if let Some(validation) = validation {
+        if validation.generic_shell_detected {
             patterns.push("generic_shell".to_string());
         }
-        if judge.trivial_shell_detected {
+        if validation.trivial_shell_detected {
             patterns.push("trivial_shell".to_string());
         }
         merge_unique_text_values(
             &mut patterns,
-            judge
+            validation
                 .issue_classes
                 .iter()
                 .filter(|issue| issue.as_str() != "generation_failure")
@@ -281,11 +281,11 @@ pub(super) fn persist_studio_artifact_exemplar(
     let Some(artifact_ir) = revision.artifact_ir.as_ref() else {
         return Ok(None);
     };
-    let Some(judge) = revision.judge.as_ref() else {
+    let Some(validation) = revision.validation.as_ref() else {
         return Ok(None);
     };
-    if judge.classification != StudioArtifactJudgeClassification::Pass
-        || studio_artifact_judge_total_score(judge) < STUDIO_ARTIFACT_EXEMPLAR_MIN_SCORE
+    if validation.classification != StudioArtifactValidationStatus::Pass
+        || studio_artifact_validation_total_score(validation) < STUDIO_ARTIFACT_EXEMPLAR_MIN_SCORE
         || studio_session.materialization.fallback_used
     {
         return Ok(None);
@@ -299,13 +299,13 @@ pub(super) fn persist_studio_artifact_exemplar(
         scaffold_family: blueprint.scaffold_family.clone(),
         thesis: brief.artifact_thesis.clone(),
         quality_rationale: exemplar_quality_rationale(
-            judge,
+            validation,
             studio_session
                 .materialization
                 .winning_candidate_rationale
                 .as_deref(),
         ),
-        score_total: studio_artifact_judge_total_score(judge),
+        score_total: studio_artifact_validation_total_score(validation),
         design_cues: exemplar_design_cues(
             brief,
             blueprint,
@@ -317,7 +317,10 @@ pub(super) fn persist_studio_artifact_exemplar(
             artifact_ir,
             studio_session.taste_memory.as_ref(),
         ),
-        anti_patterns: exemplar_anti_patterns(studio_session.taste_memory.as_ref(), Some(judge)),
+        anti_patterns: exemplar_anti_patterns(
+            studio_session.taste_memory.as_ref(),
+            Some(validation),
+        ),
         source_revision_id: Some(revision.revision_id.clone()),
     };
     let content = build_studio_artifact_exemplar_content(&exemplar, brief, blueprint, artifact_ir);
@@ -581,8 +584,10 @@ pub(super) fn apply_revision_to_studio_session(
     studio_session.materialization.edit_intent = revision.edit_intent.clone();
     studio_session.materialization.candidate_summaries = revision.candidate_summaries.clone();
     studio_session.materialization.winning_candidate_id = revision.winning_candidate_id.clone();
-    studio_session.materialization.winning_candidate_rationale =
-        revision.judge.as_ref().map(|judge| judge.rationale.clone());
+    studio_session.materialization.winning_candidate_rationale = revision
+        .validation
+        .as_ref()
+        .map(|validation| validation.rationale.clone());
     studio_session.materialization.execution_envelope = revision.execution_envelope.clone();
     studio_session.materialization.swarm_plan = revision.swarm_plan.clone();
     studio_session.materialization.swarm_execution = revision.swarm_execution.clone();
@@ -592,7 +597,7 @@ pub(super) fn apply_revision_to_studio_session(
     studio_session.materialization.swarm_verification_receipts =
         revision.swarm_verification_receipts.clone();
     studio_session.materialization.render_evaluation = revision.render_evaluation.clone();
-    studio_session.materialization.judge = revision.judge.clone();
+    studio_session.materialization.validation = revision.validation.clone();
     studio_session.materialization.output_origin = revision.output_origin;
     studio_session.materialization.production_provenance = revision.production_provenance.clone();
     studio_session.materialization.acceptance_provenance = revision.acceptance_provenance.clone();
@@ -685,7 +690,7 @@ pub(super) fn derive_studio_taste_memory(
     blueprint: Option<&StudioArtifactBlueprint>,
     artifact_ir: Option<&StudioArtifactIR>,
     edit_intent: Option<&StudioArtifactEditIntent>,
-    judge: Option<&StudioArtifactJudgeResult>,
+    validation: Option<&StudioArtifactValidationResult>,
 ) -> Option<StudioArtifactTasteMemory> {
     let mut directives = Vec::new();
     if let Some(prior) = prior {
@@ -770,7 +775,7 @@ pub(super) fn derive_studio_taste_memory(
         );
     }
 
-    let anti_patterns = exemplar_anti_patterns(prior, judge);
+    let anti_patterns = exemplar_anti_patterns(prior, validation);
     let density_preference = prior
         .and_then(|memory| memory.density_preference.clone())
         .or_else(|| blueprint.map(|value| value.design_system.density.clone()));
@@ -895,9 +900,9 @@ fn materialization_summary_for_revision(
     revision: &StudioArtifactRevision,
 ) -> String {
     revision
-        .judge
+        .validation
         .as_ref()
-        .map(|judge| judge.rationale.clone())
+        .map(|validation| validation.rationale.clone())
         .unwrap_or_else(|| studio_session.materialization.summary.clone())
 }
 
@@ -917,7 +922,7 @@ fn build_revision_from_session(
         created_at: now_iso(),
         ux_lifecycle: studio_session
             .ux_lifecycle
-            .unwrap_or(StudioArtifactUxLifecycle::Judged),
+            .unwrap_or(StudioArtifactUxLifecycle::Validated),
         artifact_manifest: studio_session.artifact_manifest.clone(),
         artifact_brief: studio_session.materialization.artifact_brief.clone(),
         preparation_needs: studio_session.materialization.preparation_needs.clone(),
@@ -946,7 +951,7 @@ fn build_revision_from_session(
             .swarm_verification_receipts
             .clone(),
         render_evaluation: studio_session.materialization.render_evaluation.clone(),
-        judge: studio_session.materialization.judge.clone(),
+        validation: studio_session.materialization.validation.clone(),
         output_origin: studio_session.materialization.output_origin,
         production_provenance: studio_session.materialization.production_provenance.clone(),
         acceptance_provenance: studio_session.materialization.acceptance_provenance.clone(),

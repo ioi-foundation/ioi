@@ -385,15 +385,15 @@ pub(crate) fn build_studio_artifact_swarm_plan(
         Vec::new()
     };
 
-    let judge_dependency_ids = work_items
+    let validation_dependency_ids = work_items
         .iter()
         .filter(|item| item.role == StudioArtifactWorkerRole::Integrator)
         .map(|item| item.id.clone())
         .collect::<Vec<_>>();
     work_items.push(StudioArtifactWorkItem {
-        id: "judge".to_string(),
-        title: "Judge".to_string(),
-        role: StudioArtifactWorkerRole::Judge,
+        id: "validation".to_string(),
+        title: "Validation".to_string(),
+        role: StudioArtifactWorkerRole::Validation,
         summary: "Evaluate the merged artifact once against fidelity, utility, and coherence."
             .to_string(),
         spawned_from_id: None,
@@ -401,8 +401,10 @@ pub(crate) fn build_studio_artifact_swarm_plan(
         write_paths: Vec::new(),
         write_regions: Vec::new(),
         lease_requirements: Vec::new(),
-        acceptance_criteria: vec!["Judge the merged artifact, not competing universes.".to_string()],
-        dependency_ids: if judge_dependency_ids.is_empty() {
+        acceptance_criteria: vec![
+            "Validation the merged artifact, not competing universes.".to_string()
+        ],
+        dependency_ids: if validation_dependency_ids.is_empty() {
             work_items
                 .iter()
                 .filter(|item| {
@@ -418,7 +420,7 @@ pub(crate) fn build_studio_artifact_swarm_plan(
                 .map(|item| item.id.clone())
                 .collect()
         } else {
-            judge_dependency_ids
+            validation_dependency_ids
         },
         blocked_on_ids: Vec::new(),
         verification_policy: Some(SwarmVerificationPolicy::Blocking),
@@ -451,7 +453,7 @@ pub(crate) fn build_studio_artifact_swarm_plan(
             leases
         },
         acceptance_criteria: vec!["Repair must stay bounded to cited failures.".to_string()],
-        dependency_ids: vec!["judge".to_string()],
+        dependency_ids: vec!["validation".to_string()],
         blocked_on_ids: Vec::new(),
         verification_policy: Some(SwarmVerificationPolicy::Blocking),
         retry_budget: Some(2),
@@ -505,7 +507,7 @@ pub(crate) fn build_studio_artifact_swarm_plan(
         } else {
             "bounded_shared_state_patch_merge".to_string()
         }),
-        verification_strategy: Some("judge_merged_state_then_repair_if_needed".to_string()),
+        verification_strategy: Some("validate_merged_state_then_repair_if_needed".to_string()),
         fallback_collapse_strategy: Some(
             "Collapse to the smallest remaining frontier that can satisfy the completion invariant."
                 .to_string(),
@@ -533,7 +535,7 @@ pub(crate) fn build_studio_artifact_swarm_plan(
             required_verification_ids: vec![
                 "schema-validation".to_string(),
                 "render-evaluation".to_string(),
-                "acceptance-judge".to_string(),
+                "artifact-validation".to_string(),
             ],
             satisfied_verification_ids: Vec::new(),
             required_artifact_paths: Vec::new(),

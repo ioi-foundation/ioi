@@ -102,11 +102,11 @@ fn materialize_nonworkspace_artifact_replans_after_direct_author_timeout_then_re
     assert!(!materialized.candidate_summaries.is_empty());
     assert_eq!(
         materialized
-            .judge
+            .validation
             .as_ref()
-            .expect("judge result")
+            .expect("validation result")
             .classification,
-        ioi_api::studio::StudioArtifactJudgeClassification::Blocked
+        ioi_api::studio::StudioArtifactValidationStatus::Blocked
     );
 }
 
@@ -194,11 +194,11 @@ fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
 
     assert!(
         !materialized.files.is_empty(),
-        "failure={:?} lifecycle={:?} notes={:?} judge={:?}",
+        "failure={:?} lifecycle={:?} notes={:?} validation={:?}",
         materialized.failure,
         materialized.lifecycle_state,
         materialized.notes,
-        materialized.judge
+        materialized.validation
     );
     assert!(materialized
         .files
@@ -289,7 +289,7 @@ impl InferenceRuntime for StreamingSilentDirectAuthorReplanTestRuntime {
                 }]
             })
             .to_string()
-        } else if prompt.contains("typed artifact judge") {
+        } else if prompt.contains("typed artifact validation") {
             serde_json::json!({
                 "classification": "pass",
                 "requestFaithfulness": 5,
@@ -392,7 +392,7 @@ impl InferenceRuntime for SlowPlanExecuteAfterReplanTestRuntime {
                 }]
             })
             .to_string()
-        } else if prompt.contains("typed artifact judge") {
+        } else if prompt.contains("typed artifact validation") {
             tokio::time::sleep(self.plan_execute_delay).await;
             serde_json::json!({
                 "classification": "pass",
@@ -1167,10 +1167,10 @@ fn apply_materialized_artifact_to_contract_marks_nonworkspace_steps_success_when
     ready.lifecycle_state = StudioArtifactLifecycleState::Ready;
     ready.verification_summary = "Acceptance cleared the artifact.".to_string();
     ready.failure = None;
-    ready.ux_lifecycle = StudioArtifactUxLifecycle::Judged;
+    ready.ux_lifecycle = StudioArtifactUxLifecycle::Validated;
     ready.winning_candidate_id = Some("candidate-1".to_string());
-    ready.judge = Some(StudioArtifactJudgeResult {
-        classification: ioi_api::studio::StudioArtifactJudgeClassification::Pass,
+    ready.validation = Some(StudioArtifactValidationResult {
+        classification: ioi_api::studio::StudioArtifactValidationStatus::Pass,
         request_faithfulness: 5,
         concept_coverage: 5,
         interaction_relevance: 4,
@@ -1287,14 +1287,14 @@ fn provisional_nonworkspace_session_surfaces_planning_context_before_materializa
     materialization.artifact_ir = Some(artifact_ir);
     materialization.selected_skills = vec![ioi_api::studio::StudioArtifactSelectedSkill {
         skill_hash: "a".repeat(64),
-        name: "artifact__frontend_judge_spine".to_string(),
+        name: "artifact__frontend_validation_spine".to_string(),
         description: "Front-end structural guidance".to_string(),
         lifecycle_state: "published".to_string(),
         source_type: "filesystem".to_string(),
         reliability_bps: 9500,
         semantic_score_bps: 9100,
         adjusted_score_bps: 9450,
-        relative_path: Some("skills/artifact__frontend_judge_spine/SKILL.md".to_string()),
+        relative_path: Some("skills/artifact__frontend_validation_spine/SKILL.md".to_string()),
         matched_need_ids: vec!["visual_art_direction-1".to_string()],
         matched_need_kinds: vec![ioi_api::studio::StudioArtifactSkillNeedKind::VisualArtDirection],
         match_rationale: "Matched the visual art direction need.".to_string(),
@@ -1411,14 +1411,14 @@ fn materialize_nonworkspace_artifact_falls_back_to_local_acceptance_when_no_acce
     );
     assert_eq!(
         materialized
-            .judge
+            .validation
             .as_ref()
-            .expect("judge result")
+            .expect("validation result")
             .classification,
         if materialized.lifecycle_state == StudioArtifactLifecycleState::Blocked {
-            ioi_api::studio::StudioArtifactJudgeClassification::Blocked
+            ioi_api::studio::StudioArtifactValidationStatus::Blocked
         } else {
-            ioi_api::studio::StudioArtifactJudgeClassification::Repairable
+            ioi_api::studio::StudioArtifactValidationStatus::Repairable
         }
     );
 }
@@ -1588,7 +1588,7 @@ fn model_first_html_iframe_payload_clears_presentation_gate() {
 }
 
 #[test]
-fn html_generation_failure_blocks_primary_artifact_without_deterministic_fallback() {
+fn html_generation_failure_blocks_primary_artifact_without_synthetic_fallback() {
     let request = StudioOutcomeArtifactRequest {
         artifact_class: StudioArtifactClass::InteractiveSingleFile,
         deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
@@ -1652,8 +1652,12 @@ fn html_generation_failure_blocks_primary_artifact_without_deterministic_fallbac
         StudioArtifactLifecycleState::Blocked
     );
     assert_eq!(
-        blocked.judge.as_ref().expect("judge result").classification,
-        ioi_api::studio::StudioArtifactJudgeClassification::Blocked
+        blocked
+            .validation
+            .as_ref()
+            .expect("validation result")
+            .classification,
+        ioi_api::studio::StudioArtifactValidationStatus::Blocked
     );
     assert_eq!(
         blocked.output_origin,
@@ -1686,9 +1690,9 @@ fn html_generation_failure_blocks_primary_artifact_without_deterministic_fallbac
     );
     assert_eq!(
         blocked
-            .judge
+            .validation
             .as_ref()
-            .expect("judge result")
+            .expect("validation result")
             .deserves_primary_artifact_view,
         false
     );
@@ -1957,7 +1961,7 @@ fn pipeline_specification_outputs_include_blueprint_and_ir_evidence() {
 }
 
 #[test]
-fn pipeline_steps_surface_candidates_judge_and_taste_memory() {
+fn pipeline_steps_surface_candidates_validation_and_taste_memory() {
     let request = test_outcome_request().artifact.expect("artifact request");
     let manifest = test_manifest(StudioArtifactVerificationStatus::Ready);
     let mut materialization = test_materialization_contract();
@@ -1991,8 +1995,8 @@ fn pipeline_steps_surface_candidates_judge_and_taste_memory() {
                 terminated_reason: None,
             }),
             render_evaluation: None,
-            judge: ioi_api::studio::StudioArtifactJudgeResult {
-                classification: ioi_api::studio::StudioArtifactJudgeClassification::Repairable,
+            validation: ioi_api::studio::StudioArtifactValidationResult {
+                classification: ioi_api::studio::StudioArtifactValidationStatus::Repairable,
                 request_faithfulness: 3,
                 concept_coverage: 3,
                 interaction_relevance: 2,
@@ -2041,8 +2045,8 @@ fn pipeline_steps_surface_candidates_judge_and_taste_memory() {
                 terminated_reason: Some("accepted".to_string()),
             }),
             render_evaluation: None,
-            judge: ioi_api::studio::StudioArtifactJudgeResult {
-                classification: ioi_api::studio::StudioArtifactJudgeClassification::Pass,
+            validation: ioi_api::studio::StudioArtifactValidationResult {
+                classification: ioi_api::studio::StudioArtifactValidationStatus::Pass,
                 request_faithfulness: 5,
                 concept_coverage: 4,
                 interaction_relevance: 4,
@@ -2068,10 +2072,10 @@ fn pipeline_steps_surface_candidates_judge_and_taste_memory() {
             },
         },
     ];
-    materialization.judge = materialization
+    materialization.validation = materialization
         .candidate_summaries
         .last()
-        .map(|candidate| candidate.judge.clone());
+        .map(|candidate| candidate.validation.clone());
     materialization.artifact_ir = Some(ioi_api::studio::StudioArtifactIR {
         version: 1,
         renderer: StudioRendererKind::Markdown,
@@ -2139,7 +2143,7 @@ fn pipeline_steps_surface_candidates_judge_and_taste_memory() {
     assert!(verification_step
         .outputs
         .iter()
-        .any(|output| output == "judge:pass"));
+        .any(|output| output == "validation:pass"));
     assert!(verification_step
         .outputs
         .iter()

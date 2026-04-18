@@ -14,6 +14,22 @@ const LOCAL_DISCOVERY_LOCALITY_MARKERS: [&str; 7] = [
 
 const LOCAL_DISCOVERY_SCOPE_MARKERS: [&str; 4] = [" in ", " near ", " around ", " at "];
 
+const SERVICE_STATUS_MARKERS: [&str; 13] = [
+    " incident ",
+    " incidents ",
+    " outage ",
+    " outages ",
+    " downtime ",
+    " availability ",
+    " degraded ",
+    " degradation ",
+    " status ",
+    " status page ",
+    " status pages ",
+    " service health ",
+    " dashboard ",
+];
+
 const LOCAL_DISCOVERY_STRUCTURAL_MARKERS: [&str; 18] = [
     " find ",
     " show ",
@@ -53,6 +69,7 @@ pub struct QueryFacetProfile {
     pub metric_schema: MetricSchemaProfile,
     pub time_sensitive_public_fact: bool,
     pub locality_sensitive_public_fact: bool,
+    pub service_status_lookup: bool,
     pub grounded_external_required: bool,
     pub workspace_constrained: bool,
 }
@@ -90,6 +107,9 @@ pub fn analyze_query_facets(query: &str) -> QueryFacetProfile {
     let locality_scope_signal = marker_hits(&normalized_query, &LOCAL_DISCOVERY_LOCALITY_MARKERS)
         > 0
         || marker_hits(&normalized_query, &LOCAL_DISCOVERY_SCOPE_MARKERS) > 0;
+    let weather_lookup_shape = marker_hits(&normalized_query, &[" weather ", " forecast "]) > 0;
+    let service_status_lookup =
+        !workspace_constrained && marker_hits(&normalized_query, &SERVICE_STATUS_MARKERS) > 0;
     let implicit_locality_shape = goal.public_fact_hits > 0
         && goal.external_hits == 0
         && metric_schema.axis_hits.is_empty()
@@ -101,7 +121,7 @@ pub fn analyze_query_facets(query: &str) -> QueryFacetProfile {
     let locality_scoped_grounded_lookup =
         !workspace_constrained && locality_scope_signal && structural_lookup_pressure;
     let locality_sensitive_public_fact = (time_sensitive_public_fact
-        && (metric_locality_sensitive || implicit_locality_shape))
+        && (metric_locality_sensitive || implicit_locality_shape || weather_lookup_shape))
         || locality_scoped_grounded_lookup;
     let grounded_external_required = goal.prefers_live_external_research()
         || locality_scoped_grounded_lookup
@@ -112,6 +132,7 @@ pub fn analyze_query_facets(query: &str) -> QueryFacetProfile {
         metric_schema,
         time_sensitive_public_fact,
         locality_sensitive_public_fact,
+        service_status_lookup,
         grounded_external_required,
         workspace_constrained,
     }

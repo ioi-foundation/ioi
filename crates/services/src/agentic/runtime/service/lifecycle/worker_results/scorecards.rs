@@ -175,7 +175,7 @@ pub(crate) fn build_artifact_quality_scorecard(
         return None;
     }
     let step = playbook.steps.get(step_idx)?;
-    if step.step_id.trim() != "judge" {
+    if step.step_id.trim() != "validation" {
         return None;
     }
 
@@ -244,7 +244,7 @@ pub(crate) fn build_artifact_repair_summary(
         return None;
     }
     let step = playbook.steps.get(step_idx)?;
-    if !matches!(step.step_id.trim(), "build" | "judge") {
+    if !matches!(step.step_id.trim(), "build" | "validation") {
         return None;
     }
 
@@ -264,7 +264,7 @@ pub(crate) fn build_artifact_repair_summary(
     let repair_fallback = match presentation_status.as_str() {
         "ready" => "not_needed",
         "needs_repair" => "required",
-        "needs_judge" => "recommended",
+        "needs_validation" => "recommended",
         "blocked" => "blocked",
         _ if result.success => "unknown",
         _ => "blocked",

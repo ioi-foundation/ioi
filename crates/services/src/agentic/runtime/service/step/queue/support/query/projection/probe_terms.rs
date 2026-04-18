@@ -60,6 +60,9 @@ pub(crate) fn projection_constraint_search_terms(
 pub(crate) fn projection_prefers_service_status_surfaces(
     projection: &QueryConstraintProjection,
 ) -> bool {
+    if projection.query_facets.service_status_lookup {
+        return true;
+    }
     let incident_tokens = [
         "incident",
         "incidents",

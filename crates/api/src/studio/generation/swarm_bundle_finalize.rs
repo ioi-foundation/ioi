@@ -141,13 +141,13 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         &replan_receipts,
         &snapshot_execution_live_previews(&live_preview_state),
         "verify",
-        Some(StudioArtifactWorkerRole::Judge),
+        Some(StudioArtifactWorkerRole::Validation),
         "running",
         studio_swarm_progress_step(
             &studio_swarm_execution_summary(
                 &swarm_plan,
                 "verify",
-                Some(StudioArtifactWorkerRole::Judge),
+                Some(StudioArtifactWorkerRole::Validation),
                 "running",
             ),
             "Render evaluation finished and fast render sanity is starting.",
@@ -156,25 +156,29 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         None,
     );
 
-    let judge_item = swarm_plan
+    let validation_item = swarm_plan
         .work_items
         .iter()
-        .find(|item| item.id == "judge")
+        .find(|item| item.id == "validation")
         .cloned()
-        .ok_or_else(|| build_error("Swarm judge work item is missing.".to_string()))?;
-    let mut judge =
-        render_sanity_candidate_judge(request, brief, &final_payload, render_evaluation.as_ref());
+        .ok_or_else(|| build_error("Swarm validation work item is missing.".to_string()))?;
+    let mut validation = render_sanity_candidate_validation_preview(
+        request,
+        brief,
+        &final_payload,
+        render_evaluation.as_ref(),
+    );
     update_swarm_work_item_status(
         &mut swarm_plan,
-        &judge_item.id,
+        &validation_item.id,
         StudioArtifactWorkItemStatus::Succeeded,
     );
     worker_receipts.push(StudioArtifactWorkerReceipt {
-        work_item_id: judge_item.id,
-        role: judge_item.role,
+        work_item_id: validation_item.id,
+        role: validation_item.role,
         status: StudioArtifactWorkItemStatus::Succeeded,
         result_kind: Some(SwarmWorkerResultKind::Completed),
-        summary: judge.rationale.clone(),
+        summary: validation.rationale.clone(),
         started_at: studio_swarm_now_iso(),
         finished_at: Some(studio_swarm_now_iso()),
         runtime: production_provenance.clone(),
@@ -187,15 +191,15 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         output_bytes: None,
         output_preview: None,
         preview_language: None,
-        notes: judge.strengths.clone(),
+        notes: validation.strengths.clone(),
         failure: None,
     });
     verification_receipts.push(StudioArtifactVerificationReceipt {
-        id: "acceptance-judge".to_string(),
-        kind: "acceptance_judge".to_string(),
-        status: judge_classification_id(judge.classification).to_string(),
-        summary: judge.rationale.clone(),
-        details: judge.issue_classes.clone(),
+        id: "artifact-validation".to_string(),
+        kind: "artifact_validation".to_string(),
+        status: validation_status_id(validation.classification).to_string(),
+        summary: validation.rationale.clone(),
+        details: validation.issue_classes.clone(),
     });
     emit_studio_swarm_generation_progress(
         progress_observer.as_ref(),
@@ -212,26 +216,26 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         &replan_receipts,
         &snapshot_execution_live_previews(&live_preview_state),
         "verify",
-        Some(StudioArtifactWorkerRole::Judge),
-        judge_classification_id(judge.classification),
+        Some(StudioArtifactWorkerRole::Validation),
+        validation_status_id(validation.classification),
         studio_swarm_progress_step(
             &studio_swarm_execution_summary(
                 &swarm_plan,
                 "verify",
-                Some(StudioArtifactWorkerRole::Judge),
-                judge_classification_id(judge.classification),
+                Some(StudioArtifactWorkerRole::Validation),
+                validation_status_id(validation.classification),
             ),
             format!(
                 "Fast render sanity returned {}.",
-                judge_classification_id(judge.classification)
+                validation_status_id(validation.classification)
             ),
         ),
         render_evaluation.as_ref(),
-        Some(&judge),
+        Some(&validation),
     );
 
     let mut repair_applied = false;
-    if !judge_clears_primary_view(&judge) {
+    if !validation_clears_primary_view(&validation) {
         let repair_template_item = swarm_plan
             .work_items
             .iter()
@@ -243,9 +247,9 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
             mutation_kind: "repair_requested".to_string(),
             status: "applied".to_string(),
             summary: "Render sanity requested a scoped repair pass.".to_string(),
-            triggered_by_work_item_id: Some("acceptance-judge".to_string()),
+            triggered_by_work_item_id: Some("artifact-validation".to_string()),
             affected_work_item_ids: vec![repair_template_item.id.clone()],
-            details: judge.repair_hints.clone(),
+            details: validation.repair_hints.clone(),
         });
         replan_receipts.push(ExecutionReplanReceipt {
             id: "repair-replan".to_string(),
@@ -253,10 +257,10 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
             summary:
                 "Render sanity found a concrete issue in the merged artifact and requested bounded repair coordination."
                     .to_string(),
-            triggered_by_work_item_id: Some("acceptance-judge".to_string()),
+            triggered_by_work_item_id: Some("artifact-validation".to_string()),
             spawned_work_item_ids: vec![repair_template_item.id.clone()],
-            blocked_work_item_ids: vec!["acceptance-judge".to_string()],
-            details: judge.repair_hints.clone(),
+            blocked_work_item_ids: vec!["artifact-validation".to_string()],
+            details: validation.repair_hints.clone(),
         });
         let repair_budget = 2;
         let mut spawned_repair_work_item_ids = Vec::<String>::new();
@@ -265,7 +269,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
             let mut repair_patch_applied = false;
             let repair_template_ids =
                 if request.renderer == StudioRendererKind::HtmlIframe && repair_index == 0 {
-                    html_swarm_targeted_repair_template_ids(&judge)
+                    html_swarm_targeted_repair_template_ids(&validation)
                 } else {
                     vec!["repair"]
                 };
@@ -306,7 +310,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                         )
                     },
                     role: repair_source_template.role,
-                    summary: judge
+                    summary: validation
                         .strongest_contradiction
                         .as_ref()
                         .map(|value| format!("Resolve the current verification block: {value}"))
@@ -354,14 +358,14 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                     triggered_by_work_item_id: Some(
                         repair_wave_dependency_id
                             .clone()
-                            .unwrap_or_else(|| "acceptance-judge".to_string()),
+                            .unwrap_or_else(|| "artifact-validation".to_string()),
                     ),
                     affected_work_item_ids: vec![
                         repair_template_item.id.clone(),
                         repair_source_template.id.clone(),
                         repair_pass_id.clone(),
                     ],
-                    details: judge.repair_hints.clone(),
+                    details: validation.repair_hints.clone(),
                 });
                 repair_receipts.push(ExecutionRepairReceipt {
                     id: repair_pass_id.clone(),
@@ -370,13 +374,13 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                         "{} is applying a bounded fix against the merged artifact.",
                         repair_item.title
                     ),
-                    triggered_by_verification_id: Some("acceptance-judge".to_string()),
+                    triggered_by_verification_id: Some("artifact-validation".to_string()),
                     work_item_ids: vec![
                         repair_template_item.id.clone(),
                         repair_source_template.id.clone(),
                         repair_item.id.clone(),
                     ],
-                    details: judge.repair_hints.clone(),
+                    details: validation.repair_hints.clone(),
                 });
                 emit_studio_swarm_generation_progress(
                     progress_observer.as_ref(),
@@ -408,7 +412,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                         ),
                     ),
                     render_evaluation.as_ref(),
-                    Some(&judge),
+                    Some(&validation),
                 );
 
                 if request.renderer == StudioRendererKind::HtmlIframe {
@@ -485,7 +489,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                             &repair_item,
                             blueprint,
                             artifact_ir,
-                            Some(&judge),
+                            Some(&validation),
                         ),
                         candidate_seed_for(title, intent, 900 + repair_index),
                         repair_live_preview_observer,
@@ -538,7 +542,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                             refinement,
                             &final_payload,
                             render_evaluation.as_ref(),
-                            &judge,
+                            &validation,
                             "swarm-repair",
                             candidate_seed_for(title, intent, 900 + repair_index),
                             0.18,
@@ -636,7 +640,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 } else {
                     repair_render_eval_future.await
                 };
-            judge = render_sanity_candidate_judge(
+            validation = render_sanity_candidate_validation_preview(
                 request,
                 brief,
                 &final_payload,
@@ -645,22 +649,22 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
             verification_receipts.push(StudioArtifactVerificationReceipt {
                 id: format!("repair-pass-{}", repair_index + 1),
                 kind: "repair_verification".to_string(),
-                status: judge_classification_id(judge.classification).to_string(),
-                summary: judge.rationale.clone(),
-                details: judge.repair_hints.clone(),
+                status: validation_status_id(validation.classification).to_string(),
+                summary: validation.rationale.clone(),
+                details: validation.repair_hints.clone(),
             });
             for repair_receipt in repair_receipts.iter_mut().filter(|receipt| {
                 repair_wave_work_item_ids
                     .iter()
                     .any(|work_item_id| work_item_id == &receipt.id)
             }) {
-                repair_receipt.status = judge_classification_id(judge.classification).to_string();
+                repair_receipt.status = validation_status_id(validation.classification).to_string();
                 repair_receipt.summary = if repair_patch_applied {
                     "Scoped repair changes were merged and re-verified.".to_string()
                 } else {
                     "Repair pass completed without any scoped change to merge.".to_string()
                 };
-                repair_receipt.details = judge.repair_hints.clone();
+                repair_receipt.details = validation.repair_hints.clone();
             }
             emit_studio_swarm_generation_progress(
                 progress_observer.as_ref(),
@@ -678,27 +682,27 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 &snapshot_execution_live_previews(&live_preview_state),
                 "verify",
                 Some(StudioArtifactWorkerRole::Repair),
-                judge_classification_id(judge.classification),
+                validation_status_id(validation.classification),
                 studio_swarm_progress_step(
                     &studio_swarm_execution_summary(
                         &swarm_plan,
                         "verify",
                         Some(StudioArtifactWorkerRole::Repair),
-                        judge_classification_id(judge.classification),
+                        validation_status_id(validation.classification),
                     ),
                     format!("Repair pass {} re-ran verification.", repair_index + 1),
                 ),
                 render_evaluation.as_ref(),
-                Some(&judge),
+                Some(&validation),
             );
-            if judge_clears_primary_view(&judge) {
+            if validation_clears_primary_view(&validation) {
                 break;
             }
         }
         if !spawned_repair_work_item_ids.is_empty() {
             replan_receipts.push(ExecutionReplanReceipt {
                 id: "repair-follow-up-graph".to_string(),
-                status: if judge_clears_primary_view(&judge) {
+                status: if validation_clears_primary_view(&validation) {
                     "applied".to_string()
                 } else {
                     "partial".to_string()
@@ -710,10 +714,10 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 triggered_by_work_item_id: Some(repair_template_item.id.clone()),
                 spawned_work_item_ids: spawned_repair_work_item_ids.clone(),
                 blocked_work_item_ids: Vec::new(),
-                details: judge.repair_hints.clone(),
+                details: validation.repair_hints.clone(),
             });
         }
-        if repair_applied && judge_clears_primary_view(&judge) {
+        if repair_applied && validation_clears_primary_view(&validation) {
             update_swarm_work_item_status(
                 &mut swarm_plan,
                 &repair_template_item.id,
@@ -740,7 +744,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 output_bytes: None,
                 output_preview: None,
                 preview_language: None,
-                notes: judge.repair_hints.clone(),
+                notes: validation.repair_hints.clone(),
                 failure: None,
             });
         } else if !repair_applied {
@@ -754,7 +758,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 role: repair_template_item.role,
                 status: StudioArtifactWorkItemStatus::Blocked,
                 result_kind: Some(SwarmWorkerResultKind::Blocked),
-                summary: "Judge cited issues, but no narrower repair patch was applied."
+                summary: "Validation cited issues, but no narrower repair patch was applied."
                     .to_string(),
                 started_at: studio_swarm_now_iso(),
                 finished_at: Some(studio_swarm_now_iso()),
@@ -768,7 +772,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 output_bytes: None,
                 output_preview: None,
                 preview_language: None,
-                notes: judge.repair_hints.clone(),
+                notes: validation.repair_hints.clone(),
                 failure: Some(
                     "Repair coordination completed without any scoped patch to merge.".to_string(),
                 ),
@@ -781,7 +785,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                     .to_string(),
                 triggered_by_work_item_id: Some(repair_template_item.id.clone()),
                 affected_work_item_ids: vec![repair_template_item.id.clone()],
-                details: judge.repair_hints.clone(),
+                details: validation.repair_hints.clone(),
             });
             replan_receipts.push(ExecutionReplanReceipt {
                 id: "repair-follow-up-blocked".to_string(),
@@ -791,7 +795,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 triggered_by_work_item_id: Some(repair_template_item.id.clone()),
                 spawned_work_item_ids: spawned_repair_work_item_ids.clone(),
                 blocked_work_item_ids: vec![repair_template_item.id.clone()],
-                details: judge.repair_hints.clone(),
+                details: validation.repair_hints.clone(),
             });
         } else {
             update_swarm_work_item_status(
@@ -820,8 +824,8 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 output_bytes: None,
                 output_preview: None,
                 preview_language: None,
-                notes: judge.repair_hints.clone(),
-                failure: Some(judge.rationale.clone()),
+                notes: validation.repair_hints.clone(),
+                failure: Some(validation.rationale.clone()),
             });
             graph_mutation_receipts.push(ExecutionGraphMutationReceipt {
                 id: "repair-replan-requested".to_string(),
@@ -832,7 +836,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                         .to_string(),
                 triggered_by_work_item_id: Some(repair_template_item.id.clone()),
                 affected_work_item_ids: vec![repair_template_item.id.clone()],
-                details: judge.repair_hints.clone(),
+                details: validation.repair_hints.clone(),
             });
             replan_receipts.push(ExecutionReplanReceipt {
                 id: "repair-broader-replan".to_string(),
@@ -843,7 +847,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
                 triggered_by_work_item_id: Some(repair_template_item.id.clone()),
                 spawned_work_item_ids: spawned_repair_work_item_ids.clone(),
                 blocked_work_item_ids: vec![repair_template_item.id.clone()],
-                details: judge.repair_hints.clone(),
+                details: validation.repair_hints.clone(),
             });
         }
     } else {
@@ -860,7 +864,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
             worker_receipts.push(studio_swarm_skip_receipt(
                 repair_item,
                 &repair_runtime,
-                "Judge cleared the merged artifact without a repair pass.",
+                "Validation cleared the merged artifact without a repair pass.",
             ));
         }
     }
@@ -869,15 +873,15 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         validate_swarm_generated_artifact_payload(&canonical, request).map_err(build_error)?;
     let swarm_execution = studio_swarm_execution_summary(
         &swarm_plan,
-        if judge_clears_primary_view(&judge) {
+        if validation_clears_primary_view(&validation) {
             "ready"
         } else if repair_applied {
             "repair_exhausted"
         } else {
-            "judged"
+            "validated"
         },
         None,
-        judge_classification_id(judge.classification),
+        validation_status_id(validation.classification),
     );
     let execution_budget_summary = ExecutionBudgetSummary {
         planned_worker_count: Some(swarm_plan.work_items.len()),
@@ -900,12 +904,12 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         token_usage: None,
         wall_clock_ms: Some(swarm_started_at.elapsed().as_millis() as u64),
         coordination_overhead_ms: None,
-        status: if judge_clears_primary_view(&judge) {
+        status: if validation_clears_primary_view(&validation) {
             "completed".to_string()
         } else if repair_applied {
             "repair_exhausted".to_string()
         } else {
-            "judged".to_string()
+            "validated".to_string()
         },
     };
     let execution_envelope = build_execution_envelope_from_swarm_with_receipts(
@@ -944,7 +948,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         swarm_verification_receipts: verification_receipts,
         winner: final_payload,
         render_evaluation,
-        judge,
+        validation,
         origin,
         production_provenance,
         acceptance_provenance,
@@ -954,7 +958,7 @@ pub(super) async fn finalize_swarm_bundle_after_initial_execution(
         ux_lifecycle: if repair_applied {
             StudioArtifactUxLifecycle::Refining
         } else {
-            StudioArtifactUxLifecycle::Judged
+            StudioArtifactUxLifecycle::Validated
         },
         taste_memory: refinement.and_then(|context| context.taste_memory.clone()),
         failure: None,

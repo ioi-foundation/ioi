@@ -66,12 +66,11 @@ fn html_swarm_plan_is_stable_and_scoped() {
         .work_items
         .iter()
         .any(|item| item.id == "integrator" && item.role == StudioArtifactWorkerRole::Integrator));
-    assert!(first_plan
-        .work_items
-        .iter()
-        .any(|item| item.id == "judge" && item.dependency_ids == vec!["integrator".to_string()]));
+    assert!(first_plan.work_items.iter().any(
+        |item| item.id == "validation" && item.dependency_ids == vec!["integrator".to_string()]
+    ));
     assert!(first_plan.work_items.iter().any(|item| item.id == "repair"
-        && item.dependency_ids == vec!["judge".to_string()]
+        && item.dependency_ids == vec!["validation".to_string()]
         && item.verification_policy == Some(SwarmVerificationPolicy::Blocking)
         && item.retry_budget == Some(2)));
 

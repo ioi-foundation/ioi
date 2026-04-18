@@ -379,6 +379,104 @@ fn local_business_direct_citation_source_allowed_with_projection(
     )
 }
 
+fn local_business_detail_surface_candidate_allowed_with_contract_and_projection(
+    retrieval_contract: Option<&WebRetrievalContract>,
+    query_contract: &str,
+    projection: &QueryConstraintProjection,
+    raw: &str,
+    title: &str,
+    excerpt: &str,
+) -> bool {
+    if !local_business_entity_diversity_required_with_contract_and_projection(
+        retrieval_contract,
+        query_contract,
+        projection,
+    )
+        || !retrieval_contract_prefers_multi_item_cardinality(retrieval_contract, query_contract)
+        || !retrieval_contract_requests_comparison(retrieval_contract, query_contract)
+        || !projection.query_facets.locality_sensitive_public_fact
+        || !projection.query_facets.grounded_external_required
+    {
+        return false;
+    }
+
+    let trimmed = raw.trim();
+    if trimmed.is_empty()
+        || !is_citable_web_url(trimmed)
+        || is_search_hub_url(trimmed)
+        || title.trim().is_empty() && excerpt.trim().is_empty()
+    {
+        return false;
+    }
+    if is_multi_item_listing_url(trimmed)
+        || local_business_collection_surface_candidate(
+            projection.locality_scope.as_deref(),
+            trimmed,
+            title,
+            excerpt,
+        )
+        || source_has_human_challenge_signal(trimmed, title, excerpt)
+    {
+        return false;
+    }
+
+    let source = PendingSearchReadSummary {
+        url: trimmed.to_string(),
+        title: (!title.trim().is_empty()).then(|| title.trim().to_string()),
+        excerpt: excerpt.trim().to_string(),
+    };
+    let Some(_target_name) =
+        local_business_target_name_from_source(&source, projection.locality_scope.as_deref())
+    else {
+        return false;
+    };
+
+    let menu_bearing_detail_excerpt = excerpt.to_ascii_lowercase().contains(" on the menu")
+        || excerpt.to_ascii_lowercase().contains("menu specials")
+        || excerpt.to_ascii_lowercase().contains("menu classics")
+        || excerpt.to_ascii_lowercase().contains("menu items")
+        || excerpt.to_ascii_lowercase().contains("dinner menu")
+        || excerpt.to_ascii_lowercase().contains("lunch menu")
+        || excerpt.to_ascii_lowercase().contains("brunch menu");
+    let menu_surface_required = query_requires_local_business_menu_surface(
+        query_contract,
+        retrieval_contract,
+        projection.locality_scope.as_deref(),
+    );
+    if menu_surface_required
+        && !local_business_menu_surface_url(trimmed)
+        && local_business_menu_inventory_excerpt(excerpt, excerpt.chars().count()).is_none()
+        && !menu_bearing_detail_excerpt
+    {
+        return false;
+    }
+
+    let compatibility = candidate_constraint_compatibility(
+        &projection.constraints,
+        &projection.query_facets,
+        &projection.query_native_tokens,
+        &projection.query_tokens,
+        &projection.locality_tokens,
+        projection.locality_scope.is_some(),
+        trimmed,
+        title,
+        excerpt,
+    );
+    let detail_compatible = compatibility_passes_projection(projection, &compatibility)
+        || local_business_scope_matches_source(
+            projection.locality_scope.as_deref(),
+            trimmed,
+            title,
+            excerpt,
+        );
+    if !detail_compatible {
+        return false;
+    }
+
+    let signals = analyze_source_record_signals(trimmed, title, excerpt);
+    !(signals.low_priority_hits > 0 || signals.low_priority_dominates())
+}
+
 fn grounded_direct_citation_source_allowed_with_contract_and_projection(
     retrieval_contract: Option<&WebRetrievalContract>,
     query_contract: &str,
@@ -397,6 +495,14 @@ fn grounded_direct_citation_source_allowed_with_contract_and_projection(
     }
     if source_has_human_challenge_signal(trimmed, title, excerpt) {
         return false;
+    }
+
+    if retrieval_contract_is_generic_headline_collection(retrieval_contract, query_contract) {
+        return headline_source_is_actionable(&PendingSearchReadSummary {
+            url: trimmed.to_string(),
+            title: (!title.trim().is_empty()).then(|| title.trim().to_string()),
+            excerpt: excerpt.trim().to_string(),
+        });
     }
 
     let signals = analyze_source_record_signals(trimmed, title, excerpt);
@@ -418,8 +524,25 @@ fn grounded_direct_citation_source_allowed_with_contract_and_projection(
     let primary_authority_override =
         retrieval_contract_requires_primary_authority_source(retrieval_contract, query_contract)
             && source_counts_as_primary_authority(query_contract, trimmed, title, excerpt);
+    let local_business_grounded_override =
+        local_business_detail_surface_candidate_allowed_with_contract_and_projection(
+            retrieval_contract,
+            query_contract,
+            projection,
+            trimmed,
+            title,
+            excerpt,
+        ) || local_business_detail_root_candidate_allowed_with_contract(
+            retrieval_contract,
+            query_contract,
+            projection,
+            trimmed,
+            title,
+            excerpt,
+        );
     if !compatibility_passes_projection(projection, &compatibility)
         && !primary_authority_override
+        && !local_business_grounded_override
     {
         return false;
     }
@@ -508,6 +631,14 @@ pub(crate) fn projection_candidate_url_allowed_with_contract_and_projection(
             excerpt,
         )
         || single_snapshot_metric_detail_candidate_allowed_with_contract_and_projection(
+            retrieval_contract,
+            query_contract,
+            projection,
+            raw,
+            title,
+            excerpt,
+        )
+        || local_business_detail_surface_candidate_allowed_with_contract_and_projection(
             retrieval_contract,
             query_contract,
             projection,
@@ -947,6 +1078,49 @@ mod candidate_filtering_tests {
     }
 
     #[test]
+    fn local_business_direct_citation_allows_grounded_menu_detail_surface() {
+        let query =
+            "Find the three best-reviewed Italian restaurants in New York, NY and compare their menus.";
+        let source_hints = vec![PendingSearchReadSummary {
+            url: "https://www.carminesnyc.com/locations/upper-west-side/menus/dinner".to_string(),
+            title: Some("Carmine's Upper West Side Dinner Menu".to_string()),
+            excerpt:
+                "Italian restaurant in New York, NY with family-style pasta, chicken parm and seafood."
+                    .to_string(),
+        }];
+        let projection = build_query_constraint_projection_with_locality_hint(
+            query,
+            3,
+            &source_hints,
+            Some("New York, NY"),
+        );
+
+        assert!(projection_candidate_url_allowed_with_contract_and_projection(
+            None,
+            query,
+            &projection,
+            &source_hints[0].url,
+            source_hints[0].title.as_deref().unwrap_or_default(),
+            &source_hints[0].excerpt,
+        ));
+
+        let affordances = retrieval_affordances_with_locality_hint(
+            query,
+            3,
+            &source_hints,
+            Some("New York, NY"),
+            &source_hints[0].url,
+            source_hints[0].title.as_deref().unwrap_or_default(),
+            &source_hints[0].excerpt,
+        );
+        assert!(
+            affordances.contains(&RetrievalAffordanceKind::DirectCitationRead),
+            "expected direct-read affordance for grounded restaurant menu detail, got {:?}",
+            affordances
+        );
+    }
+
+    #[test]
     fn single_snapshot_direct_citation_allows_official_pricing_authority_without_inline_quote_payload(
     ) {
         let query = "What is the latest OpenAI API pricing?";
@@ -962,5 +1136,47 @@ mod candidate_filtering_tests {
             "OpenAI API Pricing | OpenAI",
             "Explore OpenAI API pricing for GPT-5.4, multimodal models, and tools. Compare token costs, realtime, image, and video pricing, plus service tiers."
         ));
+    }
+
+    #[test]
+    fn headline_article_surfaces_remain_direct_read_candidates() {
+        let query = "Tell me today's top news headlines.";
+        let source_hints = vec![
+            PendingSearchReadSummary {
+                url: "https://www.foxnews.com/us/example-breaking-story".to_string(),
+                title: Some("Emergency response declared after major storm".to_string()),
+                excerpt: "Officials declared an emergency response Wednesday morning."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://www.reuters.com/world/europe/example-story/".to_string(),
+                title: Some("European ministers agree on emergency aid package".to_string()),
+                excerpt: "Ministers agreed to an aid package after overnight talks."
+                    .to_string(),
+            },
+            PendingSearchReadSummary {
+                url: "https://apnews.com/article/example-story".to_string(),
+                title: Some("Federal agency expands investigation into outage".to_string()),
+                excerpt: "Agency officials expanded an investigation late Tuesday.".to_string(),
+            },
+        ];
+
+        for hint in &source_hints {
+            let affordances = retrieval_affordances_with_locality_hint(
+                query,
+                3,
+                &source_hints,
+                None,
+                &hint.url,
+                hint.title.as_deref().unwrap_or_default(),
+                &hint.excerpt,
+            );
+            assert!(
+                affordances.contains(&RetrievalAffordanceKind::DirectCitationRead),
+                "expected direct-read affordance for {:?}, got {:?}",
+                hint,
+                affordances
+            );
+        }
     }
 }

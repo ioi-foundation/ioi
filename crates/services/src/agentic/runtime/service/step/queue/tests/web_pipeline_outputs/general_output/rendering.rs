@@ -341,15 +341,25 @@ fn web_pipeline_reply_enforces_three_story_structure_with_citations_and_timestam
 
     let reply =
         synthesize_web_pipeline_reply(&pending, WebPipelineCompletionReason::MinSourcesReached);
-    assert!(reply.contains("Story 1:"));
-    assert!(reply.contains("Story 2:"));
-    assert!(reply.contains("Story 3:"));
-    assert_eq!(reply.matches("What happened:").count(), 3);
-    assert_eq!(reply.matches("What changed in the last hour:").count(), 3);
-    assert_eq!(reply.matches("User impact:").count(), 3);
-    assert_eq!(reply.matches("Workaround:").count(), 3);
-    assert_eq!(reply.matches("ETA confidence:").count(), 3);
-    assert_eq!(reply.matches("Citations:").count(), 3);
+    assert!(reply.contains("Story 1:"), "reply was: {}", reply);
+    assert!(reply.contains("Story 2:"), "reply was: {}", reply);
+    assert!(reply.contains("Story 3:"), "reply was: {}", reply);
+    assert_eq!(reply.matches("What happened:").count(), 3, "reply was: {}", reply);
+    assert_eq!(
+        reply.matches("What changed in the last hour:").count(),
+        3,
+        "reply was: {}",
+        reply
+    );
+    assert_eq!(reply.matches("User impact:").count(), 3, "reply was: {}", reply);
+    assert_eq!(reply.matches("Workaround:").count(), 3, "reply was: {}", reply);
+    assert_eq!(
+        reply.matches("ETA confidence:").count(),
+        3,
+        "reply was: {}",
+        reply
+    );
+    assert_eq!(reply.matches("Citations:").count(), 3, "reply was: {}", reply);
     assert!(reply.contains("T") && reply.contains("Z"));
     let urls = extract_urls(&reply);
     assert!(
