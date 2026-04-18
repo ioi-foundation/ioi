@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use ioi_drivers::browser::BrowserDriver;
+use rand::seq::SliceRandom;
 use reqwest::{header, redirect, Client};
 use std::time::Duration;
 use tokio::time::timeout;
@@ -13,8 +14,31 @@ use super::constants::{
 use super::util::env_flag_enabled;
 
 const DEFAULT_HTTP_USER_AGENT: &str = "ioi-web-retrieve/1.0";
-const STANDARD_WEB_USER_AGENT: &str =
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+const WEB_HTTP_USER_AGENT_OVERRIDE_ENV: &str = "IOI_WEB_HTTP_USER_AGENT";
+const STANDARD_WEB_USER_AGENTS: &[&str] = &[
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:133.0) Gecko/20100101 Firefox/133.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.2 Safari/605.1.15",
+];
+
+fn selected_browser_http_user_agent() -> String {
+    if let Ok(raw) = std::env::var(WEB_HTTP_USER_AGENT_OVERRIDE_ENV) {
+        let trimmed = raw.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+
+    let mut rng = rand::thread_rng();
+    STANDARD_WEB_USER_AGENTS
+        .choose(&mut rng)
+        .copied()
+        .unwrap_or("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+        .to_string()
+}
 
 pub(crate) fn record_challenge(
     challenge_reason: &mut Option<String>,
@@ -214,19 +238,22 @@ pub(crate) async fn fetch_html_http_fallback(url: &str) -> Result<String> {
 }
 
 pub(crate) async fn fetch_html_http_fallback_browser_ua(url: &str) -> Result<String> {
-    fetch_html_http_fallback_with_user_agent(url, STANDARD_WEB_USER_AGENT).await
+    let user_agent = selected_browser_http_user_agent();
+    fetch_html_http_fallback_with_user_agent(url, &user_agent).await
 }
 
 pub(crate) async fn fetch_html_http_fallback_browser_ua_with_final_url(
     url: &str,
 ) -> Result<(String, String)> {
-    fetch_html_http_fallback_with_user_agent_and_final_url(url, STANDARD_WEB_USER_AGENT).await
+    let user_agent = selected_browser_http_user_agent();
+    fetch_html_http_fallback_with_user_agent_and_final_url(url, &user_agent).await
 }
 
 pub(crate) async fn fetch_structured_detail_http_fallback_browser_ua(url: &str) -> Result<String> {
+    let user_agent = selected_browser_http_user_agent();
     let (_, body) = fetch_html_http_fallback_with_user_agent_and_final_url_and_timeout(
         url,
-        STANDARD_WEB_USER_AGENT,
+        &user_agent,
         STRUCTURED_DETAIL_HTTP_TIMEOUT_SECS,
     )
     .await?;
@@ -236,9 +263,10 @@ pub(crate) async fn fetch_structured_detail_http_fallback_browser_ua(url: &str) 
 pub(crate) async fn fetch_structured_detail_http_fallback_browser_ua_with_final_url(
     url: &str,
 ) -> Result<(String, String)> {
+    let user_agent = selected_browser_http_user_agent();
     fetch_html_http_fallback_with_user_agent_and_final_url_and_timeout(
         url,
-        STANDARD_WEB_USER_AGENT,
+        &user_agent,
         STRUCTURED_DETAIL_HTTP_TIMEOUT_SECS,
     )
     .await
@@ -254,10 +282,11 @@ pub(crate) async fn fetch_binary_http_fallback_browser_ua_with_final_url(
         return Ok((url.to_string(), None, html.into_bytes()));
     }
 
+    let user_agent = selected_browser_http_user_agent();
     let client = Client::builder()
         .redirect(redirect::Policy::limited(5))
         .timeout(Duration::from_secs(HTTP_FALLBACK_TIMEOUT_SECS))
-        .user_agent(STANDARD_WEB_USER_AGENT)
+        .user_agent(user_agent)
         .build()
         .map_err(|e| anyhow!("HTTP fallback client init failed: {}", e))?;
 

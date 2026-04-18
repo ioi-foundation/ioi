@@ -60,7 +60,7 @@
 }
 
 .spot-studio-shell.is-artifact-open {
-  grid-template-columns: clamp(264px, 19vw, 294px) minmax(0, 1fr) minmax(360px, 420px);
+  grid-template-columns: clamp(264px, 19vw, 294px) minmax(0, 1fr) minmax(50%, 1fr);
 }
 
 .spot-studio-shell.is-artifact-menu-open {
@@ -2632,7 +2632,7 @@
   }
 
   .spot-studio-shell.is-artifact-open {
-    grid-template-columns: 232px minmax(0, 1fr) minmax(320px, 380px);
+    grid-template-columns: 232px minmax(0, 1fr) minmax(50%, 1fr);
   }
 
   .spot-studio-shell.is-artifact-menu-open {

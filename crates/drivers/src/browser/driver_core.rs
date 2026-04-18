@@ -10,6 +10,9 @@ use uuid::Uuid;
 const CHROMIUM_REVISION_ENV: &str = "IOI_CHROMIUM_REVISION";
 const CHROMIUM_SHA256_ENV: &str = "IOI_CHROMIUM_SHA256";
 const BROWSER_REQUEST_TIMEOUT_ENV: &str = "IOI_BROWSER_REQUEST_TIMEOUT_MS";
+const BROWSER_PERSIST_PROFILE_ENV: &str = "IOI_BROWSER_PERSIST_PROFILE";
+const BROWSER_ENABLE_AUTOMATION_FLAG_ENV: &str = "IOI_BROWSER_ENABLE_AUTOMATION_FLAG";
+const PERSISTENT_PROFILE_DIR: &str = "./ioi-data/browser_profiles/persistent";
 const CHROMIUM_PIN_FILE_PREFIX: &str = "chromium-pin-";
 const HANDLER_ERROR_TOLERANCE: usize = 3;
 const LAUNCH_RETRY_ATTEMPTS: usize = 3;
@@ -70,6 +73,21 @@ fn browser_request_timeout() -> Duration {
         .unwrap_or_else(|| Duration::from_millis(DEFAULT_BROWSER_REQUEST_TIMEOUT_MS))
 }
 
+fn env_flag_truthy(name: &str) -> bool {
+    std::env::var(name)
+        .ok()
+        .map(|raw| raw.trim().to_ascii_lowercase())
+        .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on" | "enabled"))
+}
+
+fn browser_persist_profile_enabled() -> bool {
+    env_flag_truthy(BROWSER_PERSIST_PROFILE_ENV)
+}
+
+fn browser_enable_automation_flag_enabled() -> bool {
+    env_flag_truthy(BROWSER_ENABLE_AUTOMATION_FLAG_ENV)
+}
+
 fn chromium_launch_args(headless: bool) -> Vec<String> {
     let mut args = vec![
         "--disable-background-networking".to_string(),
@@ -92,15 +110,20 @@ fn chromium_launch_args(headless: bool) -> Vec<String> {
         "--disable-setuid-sandbox".to_string(),
         "--disable-software-rasterizer".to_string(),
         "--disable-sync".to_string(),
-        "--enable-automation".to_string(),
+        "--disable-blink-features=AutomationControlled".to_string(),
         "--force-color-profile=srgb".to_string(),
         "--force-renderer-accessibility".to_string(),
+        "--lang=en-US".to_string(),
         "--metrics-recording-only".to_string(),
         "--no-first-run".to_string(),
         "--password-store=basic".to_string(),
         "--start-maximized".to_string(),
         "--use-mock-keychain".to_string(),
+        "--window-size=1366,768".to_string(),
     ];
+    if browser_enable_automation_flag_enabled() {
+        args.push("--enable-automation".to_string());
+    }
     if headless {
         args.push("--headless=new".to_string());
     }
@@ -317,7 +340,11 @@ impl BrowserDriver {
     }
 
     fn create_profile_dir() -> Result<PathBuf, BrowserError> {
-        let path = PathBuf::from("./ioi-data/browser_profiles").join(Uuid::new_v4().to_string());
+        let path = if browser_persist_profile_enabled() {
+            PathBuf::from(PERSISTENT_PROFILE_DIR)
+        } else {
+            PathBuf::from("./ioi-data/browser_profiles").join(Uuid::new_v4().to_string())
+        };
         std::fs::create_dir_all(&path).map_err(|e| {
             BrowserError::Internal(format!("Failed to create browser profile dir: {}", e))
         })?;
@@ -390,6 +417,9 @@ impl BrowserDriver {
     }
 
     fn remove_profile_dir(path: &Path) {
+        if browser_persist_profile_enabled() {
+            return;
+        }
         if let Err(e) = std::fs::remove_dir_all(path) {
             if e.kind() != ErrorKind::NotFound {
                 log::warn!(
@@ -403,6 +433,9 @@ impl BrowserDriver {
     }
 
     fn cleanup_profile_dir_with_retries(path: PathBuf) {
+        if browser_persist_profile_enabled() {
+            return;
+        }
         const CLEANUP_RETRY_DELAYS_MS: [u64; 4] = [0, 100, 500, 1_000];
 
         for delay_ms in CLEANUP_RETRY_DELAYS_MS {
@@ -636,7 +669,6 @@ impl BrowserDriver {
                 "--force-color-profile=srgb".to_string(),
                 "--metrics-recording-only".to_string(),
                 "--no-first-run".to_string(),
-                "--enable-automation".to_string(),
                 "--password-store=basic".to_string(),
                 "--use-mock-keychain".to_string(),
             ];
@@ -870,8 +902,9 @@ impl BrowserDriver {
 #[cfg(test)]
 mod tests {
     use super::{
-        chromium_launch_args, evaluate_health, is_reset_worthy_browser_error,
-        is_retryable_launch_error, recent_successful_health_probe_fresh, restorable_page_url,
+        browser_enable_automation_flag_enabled, chromium_launch_args, evaluate_health,
+        is_reset_worthy_browser_error, is_retryable_launch_error,
+        recent_successful_health_probe_fresh, restorable_page_url,
         should_fallback_to_headless_launch, BrowserDriver, RecentAccessibilitySnapshot,
         HEALTH_PROBE_CACHE_TTL,
     };
@@ -948,10 +981,9 @@ mod tests {
     }
 
     #[test]
-    fn chromium_launch_args_include_automation_and_first_run_suppression() {
+    fn chromium_launch_args_include_hardening_and_first_run_suppression() {
         let args = chromium_launch_args(true);
         assert!(args.iter().any(|arg| arg == "--headless=new"));
-        assert!(args.iter().any(|arg| arg == "--enable-automation"));
         assert!(args.iter().any(|arg| arg == "--no-first-run"));
         assert!(args
             .iter()
@@ -959,6 +991,16 @@ mod tests {
         assert!(args
             .iter()
             .any(|arg| arg == "--force-renderer-accessibility"));
+        assert!(args.iter().any(|arg| arg == "--window-size=1366,768"));
+        assert!(args.iter().any(|arg| arg == "--lang=en-US"));
+        if browser_enable_automation_flag_enabled() {
+            assert!(args.iter().any(|arg| arg == "--enable-automation"));
+        } else {
+            assert!(args
+                .iter()
+                .any(|arg| arg == "--disable-blink-features=AutomationControlled"));
+            assert!(!args.iter().any(|arg| arg == "--enable-automation"));
+        }
     }
 
     #[test]

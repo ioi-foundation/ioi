@@ -61,6 +61,11 @@ pub(super) fn studio_routing_timeout_for_runtime(runtime: &Arc<dyn InferenceRunt
             .filter(|seconds| *seconds > 0)
     })
     .unwrap_or_else(|| match runtime.studio_runtime_provenance().kind {
+        crate::models::StudioRuntimeProvenanceKind::RealLocalRuntime
+            if crate::is_env_var_truthy("AUTOPILOT_LOCAL_GPU_DEV") =>
+        {
+            90
+        }
         crate::models::StudioRuntimeProvenanceKind::RealLocalRuntime => 45,
         _ => 20,
     });
