@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   ToolActivityGroupPresentation,
   ToolActivityRow,
@@ -16,7 +16,14 @@ function rowIcon(row: ToolActivityRow) {
     case "verify":
       return row.status === "blocked" ? icons.alert : icons.check;
     case "preview":
+    case "present":
       return icons.externalLink;
+    case "route":
+      return icons.cube;
+    case "understand":
+      return icons.search;
+    case "guidance":
+      return icons.sparkles;
     default:
       return icons.wrench;
   }
@@ -27,6 +34,11 @@ function ToolActivityRowItem({ row }: { row: ToolActivityRow }) {
   const [open, setOpen] = useState(
     row.status === "active" || (row.kind === "read" && !!row.preview),
   );
+  useEffect(() => {
+    if (row.status === "active") {
+      setOpen(true);
+    }
+  }, [row.key, row.status]);
   const detailPreview = useMemo(() => {
     if (row.preview) {
       return row.preview;
@@ -79,6 +91,10 @@ export function ToolActivityGroup({
   group: ToolActivityGroupPresentation;
 }) {
   const [open, setOpen] = useState(group.defaultOpen);
+
+  useEffect(() => {
+    setOpen(group.defaultOpen);
+  }, [group.defaultOpen, group.key]);
 
   return (
     <section className="spot-tool-group" aria-label="Tool activity">

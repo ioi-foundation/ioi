@@ -5,6 +5,7 @@ import type {
   Artifact,
   ChatMessage,
   PlanSelectedSkill,
+  StudioArtifactSession,
 } from "../../../types";
 import {
   buildRunPresentation,
@@ -15,6 +16,7 @@ import {
   buildReasoningDurationLabel,
   buildTurnToolActivityGroup,
 } from "../components/conversationTranscriptModel";
+import { studioArtifactSessionIsPresentable } from "../components/studioArtifactConversationModel";
 import { buildExecutionMoments } from "./contentPipeline.summaries";
 import { parseChatContractEnvelope } from "./chatContract";
 
@@ -436,6 +438,205 @@ function toolActivityGroupPresentationTest(): void {
     ),
     "Thought for 7 seconds",
   );
+}
+
+function artifactRuntimeActivityGroupPresentationTest(): void {
+  const studioSession: StudioArtifactSession = {
+    sessionId: "studio-session-1",
+    threadId: "thread-a",
+    artifactId: "artifact-1",
+    originPromptEventId: "prompt-1",
+    title: "Quantum computers explainer",
+    summary: "Interactive HTML explainer",
+    currentLens: "render",
+    navigatorBackingMode: "logical",
+    navigatorNodes: [],
+    attachedArtifactIds: ["artifact-1"],
+    availableLenses: ["render", "source"],
+    materialization: {
+      version: 1,
+      requestKind: "artifact",
+      normalizedIntent: "Create a HTML file that explains quantum computers",
+      summary: "Interactive HTML explainer",
+      selectedSkills: [],
+      retrievedExemplars: [],
+      candidateSummaries: [],
+      swarmWorkerReceipts: [],
+      swarmChangeReceipts: [],
+      swarmMergeReceipts: [],
+      swarmVerificationReceipts: [],
+      fallbackUsed: false,
+      navigatorNodes: [],
+      fileWrites: [],
+      commandIntents: [],
+      verificationSteps: [],
+      pipelineSteps: [],
+      runtimeNarrationEvents: [
+        {
+          eventId: "evt-runtime-understand",
+          eventType: "understand_request",
+          stepId: "understand_request",
+          stepKey: "understand_request",
+          stepKind: "intake",
+          eventKind: "step",
+          eventKindKey: "step",
+          title: "Understand request",
+          detail: "Studio captured the request and established the active artifact context.",
+          status: "complete",
+          statusKind: "complete",
+          occurredAtMs: 1000,
+          originPromptEventId: "prompt-1",
+        },
+        {
+          eventId: "evt-runtime-write",
+          eventType: "author_artifact",
+          stepId: "author_artifact",
+          stepKey: "author_artifact",
+          stepKind: "authoring",
+          eventKind: "step",
+          eventKindKey: "step",
+          attemptId: "attempt-1",
+          title: "Write artifact",
+          detail: "Studio is writing the initial HTML draft.",
+          status: "active",
+          statusKind: "active",
+          occurredAtMs: 1100,
+          originPromptEventId: "prompt-1",
+        },
+        {
+          eventId: "evt-runtime-preview",
+          eventType: "author_preview",
+          stepId: "author_artifact",
+          stepKey: "author_artifact",
+          stepKind: "authoring",
+          eventKind: "preview",
+          eventKindKey: "preview",
+          attemptId: "attempt-1",
+          title: "Write artifact",
+          detail: "Streaming Direct author output.",
+          status: "active",
+          statusKind: "active",
+          occurredAtMs: 1200,
+          originPromptEventId: "prompt-1",
+          preview: {
+            label: "Direct author output",
+            content: "<!doctype html><main>Quantum</main>",
+            status: "streaming",
+            kind: "token_stream",
+            language: "html",
+            originPromptEventId: "prompt-1",
+            isFinal: false,
+          },
+        },
+      ],
+      notes: [],
+    },
+    outcomeRequest: {
+      requestId: "req-1",
+      rawPrompt: "Create a HTML file that explains quantum computers",
+      outcomeKind: "artifact",
+      confidence: 0.94,
+      clarificationQuestions: [],
+      needsClarification: false,
+      routingHints: [],
+      artifact: {
+        artifactClass: "interactive_single_file",
+        deliverableShape: "single_file",
+        renderer: "html_iframe",
+        presentationSurface: "side_panel",
+        persistence: "artifact_scoped",
+        executionSubstrate: "client_sandbox",
+        workspaceRecipeId: null,
+        presentationVariantId: null,
+        scope: {
+          targetProject: null,
+          createNewWorkspace: false,
+          mutationBoundary: ["artifact"],
+        },
+        verification: {
+          requireRender: true,
+          requireBuild: false,
+          requirePreview: false,
+          requireExport: true,
+          requireDiffReview: false,
+        },
+      },
+      executionModeDecision: null,
+      executionStrategy: "direct_author",
+    },
+    artifactManifest: {
+      artifactId: "artifact-1",
+      artifactClass: "interactive_single_file",
+      renderer: "html_iframe",
+      title: "Quantum computers explainer",
+      primaryTab: "render",
+      tabs: [],
+      files: [
+        {
+          path: "index.html",
+          mime: "text/html",
+          role: "primary",
+          renderable: true,
+          downloadable: true,
+        },
+      ],
+      verification: {
+        status: "pending",
+        lifecycleState: "materializing",
+        summary: "Writing artifact",
+      },
+    },
+    verifiedReply: {
+      status: "pending",
+      lifecycleState: "materializing",
+      title: "Quantum computers explainer",
+      summary: "Writing artifact",
+      evidence: [],
+      updatedAt: BASE_TIMESTAMP,
+    },
+    lifecycleState: "materializing",
+    status: "materializing",
+    revisions: [],
+    retrievedExemplars: [],
+    selectedTargets: [],
+    createdAt: BASE_TIMESTAMP,
+    updatedAt: BASE_TIMESTAMP,
+  };
+
+  const group = buildTurnToolActivityGroup([], null, [], {
+    defaultOpen: true,
+    studioSession,
+  });
+
+  assert.equal(studioArtifactSessionIsPresentable(studioSession), false);
+  assert.ok(group);
+  assert.equal(group?.label, "Thinking through Quantum computers explainer");
+  assert.equal(group?.presentation, "inline_transcript");
+  assert.equal(group?.defaultOpen, true);
+  assert.equal(group?.rows[1]?.label, "Write index.html");
+  assert.equal(group?.rows[1]?.preview, "<!doctype html><main>Quantum</main>");
+
+  const readyStudioSession: StudioArtifactSession = {
+    ...studioSession,
+    artifactManifest: {
+      ...studioSession.artifactManifest,
+      verification: {
+        ...studioSession.artifactManifest.verification,
+        status: "ready",
+        lifecycleState: "ready",
+        summary: "Preview ready",
+      },
+    },
+    verifiedReply: {
+      ...studioSession.verifiedReply,
+      status: "ready",
+      lifecycleState: "ready",
+      summary: "Preview ready",
+    },
+    lifecycleState: "ready",
+    status: "ready",
+  };
+  assert.equal(studioArtifactSessionIsPresentable(readyStudioSession), true);
 }
 
 function thoughtSummaryTest(): void {
@@ -2323,6 +2524,7 @@ activitySummaryTest();
 sourceSummaryTest();
 sourceSummaryReceiptOnlyTest();
 toolActivityGroupPresentationTest();
+artifactRuntimeActivityGroupPresentationTest();
 thoughtSummaryTest();
 clarificationReasoningFallbackTest();
 ordinaryReasoningDoesNotBecomeAnswerTest();

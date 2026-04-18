@@ -76,6 +76,7 @@ fn authoritative_ready_artifact_mentions_candidates_and_repairs_when_available()
                 recommended_next_pass: Some("structural_repair".to_string()),
                 strongest_contradiction: None,
                 rationale: "repair".to_string(),
+                ..studio_validation_fixture()
             },
         },
         ioi_api::studio::StudioArtifactCandidateSummary {
@@ -126,6 +127,7 @@ fn authoritative_ready_artifact_mentions_candidates_and_repairs_when_available()
                 recommended_next_pass: None,
                 strongest_contradiction: None,
                 rationale: "accepted".to_string(),
+                ..studio_validation_fixture()
             },
         },
     ];
@@ -2563,6 +2565,7 @@ fn provisional_artifact_route_state_emits_route_receipt_before_materialization()
         summary,
         "2026-04-15T00:00:00Z",
         &outcome_request,
+        Some("prompt-evt-1"),
         materialization_contract_for_request(
             prompt,
             &request,

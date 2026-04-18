@@ -66,6 +66,28 @@ type RuntimeCatalogStageEntry = {
 
 const appliedStudioLaunchIds = new Set<string>();
 
+function waitForStudioAutopilotSurfaceFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      resolve();
+      return;
+    }
+    let resolved = false;
+    const finish = () => {
+      if (resolved) {
+        return;
+      }
+      resolved = true;
+      resolve();
+    };
+    const timeoutId = window.setTimeout(finish, 48);
+    window.requestAnimationFrame(() => {
+      window.clearTimeout(timeoutId);
+      finish();
+    });
+  });
+}
+
 function normalizeRuntimeCatalogStageEntry(
   agent: RuntimeCatalogEntry,
 ): RuntimeCatalogStageEntry {
@@ -442,7 +464,50 @@ export function useStudioWindowController() {
           return;
         case "autopilot-intent":
           if (pendingRequest.sessionId) {
-            await openSessionTarget(pendingRequest.sessionId);
+            await bootstrapAgentSession({
+              refreshCurrentTask: false,
+            });
+            setChatSurface("chat");
+            setChatPaneVisible(true);
+            setActiveView("studio");
+            await waitForStudioAutopilotSurfaceFrame();
+            await recordStudioLaunchReceipt(
+              "studio_session_followup_submit_dispatching",
+              {
+                source,
+                launchId,
+                sessionId: pendingRequest.sessionId,
+                intentLength: pendingRequest.intent.length,
+              },
+            );
+            await invoke("continue_task", {
+              sessionId: pendingRequest.sessionId,
+              userInput: pendingRequest.intent,
+            });
+            void openSessionTarget(pendingRequest.sessionId).catch((error) => {
+              console.error(
+                "[Studio][Launch] retained session reopen after direct follow-up submit failed",
+                error,
+              );
+            });
+            await recordStudioLaunchReceipt(
+              "studio_session_followup_submit_resolved",
+              {
+                source,
+                launchId,
+                sessionId: pendingRequest.sessionId,
+                intentLength: pendingRequest.intent.length,
+              },
+            );
+            await recordStudioLaunchReceipt("studio_pending_launch_applied", {
+              source,
+              launchId,
+              kind: pendingRequest.kind,
+              intent: pendingRequest.intent,
+              sessionId: pendingRequest.sessionId,
+              submissionMode: "direct_continue_task",
+            });
+            return;
           }
           openAutopilotWithIntent(pendingRequest.intent);
           await recordStudioLaunchReceipt("studio_pending_launch_applied", {
@@ -451,6 +516,7 @@ export function useStudioWindowController() {
             kind: pendingRequest.kind,
             intent: pendingRequest.intent,
             sessionId: pendingRequest.sessionId ?? null,
+            submissionMode: "seed_intent",
           });
           return;
         case "assistant-workbench":

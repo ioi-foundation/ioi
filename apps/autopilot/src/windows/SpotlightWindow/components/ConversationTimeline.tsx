@@ -95,7 +95,11 @@ function compactRendererLabel(value: string): string {
 }
 
 function artifactReplyText(turnContext: TurnContext | null): string | null {
-  if (!turnContext || turnContext.artifacts.length === 0) {
+  if (
+    !turnContext ||
+    turnContext.hasPendingStudioArtifact ||
+    turnContext.artifacts.length === 0
+  ) {
     return null;
   }
 
@@ -237,6 +241,8 @@ export function ConversationTimeline({
         const turnPlanSummary =
           turnContext?.planSummary ||
           (isLatestTurn ? runPresentation.planSummary : null);
+        const hasPendingStudioArtifact =
+          turnContext?.hasPendingStudioArtifact || false;
         const latestAnswerMatches =
           isLatestAnsweredTurn &&
           !!turn.answer &&
@@ -245,6 +251,7 @@ export function ConversationTimeline({
           isLatestTurn &&
           !!turn.prompt &&
           !turn.answer &&
+          !hasPendingStudioArtifact &&
           !!runPresentation.finalAnswer &&
           runPresentation.finalAnswer.message.timestamp >=
             turn.prompt.timestamp;
@@ -255,9 +262,7 @@ export function ConversationTimeline({
           turnContext?.sourceSummary ||
           (latestAnswerMatches ? runPresentation.sourceSummary : null);
         const inlineTranscriptRoute =
-          turnContext?.planSummary?.routeFamily === "artifacts" ||
-          (turnContext?.planSummary?.routeFamily === "research" &&
-            !!toolActivityGroup);
+          toolActivityGroup?.presentation === "inline_transcript";
         const showInlineTranscript = !!turn.prompt && inlineTranscriptRoute;
         const showLiveThinking =
           isLatestTurn &&
@@ -266,7 +271,11 @@ export function ConversationTimeline({
           isRunning &&
           !suppressPendingIndicators;
         const showInlineStatusCard =
-          isLatestTurn && !!turn.prompt && !turn.answer && !!inlineStatusCard;
+          isLatestTurn &&
+          !!turn.prompt &&
+          !turn.answer &&
+          !!inlineStatusCard &&
+          !showInlineTranscript;
         const compactDirectInlineRoute =
           !!turnPlanSummary &&
           turnPlanSummary.routeFamily === "general" &&
@@ -286,6 +295,7 @@ export function ConversationTimeline({
           !turn.answer &&
           !showPendingRunAnswer &&
           !runPresentation.finalAnswer &&
+          !showInlineTranscript &&
           !showExecutionRouteCard &&
           !showInlineStatusCard &&
           !suppressPendingIndicators;
@@ -330,6 +340,7 @@ export function ConversationTimeline({
         const showArtifactReplyBubble =
           !turn.answer &&
           !!inlineArtifactReply &&
+          !hasPendingStudioArtifact &&
           !showPendingRunAnswer &&
           !showAssistantPendingBubble &&
           !showLiveThinking;
@@ -354,7 +365,8 @@ export function ConversationTimeline({
 
             {showInlineTranscript &&
             turnContext?.reasoningDurationLabel &&
-            turnContext.thoughtSummary ? (
+            turnContext.thoughtSummary &&
+            !hasPendingStudioArtifact ? (
               <ReasoningDisclosure
                 label={turnContext.reasoningDurationLabel}
                 thoughtSummary={turnContext.thoughtSummary}

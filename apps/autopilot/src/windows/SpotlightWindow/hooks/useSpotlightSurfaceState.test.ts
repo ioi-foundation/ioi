@@ -42,4 +42,10 @@ assert.match(
   "artifact guidance labels should prefer explicit narration titles when runtime guidance is unavailable or not needed",
 );
 
+assert.match(
+  hookSource,
+  /const hasSessionContent =\s*activeHistory\.length > 0 \|\|\s*chatEvents\.length > 0 \|\|\s*conversationTurns\.length > 0 \|\|\s*activeEvents\.length > 0 \|\|\s*activeArtifacts\.length > 0 \|\|\s*Boolean\(task\?\.studio_session\);/,
+  "studio surface state should keep the session lane populated for receipt-driven artifact turns even when no assistant reply has landed yet",
+);
+
 console.log("useSpotlightSurfaceState.test.ts: ok");

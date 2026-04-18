@@ -228,9 +228,12 @@ fn local_outcome_router_prompt_uses_summarized_active_artifact_context() {
     let prompt_text =
         decode_studio_test_prompt(&serde_json::to_vec(&prompt).expect("prompt bytes"));
 
+    assert!(prompt_text.len() < 2600);
     assert!(prompt_text.contains("Active artifact context summary JSON"));
+    assert!(prompt_text.contains("follow-up turn for the active artifact"));
     assert!(prompt_text.contains("\"bodyChars\""));
     assert!(prompt_text.contains("\"lineCount\""));
+    assert!(!prompt_text.contains("Renderer meanings:"));
     assert!(!prompt_text.contains("bodyPreview"));
 }
 

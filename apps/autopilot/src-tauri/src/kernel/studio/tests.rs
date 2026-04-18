@@ -54,6 +54,40 @@ mod pipeline;
 mod routing;
 mod session_truth;
 
+fn studio_validation_fixture() -> StudioArtifactValidationResult {
+    StudioArtifactValidationResult {
+        classification: ioi_api::studio::StudioArtifactValidationStatus::Pass,
+        request_faithfulness: 4,
+        concept_coverage: 4,
+        interaction_relevance: 4,
+        layout_coherence: 4,
+        visual_hierarchy: 4,
+        completeness: 4,
+        generic_shell_detected: false,
+        trivial_shell_detected: false,
+        deserves_primary_artifact_view: false,
+        patched_existing_artifact: None,
+        continuity_revision_ux: None,
+        score_total: 24,
+        proof_kind: "test_fixture".to_string(),
+        primary_view_cleared: false,
+        validated_paths: Vec::new(),
+        issue_codes: Vec::new(),
+        repair_hints: Vec::new(),
+        blocked_reasons: Vec::new(),
+        issue_classes: Vec::new(),
+        strengths: Vec::new(),
+        file_findings: Vec::new(),
+        aesthetic_verdict: "fixture".to_string(),
+        interaction_verdict: "fixture".to_string(),
+        truthfulness_warnings: Vec::new(),
+        recommended_next_pass: None,
+        strongest_contradiction: None,
+        summary: "fixture summary".to_string(),
+        rationale: "fixture rationale".to_string(),
+    }
+}
+
 fn instrument_html_for_headless_validation(html: &str) -> String {
     let instrumentation_script = r#"<script data-studio-validation-probe="true">
 window.addEventListener("error", (event) => {
@@ -705,6 +739,7 @@ fn test_studio_session(status: StudioArtifactVerificationStatus) -> StudioArtifa
         session_id: "studio-session-1".to_string(),
         thread_id: "thread-1".to_string(),
         artifact_id: "artifact-1".to_string(),
+        origin_prompt_event_id: None,
         title: "Release artifact".to_string(),
         summary: "Studio created a release artifact.".to_string(),
         current_lens: "render".to_string(),
@@ -767,6 +802,32 @@ fn test_studio_session(status: StudioArtifactVerificationStatus) -> StudioArtifa
         workspace_root: None,
         renderer_session_id: None,
     }
+}
+
+#[test]
+fn provisional_artifact_session_tracks_origin_prompt_event_id() {
+    let session = super::prepare::provisional_non_workspace_studio_session(
+        "thread-1",
+        "studio-session-1",
+        "Release artifact",
+        "Studio created a release artifact.",
+        &now_iso(),
+        &test_outcome_request(),
+        Some("prompt-evt-1"),
+        test_materialization_contract(),
+    )
+    .expect("provisional studio session");
+
+    assert_eq!(
+        session.origin_prompt_event_id.as_deref(),
+        Some("prompt-evt-1")
+    );
+    assert!(!session.materialization.runtime_narration_events.is_empty());
+    assert!(session
+        .materialization
+        .runtime_narration_events
+        .iter()
+        .all(|event| event.origin_prompt_event_id.as_deref() == Some("prompt-evt-1")));
 }
 
 fn test_selection_target() -> StudioArtifactSelectionTarget {

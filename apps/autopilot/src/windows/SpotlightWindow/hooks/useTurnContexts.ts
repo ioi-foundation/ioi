@@ -11,6 +11,7 @@ import type {
   ExecutionMoment,
   RunPresentation,
   SourceSummary,
+  StudioArtifactSession,
   ThoughtSummary,
   ToolActivityGroupPresentation,
 } from "../../../types";
@@ -19,7 +20,10 @@ import {
   buildReasoningDurationLabel,
   buildTurnToolActivityGroup,
 } from "../components/conversationTranscriptModel";
-import { collectStudioConversationArtifacts } from "../components/studioArtifactConversationModel";
+import {
+  collectStudioConversationArtifactsForTurn,
+  studioArtifactSessionIsPresentable,
+} from "../components/studioArtifactConversationModel";
 import { collectScreenshotReceipts } from "../utils/screenshotEvidence";
 import {
   eventOutputText,
@@ -45,6 +49,7 @@ export type TurnContext = SessionTurnContext<
   ArtifactHubViewKey
 > & {
   artifacts: StudioConversationArtifactEntry[];
+  hasPendingStudioArtifact: boolean;
   sourceSummary: SourceSummary | null;
   thoughtSummary: ThoughtSummary | null;
   toolActivityGroup: ToolActivityGroupPresentation | null;
@@ -54,6 +59,7 @@ export type TurnContext = SessionTurnContext<
 type UseTurnContextsOptions = {
   activeHistory: ChatMessage[];
   activeEvents: AgentEvent[];
+  activeStudioSession?: StudioArtifactSession | null;
   runPresentation: RunPresentation;
 };
 
@@ -98,6 +104,7 @@ function toActivityEventRefs(events: AgentEvent[]): ActivityEventRef[] {
 export function useTurnContexts({
   activeHistory,
   activeEvents,
+  activeStudioSession = null,
   runPresentation,
 }: UseTurnContextsOptions) {
   const base = useSessionTurnContexts({
@@ -130,6 +137,7 @@ export function useTurnContexts({
 
   const eventTurnWindows = buildEventTurnWindows(activeEvents);
   let promptOrdinal = 0;
+  const latestTurnIndex = base.conversationTurns.length - 1;
 
   const turnContexts = base.turnContexts.map((context, index) => {
     const turn = base.conversationTurns[index] || null;
@@ -144,17 +152,45 @@ export function useTurnContexts({
     const thoughtSummary = buildThoughtSummary(
       buildActivityGroups(activityRefs),
     );
-    const artifacts = collectStudioConversationArtifacts(windowEvents);
+    const artifacts = collectStudioConversationArtifactsForTurn(
+      activeEvents,
+      windowEvents,
+      window?.id ?? null,
+      activeStudioSession,
+    );
+    const activeStudioSessionBelongsToTurn =
+      (activeStudioSession?.originPromptEventId ?? null) === (window?.id ?? null)
+      || (
+        index === latestTurnIndex &&
+        !!turn?.prompt &&
+        !!activeStudioSession &&
+        !activeStudioSession.originPromptEventId
+      );
+    const primaryStudioSession = activeStudioSessionBelongsToTurn
+      ? activeStudioSession
+      : artifacts[0]?.studioSession ?? null;
+    const hasActiveArtifactSession =
+      !!primaryStudioSession &&
+      activeStudioSession?.sessionId === primaryStudioSession.sessionId;
+    const hasPendingStudioArtifact =
+      !!primaryStudioSession &&
+      primaryStudioSession.outcomeRequest.outcomeKind === "artifact" &&
+      !studioArtifactSessionIsPresentable(primaryStudioSession);
 
     return {
       ...context,
       artifacts,
+      hasPendingStudioArtifact,
       sourceSummary,
       thoughtSummary,
       toolActivityGroup: buildTurnToolActivityGroup(
         activityRefs,
         context.planSummary,
         artifacts,
+        {
+          defaultOpen: hasActiveArtifactSession,
+          studioSession: primaryStudioSession,
+        },
       ),
       reasoningDurationLabel: turn?.prompt
         ? buildReasoningDurationLabel(activityRefs, turn.prompt.timestamp)

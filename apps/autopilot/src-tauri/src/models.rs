@@ -1744,6 +1744,8 @@ pub struct StudioArtifactSession {
     pub session_id: String,
     pub thread_id: String,
     pub artifact_id: String,
+    #[serde(default)]
+    pub origin_prompt_event_id: Option<String>,
     pub title: String,
     pub summary: String,
     pub current_lens: String,

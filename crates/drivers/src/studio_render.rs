@@ -2248,6 +2248,55 @@ mod tests {
         }));
     }
 
+    #[tokio::test]
+    async fn browser_render_evaluator_blocks_dead_controls() {
+        let evaluator = BrowserStudioArtifactRenderEvaluator::default();
+        let request = interactive_html_request();
+        let brief = interactive_html_brief();
+        let candidate = StudioGeneratedArtifactPayload {
+            summary: "Interactive explainer with dead controls".to_string(),
+            notes: vec!["no-op controls".to_string()],
+            files: vec![StudioGeneratedArtifactFile {
+                path: "index.html".to_string(),
+                mime: "text/html".to_string(),
+                role: StudioArtifactFileRole::Primary,
+                renderable: true,
+                downloadable: true,
+                encoding: None,
+                body: "<!doctype html><html><head><meta charset=\"utf-8\"><style>body{margin:0;font-family:Georgia,serif;background:#f6f1e7;color:#1b1a17;}main{display:grid;gap:1rem;padding:1.5rem;}section,aside{background:#fffdf8;border:1px solid #d5c7ad;border-radius:16px;padding:1rem;}button{border:1px solid #8c6f48;background:#f0dfc0;border-radius:999px;padding:0.45rem 0.85rem;}[hidden]{display:none !important;}</style></head><body><main><section><h1>Launch review</h1><p>Compare readiness and metrics without leaving the artifact surface.</p><div><button type=\"button\" data-view=\"overview\">Overview</button><button type=\"button\" data-view=\"metrics\">Metrics</button></div></section><section id=\"overview-panel\" data-view-panel=\"overview\"><h2>Overview</h2><p>Readiness evidence stays visible on first paint.</p></section><section id=\"metrics-panel\" data-view-panel=\"metrics\" hidden><h2>Metrics</h2><p>Metrics evidence should become visible after interaction.</p></section><aside><p id=\"detail-copy\">Overview selected.</p></aside><script>document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{button.setAttribute('data-clicked','true');}));</script></main></body></html>".to_string(),
+            }],
+        };
+
+        let render_evaluation = evaluator
+            .evaluate_candidate_render(&request, &brief, None, None, None, &candidate)
+            .await
+            .expect("render evaluation should succeed")
+            .expect("html render evaluation should be supported");
+
+        let controls_obligation = render_evaluation
+            .acceptance_obligations
+            .iter()
+            .find(|obligation| obligation.obligation_id == "controls_execute_cleanly")
+            .expect("controls_execute_cleanly obligation");
+        assert_eq!(
+            controls_obligation.status,
+            StudioArtifactAcceptanceObligationStatus::Failed
+        );
+
+        let failed_witness = render_evaluation
+            .execution_witnesses
+            .iter()
+            .find(|witness| witness.status == StudioArtifactExecutionWitnessStatus::Failed)
+            .expect("failed witness for dead control");
+        assert!(failed_witness
+            .summary
+            .contains("did not change visible artifact state"));
+        assert!(render_evaluation.findings.iter().any(|finding| {
+            finding.code == "controls_execute_cleanly"
+                && finding.summary.contains("failedWitnesses=")
+        }));
+    }
+
     #[test]
     fn runtime_boot_clean_obligation_applies_to_all_browser_backed_renderers() {
         let request = StudioOutcomeArtifactRequest {

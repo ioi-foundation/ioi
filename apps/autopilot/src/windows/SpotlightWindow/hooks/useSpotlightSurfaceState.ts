@@ -506,15 +506,8 @@ export function useSpotlightSurfaceState({
     );
   }, [retainedArtifacts, selectedArtifact, selectedArtifactId]);
 
-  const hasSessionContent = activeHistory.length > 0 || chatEvents.length > 0;
   const activeStudioSessionId = task?.studio_session?.sessionId ?? null;
   const studioArtifactExpected = isArtifactStudioRoute(task);
-  const shouldAutoFocusStudioComposer =
-    isStudioVariant &&
-    !inputLockedByCredential &&
-    !seedIntent?.trim() &&
-    !hasSessionContent &&
-    !intent.trim();
 
   const studioArtifactAvailable = useMemo(() => {
     const manifest = task?.studio_session?.artifactManifest;
@@ -560,8 +553,23 @@ export function useSpotlightSurfaceState({
     useTurnContexts({
       activeHistory,
       activeEvents,
+      activeStudioSession: task?.studio_session ?? null,
       runPresentation,
     });
+
+  const hasSessionContent =
+    activeHistory.length > 0 ||
+    chatEvents.length > 0 ||
+    conversationTurns.length > 0 ||
+    activeEvents.length > 0 ||
+    activeArtifacts.length > 0 ||
+    Boolean(task?.studio_session);
+  const shouldAutoFocusStudioComposer =
+    isStudioVariant &&
+    !inputLockedByCredential &&
+    !seedIntent?.trim() &&
+    !hasSessionContent &&
+    !intent.trim();
 
   const hasOperatorDecisionPrompt =
     isGated || showPasswordPrompt || Boolean(clarificationRequest);

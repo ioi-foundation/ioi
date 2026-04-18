@@ -77,7 +77,12 @@ pub(crate) fn materialization_max_tokens_for_execution_strategy(
             }
             StudioRendererKind::HtmlIframe => {
                 if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
-                    materialization_max_tokens_for_runtime(renderer, runtime_kind)
+                    // Keep local raw-document authoring bounded even when
+                    // modal-first HTML is enabled. The direct-author lane is
+                    // used for fast create/edit loops, and the larger 4200
+                    // token budget is better reserved for the heavier
+                    // structured materialization path.
+                    2400
                 } else {
                     materialization_max_tokens(renderer).min(2600)
                 }

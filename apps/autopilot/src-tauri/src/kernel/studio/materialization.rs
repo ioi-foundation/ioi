@@ -340,6 +340,7 @@ fn append_blocked_preview_runtime_event(
         status: preview.status,
         kind: Some(format!("{:?}", preview.kind).to_ascii_lowercase()),
         language: preview.language,
+        origin_prompt_event_id: None,
         is_final: preview.is_final,
     });
     runtime_narration_events.push(match attempt_id {

@@ -94,6 +94,7 @@ pub(crate) use runtime_materialization::{
     materialize_studio_artifact_candidate_with_runtime_detailed,
     materialize_studio_artifact_candidate_with_runtime_direct_author_detailed,
     refine_studio_artifact_candidate_with_runtime,
+    repair_direct_author_generated_candidate_with_runtime_error,
 };
 use runtime_plan::{
     compact_local_html_materialization_prompt, effective_direct_author_temperature,

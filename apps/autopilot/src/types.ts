@@ -755,6 +755,7 @@ export interface StudioArtifactRuntimePreviewSnapshot {
   status: string;
   kind?: string | null;
   language?: string | null;
+  originPromptEventId?: string | null;
   isFinal: boolean;
 }
 
@@ -773,6 +774,7 @@ export interface StudioArtifactRuntimeNarrationEvent {
   status: string;
   statusKind?: StudioArtifactRuntimeEventStatus | null;
   occurredAtMs: number;
+  originPromptEventId?: string | null;
   preview?: StudioArtifactRuntimePreviewSnapshot | null;
 }
 
@@ -1158,6 +1160,7 @@ export interface StudioArtifactSession {
   sessionId: string;
   threadId: string;
   artifactId: string;
+  originPromptEventId?: string | null;
   title: string;
   summary: string;
   currentLens: string;
@@ -3066,6 +3069,10 @@ export type ToolActivityKind =
   | "verify"
   | "preview"
   | "inspect"
+  | "route"
+  | "understand"
+  | "guidance"
+  | "present"
   | "other";
 
 export type ToolActivityStatus = "complete" | "active" | "blocked";
@@ -3086,6 +3093,7 @@ export interface ToolActivityGroupPresentation {
   label: string;
   rows: ToolActivityRow[];
   defaultOpen: boolean;
+  presentation?: "default" | "inline_transcript";
 }
 
 export type ChatContractScalar = string | number | boolean | null;

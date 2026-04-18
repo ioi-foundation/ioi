@@ -218,12 +218,147 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
     selected_skills: &[StudioArtifactSelectedSkill],
+    edit_intent: Option<&StudioArtifactEditIntent>,
     refinement: Option<&StudioArtifactRefinementContext>,
     candidate_id: &str,
     candidate_seed: u64,
     runtime_kind: StudioRuntimeProvenanceKind,
     returns_raw_document: bool,
 ) -> Result<serde_json::Value, String> {
+    fn edit_mode_label(mode: StudioArtifactEditMode) -> &'static str {
+        match mode {
+            StudioArtifactEditMode::Create => "create",
+            StudioArtifactEditMode::Patch => "patch",
+            StudioArtifactEditMode::Replace => "replace",
+            StudioArtifactEditMode::Branch => "branch",
+        }
+    }
+
+    fn direct_author_edit_intent_focus_text(
+        edit_intent: Option<&StudioArtifactEditIntent>,
+    ) -> Option<String> {
+        let edit_intent = edit_intent?;
+        let target_paths = if edit_intent.target_paths.is_empty() {
+            "none".to_string()
+        } else {
+            edit_intent
+                .target_paths
+                .iter()
+                .take(3)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let requested_operations = if edit_intent.requested_operations.is_empty() {
+            "none".to_string()
+        } else {
+            edit_intent
+                .requested_operations
+                .iter()
+                .take(4)
+                .map(|operation| truncate_materialization_focus_text(operation, 72))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let selected_targets = if edit_intent.selected_targets.is_empty() {
+            "none".to_string()
+        } else {
+            edit_intent
+                .selected_targets
+                .iter()
+                .take(3)
+                .map(|target| {
+                    format!(
+                        "{} ({})",
+                        truncate_materialization_focus_text(&target.label, 60),
+                        truncate_materialization_focus_text(&target.snippet, 120)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" | ")
+        };
+
+        Some(format!(
+            "Follow-up edit intent:\nmode: {}\npatch existing artifact: {}\npreserve structure: {}\ntarget scope: {}\ntarget paths: {}\nrequested operations: {}\nselected targets: {}",
+            edit_mode_label(edit_intent.mode),
+            edit_intent.patch_existing_artifact,
+            edit_intent.preserve_structure,
+            truncate_materialization_focus_text(&edit_intent.target_scope, 96),
+            target_paths,
+            requested_operations,
+            selected_targets,
+        ))
+    }
+
+    fn direct_author_refinement_document_context(
+        refinement: Option<&StudioArtifactRefinementContext>,
+    ) -> Option<String> {
+        let refinement = refinement?;
+        let file = refinement
+            .files
+            .iter()
+            .find(|file| file.renderable)
+            .or_else(|| refinement.files.first())?;
+        let body = file.body.trim();
+        if body.is_empty() {
+            return None;
+        }
+
+        let body_chars = body.chars().count();
+        let preview = if body_chars <= 4200 {
+            body.to_string()
+        } else {
+            let head = body.chars().take(2200).collect::<String>();
+            let tail = body
+                .chars()
+                .rev()
+                .take(1400)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<String>();
+            format!(
+                "{head}\n\n...[truncated {} chars]...\n\n{tail}",
+                body_chars - 3600
+            )
+        };
+
+        Some(format!(
+            "Current renderable artifact ({}):\n{}",
+            file.path, preview
+        ))
+    }
+
+    fn direct_author_refinement_focus_text(
+        refinement: Option<&StudioArtifactRefinementContext>,
+    ) -> Option<String> {
+        let refinement = refinement?;
+        let selected_targets = if refinement.selected_targets.is_empty() {
+            "none".to_string()
+        } else {
+            refinement
+                .selected_targets
+                .iter()
+                .take(3)
+                .map(|target| {
+                    format!(
+                        "{} ({})",
+                        truncate_materialization_focus_text(&target.label, 56),
+                        truncate_materialization_focus_text(&target.snippet, 96)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(" | ")
+        };
+
+        Some(format!(
+            "Existing artifact continuity:\ntitle: {}\nsummary: {}\nselected targets: {}",
+            truncate_materialization_focus_text(&refinement.title, 96),
+            truncate_materialization_focus_text(&refinement.summary, 220),
+            selected_targets,
+        ))
+    }
+
     let renderer_guidance =
         studio_direct_author_renderer_guidance(request, candidate_seed, runtime_kind);
     let compact_local_renderer_guidance = if runtime_kind
@@ -362,6 +497,8 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
         if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
             && request.renderer == StudioRendererKind::HtmlIframe
             && returns_raw_document
+            && refinement.is_none()
+            && edit_intent.is_none()
         {
             return Ok(json!([
                 {
@@ -388,12 +525,13 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
                 "Selected skill guidance:\n{}",
                 selected_skills_focus_text
             )),
-            refinement.map(|context| {
-                format!(
-                    "Existing artifact context:\n{}",
-                    truncate_materialization_focus_text(&context.summary, 180)
-                )
+            direct_author_edit_intent_focus_text(edit_intent),
+            direct_author_refinement_focus_text(refinement),
+            refinement.map(|_| {
+                "Follow-up continuity contract:\n- Treat the current artifact as the baseline.\n- Preserve layout and authored structure unless the request explicitly asks for a broader rewrite.\n- Apply only the requested edits, then return the full updated document."
+                    .to_string()
             }),
+            direct_author_refinement_document_context(refinement),
             Some(direct_author_contract.to_string()),
             Some(format!(
                 "Renderer-native authoring guidance:\n{}",
@@ -442,6 +580,11 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
         "Studio artifact request focus",
         compact_prompt,
     )?;
+    let edit_intent_json = serialize_materialization_prompt_json(
+        &edit_intent,
+        "Studio artifact edit intent",
+        compact_prompt,
+    )?;
     let refinement_json = serialize_materialization_prompt_json(
         &studio_artifact_refinement_context_view(refinement),
         "Studio refinement context",
@@ -456,12 +599,13 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
         {
             "role": "user",
             "content": format!(
-                "Title:\n{}\n\nRaw user request:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
+                "Title:\n{}\n\nRaw user request:\n{}\n\nArtifact request focus JSON:\n{}\n\nArtifact brief JSON:\n{}\n\nSelected skill guidance JSON:\n{}\n\nEdit intent JSON:\n{}\n\nCurrent artifact context JSON:\n{}\n\nCandidate metadata:\n{{\"candidateId\":\"{}\",\"candidateSeed\":{}}}\n\n{}\n\nRenderer-native authoring guidance:\n{}\n\n{}",
                 title,
                 intent,
                 request_focus_json,
                 brief_json,
                 selected_skills_json,
+                edit_intent_json,
                 refinement_json,
                 candidate_id,
                 candidate_seed,
@@ -565,10 +709,52 @@ pub(super) fn build_studio_artifact_direct_author_repair_prompt_for_runtime(
     latest_error: &str,
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> serde_json::Value {
+    fn repair_document_context(invalid_document: &str) -> String {
+        let trimmed = invalid_document.trim();
+        let chars = trimmed.chars().collect::<Vec<_>>();
+        if chars.len() <= 3600 {
+            return trimmed.to_string();
+        }
+
+        let head = chars.iter().take(1400).collect::<String>();
+        let tail = chars[chars.len().saturating_sub(1800)..]
+            .iter()
+            .collect::<String>();
+        format!("[document start]\n{head}\n\n[document tail]\n{tail}")
+    }
+
     let renderer_guidance = studio_direct_author_renderer_guidance(
         request,
         candidate_seed_for(title, intent, 0),
         runtime_kind,
+    );
+    let required_interactions = brief.required_interaction_summaries();
+    let brief_focus_text = format!(
+        "Audience: {}\nJob to be done: {}\nArtifact thesis: {}\nRequired concepts: {}\nRequired interactions: {}",
+        brief.audience.trim(),
+        brief.job_to_be_done.trim(),
+        brief.artifact_thesis.trim(),
+        if brief.required_concepts.is_empty() {
+            "None specified".to_string()
+        } else {
+            brief
+                .required_concepts
+                .iter()
+                .take(4)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        },
+        if required_interactions.is_empty() {
+            "None specified".to_string()
+        } else {
+            required_interactions
+                .iter()
+                .take(4)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        },
     );
     let output_contract = match request.renderer {
         StudioRendererKind::Markdown => {
@@ -609,6 +795,29 @@ pub(super) fn build_studio_artifact_direct_author_repair_prompt_for_runtime(
             .collect::<Vec<_>>()
             .join("\n")
     };
+    if compact_local_direct_author_prompt(runtime_kind, true) {
+        return json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed direct document repair author. Return exactly one JSON object and nothing else."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title: {}\n\nRaw user request:\n{}\n\nPrepared artifact brief:\n{}\n\nSelected skill guidance:\n{}\n\nRepair failure:\n{}\n\nRepair contract:\n- Preserve the authored direction and strongest working structure.\n- Fix the structural/runtime failure without restarting from a generic shell.\n- {}\n\nRepair output schema:\n{{\n  \"mode\": \"full_document\",\n  \"content\": <string>\n}}\nRules:\n- Return JSON only, with no markdown fences or explanations.\n- content must contain only the corrected document text.\n- mode must be \"full_document\" for repair.\n\nRenderer-native authoring guidance:\n{}\n\nCurrent invalid document context:\n{}",
+                    title.trim(),
+                    intent.trim(),
+                    brief_focus_text,
+                    selected_skills_focus_text,
+                    truncate_materialization_focus_text(latest_error.trim(), 420),
+                    output_contract,
+                    truncate_materialization_focus_text(&renderer_guidance, 260),
+                    repair_document_context(invalid_document),
+                )
+            }
+        ]);
+    }
+
     json!([
         {
             "role": "system",

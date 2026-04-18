@@ -1160,6 +1160,7 @@ pub(in crate::kernel::studio) fn attach_non_artifact_studio_session(
         session_id: Uuid::new_v4().to_string(),
         thread_id: task.session_id.clone().unwrap_or_else(|| task.id.clone()),
         artifact_id,
+        origin_prompt_event_id: None,
         title: title.clone(),
         summary: summary.clone(),
         current_lens: "source".to_string(),

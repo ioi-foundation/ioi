@@ -431,11 +431,84 @@ def count_history_occurrences(history: list[dict[str, Any]], role: str, text: st
     )
 
 
+def parse_event_timestamp_ms(value: Any) -> int | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return int(datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp() * 1000)
+    except ValueError:
+        return None
+
+
+def latest_artifact_session_details(task: dict[str, Any] | None) -> dict[str, Any]:
+    if not task:
+        return {}
+    studio_session = task.get("studio_session")
+    if isinstance(studio_session, dict):
+        return studio_session
+    for event in reversed(task.get("events") or []):
+        details = event.get("details") or {}
+        if isinstance(details, dict) and isinstance(details.get("artifactManifest"), dict):
+            return details
+    return {}
+
+
+def latest_artifact_revision_id(task: dict[str, Any] | None) -> str | None:
+    details = latest_artifact_session_details(task)
+    revision_id = (details.get("activeRevisionId") or "").strip()
+    return revision_id or None
+
+
+def artifact_session_ready(task: dict[str, Any] | None) -> bool:
+    if not task:
+        return False
+    details = latest_artifact_session_details(task)
+    studio_status = (details.get("status") or "").strip().lower()
+    verification = details.get("artifactManifest") or {}
+    verification_status = (
+        ((verification.get("verification") or {}).get("lifecycleState") or "").strip().lower()
+    )
+    return "ready" in {studio_status, verification_status}
+
+
+def follow_up_artifact_completion_present(
+    task: dict[str, Any] | None,
+    *,
+    after_user_timestamp_ms: int | None,
+    baseline_revision_id: str | None,
+) -> bool:
+    if not task:
+        return False
+    if not artifact_session_ready(task):
+        return False
+    current_revision_id = latest_artifact_revision_id(task)
+    if (
+        baseline_revision_id is not None
+        and current_revision_id is not None
+        and current_revision_id != baseline_revision_id
+    ):
+        return True
+    for event in reversed(task.get("events", [])):
+        if (event.get("event_type") or "").strip().upper() != "RECEIPT":
+            continue
+        event_timestamp_ms = parse_event_timestamp_ms(event.get("timestamp"))
+        if after_user_timestamp_ms is not None and (
+            event_timestamp_ms is None or event_timestamp_ms <= after_user_timestamp_ms
+        ):
+            continue
+        title = (event.get("title") or "").strip().lower()
+        if title.startswith("studio refined ") or title.startswith("studio created "):
+            return True
+    return False
+
+
 def wait_for_follow_up_result(
     db_paths: list[Path],
     follow_up_prompt: str,
     *,
     baseline_session_id: str | None,
+    baseline_revision_id: str | None,
     timeout_secs: float,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     deadline = time.time() + timeout_secs
@@ -454,17 +527,23 @@ def wait_for_follow_up_result(
 
         reply = first_agent_reply_after(history, user_index)
         phase = (task.get("phase") or "").strip().lower()
+        user_timestamp_ms = history[user_index].get("timestamp") if user_index is not None else None
         metadata = {
             "follow_up_user_occurrences": user_occurrences,
             "follow_up_user_index": user_index,
             "follow_up_agent_reply_present": bool(reply),
             "follow_up_agent_reply": reply,
+            "follow_up_artifact_completion_present": follow_up_artifact_completion_present(
+                task,
+                after_user_timestamp_ms=user_timestamp_ms,
+                baseline_revision_id=baseline_revision_id,
+            ),
             "session_reused": (
                 baseline_session_id is not None
                 and (task.get("session_id") or task.get("id")) == baseline_session_id
             ),
         }
-        if reply:
+        if reply or metadata["follow_up_artifact_completion_present"]:
             return task, metadata
         if phase == "failed" or task_has_interactive_wait_state(task):
             return task, metadata
@@ -742,8 +821,10 @@ def main() -> int:
             )
 
         baseline_session_id = None
+        baseline_revision_id = None
         if first_task:
             baseline_session_id = first_task.get("session_id") or first_task.get("id")
+            baseline_revision_id = latest_artifact_revision_id(first_task)
 
         terminate_process_group(first_process)
         first_process = None
@@ -772,6 +853,7 @@ def main() -> int:
                 db_paths,
                 args.follow_up_prompt,
                 baseline_session_id=baseline_session_id,
+                baseline_revision_id=baseline_revision_id,
                 timeout_secs=args.timeout_secs,
             )
             if second_window_id is not None:
@@ -788,6 +870,9 @@ def main() -> int:
             if second_task and follow_up_metadata is None:
                 history = second_task.get("history") or []
                 user_index = last_history_index(history, "user", args.follow_up_prompt)
+                user_timestamp_ms = (
+                    history[user_index].get("timestamp") if user_index is not None else None
+                )
                 follow_up_metadata = {
                     "follow_up_user_occurrences": count_history_occurrences(
                         history, "user", args.follow_up_prompt
@@ -802,6 +887,11 @@ def main() -> int:
                         first_agent_reply_after(history, user_index)
                         if user_index is not None
                         else None
+                    ),
+                    "follow_up_artifact_completion_present": follow_up_artifact_completion_present(
+                        second_task,
+                        after_user_timestamp_ms=user_timestamp_ms,
+                        baseline_revision_id=baseline_revision_id,
                     ),
                     "session_reused": (
                         baseline_session_id is not None
@@ -845,7 +935,8 @@ def main() -> int:
                 "  follow-up metadata:"
                 f" reused={follow_up_metadata.get('session_reused')}"
                 f" user_occurrences={follow_up_metadata.get('follow_up_user_occurrences')}"
-                f" reply_present={follow_up_metadata.get('follow_up_agent_reply_present')}",
+                f" reply_present={follow_up_metadata.get('follow_up_agent_reply_present')}"
+                f" artifact_complete={follow_up_metadata.get('follow_up_artifact_completion_present')}",
                 flush=True,
             )
         if second_bundle.get("latest_agent_message"):

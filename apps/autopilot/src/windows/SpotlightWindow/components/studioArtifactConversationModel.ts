@@ -90,6 +90,44 @@ function buildStudioConversationArtifactEntry(
   };
 }
 
+export function studioArtifactSessionIsPresentable(
+  studioSession: StudioArtifactSession,
+): boolean {
+  const verificationStatus = String(
+    studioSession.artifactManifest.verification.status || "",
+  )
+    .trim()
+    .toLowerCase();
+  const lifecycleState = String(
+    studioSession.artifactManifest.verification.lifecycleState ||
+      studioSession.lifecycleState ||
+      studioSession.verifiedReply.lifecycleState ||
+      studioSession.status ||
+      "",
+  )
+    .trim()
+    .toLowerCase();
+
+  if (
+    verificationStatus === "blocked" ||
+    verificationStatus === "failed" ||
+    lifecycleState === "blocked" ||
+    lifecycleState === "failed"
+  ) {
+    return true;
+  }
+
+  if (verificationStatus === "ready" || verificationStatus === "partial") {
+    return studioSession.artifactManifest.files.length > 0;
+  }
+
+  if (studioSession.status.trim().toLowerCase() === "ready") {
+    return studioSession.artifactManifest.files.length > 0;
+  }
+
+  return false;
+}
+
 export function collectStudioConversationArtifacts(
   events: AgentEvent[],
 ): StudioConversationArtifactEntry[] {
@@ -122,6 +160,76 @@ export function collectStudioConversationArtifacts(
   }
 
   return entries;
+}
+
+export function collectStudioConversationArtifactsForTurn(
+  allEvents: AgentEvent[],
+  windowEvents: AgentEvent[],
+  turnId: string | null,
+  activeStudioSession?: StudioArtifactSession | null,
+): StudioConversationArtifactEntry[] {
+  if (!turnId) {
+    return [];
+  }
+
+  const bySessionId = new Map<string, StudioConversationArtifactEntry>();
+  const windowEventIds = new Set(windowEvents.map((event) => event.event_id));
+  const ordered = [...allEvents].sort(
+    (left, right) =>
+      left.timestamp.localeCompare(right.timestamp) ||
+      left.step_index - right.step_index ||
+      left.event_id.localeCompare(right.event_id),
+  );
+
+  for (const event of ordered) {
+    const studioSession = extractStudioArtifactSessionFromEvent(event);
+    if (!studioSession || studioSession.outcomeRequest.outcomeKind !== "artifact") {
+      continue;
+    }
+
+    const sessionTurnId = stringField(studioSession.originPromptEventId);
+    const belongsToTurn = sessionTurnId
+      ? sessionTurnId === turnId
+      : windowEventIds.has(event.event_id);
+    if (
+      !belongsToTurn ||
+      bySessionId.has(studioSession.sessionId) ||
+      !studioArtifactSessionIsPresentable(studioSession)
+    ) {
+      continue;
+    }
+
+    bySessionId.set(
+      studioSession.sessionId,
+      buildStudioConversationArtifactEntry(studioSession, {
+        sourceEventId: event.event_id,
+        timestamp: event.timestamp,
+      }),
+    );
+  }
+
+  if (
+    activeStudioSession?.outcomeRequest.outcomeKind === "artifact" &&
+    stringField(activeStudioSession.originPromptEventId) === turnId &&
+    studioArtifactSessionIsPresentable(activeStudioSession)
+  ) {
+    bySessionId.set(
+      activeStudioSession.sessionId,
+      buildStudioConversationArtifactEntry(activeStudioSession, {
+        sourceEventId: `live:${activeStudioSession.sessionId}`,
+        timestamp:
+          stringField(activeStudioSession.updatedAt) ??
+          stringField(activeStudioSession.createdAt) ??
+          new Date().toISOString(),
+      }),
+    );
+  }
+
+  return Array.from(bySessionId.values()).sort(
+    (left, right) =>
+      left.timestamp.localeCompare(right.timestamp) ||
+      left.sessionId.localeCompare(right.sessionId),
+  );
 }
 
 export function collectAvailableStudioArtifacts(
