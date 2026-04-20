@@ -1,3 +1,4 @@
+use super::operator_run::refresh_active_operator_run_from_session;
 use super::*;
 
 pub(super) fn non_artifact_single_pass_reply_stays_studio_primary(
@@ -40,6 +41,10 @@ pub(super) fn visualizer_route_stays_studio_primary(
 }
 
 fn studio_repair_pass_count(studio_session: &StudioArtifactSession) -> usize {
+    if let Some(run) = studio_session.active_operator_run.as_ref() {
+        return run.repair_count as usize;
+    }
+
     studio_session
         .materialization
         .candidate_summaries
@@ -79,12 +84,134 @@ fn studio_validation_obligation_counts(
     ))
 }
 
+fn operator_run_terminal_lifecycle(
+    studio_session: &StudioArtifactSession,
+) -> Option<StudioArtifactLifecycleState> {
+    let active_run = studio_session.active_operator_run.as_ref()?;
+    match active_run.status {
+        ioi_api::studio::StudioArtifactOperatorRunStatus::Blocked => {
+            Some(StudioArtifactLifecycleState::Blocked)
+        }
+        ioi_api::studio::StudioArtifactOperatorRunStatus::Failed => {
+            Some(StudioArtifactLifecycleState::Failed)
+        }
+        ioi_api::studio::StudioArtifactOperatorRunStatus::Complete => {
+            let present_step_complete = active_run.steps.iter().any(|step| {
+                step.phase == ioi_api::studio::StudioArtifactOperatorPhase::PresentArtifact
+                    && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+            });
+            let verification_ready = studio_session
+                .artifact_manifest
+                .verification
+                .lifecycle_state
+                == StudioArtifactLifecycleState::Ready;
+            if present_step_complete || verification_ready {
+                Some(StudioArtifactLifecycleState::Ready)
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn operator_run_active_step(
+    studio_session: &StudioArtifactSession,
+) -> Option<&ioi_api::studio::StudioArtifactOperatorStep> {
+    let active_run = studio_session.active_operator_run.as_ref()?;
+    active_run
+        .steps
+        .iter()
+        .find(|step| step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Active)
+        .or_else(|| {
+            active_run.steps.iter().rev().find(|step| {
+                matches!(
+                    step.status,
+                    ioi_api::studio::StudioArtifactOperatorRunStatus::Blocked
+                        | ioi_api::studio::StudioArtifactOperatorRunStatus::Failed
+                )
+            })
+        })
+}
+
+fn operator_run_active_lifecycle(
+    studio_session: &StudioArtifactSession,
+) -> Option<StudioArtifactLifecycleState> {
+    let active_run = studio_session.active_operator_run.as_ref()?;
+    if active_run.status != ioi_api::studio::StudioArtifactOperatorRunStatus::Active {
+        return None;
+    }
+
+    let active_step = operator_run_active_step(studio_session)?;
+    Some(match active_step.phase {
+        ioi_api::studio::StudioArtifactOperatorPhase::UnderstandRequest
+        | ioi_api::studio::StudioArtifactOperatorPhase::RouteArtifact
+        | ioi_api::studio::StudioArtifactOperatorPhase::ReopenArtifactContext => {
+            StudioArtifactLifecycleState::Planned
+        }
+        ioi_api::studio::StudioArtifactOperatorPhase::SearchSources
+        | ioi_api::studio::StudioArtifactOperatorPhase::ReadSources => {
+            StudioArtifactLifecycleState::Materializing
+        }
+        ioi_api::studio::StudioArtifactOperatorPhase::AuthorArtifact
+        | ioi_api::studio::StudioArtifactOperatorPhase::RepairArtifact
+        | ioi_api::studio::StudioArtifactOperatorPhase::InspectArtifact => {
+            StudioArtifactLifecycleState::Implementing
+        }
+        ioi_api::studio::StudioArtifactOperatorPhase::VerifyArtifact => {
+            StudioArtifactLifecycleState::Verifying
+        }
+        ioi_api::studio::StudioArtifactOperatorPhase::PresentArtifact => {
+            StudioArtifactLifecycleState::Rendering
+        }
+        ioi_api::studio::StudioArtifactOperatorPhase::Other => {
+            StudioArtifactLifecycleState::Implementing
+        }
+    })
+}
+
+fn operator_run_step_hint(studio_session: &StudioArtifactSession) -> Option<String> {
+    let active_step = operator_run_active_step(studio_session)?;
+    let detail = active_step.detail.trim();
+    if !detail.is_empty() {
+        return Some(detail.to_string());
+    }
+    let label = active_step.label.trim();
+    if !label.is_empty() {
+        return Some(label.to_string());
+    }
+    None
+}
+
+fn effective_studio_lifecycle_state(
+    studio_session: &StudioArtifactSession,
+) -> StudioArtifactLifecycleState {
+    if let Some(state) = operator_run_terminal_lifecycle(studio_session) {
+        return state;
+    }
+    if let Some(state) = operator_run_active_lifecycle(studio_session) {
+        return state;
+    }
+    match studio_session
+        .artifact_manifest
+        .verification
+        .lifecycle_state
+    {
+        StudioArtifactLifecycleState::Ready => StudioArtifactLifecycleState::Ready,
+        StudioArtifactLifecycleState::Partial => StudioArtifactLifecycleState::Partial,
+        StudioArtifactLifecycleState::Blocked => StudioArtifactLifecycleState::Blocked,
+        StudioArtifactLifecycleState::Failed => StudioArtifactLifecycleState::Failed,
+        _ => studio_session.lifecycle_state.clone(),
+    }
+}
+
 fn studio_authoritative_step_hint(
     task: &AgentTask,
     studio_session: &StudioArtifactSession,
 ) -> Option<String> {
+    let lifecycle_state = effective_studio_lifecycle_state(studio_session);
     if studio_session.outcome_request.outcome_kind != StudioOutcomeKind::Artifact {
-        if studio_session.lifecycle_state == StudioArtifactLifecycleState::Blocked
+        if lifecycle_state == StudioArtifactLifecycleState::Blocked
             && task.clarification_request.is_some()
         {
             return Some(
@@ -93,7 +220,7 @@ fn studio_authoritative_step_hint(
             );
         }
         return Some(
-            if studio_session.lifecycle_state == StudioArtifactLifecycleState::Blocked {
+            if lifecycle_state == StudioArtifactLifecycleState::Blocked {
                 studio_session
                     .verified_reply
                     .failure
@@ -115,7 +242,11 @@ fn studio_authoritative_step_hint(
         .as_ref()
         .map(|blueprint| blueprint.scaffold_family.as_str());
 
-    match studio_session.lifecycle_state {
+    if let Some(step_hint) = operator_run_step_hint(studio_session) {
+        return Some(step_hint);
+    }
+
+    match lifecycle_state {
         StudioArtifactLifecycleState::Materializing => scaffold_family
             .map(|scaffold| format!("Preparing the {scaffold} artifact plan.")),
         StudioArtifactLifecycleState::Rendering | StudioArtifactLifecycleState::Implementing
@@ -294,6 +425,7 @@ pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Opt
     let Some(studio_session) = task.studio_session.as_ref() else {
         return;
     };
+    let lifecycle_state = effective_studio_lifecycle_state(studio_session);
 
     if non_artifact_single_pass_reply_stays_studio_primary(&studio_session.outcome_request)
         && task.phase == AgentPhase::Complete
@@ -319,7 +451,7 @@ pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Opt
             return step;
         }
         if studio_session.outcome_request.outcome_kind != StudioOutcomeKind::Artifact {
-            return match studio_session.lifecycle_state {
+            return match lifecycle_state {
                 StudioArtifactLifecycleState::Draft => {
                     "Studio captured the non-artifact route and is preparing the shared reply lane."
                         .to_string()
@@ -344,7 +476,7 @@ pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Opt
                 }
             };
         }
-        match studio_session.lifecycle_state {
+        match lifecycle_state {
             StudioArtifactLifecycleState::Draft => {
                 "Studio has created a draft artifact request.".to_string()
             }
@@ -443,7 +575,7 @@ pub fn apply_studio_authoritative_status(task: &mut AgentTask, current_step: Opt
         return;
     }
 
-    match studio_session.lifecycle_state {
+    match lifecycle_state {
         StudioArtifactLifecycleState::Ready => {
             task.phase = AgentPhase::Complete;
             task.current_step = fallback_step;
@@ -604,6 +736,7 @@ pub(super) fn update_studio_session_from_build_session(
         studio_session.lifecycle_state = lifecycle_state;
         studio_session.status = lifecycle_state_label(lifecycle_state).to_string();
         studio_session.updated_at = now_iso();
+        refresh_active_operator_run_from_session(studio_session, Some(build_session));
         refresh_pipeline_steps(studio_session, Some(build_session));
         sync_workspace_manifest_file(studio_session);
     }

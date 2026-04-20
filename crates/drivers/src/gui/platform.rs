@@ -507,47 +507,7 @@ mod linux_impl {
     }
 
     #[cfg(test)]
-    mod tests {
-        use super::*;
-
-        #[test]
-        fn normalize_role_handles_mixed_case_and_aliases() {
-            assert_eq!(normalize_role("PushButton"), "button");
-            assert_eq!(normalize_role("MenuItem"), "menuitem");
-            assert_eq!(normalize_role("Description Value"), "description_value");
-        }
-
-        #[test]
-        fn normalize_attribute_key_compacts_placeholder_variants() {
-            assert_eq!(normalize_attribute_key("placeholder-text"), "placeholder");
-            assert_eq!(normalize_attribute_key("placeholderText"), "placeholder");
-            assert_eq!(
-                normalize_attribute_key("accessible-name"),
-                "accessible_name"
-            );
-        }
-
-        #[test]
-        fn stable_accessible_id_sanitizes_destination_and_path() {
-            let id = stable_accessible_id(
-                ":1.42",
-                "/org/a11y/atspi/accessible/application/gnome-calculator/frame",
-            );
-            assert_eq!(
-                id,
-                "atspi__1_42_org_a11y_atspi_accessible_application_gnome_calculator_frame"
-            );
-        }
-
-        #[test]
-        fn wrap_atspi_error_mentions_accessibility_bus_for_registry_failures() {
-            let err = wrap_atspi_error(
-                "connection open",
-                "org.a11y.atspi.Registry was not provided",
-            );
-            assert!(err.to_string().contains("Linux accessibility bus"));
-        }
-    }
+    mod tests;
 }
 
 // [NEW] Native macOS Implementation using AXUIElement (Accessibility API)
@@ -873,52 +833,5 @@ impl SovereignSubstrateProvider for NativeSubstrateProvider {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use ioi_types::app::ActionTarget;
-    use serde_json::json;
-    use tempfile::tempdir;
-
-    #[tokio::test]
-    async fn native_substrate_provider_persists_context_slice_artifacts() {
-        let tempdir = tempdir().expect("tempdir");
-        let runtime = Arc::new(
-            MemoryRuntime::open_sqlite(&tempdir.path().join("gui-memory.db"))
-                .expect("memory runtime"),
-        );
-        let provider = NativeSubstrateProvider::new(Some(runtime.clone()));
-        let session_id = [7u8; 32];
-        let intent = ActionRequest {
-            target: ActionTarget::GuiScreenshot,
-            params: serde_json::to_vec(&json!({})).expect("json params"),
-            context: ioi_types::app::ActionContext {
-                agent_id: "desktop_agent".to_string(),
-                session_id: Some(session_id),
-                window_id: None,
-            },
-            nonce: 1,
-        };
-        let xml = br#"<window id="root"><button id="confirm">Confirm</button></window>"#;
-
-        let slice = provider
-            .get_intent_constrained_slice(&intent, 0, xml)
-            .await
-            .expect("persisted slice");
-        let artifact_id = context_slice_artifact_id(&slice.slice_id);
-        let blobs = runtime
-            .load_artifact_blob(&artifact_id)
-            .expect("artifact blob lookup")
-            .expect("artifact blob present");
-        let artifact_records = runtime
-            .load_artifact_jsons(session_id)
-            .expect("artifact metadata lookup");
-
-        assert_eq!(slice.chunks, vec![xml.to_vec()]);
-        assert_eq!(slice.frame_id, 0);
-        assert_eq!(blobs, xml);
-        assert!(artifact_records.iter().any(|record| {
-            record.artifact_id == artifact_id
-                && record.payload_json.contains("\"kind\":\"context_slice\"")
-        }));
-    }
-}
+#[path = "platform/tests.rs"]
+mod tests;

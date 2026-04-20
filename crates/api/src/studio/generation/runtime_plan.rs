@@ -46,7 +46,10 @@ pub(crate) fn materialization_max_tokens_for_runtime(
 ) -> u32 {
     if compact_local_html_materialization_prompt(renderer, runtime_kind) {
         if studio_modal_first_html_enabled() {
-            return 4200;
+            // Keep local structured HTML authoring comfortably above the
+            // direct-author lane while avoiding oversized completions that
+            // destabilize small local runners during JSON-mode generation.
+            return 2800;
         }
         return 2200;
     }
@@ -79,8 +82,8 @@ pub(crate) fn materialization_max_tokens_for_execution_strategy(
                 if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
                     // Keep local raw-document authoring bounded even when
                     // modal-first HTML is enabled. The direct-author lane is
-                    // used for fast create/edit loops, and the larger 4200
-                    // token budget is better reserved for the heavier
+                    // used for fast create/edit loops, and the larger
+                    // structured-materialization budget is better reserved for the heavier
                     // structured materialization path.
                     2400
                 } else {

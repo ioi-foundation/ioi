@@ -1,4 +1,5 @@
 use super::*;
+use ioi_api::studio::execution_strategy_for_outcome;
 
 #[test]
 fn materialize_nonworkspace_artifact_replans_after_direct_author_timeout_then_reports_generation_failure(
@@ -58,21 +59,26 @@ fn materialize_nonworkspace_artifact_replans_after_direct_author_timeout_then_re
         None,
         Vec::new(),
         Vec::new(),
+        Vec::new(),
     );
 
-    let materialized = materialize_non_workspace_artifact_with_dependencies_and_timeout(
-        &proof_memory_runtime(),
-        Some(runtime.clone()),
-        Some(runtime),
-        "thread-1",
-        "Post-quantum explainer",
-        "Create an interactive HTML artifact that explains post-quantum computers",
-        &request,
-        None,
-        Duration::from_millis(5),
-        Some(planning_context),
-    )
-    .expect("materialization should return a blocked timeout result");
+    let materialized =
+        materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+            &proof_memory_runtime(),
+            Some(runtime.clone()),
+            Some(runtime),
+            "thread-1",
+            "Post-quantum explainer",
+            "Create an interactive HTML artifact that explains post-quantum computers",
+            &request,
+            None,
+            Duration::from_millis(5),
+            None,
+            Some(planning_context),
+            execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(&request)),
+            None,
+        )
+        .expect("materialization should return a blocked timeout result");
 
     assert_eq!(
         materialized.failure.as_ref().expect("failure").kind,
@@ -84,14 +90,14 @@ fn materialize_nonworkspace_artifact_replans_after_direct_author_timeout_then_re
     );
     assert!(!materialized.fallback_used);
     assert!(materialized.files.is_empty());
-    assert!(materialized.runtime_narration_events.iter().any(|event| {
-        event.step_key == ioi_api::studio::StudioArtifactRuntimeStepId::ReplanExecution
-            && event.status_kind == ioi_api::studio::StudioArtifactRuntimeEventStatus::Complete
+    assert!(materialized.operator_steps.iter().any(|step| {
+        step.phase == ioi_api::studio::StudioArtifactOperatorPhase::RepairArtifact
+            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
     }));
-    assert!(materialized.runtime_narration_events.iter().any(|event| {
-        event.step_key == ioi_api::studio::StudioArtifactRuntimeStepId::AuthorArtifact
-            && event.status_kind == ioi_api::studio::StudioArtifactRuntimeEventStatus::Blocked
-            && event.detail.contains("stalled")
+    assert!(materialized.operator_steps.iter().any(|step| {
+        step.phase == ioi_api::studio::StudioArtifactOperatorPhase::AuthorArtifact
+            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Blocked
+            && step.detail.contains("stalled")
     }));
     assert!(materialized
         .failure
@@ -168,6 +174,7 @@ fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
         None,
         Vec::new(),
         Vec::new(),
+        Vec::new(),
     );
     let observed_progress = Arc::new(Mutex::new(Vec::<StudioArtifactGenerationProgress>::new()));
     let progress_sink = observed_progress.clone();
@@ -183,6 +190,7 @@ fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
         &request,
         None,
         Duration::from_millis(250),
+        None,
         Some(planning_context),
         StudioExecutionStrategy::DirectAuthor,
         Some(Arc::new(move |progress| {
@@ -200,10 +208,18 @@ fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
         materialized.notes,
         materialized.validation
     );
-    assert!(materialized
-        .files
-        .iter()
-        .any(|file| file.path == "index.html"));
+    assert!(
+        materialized
+            .files
+            .iter()
+            .any(|file| file.path == "index.html"),
+        "failure={:?} lifecycle={:?} notes={:?} validation={:?} operator_steps={:?}",
+        materialized.failure,
+        materialized.lifecycle_state,
+        materialized.notes,
+        materialized.validation,
+        materialized.operator_steps
+    );
     assert_ne!(
         materialized.lifecycle_state,
         StudioArtifactLifecycleState::Blocked
@@ -222,8 +238,9 @@ fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
             .unwrap_or(false)
     }));
     assert!(observed_progress.iter().any(|progress| {
-        progress.runtime_narration_events.iter().any(|event| {
-            event.step_id == "author_artifact" && event.status.eq_ignore_ascii_case("active")
+        progress.operator_steps.iter().any(|step| {
+            step.phase == ioi_api::studio::StudioArtifactOperatorPhase::AuthorArtifact
+                && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Active
         })
     }));
     let render_eval_index = observed_progress.iter().position(|progress| {
@@ -263,6 +280,7 @@ fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
 struct StreamingSilentDirectAuthorReplanTestRuntime {
     provenance: crate::models::StudioRuntimeProvenance,
     direct_author_delay: Duration,
+    stream_attempts: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 #[async_trait]
@@ -274,7 +292,21 @@ impl InferenceRuntime for StreamingSilentDirectAuthorReplanTestRuntime {
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context);
-        let response = if prompt.contains("typed artifact materializer") {
+        let response = if prompt.contains("typed artifact brief planner") {
+            serde_json::json!({
+                "audience": "curious learners",
+                "jobToBeDone": "Understand how quantum computers differ from classical computers.",
+                "subjectDomain": "quantum computing",
+                "artifactThesis": "Use a lightweight interactive explainer to contrast qubits and gates.",
+                "requiredConcepts": ["qubits", "superposition", "quantum gates"],
+                "requiredInteractions": ["toggle between qubit and gate explanations"],
+                "visualTone": ["editorial", "technical"],
+                "factualAnchors": ["measurement collapses state"],
+                "styleDirectives": ["keep the first paint immediately useful"],
+                "referenceHints": []
+            })
+            .to_string()
+        } else if prompt.contains("typed artifact materializer") {
             serde_json::json!({
                 "summary": "Recovered the requested artifact after replanning",
                 "notes": ["plan-execute recovered the stalled direct-author run"],
@@ -324,19 +356,27 @@ impl InferenceRuntime for StreamingSilentDirectAuthorReplanTestRuntime {
         token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context);
-        if prompt.contains("direct document author")
+        if prompt.contains("Author the artifact directly")
+            || prompt.contains("direct document author")
             || prompt.contains("Return only one complete self-contained index.html")
         {
-            if let Some(sender) = token_stream.as_ref() {
-                sender
-                    .send(
-                        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quantum explorer</title><style>body{background:#0f172a;color:#e2e8f0;}".to_string(),
-                    )
-                    .await
-                    .map_err(|error| VmError::HostError(format!("stream send failed: {error}")))?;
+            let attempt = self
+                .stream_attempts
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if attempt == 0 {
+                if let Some(sender) = token_stream.as_ref() {
+                    sender
+                        .send(
+                            "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Quantum explorer</title><style>body{background:#0f172a;color:#e2e8f0;}".to_string(),
+                        )
+                        .await
+                        .map_err(|error| VmError::HostError(format!("stream send failed: {error}")))?;
+                }
+                tokio::time::sleep(self.direct_author_delay).await;
+                return Ok("<!doctype html><html>".as_bytes().to_vec());
             }
-            tokio::time::sleep(self.direct_author_delay).await;
-            return Ok("<!doctype html><html>".as_bytes().to_vec());
+
+            return Ok("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><dl><dt>State blend</dt><dd>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</dd><dt>Observation</dt><dd>Measurement resolves the blended state into a sampled result.</dd></dl></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><dl><dt>Rotation</dt><dd>Quantum gates rotate amplitudes to reshape the result distribution.</dd><dt>Interference</dt><dd>Constructive interference strengthens useful answers.</dd></dl></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>".as_bytes().to_vec());
         }
 
         self.execute_inference(model_hash, input_context, options)
@@ -365,6 +405,7 @@ struct SlowPlanExecuteAfterReplanTestRuntime {
     provenance: crate::models::StudioRuntimeProvenance,
     direct_author_delay: Duration,
     plan_execute_delay: Duration,
+    stream_attempts: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 #[async_trait]
@@ -376,7 +417,22 @@ impl InferenceRuntime for SlowPlanExecuteAfterReplanTestRuntime {
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context);
-        let response = if prompt.contains("typed artifact materializer") {
+        let response = if prompt.contains("typed artifact brief planner") {
+            tokio::time::sleep(self.plan_execute_delay).await;
+            serde_json::json!({
+                "audience": "curious learners",
+                "jobToBeDone": "Understand how quantum computers differ from classical computers.",
+                "subjectDomain": "quantum computing",
+                "artifactThesis": "Use a lightweight interactive explainer to contrast qubits and gates.",
+                "requiredConcepts": ["qubits", "superposition", "quantum gates"],
+                "requiredInteractions": ["toggle between qubit and gate explanations"],
+                "visualTone": ["editorial", "technical"],
+                "factualAnchors": ["measurement collapses state"],
+                "styleDirectives": ["keep the first paint immediately useful"],
+                "referenceHints": []
+            })
+            .to_string()
+        } else if prompt.contains("typed artifact materializer") {
             tokio::time::sleep(self.plan_execute_delay).await;
             serde_json::json!({
                 "summary": "Recovered the requested artifact after replanning",
@@ -428,11 +484,20 @@ impl InferenceRuntime for SlowPlanExecuteAfterReplanTestRuntime {
         _token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context);
-        if prompt.contains("direct document author")
+        if prompt.contains("Author the artifact directly")
+            || prompt.contains("direct document author")
             || prompt.contains("Return only one complete self-contained index.html")
         {
-            tokio::time::sleep(self.direct_author_delay).await;
-            return Ok("<!doctype html><html>".as_bytes().to_vec());
+            let attempt = self
+                .stream_attempts
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if attempt == 0 {
+                tokio::time::sleep(self.direct_author_delay).await;
+                return Ok("<!doctype html><html>".as_bytes().to_vec());
+            }
+
+            tokio::time::sleep(self.plan_execute_delay).await;
+            return Ok("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><dl><dt>State blend</dt><dd>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</dd><dt>Observation</dt><dd>Measurement resolves the blended state into a sampled result.</dd></dl></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><dl><dt>Rotation</dt><dd>Quantum gates rotate amplitudes to reshape the result distribution.</dd><dt>Interference</dt><dd>Constructive interference strengthens useful answers.</dd></dl></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>".as_bytes().to_vec());
         }
 
         self.execute_inference(model_hash, input_context, options)
@@ -466,6 +531,7 @@ fn direct_author_inactivity_replans_to_plan_execute_and_returns_artifact() {
             endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
         },
         direct_author_delay: Duration::from_millis(400),
+        stream_attempts: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
     });
     let request = StudioOutcomeArtifactRequest {
         artifact_class: StudioArtifactClass::InteractiveSingleFile,
@@ -515,6 +581,7 @@ fn direct_author_inactivity_replans_to_plan_execute_and_returns_artifact() {
         None,
         Vec::new(),
         Vec::new(),
+        Vec::new(),
     );
 
     let materialized =
@@ -528,16 +595,25 @@ fn direct_author_inactivity_replans_to_plan_execute_and_returns_artifact() {
             &request,
             None,
             Duration::from_millis(120),
+            None,
             Some(planning_context),
             StudioExecutionStrategy::DirectAuthor,
             None,
         )
         .expect("silent direct-author runs should replan instead of blocking the artifact route");
 
-    assert!(materialized
-        .files
-        .iter()
-        .any(|file| file.path == "index.html"));
+    assert!(
+        materialized
+            .files
+            .iter()
+            .any(|file| file.path == "index.html"),
+        "failure={:?} lifecycle={:?} notes={:?} validation={:?} operator_steps={:?}",
+        materialized.failure,
+        materialized.lifecycle_state,
+        materialized.notes,
+        materialized.validation,
+        materialized.operator_steps
+    );
     assert_eq!(
         materialized
             .execution_envelope
@@ -545,9 +621,9 @@ fn direct_author_inactivity_replans_to_plan_execute_and_returns_artifact() {
             .and_then(|envelope| envelope.strategy),
         Some(StudioExecutionStrategy::PlanExecute)
     );
-    assert!(materialized.runtime_narration_events.iter().any(|event| {
-        event.step_id == "replan_execution"
-            && event
+    assert!(materialized.operator_steps.iter().any(|step| {
+        step.phase == ioi_api::studio::StudioArtifactOperatorPhase::RepairArtifact
+            && step
                 .detail
                 .contains("continuing with plan execute so the artifact route can still finish")
     }));
@@ -565,6 +641,7 @@ fn direct_author_replan_terminalizes_stale_stream_preview_before_plan_execute() 
                 endpoint: Some("http://127.0.0.1:11434/v1/chat/completions".to_string()),
             },
             direct_author_delay: Duration::from_millis(400),
+            stream_attempts: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         });
     let request = StudioOutcomeArtifactRequest {
         artifact_class: StudioArtifactClass::InteractiveSingleFile,
@@ -614,6 +691,7 @@ fn direct_author_replan_terminalizes_stale_stream_preview_before_plan_execute() 
         None,
         Vec::new(),
         Vec::new(),
+        Vec::new(),
     );
     let observed_progress = Arc::new(Mutex::new(Vec::<StudioArtifactGenerationProgress>::new()));
     let progress_observer: StudioArtifactGenerationProgressObserver = {
@@ -637,16 +715,25 @@ fn direct_author_replan_terminalizes_stale_stream_preview_before_plan_execute() 
             &request,
             None,
             Duration::from_millis(120),
+            None,
             Some(planning_context),
             StudioExecutionStrategy::DirectAuthor,
             Some(progress_observer),
         )
         .expect("streaming direct-author runs should replan instead of leaving the preview live");
 
-    assert!(materialized
-        .files
-        .iter()
-        .any(|file| file.path == "index.html"));
+    assert!(
+        materialized
+            .files
+            .iter()
+            .any(|file| file.path == "index.html"),
+        "failure={:?} lifecycle={:?} notes={:?} validation={:?} operator_steps={:?}",
+        materialized.failure,
+        materialized.lifecycle_state,
+        materialized.notes,
+        materialized.validation,
+        materialized.operator_steps
+    );
     assert_eq!(
         materialized
             .execution_envelope
@@ -696,6 +783,7 @@ fn replanned_plan_execute_quiet_materialization_stays_alive_past_outer_inactivit
         },
         direct_author_delay: Duration::from_millis(400),
         plan_execute_delay: Duration::from_millis(400),
+        stream_attempts: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
     });
     let request = StudioOutcomeArtifactRequest {
         artifact_class: StudioArtifactClass::InteractiveSingleFile,
@@ -745,6 +833,7 @@ fn replanned_plan_execute_quiet_materialization_stays_alive_past_outer_inactivit
         None,
         Vec::new(),
         Vec::new(),
+        Vec::new(),
     );
 
     let materialized =
@@ -758,6 +847,7 @@ fn replanned_plan_execute_quiet_materialization_stays_alive_past_outer_inactivit
             &request,
             None,
             Duration::from_millis(120),
+            None,
             Some(planning_context),
             StudioExecutionStrategy::DirectAuthor,
             None,
@@ -898,7 +988,7 @@ fn direct_author_timeout_uses_strategy_budget_for_local_html() {
         None => std::env::remove_var("AUTOPILOT_STUDIO_GENERATION_TIMEOUT_SECS"),
     }
 
-    assert_eq!(timeout, Duration::from_secs(175));
+    assert_eq!(timeout, Duration::from_secs(155));
 }
 
 #[test]
@@ -933,9 +1023,15 @@ fn nonworkspace_materialization_contract_starts_pending_and_blocks_truthfully_on
         None,
         StudioExecutionStrategy::DirectAuthor,
     );
-    assert_eq!(contract.verification_steps.len(), 2);
-    assert_eq!(contract.verification_steps[0].status, "pending");
-    assert_eq!(contract.verification_steps[1].status, "pending");
+    assert_eq!(contract.operator_steps.len(), 2);
+    assert!(contract.operator_steps.iter().any(|step| {
+        step.step_id == "materialize_artifact"
+            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Pending
+    }));
+    assert!(contract.operator_steps.iter().any(|step| {
+        step.step_id == "verify_artifact_contract"
+            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Pending
+    }));
 
     let blocked = blocked_materialized_artifact_from_error(
         "Quantum explainer",
@@ -949,6 +1045,7 @@ fn nonworkspace_materialization_contract_starts_pending_and_blocks_truthfully_on
         None,
         None,
         None,
+        Vec::new(),
         Vec::new(),
         Vec::new(),
         None,
@@ -970,10 +1067,10 @@ fn nonworkspace_materialization_contract_starts_pending_and_blocks_truthfully_on
             endpoint: None,
         }),
     );
-    let blocked_steps = verification_steps_for_materialized_artifact(&request, &blocked);
-    assert_eq!(blocked_steps.len(), 2);
-    assert_eq!(blocked_steps[0].status, "blocked");
-    assert_eq!(blocked_steps[1].status, "blocked");
+    assert!(blocked.operator_steps.iter().any(|step| {
+        step.step_id == "present_artifact"
+            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Blocked
+    }));
 }
 
 #[test]
@@ -1040,19 +1137,28 @@ fn blocked_nonworkspace_artifact_terminalizes_preview_and_invariant_state() {
         None,
         Vec::new(),
         Vec::new(),
+        Vec::new(),
         None,
         Vec::new(),
         contract.execution_envelope.clone(),
         None,
         None,
-        vec![StudioArtifactRuntimeNarrationEvent::new(
-            "author_artifact",
-            "author_artifact",
-            "Write artifact",
-            "Studio is authoring the first attempt.",
-            "blocked",
-        )
-        .with_attempt_id("candidate-1")],
+        vec![ioi_api::studio::StudioArtifactOperatorStep {
+            step_id: "author_artifact:candidate-1".to_string(),
+            origin_prompt_event_id: String::new(),
+            phase: ioi_api::studio::StudioArtifactOperatorPhase::AuthorArtifact,
+            engine: "materialization".to_string(),
+            status: ioi_api::studio::StudioArtifactOperatorRunStatus::Blocked,
+            label: "Write artifact".to_string(),
+            detail: "Studio is authoring the first attempt.".to_string(),
+            started_at_ms: 0,
+            finished_at_ms: Some(0),
+            preview: None,
+            file_refs: Vec::new(),
+            source_refs: Vec::new(),
+            verification_refs: Vec::new(),
+            attempt: 1,
+        }],
         Some(crate::models::StudioRuntimeProvenance {
             kind: crate::models::StudioRuntimeProvenanceKind::RealLocalRuntime,
             label: "openai-compatible".to_string(),
@@ -1086,11 +1192,11 @@ fn blocked_nonworkspace_artifact_terminalizes_preview_and_invariant_state() {
     assert!(latest_preview.is_final);
 
     let latest_preview_event = blocked
-        .runtime_narration_events
+        .operator_steps
         .iter()
         .rev()
-        .find_map(|event| event.preview.as_ref())
-        .expect("blocked artifact should append a terminal preview event");
+        .find_map(|step| step.preview.as_ref())
+        .expect("blocked artifact should retain a terminal preview on the blocked author step");
     assert_eq!(latest_preview_event.status, "interrupted");
     assert!(latest_preview_event.is_final);
 }
@@ -1138,6 +1244,7 @@ fn apply_materialized_artifact_to_contract_marks_nonworkspace_steps_success_when
         None,
         None,
         None,
+        Vec::new(),
         Vec::new(),
         Vec::new(),
         None,
@@ -1195,6 +1302,40 @@ fn apply_materialized_artifact_to_contract_marks_nonworkspace_steps_success_when
         rationale: "artifact passed acceptance".to_string(),
         ..studio_validation_fixture()
     });
+    ready.operator_steps = vec![
+        ioi_api::studio::StudioArtifactOperatorStep {
+            step_id: "materialize_artifact".to_string(),
+            origin_prompt_event_id: String::new(),
+            phase: ioi_api::studio::StudioArtifactOperatorPhase::AuthorArtifact,
+            engine: "materialization".to_string(),
+            status: ioi_api::studio::StudioArtifactOperatorRunStatus::Complete,
+            label: "Materialize artifact".to_string(),
+            detail: "Materialize artifact completed.".to_string(),
+            started_at_ms: 0,
+            finished_at_ms: Some(0),
+            preview: None,
+            file_refs: Vec::new(),
+            source_refs: Vec::new(),
+            verification_refs: Vec::new(),
+            attempt: 1,
+        },
+        ioi_api::studio::StudioArtifactOperatorStep {
+            step_id: "verify_artifact_contract".to_string(),
+            origin_prompt_event_id: String::new(),
+            phase: ioi_api::studio::StudioArtifactOperatorPhase::VerifyArtifact,
+            engine: "materialization".to_string(),
+            status: ioi_api::studio::StudioArtifactOperatorRunStatus::Complete,
+            label: "Verify artifact contract".to_string(),
+            detail: "Verify artifact contract completed.".to_string(),
+            started_at_ms: 0,
+            finished_at_ms: Some(0),
+            preview: None,
+            file_refs: Vec::new(),
+            source_refs: Vec::new(),
+            verification_refs: Vec::new(),
+            attempt: 1,
+        },
+    ];
 
     apply_materialized_artifact_to_contract(
         &mut contract,
@@ -1204,9 +1345,14 @@ fn apply_materialized_artifact_to_contract_marks_nonworkspace_steps_success_when
         StudioExecutionStrategy::DirectAuthor,
     );
 
-    assert_eq!(contract.verification_steps.len(), 2);
-    assert_eq!(contract.verification_steps[0].status, "success");
-    assert_eq!(contract.verification_steps[1].status, "success");
+    assert!(contract.operator_steps.iter().any(|step| {
+        step.step_id == "materialize_artifact"
+            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+    }));
+    assert!(contract.operator_steps.iter().any(|step| {
+        step.step_id == "verify_artifact_contract"
+            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+    }));
     assert_eq!(contract.file_writes.len(), 1);
     assert_eq!(
         contract.winning_candidate_id.as_deref(),
@@ -1376,19 +1522,23 @@ fn materialize_nonworkspace_artifact_falls_back_to_local_acceptance_when_no_acce
         },
     };
 
-    let materialized = materialize_non_workspace_artifact_with_dependencies_and_timeout(
-        &proof_memory_runtime(),
-        Some(runtime),
-        None,
-        "thread-1",
-        "Studio rollout",
-        "Create an interactive HTML artifact that explains a product rollout with charts",
-        &request,
-        None,
-        Duration::from_secs(5),
-        None,
-    )
-    .expect("materialization should succeed with a local fallback");
+    let materialized =
+        materialize_non_workspace_artifact_with_dependencies_and_timeout_and_execution_strategy(
+            &proof_memory_runtime(),
+            Some(runtime),
+            None,
+            "thread-1",
+            "Studio rollout",
+            "Create an interactive HTML artifact that explains a product rollout with charts",
+            &request,
+            None,
+            Duration::from_secs(5),
+            None,
+            None,
+            execution_strategy_for_outcome(StudioOutcomeKind::Artifact, Some(&request)),
+            None,
+        )
+        .expect("materialization should succeed with a local fallback");
 
     assert!(matches!(
         materialized.lifecycle_state,
@@ -1626,6 +1776,7 @@ fn html_generation_failure_blocks_primary_artifact_without_synthetic_fallback() 
             None,
             None,
             None,
+            Vec::new(),
             Vec::new(),
             Vec::new(),
             None,
@@ -2205,6 +2356,7 @@ fn pipeline_steps_keep_skill_discovery_distinct_from_brief_preparation() {
         &brief,
         None,
         None,
+        Vec::new(),
         Vec::new(),
         Vec::new(),
     );

@@ -175,6 +175,7 @@ async fn planned_prepared_context_with_runtime_plan(
         refinement
             .map(|context| context.retrieved_exemplars.clone())
             .unwrap_or_default(),
+        Vec::new(),
     )
 }
 

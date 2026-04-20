@@ -74,8 +74,10 @@ pub fn build_studio_artifact_render_acceptance_policy(
     };
     let minimum_actionable_affordances = match request.renderer {
         StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => {
-            if required_interaction_goals > 0 {
+            if required_interaction_goals >= 2 {
                 2
+            } else if required_interaction_goals > 0 {
+                1
             } else {
                 0
             }
@@ -286,11 +288,21 @@ pub fn merge_studio_artifact_render_evaluation_into_validation(
     } else if warning_count > 0
         || render_evaluation.overall_score < render_evaluation.primary_view_score_threshold()
     {
-        if validation.classification == StudioArtifactValidationStatus::Pass {
+        let warning_only_primary_ready = warning_count > 0
+            && render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold()
+            && !render_evaluation.has_failed_required_obligations()
+            && blocked_render_finding.is_none();
+        if !warning_only_primary_ready
+            && validation.classification == StudioArtifactValidationStatus::Pass
+        {
             validation.classification = StudioArtifactValidationStatus::Repairable;
         }
-        validation.deserves_primary_artifact_view &=
-            render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold();
+        if warning_only_primary_ready {
+            validation.deserves_primary_artifact_view = true;
+        } else {
+            validation.deserves_primary_artifact_view &=
+                render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold();
+        }
         if !validation
             .issue_classes
             .iter()

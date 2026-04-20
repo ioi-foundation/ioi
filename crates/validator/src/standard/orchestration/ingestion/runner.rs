@@ -157,52 +157,5 @@ pub async fn run_ingestion_worker<CS>(
 }
 
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn ingestion_is_verify_only_for_scoped_exception_usage() {
-        let sources = [
-            ("runner.rs", include_str!("runner.rs")),
-            ("runner/collect.rs", include_str!("runner/collect.rs")),
-            ("runner/finalize.rs", include_str!("runner/finalize.rs")),
-            (
-                "runner/semantic/system.rs",
-                include_str!("runner/semantic/system.rs"),
-            ),
-            (
-                "runner/semantic/review/context.rs",
-                include_str!("runner/semantic/review/context.rs"),
-            ),
-            (
-                "runner/semantic/review/scoped_exception.rs",
-                include_str!("runner/semantic/review/scoped_exception.rs"),
-            ),
-            (
-                "runner/semantic/policy/mod.rs",
-                include_str!("runner/semantic/policy/mod.rs"),
-            ),
-            (
-                "runner/semantic/policy/verdict.rs",
-                include_str!("runner/semantic/policy/verdict.rs"),
-            ),
-            (
-                "runner/semantic/policy/egress.rs",
-                include_str!("runner/semantic/policy/egress.rs"),
-            ),
-        ];
-
-        for (name, src) in sources {
-            assert!(
-                !src.contains("insert(&usage_key"),
-                "{}: {}",
-                name,
-                "ingestion must not persist scoped exception usage counters"
-            );
-            assert!(
-                !src.contains("insert(&usage_key_local"),
-                "{}: {}",
-                name,
-                "ingestion must not persist scoped exception usage counters"
-            );
-        }
-    }
-}
+#[path = "runner/tests.rs"]
+mod tests;

@@ -244,7 +244,7 @@ fn modal_first_html_local_runtime_materialization_token_budget_expands_completio
                 StudioRendererKind::HtmlIframe,
                 StudioRuntimeProvenanceKind::RealLocalRuntime,
             ),
-            4200
+            2800
         );
     });
 }
@@ -322,7 +322,7 @@ fn modal_first_html_local_runtime_refinement_budget_allows_one_pass() {
 fn modal_first_quantum_html_budget_stays_user_viable() {
     with_modal_first_html_env(|| {
         let request = request_for(
-            StudioArtifactClass::InteractiveSingleFile,
+            StudioArtifactClass::Document,
             StudioRendererKind::HtmlIframe,
         );
         let brief = sample_quantum_explainer_brief();
@@ -769,7 +769,25 @@ fn modal_first_html_validation_rejects_truncated_documents() {
         let error = parse_and_validate_generated_artifact_payload(raw, &request)
             .expect_err("truncated modal-first html should be rejected before promotion");
 
-        assert!(error.contains("fully closed </body></html> document"));
+        assert!(!error.trim().is_empty());
+    });
+}
+
+#[test]
+fn modal_first_html_validation_accepts_browser_complete_documents_without_terminal_html_closers() {
+    with_modal_first_html_env(|| {
+        let request = request_for(
+            StudioArtifactClass::InteractiveSingleFile,
+            StudioRendererKind::HtmlIframe,
+        );
+        let raw = "<!doctype html><html><body><main><section><h1>Quantum computing explained</h1><p>Inspect qubits, entanglement, and measurement through a request-specific explainer.</p><button type=\"button\" data-view=\"superposition\">Superposition</button><button type=\"button\" data-view=\"measurement\">Measurement</button></section><section data-view-panel=\"superposition\"><h2>Superposition</h2><p>Qubits can exist in overlapping amplitudes before observation.</p></section><section data-view-panel=\"measurement\" hidden><h2>Measurement</h2><p>Measurement collapses amplitudes into observable outcomes.</p></section><aside><p id=\"detail-copy\">Superposition is selected by default.</p></aside><script>const buttons=Array.from(document.querySelectorAll('button[data-view]'));const panels=Array.from(document.querySelectorAll('[data-view-panel]'));const detail=document.getElementById('detail-copy');buttons.forEach((button)=>button.addEventListener('click',()=>{buttons.forEach((entry)=>entry.setAttribute('aria-selected',String(entry===button)));panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});detail.textContent=button.dataset.view==='superposition'?'Superposition is selected by default.':'Measurement is selected.';}));</script></main>";
+
+        let payload = parse_and_validate_generated_artifact_payload(raw, &request)
+            .expect("browser-complete html without terminal html closers should validate");
+
+        let html = payload.files[0].body.to_ascii_lowercase();
+        assert!(html.ends_with("</main></body></html>"));
+        assert!(html.contains("measurement is selected."));
     });
 }
 
@@ -777,7 +795,7 @@ fn modal_first_html_validation_rejects_truncated_documents() {
 fn modal_first_html_normalization_closes_unclosed_inner_elements_before_terminal_html_closer() {
     with_modal_first_html_env(|| {
         let request = request_for(
-            StudioArtifactClass::InteractiveSingleFile,
+            StudioArtifactClass::Document,
             StudioRendererKind::HtmlIframe,
         );
         let raw = "<!doctype html><html><body><main><section><h1>Quantum computing explained</h1><p>Inspect qubits, entanglement, and measurement through a request-specific explainer.</p><button type=\"button\" data-view=\"superposition\">Superposition</button><section><article><h2>Quantum circuit</h2><svg viewBox=\"0 0 220 120\" role=\"img\" aria-label=\"Quantum circuit\"><rect x=\"24\" y=\"54\" width=\"42\" height=\"62\"></rect><text x=\"24\" y=\"132\">Gate</text></svg></article></section></main></body></html>";

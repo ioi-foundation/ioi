@@ -3,10 +3,11 @@ use crate::kernel::connectors::{ConnectorCatalogEntry, ShieldPolicyState};
 use ioi_api::studio::{
     ExecutionEnvelope, ExecutionStage, StudioArtifactBlueprint, StudioArtifactBrief,
     StudioArtifactCandidateSummary, StudioArtifactEditIntent, StudioArtifactExemplar,
-    StudioArtifactIR, StudioArtifactOutputOrigin, StudioArtifactPreparationNeeds,
+    StudioArtifactIR, StudioArtifactOperatorRun, StudioArtifactOperatorStep,
+    StudioArtifactOutputOrigin, StudioArtifactPreparationNeeds,
     StudioArtifactPreparedContextResolution, StudioArtifactRenderEvaluation,
-    StudioArtifactRuntimeNarrationEvent, StudioArtifactSelectedSkill,
-    StudioArtifactSelectionTarget, StudioArtifactSkillDiscoveryResolution,
+    StudioArtifactSelectedSkill, StudioArtifactSelectionTarget,
+    StudioArtifactSkillDiscoveryResolution, StudioArtifactSourceReference,
     StudioArtifactTasteMemory, StudioArtifactUxLifecycle, StudioArtifactValidationResult,
     SwarmChangeReceipt, SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan,
     SwarmVerificationReceipt, SwarmWorkerReceipt,
@@ -1492,15 +1493,6 @@ pub struct StudioArtifactMaterializationPreviewIntent {
     pub status: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StudioArtifactMaterializationVerificationStep {
-    pub id: String,
-    pub label: String,
-    pub kind: String,
-    pub status: String,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -1539,6 +1531,8 @@ pub struct StudioArtifactMaterializationContract {
     pub selected_skills: Vec<StudioArtifactSelectedSkill>,
     #[serde(default)]
     pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    #[serde(default)]
+    pub retrieved_sources: Vec<StudioArtifactSourceReference>,
     #[serde(default)]
     pub edit_intent: Option<StudioArtifactEditIntent>,
     #[serde(default)]
@@ -1586,11 +1580,9 @@ pub struct StudioArtifactMaterializationContract {
     #[serde(default)]
     pub preview_intent: Option<StudioArtifactMaterializationPreviewIntent>,
     #[serde(default)]
-    pub verification_steps: Vec<StudioArtifactMaterializationVerificationStep>,
-    #[serde(default)]
     pub pipeline_steps: Vec<StudioArtifactPipelineStep>,
     #[serde(default)]
-    pub runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
+    pub operator_steps: Vec<StudioArtifactOperatorStep>,
     #[serde(default)]
     pub notes: Vec<String>,
 }
@@ -1623,6 +1615,8 @@ pub struct StudioArtifactRevision {
     pub selected_skills: Vec<StudioArtifactSelectedSkill>,
     #[serde(default)]
     pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    #[serde(default)]
+    pub retrieved_sources: Vec<StudioArtifactSourceReference>,
     #[serde(default)]
     pub edit_intent: Option<StudioArtifactEditIntent>,
     #[serde(default)]
@@ -1771,11 +1765,17 @@ pub struct StudioArtifactSession {
     #[serde(default)]
     pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
     #[serde(default)]
+    pub retrieved_sources: Vec<StudioArtifactSourceReference>,
+    #[serde(default)]
     pub selected_targets: Vec<StudioArtifactSelectionTarget>,
     #[serde(default)]
     pub widget_state: Option<StudioRetainedWidgetState>,
     #[serde(default)]
     pub ux_lifecycle: Option<StudioArtifactUxLifecycle>,
+    #[serde(default)]
+    pub active_operator_run: Option<StudioArtifactOperatorRun>,
+    #[serde(default)]
+    pub operator_run_history: Vec<StudioArtifactOperatorRun>,
     pub created_at: String,
     pub updated_at: String,
     #[serde(default)]
@@ -2234,86 +2234,8 @@ impl AgentTask {
 }
 
 #[cfg(test)]
-mod runtime_view_tests {
-    use super::*;
-    use std::collections::HashSet;
-
-    fn sample_task(phase: AgentPhase) -> AgentTask {
-        AgentTask {
-            id: "task-1".to_string(),
-            intent: "Prepare release checklist".to_string(),
-            agent: "Autopilot".to_string(),
-            phase,
-            progress: 0,
-            total_steps: 3,
-            current_step: "Inspecting retained output".to_string(),
-            gate_info: None,
-            receipt: None,
-            visual_hash: None,
-            pending_request_hash: None,
-            session_id: Some("task-1".to_string()),
-            credential_request: None,
-            clarification_request: None,
-            session_checklist: Vec::new(),
-            background_tasks: Vec::new(),
-            history: vec![ChatMessage {
-                role: "agent".to_string(),
-                text: "Drafted the first pass of the checklist.".to_string(),
-                timestamp: 0,
-            }],
-            events: Vec::new(),
-            artifacts: Vec::new(),
-            studio_session: None,
-            studio_outcome: None,
-            renderer_session: None,
-            build_session: None,
-            run_bundle_id: None,
-            processed_steps: HashSet::new(),
-            swarm_tree: Vec::new(),
-            generation: 0,
-            lineage_id: "genesis".to_string(),
-            fitness_score: 0.0,
-        }
-    }
-
-    #[test]
-    fn sync_runtime_views_marks_clarification_as_blocked() {
-        let mut task = sample_task(AgentPhase::Complete);
-        task.clarification_request = Some(ClarificationRequest {
-            kind: "intent_resolution".to_string(),
-            question: "Which release branch should I target?".to_string(),
-            tool_name: "AskUserQuestion".to_string(),
-            failure_class: None,
-            evidence_snippet: None,
-            context_hint: None,
-            options: Vec::new(),
-            allow_other: true,
-        });
-
-        task.sync_runtime_views();
-
-        assert!(task
-            .session_checklist
-            .iter()
-            .any(|item| item.item_id == "clarification" && item.status == "blocked"));
-        assert_eq!(task.background_tasks[0].status, "blocked");
-    }
-
-    #[test]
-    fn sync_runtime_views_exposes_latest_output_for_completed_tasks() {
-        let mut task = sample_task(AgentPhase::Complete);
-        task.sync_runtime_views();
-
-        assert!(task
-            .session_checklist
-            .iter()
-            .any(|item| item.item_id == "review" && item.status == "completed"));
-        assert_eq!(
-            task.background_tasks[0].latest_output.as_deref(),
-            Some("Drafted the first pass of the checklist.")
-        );
-    }
-}
+#[path = "models/runtime_view_tests.rs"]
+mod runtime_view_tests;
 
 fn default_lineage() -> String {
     "genesis".to_string()
@@ -4077,54 +3999,5 @@ pub struct AppState {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn serializes_agent_event_shape() {
-        let event = AgentEvent {
-            event_id: "evt-1".to_string(),
-            timestamp: "2026-02-13T00:00:00Z".to_string(),
-            thread_id: "thread-1".to_string(),
-            step_index: 7,
-            event_type: EventType::CommandRun,
-            title: "Ran cargo test".to_string(),
-            digest: json!({"tool":"cargo test"}),
-            details: json!({"output":"ok"}),
-            artifact_refs: vec![ArtifactRef {
-                artifact_id: "art-1".to_string(),
-                artifact_type: ArtifactType::Log,
-            }],
-            receipt_ref: Some("receipt-1".to_string()),
-            input_refs: vec!["evt-0".to_string()],
-            status: EventStatus::Success,
-            duration_ms: Some(12),
-        };
-
-        let value = serde_json::to_value(&event).expect("serialize event");
-        assert_eq!(value["event_id"], "evt-1");
-        assert_eq!(value["event_type"], "COMMAND_RUN");
-        assert_eq!(value["status"], "SUCCESS");
-        assert_eq!(value["artifact_refs"][0]["artifact_type"], "LOG");
-    }
-
-    #[test]
-    fn serializes_artifact_shape() {
-        let artifact = Artifact {
-            artifact_id: "art-1".to_string(),
-            created_at: "2026-02-13T00:00:00Z".to_string(),
-            thread_id: "thread-1".to_string(),
-            artifact_type: ArtifactType::Diff,
-            title: "Large diff".to_string(),
-            description: "Diff exceeded threshold".to_string(),
-            content_ref: "ioi-memory://artifact/art-1".to_string(),
-            metadata: json!({"files_touched": 4}),
-            version: Some(1),
-            parent_artifact_id: None,
-        };
-        let value = serde_json::to_value(&artifact).expect("serialize artifact");
-        assert_eq!(value["artifact_type"], "DIFF");
-        assert_eq!(value["metadata"]["files_touched"], 4);
-    }
-}
+#[path = "models/tests.rs"]
+mod tests;

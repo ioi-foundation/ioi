@@ -2,29 +2,14 @@ use crate::models::{
     BuildArtifactSession, StudioArtifactFileRole, StudioArtifactLifecycleState,
     StudioArtifactManifest, StudioArtifactManifestFile, StudioArtifactManifestStorage,
     StudioArtifactManifestTab, StudioArtifactManifestVerification, StudioArtifactNavigatorNode,
-    StudioArtifactPersistenceMode, StudioArtifactTabKind, StudioArtifactVerificationStatus,
-    StudioOutcomeArtifactRequest, StudioRendererKind, StudioRendererSession, StudioVerifiedReply,
+    StudioArtifactPersistenceMode, StudioArtifactTabKind, StudioOutcomeArtifactRequest,
+    StudioRendererKind, StudioRendererSession, StudioVerifiedReply,
 };
+pub(super) use ioi_api::studio::verification_status_for_lifecycle;
+use ioi_api::studio::verified_reply_evidence_for_manifest;
 use uuid::Uuid;
 
 use super::{mime_for_workspace_entry, now_iso};
-
-pub(super) fn verification_status_for_lifecycle(
-    state: StudioArtifactLifecycleState,
-) -> StudioArtifactVerificationStatus {
-    match state {
-        StudioArtifactLifecycleState::Draft
-        | StudioArtifactLifecycleState::Planned
-        | StudioArtifactLifecycleState::Materializing
-        | StudioArtifactLifecycleState::Rendering
-        | StudioArtifactLifecycleState::Implementing
-        | StudioArtifactLifecycleState::Verifying => StudioArtifactVerificationStatus::Pending,
-        StudioArtifactLifecycleState::Ready => StudioArtifactVerificationStatus::Ready,
-        StudioArtifactLifecycleState::Partial => StudioArtifactVerificationStatus::Partial,
-        StudioArtifactLifecycleState::Failed => StudioArtifactVerificationStatus::Failed,
-        StudioArtifactLifecycleState::Blocked => StudioArtifactVerificationStatus::Blocked,
-    }
-}
 
 pub(super) fn manifest_tabs_for_request(
     request: &StudioOutcomeArtifactRequest,
@@ -237,43 +222,12 @@ pub(super) fn verified_reply_from_manifest(
     title: &str,
     manifest: &StudioArtifactManifest,
 ) -> StudioVerifiedReply {
-    let mut evidence = manifest
-        .files
-        .iter()
-        .map(|file| file.path.clone())
-        .collect::<Vec<_>>();
-    if let Some(provenance) = manifest.verification.production_provenance.as_ref() {
-        evidence.push(format!(
-            "production provenance: {}{}",
-            provenance.label,
-            provenance
-                .model
-                .as_ref()
-                .map(|model| format!(" ({model})"))
-                .unwrap_or_default()
-        ));
-    }
-    if let Some(provenance) = manifest.verification.acceptance_provenance.as_ref() {
-        evidence.push(format!(
-            "acceptance provenance: {}{}",
-            provenance.label,
-            provenance
-                .model
-                .as_ref()
-                .map(|model| format!(" ({model})"))
-                .unwrap_or_default()
-        ));
-    }
-    if let Some(failure) = manifest.verification.failure.as_ref() {
-        evidence.push(format!("failure: {} ({})", failure.message, failure.code));
-    }
-
     StudioVerifiedReply {
         status: manifest.verification.status,
         lifecycle_state: manifest.verification.lifecycle_state,
         title: format!("Studio outcome: {}", title),
         summary: format!("{} {}", title, manifest.verification.summary),
-        evidence,
+        evidence: verified_reply_evidence_for_manifest(&manifest.verification, manifest),
         production_provenance: manifest.verification.production_provenance.clone(),
         acceptance_provenance: manifest.verification.acceptance_provenance.clone(),
         failure: manifest.verification.failure.clone(),

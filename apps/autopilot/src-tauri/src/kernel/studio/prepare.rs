@@ -1,13 +1,15 @@
 use super::content_session::attach_non_artifact_studio_session;
+use super::operator_run::{
+    refresh_active_operator_run_from_session, start_operator_run_for_session,
+};
 use super::revisions::persist_studio_artifact_exemplar;
 use super::*;
 use crate::models::ChatMessage;
 use ioi_api::execution::{ExecutionEnvelope, ExecutionStage};
 use ioi_api::studio::{
     resolve_runtime_locality_placeholder, StudioArtifactExemplar, StudioArtifactGenerationProgress,
-    StudioArtifactMergeReceipt, StudioArtifactPatchReceipt, StudioArtifactRuntimeEventStatus,
-    StudioArtifactRuntimeEventType, StudioArtifactRuntimeNarrationEvent,
-    StudioArtifactRuntimeStepId, StudioArtifactSwarmExecutionSummary, StudioArtifactSwarmPlan,
+    StudioArtifactMergeReceipt, StudioArtifactOperatorRunMode, StudioArtifactPatchReceipt,
+    StudioArtifactSwarmExecutionSummary, StudioArtifactSwarmPlan,
     StudioArtifactVerificationReceipt, StudioArtifactWorkerReceipt, StudioIntentContext,
 };
 use ioi_types::app::agentic::InferenceOptions;
@@ -28,7 +30,7 @@ fn publish_current_task_progress(
     publish_current_task_snapshot(app, task);
 }
 
-fn publish_current_task_snapshot(app: &AppHandle, task: &AgentTask) {
+pub(super) fn publish_current_task_snapshot(app: &AppHandle, task: &AgentTask) {
     let task_id = task.id.clone();
     let task_snapshot = task.clone();
     let state = app.state::<Mutex<AppState>>();
@@ -1324,41 +1326,7 @@ fn latest_user_request_event_id(task: &AgentTask) -> Option<String> {
     })
 }
 
-fn initial_understand_request_event(
-    _outcome_request: &StudioOutcomeRequest,
-) -> StudioArtifactRuntimeNarrationEvent {
-    StudioArtifactRuntimeNarrationEvent::new(
-        StudioArtifactRuntimeEventType::UnderstandRequest,
-        StudioArtifactRuntimeStepId::UnderstandRequest,
-        "Understand request",
-        "Studio captured the request and established the active artifact context.",
-        StudioArtifactRuntimeEventStatus::Complete,
-    )
-}
-
-fn artifact_route_committed_event(
-    outcome_request: &StudioOutcomeRequest,
-) -> StudioArtifactRuntimeNarrationEvent {
-    let route_detail = outcome_request
-        .artifact
-        .as_ref()
-        .map(|artifact| {
-            format!(
-                "Studio committed the request to the artifact route for a {:?} renderer.",
-                artifact.renderer
-            )
-        })
-        .unwrap_or_else(|| "Studio committed the request to the artifact route.".to_string());
-    StudioArtifactRuntimeNarrationEvent::new(
-        StudioArtifactRuntimeEventType::ArtifactRouteCommitted,
-        StudioArtifactRuntimeStepId::ArtifactRouteCommitted,
-        "Route to artifact",
-        route_detail,
-        StudioArtifactRuntimeEventStatus::Complete,
-    )
-}
-
-fn publish_current_task_generation_progress(
+pub(super) fn publish_current_task_generation_progress(
     app: &AppHandle,
     task_id: &str,
     progress: &StudioArtifactGenerationProgress,
@@ -1391,6 +1359,7 @@ fn publish_current_task_generation_progress(
                 || progress.artifact_ir.is_some()
                 || !progress.selected_skills.is_empty()
                 || !progress.retrieved_exemplars.is_empty()
+                || !progress.retrieved_sources.is_empty()
             {
                 session.materialization.artifact_brief = progress.artifact_brief.clone();
                 session.materialization.preparation_needs = progress.preparation_needs.clone();
@@ -1402,6 +1371,7 @@ fn publish_current_task_generation_progress(
                 session.materialization.artifact_ir = progress.artifact_ir.clone();
                 session.materialization.selected_skills = progress.selected_skills.clone();
                 session.materialization.retrieved_exemplars = progress.retrieved_exemplars.clone();
+                session.materialization.retrieved_sources = progress.retrieved_sources.clone();
             }
             session.materialization.execution_envelope = progress.execution_envelope.clone();
             session.materialization.swarm_plan = progress.swarm_plan.clone();
@@ -1417,21 +1387,32 @@ fn publish_current_task_generation_progress(
             if progress.validation.is_some() {
                 session.materialization.validation = progress.validation.clone();
             }
-            let mut progress_runtime_narration_events = progress.runtime_narration_events.clone();
-            assign_runtime_narration_events_origin(
-                &mut progress_runtime_narration_events,
-                session_origin_prompt_event_id.as_deref(),
-            );
-            merge_runtime_narration_events(
-                &mut session.materialization.runtime_narration_events,
-                &progress_runtime_narration_events,
-            );
+            if !progress.operator_steps.is_empty() {
+                let mut operator_steps = progress.operator_steps.clone();
+                let origin_prompt_event_id =
+                    session_origin_prompt_event_id.clone().unwrap_or_default();
+                for step in &mut operator_steps {
+                    if step.origin_prompt_event_id.trim().is_empty() {
+                        step.origin_prompt_event_id = origin_prompt_event_id.clone();
+                    }
+                    if let Some(preview) = step.preview.as_mut() {
+                        if preview.origin_prompt_event_id.trim().is_empty() {
+                            preview.origin_prompt_event_id = origin_prompt_event_id.clone();
+                        }
+                    }
+                }
+                session.materialization.operator_steps = operator_steps;
+            }
             session.lifecycle_state = lifecycle_state_for_generation_progress(progress);
             session.status = lifecycle_state_label(session.lifecycle_state).to_string();
             session.updated_at = now_iso();
             session.artifact_manifest.verification.summary = progress.current_step.clone();
             session.verified_reply.summary = progress.current_step.clone();
+            refresh_active_operator_run_from_session(session, None);
             refresh_pipeline_steps(session, None);
+        }
+        if task_requires_studio_primary_execution(task) {
+            apply_studio_authoritative_status(task, None);
         }
 
         task.clone()
@@ -1448,7 +1429,7 @@ pub(super) fn provisional_non_workspace_studio_session(
     created_at: &str,
     outcome_request: &StudioOutcomeRequest,
     origin_prompt_event_id: Option<&str>,
-    mut materialization: StudioArtifactMaterializationContract,
+    materialization: StudioArtifactMaterializationContract,
 ) -> Result<StudioArtifactSession, String> {
     let artifact_request = outcome_request
         .artifact
@@ -1467,18 +1448,7 @@ pub(super) fn provisional_non_workspace_studio_session(
     artifact_manifest.verification.acceptance_provenance =
         materialization.acceptance_provenance.clone();
     let retrieved_exemplars = materialization.retrieved_exemplars.clone();
-    merge_runtime_narration_events(
-        &mut materialization.runtime_narration_events,
-        &[
-            initial_understand_request_event(outcome_request),
-            artifact_route_committed_event(outcome_request),
-        ],
-    );
-    assign_runtime_narration_events_origin(
-        &mut materialization.runtime_narration_events,
-        origin_prompt_event_id,
-    );
-
+    let retrieved_sources = materialization.retrieved_sources.clone();
     let mut studio_session = StudioArtifactSession {
         session_id: studio_session_id.to_string(),
         thread_id: thread_id.to_string(),
@@ -1505,9 +1475,12 @@ pub(super) fn provisional_non_workspace_studio_session(
         revisions: Vec::new(),
         taste_memory: None,
         retrieved_exemplars,
+        retrieved_sources,
         selected_targets: Vec::new(),
         widget_state: None,
         ux_lifecycle: None,
+        active_operator_run: None,
+        operator_run_history: Vec::new(),
         created_at: created_at.to_string(),
         updated_at: created_at.to_string(),
         build_session_id: None,
@@ -1515,6 +1488,12 @@ pub(super) fn provisional_non_workspace_studio_session(
         renderer_session_id: None,
     };
     assign_studio_session_turn_ownership(&mut studio_session, origin_prompt_event_id);
+    start_operator_run_for_session(
+        &mut studio_session,
+        origin_prompt_event_id,
+        StudioArtifactOperatorRunMode::Create,
+    );
+    refresh_active_operator_run_from_session(&mut studio_session, None);
     refresh_pipeline_steps(&mut studio_session, None);
     Ok(studio_session)
 }
@@ -1740,6 +1719,8 @@ fn maybe_prepare_task_for_studio_with_request(
     let mut final_materialized_artifact: Option<
         super::content_session::MaterializedContentArtifact,
     > = None;
+    let connector_grounding =
+        ioi_api::studio::artifact_connector_grounding_for_outcome_request(&outcome_request);
     let app_runtime_provenance =
         app_inference_runtime(app).map(|runtime| runtime.studio_runtime_provenance());
     let app_acceptance_runtime_provenance =
@@ -1787,12 +1768,13 @@ fn maybe_prepare_task_for_studio_with_request(
             url: None,
             status: "pending".to_string(),
         });
-        materialization.verification_steps = vec![
-            verification_step("scaffold", "Scaffold workspace", "success"),
-            verification_step("install", "Install dependencies", "pending"),
-            verification_step("validation", "Validate build", "pending"),
-            verification_step("preview", "Verify preview", "pending"),
-        ];
+        for step in &mut materialization.operator_steps {
+            if step.step_id == "workspace_scaffold" {
+                step.status = ioi_api::studio::StudioArtifactOperatorRunStatus::Complete;
+                step.detail = "Scaffold workspace completed.".to_string();
+                step.finished_at_ms = Some(step.finished_at_ms.unwrap_or(0));
+            }
+        }
         Some(BuildArtifactSession {
             session_id: Uuid::new_v4().to_string(),
             studio_session_id: studio_session_id.clone(),
@@ -1937,6 +1919,7 @@ fn maybe_prepare_task_for_studio_with_request(
                 intent,
                 &artifact_request,
                 None,
+                connector_grounding.as_ref(),
                 outcome_request.execution_strategy,
                 Some(progress_observer),
             )?;
@@ -2028,10 +2011,6 @@ fn maybe_prepare_task_for_studio_with_request(
             outcome_request.execution_mode_decision.clone(),
             outcome_request.execution_strategy,
         );
-        assign_runtime_narration_events_origin(
-            &mut materialization.runtime_narration_events,
-            origin_prompt_event_id.as_deref(),
-        );
     } else {
         materialization.artifact_brief = artifact_brief.clone();
         materialization.edit_intent = edit_intent.clone();
@@ -2060,10 +2039,6 @@ fn maybe_prepare_task_for_studio_with_request(
         materialization.ux_lifecycle = ux_lifecycle;
         materialization.failure = failure.clone();
         materialization.retrieved_exemplars = retrieved_exemplars.clone();
-        assign_runtime_narration_events_origin(
-            &mut materialization.runtime_narration_events,
-            origin_prompt_event_id.as_deref(),
-        );
     }
 
     if let Some(artifact) = create_contract_artifact(app, &thread_id, &title, &materialization) {
@@ -2092,7 +2067,17 @@ fn maybe_prepare_task_for_studio_with_request(
     }
     materialization.navigator_nodes = navigator_nodes_for_manifest(&artifact_manifest);
     let verified_reply = verified_reply_from_manifest(&title, &artifact_manifest);
+    let prior_operator_run = task
+        .studio_session
+        .as_ref()
+        .and_then(|session| session.active_operator_run.clone());
+    let prior_operator_run_history = task
+        .studio_session
+        .as_ref()
+        .map(|session| session.operator_run_history.clone())
+        .unwrap_or_default();
 
+    let retrieved_sources = materialization.retrieved_sources.clone();
     let mut studio_session = StudioArtifactSession {
         session_id: studio_session_id.clone(),
         thread_id: thread_id.clone(),
@@ -2126,9 +2111,12 @@ fn maybe_prepare_task_for_studio_with_request(
         revisions: Vec::new(),
         taste_memory,
         retrieved_exemplars,
+        retrieved_sources,
         selected_targets,
         widget_state: None,
         ux_lifecycle,
+        active_operator_run: prior_operator_run,
+        operator_run_history: prior_operator_run_history,
         created_at: created_at.clone(),
         updated_at: created_at,
         build_session_id: build_session
@@ -2142,6 +2130,16 @@ fn maybe_prepare_task_for_studio_with_request(
             .map(|session| session.session_id.clone()),
     };
     assign_studio_session_turn_ownership(&mut studio_session, origin_prompt_event_id.as_deref());
+    if studio_session.active_operator_run.is_some() {
+        refresh_active_operator_run_from_session(&mut studio_session, build_session.as_ref());
+    } else {
+        start_operator_run_for_session(
+            &mut studio_session,
+            origin_prompt_event_id.as_deref(),
+            StudioArtifactOperatorRunMode::Create,
+        );
+        refresh_active_operator_run_from_session(&mut studio_session, build_session.as_ref());
+    }
     refresh_pipeline_steps(&mut studio_session, build_session.as_ref());
     let initial_revision = initial_revision_for_session(&studio_session, intent);
     studio_session.active_revision_id = Some(initial_revision.revision_id.clone());
@@ -2482,52 +2480,5 @@ pub(super) fn apply_non_artifact_route_state(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::places_request_for_tool_widget;
-    use crate::models::StudioOutcomeRequest;
-    use ioi_types::app::studio::{
-        StudioNormalizedRequestFrame, StudioOutcomeKind, StudioPlacesRequestFrame,
-    };
-    use ioi_types::app::StudioExecutionStrategy;
-
-    fn places_outcome_request(frame: Option<StudioPlacesRequestFrame>) -> StudioOutcomeRequest {
-        StudioOutcomeRequest {
-            request_id: "places-request".to_string(),
-            raw_prompt: "Find coffee shops open now.".to_string(),
-            active_artifact_id: None,
-            outcome_kind: StudioOutcomeKind::ToolWidget,
-            execution_strategy: StudioExecutionStrategy::PlanExecute,
-            execution_mode_decision: None,
-            confidence: 0.92,
-            needs_clarification: false,
-            clarification_questions: Vec::new(),
-            routing_hints: vec!["tool_widget:places".to_string()],
-            lane_frame: None,
-            request_frame: frame.map(StudioNormalizedRequestFrame::Places),
-            source_selection: None,
-            retained_lane_state: None,
-            lane_transitions: Vec::new(),
-            orchestration_state: None,
-            artifact: None,
-        }
-    }
-
-    #[test]
-    fn places_request_for_tool_widget_prefers_request_frame_state() {
-        let outcome_request = places_outcome_request(Some(StudioPlacesRequestFrame {
-            search_anchor: None,
-            category: Some("coffee shops".to_string()),
-            location_scope: Some("Williamsburg, Brooklyn".to_string()),
-            missing_slots: Vec::new(),
-            clarification_required_slots: Vec::new(),
-        }));
-
-        let parsed =
-            places_request_for_tool_widget("Near Williamsburg, Brooklyn.", &outcome_request)
-                .expect("retained places request");
-
-        assert_eq!(parsed.category.label, "coffee shops");
-        assert_eq!(parsed.category.amenity, "cafe");
-        assert_eq!(parsed.anchor_phrase, "Williamsburg, Brooklyn");
-    }
-}
+#[path = "prepare/tests.rs"]
+mod tests;

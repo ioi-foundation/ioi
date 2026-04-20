@@ -191,6 +191,70 @@ fn hydrate_validation_result(
     }
 }
 
+fn local_html_interaction_truth_block_reason(
+    render_evaluation: Option<&StudioArtifactRenderEvaluation>,
+) -> Option<String> {
+    let render_evaluation = render_evaluation?;
+    render_evaluation
+        .acceptance_obligations
+        .iter()
+        .find(|obligation| {
+            matches!(
+                obligation.status,
+                StudioArtifactAcceptanceObligationStatus::Failed
+                    | StudioArtifactAcceptanceObligationStatus::Blocked
+            ) && matches!(
+                obligation.obligation_id.as_str(),
+                "response_region_present" | "controls_execute_cleanly" | "interaction_witnessed"
+            )
+        })
+        .map(|obligation| {
+            obligation
+                .detail
+                .as_ref()
+                .map(|detail| format!("{} {}", obligation.summary, detail))
+                .unwrap_or_else(|| obligation.summary.clone())
+        })
+}
+
+fn try_local_html_interaction_truth_rescue_candidate(
+    request: &StudioOutcomeArtifactRequest,
+    brief: &StudioArtifactBrief,
+    edit_intent: Option<&StudioArtifactEditIntent>,
+    payload: &StudioGeneratedArtifactPayload,
+    error_message: &str,
+) -> Option<(StudioGeneratedArtifactPayload, &'static str)> {
+    let latest_raw = payload
+        .files
+        .iter()
+        .find(|file| file.renderable)
+        .or_else(|| payload.files.first())
+        .map(|file| file.body.clone())?;
+    let (rescued_document, strategy) = try_local_html_interaction_truth_rescue_document(
+        request,
+        StudioRuntimeProvenanceKind::RealLocalRuntime,
+        &latest_raw,
+        error_message,
+    )?;
+    let mut generated =
+        super::parse_and_validate_generated_artifact_payload(&rescued_document, request).ok()?;
+    super::enrich_generated_artifact_payload(&mut generated, request, brief);
+    super::validate_generated_artifact_payload_against_brief_with_edit_intent(
+        &generated,
+        request,
+        brief,
+        edit_intent,
+    )
+    .ok()?;
+    if generated.summary.trim().is_empty() {
+        generated.summary = payload.summary.clone();
+    }
+    generated.notes.push(format!(
+        "local interaction-truth rescue ({strategy}) applied after: {error_message}"
+    ));
+    Some((generated, strategy))
+}
+
 pub(crate) fn blocked_candidate_generation_validation(
     message: &str,
 ) -> StudioArtifactValidationResult {
@@ -210,7 +274,7 @@ pub(crate) fn blocked_candidate_generation_validation(
     )
 }
 
-pub(super) async fn materialize_and_locally_validation_candidate(
+pub(crate) async fn materialize_and_locally_validation_candidate(
     production_runtime: Arc<dyn InferenceRuntime>,
     repair_runtime: Arc<dyn InferenceRuntime>,
     render_evaluator: Option<&dyn StudioArtifactRenderEvaluator>,
@@ -243,9 +307,9 @@ pub(super) async fn materialize_and_locally_validation_candidate(
         "artifact_generation:candidate_materialize:start id={} seed={}",
         candidate_id, seed
     ));
-    let payload = match materialize_studio_artifact_candidate_with_runtime_detailed(
+    let mut payload = match materialize_studio_artifact_candidate_with_runtime_detailed(
         production_runtime.clone(),
-        Some(repair_runtime),
+        Some(repair_runtime.clone()),
         title,
         intent,
         request,
@@ -313,7 +377,7 @@ pub(super) async fn materialize_and_locally_validation_candidate(
         &payload,
         production_provenance.kind,
     );
-    let render_evaluation = if render_eval_timeout_for_runtime(
+    let mut render_evaluation = if render_eval_timeout_for_runtime(
         request.renderer,
         production_provenance.kind,
     )
@@ -328,6 +392,194 @@ pub(super) async fn materialize_and_locally_validation_candidate(
     } else {
         render_eval_future.await
     };
+
+    if request.renderer == StudioRendererKind::HtmlIframe
+        && production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+    {
+        if let Some(interaction_truth_reason) =
+            local_html_interaction_truth_block_reason(render_evaluation.as_ref())
+        {
+            if let Some((rescued_payload, strategy)) =
+                try_local_html_interaction_truth_rescue_candidate(
+                    request,
+                    brief,
+                    edit_intent,
+                    &payload,
+                    &interaction_truth_reason,
+                )
+            {
+                studio_generation_trace(format!(
+                    "artifact_generation:candidate_local_interaction_truth_rescue:ok id={} strategy={}",
+                    candidate_id, strategy
+                ));
+                payload = rescued_payload;
+                let rescued_eval_future = evaluate_candidate_render_with_fallback(
+                    render_evaluator,
+                    request,
+                    brief,
+                    blueprint,
+                    artifact_ir,
+                    edit_intent,
+                    &payload,
+                    production_provenance.kind,
+                );
+                render_evaluation = if render_eval_timeout_for_runtime(
+                    request.renderer,
+                    production_provenance.kind,
+                )
+                .is_some()
+                {
+                    await_with_activity_heartbeat(
+                        rescued_eval_future,
+                        activity_observer.clone(),
+                        Duration::from_millis(125),
+                    )
+                    .await
+                } else {
+                    rescued_eval_future.await
+                };
+            }
+        }
+
+        if let Some(runtime_failure_reason) = render_sanity_block_reason(render_evaluation.as_ref())
+        {
+            let resolved_repair_runtime = materialization_repair_runtime_for_request(
+                request,
+                &production_runtime,
+                Some(&repair_runtime),
+            );
+            let repair_result = if compact_local_html_materialization_prompt(
+                request.renderer,
+                production_provenance.kind,
+            ) {
+                repair_direct_author_generated_candidate_with_runtime_error(
+                    resolved_repair_runtime,
+                    title,
+                    intent,
+                    request,
+                    brief,
+                    selected_skills,
+                    edit_intent,
+                    refinement,
+                    candidate_id,
+                    seed,
+                    &payload,
+                    &runtime_failure_reason,
+                    activity_observer.clone(),
+                )
+                .await
+                .map_err(|error| StudioCandidateMaterializationError {
+                    message: error,
+                    raw_output_preview: None,
+                })
+            } else {
+                repair_materialized_candidate_with_runtime_error(
+                    resolved_repair_runtime,
+                    title,
+                    intent,
+                    request,
+                    brief,
+                    blueprint,
+                    artifact_ir,
+                    selected_skills,
+                    retrieved_exemplars,
+                    edit_intent,
+                    refinement,
+                    candidate_id,
+                    seed,
+                    &payload,
+                    &runtime_failure_reason,
+                    activity_observer.clone(),
+                )
+                .await
+            };
+            match repair_result {
+                Ok(repaired_payload) => {
+                    studio_generation_trace(format!(
+                        "artifact_generation:candidate_runtime_repair:ok id={}",
+                        candidate_id
+                    ));
+                    payload = repaired_payload;
+                    let repaired_eval_future = evaluate_candidate_render_with_fallback(
+                        render_evaluator,
+                        request,
+                        brief,
+                        blueprint,
+                        artifact_ir,
+                        edit_intent,
+                        &payload,
+                        production_provenance.kind,
+                    );
+                    render_evaluation = if render_eval_timeout_for_runtime(
+                        request.renderer,
+                        production_provenance.kind,
+                    )
+                    .is_some()
+                    {
+                        await_with_activity_heartbeat(
+                            repaired_eval_future,
+                            activity_observer.clone(),
+                            Duration::from_millis(125),
+                        )
+                        .await
+                    } else {
+                        repaired_eval_future.await
+                    };
+                }
+                Err(error) => {
+                    studio_generation_trace(format!(
+                        "artifact_generation:candidate_runtime_repair:error id={} error={}",
+                        candidate_id, error.message
+                    ));
+                }
+            }
+        }
+
+        if let Some(interaction_truth_reason) =
+            local_html_interaction_truth_block_reason(render_evaluation.as_ref())
+        {
+            if let Some((rescued_payload, strategy)) =
+                try_local_html_interaction_truth_rescue_candidate(
+                    request,
+                    brief,
+                    edit_intent,
+                    &payload,
+                    &interaction_truth_reason,
+                )
+            {
+                studio_generation_trace(format!(
+                    "artifact_generation:candidate_local_interaction_truth_rescue:post_runtime_repair id={} strategy={}",
+                    candidate_id, strategy
+                ));
+                payload = rescued_payload;
+                let rescued_eval_future = evaluate_candidate_render_with_fallback(
+                    render_evaluator,
+                    request,
+                    brief,
+                    blueprint,
+                    artifact_ir,
+                    edit_intent,
+                    &payload,
+                    production_provenance.kind,
+                );
+                render_evaluation = if render_eval_timeout_for_runtime(
+                    request.renderer,
+                    production_provenance.kind,
+                )
+                .is_some()
+                {
+                    await_with_activity_heartbeat(
+                        rescued_eval_future,
+                        activity_observer.clone(),
+                        Duration::from_millis(125),
+                    )
+                    .await
+                } else {
+                    rescued_eval_future.await
+                };
+            }
+        }
+    }
 
     if production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
         && matches!(
@@ -590,6 +842,9 @@ pub(super) fn render_sanity_block_reason(
     if !render_evaluation.supported {
         return None;
     }
+    if render_sanity_warning_only_primary_ready(render_evaluation) {
+        return None;
+    }
 
     if let Some(reason) = direct_author_runtime_failure_reason(Some(render_evaluation)) {
         return Some(reason);
@@ -628,6 +883,9 @@ pub(super) fn render_sanity_repair_reason(
     if !render_evaluation.supported {
         return None;
     }
+    if render_sanity_warning_only_primary_ready(render_evaluation) {
+        return None;
+    }
 
     if let Some(reason) = render_sanity_block_reason(Some(render_evaluation)) {
         return Some(reason);
@@ -644,6 +902,18 @@ pub(super) fn render_sanity_repair_reason(
             )
         })
         .map(|finding| finding.summary.clone())
+}
+
+fn render_sanity_warning_only_primary_ready(
+    render_evaluation: &StudioArtifactRenderEvaluation,
+) -> bool {
+    render_evaluation.first_paint_captured
+        && !render_evaluation.has_failed_required_obligations()
+        && render_evaluation.overall_score >= render_evaluation.primary_view_score_threshold()
+        && render_evaluation
+            .findings
+            .iter()
+            .all(|finding| finding.severity != StudioArtifactRenderFindingSeverity::Blocked)
 }
 
 pub(super) fn render_sanity_candidate_validation_preview(
@@ -851,6 +1121,9 @@ pub(super) fn direct_author_fast_runtime_sanity_enabled(
 ) -> bool {
     runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
         && request.renderer == StudioRendererKind::HtmlIframe
+        && (request.artifact_class == StudioArtifactClass::InteractiveSingleFile
+            || request.verification.require_render
+            || request.verification.require_preview)
 }
 
 pub(super) fn direct_author_fast_runtime_sanity_timeout(
@@ -864,10 +1137,21 @@ pub(super) fn direct_author_fast_runtime_sanity_timeout(
     }
 }
 
-pub(super) fn direct_author_runtime_failure_reason(
+pub(crate) fn direct_author_runtime_failure_reason(
     render_evaluation: Option<&StudioArtifactRenderEvaluation>,
 ) -> Option<String> {
     let render_evaluation = render_evaluation?;
+    let has_passing_stateful_witness =
+        render_evaluation.execution_witnesses.iter().any(|witness| {
+            witness.status == StudioArtifactExecutionWitnessStatus::Passed && witness.state_changed
+        }) || render_evaluation
+            .observation
+            .as_ref()
+            .is_some_and(|observation| observation.interaction_state_changed);
+    if has_passing_stateful_witness {
+        return None;
+    }
+
     if let Some(obligation) = render_evaluation
         .acceptance_obligations
         .iter()
@@ -880,18 +1164,23 @@ pub(super) fn direct_author_runtime_failure_reason(
                 )
         })
     {
-        return Some(
-            obligation
-                .detail
-                .clone()
-                .unwrap_or_else(|| obligation.summary.clone()),
-        );
+        if !has_passing_stateful_witness {
+            return Some(
+                obligation
+                    .detail
+                    .clone()
+                    .unwrap_or_else(|| obligation.summary.clone()),
+            );
+        }
     }
 
     if let Some(witness) = render_evaluation
         .execution_witnesses
         .iter()
-        .find(|witness| !witness.console_errors.is_empty())
+        .find(|witness| {
+            !witness.console_errors.is_empty()
+                && witness.status != StudioArtifactExecutionWitnessStatus::Passed
+        })
     {
         return Some(
             witness
@@ -1000,3 +1289,7 @@ pub(super) fn record_adaptive_search_signal(
         signals.push(signal);
     }
 }
+
+#[cfg(test)]
+#[path = "candidate_materialization/tests.rs"]
+mod tests;

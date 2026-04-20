@@ -382,6 +382,27 @@ def task_has_interactive_wait_state(task: dict[str, Any]) -> bool:
     return "waiting for clarification" in current_step or "waiting for approval" in current_step
 
 
+def active_operator_run(task: dict[str, Any] | None) -> dict[str, Any]:
+    if not task:
+        return {}
+    studio_session = task.get("studio_session") or {}
+    active_run = studio_session.get("activeOperatorRun") or {}
+    return active_run if isinstance(active_run, dict) else {}
+
+
+def operator_run_is_terminal(task: dict[str, Any] | None) -> bool:
+    status = (active_operator_run(task).get("status") or "").strip().lower()
+    return status in {"complete", "blocked", "failed"}
+
+
+def artifact_prompt_ready(task: dict[str, Any] | None) -> bool:
+    if not task:
+        return False
+    if operator_run_is_terminal(task):
+        return True
+    return artifact_session_ready(task)
+
+
 def wait_for_prompt_result(
     db_paths: list[Path],
     prompt: str,
@@ -393,7 +414,11 @@ def wait_for_prompt_result(
         task = load_task_checkpoint_from_candidates(db_paths)
         if task and (task.get("intent") or "").strip() == prompt.strip():
             phase = (task.get("phase") or "").strip().lower()
-            if phase in {"complete", "failed"} or task_has_interactive_wait_state(task):
+            if (
+                phase in {"complete", "failed"}
+                or task_has_interactive_wait_state(task)
+                or artifact_prompt_ready(task)
+            ):
                 return task
         time.sleep(POLL_INTERVAL_SECS)
     raise TimeoutError(
@@ -482,6 +507,12 @@ def follow_up_artifact_completion_present(
         return False
     if not artifact_session_ready(task):
         return False
+    active_run = active_operator_run(task)
+    if (
+        (active_run.get("mode") or "").strip().lower() == "edit"
+        and operator_run_is_terminal(task)
+    ):
+        return True
     current_revision_id = latest_artifact_revision_id(task)
     if (
         baseline_revision_id is not None

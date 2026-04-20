@@ -1196,49 +1196,8 @@ fn default_query_gas_limit() -> u64 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::default_service_policies;
-    use crate::service_configs::MethodPermission;
-
-    #[test]
-    fn wallet_network_policy_exposes_policy_rule_upsert() {
-        let policies = default_service_policies();
-        let wallet = policies
-            .get("wallet_network")
-            .expect("wallet_network service policy should exist");
-
-        assert!(
-            wallet.methods.contains_key("upsert_policy_rule@v1"),
-            "wallet_network ActiveServiceMeta must advertise upsert_policy_rule@v1",
-        );
-    }
-
-    #[test]
-    fn leakage_controller_policy_exposes_registration_and_internal_debit() {
-        let policies = default_service_policies();
-        let leakage = policies
-            .get("leakage_controller")
-            .expect("leakage_controller service policy should exist");
-
-        assert_eq!(
-            leakage.methods.get("register_policy@v1"),
-            Some(&MethodPermission::User),
-            "leakage_controller must allow user policy registration",
-        );
-        assert_eq!(
-            leakage.methods.get("check_and_debit@v1"),
-            Some(&MethodPermission::Internal),
-            "leakage_controller must keep debit enforcement internal",
-        );
-        assert!(
-            leakage
-                .allowed_system_prefixes
-                .iter()
-                .any(|prefix| prefix == "leakage::"),
-            "leakage_controller must retain access to its private state prefix",
-        );
-    }
-}
+#[path = "tests.rs"]
+mod tests;
 
 fn default_tls_transcript_version() -> u32 {
     1

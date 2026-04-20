@@ -547,61 +547,81 @@ fn request_grounded_query_profile(
 
     match request.renderer {
         StudioRendererKind::HtmlIframe => {
-            content_goals.push(StudioArtifactContentGoal {
-                kind: StudioArtifactContentGoalKind::Compare,
-                summary: format!("Let the user compare multiple angles of {subject_domain}."),
-                required: true,
-            });
-            evidence_goals.push(StudioArtifactEvidenceGoal {
-                kind: StudioArtifactEvidenceGoalKind::ComparisonSurface,
-                summary:
-                    "Keep at least one alternate evidence surface pre-rendered for comparison."
+            if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
+                content_goals.push(StudioArtifactContentGoal {
+                    kind: StudioArtifactContentGoalKind::Compare,
+                    summary: format!("Let the user compare multiple angles of {subject_domain}."),
+                    required: true,
+                });
+                evidence_goals.push(StudioArtifactEvidenceGoal {
+                    kind: StudioArtifactEvidenceGoalKind::ComparisonSurface,
+                    summary:
+                        "Keep at least one alternate evidence surface pre-rendered for comparison."
+                            .to_string(),
+                    required: true,
+                });
+                interaction_goals.extend([
+                    StudioArtifactInteractionGoal {
+                        kind: StudioArtifactInteractionGoalKind::StateSwitch,
+                        summary: format!(
+                            "Switch between authored states to compare how the explanation of {subject_domain} changes."
+                        ),
+                        required: true,
+                    },
+                    StudioArtifactInteractionGoal {
+                        kind: StudioArtifactInteractionGoalKind::DetailInspect,
+                        summary: format!(
+                            "Inspect visible evidence to reveal more context about {subject_domain} inline."
+                        ),
+                        required: true,
+                    },
+                    StudioArtifactInteractionGoal {
+                        kind: StudioArtifactInteractionGoalKind::SequenceBrowse,
+                        summary: format!(
+                            "Progress through staged evidence or examples so the {subject_domain} story unfolds step by step."
+                        ),
+                        required: false,
+                    },
+                ]);
+                presentation_constraints.extend([
+                    StudioArtifactPresentationConstraint {
+                        kind: StudioArtifactPresentationConstraintKind::ResponseRegion,
+                        summary: "Keep one shared response or explanation region visible while interactions run."
+                            .to_string(),
+                        required: true,
+                    },
+                    StudioArtifactPresentationConstraint {
+                        kind: StudioArtifactPresentationConstraintKind::KeyboardAffordances,
+                        summary: "Expose keyboard-reachable affordances for the primary interactive surfaces."
+                            .to_string(),
+                        required: true,
+                    },
+                    StudioArtifactPresentationConstraint {
+                        kind: StudioArtifactPresentationConstraintKind::TypographySeparation,
+                        summary: "Create clear typographic separation between framing, evidence, and response surfaces."
+                            .to_string(),
+                        required: false,
+                    },
+                ]);
+            } else {
+                content_goals.push(StudioArtifactContentGoal {
+                    kind: StudioArtifactContentGoalKind::Summary,
+                    summary: format!("Deliver a clear single-pass explainer for {subject_domain}."),
+                    required: true,
+                });
+                evidence_goals.push(StudioArtifactEvidenceGoal {
+                    kind: StudioArtifactEvidenceGoalKind::SupportingSurface,
+                    summary: "Keep one supporting comparison or evidence surface visible without requiring interaction."
                         .to_string(),
-                required: true,
-            });
-            interaction_goals.extend([
-                StudioArtifactInteractionGoal {
-                    kind: StudioArtifactInteractionGoalKind::StateSwitch,
-                    summary: format!(
-                        "Switch between authored states to compare how the explanation of {subject_domain} changes."
-                    ),
-                    required: true,
-                },
-                StudioArtifactInteractionGoal {
-                    kind: StudioArtifactInteractionGoalKind::DetailInspect,
-                    summary: format!(
-                        "Inspect visible evidence to reveal more context about {subject_domain} inline."
-                    ),
-                    required: true,
-                },
-                StudioArtifactInteractionGoal {
-                    kind: StudioArtifactInteractionGoalKind::SequenceBrowse,
-                    summary: format!(
-                        "Progress through staged evidence or examples so the {subject_domain} story unfolds step by step."
-                    ),
                     required: false,
-                },
-            ]);
-            presentation_constraints.extend([
-                StudioArtifactPresentationConstraint {
-                    kind: StudioArtifactPresentationConstraintKind::ResponseRegion,
-                    summary: "Keep one shared response or explanation region visible while interactions run."
-                        .to_string(),
-                    required: true,
-                },
-                StudioArtifactPresentationConstraint {
-                    kind: StudioArtifactPresentationConstraintKind::KeyboardAffordances,
-                    summary: "Expose keyboard-reachable affordances for the primary interactive surfaces."
-                        .to_string(),
-                    required: true,
-                },
-                StudioArtifactPresentationConstraint {
+                });
+                presentation_constraints.push(StudioArtifactPresentationConstraint {
                     kind: StudioArtifactPresentationConstraintKind::TypographySeparation,
-                    summary: "Create clear typographic separation between framing, evidence, and response surfaces."
+                    summary: "Create clear typographic separation between framing copy, evidence, and supporting notes."
                         .to_string(),
                     required: false,
-                },
-            ]);
+                });
+            }
         }
         StudioRendererKind::JsxSandbox => {
             content_goals.push(StudioArtifactContentGoal {
@@ -733,7 +753,20 @@ fn request_grounded_visual_tone(request: &StudioOutcomeArtifactRequest) -> Vec<S
 
 fn request_grounded_style_directives(request: &StudioOutcomeArtifactRequest) -> Vec<String> {
     canonicalize_brief_list(match request.renderer {
-        StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => vec![
+        StudioRendererKind::HtmlIframe => {
+            if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
+                vec![
+                    "request-shaped hierarchy".to_string(),
+                    "clear interaction affordances".to_string(),
+                ]
+            } else {
+                vec![
+                    "request-shaped hierarchy".to_string(),
+                    "clear evidence framing".to_string(),
+                ]
+            }
+        }
+        StudioRendererKind::JsxSandbox => vec![
             "request-shaped hierarchy".to_string(),
             "clear interaction affordances".to_string(),
         ],
@@ -761,10 +794,21 @@ pub fn derive_request_grounded_studio_artifact_brief(
             anchors
         });
     }
-    let reference_hints = canonicalize_brief_list(vec![
-        format!("{subject_domain} comparisons"),
-        format!("{subject_domain} evidence"),
-    ]);
+    let reference_hints = canonicalize_brief_list(
+        if request.renderer == StudioRendererKind::HtmlIframe
+            && request.artifact_class != StudioArtifactClass::InteractiveSingleFile
+        {
+            vec![
+                format!("{subject_domain} basics"),
+                format!("{subject_domain} examples"),
+            ]
+        } else {
+            vec![
+                format!("{subject_domain} comparisons"),
+                format!("{subject_domain} evidence"),
+            ]
+        },
+    );
     let query_profile = request_grounded_query_profile(request, &subject_domain);
 
     let brief = StudioArtifactBrief {
@@ -773,7 +817,18 @@ pub fn derive_request_grounded_studio_artifact_brief(
         job_to_be_done: request_grounded_job_to_be_done(request, &subject_domain, intent),
         subject_domain: subject_domain.clone(),
         artifact_thesis: match request.renderer {
-            StudioRendererKind::HtmlIframe | StudioRendererKind::JsxSandbox => format!(
+            StudioRendererKind::HtmlIframe => {
+                if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
+                    format!(
+                        "Explain {subject_domain} through visible evidence, grounded comparisons, and request-faithful interaction."
+                    )
+                } else {
+                    format!(
+                        "Explain {subject_domain} through visible evidence and a clear authored HTML reading experience."
+                    )
+                }
+            }
+            StudioRendererKind::JsxSandbox => format!(
                 "Explain {subject_domain} through visible evidence, grounded comparisons, and request-faithful interaction."
             ),
             StudioRendererKind::Svg | StudioRendererKind::Mermaid => format!(
@@ -800,6 +855,56 @@ pub fn derive_request_grounded_studio_artifact_brief(
         "request-grounded artifact brief must satisfy Studio validation"
     );
     canonical
+}
+
+fn push_unique_brief_note(values: &mut Vec<String>, value: String) {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    if !values
+        .iter()
+        .any(|existing| existing.eq_ignore_ascii_case(trimmed))
+    {
+        values.push(trimmed.to_string());
+    }
+}
+
+pub fn apply_artifact_connector_grounding_to_brief(
+    brief: &mut StudioArtifactBrief,
+    connector_grounding: Option<&ArtifactConnectorGrounding>,
+) {
+    let Some(connector_grounding) = connector_grounding else {
+        return;
+    };
+
+    push_unique_brief_note(
+        &mut brief.factual_anchors,
+        "selected connector data is the grounding source".to_string(),
+    );
+    push_unique_brief_note(
+        &mut brief.reference_hints,
+        "ground the artifact in the selected connector content, not generic examples".to_string(),
+    );
+
+    if let Some(target_label) = connector_grounding.target_label.as_ref() {
+        push_unique_brief_note(
+            &mut brief.factual_anchors,
+            format!("selected connector target: {}", target_label.trim()),
+        );
+    }
+    if let Some(connector_id) = connector_grounding.connector_id.as_ref() {
+        push_unique_brief_note(
+            &mut brief.reference_hints,
+            format!("selected connector id: {}", connector_id.trim()),
+        );
+    }
+    if let Some(provider_family) = connector_grounding.provider_family.as_ref() {
+        push_unique_brief_note(
+            &mut brief.reference_hints,
+            format!("selected provider family: {}", provider_family.trim()),
+        );
+    }
 }
 
 pub async fn synthesize_studio_artifact_brief_for_execution_strategy_with_runtime(
@@ -1053,6 +1158,13 @@ fn normalize_studio_outcome_artifact_request_value(value: &mut serde_json::Value
             "mutationBoundary": []
         })
     });
+    if scope.is_null() {
+        *scope = json!({
+            "targetProject": null,
+            "createNewWorkspace": false,
+            "mutationBoundary": []
+        });
+    }
     if let Some(scope_object) = scope.as_object_mut() {
         if !scope_object.contains_key("targetProject") {
             scope_object.insert("targetProject".to_string(), serde_json::Value::Null);
@@ -1084,6 +1196,15 @@ fn normalize_studio_outcome_artifact_request_value(value: &mut serde_json::Value
             "requireDiffReview": false
         })
     });
+    if verification.is_null() {
+        *verification = json!({
+            "requireRender": false,
+            "requireBuild": false,
+            "requirePreview": false,
+            "requireExport": false,
+            "requireDiffReview": false
+        });
+    }
     if let Some(verification_object) = verification.as_object_mut() {
         for field in [
             "requireRender",
@@ -1637,7 +1758,13 @@ pub fn parse_studio_artifact_brief(raw: &str) -> Result<StudioArtifactBrief, Str
 
 fn studio_artifact_brief_planning_guidance(request: &StudioOutcomeArtifactRequest) -> String {
     match request.renderer {
-        StudioRendererKind::HtmlIframe => "- Name at least two concrete on-page interaction patterns in requiredInteractions.\n- Single-word labels like \"interactive\" or \"explains\" are not sufficient interaction plans.\n- Keep requiredConcepts tied to the visible evidence surfaces or sections.\n- Provide at least one concrete evidence anchor or reference hint.\n- Give visualTone or styleDirectives at least one multi-word design direction that a materializer can actually stage, not just generic words like clean, modern, or interactive.".to_string(),
+        StudioRendererKind::HtmlIframe => {
+            if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
+                "- Name at least two concrete on-page interaction patterns in requiredInteractions.\n- Single-word labels like \"interactive\" or \"explains\" are not sufficient interaction plans.\n- Keep requiredConcepts tied to the visible evidence surfaces or sections.\n- Provide at least one concrete evidence anchor or reference hint.\n- Give visualTone or styleDirectives at least one multi-word design direction that a materializer can actually stage, not just generic words like clean, modern, or interactive.".to_string()
+            } else {
+                "- Keep requiredConcepts tied to the visible evidence surfaces or sections.\n- Do not invent interaction requirements that the request did not ask for.\n- Provide at least one concrete evidence anchor or reference hint.\n- Give visualTone or styleDirectives at least one multi-word design direction that a materializer can actually stage, not just generic words like clean or modern.".to_string()
+            }
+        }
         StudioRendererKind::JsxSandbox => "- Name at least one concrete stateful interaction.\n- requiredInteractions should describe user action plus visible response.".to_string(),
         _ => "- Keep the brief concrete, request-specific, and directly usable by the materializer.".to_string(),
     }
@@ -1645,8 +1772,17 @@ fn studio_artifact_brief_planning_guidance(request: &StudioOutcomeArtifactReques
 
 fn studio_artifact_brief_validation_contract(request: &StudioOutcomeArtifactRequest) -> String {
     match request.renderer {
-        StudioRendererKind::HtmlIframe => "- requiredConcepts must include at least three concrete request-grounded concepts.\n- requiredInteractions must include at least two multi-word interaction descriptions.\n- At least one factualAnchors or referenceHints entry must be present.\n- visualTone or styleDirectives must contribute at least one concrete multi-word design direction instead of only generic style adjectives.".to_string(),
-        StudioRendererKind::JsxSandbox => "- requiredInteractions must include at least one multi-word interaction description.".to_string(),
+        StudioRendererKind::HtmlIframe => {
+            if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
+                "- requiredConcepts must include at least three concrete request-grounded concepts.\n- requiredInteractions must include at least two multi-word interaction descriptions.\n- At least one factualAnchors or referenceHints entry must be present.\n- visualTone or styleDirectives must contribute at least one concrete multi-word design direction instead of only generic style adjectives.".to_string()
+            } else {
+                "- requiredConcepts must include at least three concrete request-grounded concepts.\n- requiredInteractions may be empty for non-interactive HTML documents.\n- At least one factualAnchors or referenceHints entry must be present.\n- visualTone or styleDirectives must contribute at least one concrete multi-word design direction instead of only generic style adjectives.".to_string()
+            }
+        }
+        StudioRendererKind::JsxSandbox => {
+            "- requiredInteractions must include at least one multi-word interaction description."
+                .to_string()
+        }
         _ => "- Keep required fields non-empty and list fields schema-valid.".to_string(),
     }
 }
@@ -1942,49 +2078,50 @@ pub(crate) fn validate_studio_artifact_brief_against_request(
 
     match request.renderer {
         StudioRendererKind::HtmlIframe => {
-            let required_interactions = brief_required_interaction_summaries(brief);
             if brief.required_concepts.len() < 3 {
                 return Err(
-                    "Interactive HTML briefs must keep at least three concrete request concepts visible."
-                        .to_string(),
-                );
-            }
-            if required_interactions.len() < 2 {
-                return Err(
-                    "Interactive HTML briefs must name at least two concrete interaction patterns."
-                        .to_string(),
-                );
-            }
-            if required_interactions
-                .iter()
-                .any(|interaction| interaction_phrase_term_count(interaction) < 2)
-            {
-                return Err(
-                    "Interactive HTML brief interactions must describe concrete user actions and visible on-page responses, not single-word labels."
+                    "HTML briefs must keep at least three concrete request concepts visible."
                         .to_string(),
                 );
             }
             if brief.factual_anchors.is_empty() && brief.reference_hints.is_empty() {
                 return Err(
-                    "Interactive HTML briefs must identify at least one concrete evidence anchor or reference hint."
-                        .to_string(),
-                );
-            }
-            let grounding_terms = interaction_grounding_terms_for_validation(brief, refinement);
-            if required_interactions
-                .iter()
-                .any(|interaction| !interaction_has_grounded_terms(interaction, &grounding_terms))
-            {
-                return Err(
-                    "Interactive HTML briefs must keep requiredInteractions grounded in request concepts, evidence anchors, or concrete on-page behavior."
+                    "HTML briefs must identify at least one concrete evidence anchor or reference hint."
                         .to_string(),
                 );
             }
             if !brief_has_specific_html_visual_direction(brief) {
                 return Err(
-                    "Interactive HTML briefs must contribute at least one concrete multi-word visual direction, not only generic tone words."
+                    "HTML briefs must contribute at least one concrete multi-word visual direction, not only generic tone words."
                         .to_string(),
                 );
+            }
+            if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
+                let required_interactions = brief_required_interaction_summaries(brief);
+                if required_interactions.len() < 2 {
+                    return Err(
+                        "Interactive HTML briefs must name at least two concrete interaction patterns."
+                            .to_string(),
+                    );
+                }
+                if required_interactions
+                    .iter()
+                    .any(|interaction| interaction_phrase_term_count(interaction) < 2)
+                {
+                    return Err(
+                        "Interactive HTML brief interactions must describe concrete user actions and visible on-page responses, not single-word labels."
+                            .to_string(),
+                    );
+                }
+                let grounding_terms = interaction_grounding_terms_for_validation(brief, refinement);
+                if required_interactions.iter().any(|interaction| {
+                    !interaction_has_grounded_terms(interaction, &grounding_terms)
+                }) {
+                    return Err(
+                        "Interactive HTML briefs must keep requiredInteractions grounded in request concepts, evidence anchors, or concrete on-page behavior."
+                            .to_string(),
+                    );
+                }
             }
         }
         StudioRendererKind::JsxSandbox => {

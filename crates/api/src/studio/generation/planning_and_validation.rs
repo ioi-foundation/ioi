@@ -160,6 +160,7 @@ pub fn derive_studio_artifact_prepared_context(
     artifact_ir: Option<StudioArtifactIR>,
     selected_skills: Vec<StudioArtifactSelectedSkill>,
     retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    retrieved_sources: Vec<StudioArtifactSourceReference>,
 ) -> StudioArtifactPlanningContext {
     let derive_skill_discovery_resolution =
         |preparation_needs: &StudioArtifactPreparationNeeds,
@@ -241,6 +242,7 @@ pub fn derive_studio_artifact_prepared_context(
             skill_need_count: preparation_needs.skill_needs.len() as u32,
             selected_skill_count: selected_skills.len() as u32,
             exemplar_count: retrieved_exemplars.len() as u32,
+            source_count: retrieved_sources.len() as u32,
             selected_skill_names: selected_skills
                 .iter()
                 .map(|skill| skill.name.clone())
@@ -261,6 +263,7 @@ pub fn derive_studio_artifact_prepared_context(
             skill_discovery_resolution: Some(skill_discovery_resolution),
             selected_skills,
             retrieved_exemplars,
+            retrieved_sources,
         };
     }
 
@@ -282,6 +285,7 @@ pub fn derive_studio_artifact_prepared_context(
         skill_discovery_resolution: Some(skill_discovery_resolution),
         selected_skills,
         retrieved_exemplars,
+        retrieved_sources,
     }
 }
 

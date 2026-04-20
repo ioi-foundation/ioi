@@ -2,65 +2,144 @@ use super::*;
 
 const DIRECT_AUTHOR_FAST_RUNTIME_REPAIR_ATTEMPTS: usize = 2;
 
-fn author_artifact_active_event(
-    attempt_id: impl Into<String>,
-    detail: impl Into<String>,
-) -> StudioArtifactRuntimeNarrationEvent {
-    StudioArtifactRuntimeNarrationEvent::new(
-        StudioArtifactRuntimeEventType::AuthorArtifact,
-        StudioArtifactRuntimeStepId::AuthorArtifact,
-        "Write artifact",
-        detail.into(),
-        StudioArtifactRuntimeEventStatus::Active,
-    )
-    .with_attempt_id(attempt_id)
+fn operator_status_from_runtime_status(
+    status: StudioArtifactRuntimeEventStatus,
+) -> StudioArtifactOperatorRunStatus {
+    match status {
+        StudioArtifactRuntimeEventStatus::Pending => StudioArtifactOperatorRunStatus::Pending,
+        StudioArtifactRuntimeEventStatus::Active => StudioArtifactOperatorRunStatus::Active,
+        StudioArtifactRuntimeEventStatus::Complete => StudioArtifactOperatorRunStatus::Complete,
+        StudioArtifactRuntimeEventStatus::Blocked => StudioArtifactOperatorRunStatus::Blocked,
+        StudioArtifactRuntimeEventStatus::Failed => StudioArtifactOperatorRunStatus::Failed,
+        StudioArtifactRuntimeEventStatus::Interrupted => StudioArtifactOperatorRunStatus::Failed,
+        StudioArtifactRuntimeEventStatus::Other => StudioArtifactOperatorRunStatus::Other,
+    }
 }
 
-fn author_artifact_complete_event(
-    attempt_id: impl Into<String>,
-) -> StudioArtifactRuntimeNarrationEvent {
-    StudioArtifactRuntimeNarrationEvent::new(
-        StudioArtifactRuntimeEventType::AuthorArtifact,
-        StudioArtifactRuntimeStepId::AuthorArtifact,
-        "Write artifact",
-        "Studio finished authoring the current artifact draft and is handing it to verification.",
-        StudioArtifactRuntimeEventStatus::Complete,
-    )
-    .with_attempt_id(attempt_id)
+fn operator_attempt_id(attempt_id: &str) -> u32 {
+    attempt_id
+        .rsplit('-')
+        .next()
+        .and_then(|value| value.parse::<u32>().ok())
+        .unwrap_or(1)
 }
 
-fn author_artifact_blocked_event(
-    attempt_id: impl Into<String>,
-    detail: impl Into<String>,
-) -> StudioArtifactRuntimeNarrationEvent {
-    StudioArtifactRuntimeNarrationEvent::new(
-        StudioArtifactRuntimeEventType::AuthorArtifact,
-        StudioArtifactRuntimeStepId::AuthorArtifact,
-        "Write artifact",
-        detail.into(),
-        StudioArtifactRuntimeEventStatus::Blocked,
-    )
-    .with_attempt_id(attempt_id)
-}
-
-fn author_preview_event(
-    attempt_id: impl Into<String>,
+fn operator_preview_from_execution_preview(
     preview: &ExecutionLivePreview,
-) -> StudioArtifactRuntimeNarrationEvent {
-    let normalized_status = preview.status.trim().to_ascii_lowercase();
-    StudioArtifactRuntimeNarrationEvent::new(
-        StudioArtifactRuntimeEventType::AuthorPreview,
-        StudioArtifactRuntimeStepId::AuthorArtifact,
+) -> StudioArtifactOperatorPreview {
+    let snapshot = runtime_preview_snapshot_from_execution_preview(preview);
+    StudioArtifactOperatorPreview {
+        origin_prompt_event_id: String::new(),
+        label: snapshot.label,
+        content: snapshot.content,
+        status: snapshot.status,
+        kind: snapshot.kind,
+        language: snapshot.language,
+        is_final: snapshot.is_final,
+    }
+}
+
+fn artifact_operator_step(
+    phase: StudioArtifactOperatorPhase,
+    step_key: &str,
+    attempt_id: impl AsRef<str>,
+    label: impl Into<String>,
+    detail: impl Into<String>,
+    status: StudioArtifactRuntimeEventStatus,
+    preview: Option<StudioArtifactOperatorPreview>,
+) -> StudioArtifactOperatorStep {
+    let attempt_id = attempt_id.as_ref().to_string();
+    let status = operator_status_from_runtime_status(status);
+    StudioArtifactOperatorStep {
+        step_id: format!("{step_key}:{attempt_id}"),
+        origin_prompt_event_id: String::new(),
+        phase,
+        engine: "generation_runtime".to_string(),
+        status,
+        label: label.into(),
+        detail: detail.into(),
+        started_at_ms: 0,
+        finished_at_ms: matches!(
+            status,
+            StudioArtifactOperatorRunStatus::Complete
+                | StudioArtifactOperatorRunStatus::Blocked
+                | StudioArtifactOperatorRunStatus::Failed
+        )
+        .then_some(0),
+        preview,
+        file_refs: Vec::new(),
+        source_refs: Vec::new(),
+        verification_refs: Vec::new(),
+        attempt: operator_attempt_id(&attempt_id),
+    }
+}
+
+fn author_artifact_step(
+    attempt_id: impl AsRef<str>,
+    detail: impl Into<String>,
+    status: StudioArtifactRuntimeEventStatus,
+) -> StudioArtifactOperatorStep {
+    artifact_operator_step(
+        StudioArtifactOperatorPhase::AuthorArtifact,
+        "author_artifact",
+        attempt_id,
+        "Write artifact",
+        detail,
+        status,
+        None,
+    )
+}
+
+fn author_preview_step(
+    attempt_id: impl AsRef<str>,
+    preview: &ExecutionLivePreview,
+) -> StudioArtifactOperatorStep {
+    let status = match preview.status.trim().to_ascii_lowercase().as_str() {
+        "completed" | "recovered" => StudioArtifactRuntimeEventStatus::Complete,
+        "failed" => StudioArtifactRuntimeEventStatus::Blocked,
+        _ => StudioArtifactRuntimeEventStatus::Active,
+    };
+    artifact_operator_step(
+        StudioArtifactOperatorPhase::AuthorArtifact,
+        "author_artifact",
+        attempt_id,
         "Write artifact",
         author_preview_progress_detail(preview),
-        match normalized_status.as_str() {
-            "completed" | "recovered" => StudioArtifactRuntimeEventStatus::Complete,
-            "failed" => StudioArtifactRuntimeEventStatus::Blocked,
-            _ => StudioArtifactRuntimeEventStatus::Active,
-        },
+        status,
+        Some(operator_preview_from_execution_preview(preview)),
     )
-    .with_attempt_id(attempt_id)
-    .with_preview_snapshot(runtime_preview_snapshot_from_execution_preview(preview))
+}
+
+fn verify_artifact_step(
+    attempt_id: impl AsRef<str>,
+    detail: impl Into<String>,
+    status: StudioArtifactRuntimeEventStatus,
+) -> StudioArtifactOperatorStep {
+    artifact_operator_step(
+        StudioArtifactOperatorPhase::VerifyArtifact,
+        "verify_artifact",
+        attempt_id,
+        "Run browser verification",
+        detail,
+        status,
+        None,
+    )
+}
+
+fn repair_artifact_step(
+    attempt_id: impl AsRef<str>,
+    detail: impl Into<String>,
+    status: StudioArtifactRuntimeEventStatus,
+) -> StudioArtifactOperatorStep {
+    artifact_operator_step(
+        StudioArtifactOperatorPhase::RepairArtifact,
+        "repair_artifact",
+        attempt_id,
+        "Repair artifact",
+        detail,
+        status,
+        None,
+    )
 }
 
 fn author_preview_progress_detail(preview: &ExecutionLivePreview) -> String {
@@ -83,20 +162,6 @@ fn author_preview_progress_detail(preview: &ExecutionLivePreview) -> String {
         "failed" => format!("Studio could not recover {}.", preview.label),
         _ => format!("Updating {}.", preview.label),
     }
-}
-
-fn verify_artifact_active_event(
-    attempt_id: impl Into<String>,
-    detail: impl Into<String>,
-) -> StudioArtifactRuntimeNarrationEvent {
-    StudioArtifactRuntimeNarrationEvent::new(
-        StudioArtifactRuntimeEventType::VerifyArtifact,
-        StudioArtifactRuntimeStepId::VerifyArtifact,
-        "Verify artifact",
-        detail.into(),
-        StudioArtifactRuntimeEventStatus::Active,
-    )
-    .with_attempt_id(attempt_id)
 }
 
 fn direct_author_render_eval_step_detail(fallback: bool) -> &'static str {
@@ -195,12 +260,6 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
         repair_provenance.model,
         refinement.is_some()
     ));
-    let direct_author_mode = direct_authoring_enabled(
-        execution_strategy,
-        request,
-        refinement,
-        production_provenance.kind,
-    );
     let planning_context = planning_context.clone();
     let brief = planning_context.brief.clone();
     studio_generation_trace("artifact_generation:brief_ready");
@@ -235,11 +294,18 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
         "artifact_generation:edit_intent_ready present={}",
         edit_intent.is_some()
     ));
+    let effective_execution_strategy = execution_strategy;
+    let direct_author_mode = direct_authoring_enabled(
+        effective_execution_strategy,
+        request,
+        refinement,
+        production_provenance.kind,
+    );
     studio_generation_trace(format!(
         "artifact_generation:execution_strategy {:?}",
-        execution_strategy
+        effective_execution_strategy
     ));
-    if studio_artifact_uses_swarm_execution(execution_strategy) {
+    if studio_artifact_uses_swarm_execution(effective_execution_strategy) {
         warm_local_html_generation_runtime_if_needed(
             request,
             &planning_runtime,
@@ -258,7 +324,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
             &selected_skills,
             &retrieved_exemplars,
             edit_intent.as_ref(),
-            execution_strategy,
+            effective_execution_strategy,
             render_evaluator,
             progress_observer,
             activity_observer,
@@ -342,7 +408,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
             emit_non_swarm_generation_progress(
                 progress_observer.as_ref(),
                 request,
-                execution_strategy,
+                effective_execution_strategy,
                 &snapshot_execution_live_previews(&live_preview_state),
                 if direct_author_mode {
                     "Writing the current artifact attempt..."
@@ -353,9 +419,10 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                 None,
                 ExecutionCompletionInvariantStatus::Pending,
                 Vec::new(),
-                vec![author_artifact_active_event(
-                    candidate_id.clone(),
-                    author_detail,
+                vec![author_artifact_step(
+                    &candidate_id,
+                    author_detail.clone(),
+                    StudioArtifactRuntimeEventStatus::Active,
                 )],
             );
             let candidate_result = if direct_author_mode {
@@ -374,14 +441,14 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                             emit_non_swarm_generation_progress(
                                 progress_observer.as_ref(),
                                 &direct_request,
-                                StudioExecutionStrategy::DirectAuthor,
+                                effective_execution_strategy,
                                 &live_previews,
                                 author_preview_progress_detail(&preview),
                                 None,
                                 None,
                                 ExecutionCompletionInvariantStatus::Pending,
                                 Vec::new(),
-                                vec![author_preview_event(preview_attempt_id.clone(), &preview)],
+                                vec![author_preview_step(&preview_attempt_id, &preview)],
                             );
                         }) as StudioArtifactLivePreviewObserver
                     });
@@ -415,7 +482,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                         emit_non_swarm_generation_progress(
                             progress_observer.as_ref(),
                             request,
-                            execution_strategy,
+                            effective_execution_strategy,
                             &snapshot_execution_live_previews(&live_preview_state),
                             if direct_author_fast_runtime_sanity_enabled(
                                 request,
@@ -430,9 +497,13 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                             ExecutionCompletionInvariantStatus::Pending,
                             non_swarm_required_artifact_paths(&payload),
                             vec![
-                                author_artifact_complete_event(candidate_id.clone()),
-                                verify_artifact_active_event(
-                                    candidate_id.clone(),
+                                author_artifact_step(
+                                    &candidate_id,
+                                    "Studio finished authoring the current artifact draft and is handing it to verification.",
+                                    StudioArtifactRuntimeEventStatus::Complete,
+                                ),
+                                verify_artifact_step(
+                                    &candidate_id,
                                     if direct_author_fast_runtime_sanity_enabled(
                                         request,
                                         production_provenance.kind,
@@ -441,6 +512,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                     } else {
                                         direct_author_render_eval_step_detail(false)
                                     },
+                                    StudioArtifactRuntimeEventStatus::Active,
                                 ),
                             ],
                         );
@@ -500,16 +572,17 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                 emit_non_swarm_generation_progress(
                                     progress_observer.as_ref(),
                                     request,
-                                    execution_strategy,
+                                    effective_execution_strategy,
                                     &snapshot_execution_live_previews(&live_preview_state),
                                     direct_author_runtime_repair_progress_message(),
                                     render_evaluation.as_ref(),
                                     None,
                                     ExecutionCompletionInvariantStatus::Pending,
                                     non_swarm_required_artifact_paths(&payload),
-                                    vec![verify_artifact_active_event(
-                                        candidate_id.clone(),
+                                    vec![repair_artifact_step(
+                                        &candidate_id,
                                         direct_author_runtime_repair_step_detail(),
+                                        StudioArtifactRuntimeEventStatus::Active,
                                     )],
                                 );
                                 let repaired_payload =
@@ -520,6 +593,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                         request,
                                         &brief,
                                         &selected_skills,
+                                        edit_intent.as_ref(),
                                         refinement,
                                         &candidate_id,
                                         seed,
@@ -565,7 +639,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                         emit_non_swarm_generation_progress(
                             progress_observer.as_ref(),
                             request,
-                            execution_strategy,
+                            effective_execution_strategy,
                             &snapshot_execution_live_previews(&live_preview_state),
                             if direct_author_fast_runtime_sanity_enabled(
                                 request,
@@ -581,8 +655,8 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                             None,
                             ExecutionCompletionInvariantStatus::Pending,
                             non_swarm_required_artifact_paths(&payload),
-                            vec![verify_artifact_active_event(
-                                candidate_id.clone(),
+                            vec![verify_artifact_step(
+                                &candidate_id,
                                 if direct_author_fast_runtime_sanity_enabled(
                                     request,
                                     production_provenance.kind,
@@ -593,6 +667,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                                 } else {
                                     "Studio is surfacing the rendered artifact without waiting on the old acceptance gate."
                                 },
+                                StudioArtifactRuntimeEventStatus::Active,
                             )],
                         );
                         let validation = if direct_author_fast_runtime_sanity_enabled(
@@ -698,16 +773,17 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
                         emit_non_swarm_generation_progress(
                             progress_observer.as_ref(),
                             request,
-                            execution_strategy,
+                            effective_execution_strategy,
                             &snapshot_execution_live_previews(&live_preview_state),
                             "The current artifact attempt hit a blocker.",
                             None,
                             None,
                             ExecutionCompletionInvariantStatus::Pending,
                             Vec::new(),
-                            vec![author_artifact_blocked_event(
-                                summary.candidate_id.clone(),
+                            vec![author_artifact_step(
+                                &summary.candidate_id,
                                 failure.clone(),
+                                StudioArtifactRuntimeEventStatus::Blocked,
                             )],
                         );
                     }
@@ -808,7 +884,7 @@ pub async fn generate_studio_artifact_bundle_with_runtime_plan_and_planning_cont
     return build_non_swarm_winner_bundle(
         request,
         refinement,
-        execution_strategy,
+        effective_execution_strategy,
         origin,
         production_provenance,
         acceptance_provenance,

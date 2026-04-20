@@ -53,7 +53,11 @@ pub(crate) use adaptive_search::{
     shortlisted_candidate_indices_for_budget, target_candidate_count_after_initial_search,
 };
 #[cfg(test)]
+pub(crate) use candidate_materialization::direct_author_runtime_failure_reason;
+#[cfg(test)]
 pub(crate) use candidate_materialization::local_download_bundle_candidate_prevalidation;
+#[cfg(test)]
+pub(crate) use candidate_materialization::materialize_and_locally_validation_candidate;
 use candidate_materialization::*;
 use common::*;
 use compact_html_materialization::*;
@@ -86,7 +90,6 @@ pub use refinement_prompt::{
     build_studio_artifact_candidate_refinement_prompt,
     build_studio_artifact_candidate_refinement_repair_prompt,
 };
-use runtime_materialization::*;
 pub use runtime_materialization::{
     materialize_studio_artifact_candidate_with_runtime, materialize_studio_artifact_with_runtime,
 };
@@ -95,6 +98,8 @@ pub(crate) use runtime_materialization::{
     materialize_studio_artifact_candidate_with_runtime_direct_author_detailed,
     refine_studio_artifact_candidate_with_runtime,
     repair_direct_author_generated_candidate_with_runtime_error,
+    repair_materialized_candidate_with_runtime_error,
+    try_local_html_interaction_truth_rescue_document,
 };
 use runtime_plan::{
     compact_local_html_materialization_prompt, effective_direct_author_temperature,

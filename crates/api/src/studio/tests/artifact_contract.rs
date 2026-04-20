@@ -597,6 +597,46 @@ fn render_eval_merge_overrides_accept_to_polish_for_warning_only_regressions() {
         merged.classification,
         StudioArtifactValidationStatus::Repairable
     );
+    assert!(!merged.deserves_primary_artifact_view);
+    assert_eq!(merged.recommended_next_pass.as_deref(), Some("polish_pass"));
+    assert_eq!(
+        merged.strongest_contradiction.as_deref(),
+        Some("Captured viewports show weak alignment or inconsistent spacing cadence.")
+    );
+}
+
+#[test]
+fn render_eval_merge_keeps_primary_view_for_warning_only_regressions_above_threshold() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let mut validation =
+        studio_test_validation(StudioArtifactValidationStatus::Pass, true, 5, 5, 5, 4, 5, 4);
+    validation.recommended_next_pass = Some("accept".to_string());
+    let render_evaluation = studio_test_render_evaluation(
+        19,
+        true,
+        vec![StudioArtifactRenderFinding {
+            code: "alignment_unstable".to_string(),
+            severity: StudioArtifactRenderFindingSeverity::Warning,
+            summary: "Captured viewports show weak alignment or inconsistent spacing cadence."
+                .to_string(),
+        }],
+        vec![
+            studio_test_render_capture(StudioArtifactRenderCaptureViewport::Desktop, 12, 1629, 5),
+            studio_test_render_capture(StudioArtifactRenderCaptureViewport::Mobile, 7, 1076, 3),
+        ],
+    );
+
+    let merged = merge_studio_artifact_render_evaluation_into_validation(
+        &request,
+        validation,
+        Some(&render_evaluation),
+    );
+
+    assert_eq!(merged.classification, StudioArtifactValidationStatus::Pass);
+    assert!(merged.deserves_primary_artifact_view);
     assert_eq!(merged.recommended_next_pass.as_deref(), Some("polish_pass"));
     assert_eq!(
         merged.strongest_contradiction.as_deref(),
@@ -1153,6 +1193,54 @@ fn request_grounded_html_brief_prefers_subject_from_full_prompt_over_imperative_
 }
 
 #[test]
+fn artifact_connector_grounding_enriches_brief_without_duplicate_noise() {
+    let request = request_for(
+        StudioArtifactClass::Document,
+        StudioRendererKind::HtmlIframe,
+    );
+    let mut brief = derive_request_grounded_studio_artifact_brief(
+        "Summarize unread emails into an HTML report",
+        "Summarize unread emails into an HTML report",
+        &request,
+        None,
+    );
+
+    apply_artifact_connector_grounding_to_brief(
+        &mut brief,
+        Some(&ArtifactConnectorGrounding {
+            connector_id: Some("mail.primary".to_string()),
+            provider_family: Some("mail.wallet_network".to_string()),
+            target_label: Some("email".to_string()),
+        }),
+    );
+    apply_artifact_connector_grounding_to_brief(
+        &mut brief,
+        Some(&ArtifactConnectorGrounding {
+            connector_id: Some("mail.primary".to_string()),
+            provider_family: Some("mail.wallet_network".to_string()),
+            target_label: Some("email".to_string()),
+        }),
+    );
+
+    assert!(brief
+        .factual_anchors
+        .iter()
+        .any(|value| value == "selected connector data is the grounding source"));
+    assert_eq!(
+        brief
+            .reference_hints
+            .iter()
+            .filter(|value| value.as_str() == "selected connector id: mail.primary")
+            .count(),
+        1
+    );
+    assert!(brief
+        .reference_hints
+        .iter()
+        .any(|value| value == "selected provider family: mail.wallet_network"));
+}
+
+#[test]
 fn markdown_blueprint_uses_document_native_contracts() {
     let request = request_for(StudioArtifactClass::Document, StudioRendererKind::Markdown);
     let brief = derive_request_grounded_studio_artifact_brief(
@@ -1201,6 +1289,67 @@ fn markdown_render_acceptance_policy_uses_document_thresholds() {
 
     assert_eq!(policy.minimum_semantic_regions, 1);
     assert_eq!(policy.primary_view_score_threshold, 15);
+}
+
+#[test]
+fn interactive_html_render_acceptance_policy_scales_actionable_threshold_with_goal_count() {
+    let request = request_for(
+        StudioArtifactClass::InteractiveSingleFile,
+        StudioRendererKind::HtmlIframe,
+    );
+    let single_goal_brief = StudioArtifactBrief {
+        audience: "curious learners".to_string(),
+        job_to_be_done: "adjust one state".to_string(),
+        subject_domain: "quantum basics".to_string(),
+        artifact_thesis: "Show one adjustable qubit state.".to_string(),
+        required_concepts: vec!["superposition".to_string()],
+        required_interactions: vec!["state manipulation".to_string()],
+        visual_tone: Vec::new(),
+        factual_anchors: Vec::new(),
+        style_directives: Vec::new(),
+        reference_hints: Vec::new(),
+        query_profile: Some(StudioArtifactQueryProfile {
+            content_goals: vec![required_content_goal(
+                StudioArtifactContentGoalKind::Explain,
+                "Explain the selected state.",
+            )],
+            interaction_goals: vec![required_interaction_goal(
+                StudioArtifactInteractionGoalKind::StateAdjust,
+                "Adjust one visible state control.",
+            )],
+            evidence_goals: vec![required_evidence_goal(
+                StudioArtifactEvidenceGoalKind::PrimarySurface,
+                "Keep the adjusted state visible.",
+            )],
+            presentation_constraints: vec![required_presentation_constraint(
+                StudioArtifactPresentationConstraintKind::ResponseRegion,
+                "Keep a response region visible.",
+            )],
+        }),
+    };
+    let single_goal_blueprint = derive_studio_artifact_blueprint(&request, &single_goal_brief);
+    let single_goal_ir =
+        compile_studio_artifact_ir(&request, &single_goal_brief, &single_goal_blueprint);
+    let single_goal_policy = build_studio_artifact_render_acceptance_policy(
+        &request,
+        &single_goal_brief,
+        Some(&single_goal_blueprint),
+        Some(&single_goal_ir),
+    );
+
+    let multi_goal_brief = sample_quantum_explainer_brief();
+    let multi_goal_blueprint = derive_studio_artifact_blueprint(&request, &multi_goal_brief);
+    let multi_goal_ir =
+        compile_studio_artifact_ir(&request, &multi_goal_brief, &multi_goal_blueprint);
+    let multi_goal_policy = build_studio_artifact_render_acceptance_policy(
+        &request,
+        &multi_goal_brief,
+        Some(&multi_goal_blueprint),
+        Some(&multi_goal_ir),
+    );
+
+    assert_eq!(single_goal_policy.minimum_actionable_affordances, 1);
+    assert_eq!(multi_goal_policy.minimum_actionable_affordances, 2);
 }
 
 #[test]

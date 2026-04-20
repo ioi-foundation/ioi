@@ -27,8 +27,7 @@ import type {
   ChatMessage,
   RunPresentation,
   SessionSummary,
-  StudioArtifactRuntimeNarrationEvent,
-  StudioArtifactRuntimePreviewSnapshot,
+  StudioArtifactOperatorStep,
   StudioArtifactSelectedSkill,
   StudioArtifactSkillDiscoveryResolution,
 } from "../../../types";
@@ -172,178 +171,26 @@ function resolveArtifactThinkingSubject(task: any): string {
   return "the artifact request";
 }
 
-function sortArtifactRuntimeNarrationEvents(
-  events: StudioArtifactRuntimeNarrationEvent[],
-): StudioArtifactRuntimeNarrationEvent[] {
-  return [...events].sort((left, right) => {
-    const timeDelta = (left.occurredAtMs || 0) - (right.occurredAtMs || 0);
-    if (timeDelta !== 0) {
-      return timeDelta;
-    }
-    return String(left.eventId || "").localeCompare(String(right.eventId || ""));
-  });
-}
-
-function artifactRuntimeStepId(
-  event: StudioArtifactRuntimeNarrationEvent,
-): string {
-  return String(event.stepKey || event.stepId || "").trim();
-}
-
-function artifactRuntimeStepKind(
-  event: StudioArtifactRuntimeNarrationEvent,
-): string {
-  return String(event.stepKind || "").trim();
-}
-
-function artifactRuntimeEventKind(
-  event: StudioArtifactRuntimeNarrationEvent,
-): string {
-  return String(event.eventKindKey || event.eventKind || "").trim().toLowerCase();
-}
-
-function artifactRuntimeStatus(
-  event: StudioArtifactRuntimeNarrationEvent,
-): string {
-  return String(event.statusKind || event.status || "").trim().toLowerCase();
-}
-
-function artifactThinkingLabelForEvent(
-  event: StudioArtifactRuntimeNarrationEvent,
-): string {
-  switch (artifactRuntimeStepId(event)) {
-    case "understand_request":
-      return "Understand request";
-    case "artifact_route_committed":
-      return "Route to artifact";
-    case "skill_discovery":
-      return event.title || "Check for guidance";
-    case "skill_read":
-      return event.title || "Read guidance";
-    case "artifact_brief":
-      return "Shape artifact brief";
-    case "author_artifact":
-      return "Write artifact";
-    case "replan_execution":
-      return "Switch execution strategy";
-    case "verify_artifact":
-      return "Verify artifact";
-    case "present_artifact":
-      return "Open artifact";
-    default:
-      switch (artifactRuntimeStepKind(event)) {
-        case "intake":
-          return "Understand request";
-        case "routing":
-          return "Route to artifact";
-        case "guidance":
-          return event.title || "Check for guidance";
-        case "planning":
-          return event.title || "Shape artifact brief";
-        case "authoring":
-          return event.title || "Write artifact";
-        case "strategy":
-          return event.title || "Switch execution strategy";
-        case "verification":
-          return event.title || "Verify artifact";
-        case "presentation":
-          return event.title || "Open artifact";
-        default:
-          return event.title || "Artifact step";
-      }
-  }
-}
-
-function artifactThinkingIconKeyForEvent(
-  event: StudioArtifactRuntimeNarrationEvent,
-): string {
-  switch (artifactRuntimeStepId(event)) {
-    case "understand_request":
-      return "search";
-    case "artifact_route_committed":
-      return "cube";
-    case "skill_discovery":
-    case "skill_read":
-      return "sparkles";
-    case "artifact_brief":
-      return "copy";
-    case "author_artifact":
-      return "code";
-    case "replan_execution":
-      return "retry";
-    case "verify_artifact":
-      return "check";
-    case "present_artifact":
-      return "artifacts";
-    default:
-      switch (artifactRuntimeStepKind(event)) {
-        case "intake":
-          return "search";
-        case "routing":
-          return "cube";
-        case "planning":
-          return "copy";
-        case "authoring":
-          return "code";
-        case "strategy":
-          return "retry";
-        case "verification":
-          return "check";
-        case "presentation":
-          return "artifacts";
-        default:
-          return "sparkles";
-      }
-  }
-}
-
 function buildArtifactThinkingPreview(
   task: any,
 ): StudioStatusPreview {
-  const runtimeNarrationEvents = sortArtifactRuntimeNarrationEvents(
-    ((task?.studio_session?.materialization?.runtimeNarrationEvents ??
-      []) as StudioArtifactRuntimeNarrationEvent[]).filter(
-      (event) => artifactRuntimeEventKind(event) === "preview",
-    ),
-  );
-  if (runtimeNarrationEvents.length === 0) {
+  const operatorSteps = (
+    (task?.studio_session?.materialization?.operatorSteps ?? []) as StudioArtifactOperatorStep[]
+  )
+    .filter((step) => step.preview?.content?.trim());
+  if (operatorSteps.length === 0) {
     return null;
   }
 
-  const stepEvents = sortArtifactRuntimeNarrationEvents(
-    ((task?.studio_session?.materialization?.runtimeNarrationEvents ??
-      []) as StudioArtifactRuntimeNarrationEvent[]).filter(
-      (event) => artifactRuntimeEventKind(event) !== "preview",
-    ),
-  );
-  const activeAttemptId =
-    [...stepEvents]
-      .reverse()
-        .find(
-        (event) =>
-          artifactRuntimeStatus(event) === "active" &&
-          typeof event.attemptId === "string" &&
-          event.attemptId.trim().length > 0,
-      )
-      ?.attemptId ?? null;
-  const matchingPreview = activeAttemptId
-    ? [...runtimeNarrationEvents]
-        .reverse()
-        .find((event) => event.attemptId === activeAttemptId && event.preview)
-    : [...runtimeNarrationEvents]
-        .reverse()
-        .find(
-          (event) =>
-            event.preview &&
-            (Boolean(event.preview.isFinal) ||
-              ["complete", "completed", "blocked", "failed", "interrupted"].includes(
-                String(event.preview.status || "").trim().toLowerCase(),
-              )),
-        ) ?? null;
-  if (activeAttemptId && !matchingPreview) {
-    return null;
-  }
-  const preview = matchingPreview?.preview as StudioArtifactRuntimePreviewSnapshot | null;
+  const matchingStep =
+    [...operatorSteps].reverse().find((step) => {
+      const status = String(step.status || "").trim().toLowerCase();
+      return status === "active" || status === "pending";
+    }) ??
+    [...operatorSteps].reverse().find((step) => Boolean(step.preview?.isFinal)) ??
+    [...operatorSteps].reverse()[0] ??
+    null;
+  const preview = matchingStep?.preview ?? null;
   if (!preview?.content?.trim()) {
     return null;
   }
@@ -359,31 +206,52 @@ function buildArtifactThinkingPreview(
 
 function buildArtifactThinkingProcesses(task: any): StudioExecutionProcess[] {
   const materialization = task?.studio_session?.materialization;
-  const runtimeNarrationEvents = sortArtifactRuntimeNarrationEvents(
-    ((materialization?.runtimeNarrationEvents ?? []) as StudioArtifactRuntimeNarrationEvent[])
-      .filter((event) => artifactRuntimeEventKind(event) !== "preview"),
-  );
+  const operatorSteps = ((materialization?.operatorSteps ?? []) as StudioArtifactOperatorStep[])
+    .filter((step) => step.label.trim().length > 0);
   const skillDiscoveryResolution = (materialization?.skillDiscoveryResolution ??
     null) as StudioArtifactSkillDiscoveryResolution | null;
-  if (runtimeNarrationEvents.length === 0) {
+  if (operatorSteps.length === 0) {
     return [];
   }
 
-  const processes = runtimeNarrationEvents
-    .filter((event) => artifactRuntimeStepId(event).length > 0)
-    .map((event) => ({
-      id: event.eventId || `${artifactRuntimeStepId(event)}:${event.occurredAtMs}`,
-      label: artifactThinkingLabelForEvent(event),
-      status: formatArtifactThinkingStatus(event.status),
-      summary:
-        event.detail ||
-        skillDiscoveryResolution?.rationale ||
-        "Studio is working through the active artifact step.",
-      isActive: artifactRuntimeStatus(event) === "active",
-      iconKey: artifactThinkingIconKeyForEvent(event),
-    }));
+  const processes = operatorSteps.map((step) => ({
+    id: step.stepId || `${String(step.phase || "other")}:${step.startedAtMs}`,
+    label: step.label || "Studio artifact step",
+    status: formatArtifactThinkingStatus(step.status || "pending"),
+    summary:
+      step.detail ||
+      skillDiscoveryResolution?.rationale ||
+      "Studio is working through the active artifact step.",
+    isActive: String(step.status || "").trim().toLowerCase() === "active",
+    iconKey: artifactThinkingIconKeyForStep(step),
+  }));
 
   return processes;
+}
+
+function artifactThinkingIconKeyForStep(
+  step: StudioArtifactOperatorStep,
+): "search" | "cube" | "copy" | "code" | "retry" | "check" | "artifacts" | "sparkles" {
+  switch (String(step.phase || "").trim().toLowerCase()) {
+    case "understand_request":
+      return "search";
+    case "route_artifact":
+      return "cube";
+    case "search_sources":
+    case "read_sources":
+      return "search";
+    case "author_artifact":
+      return "code";
+    case "repair_artifact":
+      return "retry";
+    case "verify_artifact":
+    case "inspect_artifact":
+      return "check";
+    case "present_artifact":
+      return "artifacts";
+    default:
+      return "sparkles";
+  }
 }
 
 function summarizeStudioFailure(
@@ -585,6 +453,9 @@ export function useSpotlightSurfaceState({
 
   const studioStatusCard: StudioStatusCardState = useMemo(() => {
     if (!isStudioVariant) {
+      return null;
+    }
+    if (task?.studio_session?.activeOperatorRun) {
       return null;
     }
 

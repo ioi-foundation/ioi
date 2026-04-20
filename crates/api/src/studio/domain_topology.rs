@@ -1,23 +1,48 @@
+//! Shared route/topology/policy semantics for the Studio harness.
+//!
+//! The functions in this module should stay provenance-free and product-shell
+//! agnostic. They compute reusable runtime semantics such as lane/topology
+//! projections, route decisions, source selection, verification state, and
+//! non-artifact execution policy.
+//!
+//! UI-specific presentation, session lifecycle mutation, and shell-only render
+//! surfaces should remain in the Autopilot Studio kernel.
+
 use super::intent_signals::StudioIntentContext;
-use super::runtime_locality::studio_runtime_locality_scope_hint;
+use super::runtime_locality::runtime_locality_scope_hint;
 use super::specialized_policy::{
     studio_request_frame_clarification_slots, studio_request_frame_missing_slots,
     studio_specialized_domain_kind, studio_specialized_domain_policy,
 };
+use super::types::{
+    ArtifactConnectorGrounding, StudioArtifactOperatorPhase, StudioArtifactOperatorRunStatus,
+    StudioArtifactOperatorStep,
+};
+use crate::execution::{
+    block_swarm_work_item_on, spawn_follow_up_swarm_work_item, ExecutionCompletionInvariant,
+    ExecutionCompletionInvariantStatus, ExecutionGraphMutationReceipt, ExecutionReplanReceipt,
+    SwarmPlan, SwarmVerificationPolicy, SwarmVerificationReceipt, SwarmWorkItem,
+    SwarmWorkItemStatus, SwarmWorkerReceipt, SwarmWorkerResultKind, SwarmWorkerRole,
+};
 use ioi_types::app::{
-    StudioArtifactClass, StudioCheckpointState, StudioClarificationMode, StudioClarificationPolicy,
-    StudioCompletionInvariant, StudioDomainLaneFrame, StudioDomainPolicyBundle,
-    StudioExecutionModeDecision, StudioExecutionStrategy, StudioFallbackMode, StudioFallbackPolicy,
-    StudioLaneFamily, StudioLaneTransition, StudioLaneTransitionKind,
-    StudioMessageComposeRequestFrame, StudioNormalizedRequestFrame, StudioObjectiveState,
-    StudioOrchestrationState, StudioOutcomeArtifactRequest, StudioOutcomeKind,
+    RoutingEffectiveToolSurface, RoutingRouteDecision, StudioArtifactClass,
+    StudioArtifactLifecycleState, StudioArtifactManifest, StudioArtifactManifestVerification,
+    StudioArtifactVerificationStatus, StudioCheckpointState, StudioClarificationMode,
+    StudioClarificationPolicy, StudioCompletionInvariant, StudioDomainLaneFrame,
+    StudioDomainPolicyBundle, StudioExecutionModeDecision, StudioExecutionStrategy,
+    StudioExecutionSubstrate, StudioFallbackMode, StudioFallbackPolicy, StudioLaneFamily,
+    StudioLaneTransition, StudioLaneTransitionKind, StudioMessageComposeRequestFrame,
+    StudioNormalizedRequestFrame, StudioObjectiveState, StudioOrchestrationState,
+    StudioOutcomeArtifactRequest, StudioOutcomeKind, StudioOutcomeRequest,
     StudioPlacesRequestFrame, StudioPolicyContractSummary, StudioPresentationPolicy,
     StudioRecipeRequestFrame, StudioRendererKind, StudioRetainedLaneState,
-    StudioRetainedWidgetState, StudioRiskProfile, StudioRiskSensitivity, StudioSourceFamily,
-    StudioSourceRankingEntry, StudioSourceSelection, StudioSportsRequestFrame, StudioTaskUnitState,
-    StudioTransformationPolicy, StudioUserInputRequestFrame, StudioVerificationContract,
-    StudioWeatherRequestFrame, StudioWidgetStateBinding, StudioWorkStatus,
+    StudioRetainedWidgetState, StudioRiskProfile, StudioRiskSensitivity, StudioRuntimeProvenance,
+    StudioSourceFamily, StudioSourceRankingEntry, StudioSourceSelection, StudioSportsRequestFrame,
+    StudioTaskUnitState, StudioTransformationPolicy, StudioUserInputRequestFrame,
+    StudioVerificationContract, StudioWeatherRequestFrame, StudioWidgetStateBinding,
+    StudioWorkStatus,
 };
+use serde_json::json;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StudioTopologyProjection {
@@ -217,6 +242,1316 @@ fn routing_hint_value(routing_hints: &[String], prefix: &str) -> Option<String> 
         .map(str::to_string)
 }
 
+pub fn artifact_connector_grounding_for_outcome_request(
+    outcome_request: &StudioOutcomeRequest,
+) -> Option<ArtifactConnectorGrounding> {
+    if outcome_request.outcome_kind != StudioOutcomeKind::Artifact
+        || !routing_hint_flag(&outcome_request.routing_hints, "connector_intent_detected")
+    {
+        return None;
+    }
+
+    Some(ArtifactConnectorGrounding {
+        connector_id: routing_hint_value(&outcome_request.routing_hints, "selected_connector_id:"),
+        provider_family: routing_hint_value(
+            &outcome_request.routing_hints,
+            "selected_provider_family:",
+        ),
+        target_label: routing_hint_value(&outcome_request.routing_hints, "connector_target_label:"),
+    })
+}
+
+pub fn route_family_for_outcome_request(outcome_request: &StudioOutcomeRequest) -> &'static str {
+    if let Some(lane_frame) = outcome_request.lane_frame.as_ref() {
+        return match lane_frame.primary_lane {
+            StudioLaneFamily::Research => "research",
+            StudioLaneFamily::Coding => "coding",
+            StudioLaneFamily::Integrations => "integrations",
+            StudioLaneFamily::Communication => "communication",
+            StudioLaneFamily::UserInput => "user_input",
+            StudioLaneFamily::Visualizer => "artifacts",
+            StudioLaneFamily::Artifact => "artifacts",
+            StudioLaneFamily::ToolWidget => "tool_widget",
+            StudioLaneFamily::Conversation | StudioLaneFamily::General => "general",
+        };
+    }
+
+    let widget_family = tool_widget_family_hint(&outcome_request.routing_hints);
+    if routing_hint_flag(&outcome_request.routing_hints, "connector_intent_detected") {
+        return "integrations";
+    }
+    if routing_hint_flag(
+        &outcome_request.routing_hints,
+        "workspace_grounding_required",
+    ) {
+        return "coding";
+    }
+    if let Some(artifact) = outcome_request.artifact.as_ref() {
+        if matches!(
+            artifact.artifact_class,
+            StudioArtifactClass::WorkspaceProject | StudioArtifactClass::CodePatch
+        ) || artifact.renderer == StudioRendererKind::WorkspaceSurface
+            || artifact.execution_substrate == StudioExecutionSubstrate::WorkspaceRuntime
+        {
+            return "coding";
+        }
+    }
+    if outcome_request.outcome_kind == StudioOutcomeKind::Artifact
+        || outcome_request.outcome_kind == StudioOutcomeKind::Visualizer
+    {
+        return "artifacts";
+    }
+    if outcome_request
+        .routing_hints
+        .iter()
+        .any(|hint| hint == "currentness_override")
+        || matches!(
+            widget_family,
+            Some("weather" | "sports" | "places" | "recipe")
+        )
+    {
+        return "research";
+    }
+    "general"
+}
+
+pub fn selected_route_label_for_outcome_request(outcome_request: &StudioOutcomeRequest) -> String {
+    match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation => {
+            if matches!(
+                outcome_request.request_frame.as_ref(),
+                Some(StudioNormalizedRequestFrame::MessageCompose(_))
+            ) {
+                format!(
+                    "communication_{}",
+                    execution_strategy_id(outcome_request.execution_strategy)
+                )
+            } else if let Some(route_label) = routing_hint_value(
+                &outcome_request.routing_hints,
+                "selected_provider_route_label:",
+            ) {
+                format!(
+                    "conversation_{}_{}",
+                    route_label,
+                    execution_strategy_id(outcome_request.execution_strategy)
+                )
+            } else if routing_hint_flag(
+                &outcome_request.routing_hints,
+                "workspace_grounding_required",
+            ) {
+                format!(
+                    "conversation_workspace_grounded_{}",
+                    execution_strategy_id(outcome_request.execution_strategy)
+                )
+            } else if routing_hint_flag(&outcome_request.routing_hints, "currentness_override") {
+                format!(
+                    "conversation_currentness_{}",
+                    execution_strategy_id(outcome_request.execution_strategy)
+                )
+            } else if routing_hint_flag(&outcome_request.routing_hints, "connector_intent_detected")
+            {
+                format!(
+                    "conversation_connector_{}",
+                    execution_strategy_id(outcome_request.execution_strategy)
+                )
+            } else {
+                format!(
+                    "conversation_{}",
+                    execution_strategy_id(outcome_request.execution_strategy)
+                )
+            }
+        }
+        StudioOutcomeKind::ToolWidget => {
+            match tool_widget_family_hint(&outcome_request.routing_hints) {
+                Some(widget_family) => format!("tool_widget_{widget_family}"),
+                None => "tool_widget".to_string(),
+            }
+        }
+        StudioOutcomeKind::Visualizer => "inline_visualizer".to_string(),
+        StudioOutcomeKind::Artifact => {
+            let renderer = outcome_request
+                .artifact
+                .as_ref()
+                .map(|artifact| renderer_kind_id(artifact.renderer))
+                .unwrap_or("bundle_manifest");
+            format!("artifact_{renderer}")
+        }
+    }
+}
+
+pub fn route_decision_for_outcome_request(
+    outcome_request: &StudioOutcomeRequest,
+) -> RoutingRouteDecision {
+    let currentness_override = outcome_request
+        .routing_hints
+        .iter()
+        .any(|hint| hint == "currentness_override");
+    let tool_widget_family = tool_widget_family_hint(&outcome_request.routing_hints);
+    let file_output_intent = file_output_intent_for_outcome_request(outcome_request);
+    let skill_prep_required = skill_prep_required_for_outcome_request(outcome_request);
+    let mut direct_answer_blockers = Vec::<String>::new();
+    if outcome_request.needs_clarification {
+        direct_answer_blockers.push("clarification_required".to_string());
+    }
+    if currentness_override {
+        direct_answer_blockers.push("currentness_override".to_string());
+    }
+    if routing_hint_flag(
+        &outcome_request.routing_hints,
+        "workspace_grounding_required",
+    ) {
+        direct_answer_blockers.push("workspace_grounding_required".to_string());
+    }
+    if tool_widget_family.is_some() {
+        direct_answer_blockers.push("tool_widget_surface_selected".to_string());
+    }
+    if request_frame_surface_hint(outcome_request).is_some() {
+        direct_answer_blockers.push("structured_surface_selected".to_string());
+    }
+    if outcome_request.outcome_kind == StudioOutcomeKind::Visualizer {
+        direct_answer_blockers.push("inline_visual_surface_selected".to_string());
+    }
+    if outcome_request.outcome_kind == StudioOutcomeKind::Artifact {
+        direct_answer_blockers.push("persistent_artifact_requested".to_string());
+    }
+    if outcome_request.outcome_kind == StudioOutcomeKind::Conversation
+        && outcome_request.execution_strategy != StudioExecutionStrategy::SinglePass
+        && !outcome_request.needs_clarification
+        && !currentness_override
+    {
+        direct_answer_blockers.push("planned_execution_selected".to_string());
+    }
+    if routing_hint_flag(&outcome_request.routing_hints, "connector_missing") {
+        direct_answer_blockers.push("connector_unavailable".to_string());
+    }
+    if routing_hint_flag(&outcome_request.routing_hints, "connector_auth_required") {
+        direct_answer_blockers.push("connector_auth_required".to_string());
+    }
+    let raw_output_intent = output_intent_for_outcome_request(outcome_request);
+    let direct_answer_allowed =
+        raw_output_intent == "direct_inline" && direct_answer_blockers.is_empty();
+    let output_intent = if raw_output_intent == "direct_inline" && !direct_answer_allowed {
+        "tool_execution"
+    } else {
+        raw_output_intent
+    };
+
+    RoutingRouteDecision {
+        route_family: route_family_for_outcome_request(outcome_request).to_string(),
+        direct_answer_allowed,
+        direct_answer_blockers,
+        currentness_override,
+        connector_candidate_count: routing_hint_value(
+            &outcome_request.routing_hints,
+            "connector_candidate_count:",
+        )
+        .and_then(|value| value.parse::<u32>().ok())
+        .unwrap_or(0),
+        selected_provider_family: routing_hint_value(
+            &outcome_request.routing_hints,
+            "selected_provider_family:",
+        ),
+        selected_provider_route_label: routing_hint_value(
+            &outcome_request.routing_hints,
+            "selected_provider_route_label:",
+        ),
+        connector_first_preference: routing_hint_flag(
+            &outcome_request.routing_hints,
+            "connector_intent_detected",
+        ),
+        narrow_tool_preference: narrow_tool_preference_for_outcome_request(outcome_request),
+        file_output_intent,
+        artifact_output_intent: outcome_request.outcome_kind == StudioOutcomeKind::Artifact,
+        inline_visual_intent: outcome_request.outcome_kind == StudioOutcomeKind::Visualizer,
+        skill_prep_required,
+        output_intent: output_intent.to_string(),
+        effective_tool_surface: effective_tool_surface_for_outcome_request(outcome_request),
+    }
+}
+
+pub fn route_topology_for_outcome_request(outcome_request: &StudioOutcomeRequest) -> &'static str {
+    match outcome_request.execution_strategy {
+        StudioExecutionStrategy::SinglePass | StudioExecutionStrategy::DirectAuthor => {
+            "single_agent"
+        }
+        StudioExecutionStrategy::AdaptiveWorkGraph => "planner_specialist_verifier",
+        StudioExecutionStrategy::PlanExecute | StudioExecutionStrategy::MicroSwarm => {
+            "planner_specialist"
+        }
+    }
+}
+
+pub fn verifier_state_for_outcome_event(
+    outcome_request: &StudioOutcomeRequest,
+    completed: bool,
+) -> &'static str {
+    if outcome_request.needs_clarification {
+        return "blocked";
+    }
+    if completed {
+        return "passed";
+    }
+    if routing_hint_flag(&outcome_request.routing_hints, "currentness_override") {
+        return "active";
+    }
+    if routing_hint_flag(
+        &outcome_request.routing_hints,
+        "workspace_grounding_required",
+    ) {
+        return "active";
+    }
+    if outcome_request.outcome_kind == StudioOutcomeKind::Artifact
+        || outcome_request.execution_strategy != StudioExecutionStrategy::SinglePass
+    {
+        return "active";
+    }
+    "not_engaged"
+}
+
+pub fn non_artifact_route_status_message(outcome_request: &StudioOutcomeRequest) -> String {
+    if outcome_request.needs_clarification {
+        return "Studio needs clarification before selecting the correct outcome surface."
+            .to_string();
+    }
+
+    let base = match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation => "Studio routed this request to conversation.",
+        StudioOutcomeKind::ToolWidget => "Studio routed this request to a tool-widget surface.",
+        StudioOutcomeKind::Visualizer => "Studio routed this request to a visualizer surface.",
+        StudioOutcomeKind::Artifact => "Studio routed this request to artifact materialization.",
+    };
+
+    let continuation = if outcome_request
+        .routing_hints
+        .iter()
+        .any(|hint| hint == "currentness_override")
+    {
+        " Continuing on the main runtime with currentness pressure in view."
+    } else if let Some(widget_family) = outcome_request
+        .routing_hints
+        .iter()
+        .find_map(|hint| hint.strip_prefix("tool_widget:"))
+    {
+        return format!(
+            "{base} Continuing on the main runtime with a narrow {widget_family} surface preference."
+        );
+    } else if outcome_request
+        .routing_hints
+        .iter()
+        .any(|hint| hint == "inline_visual_requested")
+    {
+        " Continuing on the main runtime with inline visual intent preserved."
+    } else {
+        " Continuing on the main runtime without opening an artifact renderer."
+    };
+
+    format!("{base}{continuation}")
+}
+
+pub fn non_artifact_route_summary(outcome_request: &StudioOutcomeRequest) -> String {
+    if outcome_request.needs_clarification {
+        let question = outcome_request
+            .clarification_questions
+            .first()
+            .cloned()
+            .unwrap_or_else(|| {
+                "Studio needs clarification before it can choose the correct outcome surface."
+                    .to_string()
+            });
+        return format!(
+            "Studio paused before selecting the outcome surface because it needs clarification: {}",
+            question
+        );
+    }
+
+    let base = match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation => "Studio routed this request to conversation.",
+        StudioOutcomeKind::ToolWidget => "Studio routed this request to a tool-widget surface.",
+        StudioOutcomeKind::Visualizer => "Studio routed this request to a visualizer surface.",
+        StudioOutcomeKind::Artifact => "Studio routed this request to artifact materialization.",
+    };
+    let reason_fragments = studio_route_hint_reason_fragments(outcome_request);
+    if reason_fragments.is_empty() {
+        format!(
+            "{base} Studio kept the artifact lane closed and preserved route receipts for downstream execution."
+        )
+    } else {
+        format!(
+            "{base} {} Studio kept the artifact lane closed and preserved route receipts for downstream execution.",
+            reason_fragments.join(" ")
+        )
+    }
+}
+
+pub fn build_studio_runtime_handoff_prompt_prefix(
+    outcome_request: &StudioOutcomeRequest,
+    workspace_root: Option<&str>,
+) -> String {
+    let route_decision = route_decision_for_outcome_request(outcome_request);
+    let selected_route = selected_route_label_for_outcome_request(outcome_request);
+    let primary_tools = if route_decision
+        .effective_tool_surface
+        .primary_tools
+        .is_empty()
+    {
+        "none".to_string()
+    } else {
+        route_decision
+            .effective_tool_surface
+            .primary_tools
+            .join(", ")
+    };
+    let fallback_tools = if route_decision
+        .effective_tool_surface
+        .broad_fallback_tools
+        .is_empty()
+    {
+        "none".to_string()
+    } else {
+        route_decision
+            .effective_tool_surface
+            .broad_fallback_tools
+            .join(", ")
+    };
+    let blockers = if route_decision.direct_answer_blockers.is_empty() {
+        "none".to_string()
+    } else {
+        route_decision.direct_answer_blockers.join(", ")
+    };
+
+    let mut execution_rules = vec![
+        "Honor this Studio route contract unless the user explicitly changes the task.".to_string(),
+    ];
+    if !route_decision.direct_answer_allowed {
+        execution_rules.push(
+            "Do not answer from memory alone; gather evidence through the projected tool path first."
+                .to_string(),
+        );
+    }
+    if route_decision.narrow_tool_preference
+        && !route_decision
+            .effective_tool_surface
+            .primary_tools
+            .is_empty()
+    {
+        execution_rules.push(
+            "Prefer the primary tools before broad fallbacks, and only escalate if the narrow path cannot satisfy the request."
+                .to_string(),
+        );
+    }
+    if routing_hint_flag(
+        &outcome_request.routing_hints,
+        "workspace_grounding_required",
+    ) {
+        execution_rules.push(
+            "Treat local workspace inspection as mandatory for this turn; inspect the repo before answering."
+                .to_string(),
+        );
+        execution_rules.push(
+            "Do not substitute browser or computer-use actions for repo inspection unless the workspace path is genuinely blocked."
+                .to_string(),
+        );
+    }
+    if routing_hint_flag(&outcome_request.routing_hints, "currentness_override") {
+        execution_rules.push(
+            "Fresh external information is required here; use current retrieval before answering."
+                .to_string(),
+        );
+    }
+    if routing_hint_flag(&outcome_request.routing_hints, "connector_intent_detected") {
+        execution_rules.push(
+            "Prefer the selected connector/provider route over generic fallbacks.".to_string(),
+        );
+    }
+
+    let workspace_line = workspace_root
+        .map(|root| format!("workspace_root: {root}"))
+        .unwrap_or_else(|| "workspace_root: unresolved".to_string());
+
+    format!(
+        "STUDIO ROUTE CONTRACT:\n\
+         - selected_route: {selected_route}\n\
+         - route_family: {route_family}\n\
+         - output_intent: {output_intent}\n\
+         - direct_answer_allowed: {direct_answer_allowed}\n\
+         - direct_answer_blockers: {blockers}\n\
+         - primary_tools: {primary_tools}\n\
+         - broad_fallback_tools: {fallback_tools}\n\
+         - {workspace_line}\n\
+         \n\
+         EXECUTION RULES:\n\
+         - {rules}\n",
+        route_family = route_decision.route_family,
+        output_intent = route_decision.output_intent,
+        direct_answer_allowed = route_decision.direct_answer_allowed,
+        rules = execution_rules.join("\n- "),
+    )
+}
+
+pub fn non_artifact_route_notes(outcome_request: &StudioOutcomeRequest) -> Vec<String> {
+    let route_decision = route_decision_for_outcome_request(outcome_request);
+    let mut notes = vec![
+        format!("Route family: {}", route_decision.route_family),
+        format!("Output intent: {}", route_decision.output_intent),
+    ];
+    if !route_decision
+        .effective_tool_surface
+        .projected_tools
+        .is_empty()
+    {
+        notes.push(format!(
+            "Projected surface: {}",
+            route_decision
+                .effective_tool_surface
+                .projected_tools
+                .join(", ")
+        ));
+    }
+    notes
+}
+
+pub fn non_artifact_verification_receipts(
+    outcome_request: &StudioOutcomeRequest,
+) -> Vec<SwarmVerificationReceipt> {
+    let status = if outcome_request.needs_clarification {
+        "blocked"
+    } else {
+        "ready"
+    };
+    let route_detail = match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation => "conversation surface",
+        StudioOutcomeKind::ToolWidget => "tool-widget surface",
+        StudioOutcomeKind::Visualizer => "visualizer surface",
+        StudioOutcomeKind::Artifact => "artifact surface",
+    };
+
+    vec![
+        SwarmVerificationReceipt {
+            id: "route_verification".to_string(),
+            kind: "route_verification".to_string(),
+            status: status.to_string(),
+            summary: if outcome_request.needs_clarification {
+                "Studio blocked execution because clarification is still required.".to_string()
+            } else {
+                format!(
+                    "Studio verified that this request belongs on the {}.",
+                    route_detail
+                )
+            },
+            details: if outcome_request.needs_clarification {
+                outcome_request.clarification_questions.clone()
+            } else {
+                outcome_request.routing_hints.clone()
+            },
+        },
+        SwarmVerificationReceipt {
+            id: "reply_surface".to_string(),
+            kind: "reply_surface".to_string(),
+            status: status.to_string(),
+            summary: if outcome_request.needs_clarification {
+                "The shared reply lane is blocked until the user answers the clarification."
+                    .to_string()
+            } else {
+                "The shared reply lane remains available and no artifact renderer is required."
+                    .to_string()
+            },
+            details: {
+                let mut details = vec![format!(
+                    "strategy:{}",
+                    execution_strategy_id(outcome_request.execution_strategy)
+                )];
+                details.extend(outcome_request.routing_hints.iter().cloned());
+                details
+            },
+        },
+    ]
+}
+
+pub fn non_artifact_operator_steps(
+    outcome_request: &StudioOutcomeRequest,
+) -> Vec<StudioArtifactOperatorStep> {
+    vec![
+        StudioArtifactOperatorStep {
+            step_id: "verify_route".to_string(),
+            origin_prompt_event_id: String::new(),
+            phase: StudioArtifactOperatorPhase::VerifyArtifact,
+            engine: "non_artifact_route".to_string(),
+            status: StudioArtifactOperatorRunStatus::Complete,
+            label: "Verify route".to_string(),
+            detail: "Verify route completed.".to_string(),
+            started_at_ms: 0,
+            finished_at_ms: Some(0),
+            preview: None,
+            file_refs: Vec::new(),
+            source_refs: Vec::new(),
+            verification_refs: Vec::new(),
+            attempt: 1,
+        },
+        StudioArtifactOperatorStep {
+            step_id: "verify_reply_surface".to_string(),
+            origin_prompt_event_id: String::new(),
+            phase: StudioArtifactOperatorPhase::VerifyArtifact,
+            engine: "non_artifact_route".to_string(),
+            status: if outcome_request.needs_clarification {
+                StudioArtifactOperatorRunStatus::Blocked
+            } else {
+                StudioArtifactOperatorRunStatus::Complete
+            },
+            label: "Verify reply surface".to_string(),
+            detail: if outcome_request.needs_clarification {
+                "Verify reply surface is blocked.".to_string()
+            } else {
+                "Verify reply surface completed.".to_string()
+            },
+            started_at_ms: 0,
+            finished_at_ms: Some(0),
+            preview: None,
+            file_refs: Vec::new(),
+            source_refs: Vec::new(),
+            verification_refs: Vec::new(),
+            attempt: 1,
+        },
+    ]
+}
+
+pub fn non_artifact_swarm_plan(outcome_request: &StudioOutcomeRequest) -> SwarmPlan {
+    let outcome_kind_id = match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation => "conversation",
+        StudioOutcomeKind::ToolWidget => "tool_widget",
+        StudioOutcomeKind::Visualizer => "visualizer",
+        StudioOutcomeKind::Artifact => "artifact",
+    };
+    let execution_domain = format!("studio_{outcome_kind_id}");
+    let adapter_label = format!(
+        "{outcome_kind_id}_{}_v1",
+        execution_strategy_id(outcome_request.execution_strategy)
+    );
+    let responder_title = match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation => "Conversation handoff",
+        StudioOutcomeKind::ToolWidget => "Tool-widget handoff",
+        StudioOutcomeKind::Visualizer => "Visualizer handoff",
+        StudioOutcomeKind::Artifact => "Artifact handoff",
+    };
+    let responder_summary = match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation => {
+            "Keep the request on the conversation surface and preserve the shared execution evidence."
+        }
+        StudioOutcomeKind::ToolWidget => {
+            "Keep the request on the tool-widget surface and preserve the shared execution evidence."
+        }
+        StudioOutcomeKind::Visualizer => {
+            "Keep the request on the visualizer surface and preserve the shared execution evidence."
+        }
+        StudioOutcomeKind::Artifact => {
+            "Keep the request on the artifact surface and preserve the shared execution evidence."
+        }
+    };
+
+    SwarmPlan {
+        version: 1,
+        strategy: execution_strategy_id(outcome_request.execution_strategy).to_string(),
+        execution_domain,
+        adapter_label,
+        parallelism_mode: "sequential_by_default".to_string(),
+        top_level_objective: Some(format!(
+            "Route the request onto the {outcome_kind_id} surface and preserve truthful execution evidence."
+        )),
+        decomposition_hypothesis: Some(
+            "The request can be satisfied with a small known non-artifact work graph."
+                .to_string(),
+        ),
+        decomposition_type: Some("small_graph_functional_decomposition".to_string()),
+        first_frontier_ids: vec!["handoff".to_string()],
+        spawn_conditions: vec![
+            "Spawn a clarification gate only when the router discovers unresolved ambiguity."
+                .to_string(),
+        ],
+        prune_conditions: vec![
+            "Prune clarification work once the reply handoff is already unblocked.".to_string(),
+        ],
+        merge_strategy: Some("typed_reply_surface_projection".to_string()),
+        verification_strategy: Some("route_truth_before_reply".to_string()),
+        fallback_collapse_strategy: Some(
+            "Collapse to the reply handoff once clarification obligations are satisfied."
+                .to_string(),
+        ),
+        completion_invariant: Some(ExecutionCompletionInvariant {
+            summary:
+                "Complete once the mandatory non-artifact handoff is satisfied and route truth is preserved."
+                    .to_string(),
+            status: ExecutionCompletionInvariantStatus::Satisfied,
+            required_work_item_ids: vec!["planner".to_string(), "handoff".to_string()],
+            satisfied_work_item_ids: vec!["planner".to_string(), "handoff".to_string()],
+            speculative_work_item_ids: if outcome_request.needs_clarification {
+                vec!["clarification_gate".to_string()]
+            } else {
+                Vec::new()
+            },
+            pruned_work_item_ids: Vec::new(),
+            required_verification_ids: vec!["route_truth".to_string()],
+            satisfied_verification_ids: vec!["route_truth".to_string()],
+            required_artifact_paths: Vec::new(),
+            remaining_obligations: Vec::new(),
+            allows_early_exit: true,
+        }),
+        work_items: vec![
+            SwarmWorkItem {
+                id: "planner".to_string(),
+                title: "Outcome planner".to_string(),
+                role: SwarmWorkerRole::Planner,
+                summary:
+                    "Lock the correct non-artifact route and execution strategy before any downstream handoff."
+                        .to_string(),
+                spawned_from_id: None,
+                read_paths: vec!["request".to_string(), "route_context".to_string()],
+                write_paths: Vec::new(),
+                write_regions: Vec::new(),
+                lease_requirements: Vec::new(),
+                acceptance_criteria: vec![
+                    "Outcome route is explicit.".to_string(),
+                    "Execution strategy is explicit.".to_string(),
+                ],
+                dependency_ids: Vec::new(),
+                blocked_on_ids: Vec::new(),
+                verification_policy: None,
+                retry_budget: None,
+                status: SwarmWorkItemStatus::Succeeded,
+            },
+            SwarmWorkItem {
+                id: "handoff".to_string(),
+                title: responder_title.to_string(),
+                role: SwarmWorkerRole::Responder,
+                summary: responder_summary.to_string(),
+                spawned_from_id: None,
+                read_paths: vec!["request".to_string(), "execution_plan".to_string()],
+                write_paths: Vec::new(),
+                write_regions: Vec::new(),
+                lease_requirements: Vec::new(),
+                acceptance_criteria: vec![
+                    "Studio reply remains truthful about the chosen surface.".to_string(),
+                    "No artifact renderer is implied when none was invoked.".to_string(),
+                ],
+                dependency_ids: vec!["planner".to_string()],
+                blocked_on_ids: Vec::new(),
+                verification_policy: None,
+                retry_budget: None,
+                status: SwarmWorkItemStatus::Succeeded,
+            },
+        ],
+    }
+}
+
+pub fn apply_non_artifact_clarification_gate(
+    swarm_plan: &mut SwarmPlan,
+    outcome_request: &StudioOutcomeRequest,
+) -> (
+    Vec<ExecutionGraphMutationReceipt>,
+    Vec<ExecutionReplanReceipt>,
+) {
+    if !outcome_request.needs_clarification {
+        return (Vec::new(), Vec::new());
+    }
+
+    let clarification_gate = SwarmWorkItem {
+        id: "clarification_gate".to_string(),
+        title: "Clarification gate".to_string(),
+        role: SwarmWorkerRole::Coordinator,
+        summary: "Hold the response until the user answers the required clarification questions."
+            .to_string(),
+        spawned_from_id: Some("planner".to_string()),
+        read_paths: vec!["request".to_string(), "clarification_questions".to_string()],
+        write_paths: Vec::new(),
+        write_regions: Vec::new(),
+        lease_requirements: Vec::new(),
+        acceptance_criteria: vec![
+            "Clarification questions stay visible.".to_string(),
+            "Responder stays blocked until clarification arrives.".to_string(),
+        ],
+        dependency_ids: vec!["planner".to_string()],
+        blocked_on_ids: Vec::new(),
+        verification_policy: Some(SwarmVerificationPolicy::Blocking),
+        retry_budget: Some(0),
+        status: SwarmWorkItemStatus::Blocked,
+    };
+    let clarification_gate_id = clarification_gate.id.clone();
+    let clarification_details = outcome_request.clarification_questions.clone();
+    let _ = spawn_follow_up_swarm_work_item(swarm_plan, clarification_gate);
+    let _ = block_swarm_work_item_on(
+        swarm_plan,
+        "handoff",
+        std::slice::from_ref(&clarification_gate_id),
+    );
+
+    (
+        vec![ExecutionGraphMutationReceipt {
+            id: "clarification-gate-spawned".to_string(),
+            mutation_kind: "subtask_spawned".to_string(),
+            status: "applied".to_string(),
+            summary:
+                "The planner discovered a clarification dependency and spawned a gate before reply handoff."
+                    .to_string(),
+            triggered_by_work_item_id: Some("planner".to_string()),
+            affected_work_item_ids: vec![clarification_gate_id.clone(), "handoff".to_string()],
+            details: clarification_details.clone(),
+        }],
+        vec![ExecutionReplanReceipt {
+            id: "clarification-replan".to_string(),
+            status: "blocked".to_string(),
+            summary:
+                "Shared execution widened the plan with a clarification gate before the responder could finalize."
+                    .to_string(),
+            triggered_by_work_item_id: Some("planner".to_string()),
+            spawned_work_item_ids: vec![clarification_gate_id],
+            blocked_work_item_ids: vec!["handoff".to_string()],
+            details: clarification_details,
+        }],
+    )
+}
+
+pub fn non_artifact_worker_receipts(
+    outcome_request: &StudioOutcomeRequest,
+    provenance: &StudioRuntimeProvenance,
+    swarm_plan: &SwarmPlan,
+    now: &str,
+) -> Vec<SwarmWorkerReceipt> {
+    let handoff_summary = match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation => {
+            "Conversation stayed primary and no artifact renderer was launched."
+        }
+        StudioOutcomeKind::ToolWidget => {
+            "Tool-widget stayed primary and no artifact renderer was launched."
+        }
+        StudioOutcomeKind::Visualizer => {
+            "Visualizer stayed primary and no artifact renderer was launched."
+        }
+        StudioOutcomeKind::Artifact => "Artifact stayed primary.",
+    };
+
+    let clarification_questions = outcome_request.clarification_questions.clone();
+    let planner_spawned_items = if outcome_request.needs_clarification {
+        vec!["clarification_gate".to_string()]
+    } else {
+        Vec::new()
+    };
+    let handoff_status = swarm_plan
+        .work_items
+        .iter()
+        .find(|item| item.id == "handoff")
+        .map(|item| item.status)
+        .unwrap_or(SwarmWorkItemStatus::Succeeded);
+
+    let mut receipts = vec![SwarmWorkerReceipt {
+        work_item_id: "planner".to_string(),
+        role: SwarmWorkerRole::Planner,
+        status: SwarmWorkItemStatus::Succeeded,
+        result_kind: Some(if outcome_request.needs_clarification {
+            SwarmWorkerResultKind::DependencyDiscovered
+        } else {
+            SwarmWorkerResultKind::Completed
+        }),
+        summary: format!(
+            "Selected the {} route with the {} strategy.",
+            match outcome_request.outcome_kind {
+                StudioOutcomeKind::Conversation => "conversation",
+                StudioOutcomeKind::ToolWidget => "tool_widget",
+                StudioOutcomeKind::Visualizer => "visualizer",
+                StudioOutcomeKind::Artifact => "artifact",
+            },
+            execution_strategy_id(outcome_request.execution_strategy)
+        ),
+        started_at: now.to_string(),
+        finished_at: Some(now.to_string()),
+        runtime: provenance.clone(),
+        read_paths: vec!["request".to_string(), "route_context".to_string()],
+        write_paths: Vec::new(),
+        write_regions: Vec::new(),
+        spawned_work_item_ids: planner_spawned_items,
+        blocked_on_ids: Vec::new(),
+        prompt_bytes: None,
+        output_bytes: None,
+        output_preview: None,
+        preview_language: None,
+        notes: if outcome_request.needs_clarification {
+            clarification_questions.clone()
+        } else {
+            let mut notes = vec!["No artifact files were requested on this route.".to_string()];
+            notes.extend(outcome_request.routing_hints.iter().cloned());
+            notes
+        },
+        failure: None,
+    }];
+    if outcome_request.needs_clarification {
+        receipts.push(SwarmWorkerReceipt {
+            work_item_id: "clarification_gate".to_string(),
+            role: SwarmWorkerRole::Coordinator,
+            status: SwarmWorkItemStatus::Blocked,
+            result_kind: Some(SwarmWorkerResultKind::Blocked),
+            summary:
+                "Clarification is required before the shared responder can safely finalize the route."
+                    .to_string(),
+            started_at: now.to_string(),
+            finished_at: Some(now.to_string()),
+            runtime: provenance.clone(),
+            read_paths: vec!["request".to_string(), "clarification_questions".to_string()],
+            write_paths: Vec::new(),
+            write_regions: Vec::new(),
+            spawned_work_item_ids: Vec::new(),
+            blocked_on_ids: Vec::new(),
+            prompt_bytes: None,
+            output_bytes: None,
+            output_preview: None,
+            preview_language: None,
+            notes: clarification_questions.clone(),
+            failure: None,
+        });
+    }
+    receipts.push(SwarmWorkerReceipt {
+        work_item_id: "handoff".to_string(),
+        role: SwarmWorkerRole::Responder,
+        status: handoff_status,
+        result_kind: Some(if outcome_request.needs_clarification {
+            SwarmWorkerResultKind::Blocked
+        } else {
+            SwarmWorkerResultKind::Completed
+        }),
+        summary: handoff_summary.to_string(),
+        started_at: now.to_string(),
+        finished_at: Some(now.to_string()),
+        runtime: provenance.clone(),
+        read_paths: vec!["request".to_string(), "execution_plan".to_string()],
+        write_paths: Vec::new(),
+        write_regions: Vec::new(),
+        spawned_work_item_ids: Vec::new(),
+        blocked_on_ids: if outcome_request.needs_clarification {
+            vec!["clarification_gate".to_string()]
+        } else {
+            Vec::new()
+        },
+        prompt_bytes: None,
+        output_bytes: None,
+        output_preview: None,
+        preview_language: None,
+        notes: vec![
+            "Studio kept the shared execution evidence instead of surfacing a blocked artifact failure."
+                .to_string(),
+            outcome_request.routing_hints.join(" · "),
+        ],
+        failure: if outcome_request.needs_clarification {
+            Some("Clarification is still required before reply handoff can complete.".to_string())
+        } else {
+            None
+        },
+    });
+    receipts
+}
+
+pub fn verification_status_for_lifecycle(
+    lifecycle_state: StudioArtifactLifecycleState,
+) -> StudioArtifactVerificationStatus {
+    match lifecycle_state {
+        StudioArtifactLifecycleState::Draft
+        | StudioArtifactLifecycleState::Planned
+        | StudioArtifactLifecycleState::Materializing
+        | StudioArtifactLifecycleState::Rendering
+        | StudioArtifactLifecycleState::Implementing
+        | StudioArtifactLifecycleState::Verifying => StudioArtifactVerificationStatus::Pending,
+        StudioArtifactLifecycleState::Ready => StudioArtifactVerificationStatus::Ready,
+        StudioArtifactLifecycleState::Blocked => StudioArtifactVerificationStatus::Blocked,
+        StudioArtifactLifecycleState::Failed => StudioArtifactVerificationStatus::Failed,
+        StudioArtifactLifecycleState::Partial => StudioArtifactVerificationStatus::Partial,
+    }
+}
+
+pub fn verified_reply_evidence_for_manifest(
+    verification: &StudioArtifactManifestVerification,
+    manifest: &StudioArtifactManifest,
+) -> Vec<String> {
+    let mut evidence = manifest
+        .files
+        .iter()
+        .map(|file| file.path.clone())
+        .collect::<Vec<_>>();
+    if let Some(provenance) = verification.production_provenance.as_ref() {
+        evidence.push(format!(
+            "production provenance: {}{}",
+            provenance.label,
+            provenance
+                .model
+                .as_ref()
+                .map(|model| format!(" ({model})"))
+                .unwrap_or_default()
+        ));
+    }
+    if let Some(provenance) = verification.acceptance_provenance.as_ref() {
+        evidence.push(format!(
+            "acceptance provenance: {}{}",
+            provenance.label,
+            provenance
+                .model
+                .as_ref()
+                .map(|model| format!(" ({model})"))
+                .unwrap_or_default()
+        ));
+    }
+    if let Some(failure) = verification.failure.as_ref() {
+        evidence.push(format!("failure: {} ({})", failure.message, failure.code));
+    }
+    evidence
+}
+
+pub fn non_artifact_verified_reply_evidence(
+    outcome_request: &StudioOutcomeRequest,
+    provenance_label: &str,
+) -> Vec<String> {
+    vec![
+        format!(
+            "outcome:{}",
+            match outcome_request.outcome_kind {
+                StudioOutcomeKind::Conversation => "conversation",
+                StudioOutcomeKind::ToolWidget => "tool_widget",
+                StudioOutcomeKind::Visualizer => "visualizer",
+                StudioOutcomeKind::Artifact => "artifact",
+            }
+        ),
+        format!(
+            "strategy:{}",
+            execution_strategy_id(outcome_request.execution_strategy)
+        ),
+        format!("provenance:{provenance_label}"),
+    ]
+    .into_iter()
+    .chain(
+        outcome_request
+            .routing_hints
+            .iter()
+            .map(|hint| format!("route_hint:{hint}")),
+    )
+    .collect()
+}
+
+pub fn non_artifact_route_title(intent: &str, outcome_request: &StudioOutcomeRequest) -> String {
+    let trimmed = intent.trim();
+    let base = if trimmed.is_empty() {
+        "Untitled request".to_string()
+    } else {
+        let mut words = trimmed.split_whitespace();
+        let summary = words.by_ref().take(8).collect::<Vec<_>>().join(" ");
+        if words.next().is_some() {
+            format!("{summary}...")
+        } else {
+            summary
+        }
+    };
+
+    match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation => format!("Conversation route · {base}"),
+        StudioOutcomeKind::ToolWidget => format!("Tool widget route · {base}"),
+        StudioOutcomeKind::Visualizer => format!("Visualizer route · {base}"),
+        StudioOutcomeKind::Artifact => base,
+    }
+}
+
+pub fn build_studio_route_contract_payload(
+    outcome_request: &StudioOutcomeRequest,
+    completed: bool,
+    retained_widget_state: Option<&StudioRetainedWidgetState>,
+) -> serde_json::Value {
+    let domain_policy_bundle = derive_studio_domain_policy_bundle(
+        outcome_request.lane_frame.as_ref(),
+        outcome_request.request_frame.as_ref(),
+        outcome_request.source_selection.as_ref(),
+        outcome_request.outcome_kind,
+        &outcome_request.routing_hints,
+        outcome_request.needs_clarification,
+        retained_widget_state,
+    );
+    let route_decision = route_decision_for_outcome_request(outcome_request);
+    let verifier_state = verifier_state_for_outcome_event(outcome_request, completed);
+    json!({
+        "selected_route": selected_route_label_for_outcome_request(outcome_request),
+        "route_family": route_decision.route_family,
+        "topology": route_topology_for_outcome_request(outcome_request),
+        "planner_authority": "kernel",
+        "verifier_state": verifier_state,
+        "verifier_outcome": if completed { Some("pass") } else { None::<&str> },
+        "route_decision": route_decision,
+        "lane_frame": outcome_request.lane_frame,
+        "request_frame": outcome_request.request_frame,
+        "source_selection": outcome_request.source_selection,
+        "retained_lane_state": outcome_request.retained_lane_state,
+        "lane_transitions": outcome_request.lane_transitions,
+        "orchestration_state": outcome_request.orchestration_state,
+        "domain_policy_bundle": domain_policy_bundle,
+    })
+}
+
+fn execution_strategy_id(strategy: StudioExecutionStrategy) -> &'static str {
+    match strategy {
+        StudioExecutionStrategy::SinglePass => "single_pass",
+        StudioExecutionStrategy::DirectAuthor => "direct_author",
+        StudioExecutionStrategy::PlanExecute => "plan_execute",
+        StudioExecutionStrategy::MicroSwarm => "micro_swarm",
+        StudioExecutionStrategy::AdaptiveWorkGraph => "adaptive_work_graph",
+    }
+}
+
+fn renderer_kind_id(renderer: StudioRendererKind) -> &'static str {
+    match renderer {
+        StudioRendererKind::Markdown => "markdown",
+        StudioRendererKind::HtmlIframe => "html_iframe",
+        StudioRendererKind::JsxSandbox => "jsx_sandbox",
+        StudioRendererKind::Svg => "svg",
+        StudioRendererKind::Mermaid => "mermaid",
+        StudioRendererKind::PdfEmbed => "pdf_embed",
+        StudioRendererKind::DownloadCard => "download_card",
+        StudioRendererKind::WorkspaceSurface => "workspace_surface",
+        StudioRendererKind::BundleManifest => "bundle_manifest",
+    }
+}
+
+fn request_frame_surface_hint(outcome_request: &StudioOutcomeRequest) -> Option<&'static str> {
+    match outcome_request.request_frame.as_ref() {
+        Some(StudioNormalizedRequestFrame::MessageCompose(_)) => Some("message_compose"),
+        Some(StudioNormalizedRequestFrame::UserInput(_)) => Some("user_input"),
+        _ => None,
+    }
+}
+
+fn file_output_intent_for_outcome_request(outcome_request: &StudioOutcomeRequest) -> bool {
+    let Some(artifact) = outcome_request.artifact.as_ref() else {
+        return false;
+    };
+
+    if outcome_request.outcome_kind != StudioOutcomeKind::Artifact {
+        return false;
+    }
+
+    matches!(
+        artifact.artifact_class,
+        StudioArtifactClass::Document
+            | StudioArtifactClass::DownloadableFile
+            | StudioArtifactClass::CompoundBundle
+            | StudioArtifactClass::CodePatch
+            | StudioArtifactClass::ReportBundle
+    ) || matches!(
+        artifact.renderer,
+        StudioRendererKind::PdfEmbed | StudioRendererKind::DownloadCard
+    )
+}
+
+fn skill_prep_required_for_outcome_request(outcome_request: &StudioOutcomeRequest) -> bool {
+    let Some(artifact) = outcome_request.artifact.as_ref() else {
+        return false;
+    };
+
+    if outcome_request.outcome_kind != StudioOutcomeKind::Artifact {
+        return false;
+    }
+
+    matches!(
+        artifact.artifact_class,
+        StudioArtifactClass::DownloadableFile
+            | StudioArtifactClass::CompoundBundle
+            | StudioArtifactClass::WorkspaceProject
+            | StudioArtifactClass::CodePatch
+            | StudioArtifactClass::ReportBundle
+    ) || matches!(
+        artifact.execution_substrate,
+        StudioExecutionSubstrate::BinaryGenerator | StudioExecutionSubstrate::WorkspaceRuntime
+    ) || matches!(
+        artifact.renderer,
+        StudioRendererKind::PdfEmbed
+            | StudioRendererKind::DownloadCard
+            | StudioRendererKind::WorkspaceSurface
+    )
+}
+
+fn narrow_tool_preference_for_outcome_request(outcome_request: &StudioOutcomeRequest) -> bool {
+    tool_widget_family_hint(&outcome_request.routing_hints).is_some()
+        || request_frame_surface_hint(outcome_request).is_some()
+        || routing_hint_flag(&outcome_request.routing_hints, "narrow_surface_preferred")
+        || routing_hint_flag(
+            &outcome_request.routing_hints,
+            "workspace_grounding_required",
+        )
+        || routing_hint_flag(&outcome_request.routing_hints, "connector_intent_detected")
+        || outcome_request.outcome_kind == StudioOutcomeKind::Visualizer
+}
+
+fn output_intent_for_outcome_request(outcome_request: &StudioOutcomeRequest) -> &'static str {
+    if matches!(
+        outcome_request.request_frame.as_ref(),
+        Some(StudioNormalizedRequestFrame::MessageCompose(_))
+            | Some(StudioNormalizedRequestFrame::UserInput(_))
+    ) {
+        return "tool_execution";
+    }
+
+    match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation
+            if outcome_request.execution_strategy == StudioExecutionStrategy::SinglePass
+                && !outcome_request.needs_clarification
+                && tool_widget_family_hint(&outcome_request.routing_hints).is_none()
+                && !outcome_request
+                    .routing_hints
+                    .iter()
+                    .any(|hint| hint == "workspace_grounding_required")
+                && !outcome_request
+                    .routing_hints
+                    .iter()
+                    .any(|hint| hint == "currentness_override")
+                && !outcome_request
+                    .routing_hints
+                    .iter()
+                    .any(|hint| hint == "connector_intent_detected") =>
+        {
+            "direct_inline"
+        }
+        StudioOutcomeKind::ToolWidget => "tool_execution",
+        StudioOutcomeKind::Visualizer => "inline_visual",
+        StudioOutcomeKind::Artifact => "artifact",
+        StudioOutcomeKind::Conversation => "tool_execution",
+    }
+}
+
+fn effective_tool_surface_for_outcome_request(
+    outcome_request: &StudioOutcomeRequest,
+) -> RoutingEffectiveToolSurface {
+    let mut primary_tools = Vec::<String>::new();
+    let mut broad_fallback_tools = Vec::<String>::new();
+    if let Some(connector_id) =
+        routing_hint_value(&outcome_request.routing_hints, "selected_connector_id:")
+    {
+        primary_tools.push(format!("connector:{connector_id}"));
+    }
+    if let Some(route_label) = routing_hint_value(
+        &outcome_request.routing_hints,
+        "selected_provider_route_label:",
+    ) {
+        primary_tools.push(format!("provider_route:{route_label}"));
+    }
+    match outcome_request.outcome_kind {
+        StudioOutcomeKind::Conversation => {
+            if let Some(surface_hint) = request_frame_surface_hint(outcome_request) {
+                match surface_hint {
+                    "message_compose" => primary_tools.push("message_compose_v1".to_string()),
+                    "user_input" => primary_tools.push("ask_user_input_v0".to_string()),
+                    _ => {}
+                }
+            } else if routing_hint_flag(&outcome_request.routing_hints, "currentness_override") {
+                primary_tools.push("web_search".to_string());
+                primary_tools.push("web_fetch".to_string());
+            } else if routing_hint_flag(
+                &outcome_request.routing_hints,
+                "workspace_grounding_required",
+            ) {
+                primary_tools.push("view".to_string());
+                primary_tools.push("bash_tool".to_string());
+            }
+        }
+        StudioOutcomeKind::ToolWidget => {
+            match tool_widget_family_hint(&outcome_request.routing_hints) {
+                Some("weather") => {
+                    primary_tools.push("weather_fetch".to_string());
+                    broad_fallback_tools.push("web_search".to_string());
+                }
+                Some("sports") => {
+                    primary_tools.push("fetch_sports_data".to_string());
+                    broad_fallback_tools.push("web_search".to_string());
+                }
+                Some("places") => {
+                    primary_tools.push("places_search".to_string());
+                    primary_tools.push("places_map_display_v0".to_string());
+                    broad_fallback_tools.push("web_search".to_string());
+                }
+                Some("recipe") => primary_tools.push("recipe_display_v0".to_string()),
+                Some("user_input") => primary_tools.push("ask_user_input_v0".to_string()),
+                Some(other) => primary_tools.push(format!("tool_widget:{other}")),
+                None => primary_tools.push("tool_widget".to_string()),
+            }
+        }
+        StudioOutcomeKind::Visualizer => {
+            primary_tools.push("visualize:show_widget".to_string());
+        }
+        StudioOutcomeKind::Artifact => {
+            let renderer = outcome_request
+                .artifact
+                .as_ref()
+                .map(|artifact| renderer_kind_id(artifact.renderer))
+                .unwrap_or("bundle_manifest");
+            primary_tools.push(format!("studio_renderer:{renderer}"));
+        }
+    }
+
+    RoutingEffectiveToolSurface {
+        projected_tools: primary_tools.clone(),
+        primary_tools,
+        broad_fallback_tools,
+        diagnostic_tools: outcome_request
+            .routing_hints
+            .iter()
+            .map(|hint| format!("route_hint:{hint}"))
+            .collect(),
+    }
+}
+
+fn studio_route_hint_reason_fragments(outcome_request: &StudioOutcomeRequest) -> Vec<String> {
+    let mut fragments = Vec::<String>::new();
+    for hint in &outcome_request.routing_hints {
+        match hint.as_str() {
+            "currentness_override" => fragments.push(
+                "Currentness pressure makes a shared answer lane safer than precommitting to a persistent artifact."
+                    .to_string(),
+            ),
+            "no_persistent_artifact_requested" => {
+                fragments.push("The prompt does not ask for a persistent artifact.".to_string())
+            }
+            "inline_visual_requested" => fragments.push(
+                "The prompt asks for an inline visual rather than a saved file.".to_string(),
+            ),
+            "narrow_surface_preferred" => fragments.push(
+                "A narrow first-party surface beats a broad fallback here.".to_string(),
+            ),
+            "connector_preferred" => fragments.push(
+                "A matching connector route is available and outranks a broad built-in fallback."
+                    .to_string(),
+            ),
+            "connector_missing" => fragments.push(
+                "The prompt points at a connector-backed surface that this runtime does not expose yet."
+                    .to_string(),
+            ),
+            "connector_auth_required" => fragments.push(
+                "A matching connector exists, but Studio still needs authentication before it can use it."
+                    .to_string(),
+            ),
+            "connector_identity_auto_selected" => fragments.push(
+                "Studio found one connected route and skipped a redundant identity clarification."
+                    .to_string(),
+            ),
+            "connector_tiebreaker:narrow_connector" => fragments.push(
+                "A dedicated connector beat a broader platform route for the same task class."
+                    .to_string(),
+            ),
+            "connector_tiebreaker:explicit_provider_mention" => fragments.push(
+                "The prompt explicitly named a provider, so Studio kept that connector route in front."
+                    .to_string(),
+            ),
+            "shared_answer_surface" => fragments.push(
+                "Studio can preserve route truth without stealing the main runtime reply."
+                    .to_string(),
+            ),
+            _ if hint.starts_with("tool_widget:") => {
+                let widget = hint.trim_start_matches("tool_widget:");
+                fragments.push(format!(
+                    "The request maps cleanly to the {widget} tool-widget family."
+                ));
+            }
+            _ => {}
+        }
+    }
+    fragments
+}
+
 fn tool_widget_family_hint(routing_hints: &[String]) -> Option<&str> {
     routing_hints
         .iter()
@@ -239,7 +1574,7 @@ fn widget_binding_value(
 fn runtime_locality_scope_for_context(context: &StudioIntentContext) -> Option<String> {
     context
         .requests_runtime_locality()
-        .then(studio_runtime_locality_scope_hint)
+        .then(runtime_locality_scope_hint)
         .flatten()
 }
 

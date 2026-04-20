@@ -40,8 +40,11 @@ DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/route-hierarchy/live-desktop
 WINDOW_SEARCH_PATTERN = "Autopilot Studio"
 NEW_OUTCOME_X = 120
 NEW_OUTCOME_Y = 150
-COMPOSER_X = 500
-COMPOSER_Y = 530
+COMPOSER_X_RATIO = 0.38
+COMPOSER_MIN_X = 240
+COMPOSER_MIN_Y = 180
+COMPOSER_BOTTOM_OFFSET = 145
+COMPOSER_SIDE_MARGIN = 220
 POLL_INTERVAL_SECS = 1.0
 POST_SETTLE_CAPTURE_DELAY_SECS = 2.0
 
@@ -147,6 +150,14 @@ def click(window: WindowGeometry, rel_x: int, rel_y: int) -> None:
     )
     run(["xdotool", "click", "1"])
     time.sleep(0.2)
+
+
+def composer_point(window: WindowGeometry) -> tuple[int, int]:
+    rel_x = int(window.width * COMPOSER_X_RATIO)
+    rel_y = window.height - COMPOSER_BOTTOM_OFFSET
+    rel_x = max(COMPOSER_MIN_X, min(window.width - COMPOSER_SIDE_MARGIN, rel_x))
+    rel_y = max(COMPOSER_MIN_Y, min(window.height - COMPOSER_BOTTOM_OFFSET, rel_y))
+    return rel_x, rel_y
 
 
 def key(window: WindowGeometry, key_spec: str) -> None:
@@ -355,6 +366,33 @@ def wait_for_prompt_start(
     return None
 
 
+def active_operator_run(task: dict[str, Any] | None) -> dict[str, Any]:
+    if not task:
+        return {}
+    studio_session = task.get("studio_session") or {}
+    active_run = studio_session.get("activeOperatorRun") or {}
+    return active_run if isinstance(active_run, dict) else {}
+
+
+def operator_run_is_terminal(task: dict[str, Any] | None) -> bool:
+    status = (active_operator_run(task).get("status") or "").strip().lower()
+    return status in {"complete", "blocked", "failed"}
+
+
+def artifact_session_ready(task: dict[str, Any] | None) -> bool:
+    if not task:
+        return False
+    studio_session = task.get("studio_session") or {}
+    studio_status = (studio_session.get("status") or "").strip().lower()
+    artifact_manifest = studio_session.get("artifactManifest") or {}
+    verification_status = (
+        ((artifact_manifest.get("verification") or {}).get("lifecycleState") or "")
+        .strip()
+        .lower()
+    )
+    return "ready" in {studio_status, verification_status}
+
+
 def wait_for_prompt_result(
     db_path: Path,
     prompt: str,
@@ -375,6 +413,8 @@ def wait_for_prompt_result(
                 if phase in {"complete", "failed"}:
                     if phase == "complete" or "ready for input" in current_step:
                         return task
+                    return task
+                if operator_run_is_terminal(task) or artifact_session_ready(task):
                     return task
         time.sleep(POLL_INTERVAL_SECS)
 
@@ -398,7 +438,9 @@ def submit_prompt(
         time.sleep(1.6)
         focus_window(window)
         time.sleep(0.3)
-    click(window, COMPOSER_X, COMPOSER_Y)
+    click(window, *composer_point(window))
+    key(window, "ctrl+a")
+    key(window, "BackSpace")
     type_text(window, prompt)
     time.sleep(0.2)
     key(window, "Return")

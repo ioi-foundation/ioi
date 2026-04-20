@@ -1,5 +1,8 @@
 use super::*;
 use crate::kernel::studio::content_session::attach_non_artifact_studio_session;
+use ioi_api::studio::{
+    StudioArtifactOperatorPhase, StudioArtifactOperatorRunStatus, StudioArtifactOperatorStep,
+};
 
 #[test]
 fn authoritative_studio_artifact_marks_task_complete_without_kernel_session() {
@@ -12,6 +15,29 @@ fn authoritative_studio_artifact_marks_task_complete_without_kernel_session() {
     assert_eq!(
         task.current_step,
         "Studio verified the artifact and is ready for the next request."
+    );
+}
+
+#[test]
+fn authoritative_status_prefers_terminal_operator_run_over_stale_lifecycle_state() {
+    let mut task = test_task(StudioArtifactVerificationStatus::Ready);
+    let studio_session = task.studio_session.as_mut().expect("studio session");
+    studio_session.lifecycle_state = StudioArtifactLifecycleState::Materializing;
+    studio_session.status = "materializing".to_string();
+    super::operator_run::start_operator_run_for_session(
+        studio_session,
+        Some("prompt-evt-1"),
+        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+    );
+    super::operator_run::refresh_active_operator_run_from_session(studio_session, None);
+
+    apply_studio_authoritative_status(&mut task, None);
+
+    assert_eq!(task.phase, AgentPhase::Complete);
+    assert!(
+        task.current_step.contains("verified"),
+        "expected a ready/verified step, got {:?}",
+        task.current_step
     );
 }
 
@@ -138,6 +164,131 @@ fn authoritative_ready_artifact_mentions_candidates_and_repairs_when_available()
     assert_eq!(
         task.current_step,
         "Studio verified candidate-2 after 2 candidate(s)."
+    );
+}
+
+#[test]
+fn authoritative_status_prefers_active_operator_step_detail_for_running_artifacts() {
+    let mut task = test_task(StudioArtifactVerificationStatus::Blocked);
+    let studio_session = task.studio_session.as_mut().expect("studio session");
+    studio_session.lifecycle_state = StudioArtifactLifecycleState::Materializing;
+    studio_session.status = "materializing".to_string();
+    super::operator_run::start_operator_run_for_session(
+        studio_session,
+        Some("prompt-evt-1"),
+        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+    );
+    studio_session
+        .materialization
+        .operator_steps
+        .push(StudioArtifactOperatorStep {
+            step_id: "verify-step-1".to_string(),
+            origin_prompt_event_id: "prompt-evt-1".to_string(),
+            phase: StudioArtifactOperatorPhase::VerifyArtifact,
+            engine: "browser_verifier".to_string(),
+            status: StudioArtifactOperatorRunStatus::Active,
+            label: "Run browser verification".to_string(),
+            detail: "Studio is checking the rendered draft for runtime errors.".to_string(),
+            started_at_ms: 1,
+            finished_at_ms: None,
+            preview: None,
+            file_refs: Vec::new(),
+            source_refs: Vec::new(),
+            verification_refs: Vec::new(),
+            attempt: 1,
+        });
+    super::operator_run::refresh_active_operator_run_from_session(studio_session, None);
+
+    apply_studio_authoritative_status(&mut task, None);
+
+    assert_eq!(task.phase, AgentPhase::Running);
+    assert_eq!(
+        task.current_step,
+        "Studio is checking the rendered draft for runtime errors."
+    );
+}
+
+#[test]
+fn authoritative_status_keeps_running_when_active_operator_step_conflicts_with_stale_ready_manifest(
+) {
+    let mut task = test_task(StudioArtifactVerificationStatus::Ready);
+    let studio_session = task.studio_session.as_mut().expect("studio session");
+    studio_session.lifecycle_state = StudioArtifactLifecycleState::Materializing;
+    studio_session.status = "materializing".to_string();
+    super::operator_run::start_operator_run_for_session(
+        studio_session,
+        Some("prompt-evt-1"),
+        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+    );
+    studio_session
+        .materialization
+        .operator_steps
+        .push(StudioArtifactOperatorStep {
+            step_id: "author-step-1".to_string(),
+            origin_prompt_event_id: "prompt-evt-1".to_string(),
+            phase: StudioArtifactOperatorPhase::AuthorArtifact,
+            engine: "direct_author".to_string(),
+            status: StudioArtifactOperatorRunStatus::Active,
+            label: "Write artifact".to_string(),
+            detail: "Studio is still writing the strongest artifact draft.".to_string(),
+            started_at_ms: 1,
+            finished_at_ms: None,
+            preview: None,
+            file_refs: Vec::new(),
+            source_refs: Vec::new(),
+            verification_refs: Vec::new(),
+            attempt: 1,
+        });
+    super::operator_run::refresh_active_operator_run_from_session(studio_session, None);
+
+    apply_studio_authoritative_status(&mut task, None);
+
+    assert_eq!(task.phase, AgentPhase::Running);
+    assert_eq!(
+        task.current_step,
+        "Studio is still writing the strongest artifact draft."
+    );
+}
+
+#[test]
+fn authoritative_status_completes_when_ready_manifest_conflicts_with_stale_verify_step() {
+    let mut task = test_task(StudioArtifactVerificationStatus::Ready);
+    let studio_session = task.studio_session.as_mut().expect("studio session");
+    studio_session.lifecycle_state = StudioArtifactLifecycleState::Ready;
+    studio_session.status = "ready".to_string();
+    super::operator_run::start_operator_run_for_session(
+        studio_session,
+        Some("prompt-evt-1"),
+        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+    );
+    studio_session
+        .materialization
+        .operator_steps
+        .push(StudioArtifactOperatorStep {
+            step_id: "verify-step-1".to_string(),
+            origin_prompt_event_id: "prompt-evt-1".to_string(),
+            phase: StudioArtifactOperatorPhase::VerifyArtifact,
+            engine: "browser_verifier".to_string(),
+            status: StudioArtifactOperatorRunStatus::Active,
+            label: "Run browser verification".to_string(),
+            detail: "Render evaluation is complete and Studio is surfacing the rendered artifact."
+                .to_string(),
+            started_at_ms: 1,
+            finished_at_ms: None,
+            preview: None,
+            file_refs: Vec::new(),
+            source_refs: Vec::new(),
+            verification_refs: Vec::new(),
+            attempt: 1,
+        });
+    super::operator_run::refresh_active_operator_run_from_session(studio_session, None);
+
+    apply_studio_authoritative_status(&mut task, None);
+
+    assert_eq!(task.phase, AgentPhase::Complete);
+    assert_eq!(
+        task.current_step,
+        "Studio verified the artifact and is ready for the next request."
     );
 }
 
@@ -2109,7 +2260,7 @@ fn route_contract_payload_includes_domain_policy_bundle() {
 
 #[test]
 fn weather_advice_clarification_surfaces_structured_scope_options() {
-    with_studio_runtime_locality_scope_hint_override(None, || {
+    with_runtime_locality_scope_hint_override(None, || {
         let outcome_request = StudioOutcomeRequest {
             request_id: "weather-clarification".to_string(),
             raw_prompt: "Should I wear a jacket today?".to_string(),
@@ -2153,7 +2304,7 @@ fn weather_advice_clarification_surfaces_structured_scope_options() {
 
 #[test]
 fn weather_advice_clarification_promotes_current_area_when_runtime_locality_exists() {
-    with_studio_runtime_locality_scope_hint_override(Some("Brooklyn, NY"), || {
+    with_runtime_locality_scope_hint_override(Some("Brooklyn, NY"), || {
         let outcome_request = StudioOutcomeRequest {
             request_id: "weather-clarification-locality".to_string(),
             raw_prompt: "Should I wear a jacket today?".to_string(),
@@ -2240,7 +2391,7 @@ fn message_compose_clarification_uses_domain_specific_prompt_and_options() {
 
 #[test]
 fn places_clarification_uses_domain_specific_anchor_options() {
-    with_studio_runtime_locality_scope_hint_override(None, || {
+    with_runtime_locality_scope_hint_override(None, || {
         let outcome_request = StudioOutcomeRequest {
             request_id: "places-clarification".to_string(),
             raw_prompt: "Find good coffee shops.".to_string(),
@@ -2290,7 +2441,7 @@ fn places_clarification_uses_domain_specific_anchor_options() {
 
 #[test]
 fn places_clarification_surfaces_current_area_when_runtime_locality_exists() {
-    with_studio_runtime_locality_scope_hint_override(Some("Williamsburg, Brooklyn"), || {
+    with_runtime_locality_scope_hint_override(Some("Williamsburg, Brooklyn"), || {
         let outcome_request = StudioOutcomeRequest {
             request_id: "places-clarification-locality".to_string(),
             raw_prompt: "Find good coffee shops.".to_string(),
@@ -2418,6 +2569,191 @@ fn currentness_scope_clarification_surfaces_structured_topic_options() {
     assert!(request.options[0].recommended);
     assert_eq!(request.options[1].id, "specific_topic");
     assert_eq!(request.options[2].id, "general_news");
+}
+
+#[test]
+fn connector_catalog_application_routes_mail_intent_into_integrations_lane() {
+    let connectors = vec![ConnectorCatalogEntry {
+        id: "mail.primary".to_string(),
+        plugin_id: "wallet_mail".to_string(),
+        name: "Mail".to_string(),
+        provider: "wallet.network".to_string(),
+        category: "communication".to_string(),
+        description: "Wallet-backed mail connector.".to_string(),
+        status: "connected".to_string(),
+        auth_mode: "wallet_capability".to_string(),
+        scopes: vec![
+            "mail.read.latest".to_string(),
+            "mail.list.recent".to_string(),
+            "mail.delete".to_string(),
+        ],
+        last_sync_at_utc: None,
+        notes: None,
+    }];
+    let mut outcome_request = StudioOutcomeRequest {
+        request_id: "mail-delete-route".to_string(),
+        raw_prompt: "Delete these emails".to_string(),
+        active_artifact_id: None,
+        outcome_kind: StudioOutcomeKind::Conversation,
+        execution_strategy: StudioExecutionStrategy::PlanExecute,
+        execution_mode_decision: None,
+        confidence: 0.9,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        routing_hints: vec!["shared_answer_surface".to_string()],
+        lane_frame: None,
+        request_frame: None,
+        source_selection: None,
+        retained_lane_state: None,
+        lane_transitions: Vec::new(),
+        orchestration_state: None,
+        artifact: None,
+    };
+
+    super::content_session::apply_connector_catalog_to_outcome_request(
+        &mut outcome_request,
+        &connectors,
+    );
+    super::content_session::refresh_outcome_request_topology(&mut outcome_request, None);
+
+    assert!(outcome_request
+        .routing_hints
+        .iter()
+        .any(|hint| hint == "connector_intent_detected"));
+    assert!(outcome_request
+        .routing_hints
+        .iter()
+        .any(|hint| hint == "connector_preferred"));
+    assert!(outcome_request
+        .routing_hints
+        .iter()
+        .any(|hint| hint == "selected_connector_id:mail.primary"));
+
+    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload_object = payload.as_object().expect("payload object");
+    assert_eq!(
+        payload_object
+            .get("route_family")
+            .and_then(|value| value.as_str()),
+        Some("communication")
+    );
+    let source_selection = payload_object
+        .get("source_selection")
+        .and_then(|value| value.as_object())
+        .expect("source selection");
+    assert_eq!(
+        source_selection
+            .get("selectedSource")
+            .and_then(|value| value.as_str()),
+        Some("connector")
+    );
+}
+
+#[test]
+fn connector_catalog_application_preserves_connector_source_for_artifact_report_requests() {
+    let connectors = vec![ConnectorCatalogEntry {
+        id: "mail.primary".to_string(),
+        plugin_id: "wallet_mail".to_string(),
+        name: "Mail".to_string(),
+        provider: "wallet.network".to_string(),
+        category: "communication".to_string(),
+        description: "Wallet-backed mail connector.".to_string(),
+        status: "connected".to_string(),
+        auth_mode: "wallet_capability".to_string(),
+        scopes: vec![
+            "mail.read.latest".to_string(),
+            "mail.list.recent".to_string(),
+            "mail.delete".to_string(),
+        ],
+        last_sync_at_utc: None,
+        notes: None,
+    }];
+    let artifact = StudioOutcomeArtifactRequest {
+        artifact_class: StudioArtifactClass::Document,
+        deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
+        renderer: StudioRendererKind::HtmlIframe,
+        presentation_surface: StudioPresentationSurface::SidePanel,
+        persistence: StudioArtifactPersistenceMode::ArtifactScoped,
+        execution_substrate: StudioExecutionSubstrate::ClientSandbox,
+        workspace_recipe_id: None,
+        presentation_variant_id: None,
+        scope: StudioOutcomeArtifactScope {
+            target_project: None,
+            create_new_workspace: false,
+            mutation_boundary: vec!["artifact".to_string()],
+        },
+        verification: StudioOutcomeArtifactVerificationRequest {
+            require_render: true,
+            require_build: false,
+            require_preview: false,
+            require_export: false,
+            require_diff_review: false,
+        },
+    };
+    let mut outcome_request = StudioOutcomeRequest {
+        request_id: "mail-artifact-route".to_string(),
+        raw_prompt: "Summarize my unread emails into an HTML report".to_string(),
+        active_artifact_id: None,
+        outcome_kind: StudioOutcomeKind::Artifact,
+        execution_strategy: StudioExecutionStrategy::PlanExecute,
+        execution_mode_decision: None,
+        confidence: 0.92,
+        needs_clarification: false,
+        clarification_questions: Vec::new(),
+        routing_hints: vec!["persistent_artifact_requested".to_string()],
+        lane_frame: None,
+        request_frame: None,
+        source_selection: None,
+        retained_lane_state: None,
+        lane_transitions: Vec::new(),
+        orchestration_state: None,
+        artifact: Some(artifact),
+    };
+
+    super::content_session::apply_connector_catalog_to_outcome_request(
+        &mut outcome_request,
+        &connectors,
+    );
+    super::content_session::refresh_outcome_request_topology(&mut outcome_request, None);
+
+    assert!(outcome_request
+        .routing_hints
+        .iter()
+        .any(|hint| hint == "connector_intent_detected"));
+    let payload = super::content_session::build_route_contract_payload(&outcome_request, false);
+    let payload_object = payload.as_object().expect("payload object");
+    assert_eq!(
+        payload_object
+            .get("selected_route")
+            .and_then(|value| value.as_str()),
+        Some("artifact_html_iframe")
+    );
+    assert_eq!(
+        payload_object
+            .get("route_family")
+            .and_then(|value| value.as_str()),
+        Some("communication")
+    );
+    let source_selection = payload_object
+        .get("source_selection")
+        .and_then(|value| value.as_object())
+        .expect("source selection");
+    assert_eq!(
+        source_selection
+            .get("selectedSource")
+            .and_then(|value| value.as_str()),
+        Some("connector")
+    );
+    let retained_lane_state = payload_object
+        .get("retained_lane_state")
+        .and_then(|value| value.as_object())
+        .expect("retained lane state");
+    assert_eq!(
+        retained_lane_state
+            .get("selectedProviderFamily")
+            .and_then(|value| value.as_str()),
+        Some("mail.wallet_network")
+    );
 }
 
 #[test]

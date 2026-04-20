@@ -32,7 +32,7 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`fixed bottom-0 left-0 top-16 z-40 w-[18.5rem] shrink-0 overflow-y-auto border-r transition-[transform,background-color,border-color,color] duration-300 md:static md:h-full md:translate-x-0 ${
+      className={`fixed bottom-0 left-0 top-16 z-40 w-[18.5rem] shrink-0 overflow-y-auto border-r transition-[transform,background-color,border-color,color] duration-300 md:sticky md:h-[calc(100vh-4rem)] md:translate-x-0 ${
         isDark
           ? 'border-stone-800/80 bg-[rgba(10,9,8,0.97)]'
           : 'border-stone-200/80 bg-[rgba(247,242,232,0.96)]'

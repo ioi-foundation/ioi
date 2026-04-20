@@ -26,8 +26,5 @@ pub mod sign;
 pub mod transport;
 
 #[cfg(test)]
-mod tests {
-    // Simple canary test to verify test discovery is working
-    #[test]
-    fn test_crypto_canary() {}
-}
+#[path = "tests.rs"]
+mod tests;

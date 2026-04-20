@@ -19,23 +19,19 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
   const containerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      return;
-    }
-
-    container.scrollTo({ top: 0, behavior: 'auto' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
     setActiveSectionId(page.sections[0]?.id);
 
     const updateActiveSection = () => {
       const sections = Array.from(
-        container.querySelectorAll<HTMLElement>('[data-doc-section="true"]'),
+        document.querySelectorAll<HTMLElement>('[data-doc-section="true"]'),
       );
 
       let nextActive = page.sections[0]?.id;
       for (const section of sections) {
-        const offset = section.getBoundingClientRect().top - container.getBoundingClientRect().top;
-        if (offset <= 140) {
+        // getBoundingClientRect().top is relative to the viewport.
+        // We consider a section active if its top is near or above the header + some padding (e.g. 140px + 64px header).
+        if (section.getBoundingClientRect().top <= 204) {
           nextActive = section.id;
         }
       }
@@ -44,8 +40,8 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
     };
 
     updateActiveSection();
-    container.addEventListener('scroll', updateActiveSection, { passive: true });
-    return () => container.removeEventListener('scroll', updateActiveSection);
+    window.addEventListener('scroll', updateActiveSection, { passive: true });
+    return () => window.removeEventListener('scroll', updateActiveSection);
   }, [page]);
 
   const statusCallout = useMemo(() => {
@@ -87,8 +83,7 @@ export default function MainContent({ isDark, onNavigate, page }: MainContentPro
 
   return (
     <main
-      ref={containerRef}
-      className={`flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden ${
+      className={`flex-1 min-w-0 ${
         isDark ? 'bg-transparent' : 'bg-transparent'
       }`}
     >

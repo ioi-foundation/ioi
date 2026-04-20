@@ -1,3 +1,14 @@
+//! Shared Studio harness semantics.
+//!
+//! This module is the reusable runtime/policy boundary for Studio-shaped work:
+//! routing, topology, policy contracts, artifact generation contracts, render
+//! evaluation, and other execution semantics that should not depend on the
+//! desktop shell.
+//!
+//! Keep product-shell concerns out of this layer. Session wiring, event
+//! emission, task mutation, navigator state, and renderer-specific shell
+//! surfaces belong in `apps/autopilot/.../kernel/studio`.
+
 use crate::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::{
@@ -89,7 +100,17 @@ pub fn studio_modal_first_html_enabled_for_tests_and_runtime() -> bool {
 }
 
 pub use domain_topology::{
-    derive_studio_domain_policy_bundle, derive_studio_topology_projection, StudioTopologyProjection,
+    apply_non_artifact_clarification_gate, artifact_connector_grounding_for_outcome_request,
+    build_studio_route_contract_payload, build_studio_runtime_handoff_prompt_prefix,
+    derive_studio_domain_policy_bundle, derive_studio_topology_projection,
+    non_artifact_operator_steps, non_artifact_route_notes, non_artifact_route_status_message,
+    non_artifact_route_summary, non_artifact_route_title, non_artifact_swarm_plan,
+    non_artifact_verification_receipts, non_artifact_verified_reply_evidence,
+    non_artifact_worker_receipts, route_decision_for_outcome_request,
+    route_family_for_outcome_request, route_topology_for_outcome_request,
+    selected_route_label_for_outcome_request, verification_status_for_lifecycle,
+    verified_reply_evidence_for_manifest, verifier_state_for_outcome_event,
+    StudioTopologyProjection,
 };
 use html::*;
 use html_registry::*;
@@ -130,14 +151,15 @@ pub(crate) use payload::{
 pub use payload::{parse_studio_generated_artifact_payload, validate_generated_artifact_payload};
 pub use pdf::{count_pdf_structural_sections, extract_searchable_pdf_text, pdf_artifact_bytes};
 pub use planning::{
-    build_studio_artifact_brief_prompt, build_studio_artifact_brief_repair_prompt,
-    build_studio_artifact_edit_intent_prompt, build_studio_artifact_edit_intent_repair_prompt,
-    build_studio_artifact_exemplar_query, build_studio_outcome_router_prompt,
-    compile_studio_artifact_ir, derive_request_grounded_studio_artifact_brief,
-    derive_studio_artifact_blueprint, parse_studio_artifact_brief,
-    parse_studio_artifact_edit_intent, parse_studio_outcome_planning_payload,
-    plan_studio_artifact_brief_with_runtime, plan_studio_artifact_edit_intent_with_runtime,
-    plan_studio_outcome_with_runtime, studio_execution_strategy_for_outcome,
+    apply_artifact_connector_grounding_to_brief, build_studio_artifact_brief_prompt,
+    build_studio_artifact_brief_repair_prompt, build_studio_artifact_edit_intent_prompt,
+    build_studio_artifact_edit_intent_repair_prompt, build_studio_artifact_exemplar_query,
+    build_studio_outcome_router_prompt, compile_studio_artifact_ir,
+    derive_request_grounded_studio_artifact_brief, derive_studio_artifact_blueprint,
+    parse_studio_artifact_brief, parse_studio_artifact_edit_intent,
+    parse_studio_outcome_planning_payload, plan_studio_artifact_brief_with_runtime,
+    plan_studio_artifact_edit_intent_with_runtime, plan_studio_outcome_with_runtime,
+    studio_execution_strategy_for_outcome,
     synthesize_studio_artifact_brief_for_execution_strategy_with_runtime,
 };
 pub use render_eval::{
@@ -145,8 +167,8 @@ pub use render_eval::{
     merge_studio_artifact_render_evaluation_into_validation, StudioArtifactRenderEvaluator,
 };
 pub use runtime_locality::{
-    resolve_runtime_locality_placeholder, studio_runtime_locality_scope_hint,
-    with_studio_runtime_locality_scope_hint_override,
+    resolve_runtime_locality_placeholder, runtime_locality_scope_hint,
+    with_runtime_locality_scope_hint_override,
 };
 pub use types::*;
 pub use validation::{

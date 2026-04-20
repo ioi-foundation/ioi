@@ -1,12 +1,12 @@
 use super::route_contract::{routing_hint_flag, routing_hint_prefixed_value};
 use super::*;
 use ioi_api::studio::{
-    studio_request_frame_clarification_slots, studio_runtime_locality_scope_hint,
+    runtime_locality_scope_hint, studio_request_frame_clarification_slots,
     studio_specialized_domain_kind, StudioSpecializedDomainKind,
 };
 
 fn current_area_option_available() -> bool {
-    studio_runtime_locality_scope_hint().is_some()
+    runtime_locality_scope_hint().is_some()
 }
 
 fn use_current_area_option(

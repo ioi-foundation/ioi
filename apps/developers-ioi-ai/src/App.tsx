@@ -92,7 +92,7 @@ export default function App() {
 
   return (
     <div
-      className={`h-screen overflow-hidden transition-colors duration-300 ${
+      className={`min-h-screen transition-colors duration-300 ${
         isDark
           ? 'bg-[#0a0908] text-stone-200'
           : 'bg-[#f7f2e8] text-stone-800'
@@ -117,7 +117,7 @@ export default function App() {
         }))}
         toggleTheme={() => setIsDark((value) => !value)}
       />
-      <div className="mt-16 flex h-[calc(100vh-4rem)] overflow-hidden">
+      <div className="mx-auto mt-16 flex w-full max-w-[1536px] items-start">
         <Sidebar
           activePageId={activePage.id}
           isDark={isDark}

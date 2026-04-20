@@ -279,12 +279,13 @@ fn prepare_task_for_studio_with_request_for_proof(
             url: None,
             status: "pending".to_string(),
         });
-        materialization.verification_steps = vec![
-            verification_step("scaffold", "Scaffold workspace", "success"),
-            verification_step("install", "Install dependencies", "pending"),
-            verification_step("validation", "Validate build", "pending"),
-            verification_step("preview", "Verify preview", "pending"),
-        ];
+        for step in &mut materialization.operator_steps {
+            if step.step_id == "workspace_scaffold" {
+                step.status = ioi_api::studio::StudioArtifactOperatorRunStatus::Complete;
+                step.detail = "Scaffold workspace completed.".to_string();
+                step.finished_at_ms = Some(step.finished_at_ms.unwrap_or(0));
+            }
+        }
         let mut build_session = BuildArtifactSession {
             session_id: Uuid::new_v4().to_string(),
             studio_session_id: studio_session_id.clone(),
@@ -492,6 +493,7 @@ fn prepare_task_for_studio_with_request_for_proof(
     materialization.retrieved_exemplars = retrieved_exemplars.clone();
     materialization.navigator_nodes = navigator_nodes_for_manifest(&artifact_manifest);
     let verified_reply = verified_reply_from_manifest(&title, &artifact_manifest);
+    let retrieved_sources = materialization.retrieved_sources.clone();
 
     let mut studio_session = StudioArtifactSession {
         session_id: studio_session_id.clone(),
@@ -526,9 +528,12 @@ fn prepare_task_for_studio_with_request_for_proof(
         revisions: Vec::new(),
         taste_memory,
         retrieved_exemplars,
+        retrieved_sources,
         selected_targets,
         widget_state: None,
         ux_lifecycle,
+        active_operator_run: None,
+        operator_run_history: Vec::new(),
         created_at: created_at.clone(),
         updated_at: created_at,
         build_session_id: build_session

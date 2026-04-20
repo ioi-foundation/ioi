@@ -393,23 +393,5 @@ pub fn get_studio_launch_receipts(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::summarize_studio_launch_request;
-    use serde_json::json;
-
-    #[test]
-    fn summarizes_session_target_launch_requests() {
-        let summary = summarize_studio_launch_request(&json!({
-            "kind": "session-target",
-            "sessionId": "session-123",
-        }));
-
-        assert_eq!(
-            summary,
-            json!({
-                "kind": "session-target",
-                "sessionId": "session-123",
-            })
-        );
-    }
-}
+#[path = "windows/tests.rs"]
+mod tests;

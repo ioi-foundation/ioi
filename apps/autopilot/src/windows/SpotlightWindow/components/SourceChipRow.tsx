@@ -11,6 +11,14 @@ type SourceChip = {
 
 const MAX_SOURCE_CHIPS = 6;
 
+function faviconUrlForDomain(domain: string | null | undefined): string | null {
+  const normalized = String(domain || "").trim();
+  if (!normalized) {
+    return null;
+  }
+  return `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(normalized)}`;
+}
+
 async function openSourceLink(url: string) {
   try {
     await openUrl(url);
@@ -37,7 +45,7 @@ export function SourceChipRow({
       url: browse.url,
       faviconUrl:
         sourceSummary.domains.find((domain) => domain.domain === browse.domain)
-          ?.faviconUrl || null,
+          ?.faviconUrl || faviconUrlForDomain(browse.domain),
     }));
     if (browseChips.length > 0) {
       return browseChips.slice(0, MAX_SOURCE_CHIPS);
@@ -47,7 +55,7 @@ export function SourceChipRow({
       key: `domain:${domain.domain}`,
       label: domain.domain,
       url: null,
-      faviconUrl: domain.faviconUrl,
+      faviconUrl: domain.faviconUrl || faviconUrlForDomain(domain.domain),
     }));
   }, [sourceSummary]);
 
