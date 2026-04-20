@@ -48,4 +48,10 @@ assert.match(
   "studio surface state should keep the session lane populated for receipt-driven artifact turns even when no assistant reply has landed yet",
 );
 
+assert.match(
+  hookSource,
+  /if \(task\?\.studio_session\?\.activeOperatorRun\) \{\s*return null;\s*\}/,
+  "studio surface state should suppress the separate status card when the unified operator-run transcript is active",
+);
+
 console.log("useSpotlightSurfaceState.test.ts: ok");

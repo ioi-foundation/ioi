@@ -94,7 +94,88 @@ function compactRendererLabel(value: string): string {
   }
 }
 
-function artifactReplyText(turnContext: TurnContext | null): string | null {
+function preferredSourceLabels(sourceSummary: SourceSummary | null): string[] {
+  if (!sourceSummary) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  const push = (value: string | null | undefined) => {
+    const compact = String(value || "").replace(/\s+/g, " ").trim();
+    if (!compact) {
+      return;
+    }
+    const key = compact.toLowerCase();
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    labels.push(compact);
+  };
+
+  for (const browse of sourceSummary.browses) {
+    const title = browse.title?.trim() || "";
+    const titleSuffix = title.split(" - ").at(-1)?.trim() || "";
+    push(titleSuffix && titleSuffix.length <= 48 ? titleSuffix : null);
+    push(
+      browse.domain
+        .replace(/^www\./i, "")
+        .replace(/^science\./i, "")
+        .replace(/^news\./i, ""),
+    );
+    if (labels.length >= 3) {
+      break;
+    }
+  }
+
+  if (labels.length < 3) {
+    for (const domain of sourceSummary.domains) {
+      push(
+        domain.domain
+          .replace(/^www\./i, "")
+          .replace(/^science\./i, "")
+          .replace(/^news\./i, ""),
+      );
+      if (labels.length >= 3) {
+        break;
+      }
+    }
+  }
+
+  return labels.slice(0, 3);
+}
+
+function joinLabels(labels: string[]): string | null {
+  if (labels.length === 0) {
+    return null;
+  }
+  if (labels.length === 1) {
+    return labels[0] || null;
+  }
+  if (labels.length === 2) {
+    return `${labels[0]} and ${labels[1]}`;
+  }
+  return `${labels[0]}, ${labels[1]}, and ${labels[2]}`;
+}
+
+function artifactSummaryLooksOperational(summary: string): boolean {
+  const normalized = summary.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return (
+    normalized.includes("studio materialized")
+    || normalized.includes("final acceptance validation")
+    || normalized.includes("primary artifact view")
+    || normalized.includes("lifecycle")
+    || normalized.includes("verification cleared")
+    || normalized.includes("candidate-")
+    || normalized.includes("artifact view")
+  );
+}
+
+export function artifactReplyText(turnContext: TurnContext | null): string | null {
   if (
     !turnContext ||
     turnContext.hasPendingStudioArtifact ||
@@ -108,9 +189,10 @@ function artifactReplyText(turnContext: TurnContext | null): string | null {
     if (!artifact) {
       return null;
     }
-    const summary =
+    const rawSummary =
       artifact.studioSession.verifiedReply.summary.trim() ||
       artifact.summary.trim();
+    const summary = artifactSummaryLooksOperational(rawSummary) ? "" : rawSummary;
     const lifecycleState = String(artifact.lifecycleState || "")
       .trim()
       .toLowerCase();
@@ -119,13 +201,21 @@ function artifactReplyText(turnContext: TurnContext | null): string | null {
 
     if (failedLifecycle) {
       return summary.length > 0
-        ? `Artifact **${artifact.title}** ${lifecycleState}. ${summary}`
-        : `Artifact **${artifact.title}** ${lifecycleState}. Inspect the blocked artifact card below for details.`;
+        ? `I wasn’t able to land **${artifact.title}**. ${summary}`
+        : `I wasn’t able to land **${artifact.title}**. Inspect the blocked artifact card below for details.`;
     }
 
-    return summary.length > 0
-      ? `Created **${artifact.title}**. ${summary}`
-      : `Created **${artifact.title}**. Open it from the artifact card below.`;
+    const sourceAttribution = joinLabels(preferredSourceLabels(turnContext.sourceSummary));
+    if (summary.length > 0 && sourceAttribution) {
+      return `I put together **${artifact.title}**. ${summary} It’s grounded in ${sourceAttribution}.`;
+    }
+    if (summary.length > 0) {
+      return `I put together **${artifact.title}**. ${summary}`;
+    }
+    if (sourceAttribution) {
+      return `I put together **${artifact.title}** and grounded it in ${sourceAttribution}.`;
+    }
+    return `I put together **${artifact.title}**. It’s ready in the artifact card below.`;
   }
 
   const failedArtifacts = turnContext.artifacts.filter((artifact) => {
@@ -143,7 +233,7 @@ function artifactReplyText(turnContext: TurnContext | null): string | null {
       failedArtifacts.length - Math.min(failedArtifacts.length, 3);
     const overflowSuffix =
       overflowCount > 0 ? `, and ${overflowCount} more` : "";
-    return `Artifact generation blocked for this request: ${previewTitles}${overflowSuffix}. Inspect the artifact cards below for failure details.`;
+    return `I wasn’t able to finish the requested artifacts: ${previewTitles}${overflowSuffix}. Inspect the artifact cards below for failure details.`;
   }
 
   const previewTitles = turnContext.artifacts
@@ -154,7 +244,19 @@ function artifactReplyText(turnContext: TurnContext | null): string | null {
     turnContext.artifacts.length - Math.min(turnContext.artifacts.length, 3);
   const overflowSuffix = overflowCount > 0 ? `, and ${overflowCount} more` : "";
 
-  return `Created ${turnContext.artifacts.length} artifacts for this request: ${previewTitles}${overflowSuffix}. Open one from the cards below.`;
+  return `I created ${turnContext.artifacts.length} artifacts for this request: ${previewTitles}${overflowSuffix}. Open one from the cards below.`;
+}
+
+function operatorRunIsPending(turnContext: TurnContext | null): boolean {
+  const status = turnContext?.studioSession?.activeOperatorRun?.status;
+  const normalized = String(status || "")
+    .trim()
+    .toLowerCase();
+  return (
+    normalized === "active"
+    || normalized === "pending"
+    || normalized === "other"
+  );
 }
 
 function artifactTurnMetaLabel(
@@ -243,6 +345,7 @@ export function ConversationTimeline({
           (isLatestTurn ? runPresentation.planSummary : null);
         const hasPendingStudioArtifact =
           turnContext?.hasPendingStudioArtifact || false;
+        const hasPendingOperatorRun = operatorRunIsPending(turnContext);
         const latestAnswerMatches =
           isLatestAnsweredTurn &&
           !!turn.answer &&
@@ -252,6 +355,7 @@ export function ConversationTimeline({
           !!turn.prompt &&
           !turn.answer &&
           !hasPendingStudioArtifact &&
+          !hasPendingOperatorRun &&
           !!runPresentation.finalAnswer &&
           runPresentation.finalAnswer.message.timestamp >=
             turn.prompt.timestamp;
@@ -337,10 +441,17 @@ export function ConversationTimeline({
           showLiveThinking,
         );
         const inlineArtifactReply = artifactReplyText(turnContext);
+        const effectiveInlineAnswer =
+          showInlineTranscript && inlineArtifactReply
+            ? inlineArtifactReply
+            : latestAnswerMatches && runPresentation.finalAnswer
+              ? inlineAnswerText(runPresentation.finalAnswer)
+              : turn.answer?.text || null;
         const showArtifactReplyBubble =
           !turn.answer &&
           !!inlineArtifactReply &&
           !hasPendingStudioArtifact &&
+          !hasPendingOperatorRun &&
           !showPendingRunAnswer &&
           !showAssistantPendingBubble &&
           !showLiveThinking;
@@ -366,6 +477,7 @@ export function ConversationTimeline({
             {showInlineTranscript &&
             turnContext?.reasoningDurationLabel &&
             turnContext.thoughtSummary &&
+            !hasPendingOperatorRun &&
             !hasPendingStudioArtifact ? (
               <ReasoningDisclosure
                 label={turnContext.reasoningDurationLabel}
@@ -476,9 +588,7 @@ export function ConversationTimeline({
                 showInlineTranscript ? (
                   <>
                     <div className="spot-message agent spot-message--inline-answer">
-                      <MarkdownMessage
-                        text={inlineAnswerText(runPresentation.finalAnswer)}
-                      />
+                      <MarkdownMessage text={effectiveInlineAnswer || ""} />
                     </div>
                     <SourceChipRow
                       sourceSummary={turnSourceSummary}
@@ -508,7 +618,7 @@ export function ConversationTimeline({
               ) : (
                 <>
                   <div className="spot-message agent spot-message--inline-answer">
-                    <MarkdownMessage text={turn.answer.text} />
+                    <MarkdownMessage text={effectiveInlineAnswer || turn.answer.text} />
                   </div>
                   {showInlineTranscript ? (
                     <SourceChipRow
@@ -539,9 +649,7 @@ export function ConversationTimeline({
               (showInlineTranscript ? (
                 <>
                   <div className="spot-message agent spot-message--inline-answer">
-                    <MarkdownMessage
-                      text={inlineAnswerText(runPresentation.finalAnswer)}
-                    />
+                    <MarkdownMessage text={inlineArtifactReply || inlineAnswerText(runPresentation.finalAnswer)} />
                   </div>
                   <SourceChipRow
                     sourceSummary={

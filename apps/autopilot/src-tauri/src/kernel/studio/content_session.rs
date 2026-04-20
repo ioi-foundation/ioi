@@ -1,52 +1,55 @@
+use super::operator_run::{
+    refresh_active_operator_run_from_session, start_operator_run_for_session,
+};
 use super::revisions::persist_studio_artifact_exemplar;
 use super::*;
 use crate::models::StudioVerifiedReply;
 use ioi_api::execution::{
-    annotate_execution_envelope, block_swarm_work_item_on, build_execution_envelope_from_swarm,
+    annotate_execution_envelope, build_execution_envelope_from_swarm,
     build_execution_envelope_from_swarm_with_receipts, completion_invariant_for_direct_execution,
     derive_execution_mode_decision, execution_domain_kind_for_outcome,
-    execution_strategy_for_outcome, plan_swarm_dispatch_batches, spawn_follow_up_swarm_work_item,
-    ExecutionBudgetSummary, ExecutionCompletionInvariantStatus, ExecutionDomainKind,
-    ExecutionEnvelope, ExecutionGraphMutationReceipt, ExecutionReplanReceipt, ExecutionStage,
+    execution_strategy_for_outcome, plan_swarm_dispatch_batches, ExecutionBudgetSummary,
+    ExecutionCompletionInvariantStatus, ExecutionDomainKind, ExecutionEnvelope, ExecutionStage,
     SwarmChangeReceipt, SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan,
-    SwarmVerificationReceipt, SwarmWorkItem, SwarmWorkItemStatus, SwarmWorkerReceipt,
-    SwarmWorkerResultKind, SwarmWorkerRole,
+    SwarmVerificationReceipt, SwarmWorkItemStatus, SwarmWorkerReceipt, SwarmWorkerResultKind,
 };
 use ioi_api::studio::{
-    derive_studio_domain_policy_bundle, derive_studio_topology_projection, StudioArtifactBlueprint,
-    StudioArtifactExemplar, StudioArtifactIR, StudioArtifactPreparationNeeds,
+    derive_studio_topology_projection, StudioArtifactBlueprint, StudioArtifactExemplar,
+    StudioArtifactGenerationProgress, StudioArtifactGenerationProgressObserver, StudioArtifactIR,
+    StudioArtifactOperatorPhase, StudioArtifactOperatorRunMode, StudioArtifactOperatorRunStatus,
+    StudioArtifactOperatorStep, StudioArtifactPreparationNeeds,
     StudioArtifactPreparedContextResolution, StudioArtifactRenderEvaluation,
-    StudioArtifactRuntimeNarrationEvent, StudioArtifactSelectedSkill,
-    StudioArtifactSkillDiscoveryResolution, StudioIntentContext,
+    StudioArtifactSelectedSkill, StudioArtifactSkillDiscoveryResolution,
+    StudioArtifactSourceReference, StudioIntentContext,
 };
 use ioi_types::app::{
-    RoutingEffectiveToolSurface, RoutingRouteDecision, StudioExecutionModeDecision,
-    StudioExecutionStrategy, StudioLaneFamily, StudioNormalizedRequestFrame,
-    StudioRetainedWidgetState,
+    RoutingRouteDecision, StudioExecutionModeDecision, StudioExecutionStrategy,
+    StudioNormalizedRequestFrame, StudioRetainedWidgetState,
 };
 use std::time::Duration;
 
 mod clarification;
 mod connectors;
 mod non_artifact;
+mod non_artifact_surface;
 mod route_contract;
 
+#[cfg(test)]
+pub(super) use self::apply_connector_routing_from_catalog_entries as apply_connector_catalog_to_outcome_request;
 pub(super) use self::clarification::clarification_request_for_outcome_request;
 use self::clarification::specialized_domain_clarification_question;
-#[cfg(test)]
 pub(super) use self::connectors::{
     infer_connector_route_context_from_catalog, merge_connector_route_context,
 };
-pub(super) use self::non_artifact::{
-    attach_non_artifact_studio_session, refresh_non_artifact_studio_surface,
-};
-#[cfg(test)]
-pub(super) use self::route_contract::route_decision_for_outcome_request;
+pub(super) use self::non_artifact::attach_non_artifact_studio_session;
+pub(super) use self::non_artifact_surface::refresh_non_artifact_studio_surface;
 pub(crate) use self::route_contract::runtime_handoff_prompt_prefix_for_task;
 pub(super) use self::route_contract::{
     append_route_contract_event, artifact_execution_envelope_for_contract,
     build_route_contract_payload, non_artifact_route_status_message,
 };
+#[cfg(test)]
+pub(super) use ioi_api::studio::route_decision_for_outcome_request;
 
 pub(super) fn studio_routing_timeout_for_runtime(runtime: &Arc<dyn InferenceRuntime>) -> Duration {
     let seconds = [
@@ -86,6 +89,7 @@ pub(super) struct MaterializedContentArtifact {
     pub(super) artifact_ir: Option<StudioArtifactIR>,
     pub(super) selected_skills: Vec<StudioArtifactSelectedSkill>,
     pub(super) retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    pub(super) retrieved_sources: Vec<StudioArtifactSourceReference>,
     pub(super) edit_intent: Option<StudioArtifactEditIntent>,
     pub(super) candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     pub(super) winning_candidate_id: Option<String>,
@@ -109,7 +113,7 @@ pub(super) struct MaterializedContentArtifact {
     pub(super) selected_targets: Vec<StudioArtifactSelectionTarget>,
     pub(super) lifecycle_state: StudioArtifactLifecycleState,
     pub(super) verification_summary: String,
-    pub(super) runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
+    pub(super) operator_steps: Vec<StudioArtifactOperatorStep>,
 }
 
 fn default_studio_outcome_request(
@@ -210,14 +214,18 @@ pub(super) fn studio_outcome_request(
             "Studio outcome routing runtime is unavailable while routing the request.".to_string()
         })?;
     let timeout = studio_routing_timeout_for_runtime(&runtime);
-    studio_outcome_request_with_runtime_timeout(
+    let mut outcome_request = studio_outcome_request_with_runtime_timeout(
         runtime,
         intent,
         active_artifact_id,
         active_artifact,
         active_widget_state,
         timeout,
-    )
+    )?;
+    apply_connector_routing_from_catalog(app, &mut outcome_request);
+    refresh_outcome_request_topology(&mut outcome_request, active_widget_state);
+    apply_retained_widget_state_resolution(&mut outcome_request, active_widget_state);
+    Ok(outcome_request)
 }
 
 pub(super) fn studio_outcome_request_with_runtime_timeout(
@@ -304,6 +312,31 @@ pub(super) fn studio_outcome_request_with_runtime_timeout(
     Ok(outcome_request)
 }
 
+pub(super) fn apply_connector_routing_from_catalog_entries(
+    outcome_request: &mut StudioOutcomeRequest,
+    connectors: &[crate::kernel::connectors::ConnectorCatalogEntry],
+) {
+    let Some(context) =
+        infer_connector_route_context_from_catalog(&outcome_request.raw_prompt, connectors)
+    else {
+        return;
+    };
+    merge_connector_route_context(outcome_request, context);
+}
+
+fn apply_connector_routing_from_catalog(
+    app: &AppHandle,
+    outcome_request: &mut StudioOutcomeRequest,
+) {
+    let state = app.state::<Mutex<AppState>>();
+    let connectors =
+        tauri::async_runtime::block_on(crate::kernel::connectors::connector_list_catalog(state));
+    let Ok(connectors) = connectors else {
+        return;
+    };
+    apply_connector_routing_from_catalog_entries(outcome_request, &connectors);
+}
+
 pub(super) fn attach_blocked_studio_failure_session(
     task: &mut AgentTask,
     prompt: &str,
@@ -354,6 +387,7 @@ pub(super) fn attach_blocked_studio_failure_session(
         None,
         None,
         None,
+        Vec::new(),
         Vec::new(),
         Vec::new(),
         None,
@@ -431,15 +465,31 @@ pub(super) fn attach_blocked_studio_failure_session(
         revisions: Vec::new(),
         taste_memory: materialized_artifact.taste_memory.clone(),
         retrieved_exemplars: materialized_artifact.retrieved_exemplars.clone(),
+        retrieved_sources: materialized_artifact.retrieved_sources.clone(),
         selected_targets: materialized_artifact.selected_targets.clone(),
         widget_state: None,
         ux_lifecycle: Some(materialized_artifact.ux_lifecycle),
+        active_operator_run: None,
+        operator_run_history: Vec::new(),
         created_at: created_at.clone(),
         updated_at: created_at,
         build_session_id: None,
         workspace_root: None,
         renderer_session_id: None,
     };
+    start_operator_run_for_session(
+        &mut studio_session,
+        task.events.iter().rev().find_map(|event| {
+            event
+                .details
+                .get("kind")
+                .and_then(|value| value.as_str())
+                .is_some_and(|value| value.eq_ignore_ascii_case("user_input"))
+                .then(|| event.event_id.as_str())
+        }),
+        StudioArtifactOperatorRunMode::Create,
+    );
+    refresh_active_operator_run_from_session(&mut studio_session, None);
     refresh_pipeline_steps(&mut studio_session, None);
     let initial_revision = initial_revision_for_session(&studio_session, prompt);
     studio_session.active_revision_id = Some(initial_revision.revision_id.clone());
@@ -689,17 +739,41 @@ pub(super) fn materialization_contract_for_request(
     execution_mode_decision: Option<StudioExecutionModeDecision>,
     execution_strategy: StudioExecutionStrategy,
 ) -> StudioArtifactMaterializationContract {
-    let verification_steps = if request.renderer == StudioRendererKind::WorkspaceSurface {
+    let operator_steps = if request.renderer == StudioRendererKind::WorkspaceSurface {
         vec![
-            verification_step("scaffold", "Scaffold workspace", "pending"),
-            verification_step("install", "Install dependencies", "pending"),
-            verification_step("validation", "Validate build", "pending"),
-            verification_step("preview", "Verify preview", "pending"),
+            pending_operator_step(
+                "workspace_scaffold",
+                StudioArtifactOperatorPhase::VerifyArtifact,
+                "Scaffold workspace",
+            ),
+            pending_operator_step(
+                "workspace_install",
+                StudioArtifactOperatorPhase::VerifyArtifact,
+                "Install dependencies",
+            ),
+            pending_operator_step(
+                "workspace_validation",
+                StudioArtifactOperatorPhase::VerifyArtifact,
+                "Validate build",
+            ),
+            pending_operator_step(
+                "workspace_preview",
+                StudioArtifactOperatorPhase::VerifyArtifact,
+                "Verify preview",
+            ),
         ]
     } else {
         vec![
-            verification_step("materialize", "Materialize artifact", "pending"),
-            verification_step("verify", "Verify artifact contract", "pending"),
+            pending_operator_step(
+                "materialize_artifact",
+                StudioArtifactOperatorPhase::AuthorArtifact,
+                "Materialize artifact",
+            ),
+            pending_operator_step(
+                "verify_artifact_contract",
+                StudioArtifactOperatorPhase::VerifyArtifact,
+                "Verify artifact contract",
+            ),
         ]
     };
     let mut execution_envelope = build_execution_envelope_from_swarm(
@@ -737,6 +811,7 @@ pub(super) fn materialization_contract_for_request(
         artifact_ir: None,
         selected_skills: Vec::new(),
         retrieved_exemplars: Vec::new(),
+        retrieved_sources: Vec::new(),
         edit_intent: None,
         candidate_summaries: Vec::new(),
         winning_candidate_id: None,
@@ -760,9 +835,8 @@ pub(super) fn materialization_contract_for_request(
         file_writes: Vec::new(),
         command_intents: Vec::new(),
         preview_intent: None,
-        verification_steps,
+        operator_steps,
         pipeline_steps: Vec::new(),
-        runtime_narration_events: Vec::new(),
         notes: vec![
             "Conversation remains the control plane; this artifact is the work product."
                 .to_string(),
@@ -773,41 +847,32 @@ pub(super) fn materialization_contract_for_request(
     }
 }
 
-pub(super) fn verification_steps_for_materialized_artifact(
-    request: &StudioOutcomeArtifactRequest,
-    materialized_artifact: &MaterializedContentArtifact,
-) -> Vec<crate::models::StudioArtifactMaterializationVerificationStep> {
-    if request.renderer == StudioRendererKind::WorkspaceSurface {
-        return Vec::new();
+fn pending_operator_step(
+    step_id: &str,
+    phase: StudioArtifactOperatorPhase,
+    label: &str,
+) -> StudioArtifactOperatorStep {
+    StudioArtifactOperatorStep {
+        step_id: step_id.to_string(),
+        origin_prompt_event_id: String::new(),
+        phase,
+        engine: "studio".to_string(),
+        status: StudioArtifactOperatorRunStatus::Pending,
+        label: label.to_string(),
+        detail: format!("{label} is pending."),
+        started_at_ms: 0,
+        finished_at_ms: None,
+        preview: None,
+        file_refs: Vec::new(),
+        source_refs: Vec::new(),
+        verification_refs: Vec::new(),
+        attempt: 1,
     }
-
-    let materialize_status = if !materialized_artifact.files.is_empty()
-        || !materialized_artifact.file_writes.is_empty()
-    {
-        "success"
-    } else if matches!(
-        materialized_artifact.lifecycle_state,
-        StudioArtifactLifecycleState::Failed | StudioArtifactLifecycleState::Blocked
-    ) {
-        "blocked"
-    } else {
-        "pending"
-    };
-    let verify_status = match materialized_artifact.lifecycle_state {
-        StudioArtifactLifecycleState::Ready | StudioArtifactLifecycleState::Partial => "success",
-        StudioArtifactLifecycleState::Failed | StudioArtifactLifecycleState::Blocked => "blocked",
-        _ => "pending",
-    };
-
-    vec![
-        verification_step("materialize", "Materialize artifact", materialize_status),
-        verification_step("verify", "Verify artifact contract", verify_status),
-    ]
 }
 
 pub(super) fn apply_materialized_artifact_to_contract(
     materialization: &mut StudioArtifactMaterializationContract,
-    request: &StudioOutcomeArtifactRequest,
+    _request: &StudioOutcomeArtifactRequest,
     materialized_artifact: &MaterializedContentArtifact,
     execution_mode_decision: Option<StudioExecutionModeDecision>,
     execution_strategy: StudioExecutionStrategy,
@@ -824,6 +889,7 @@ pub(super) fn apply_materialized_artifact_to_contract(
     materialization.artifact_ir = materialized_artifact.artifact_ir.clone();
     materialization.selected_skills = materialized_artifact.selected_skills.clone();
     materialization.retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
+    materialization.retrieved_sources = materialized_artifact.retrieved_sources.clone();
     materialization.edit_intent = materialized_artifact.edit_intent.clone();
     materialization.candidate_summaries = materialized_artifact.candidate_summaries.clone();
     materialization.winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
@@ -836,8 +902,7 @@ pub(super) fn apply_materialized_artifact_to_contract(
     materialization.swarm_merge_receipts = materialized_artifact.swarm_merge_receipts.clone();
     materialization.swarm_verification_receipts =
         materialized_artifact.swarm_verification_receipts.clone();
-    materialization.verification_steps =
-        verification_steps_for_materialized_artifact(request, materialized_artifact);
+    materialization.operator_steps = materialized_artifact.operator_steps.clone();
     materialization.execution_envelope =
         materialized_artifact
             .execution_envelope
@@ -857,8 +922,6 @@ pub(super) fn apply_materialized_artifact_to_contract(
     materialization.fallback_used = materialized_artifact.fallback_used;
     materialization.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
     materialization.failure = materialized_artifact.failure.clone();
-    materialization.runtime_narration_events =
-        materialized_artifact.runtime_narration_events.clone();
 }
 
 pub(super) fn should_refine_current_non_workspace_artifact(
@@ -896,6 +959,14 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     let Some(request) = outcome_request.artifact.clone() else {
         return Ok(false);
     };
+    let origin_prompt_event_id = task.events.iter().rev().find_map(|event| {
+        event
+            .details
+            .get("kind")
+            .and_then(|value| value.as_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case("user_input"))
+            .then(|| event.event_id.clone())
+    });
     let memory_runtime = app
         .state::<Mutex<AppState>>()
         .lock()
@@ -906,14 +977,40 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
 
     let refinement = studio_refinement_context_for_session(&memory_runtime, &studio_session);
     let thread_id = task.session_id.clone().unwrap_or_else(|| task.id.clone());
-    let mut materialized_artifact = materialize_non_workspace_artifact(
-        app,
-        &thread_id,
-        &studio_session.title,
-        intent,
-        &request,
-        Some(&refinement),
-    )?;
+    studio_session.origin_prompt_event_id = origin_prompt_event_id.clone();
+    start_operator_run_for_session(
+        &mut studio_session,
+        origin_prompt_event_id.as_deref(),
+        StudioArtifactOperatorRunMode::Edit,
+    );
+    refresh_active_operator_run_from_session(&mut studio_session, None);
+    task.studio_outcome = Some(outcome_request.clone());
+    task.studio_session = Some(studio_session.clone());
+    super::prepare::publish_current_task_snapshot(app, task);
+    let connector_grounding =
+        ioi_api::studio::artifact_connector_grounding_for_outcome_request(&outcome_request);
+    let progress_app = app.clone();
+    let progress_task_id = task.id.clone();
+    let progress_observer =
+        std::sync::Arc::new(move |progress: StudioArtifactGenerationProgress| {
+            super::prepare::publish_current_task_generation_progress(
+                &progress_app,
+                &progress_task_id,
+                &progress,
+            );
+        }) as StudioArtifactGenerationProgressObserver;
+    let mut materialized_artifact =
+        materialize_non_workspace_artifact_with_execution_strategy_and_progress_observer(
+            app,
+            &thread_id,
+            &studio_session.title,
+            intent,
+            &request,
+            Some(&refinement),
+            connector_grounding.as_ref(),
+            outcome_request.execution_strategy,
+            Some(progress_observer),
+        )?;
     let selected_targets = if materialized_artifact.selected_targets.is_empty() {
         materialized_artifact
             .edit_intent
@@ -1012,8 +1109,6 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         outcome_request.execution_mode_decision.clone(),
         outcome_request.execution_strategy,
     );
-    let resolved_verification_steps =
-        verification_steps_for_materialized_artifact(&request, &materialized_artifact);
     materialization.file_writes = materialized_artifact.file_writes.clone();
     materialization.notes = materialized_artifact.notes.clone();
     materialization.artifact_brief = Some(materialized_artifact.brief.clone());
@@ -1026,6 +1121,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     materialization.artifact_ir = materialized_artifact.artifact_ir.clone();
     materialization.selected_skills = materialized_artifact.selected_skills.clone();
     materialization.retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
+    materialization.retrieved_sources = materialized_artifact.retrieved_sources.clone();
     materialization.edit_intent = materialized_artifact.edit_intent.clone();
     materialization.candidate_summaries = materialized_artifact.candidate_summaries.clone();
     materialization.winning_candidate_id = materialized_artifact.winning_candidate_id.clone();
@@ -1046,9 +1142,6 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     materialization.fallback_used = materialized_artifact.fallback_used;
     materialization.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
     materialization.failure = materialized_artifact.failure.clone();
-    if !resolved_verification_steps.is_empty() {
-        materialization.verification_steps = resolved_verification_steps;
-    }
     materialization.execution_envelope =
         materialized_artifact
             .execution_envelope
@@ -1073,9 +1166,12 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         lifecycle_state_label(materialized_artifact.lifecycle_state).to_string();
     studio_session.taste_memory = taste_memory;
     studio_session.retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
+    studio_session.retrieved_sources = materialized_artifact.retrieved_sources.clone();
     studio_session.selected_targets = selected_targets;
     studio_session.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
     studio_session.updated_at = now_iso();
+    studio_session.origin_prompt_event_id = origin_prompt_event_id.clone();
+    refresh_active_operator_run_from_session(&mut studio_session, None);
     refresh_pipeline_steps(&mut studio_session, None);
 
     let (branch_id, branch_label, parent_revision_id) =

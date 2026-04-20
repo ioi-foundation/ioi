@@ -56,6 +56,42 @@ fn parses_planning_payload_with_missing_scope_and_verification_defaults() {
 }
 
 #[test]
+fn parses_planning_payload_with_null_scope_and_verification_defaults() {
+    let parsed = parse_studio_outcome_planning_payload(
+        r#"{
+            "outcomeKind": "artifact",
+            "confidence": 0.93,
+            "needsClarification": false,
+            "clarificationQuestions": [],
+            "artifact": {
+                "artifactClass": "document",
+                "deliverableShape": "single_file",
+                "renderer": "html_iframe",
+                "presentationSurface": "side_panel",
+                "persistence": "artifact_scoped",
+                "executionSubstrate": "client_sandbox",
+                "workspaceRecipeId": null,
+                "presentationVariantId": null,
+                "scope": null,
+                "verification": null
+            }
+        }"#,
+    )
+    .expect("planning payload should recover null scope and verification");
+
+    let artifact = parsed.artifact.expect("artifact payload");
+    assert_eq!(artifact.renderer, StudioRendererKind::HtmlIframe);
+    assert_eq!(artifact.scope.target_project, None);
+    assert!(!artifact.scope.create_new_workspace);
+    assert!(artifact.scope.mutation_boundary.is_empty());
+    assert!(!artifact.verification.require_render);
+    assert!(!artifact.verification.require_build);
+    assert!(!artifact.verification.require_preview);
+    assert!(!artifact.verification.require_export);
+    assert!(!artifact.verification.require_diff_review);
+}
+
+#[test]
 fn places_anchor_phrase_parses_bare_follow_up_prefixes() {
     let context = StudioIntentContext::new("Near Williamsburg, Brooklyn.");
     assert_eq!(
@@ -116,6 +152,34 @@ fn parses_planning_payload_with_renderer_derived_defaults() {
 }
 
 #[test]
+fn parses_html_iframe_payload_with_document_defaults() {
+    let parsed = parse_studio_outcome_planning_payload(
+        r#"{
+            "outcomeKind": "artifact",
+            "confidence": 0.93,
+            "needsClarification": false,
+            "clarificationQuestions": [],
+            "artifact": {
+                "renderer": "html_iframe"
+            }
+        }"#,
+    )
+    .expect("planning payload should derive document defaults for html_iframe");
+
+    let artifact = parsed.artifact.expect("artifact payload");
+    assert_eq!(artifact.renderer, StudioRendererKind::HtmlIframe);
+    assert_eq!(artifact.artifact_class, StudioArtifactClass::Document);
+    assert_eq!(
+        artifact.deliverable_shape,
+        StudioArtifactDeliverableShape::SingleFile
+    );
+    assert_eq!(
+        artifact.execution_substrate,
+        StudioExecutionSubstrate::ClientSandbox
+    );
+}
+
+#[test]
 fn parses_planning_payload_preserves_execution_strategy() {
     let parsed = parse_studio_outcome_planning_payload(
         r#"{
@@ -138,6 +202,47 @@ fn parses_planning_payload_preserves_execution_strategy() {
 }
 
 #[test]
+fn request_grounded_html_document_brief_keeps_interactions_optional() {
+    let request = StudioOutcomeArtifactRequest {
+        artifact_class: StudioArtifactClass::Document,
+        deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
+        renderer: StudioRendererKind::HtmlIframe,
+        presentation_surface: StudioPresentationSurface::SidePanel,
+        persistence: StudioArtifactPersistenceMode::SharedArtifactScoped,
+        execution_substrate: StudioExecutionSubstrate::ClientSandbox,
+        workspace_recipe_id: None,
+        presentation_variant_id: None,
+        scope: StudioOutcomeArtifactScope {
+            target_project: None,
+            create_new_workspace: false,
+            mutation_boundary: vec!["artifact".to_string()],
+        },
+        verification: StudioOutcomeArtifactVerificationRequest {
+            require_render: true,
+            require_build: false,
+            require_preview: false,
+            require_export: false,
+            require_diff_review: false,
+        },
+    };
+
+    let brief = derive_request_grounded_studio_artifact_brief(
+        "Quantum computers",
+        "Create an HTML file that explains quantum computers",
+        &request,
+        None,
+    );
+
+    assert!(brief.required_interactions.is_empty());
+    assert!(brief
+        .query_profile
+        .as_ref()
+        .expect("query profile")
+        .interaction_goals
+        .is_empty());
+}
+
+#[test]
 fn outcome_router_prompt_spells_out_html_vs_jsx_contracts() {
     let prompt = build_studio_outcome_router_prompt(
         "Create an interactive HTML artifact that explains a product rollout with charts",
@@ -153,6 +258,9 @@ fn outcome_router_prompt_spells_out_html_vs_jsx_contracts() {
     );
     assert!(prompt_text.contains("html_iframe = a single self-contained .html document"));
     assert!(prompt_text.contains("jsx_sandbox = a single .jsx source module with a default export"));
+    assert!(prompt_text.contains(
+        "html_iframe uses single_file deliverableShape and client_sandbox executionSubstrate, and may be artifactClass=document"
+    ));
     assert!(prompt_text.contains(
         "Non-workspace artifact renderers should not request build or preview verification."
     ));
@@ -187,6 +295,8 @@ fn outcome_router_prompt_compacts_for_local_runtime() {
     assert!(compact_prompt_text.contains("executionStrategy"));
     assert!(compact_prompt_text.contains("Return exactly one JSON object"));
     assert!(compact_prompt_text.contains("Renderer meanings:"));
+    assert!(compact_prompt_text
+        .contains("html_iframe may be artifactClass=document for plain authored HTML documents"));
     assert!(compact_prompt_text.contains("Defaults are derived from renderer when omitted"));
     assert!(compact_prompt_text.contains(
         "Explicit medium-plus-deliverable requests are sufficiently specified artifact work."
@@ -596,7 +706,7 @@ fn weather_scope_extraction_separates_location_from_temporal_suffix() {
 
 #[test]
 fn weather_current_area_requests_resolve_runtime_locality_without_placeholder_slots() {
-    with_studio_runtime_locality_scope_hint_override(Some("Brooklyn, NY"), || {
+    with_runtime_locality_scope_hint_override(Some("Brooklyn, NY"), || {
         let projection = derive_studio_topology_projection(
             "What's the weather near me tomorrow?",
             None,
@@ -624,7 +734,7 @@ fn weather_current_area_requests_resolve_runtime_locality_without_placeholder_sl
 
 #[test]
 fn places_current_area_requests_resolve_runtime_locality_without_near_me_placeholder() {
-    with_studio_runtime_locality_scope_hint_override(Some("Williamsburg, Brooklyn"), || {
+    with_runtime_locality_scope_hint_override(Some("Williamsburg, Brooklyn"), || {
         let projection = derive_studio_topology_projection(
             "Find coffee shops near me.",
             None,

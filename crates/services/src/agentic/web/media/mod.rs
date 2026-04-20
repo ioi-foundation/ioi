@@ -69,10 +69,8 @@ mod api {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    include!("tests.rs");
-}
+#[path = "tests.rs"]
+mod tests;
 
 include!("types.rs");
 include!("tooling.rs");

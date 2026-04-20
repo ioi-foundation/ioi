@@ -1,4 +1,5 @@
 use super::*;
+use crate::studio::payload::renderer_document_completeness_failure;
 
 pub(super) fn compact_local_html_materialization_request_focus(
     request: &StudioOutcomeArtifactRequest,
@@ -248,23 +249,40 @@ pub(super) fn direct_author_completion_boundary(
     }
 }
 
-pub(super) fn direct_author_document_is_incomplete(
+pub(super) fn direct_author_has_completion_boundary(
     request: &StudioOutcomeArtifactRequest,
     raw: &str,
-    error_message: &str,
 ) -> bool {
     let Some(boundary) = direct_author_completion_boundary(request) else {
         return false;
     };
 
-    if !raw
-        .to_ascii_lowercase()
+    raw.to_ascii_lowercase()
         .contains(&boundary.to_ascii_lowercase())
-    {
-        return true;
+}
+
+pub(super) fn direct_author_document_is_incomplete(
+    request: &StudioOutcomeArtifactRequest,
+    raw: &str,
+    error_message: &str,
+) -> bool {
+    let lower = raw.to_ascii_lowercase();
+
+    match request.renderer {
+        StudioRendererKind::HtmlIframe => {
+            if !(lower.contains("<html") || lower.contains("<!doctype html")) {
+                return true;
+            }
+        }
+        StudioRendererKind::Svg => {
+            if !lower.contains("<svg") {
+                return true;
+            }
+        }
+        _ => {}
     }
 
-    error_message.contains("fully closed </body></html> document")
+    renderer_document_completeness_failure(request.renderer, raw, &lower).is_some()
         || error_message.contains("must contain a closing </svg>")
 }
 
@@ -372,13 +390,25 @@ pub(super) fn studio_direct_author_renderer_guidance(
         }
         StudioRendererKind::HtmlIframe => {
             if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
-                return "- Treat the raw user request as the dominant instruction.\n- Author one concise self-contained index.html with inline CSS and inline JavaScript only.\n- Use standard HTML with <main> and at least three meaningful sections.\n- Keep first-paint content visible before scripts run, and include one real inline interaction that changes visible evidence or explanatory copy.\n- Keep the document request-specific, minimal, and fully closed with </html>."
+                if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
+                    return "- Treat the raw user request as the dominant instruction.\n- Author one concise self-contained index.html with inline CSS and inline JavaScript only.\n- Use standard HTML with <main> and at least three meaningful sections.\n- Put the first actionable controls, the shared response/detail region, and at least two evidence sections near the top of <main> before any long explanatory copy.\n- Keep CSS lean enough that styling does not dominate the response budget.\n- Keep first-paint content visible before scripts run, and include one real inline interaction that changes visible evidence or explanatory copy.\n- After the first complete interactive flow lands, stop instead of expanding into extra stages, repeated explanations, or trailing notes.\n- Keep the document request-specific, minimal, and fully closed with </html>."
+                        .to_string();
+                }
+                return "- Treat the raw user request as the dominant instruction.\n- Author one concise self-contained index.html with inline CSS and minimal inline JavaScript only when it meaningfully improves the document.\n- Use standard HTML with <main> and a few substantive sections that explain the request clearly on first paint.\n- Keep the first screen rich with authored explanation and evidence instead of scaffolding controls that the request did not ask for.\n- Keep CSS lean enough that styling does not dominate the response budget.\n- Stop once the first complete document experience lands instead of expanding into extra stages, fake interactivity, or trailing notes.\n- Keep the document request-specific, minimal, and fully closed with </html>."
                     .to_string();
             }
-            let composition_recipe = match candidate_seed % 3 {
-                0 => "editorial explainer with one strong evidence seam",
-                1 => "guided comparison with visible state changes",
-                _ => "annotated interactive narrative with focused data views",
+            let composition_recipe = if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
+                match candidate_seed % 3 {
+                    0 => "editorial explainer with one strong evidence seam",
+                    1 => "guided comparison with visible state changes",
+                    _ => "annotated interactive narrative with focused data views",
+                }
+            } else {
+                match candidate_seed % 3 {
+                    0 => "editorial explainer with one strong evidence seam",
+                    1 => "guided explainer with supporting comparisons",
+                    _ => "annotated narrative with focused data views",
+                }
             };
             let compact_runtime_note =
                 if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
@@ -386,9 +416,15 @@ pub(super) fn studio_direct_author_renderer_guidance(
                 } else {
                     ""
                 };
-            format!(
-                "- Treat the raw user request as the dominant instruction. Do not translate it into a generic dashboard, control plane, or platform shell.\n- Compose a single self-contained index.html with inline CSS and inline JavaScript only.\n- Use standard HTML, open the body with <main>, and make the first paint complete before any script runs.\n- Follow this composition recipe for variety: {composition_recipe}.\n- If the request implies interaction, make the controls update visible evidence, comparison state, or explanatory copy on the page.\n- Prefer authored diagrams, comparisons, annotations, sceneboards, or guided explanation over app chrome.\n- Keep headings, labels, captions, and evidence specific to the request instead of generic artifact language.\n- Do not use placeholder copy, TODO markers, dead buttons, empty shells, or external libraries.\n{compact_runtime_note}- The artifact should feel authored for this exact request, not interchangeable with nearby prompts."
-            )
+            if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
+                format!(
+                    "- Treat the raw user request as the dominant instruction. Do not translate it into a generic dashboard, control plane, or platform shell.\n- Compose a single self-contained index.html with inline CSS and inline JavaScript only.\n- Use standard HTML, open the body with <main>, and make the first paint complete before any script runs.\n- Follow this composition recipe for variety: {composition_recipe}.\n- If the request implies interaction, make the controls update visible evidence, comparison state, or explanatory copy on the page.\n- Prefer authored diagrams, comparisons, annotations, sceneboards, or guided explanation over app chrome.\n- Keep headings, labels, captions, and evidence specific to the request instead of generic artifact language.\n- Do not use placeholder copy, TODO markers, dead buttons, empty shells, or external libraries.\n{compact_runtime_note}- The artifact should feel authored for this exact request, not interchangeable with nearby prompts."
+                )
+            } else {
+                format!(
+                    "- Treat the raw user request as the dominant instruction. Do not translate it into a generic dashboard, control plane, or platform shell.\n- Compose a single self-contained index.html with inline CSS and only the smallest amount of inline JavaScript needed for polish.\n- Use standard HTML, open the body with <main>, and make the first paint complete before any script runs.\n- Follow this composition recipe for variety: {composition_recipe}.\n- Prefer authored diagrams, comparisons, annotations, sceneboards, or guided explanation over app chrome or unnecessary controls.\n- Keep headings, labels, captions, and evidence specific to the request instead of generic artifact language.\n- Do not add fake interaction, dead buttons, placeholder copy, TODO markers, empty shells, or external libraries.\n{compact_runtime_note}- The artifact should feel authored for this exact request, not interchangeable with nearby prompts."
+                )
+            }
         }
         StudioRendererKind::Svg => {
             "- Treat the raw user request as the dominant instruction.\n- Return only one complete standalone <svg> document with visible labels and enough marks to stand as the primary artifact.\n- Include <title> and <desc> when they help ground the request.\n- Do not wrap the SVG in JSON, prose, or markdown fences."

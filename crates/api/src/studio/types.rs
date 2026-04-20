@@ -577,100 +577,185 @@ impl From<String> for StudioArtifactRuntimeEventStatus {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct StudioArtifactRuntimeNarrationEvent {
-    pub event_id: String,
-    pub event_type: String,
-    #[serde(default)]
-    pub event_type_key: StudioArtifactRuntimeEventType,
-    pub step_id: String,
-    #[serde(default)]
-    pub step_key: StudioArtifactRuntimeStepId,
-    #[serde(default)]
-    pub step_kind: StudioArtifactRuntimeStepKind,
-    #[serde(default)]
-    pub event_kind: String,
-    #[serde(default)]
-    pub event_kind_key: StudioArtifactRuntimeEventKind,
-    #[serde(default)]
-    pub attempt_id: Option<String>,
-    pub title: String,
-    pub detail: String,
-    pub status: String,
-    #[serde(default)]
-    pub status_kind: StudioArtifactRuntimeEventStatus,
-    pub occurred_at_ms: u64,
-    #[serde(default)]
-    pub origin_prompt_event_id: Option<String>,
-    #[serde(default)]
-    pub preview: Option<StudioArtifactRuntimePreviewSnapshot>,
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactOperatorRunMode {
+    #[default]
+    Create,
+    Edit,
 }
 
-impl StudioArtifactRuntimeNarrationEvent {
-    pub fn new(
-        event_type: impl Into<StudioArtifactRuntimeEventType>,
-        step_id: impl Into<StudioArtifactRuntimeStepId>,
-        title: impl Into<String>,
-        detail: impl Into<String>,
-        status: impl Into<StudioArtifactRuntimeEventStatus>,
-    ) -> Self {
-        use std::sync::atomic::{AtomicU64, Ordering};
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactOperatorRunStatus {
+    Pending,
+    Active,
+    Complete,
+    Blocked,
+    Failed,
+    #[default]
+    Other,
+}
 
-        static STUDIO_RUNTIME_EVENT_COUNTER: AtomicU64 = AtomicU64::new(1);
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StudioArtifactOperatorPhase {
+    UnderstandRequest,
+    RouteArtifact,
+    ReopenArtifactContext,
+    SearchSources,
+    ReadSources,
+    AuthorArtifact,
+    InspectArtifact,
+    VerifyArtifact,
+    RepairArtifact,
+    PresentArtifact,
+    #[default]
+    Other,
+}
 
-        let occurred_at_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|duration| duration.as_millis() as u64)
-            .unwrap_or_default();
-        let event_type = event_type.into();
-        let step_key = step_id.into();
-        let step_kind = step_key.phase_kind();
-        let status = status.into();
-        let event_sequence = STUDIO_RUNTIME_EVENT_COUNTER.fetch_add(1, Ordering::SeqCst);
-        Self {
-            event_id: format!("{}:{occurred_at_ms}:{event_sequence}", event_type.as_str()),
-            event_type: event_type.as_str().to_string(),
-            event_type_key: event_type,
-            step_id: step_key.as_str().to_string(),
-            step_key,
-            step_kind,
-            event_kind: StudioArtifactRuntimeEventKind::Step.as_str().to_string(),
-            event_kind_key: StudioArtifactRuntimeEventKind::Step,
-            attempt_id: None,
-            title: title.into(),
-            detail: detail.into(),
-            status: status.as_str().to_string(),
-            status_kind: status,
-            occurred_at_ms,
-            origin_prompt_event_id: None,
-            preview: None,
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactOperatorPreview {
+    #[serde(default)]
+    pub origin_prompt_event_id: String,
+    pub label: String,
+    pub content: String,
+    pub status: String,
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub language: Option<String>,
+    #[serde(default)]
+    pub is_final: bool,
+}
 
-    pub fn with_attempt_id(mut self, attempt_id: impl Into<String>) -> Self {
-        self.attempt_id = Some(attempt_id.into());
-        self
-    }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactSourceReference {
+    pub source_id: String,
+    #[serde(default)]
+    pub origin_prompt_event_id: String,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub domain: Option<String>,
+    #[serde(default)]
+    pub excerpt: Option<String>,
+    #[serde(default)]
+    pub retrieved_at_ms: Option<u64>,
+    #[serde(default)]
+    pub freshness: Option<String>,
+    #[serde(default)]
+    pub reason: String,
+}
 
-    pub fn with_preview_snapshot(mut self, preview: StudioArtifactRuntimePreviewSnapshot) -> Self {
-        self.event_kind = StudioArtifactRuntimeEventKind::Preview.as_str().to_string();
-        self.event_kind_key = StudioArtifactRuntimeEventKind::Preview;
-        self.preview = Some(preview);
-        self
-    }
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactSourcePack {
+    #[serde(default)]
+    pub summary: String,
+    #[serde(default)]
+    pub items: Vec<StudioArtifactSourceReference>,
+}
 
-    pub fn with_origin_prompt_event_id(
-        mut self,
-        origin_prompt_event_id: impl Into<String>,
-    ) -> Self {
-        let origin_prompt_event_id = origin_prompt_event_id.into();
-        self.origin_prompt_event_id = Some(origin_prompt_event_id.clone());
-        if let Some(preview) = self.preview.as_mut() {
-            preview.origin_prompt_event_id = Some(origin_prompt_event_id);
-        }
-        self
-    }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactFileRef {
+    pub file_id: String,
+    #[serde(default)]
+    pub origin_prompt_event_id: String,
+    pub path: String,
+    pub role: StudioArtifactFileRole,
+    pub mime: String,
+    #[serde(default)]
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactVerificationRef {
+    pub verification_id: String,
+    #[serde(default)]
+    pub origin_prompt_event_id: String,
+    pub family: String,
+    pub status: String,
+    pub summary: String,
+    #[serde(default)]
+    pub detail: Option<String>,
+    #[serde(default)]
+    pub selector: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactVerificationOutcome {
+    #[serde(default)]
+    pub status: StudioArtifactOperatorRunStatus,
+    pub summary: String,
+    #[serde(default)]
+    pub required_obligation_count: usize,
+    #[serde(default)]
+    pub cleared_obligation_count: usize,
+    #[serde(default)]
+    pub failed_obligation_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactOperatorStep {
+    pub step_id: String,
+    #[serde(default)]
+    pub origin_prompt_event_id: String,
+    #[serde(default)]
+    pub phase: StudioArtifactOperatorPhase,
+    pub engine: String,
+    #[serde(default)]
+    pub status: StudioArtifactOperatorRunStatus,
+    pub label: String,
+    pub detail: String,
+    pub started_at_ms: u64,
+    #[serde(default)]
+    pub finished_at_ms: Option<u64>,
+    #[serde(default)]
+    pub preview: Option<StudioArtifactOperatorPreview>,
+    #[serde(default)]
+    pub file_refs: Vec<StudioArtifactFileRef>,
+    #[serde(default)]
+    pub source_refs: Vec<StudioArtifactSourceReference>,
+    #[serde(default)]
+    pub verification_refs: Vec<StudioArtifactVerificationRef>,
+    #[serde(default)]
+    pub attempt: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StudioArtifactOperatorRun {
+    pub run_id: String,
+    #[serde(default)]
+    pub origin_prompt_event_id: String,
+    pub artifact_session_id: String,
+    #[serde(default)]
+    pub mode: StudioArtifactOperatorRunMode,
+    #[serde(default)]
+    pub status: StudioArtifactOperatorRunStatus,
+    pub started_at_ms: u64,
+    #[serde(default)]
+    pub finished_at_ms: Option<u64>,
+    pub engine_summary: String,
+    #[serde(default)]
+    pub source_pack: StudioArtifactSourcePack,
+    #[serde(default)]
+    pub steps: Vec<StudioArtifactOperatorStep>,
+    #[serde(default)]
+    pub final_artifacts: Vec<StudioArtifactFileRef>,
+    #[serde(default)]
+    pub verification_outcome: Option<StudioArtifactVerificationOutcome>,
+    #[serde(default)]
+    pub repair_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -737,6 +822,32 @@ pub struct StudioArtifactBrief {
     pub style_directives: Vec<String>,
     #[serde(default)]
     pub reference_hints: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactConnectorGrounding {
+    #[serde(default)]
+    pub connector_id: Option<String>,
+    #[serde(default)]
+    pub provider_family: Option<String>,
+    #[serde(default)]
+    pub target_label: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactRetrievalPlan {
+    pub normalized_topic: String,
+    #[serde(default)]
+    pub queries: Vec<String>,
+    #[serde(default)]
+    pub desired_source_kinds: Vec<String>,
+    #[serde(default)]
+    pub avoid_source_kinds: Vec<String>,
+    #[serde(default)]
+    pub freshness_mode: Option<String>,
+    pub reason: String,
 }
 
 impl StudioArtifactBrief {
@@ -1156,6 +1267,8 @@ pub struct StudioArtifactPreparedContextResolution {
     #[serde(default)]
     pub exemplar_count: u32,
     #[serde(default)]
+    pub source_count: u32,
+    #[serde(default)]
     pub selected_skill_names: Vec<String>,
 }
 
@@ -1209,6 +1322,8 @@ pub struct StudioArtifactPlanningContext {
     pub selected_skills: Vec<StudioArtifactSelectedSkill>,
     #[serde(default)]
     pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    #[serde(default)]
+    pub retrieved_sources: Vec<StudioArtifactSourceReference>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -1457,6 +1572,8 @@ pub struct StudioArtifactGenerationProgress {
     #[serde(default)]
     pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
     #[serde(default)]
+    pub retrieved_sources: Vec<StudioArtifactSourceReference>,
+    #[serde(default)]
     pub execution_envelope: Option<ExecutionEnvelope>,
     #[serde(default)]
     pub swarm_plan: Option<SwarmPlan>,
@@ -1475,7 +1592,7 @@ pub struct StudioArtifactGenerationProgress {
     #[serde(default)]
     pub validation: Option<StudioArtifactValidationResult>,
     #[serde(default)]
-    pub runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
+    pub operator_steps: Vec<StudioArtifactOperatorStep>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

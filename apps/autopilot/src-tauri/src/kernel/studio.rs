@@ -3,6 +3,7 @@ use crate::kernel::events::build_event;
 mod content_session;
 mod manifest;
 mod materialization;
+mod operator_run;
 mod pipeline;
 mod prepare;
 mod presentation;
@@ -10,6 +11,7 @@ mod proof;
 mod revisions;
 mod selection;
 mod skills;
+mod source_research;
 mod task_state;
 mod workspace_build;
 mod workspace_scaffold;
@@ -30,7 +32,7 @@ use self::materialization::blocked_materialized_artifact_from_error;
 use self::materialization::*;
 #[cfg(test)]
 use self::pipeline::pipeline_steps_for_state;
-use self::pipeline::{build_command_intents, refresh_pipeline_steps, verification_step};
+use self::pipeline::{build_command_intents, refresh_pipeline_steps};
 pub use self::prepare::{
     maybe_prepare_current_task_for_studio_turn, maybe_prepare_task_for_studio,
 };
@@ -85,12 +87,12 @@ use crate::orchestrator;
 use ioi_api::studio::materialize_studio_artifact_with_runtime;
 #[cfg(test)]
 use ioi_api::studio::pdf_artifact_bytes;
+use ioi_api::studio::StudioArtifactOperatorStep;
 use ioi_api::studio::{
     plan_studio_outcome_with_runtime, StudioArtifactBrief, StudioArtifactCandidateSummary,
     StudioArtifactEditIntent, StudioArtifactEditMode, StudioArtifactOutputOrigin,
-    StudioArtifactRefinementContext, StudioArtifactRuntimeNarrationEvent,
-    StudioArtifactSelectionTarget, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
-    StudioArtifactValidationResult,
+    StudioArtifactRefinementContext, StudioArtifactSelectionTarget, StudioArtifactTasteMemory,
+    StudioArtifactUxLifecycle, StudioArtifactValidationResult,
 };
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_memory::MemoryRuntime;
@@ -122,28 +124,8 @@ const BUILD_LENSES_READY: &[&str] = &[
     "ports",
 ];
 
-fn merge_runtime_narration_events(
-    existing: &mut Vec<StudioArtifactRuntimeNarrationEvent>,
-    incoming: &[StudioArtifactRuntimeNarrationEvent],
-) {
-    for event in incoming {
-        if existing
-            .iter()
-            .any(|candidate| candidate.event_id == event.event_id)
-        {
-            continue;
-        }
-        existing.push(event.clone());
-    }
-    existing.sort_by(|left, right| {
-        left.occurred_at_ms
-            .cmp(&right.occurred_at_ms)
-            .then_with(|| left.event_id.cmp(&right.event_id))
-    });
-}
-
-fn assign_runtime_narration_event_origin(
-    event: &mut StudioArtifactRuntimeNarrationEvent,
+fn assign_operator_step_origin(
+    step: &mut StudioArtifactOperatorStep,
     origin_prompt_event_id: Option<&str>,
 ) {
     let Some(origin_prompt_event_id) = origin_prompt_event_id.map(str::trim) else {
@@ -152,22 +134,37 @@ fn assign_runtime_narration_event_origin(
     if origin_prompt_event_id.is_empty() {
         return;
     }
-    if event.origin_prompt_event_id.is_none() {
-        event.origin_prompt_event_id = Some(origin_prompt_event_id.to_string());
+    if step.origin_prompt_event_id.trim().is_empty() {
+        step.origin_prompt_event_id = origin_prompt_event_id.to_string();
     }
-    if let Some(preview) = event.preview.as_mut() {
-        if preview.origin_prompt_event_id.is_none() {
-            preview.origin_prompt_event_id = Some(origin_prompt_event_id.to_string());
+    if let Some(preview) = step.preview.as_mut() {
+        if preview.origin_prompt_event_id.trim().is_empty() {
+            preview.origin_prompt_event_id = origin_prompt_event_id.to_string();
+        }
+    }
+    for source_ref in &mut step.source_refs {
+        if source_ref.origin_prompt_event_id.trim().is_empty() {
+            source_ref.origin_prompt_event_id = origin_prompt_event_id.to_string();
+        }
+    }
+    for file_ref in &mut step.file_refs {
+        if file_ref.origin_prompt_event_id.trim().is_empty() {
+            file_ref.origin_prompt_event_id = origin_prompt_event_id.to_string();
+        }
+    }
+    for verification_ref in &mut step.verification_refs {
+        if verification_ref.origin_prompt_event_id.trim().is_empty() {
+            verification_ref.origin_prompt_event_id = origin_prompt_event_id.to_string();
         }
     }
 }
 
-fn assign_runtime_narration_events_origin(
-    events: &mut [StudioArtifactRuntimeNarrationEvent],
+fn assign_operator_steps_origin(
+    steps: &mut [StudioArtifactOperatorStep],
     origin_prompt_event_id: Option<&str>,
 ) {
-    for event in events {
-        assign_runtime_narration_event_origin(event, origin_prompt_event_id);
+    for step in steps {
+        assign_operator_step_origin(step, origin_prompt_event_id);
     }
 }
 
@@ -182,8 +179,8 @@ fn assign_studio_session_turn_ownership(
         return;
     }
     session.origin_prompt_event_id = Some(origin_prompt_event_id.to_string());
-    assign_runtime_narration_events_origin(
-        &mut session.materialization.runtime_narration_events,
+    assign_operator_steps_origin(
+        &mut session.materialization.operator_steps,
         Some(origin_prompt_event_id),
     );
 }

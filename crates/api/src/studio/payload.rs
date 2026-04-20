@@ -1693,13 +1693,10 @@ pub fn validate_generated_artifact_payload(
                 return Err(failure.to_string());
             }
             if studio_modal_first_html_enabled() {
-                if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
-                    && !contains_html_interaction_hooks(&lower)
+                if let Some(failure) =
+                    modal_first_html_interaction_contract_failure(request, &lower)
                 {
-                    return Err(
-                        "Interactive HTML iframe artifacts must contain real interactive controls or handlers."
-                            .to_string(),
-                    );
+                    return Err(failure.to_string());
                 }
                 return Ok(());
             }
@@ -1862,7 +1859,7 @@ pub fn validate_generated_artifact_payload(
     Ok(())
 }
 
-fn renderer_document_completeness_failure(
+pub(crate) fn renderer_document_completeness_failure(
     renderer: StudioRendererKind,
     document: &str,
     lower: &str,
@@ -1875,9 +1872,6 @@ fn renderer_document_completeness_failure(
 }
 
 fn html_document_completeness_failure<'a>(html: &'a str, lower: &'a str) -> Option<&'static str> {
-    if !lower.contains("</body>") || !lower.contains("</html>") {
-        return Some("HTML iframe artifacts must contain a fully closed </body></html> document.");
-    }
     if lower.contains("<main") && !lower.contains("</main>") {
         return Some("HTML iframe artifacts must contain a closed <main> region.");
     }
@@ -1975,7 +1969,11 @@ fn html_is_void_tag(tag_name: &str) -> bool {
 fn html_has_optional_closing_behavior(tag_name: &str) -> bool {
     matches!(
         tag_name,
-        "p" | "li"
+        "html"
+            | "head"
+            | "body"
+            | "p"
+            | "li"
             | "dt"
             | "dd"
             | "option"
@@ -2197,7 +2195,7 @@ fn repair_primary_html_body_from_raw_output(
     primary_html.body = extracted_html;
 }
 
-fn synthesize_generated_artifact_payload_from_raw_document(
+pub(crate) fn synthesize_generated_artifact_payload_from_raw_document(
     raw: &str,
     request: &StudioOutcomeArtifactRequest,
 ) -> Option<StudioGeneratedArtifactPayload> {
@@ -2221,7 +2219,7 @@ fn synthesize_generated_artifact_payload_from_raw_document(
     })
 }
 
-fn extract_authored_html_document(raw: &str) -> Option<String> {
+pub(crate) fn extract_authored_html_document(raw: &str) -> Option<String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return None;
@@ -2279,7 +2277,10 @@ fn extract_authored_svg_document(raw: &str) -> Option<String> {
     Some(extracted.to_string())
 }
 
-fn extract_authored_document_body(raw: &str, renderer: StudioRendererKind) -> Option<String> {
+pub(crate) fn extract_authored_document_body(
+    raw: &str,
+    renderer: StudioRendererKind,
+) -> Option<String> {
     match renderer {
         StudioRendererKind::HtmlIframe => extract_authored_html_document(raw),
         StudioRendererKind::Svg => extract_authored_svg_document(raw),
@@ -2353,6 +2354,36 @@ fn direct_authored_document_summary(renderer: StudioRendererKind) -> &'static st
         StudioRendererKind::PdfEmbed => "PDF artifact",
         _ => "Document artifact",
     }
+}
+
+fn modal_first_html_interaction_contract_failure(
+    request: &StudioOutcomeArtifactRequest,
+    lower: &str,
+) -> Option<&'static str> {
+    if request.artifact_class != StudioArtifactClass::InteractiveSingleFile {
+        return None;
+    }
+
+    if !contains_html_interaction_hooks(lower) {
+        return Some(
+            "Interactive HTML iframe artifacts must contain real interactive controls or handlers.",
+        );
+    }
+
+    let uses_native_details_toggle = lower.contains("<details") && lower.contains("<summary");
+    if !uses_native_details_toggle && !html_contains_stateful_interaction_behavior(lower) {
+        return Some(
+            "Interactive HTML iframe artifacts must update on-page state or shared detail, not only surface inert controls.",
+        );
+    }
+
+    if html_interactions_are_navigation_only(lower) {
+        return Some(
+            "Interactive HTML iframe artifacts must update on-page state or shared detail, not only scroll, jump, or log.",
+        );
+    }
+
+    None
 }
 
 fn direct_authored_document_mime(renderer: StudioRendererKind) -> Option<&'static str> {
@@ -2838,7 +2869,7 @@ pub(crate) fn enrich_generated_artifact_payload(
     }
 }
 
-fn renderer_primary_view_contract_failure(
+pub(crate) fn renderer_primary_view_contract_failure(
     request: &StudioOutcomeArtifactRequest,
     brief: &StudioArtifactBrief,
     candidate: &StudioGeneratedArtifactPayload,
@@ -2860,7 +2891,11 @@ fn renderer_primary_view_contract_failure(
     match request.renderer {
         StudioRendererKind::HtmlIframe => {
             if studio_modal_first_html_enabled() {
-                return None;
+                if let Some(failure) =
+                    modal_first_html_interaction_contract_failure(request, &lower)
+                {
+                    return Some(failure);
+                }
             }
             let response_regions = count_populated_html_response_regions(&lower);
             let evidence_surfaces = count_populated_html_evidence_regions(&lower)
@@ -2897,6 +2932,11 @@ fn renderer_primary_view_contract_failure(
                 && evidence_surfaces < 2
             {
                 Some("HTML state switching does not keep enough authored evidence surfaces available on first paint.")
+            } else if request.artifact_class == StudioArtifactClass::InteractiveSingleFile
+                && required_interaction_goals >= 2
+                && actionable_affordances < 2
+            {
+                Some("HTML multi-step interaction briefs must surface at least two actionable controls on first paint.")
             } else if html_contains_unlabeled_chart_svg_regions(&lower) {
                 Some("HTML chart SVG regions are unlabeled on first paint.")
             } else if html_contains_placeholder_svg_regions(&lower) {

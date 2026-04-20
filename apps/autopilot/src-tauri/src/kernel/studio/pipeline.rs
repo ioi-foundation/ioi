@@ -1,8 +1,8 @@
 use crate::models::{
     BuildArtifactSession, StudioArtifactLifecycleState, StudioArtifactManifest,
     StudioArtifactMaterializationCommandIntent, StudioArtifactMaterializationContract,
-    StudioArtifactMaterializationVerificationStep, StudioArtifactPipelineStep,
-    StudioArtifactSession, StudioOutcomeArtifactRequest, StudioOutcomeKind, StudioRendererKind,
+    StudioArtifactPipelineStep, StudioArtifactSession, StudioOutcomeArtifactRequest,
+    StudioOutcomeKind, StudioRendererKind,
 };
 use ioi_api::studio::{
     ExecutionStage, StudioArtifactTasteMemory, StudioArtifactValidationStatus,
@@ -13,19 +13,6 @@ use ioi_types::app::StudioExecutionStrategy;
 use super::{
     artifact_class_id_for_request, persistence_mode_id, presentation_surface_id, renderer_kind_id,
 };
-
-pub(super) fn verification_step(
-    id: &str,
-    label: &str,
-    status: &str,
-) -> StudioArtifactMaterializationVerificationStep {
-    StudioArtifactMaterializationVerificationStep {
-        id: id.to_string(),
-        label: label.to_string(),
-        kind: id.to_string(),
-        status: status.to_string(),
-    }
-}
 
 fn pipeline_step(
     id: &str,
@@ -736,11 +723,19 @@ pub(super) fn pipeline_steps_for_state(
         }
         outputs
     };
-    let mut verification_outputs = if !materialization.verification_steps.is_empty() {
+    let mut verification_outputs = if !materialization.operator_steps.is_empty() {
         materialization
-            .verification_steps
+            .operator_steps
             .iter()
-            .map(|step| format!("{} ({})", step.label, step.status))
+            .filter(|step| {
+                matches!(
+                    step.phase,
+                    ioi_api::studio::StudioArtifactOperatorPhase::VerifyArtifact
+                        | ioi_api::studio::StudioArtifactOperatorPhase::InspectArtifact
+                        | ioi_api::studio::StudioArtifactOperatorPhase::PresentArtifact
+                )
+            })
+            .map(|step| format!("{} ({:?})", step.label, step.status))
             .collect::<Vec<_>>()
     } else {
         vec![manifest.verification.summary.clone()]

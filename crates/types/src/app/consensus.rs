@@ -38,10 +38,8 @@ mod collapse {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    include!("consensus/tests.rs");
-}
+#[path = "consensus/tests.rs"]
+mod tests;
 
 mod messages {
     use super::*;

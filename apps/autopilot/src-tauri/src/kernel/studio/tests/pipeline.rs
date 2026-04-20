@@ -34,6 +34,7 @@ fn pipeline_steps_for_ready_markdown_artifact_are_complete() {
             skill_need_count: 0,
             selected_skill_count: 0,
             exemplar_count: 0,
+            source_count: 0,
             selected_skill_names: Vec::new(),
         });
     materialization.skill_discovery_resolution =

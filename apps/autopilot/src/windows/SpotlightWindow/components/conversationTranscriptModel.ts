@@ -1,6 +1,7 @@
 import type {
   ActivityEventRef,
   PlanSummary,
+  SourceSummary,
   StudioArtifactSession,
   ToolActivityGroupPresentation,
   ToolActivityRow,
@@ -101,8 +102,26 @@ function rowStatusFromEvent(entry: ActivityEventRef): ToolActivityStatus {
 
 type TurnActivityEntry = ToolActivityRow & {
   sortOrder: number;
-  source: "receipt" | "runtime" | "artifact";
+  phaseOrder: number;
+  source: "receipt" | "runtime" | "artifact" | "operator";
 };
+
+const OPERATOR_PHASE_ORDER: Record<string, number> = {
+  understand_request: 100,
+  route_artifact: 200,
+  search_sources: 300,
+  read_sources: 400,
+  author_artifact: 500,
+  repair_artifact: 550,
+  inspect_artifact: 600,
+  verify_artifact: 700,
+  present_artifact: 800,
+};
+
+function operatorPhaseOrder(phase: string | null | undefined): number {
+  const normalized = String(phase || "").trim().toLowerCase();
+  return OPERATOR_PHASE_ORDER[normalized] ?? 9_000;
+}
 
 type BuildTurnToolActivityOptions = {
   defaultOpen?: boolean;
@@ -122,6 +141,7 @@ function artifactPreviewRow(
     preview: null,
     sourceUrl: null,
     sortOrder: 9_900,
+    phaseOrder: 9_900,
     source: "artifact",
   };
 }
@@ -147,6 +167,7 @@ function artifactVerificationRow(
     preview: null,
     sourceUrl: null,
     sortOrder: 9_800,
+    phaseOrder: 9_800,
     source: "artifact",
   };
 }
@@ -163,68 +184,36 @@ function appendRow(
   rows.push(row);
 }
 
-function runtimeEventKind(
-  event: NonNullable<StudioArtifactSession["materialization"]["runtimeNarrationEvents"]>[number],
-): string {
-  return String(event.eventKindKey || event.eventKind || "").trim().toLowerCase();
-}
-
-function runtimeEventStepKey(
-  event: NonNullable<StudioArtifactSession["materialization"]["runtimeNarrationEvents"]>[number],
-): string {
-  return String(event.stepKey || event.stepId || "").trim().toLowerCase();
-}
-
-function runtimeEventStatus(
-  event: NonNullable<StudioArtifactSession["materialization"]["runtimeNarrationEvents"]>[number],
-): ToolActivityStatus {
-  const status = String(event.statusKind || event.status || "").trim().toLowerCase();
-  if (status === "active" || status === "pending") {
+function operatorStepStatus(value: string | null | undefined): ToolActivityStatus {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (
+    normalized === "active"
+    || normalized === "pending"
+    || normalized === "other"
+  ) {
     return "active";
   }
-  if (status === "blocked" || status === "failed" || status === "interrupted") {
+  if (normalized === "blocked" || normalized === "failed") {
     return "blocked";
   }
   return "complete";
 }
 
-function runtimeStepSortOrder(stepKey: string): number {
-  switch (stepKey) {
-    case "understand_request":
-      return 100;
-    case "artifact_route_committed":
-      return 200;
-    case "skill_discovery":
-      return 300;
-    case "skill_read":
-      return 350;
-    case "artifact_brief":
-      return 400;
-    case "author_artifact":
-      return 500;
-    case "replan_execution":
-      return 550;
-    case "verify_artifact":
-      return 700;
-    case "present_artifact":
-      return 900;
-    default:
-      return 1_000;
-  }
-}
-
-function runtimeStepKind(stepKey: string): ToolActivityKind {
-  switch (stepKey) {
+function operatorStepKind(phase: string | null | undefined): ToolActivityKind {
+  switch (String(phase || "").trim().toLowerCase()) {
     case "understand_request":
       return "understand";
-    case "artifact_route_committed":
+    case "route_artifact":
       return "route";
-    case "skill_discovery":
-    case "skill_read":
-    case "artifact_brief":
-      return "guidance";
+    case "search_sources":
+      return "search";
+    case "read_sources":
+      return "read";
     case "author_artifact":
+    case "repair_artifact":
       return "write";
+    case "inspect_artifact":
+      return "inspect";
     case "verify_artifact":
       return "verify";
     case "present_artifact":
@@ -234,182 +223,182 @@ function runtimeStepKind(stepKey: string): ToolActivityKind {
   }
 }
 
-function artifactPrimaryPath(
-  studioSession: StudioArtifactSession | null | undefined,
+function operatorStepPreview(
+  step: NonNullable<StudioArtifactSession["activeOperatorRun"]>["steps"][number],
 ): string | null {
-  if (!studioSession) {
-    return null;
+  if (step.preview?.content?.trim()) {
+    return step.preview.content.trim();
   }
-  const primaryFile =
-    studioSession.artifactManifest.files.find(
-      (file) => file.path === studioSession.artifactManifest.primaryTab,
-    ) ||
-    studioSession.artifactManifest.files.find(
-      (file) => file.renderable && typeof file.path === "string",
-    ) ||
-    studioSession.artifactManifest.files[0];
-  return typeof primaryFile?.path === "string" ? primaryFile.path : null;
+
+  if (step.sourceRefs.length > 0) {
+    const lines = step.sourceRefs
+      .slice(0, 6)
+      .map((source) => source.excerpt?.trim() || source.title.trim())
+      .filter((line) => line.length > 0);
+    if (lines.length > 0) {
+      return lines.join("\n");
+    }
+  }
+
+  if (step.verificationRefs.length > 0) {
+    const lines = step.verificationRefs
+      .slice(0, 6)
+      .map((verification) =>
+        verification.detail?.trim()
+          ? `${verification.summary}\n${verification.detail}`
+          : verification.summary,
+      )
+      .filter((line) => line.trim().length > 0);
+    if (lines.length > 0) {
+      return lines.join("\n\n");
+    }
+  }
+
+  return null;
 }
 
-function runtimeStepLabel(
-  stepKey: string,
-  event: NonNullable<StudioArtifactSession["materialization"]["runtimeNarrationEvents"]>[number],
-  studioSession: StudioArtifactSession | null,
-): string {
-  const authorTarget = artifactPrimaryPath(studioSession);
-  const authorLabel = authorTarget ? basename(authorTarget) : "artifact";
+function operatorStepSourceSummary(
+  step: NonNullable<StudioArtifactSession["activeOperatorRun"]>["steps"][number],
+  stepIndex: number,
+): SourceSummary | null {
+  const sourceUrls = new Set<string>();
+  const domainCounts = new Map<string, number>();
+  const browses: SourceSummary["browses"] = [];
 
-  switch (stepKey) {
-    case "understand_request":
-      return "Understand request";
-    case "artifact_route_committed":
-      return "Route to artifact";
-    case "skill_discovery":
-      return event.title || "Check for guidance";
-    case "skill_read":
-      return event.title || "Read guidance";
-    case "artifact_brief":
-      return event.title || "Shape artifact brief";
-    case "author_artifact":
-      return runtimeEventStatus(event) === "complete"
-        ? `Wrote ${authorLabel}`
-        : `Write ${authorLabel}`;
-    case "replan_execution":
-      return event.title || "Switch execution strategy";
-    case "verify_artifact":
-      return "Verify artifact";
-    case "present_artifact":
-      return runtimeEventStatus(event) === "blocked" ? "Present artifact" : "Open preview";
-    default:
-      return event.title || "Artifact step";
-  }
-}
-
-function renderEvaluationDetail(
-  studioSession: StudioArtifactSession | null,
-  planSummary: PlanSummary | null,
-): {
-  status: ToolActivityStatus;
-  detail: string | null;
-} | null {
-  const renderEvaluation = studioSession?.materialization.renderEvaluation;
-  if (renderEvaluation) {
-    const failedObligation = renderEvaluation.acceptanceObligations.find(
-      (obligation) =>
-        obligation.required
-        && (obligation.status === "failed" || obligation.status === "blocked"),
-    );
-    if (failedObligation) {
-      const witnessSummary = renderEvaluation.executionWitnesses
-        .filter((witness) => witness.status === "failed" || witness.status === "blocked")
-        .slice(0, 2)
-        .map((witness) => witness.summary.trim())
-        .filter(Boolean)
-        .join("\n");
-      const detail = [failedObligation.summary, failedObligation.detail, witnessSummary]
-        .filter((value): value is string => !!value && value.trim().length > 0)
-        .join("\n");
-      return {
-        status: "blocked",
-        detail,
-      };
+  for (const source of step.sourceRefs) {
+    const url = firstStringValue(source.url);
+    if (!url) {
+      continue;
     }
-
-    if (renderEvaluation.summary.trim()) {
-      return {
-        status: "complete",
-        detail: renderEvaluation.summary.trim(),
-      };
-    }
-  }
-
-  const quality = planSummary?.artifactQuality;
-  if (!quality) {
-    return null;
-  }
-
-  return {
-    status: quality.verdict === "blocked" ? "blocked" : "complete",
-    detail:
-      quality.notes?.trim()
-      || `Fidelity ${quality.fidelityStatus}. Presentation ${quality.presentationStatus}.`,
-  };
-}
-
-function buildRuntimeActivityRows(
-  studioSession: StudioArtifactSession | null | undefined,
-  planSummary: PlanSummary | null,
-): TurnActivityEntry[] {
-  if (!studioSession) {
-    return [];
-  }
-
-  const entries = new Map<string, TurnActivityEntry>();
-  const runtimeNarrationEvents = [...studioSession.materialization.runtimeNarrationEvents].sort(
-    (left, right) =>
-      (left.occurredAtMs || 0) - (right.occurredAtMs || 0)
-      || String(left.eventId || "").localeCompare(String(right.eventId || "")),
-  );
-
-  runtimeNarrationEvents.forEach((event, index) => {
-    const stepKey = runtimeEventStepKey(event);
-    if (!stepKey) {
-      return;
-    }
-    const key = `runtime:${studioSession.sessionId}:${stepKey}:${event.attemptId || "base"}`;
-    const existing = entries.get(key);
-    const next: TurnActivityEntry = existing || {
-      key,
-      kind: runtimeStepKind(stepKey),
-      status: runtimeEventStatus(event),
-      stepIndex: index,
-      label: runtimeStepLabel(stepKey, event, studioSession),
-      detail: null,
-      preview: null,
-      sourceUrl: null,
-      sortOrder: runtimeStepSortOrder(stepKey) + index,
-      source: "runtime",
-    };
-
-    next.kind = runtimeStepKind(stepKey);
-    next.status = runtimeEventStatus(event);
-    next.label = runtimeStepLabel(stepKey, event, studioSession);
-    next.detail = event.detail?.trim() || next.detail;
-
-    if (runtimeEventKind(event) === "preview" && event.preview?.content?.trim()) {
-      next.preview = event.preview.content;
-      if (!next.detail && event.detail?.trim()) {
-        next.detail = event.detail.trim();
-      }
-    }
-
-    entries.set(key, next);
-  });
-
-  const verifyDetail = renderEvaluationDetail(studioSession, planSummary);
-  const verifyKey = `runtime:${studioSession.sessionId}:verify_artifact:base`;
-  if (verifyDetail) {
-    const existingVerify = entries.get(verifyKey);
-    if (existingVerify) {
-      existingVerify.status = verifyDetail.status;
-      existingVerify.detail = verifyDetail.detail;
-    } else {
-      entries.set(verifyKey, {
-        key: verifyKey,
-        kind: "verify",
-        status: verifyDetail.status,
-        stepIndex: Number.MAX_SAFE_INTEGER - 2,
-        label: "Verify artifact",
-        detail: verifyDetail.detail,
-        preview: null,
-        sourceUrl: null,
-        sortOrder: runtimeStepSortOrder("verify_artifact"),
-        source: "runtime",
+    if (!sourceUrls.has(url)) {
+      sourceUrls.add(url);
+      const domain =
+        firstStringValue(source.domain) || normalizedDomain(url) || "unknown";
+      domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
+      browses.push({
+        url,
+        domain,
+        title: firstStringValue(source.title) || undefined,
+        stepIndex,
       });
     }
   }
 
-  return Array.from(entries.values());
+  if (sourceUrls.size === 0) {
+    return null;
+  }
+
+  const domains = Array.from(domainCounts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([domain, count]) => ({
+      domain,
+      count,
+      faviconUrl: `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(domain)}`,
+    }));
+
+  return {
+    totalSources: sourceUrls.size,
+    sourceUrls: Array.from(sourceUrls),
+    domains,
+    searches: [],
+    browses,
+  };
+}
+
+function sourceQueryFromReason(reason: string | null | undefined): string | null {
+  const raw = String(reason || "").trim();
+  if (!raw) {
+    return null;
+  }
+  const quoted = raw.match(/for "([^"]+)"/i);
+  if (quoted?.[1]?.trim()) {
+    return quoted[1].trim();
+  }
+  return null;
+}
+
+function buildOperatorActivityRows(
+  studioSession: StudioArtifactSession | null | undefined,
+): TurnActivityEntry[] {
+  const operatorRun = studioSession?.activeOperatorRun;
+  if (!studioSession || !operatorRun) {
+    return [];
+  }
+
+  const rows: TurnActivityEntry[] = [];
+  operatorRun.steps.forEach((step, index) => {
+    const sourceSummary =
+      operatorStepStatus(step.status) === "active"
+        ? operatorStepSourceSummary(step, index)
+        : null;
+    const phase = String(step.phase || "").trim().toLowerCase();
+    const phaseOrder = operatorPhaseOrder(phase);
+    if (phase === "search_sources") {
+      const query =
+        step.sourceRefs
+          .map((source) => sourceQueryFromReason(source.reason))
+          .find((value): value is string => !!value)
+        || sourceQueryFromReason(step.detail)
+        || sourceQueryFromReason(step.label);
+      rows.push({
+        key: step.stepId,
+        kind: operatorStepKind(step.phase),
+        status: operatorStepStatus(step.status),
+        stepIndex: index,
+        label: query ? `Searched "${query}"` : (step.label.trim() || "Search sources"),
+        detail: step.detail?.trim() || null,
+        preview: operatorStepPreview(step),
+        sourceUrl: step.sourceRefs.find((source) => !!source.url)?.url || null,
+        sourceSummary,
+        sortOrder: step.startedAtMs || index,
+        phaseOrder,
+        source: "operator",
+      });
+      return;
+    }
+
+    if (phase === "read_sources" && step.sourceRefs.length > 0) {
+      step.sourceRefs.forEach((source, sourceIndex) => {
+        const url = firstStringValue(source.url);
+        const domain =
+          (url ? normalizedDomain(url) : null)
+          || firstStringValue(source.domain)
+          || source.title.trim()
+          || "source";
+        rows.push({
+          key: `${step.stepId}:source:${source.sourceId || sourceIndex}`,
+          kind: "read",
+          status: operatorStepStatus(step.status),
+          stepIndex: index,
+          label: `Read ${domain}`,
+          detail: url || null,
+          preview: source.excerpt?.trim() || source.title.trim() || null,
+          sourceUrl: url || null,
+          sourceSummary: null,
+          sortOrder: (step.startedAtMs || index) + (sourceIndex / 100),
+          phaseOrder: phaseOrder + (sourceIndex / 100),
+          source: "operator",
+        });
+      });
+      return;
+    }
+
+    rows.push({
+      key: step.stepId,
+      kind: operatorStepKind(step.phase),
+      status: operatorStepStatus(step.status),
+      stepIndex: index,
+      label: step.label.trim() || "Artifact step",
+      detail: step.detail?.trim() || null,
+      preview: operatorStepPreview(step),
+      sourceUrl: step.sourceRefs.find((source) => !!source.url)?.url || null,
+      sourceSummary,
+      sortOrder: step.startedAtMs || index,
+      phaseOrder,
+      source: "operator",
+    });
+  });
+  return rows;
 }
 
 function toolGroupLabel(
@@ -434,83 +423,74 @@ export function buildTurnToolActivityGroup(
   options: BuildTurnToolActivityOptions = {},
 ): ToolActivityGroupPresentation | null {
   const studioSession = options.studioSession || artifacts[0]?.studioSession || null;
-  const rows = buildRuntimeActivityRows(studioSession, planSummary);
+  const operatorRows = buildOperatorActivityRows(studioSession);
+  const rows = [...operatorRows];
   const seen = new Set(rows.map((row) => row.key));
 
-  for (const entry of events) {
-    const toolName = (entry.toolName || "").trim().toLowerCase();
-    const digest = asRecord(entry.event.digest) || {};
-    const details = asRecord(entry.event.details) || {};
-    const receiptKind = toEventString(digest.kind).trim().toLowerCase();
+  if (operatorRows.length === 0) {
+    for (const entry of events) {
+      const toolName = (entry.toolName || "").trim().toLowerCase();
+      const digest = asRecord(entry.event.digest) || {};
+      const details = asRecord(entry.event.details) || {};
+      const receiptKind = toEventString(digest.kind).trim().toLowerCase();
 
-    if (
-      toolName.includes(WEB_SEARCH_TOOL)
-      || (receiptKind === "web_retrieve" && !!firstStringValue(details.query))
-    ) {
-      const bundle = parseWebBundle(entry.event);
-      const query = firstStringValue(
-        bundle?.query,
-        details.query,
-      );
-      if (!query) {
+      if (
+        toolName.includes(WEB_SEARCH_TOOL)
+        || (receiptKind === "web_retrieve" && !!firstStringValue(details.query))
+      ) {
+        const bundle = parseWebBundle(entry.event);
+        const query = firstStringValue(bundle?.query, details.query);
+        if (!query) {
+          continue;
+        }
+        appendRow(rows, seen, {
+          key: `search:${query.toLowerCase()}`,
+          kind: "search",
+          status: rowStatusFromEvent(entry),
+          stepIndex: entry.event.step_index,
+          label: `Searched "${query}"`,
+          detail: null,
+          preview: webSearchPreview(entry),
+          sourceUrl: null,
+          sortOrder: 1_200 + entry.event.step_index,
+          phaseOrder: 300,
+          source: "receipt",
+        });
         continue;
       }
-      appendRow(rows, seen, {
-        key: `search:${query.toLowerCase()}`,
-        kind: "search",
-        status: rowStatusFromEvent(entry),
-        stepIndex: entry.event.step_index,
-        label: `Searched "${query}"`,
-        detail: null,
-        preview: webSearchPreview(entry),
-        sourceUrl: null,
-        sortOrder: 1_200 + entry.event.step_index,
-        source: "receipt",
-      });
-      continue;
-    }
 
-    if (
-      toolName.includes(WEB_READ_TOOL)
-      || (receiptKind === "web_retrieve" && !!firstStringValue(details.url))
-    ) {
-      const bundle = parseWebBundle(entry.event);
-      const readUrl = firstStringValue(bundle?.url, details.url);
-      if (!readUrl) {
+      if (
+        toolName.includes(WEB_READ_TOOL)
+        || (receiptKind === "web_retrieve" && !!firstStringValue(details.url))
+      ) {
+        const bundle = parseWebBundle(entry.event);
+        const readUrl = firstStringValue(bundle?.url, details.url);
+        if (!readUrl) {
+          continue;
+        }
+        const domain = normalizedDomain(readUrl) || readUrl;
+        appendRow(rows, seen, {
+          key: `read:${readUrl.toLowerCase()}`,
+          kind: "read",
+          status: rowStatusFromEvent(entry),
+          stepIndex: entry.event.step_index,
+          label: `Read ${domain}`,
+          detail: readUrl,
+          preview: webReadPreview(entry),
+          sourceUrl: readUrl,
+          sortOrder: 1_300 + entry.event.step_index,
+          phaseOrder: 400,
+          source: "receipt",
+        });
         continue;
       }
-      const domain = normalizedDomain(readUrl) || readUrl;
-      appendRow(rows, seen, {
-        key: `read:${readUrl.toLowerCase()}`,
-        kind: "read",
-        status: rowStatusFromEvent(entry),
-        stepIndex: entry.event.step_index,
-        label: `Read ${domain}`,
-        detail: readUrl,
-        preview: webReadPreview(entry),
-        sourceUrl: readUrl,
-        sortOrder: 1_300 + entry.event.step_index,
-        source: "receipt",
-      });
-      continue;
-    }
 
-    if (receiptKind === "fs_write") {
-      const targetPath = firstStringValue(details.target_path, details.destination_path);
-      if (!targetPath) {
-        continue;
-      }
-      const operation = firstStringValue(digest.operation, details.operation) || "write";
-      const runtimeWriteRow = rows.find(
-        (row) => row.source === "runtime" && row.kind === "write",
-      );
-      if (runtimeWriteRow) {
-        runtimeWriteRow.label =
-          runtimeWriteRow.status === "active"
-            ? `Write ${basename(targetPath)}`
-            : `${humanizeFsOperation(operation)} ${basename(targetPath)}`;
-        runtimeWriteRow.detail = targetPath;
-      } else {
+      if (receiptKind === "fs_write") {
+        const targetPath = firstStringValue(details.target_path, details.destination_path);
+        if (!targetPath) {
+          continue;
+        }
+        const operation = firstStringValue(digest.operation, details.operation) || "write";
         appendRow(rows, seen, {
           key: `write:${targetPath.toLowerCase()}`,
           kind: "write",
@@ -521,23 +501,25 @@ export function buildTurnToolActivityGroup(
           preview: null,
           sourceUrl: null,
           sortOrder: 1_400 + entry.event.step_index,
+          phaseOrder: 500,
           source: "receipt",
         });
       }
-      continue;
     }
   }
 
   const primaryArtifact = artifacts[0] || null;
-  if (!rows.some((row) => row.kind === "verify")) {
-    appendRow(
-      rows,
-      seen,
-      primaryArtifact ? artifactVerificationRow(primaryArtifact, planSummary) : null,
-    );
-  }
-  if (!rows.some((row) => row.kind === "present")) {
-    appendRow(rows, seen, primaryArtifact ? artifactPreviewRow(primaryArtifact) : null);
+  if (operatorRows.length === 0) {
+    if (!rows.some((row) => row.kind === "verify")) {
+      appendRow(
+        rows,
+        seen,
+        primaryArtifact ? artifactVerificationRow(primaryArtifact, planSummary) : null,
+      );
+    }
+    if (!rows.some((row) => row.kind === "present")) {
+      appendRow(rows, seen, primaryArtifact ? artifactPreviewRow(primaryArtifact) : null);
+    }
   }
 
   if (rows.length === 0) {
@@ -545,6 +527,9 @@ export function buildTurnToolActivityGroup(
   }
 
   rows.sort((left, right) => {
+    if (left.phaseOrder !== right.phaseOrder) {
+      return left.phaseOrder - right.phaseOrder;
+    }
     if (left.sortOrder !== right.sortOrder) {
       return left.sortOrder - right.sortOrder;
     }
@@ -565,7 +550,9 @@ export function buildTurnToolActivityGroup(
       ? `tool-group:${studioSession.sessionId}:${studioSession.originPromptEventId || "turn"}`
       : `tool-group:${rows[0]?.stepIndex || 0}:${rows.length}`,
     label: toolGroupLabel(rows, studioSession),
-    rows: rows.map(({ sortOrder: _sortOrder, source: _source, ...row }) => row),
+    rows: rows.map(
+      ({ sortOrder: _sortOrder, phaseOrder: _phaseOrder, source: _source, ...row }) => row,
+    ),
     defaultOpen: Boolean(options.defaultOpen),
     presentation: hasInlineTranscript ? "inline_transcript" : "default",
   };

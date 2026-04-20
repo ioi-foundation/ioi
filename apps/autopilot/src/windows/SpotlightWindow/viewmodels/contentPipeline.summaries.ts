@@ -69,6 +69,11 @@ function includeSourceUrl(
 
 export function buildSourceSummary(
   events: ActivityEventRef[],
+  operatorSourceRefs: Array<{
+    url?: string | null;
+    domain?: string | null;
+    title?: string | null;
+  }> = [],
 ): SourceSummary | null {
   const sourceUrls = new Set<string>();
   const domainCounts = new Map<string, number>();
@@ -141,6 +146,23 @@ export function buildSourceSummary(
         stepIndex: entry.event.step_index,
       });
     }
+  }
+
+  for (const source of operatorSourceRefs) {
+    const readUrl = firstStringValue(source.url);
+    if (!readUrl) continue;
+    includeSourceUrl(readUrl, sourceUrls, domainCounts);
+    if (seenBrowseUrls.has(readUrl)) continue;
+    seenBrowseUrls.add(readUrl);
+    browses.push({
+      url: readUrl,
+      domain:
+        firstStringValue(source.domain) ||
+        normalizedDomain(readUrl) ||
+        "unknown",
+      title: firstStringValue(source.title),
+      stepIndex: 0,
+    });
   }
 
   const totalSources =

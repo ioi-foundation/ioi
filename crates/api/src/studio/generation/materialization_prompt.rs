@@ -366,8 +366,13 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
         && request.renderer == StudioRendererKind::HtmlIframe
         && returns_raw_document
     {
-        "Keep the page compact and finishable in one local-model pass.\n- Use one self-contained index.html with concise inline CSS and tiny inline JavaScript.\n- Keep visible markup first, keep CSS lean, and spend the response on the request-shaped surface rather than decorative scaffolding.\n- Realize the typed query goals through explicit authored states, evidence surfaces, or response regions instead of placeholder shells.\n- Use semantic HTML with <main>, ship a complete default state on first paint, and end with a fully closed </body></html>."
-            .to_string()
+        if request.artifact_class == StudioArtifactClass::InteractiveSingleFile {
+            "Keep the page compact and finishable in one local-model pass.\n- Use one self-contained index.html with concise inline CSS and tiny inline JavaScript.\n- Put the first actionable controls, response/detail region, and at least two evidence sections near the top of <main> before long prose.\n- Keep visible markup first, keep CSS lean, and spend the response on the request-shaped surface rather than decorative scaffolding.\n- Realize the typed query goals through explicit authored states, evidence surfaces, or response regions instead of placeholder shells.\n- After the first complete interactive flow lands, stop instead of adding extra stages or trailing notes.\n- Use semantic HTML with <main>, ship a complete default state on first paint, and end with a fully closed </body></html>."
+                .to_string()
+        } else {
+            "Keep the page compact and finishable in one local-model pass.\n- Use one self-contained index.html with concise inline CSS and only minimal inline JavaScript when it truly improves the document.\n- Put the main explanatory surface and supporting evidence near the top of <main> before long prose.\n- Keep visible markup first, keep CSS lean, and spend the response on the request-shaped explanation rather than decorative scaffolding or controls the request did not ask for.\n- Realize the typed query goals through authored explanation, evidence surfaces, and comparison copy instead of placeholder shells.\n- Stop once the first complete document experience lands instead of adding extra stages, fake interactivity, or trailing notes.\n- Use semantic HTML with <main>, ship a complete first paint, and end with a fully closed </body></html>."
+                .to_string()
+        }
     } else {
         renderer_guidance.clone()
     };
@@ -500,18 +505,28 @@ pub(crate) fn build_studio_artifact_direct_author_prompt_for_runtime(
             && refinement.is_none()
             && edit_intent.is_none()
         {
+            let html_document_requirements = if request.artifact_class
+                == StudioArtifactClass::InteractiveSingleFile
+            {
+                "- Deliver one request-specific interactive HTML document.\n- Use semantic HTML with <main> and a coherent set of authored regions for the typed query goals.\n- Keep first paint useful before scripts run.\n- Include one or more real interaction seams that change visible evidence or response context.\n- Keep body text, headings, controls, and evidence labels high-contrast against the background on first paint; avoid muted gray-on-gray styling that weakens readability.\n- Keep CSS short enough to finish the full document in one pass.\n- End with a fully closed </main></body></html>."
+                    .to_string()
+            } else {
+                "- Deliver one request-specific HTML document.\n- Use semantic HTML with <main> and a coherent set of authored explanatory and evidence regions for the typed query goals.\n- Keep first paint useful before scripts run.\n- Prefer authored explanation, comparison surfaces, and visible evidence over control chrome the request did not ask for.\n- Only introduce JavaScript when it materially improves the document; do not force interactivity for document-class requests.\n- Keep body copy, headings, supporting labels, and evidence text high-contrast against the background on first paint; default to readable light-on-dark or dark-on-light pairings instead of muted low-contrast combinations.\n- Keep CSS short enough to finish the full document in one pass.\n- End with a fully closed </main></body></html>."
+                    .to_string()
+            };
             return Ok(json!([
                 {
                     "role": "system",
-                    "content": "Return only one complete self-contained index.html. Start with <!doctype html> and end with </html>. Do not emit JSON, markdown fences, notes, or explanation. Keep inline CSS concise, keep inline JavaScript tiny, and spend the response on the actual document rather than wrapper boilerplate."
+                    "content": "Return only one complete self-contained index.html. Start with <!doctype html> and end with </html>. Do not emit JSON, markdown fences, notes, or explanation. Keep inline CSS concise, keep inline JavaScript tiny, and spend the response on the actual document rather than wrapper boilerplate. Keep text contrast clearly readable on first paint."
                 },
                 {
                     "role": "user",
                     "content": format!(
-                        "{}\n\nPrepared artifact brief:\n{}\n\nSelected skill guidance:\n{}\n\nRequirements:\n- Deliver one request-specific interactive HTML document.\n- Use semantic HTML with <main> and a coherent set of authored regions for the typed query goals.\n- Keep first paint useful before scripts run.\n- Include one or more real interaction seams that change visible evidence or response context.\n- Keep CSS short enough to finish the full document in one pass.\n- End with a fully closed </main></body></html>.",
+                        "{}\n\nPrepared artifact brief:\n{}\n\nSelected skill guidance:\n{}\n\nRequirements:\n{}",
                         intent.trim(),
                         brief_focus_text,
                         selected_skills_focus_text,
+                        html_document_requirements,
                     )
                 }
             ]));
@@ -627,15 +642,40 @@ pub(crate) fn build_studio_artifact_direct_author_continuation_prompt_for_runtim
     latest_error: &str,
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> serde_json::Value {
-    fn continuation_partial_document_context(partial_document: &str) -> String {
+    fn local_html_semantic_underbuild_failure(error_message: &str) -> bool {
+        [
+            "HTML sectioning regions are empty shells on first paint.",
+            "Interactive HTML iframe artifacts must update on-page state or shared detail, not only surface inert controls.",
+            "Interactive HTML iframe artifacts must update on-page state or shared detail, not only scroll, jump, or log.",
+            "HTML state switching does not keep enough authored evidence surfaces available on first paint.",
+            "HTML state switching does not wire controls to produce visible state changes.",
+            "HTML multi-step interaction briefs must surface at least two actionable controls on first paint.",
+            "HTML only surfaces sparse inspection affordances on first paint.",
+            "HTML lacks hover, focus, or equivalent inspection behavior for the requested detail interactions.",
+            "HTML required interactions do not surface a visible response region on first paint.",
+        ]
+        .iter()
+        .any(|needle| error_message.contains(needle))
+    }
+
+    fn continuation_partial_document_context(
+        partial_document: &str,
+        runtime_kind: StudioRuntimeProvenanceKind,
+    ) -> String {
         let trimmed = partial_document.trim();
         let chars = trimmed.chars().collect::<Vec<_>>();
-        if chars.len() <= 6000 {
+        let (max_chars, head_chars, tail_chars) =
+            if compact_local_direct_author_prompt(runtime_kind, true) {
+                (3200usize, 1200usize, 1800usize)
+            } else {
+                (6000usize, 2200usize, 2800usize)
+            };
+        if chars.len() <= max_chars {
             return trimmed.to_string();
         }
 
-        let head = chars.iter().take(2200).collect::<String>();
-        let tail = chars[chars.len().saturating_sub(2800)..]
+        let head = chars.iter().take(head_chars).collect::<String>();
+        let tail = chars[chars.len().saturating_sub(tail_chars)..]
             .iter()
             .collect::<String>();
         format!("[document start]\n{head}\n\n[document tail]\n{tail}")
@@ -653,7 +693,8 @@ pub(crate) fn build_studio_artifact_direct_author_continuation_prompt_for_runtim
             "Return mode=\"suffix\" with only the missing document tail, or mode=\"full_document\" with the full corrected document when a rewrite is necessary."
         }
     };
-    let partial_document_context = continuation_partial_document_context(partial_document);
+    let partial_document_context =
+        continuation_partial_document_context(partial_document, runtime_kind);
     let selected_skills_focus_text = if selected_skills.is_empty() {
         "No selected skill guidance was attached.".to_string()
     } else {
@@ -670,11 +711,128 @@ pub(crate) fn build_studio_artifact_direct_author_continuation_prompt_for_runtim
             .collect::<Vec<_>>()
             .join("\n")
     };
+    let brief_focus_text = format!(
+        "Audience: {}\nJob to be done: {}\nArtifact thesis: {}\nRequired concepts: {}\nRequired interactions: {}",
+        brief.audience.trim(),
+        brief.job_to_be_done.trim(),
+        brief.artifact_thesis.trim(),
+        if brief.required_concepts.is_empty() {
+            "None specified".to_string()
+        } else {
+            brief
+                .required_concepts
+                .iter()
+                .take(4)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        },
+        {
+            let required_interactions = brief.required_interaction_summaries();
+            if required_interactions.is_empty() {
+                "None specified".to_string()
+            } else {
+                required_interactions
+                    .iter()
+                    .take(4)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }
+        },
+    );
     let system_contract = if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime {
         "You are Studio's typed direct document continuation author. Return exactly one JSON object and nothing else."
     } else {
         "You are Studio's typed direct document continuation author. Return exactly one JSON object and nothing else."
     };
+    if compact_local_direct_author_prompt(runtime_kind, true) {
+        if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+            && request.renderer == StudioRendererKind::HtmlIframe
+            && direct_author_uses_raw_document(request)
+        {
+            let renderer_guidance = studio_direct_author_renderer_guidance(
+                request,
+                candidate_seed_for(title, intent, 0),
+                runtime_kind,
+            );
+            let requires_full_document =
+                local_html_semantic_underbuild_failure(latest_error.trim());
+            let continuation_contract = if requires_full_document {
+                "Return one complete corrected self-contained HTML document that preserves the strongest authored structure while fixing the invalid interactive behavior."
+            } else {
+                "Keep the current authored direction and continue the in-progress HTML document instead of restarting from scratch."
+            };
+            let output_schema = if requires_full_document {
+                "- One complete corrected self-contained HTML document."
+            } else {
+                "- Missing tail only, or one full corrected self-contained HTML document when a rewrite is necessary."
+            };
+            let preference_rule = if requires_full_document {
+                "- Return one full corrected self-contained HTML document; do not return only a suffix."
+            } else {
+                "- Prefer returning only the missing tail when possible."
+            };
+            let suffix_rule = if requires_full_document {
+                "- Start with <!doctype html> or <html> and end with </html>.".to_string()
+            } else {
+                format!(
+                    "- If you return a tail, do not repeat the earlier portion and make sure the combined document ends with {}.\n- If you rewrite, start with <!doctype html> or <html> and end with </html>.",
+                    boundary,
+                )
+            };
+            return json!([
+                {
+                    "role": "system",
+                    "content": "You are Studio's typed direct document continuation author. Return document text only."
+                },
+                {
+                    "role": "user",
+                    "content": format!(
+                        "Title: {}\n\nRaw user request:\n{}\n\nPrepared artifact brief:\n{}\n\nSelected skill guidance:\n{}\n\nValidation failure:\n{}\n\nContinuation contract:\n- {}\n\nContinuation output schema:\n{}\n\nRules:\n- Return only document text with no JSON, markdown fences, notes, or explanations.\n{}\n{}\n\nRenderer-native authoring guidance:\n{}\n\nThe current partial document is below.\n\nPartial document tail:\n{}",
+                        title.trim(),
+                        intent.trim(),
+                        brief_focus_text,
+                        selected_skills_focus_text,
+                        truncate_materialization_focus_text(latest_error.trim(), 420),
+                        continuation_contract,
+                        output_schema,
+                        preference_rule,
+                        suffix_rule,
+                        truncate_materialization_focus_text(&renderer_guidance, 260),
+                        partial_document_context,
+                    )
+                }
+            ]);
+        }
+
+        let renderer_guidance = studio_direct_author_renderer_guidance(
+            request,
+            candidate_seed_for(title, intent, 0),
+            runtime_kind,
+        );
+        return json!([
+            {
+                "role": "system",
+                "content": "You are Studio's typed direct document continuation author. Return exactly one JSON object and nothing else."
+            },
+            {
+                "role": "user",
+                "content": format!(
+                    "Title: {}\n\nRaw user request:\n{}\n\nPrepared artifact brief:\n{}\n\nSelected skill guidance:\n{}\n\nValidation failure:\n{}\n\nContinuation contract:\n{}\n\nContinuation output schema:\n{{\n  \"mode\": \"suffix\" | \"full_document\",\n  \"content\": <string>\n}}\nRules:\n- Return JSON only, with no markdown fences or explanations.\n- content must contain only document text.\n- Prefer mode=\"suffix\" when the earlier bytes are still valid and only a tail is missing.\n- Use mode=\"full_document\" when the document needs a structural rewrite.\n- If mode=\"suffix\", do not repeat the earlier portion, and make sure the combined document ends with {}.\n- If mode=\"full_document\", return the entire corrected document in content.\n\nRenderer-native authoring guidance:\n{}\n\nThe current partial document is below.\n\nPartial document tail:\n{}",
+                    title.trim(),
+                    intent.trim(),
+                    brief_focus_text,
+                    selected_skills_focus_text,
+                    truncate_materialization_focus_text(latest_error.trim(), 420),
+                    continuation_contract,
+                    boundary,
+                    truncate_materialization_focus_text(&renderer_guidance, 260),
+                    partial_document_context,
+                )
+            }
+        ]);
+    }
     json!([
         {
             "role": "system",
@@ -709,15 +867,24 @@ pub(super) fn build_studio_artifact_direct_author_repair_prompt_for_runtime(
     latest_error: &str,
     runtime_kind: StudioRuntimeProvenanceKind,
 ) -> serde_json::Value {
-    fn repair_document_context(invalid_document: &str) -> String {
+    fn repair_document_context(
+        invalid_document: &str,
+        runtime_kind: StudioRuntimeProvenanceKind,
+    ) -> String {
         let trimmed = invalid_document.trim();
         let chars = trimmed.chars().collect::<Vec<_>>();
-        if chars.len() <= 3600 {
+        let (max_chars, head_chars, tail_chars) =
+            if compact_local_direct_author_prompt(runtime_kind, true) {
+                (2800usize, 900usize, 1400usize)
+            } else {
+                (3600usize, 1400usize, 1800usize)
+            };
+        if chars.len() <= max_chars {
             return trimmed.to_string();
         }
 
-        let head = chars.iter().take(1400).collect::<String>();
-        let tail = chars[chars.len().saturating_sub(1800)..]
+        let head = chars.iter().take(head_chars).collect::<String>();
+        let tail = chars[chars.len().saturating_sub(tail_chars)..]
             .iter()
             .collect::<String>();
         format!("[document start]\n{head}\n\n[document tail]\n{tail}")
@@ -796,6 +963,32 @@ pub(super) fn build_studio_artifact_direct_author_repair_prompt_for_runtime(
             .join("\n")
     };
     if compact_local_direct_author_prompt(runtime_kind, true) {
+        if runtime_kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+            && request.renderer == StudioRendererKind::HtmlIframe
+            && direct_author_uses_raw_document(request)
+        {
+            return json!([
+                {
+                    "role": "system",
+                    "content": "You are Studio's typed direct document repair author. Return document text only."
+                },
+                {
+                    "role": "user",
+                    "content": format!(
+                        "Title: {}\n\nRaw user request:\n{}\n\nPrepared artifact brief:\n{}\n\nSelected skill guidance:\n{}\n\nRepair failure:\n{}\n\nRepair contract:\n- Preserve the strongest authored structure that already works.\n- Fix the structural/runtime failure without switching to a generic shell.\n- {}\n\nRepair output schema:\n- One complete corrected self-contained HTML document.\n\nRules:\n- Return one complete corrected self-contained HTML document.\n- Return only document text with no JSON, markdown fences, notes, or explanations.\n- Start with <!doctype html> or <html> and end with </html>.\n\nRenderer-native authoring guidance:\n{}\n\nCurrent invalid document context:\n{}",
+                        title.trim(),
+                        intent.trim(),
+                        brief_focus_text,
+                        selected_skills_focus_text,
+                        truncate_materialization_focus_text(latest_error.trim(), 420),
+                        output_contract,
+                        truncate_materialization_focus_text(&renderer_guidance, 260),
+                        repair_document_context(invalid_document, runtime_kind),
+                    )
+                }
+            ]);
+        }
+
         return json!([
             {
                 "role": "system",
@@ -812,7 +1005,7 @@ pub(super) fn build_studio_artifact_direct_author_repair_prompt_for_runtime(
                     truncate_materialization_focus_text(latest_error.trim(), 420),
                     output_contract,
                     truncate_materialization_focus_text(&renderer_guidance, 260),
-                    repair_document_context(invalid_document),
+                    repair_document_context(invalid_document, runtime_kind),
                 )
             }
         ]);

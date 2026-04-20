@@ -48,6 +48,7 @@ export type TurnContext = SessionTurnContext<
   ExecutionMoment,
   ArtifactHubViewKey
 > & {
+  studioSession: StudioArtifactSession | null;
   artifacts: StudioConversationArtifactEntry[];
   hasPendingStudioArtifact: boolean;
   sourceSummary: SourceSummary | null;
@@ -148,7 +149,6 @@ export function useTurnContexts({
       ? activeEvents.filter((event) => eventBelongsToTurnWindow(event, window))
       : [];
     const activityRefs = toActivityEventRefs(windowEvents);
-    const sourceSummary = buildSourceSummary(activityRefs);
     const thoughtSummary = buildThoughtSummary(
       buildActivityGroups(activityRefs),
     );
@@ -169,6 +169,11 @@ export function useTurnContexts({
     const primaryStudioSession = activeStudioSessionBelongsToTurn
       ? activeStudioSession
       : artifacts[0]?.studioSession ?? null;
+    const operatorSourceRefs =
+      primaryStudioSession?.activeOperatorRun?.steps.flatMap(
+        (step) => step.sourceRefs || [],
+      ) || [];
+    const sourceSummary = buildSourceSummary(activityRefs, operatorSourceRefs);
     const hasActiveArtifactSession =
       !!primaryStudioSession &&
       activeStudioSession?.sessionId === primaryStudioSession.sessionId;
@@ -179,6 +184,7 @@ export function useTurnContexts({
 
     return {
       ...context,
+      studioSession: primaryStudioSession,
       artifacts,
       hasPendingStudioArtifact,
       sourceSummary,

@@ -178,6 +178,7 @@ pub(super) fn runtime_preview_snapshot_from_execution_preview(
 pub(super) struct StudioTokenStreamPreviewCollector {
     receiver_task: JoinHandle<String>,
     emitter_task: JoinHandle<()>,
+    combined_state: Arc<Mutex<String>>,
 }
 
 pub(super) fn studio_swarm_progress_step(
@@ -312,8 +313,23 @@ pub(super) fn spawn_token_stream_preview_collector(
         StudioTokenStreamPreviewCollector {
             receiver_task,
             emitter_task,
+            combined_state,
         },
     )
+}
+
+pub(super) fn snapshot_token_stream_preview_collector(
+    collector: Option<&StudioTokenStreamPreviewCollector>,
+) -> String {
+    collector
+        .and_then(|collector| {
+            collector
+                .combined_state
+                .lock()
+                .ok()
+                .map(|combined| combined.clone())
+        })
+        .unwrap_or_default()
 }
 
 pub(super) async fn finish_token_stream_preview_collector(
@@ -496,101 +512,8 @@ pub(super) fn non_swarm_canonical_preview(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use ioi_types::app::{
-        StudioArtifactDeliverableShape, StudioArtifactPersistenceMode, StudioOutcomeArtifactScope,
-        StudioOutcomeArtifactVerificationRequest,
-    };
-
-    fn sample_request(renderer: StudioRendererKind) -> StudioOutcomeArtifactRequest {
-        StudioOutcomeArtifactRequest {
-            artifact_class: StudioArtifactClass::InteractiveSingleFile,
-            deliverable_shape: StudioArtifactDeliverableShape::SingleFile,
-            renderer,
-            presentation_surface: StudioPresentationSurface::SidePanel,
-            persistence: StudioArtifactPersistenceMode::ArtifactScoped,
-            execution_substrate: match renderer {
-                StudioRendererKind::HtmlIframe
-                | StudioRendererKind::JsxSandbox
-                | StudioRendererKind::Svg
-                | StudioRendererKind::Mermaid => StudioExecutionSubstrate::ClientSandbox,
-                StudioRendererKind::PdfEmbed => StudioExecutionSubstrate::BinaryGenerator,
-                StudioRendererKind::WorkspaceSurface => StudioExecutionSubstrate::WorkspaceRuntime,
-                _ => StudioExecutionSubstrate::None,
-            },
-            workspace_recipe_id: None,
-            presentation_variant_id: None,
-            scope: StudioOutcomeArtifactScope {
-                target_project: None,
-                create_new_workspace: renderer == StudioRendererKind::WorkspaceSurface,
-                mutation_boundary: vec!["artifact".to_string()],
-            },
-            verification: StudioOutcomeArtifactVerificationRequest {
-                require_render: true,
-                require_build: renderer == StudioRendererKind::WorkspaceSurface,
-                require_preview: renderer == StudioRendererKind::WorkspaceSurface,
-                require_export: true,
-                require_diff_review: false,
-            },
-        }
-    }
-
-    fn sample_payload(body: String, mime: &str, path: &str) -> StudioGeneratedArtifactPayload {
-        StudioGeneratedArtifactPayload {
-            summary: "sample preview payload".to_string(),
-            notes: Vec::new(),
-            files: vec![StudioGeneratedArtifactFile {
-                path: path.to_string(),
-                mime: mime.to_string(),
-                role: StudioArtifactFileRole::Primary,
-                renderable: true,
-                downloadable: true,
-                encoding: Some(StudioGeneratedArtifactEncoding::Utf8),
-                body,
-            }],
-        }
-    }
-
-    #[test]
-    fn non_swarm_canonical_preview_preserves_full_primary_file_body() {
-        let request = sample_request(StudioRendererKind::HtmlIframe);
-        let long_body = format!(
-            "<!doctype html><html><body>{}<!-- preview tail marker --></body></html>",
-            "a".repeat(5000)
-        );
-        let payload = sample_payload(long_body.clone(), "text/html", "index.html");
-
-        let preview = non_swarm_canonical_preview(&request, &payload, "draft_ready", false)
-            .expect("non-swarm canonical preview");
-
-        assert_eq!(preview.kind, ExecutionLivePreviewKind::ChangePreview);
-        assert_eq!(preview.content, long_body);
-        assert!(preview.content.contains("preview tail marker"));
-    }
-
-    #[test]
-    fn swarm_canonical_preview_preserves_full_primary_file_body() {
-        let long_body = format!(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\">{}<!-- preview tail marker --></svg>",
-            "<g><text>quantum</text></g>".repeat(350)
-        );
-        let payload = sample_payload(long_body.clone(), "image/svg+xml", "index.svg");
-
-        let preview = studio_swarm_canonical_preview(
-            &payload,
-            Some("repair-pass-1".to_string()),
-            Some(StudioArtifactWorkerRole::Repair),
-            "repairing",
-            false,
-        )
-        .expect("swarm canonical preview");
-
-        assert_eq!(preview.kind, ExecutionLivePreviewKind::ChangePreview);
-        assert_eq!(preview.content, long_body);
-        assert!(preview.content.contains("preview tail marker"));
-    }
-}
+#[path = "validation_preview/tests.rs"]
+mod tests;
 
 pub(super) fn build_non_swarm_execution_envelope(
     request: &StudioOutcomeArtifactRequest,
@@ -640,7 +563,7 @@ pub(super) fn emit_non_swarm_generation_progress(
     validation: Option<&StudioArtifactValidationResult>,
     invariant_status: ExecutionCompletionInvariantStatus,
     required_artifact_paths: Vec<String>,
-    runtime_narration_events: Vec<StudioArtifactRuntimeNarrationEvent>,
+    operator_steps: Vec<StudioArtifactOperatorStep>,
 ) {
     let Some(observer) = observer else {
         return;
@@ -656,6 +579,7 @@ pub(super) fn emit_non_swarm_generation_progress(
         artifact_ir: None,
         selected_skills: Vec::new(),
         retrieved_exemplars: Vec::new(),
+        retrieved_sources: Vec::new(),
         execution_envelope: build_non_swarm_execution_envelope(
             request,
             execution_strategy,
@@ -671,6 +595,6 @@ pub(super) fn emit_non_swarm_generation_progress(
         swarm_verification_receipts: Vec::new(),
         render_evaluation: render_evaluation.cloned(),
         validation: validation.cloned(),
-        runtime_narration_events,
+        operator_steps,
     });
 }

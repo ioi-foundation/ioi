@@ -204,13 +204,6 @@ export interface StudioArtifactMaterializationPreviewIntent {
   status: string;
 }
 
-export interface StudioArtifactMaterializationVerificationStep {
-  id: string;
-  label: string;
-  kind: string;
-  status: string;
-}
-
 export interface StudioArtifactPipelineStep {
   id: string;
   stage: ExecutionStage;
@@ -759,23 +752,114 @@ export interface StudioArtifactRuntimePreviewSnapshot {
   isFinal: boolean;
 }
 
-export interface StudioArtifactRuntimeNarrationEvent {
-  eventId: string;
-  eventType: string;
-  eventTypeKey?: StudioArtifactRuntimeEventType | null;
-  stepId: string;
-  stepKey?: StudioArtifactRuntimeStepId | null;
-  stepKind?: StudioArtifactRuntimeStepKind | null;
-  eventKind: string;
-  eventKindKey?: StudioArtifactRuntimeEventKind | null;
-  attemptId?: string | null;
-  title: string;
-  detail: string;
+export type StudioArtifactOperatorRunMode = "create" | "edit";
+
+export type StudioArtifactOperatorRunStatus =
+  | "pending"
+  | "active"
+  | "complete"
+  | "blocked"
+  | "failed"
+  | "other";
+
+export type StudioArtifactOperatorPhase =
+  | "understand_request"
+  | "route_artifact"
+  | "reopen_artifact_context"
+  | "search_sources"
+  | "read_sources"
+  | "author_artifact"
+  | "inspect_artifact"
+  | "verify_artifact"
+  | "repair_artifact"
+  | "present_artifact"
+  | "other";
+
+export interface StudioArtifactOperatorPreview {
+  originPromptEventId?: string;
+  label: string;
+  content: string;
   status: string;
-  statusKind?: StudioArtifactRuntimeEventStatus | null;
-  occurredAtMs: number;
-  originPromptEventId?: string | null;
-  preview?: StudioArtifactRuntimePreviewSnapshot | null;
+  kind?: string | null;
+  language?: string | null;
+  isFinal?: boolean;
+}
+
+export interface StudioArtifactSourceReference {
+  sourceId: string;
+  originPromptEventId?: string;
+  title: string;
+  url?: string | null;
+  domain?: string | null;
+  excerpt?: string | null;
+  retrievedAtMs?: number | null;
+  freshness?: string | null;
+  reason: string;
+}
+
+export interface StudioArtifactSourcePack {
+  summary: string;
+  items: StudioArtifactSourceReference[];
+}
+
+export interface StudioArtifactFileRef {
+  fileId: string;
+  originPromptEventId?: string;
+  path: string;
+  role: StudioArtifactFileRole;
+  mime: string;
+  summary: string;
+}
+
+export interface StudioArtifactVerificationRef {
+  verificationId: string;
+  originPromptEventId?: string;
+  family: string;
+  status: string;
+  summary: string;
+  detail?: string | null;
+  selector?: string | null;
+}
+
+export interface StudioArtifactVerificationOutcome {
+  status?: StudioArtifactOperatorRunStatus | null;
+  summary: string;
+  requiredObligationCount: number;
+  clearedObligationCount: number;
+  failedObligationCount: number;
+}
+
+export interface StudioArtifactOperatorStep {
+  stepId: string;
+  originPromptEventId?: string;
+  phase?: StudioArtifactOperatorPhase | null;
+  engine: string;
+  status?: StudioArtifactOperatorRunStatus | null;
+  label: string;
+  detail: string;
+  startedAtMs: number;
+  finishedAtMs?: number | null;
+  preview?: StudioArtifactOperatorPreview | null;
+  fileRefs: StudioArtifactFileRef[];
+  sourceRefs: StudioArtifactSourceReference[];
+  verificationRefs: StudioArtifactVerificationRef[];
+  attempt: number;
+}
+
+export interface StudioArtifactOperatorRun {
+  runId: string;
+  originPromptEventId?: string;
+  artifactSessionId: string;
+  mode?: StudioArtifactOperatorRunMode | null;
+  status?: StudioArtifactOperatorRunStatus | null;
+  startedAtMs: number;
+  finishedAtMs?: number | null;
+  engineSummary: string;
+  sourcePack: StudioArtifactSourcePack;
+  steps: StudioArtifactOperatorStep[];
+  finalArtifacts: StudioArtifactFileRef[];
+  verificationOutcome?: StudioArtifactVerificationOutcome | null;
+  repairCount: number;
 }
 
 export type StudioArtifactRuntimeEventType =
@@ -862,9 +946,7 @@ export interface StudioArtifactMaterializationContract {
   fileWrites: StudioArtifactMaterializationFileWrite[];
   commandIntents: StudioArtifactMaterializationCommandIntent[];
   previewIntent?: StudioArtifactMaterializationPreviewIntent | null;
-  verificationSteps: StudioArtifactMaterializationVerificationStep[];
   pipelineSteps: StudioArtifactPipelineStep[];
-  runtimeNarrationEvents: StudioArtifactRuntimeNarrationEvent[];
   notes: string[];
 }
 
@@ -1181,6 +1263,8 @@ export interface StudioArtifactSession {
   selectedTargets: StudioArtifactSelectionTarget[];
   widgetState?: StudioRetainedWidgetState | null;
   uxLifecycle?: StudioArtifactUxLifecycle | null;
+  activeOperatorRun?: StudioArtifactOperatorRun | null;
+  operatorRunHistory?: StudioArtifactOperatorRun[];
   createdAt: string;
   updatedAt: string;
   buildSessionId?: string | null;
@@ -3086,6 +3170,7 @@ export interface ToolActivityRow {
   detail: string | null;
   preview: string | null;
   sourceUrl?: string | null;
+  sourceSummary?: SourceSummary | null;
 }
 
 export interface ToolActivityGroupPresentation {

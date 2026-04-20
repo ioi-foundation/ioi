@@ -959,6 +959,7 @@ fn build_revision_from_session(
         file_writes: studio_session.materialization.file_writes.clone(),
         taste_memory: studio_session.taste_memory.clone(),
         retrieved_exemplars: studio_session.retrieved_exemplars.clone(),
+        retrieved_sources: studio_session.retrieved_sources.clone(),
         selected_targets: studio_session.selected_targets.clone(),
     }
 }

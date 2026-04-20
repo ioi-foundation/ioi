@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'IOI';
+  src: url('./assets/fonts/IOI.otf') format('opentype'),
+       url('./assets/fonts/IOI.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
 :root {
   color-scheme: dark;
 }

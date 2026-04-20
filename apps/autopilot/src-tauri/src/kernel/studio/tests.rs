@@ -2,7 +2,6 @@ use super::content_session::{
     apply_materialized_artifact_to_contract, clarification_request_for_outcome_request,
     infer_connector_route_context_from_catalog, route_decision_for_outcome_request,
     runtime_handoff_prompt_prefix_for_task, studio_outcome_request_with_runtime_timeout,
-    verification_steps_for_materialized_artifact,
 };
 use super::proof::run_studio_current_task_turn_for_proof_with_route_timeout;
 use super::revisions::{
@@ -22,8 +21,8 @@ use ioi_api::execution::{
 };
 use ioi_api::studio::{
     compile_studio_artifact_ir, derive_studio_artifact_blueprint,
-    derive_studio_artifact_prepared_context, with_studio_modal_first_html_override,
-    with_studio_runtime_locality_scope_hint_override, ExecutionStage, StudioArtifactBlueprint,
+    derive_studio_artifact_prepared_context, with_runtime_locality_scope_hint_override,
+    with_studio_modal_first_html_override, ExecutionStage, StudioArtifactBlueprint,
     StudioArtifactBrief, StudioArtifactExemplar, StudioArtifactGenerationProgress,
     StudioArtifactGenerationProgressObserver, StudioArtifactIR, StudioArtifactMergeReceipt,
     StudioArtifactPatchReceipt, StudioArtifactRenderCapture, StudioArtifactRenderCaptureViewport,
@@ -403,7 +402,8 @@ impl InferenceRuntime for StreamingDirectAuthorTestRuntime {
         token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context);
-        if !prompt.contains("direct document author")
+        if !prompt.contains("Author the artifact directly")
+            && !prompt.contains("direct document author")
             && !prompt.contains("Return only one complete self-contained index.html")
         {
             return self
@@ -451,6 +451,7 @@ impl InferenceRuntime for StreamingDirectAuthorTestRuntime {
 struct SilentDirectAuthorReplanTestRuntime {
     provenance: crate::models::StudioRuntimeProvenance,
     direct_author_delay: Duration,
+    stream_attempts: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 #[async_trait]
@@ -462,7 +463,21 @@ impl InferenceRuntime for SilentDirectAuthorReplanTestRuntime {
         _options: InferenceOptions,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context);
-        let response = if prompt.contains("typed artifact materializer") {
+        let response = if prompt.contains("typed artifact brief planner") {
+            serde_json::json!({
+                "audience": "curious learners",
+                "jobToBeDone": "Understand how quantum computers differ from classical computers.",
+                "subjectDomain": "quantum computing",
+                "artifactThesis": "Use a lightweight interactive explainer to contrast qubits and gates.",
+                "requiredConcepts": ["qubits", "superposition", "quantum gates"],
+                "requiredInteractions": ["toggle between qubit and gate explanations"],
+                "visualTone": ["editorial", "technical"],
+                "factualAnchors": ["measurement collapses state"],
+                "styleDirectives": ["keep the first paint immediately useful"],
+                "referenceHints": []
+            })
+            .to_string()
+        } else if prompt.contains("typed artifact materializer") {
             serde_json::json!({
                 "summary": "Recovered the requested artifact after replanning",
                 "notes": ["plan-execute recovered the stalled direct-author run"],
@@ -512,11 +527,19 @@ impl InferenceRuntime for SilentDirectAuthorReplanTestRuntime {
         _token_stream: Option<Sender<String>>,
     ) -> Result<Vec<u8>, VmError> {
         let prompt = String::from_utf8_lossy(input_context);
-        if prompt.contains("direct document author")
+        if prompt.contains("Author the artifact directly")
+            || prompt.contains("direct document author")
             || prompt.contains("Return only one complete self-contained index.html")
         {
-            tokio::time::sleep(self.direct_author_delay).await;
-            return Ok("<!doctype html><html>".as_bytes().to_vec());
+            let attempt = self
+                .stream_attempts
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if attempt == 0 {
+                tokio::time::sleep(self.direct_author_delay).await;
+                return Ok("<!doctype html><html>".as_bytes().to_vec());
+            }
+
+            return Ok("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Quantum computers</title><style>:root{font-family:Georgia,serif;background:#08111d;color:#f5f2eb;}body{margin:0;}main{display:grid;gap:16px;max-width:960px;margin:0 auto;padding:24px;}section,aside{background:#111b2b;border:1px solid #2f4a68;border-radius:18px;padding:18px;}button{border:1px solid #5cc7ff;background:#10263a;color:#f5f2eb;border-radius:999px;padding:10px 14px;}table{width:100%;border-collapse:collapse;}th,td{padding:8px;border-bottom:1px solid #29415a;}</style></head><body><main><section><h1>Quantum computers</h1><p>Quantum computers use qubits, interference, and measurement to process some problems differently from classical machines.</p><button type=\"button\" data-view=\"basics\" aria-controls=\"basics-panel\" aria-selected=\"true\">Basics</button><button type=\"button\" data-view=\"gates\" aria-controls=\"gates-panel\" aria-selected=\"false\">Gates</button></section><section id=\"basics-panel\" data-view-panel=\"basics\"><h2>Qubits</h2><dl><dt>State blend</dt><dd>A qubit can carry amplitudes for both 0 and 1 until measurement selects one outcome.</dd><dt>Observation</dt><dd>Measurement resolves the blended state into a sampled result.</dd></dl></section><section id=\"gates-panel\" data-view-panel=\"gates\" hidden><h2>Gates</h2><dl><dt>Rotation</dt><dd>Quantum gates rotate amplitudes to reshape the result distribution.</dd><dt>Interference</dt><dd>Constructive interference strengthens useful answers.</dd></dl></section><aside><h2>Detail</h2><p id=\"detail-copy\">Basics selected by default so the first paint already explains the artifact.</p><table><tr><th>Concept</th><th>Why it matters</th></tr><tr><td>Superposition</td><td>Keeps multiple amplitudes in play.</td></tr><tr><td>Interference</td><td>Amplifies useful paths.</td></tr></table></aside><script>const detail=document.getElementById('detail-copy');const panels=document.querySelectorAll('[data-view-panel]');document.querySelectorAll('button[data-view]').forEach((button)=>button.addEventListener('click',()=>{panels.forEach((panel)=>{panel.hidden=panel.dataset.viewPanel!==button.dataset.view;});document.querySelectorAll('button[data-view]').forEach((control)=>control.setAttribute('aria-selected', String(control===button)));detail.textContent=button.dataset.view==='basics'?'Basics selected by default so the first paint already explains the artifact.':'Gate view selected to show how amplitudes are transformed.';}));</script></main></body></html>".as_bytes().to_vec());
         }
 
         self.execute_inference(model_hash, input_context, options)
@@ -633,6 +656,7 @@ fn test_materialization_contract() -> StudioArtifactMaterializationContract {
         artifact_ir: None,
         selected_skills: Vec::new(),
         retrieved_exemplars: Vec::new(),
+        retrieved_sources: Vec::new(),
         edit_intent: None,
         candidate_summaries: Vec::new(),
         winning_candidate_id: None,
@@ -656,9 +680,8 @@ fn test_materialization_contract() -> StudioArtifactMaterializationContract {
         file_writes: Vec::new(),
         command_intents: Vec::new(),
         preview_intent: None,
-        verification_steps: Vec::new(),
+        operator_steps: Vec::new(),
         pipeline_steps: Vec::new(),
-        runtime_narration_events: Vec::new(),
         notes: Vec::new(),
     }
 }
@@ -793,9 +816,12 @@ fn test_studio_session(status: StudioArtifactVerificationStatus) -> StudioArtifa
         revisions: Vec::new(),
         taste_memory: None,
         retrieved_exemplars: Vec::new(),
+        retrieved_sources: Vec::new(),
         selected_targets: Vec::new(),
         widget_state: None,
         ux_lifecycle: None,
+        active_operator_run: None,
+        operator_run_history: Vec::new(),
         created_at: now_iso(),
         updated_at: now_iso(),
         build_session_id: None,
@@ -822,12 +848,135 @@ fn provisional_artifact_session_tracks_origin_prompt_event_id() {
         session.origin_prompt_event_id.as_deref(),
         Some("prompt-evt-1")
     );
-    assert!(!session.materialization.runtime_narration_events.is_empty());
+    assert_eq!(
+        session
+            .active_operator_run
+            .as_ref()
+            .map(|run| run.origin_prompt_event_id.as_str()),
+        Some("prompt-evt-1")
+    );
+    assert!(!session.materialization.operator_steps.is_empty());
     assert!(session
         .materialization
-        .runtime_narration_events
+        .operator_steps
         .iter()
-        .all(|event| event.origin_prompt_event_id.as_deref() == Some("prompt-evt-1")));
+        .all(|step| step.origin_prompt_event_id == "prompt-evt-1"));
+}
+
+#[test]
+fn operator_run_restarts_for_follow_up_edit_and_preserves_history() {
+    let mut session = test_studio_session(StudioArtifactVerificationStatus::Ready);
+    super::operator_run::start_operator_run_for_session(
+        &mut session,
+        Some("prompt-evt-1"),
+        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+    );
+    let first_run_id = session
+        .active_operator_run
+        .as_ref()
+        .expect("active run")
+        .run_id
+        .clone();
+
+    super::operator_run::start_operator_run_for_session(
+        &mut session,
+        Some("prompt-evt-2"),
+        ioi_api::studio::StudioArtifactOperatorRunMode::Edit,
+    );
+
+    assert_eq!(session.operator_run_history.len(), 1);
+    assert_eq!(session.operator_run_history[0].run_id, first_run_id);
+    assert_eq!(
+        session
+            .active_operator_run
+            .as_ref()
+            .map(|run| run.origin_prompt_event_id.as_str()),
+        Some("prompt-evt-2")
+    );
+    assert_ne!(
+        session
+            .active_operator_run
+            .as_ref()
+            .expect("new active run")
+            .run_id,
+        first_run_id
+    );
+}
+
+#[test]
+fn operator_run_does_not_present_until_verify_exists_and_settles() {
+    let mut session = test_studio_session(StudioArtifactVerificationStatus::Ready);
+    super::operator_run::start_operator_run_for_session(
+        &mut session,
+        Some("prompt-evt-1"),
+        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+    );
+
+    super::operator_run::refresh_active_operator_run_from_session(&mut session, None);
+
+    let run = session.active_operator_run.expect("active run");
+    assert_eq!(
+        run.status,
+        ioi_api::studio::StudioArtifactOperatorRunStatus::Active
+    );
+    assert!(!run.steps.iter().any(|step| {
+        step.phase == ioi_api::studio::StudioArtifactOperatorPhase::PresentArtifact
+    }));
+}
+
+#[test]
+fn operator_run_settles_verify_before_presenting_ready_artifact() {
+    let mut session = test_studio_session(StudioArtifactVerificationStatus::Ready);
+    session.materialization.render_evaluation = Some(StudioArtifactRenderEvaluation {
+        supported: true,
+        first_paint_captured: true,
+        interaction_capture_attempted: true,
+        captures: Vec::new(),
+        layout_density_score: 4,
+        spacing_alignment_score: 4,
+        typography_contrast_score: 4,
+        visual_hierarchy_score: 4,
+        blueprint_consistency_score: 4,
+        overall_score: 20,
+        findings: Vec::new(),
+        acceptance_obligations: Vec::new(),
+        execution_witnesses: Vec::new(),
+        summary: "Render evaluation completed.".to_string(),
+        observation: None,
+        acceptance_policy: None,
+    });
+
+    super::operator_run::start_operator_run_for_session(
+        &mut session,
+        Some("prompt-evt-1"),
+        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+    );
+    super::operator_run::refresh_active_operator_run_from_session(&mut session, None);
+
+    let run = session.active_operator_run.expect("active run");
+    let verify_step = run
+        .steps
+        .iter()
+        .find(|step| step.phase == ioi_api::studio::StudioArtifactOperatorPhase::VerifyArtifact)
+        .expect("verify step");
+    let present_step = run
+        .steps
+        .iter()
+        .find(|step| step.phase == ioi_api::studio::StudioArtifactOperatorPhase::PresentArtifact)
+        .expect("present step");
+
+    assert_eq!(
+        verify_step.status,
+        ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+    );
+    assert_eq!(
+        present_step.status,
+        ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+    );
+    assert_eq!(
+        run.status,
+        ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+    );
 }
 
 fn test_selection_target() -> StudioArtifactSelectionTarget {

@@ -80,7 +80,7 @@ pub(super) fn outcome_artifact_renderer_defaults(
             execution_substrate: "none",
         }),
         "html_iframe" => Some(StudioOutcomeArtifactRendererDefaults {
-            artifact_class: "interactive_single_file",
+            artifact_class: "document",
             deliverable_shape: "single_file",
             presentation_surface: "side_panel",
             persistence: "shared_artifact_scoped",

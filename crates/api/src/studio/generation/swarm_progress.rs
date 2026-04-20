@@ -1,5 +1,102 @@
 use super::*;
 
+fn swarm_operator_status(verification_status: &str) -> StudioArtifactOperatorRunStatus {
+    match verification_status.trim().to_ascii_lowercase().as_str() {
+        "pending" => StudioArtifactOperatorRunStatus::Pending,
+        "running" | "active" => StudioArtifactOperatorRunStatus::Active,
+        "passed" | "ready" | "complete" | "completed" | "success" => {
+            StudioArtifactOperatorRunStatus::Complete
+        }
+        "blocked" => StudioArtifactOperatorRunStatus::Blocked,
+        "failed" | "failure" => StudioArtifactOperatorRunStatus::Failed,
+        _ => StudioArtifactOperatorRunStatus::Active,
+    }
+}
+
+fn swarm_operator_phase(current_stage: &str) -> StudioArtifactOperatorPhase {
+    match current_stage.trim().to_ascii_lowercase().as_str() {
+        "intake" | "requirements" | "specification" | "planner" | "plan" | "routing"
+        | "dispatch" => StudioArtifactOperatorPhase::UnderstandRequest,
+        "work" | "swarm_execution" | "materialization" | "execution" | "mutate" => {
+            StudioArtifactOperatorPhase::AuthorArtifact
+        }
+        "repair" => StudioArtifactOperatorPhase::RepairArtifact,
+        "verification" | "verify" | "merge" => StudioArtifactOperatorPhase::VerifyArtifact,
+        "presentation" | "reply" | "finalize" | "final" => {
+            StudioArtifactOperatorPhase::PresentArtifact
+        }
+        _ => StudioArtifactOperatorPhase::AuthorArtifact,
+    }
+}
+
+fn swarm_operator_label(
+    phase: StudioArtifactOperatorPhase,
+    active_worker_role: Option<StudioArtifactWorkerRole>,
+) -> String {
+    match phase {
+        StudioArtifactOperatorPhase::UnderstandRequest => "Route artifact".to_string(),
+        StudioArtifactOperatorPhase::AuthorArtifact => active_worker_role
+            .map(|role| format!("Run {} worker", format!("{role:?}").to_ascii_lowercase()))
+            .unwrap_or_else(|| "Write artifact".to_string()),
+        StudioArtifactOperatorPhase::RepairArtifact => "Repair artifact".to_string(),
+        StudioArtifactOperatorPhase::VerifyArtifact => "Run browser verification".to_string(),
+        StudioArtifactOperatorPhase::PresentArtifact => "Open preview".to_string(),
+        _ => "Artifact step".to_string(),
+    }
+}
+
+fn swarm_preview(live_previews: &[ExecutionLivePreview]) -> Option<StudioArtifactOperatorPreview> {
+    let preview = live_previews.last()?;
+    Some(StudioArtifactOperatorPreview {
+        origin_prompt_event_id: String::new(),
+        label: preview.label.clone(),
+        content: preview.content.clone(),
+        status: preview.status.clone(),
+        kind: Some(format!("{:?}", preview.kind).to_ascii_lowercase()),
+        language: preview.language.clone(),
+        is_final: preview.is_final,
+    })
+}
+
+fn swarm_operator_steps(
+    current_stage: &str,
+    active_worker_role: Option<StudioArtifactWorkerRole>,
+    verification_status: &str,
+    current_step: &str,
+    live_previews: &[ExecutionLivePreview],
+) -> Vec<StudioArtifactOperatorStep> {
+    let phase = swarm_operator_phase(current_stage);
+    let status = swarm_operator_status(verification_status);
+    vec![StudioArtifactOperatorStep {
+        step_id: format!(
+            "swarm:{}:{}",
+            current_stage.trim().to_ascii_lowercase(),
+            active_worker_role
+                .map(|role| format!("{role:?}").to_ascii_lowercase())
+                .unwrap_or_else(|| "artifact".to_string())
+        ),
+        origin_prompt_event_id: String::new(),
+        phase,
+        engine: "swarm_generation".to_string(),
+        status,
+        label: swarm_operator_label(phase, active_worker_role),
+        detail: current_step.to_string(),
+        started_at_ms: 0,
+        finished_at_ms: matches!(
+            status,
+            StudioArtifactOperatorRunStatus::Complete
+                | StudioArtifactOperatorRunStatus::Blocked
+                | StudioArtifactOperatorRunStatus::Failed
+        )
+        .then_some(0),
+        preview: swarm_preview(live_previews),
+        file_refs: Vec::new(),
+        source_refs: Vec::new(),
+        verification_refs: Vec::new(),
+        attempt: 1,
+    }]
+}
+
 pub(super) fn emit_studio_swarm_generation_progress(
     observer: Option<&StudioArtifactGenerationProgressObserver>,
     request: &StudioOutcomeArtifactRequest,
@@ -24,6 +121,7 @@ pub(super) fn emit_studio_swarm_generation_progress(
     let Some(observer) = observer else {
         return;
     };
+    let current_step = current_step.into();
 
     let swarm_execution = studio_swarm_execution_summary(
         swarm_plan,
@@ -55,7 +153,7 @@ pub(super) fn emit_studio_swarm_generation_progress(
     );
 
     observer(StudioArtifactGenerationProgress {
-        current_step: current_step.into(),
+        current_step: current_step.clone(),
         artifact_brief: None,
         preparation_needs: None,
         prepared_context_resolution: None,
@@ -64,6 +162,7 @@ pub(super) fn emit_studio_swarm_generation_progress(
         artifact_ir: None,
         selected_skills: Vec::new(),
         retrieved_exemplars: Vec::new(),
+        retrieved_sources: Vec::new(),
         execution_envelope,
         swarm_plan: Some(swarm_plan.clone()),
         swarm_execution: Some(swarm_execution),
@@ -73,7 +172,13 @@ pub(super) fn emit_studio_swarm_generation_progress(
         swarm_verification_receipts: verification_receipts.to_vec(),
         render_evaluation: render_evaluation.cloned(),
         validation: validation.cloned(),
-        runtime_narration_events: Vec::new(),
+        operator_steps: swarm_operator_steps(
+            current_stage,
+            active_worker_role,
+            verification_status,
+            &current_step,
+            live_previews,
+        ),
     });
 }
 

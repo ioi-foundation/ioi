@@ -16,7 +16,6 @@ export type {
   StudioArtifactMaterializationContract,
   StudioArtifactMaterializationFileWrite,
   StudioArtifactMaterializationPreviewIntent,
-  StudioArtifactMaterializationVerificationStep,
   StudioArtifactNavigatorNode,
   StudioArtifactPersistenceMode,
   StudioArtifactPipelineStep,

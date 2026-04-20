@@ -103,7 +103,7 @@ fn trusted_runtime_locality_scope_from_env() -> Option<String> {
     })
 }
 
-fn studio_runtime_locality_scope_override() -> Option<Option<String>> {
+fn runtime_locality_scope_override() -> Option<Option<String>> {
     STUDIO_RUNTIME_LOCALITY_THREAD_OVERRIDE.with(|override_cell| override_cell.borrow().clone())
 }
 
@@ -117,8 +117,8 @@ fn cached_device_locality_scope() -> Option<String> {
         .clone()
 }
 
-pub fn studio_runtime_locality_scope_hint() -> Option<String> {
-    if let Some(override_value) = studio_runtime_locality_scope_override() {
+pub fn runtime_locality_scope_hint() -> Option<String> {
+    if let Some(override_value) = runtime_locality_scope_override() {
         return override_value;
     }
     trusted_runtime_locality_scope_from_env().or_else(cached_device_locality_scope)
@@ -127,13 +127,13 @@ pub fn studio_runtime_locality_scope_hint() -> Option<String> {
 pub fn resolve_runtime_locality_placeholder(scope: &str) -> Option<String> {
     let trimmed = scope.trim();
     if trimmed.eq_ignore_ascii_case(RUNTIME_LOCALITY_PLACEHOLDER) {
-        return studio_runtime_locality_scope_hint();
+        return runtime_locality_scope_hint();
     }
     sanitize_runtime_locality_component(trimmed)
 }
 
 #[doc(hidden)]
-pub fn with_studio_runtime_locality_scope_hint_override<T>(
+pub fn with_runtime_locality_scope_hint_override<T>(
     scope: Option<&str>,
     f: impl FnOnce() -> T,
 ) -> T {
@@ -148,27 +148,5 @@ pub fn with_studio_runtime_locality_scope_hint_override<T>(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{
-        locality_scope_from_timezone_identifier, resolve_runtime_locality_placeholder,
-        with_studio_runtime_locality_scope_hint_override,
-    };
-
-    #[test]
-    fn timezone_identifier_maps_to_scope() {
-        assert_eq!(
-            locality_scope_from_timezone_identifier("America/New_York"),
-            Some("New York".to_string())
-        );
-    }
-
-    #[test]
-    fn resolve_placeholder_requires_runtime_scope() {
-        with_studio_runtime_locality_scope_hint_override(Some("Williamsburg, Brooklyn"), || {
-            assert_eq!(
-                resolve_runtime_locality_placeholder("near_me"),
-                Some("Williamsburg, Brooklyn".to_string())
-            );
-        });
-    }
-}
+#[path = "runtime_locality/tests.rs"]
+mod tests;
