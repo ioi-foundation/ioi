@@ -5,7 +5,7 @@ use super::non_artifact_surface::{
 };
 use super::route_contract::append_route_contract_event;
 use super::*;
-use ioi_api::studio::{
+use ioi_api::runtime_harness::{
     apply_non_artifact_clarification_gate, non_artifact_operator_steps, non_artifact_route_notes,
     non_artifact_route_summary, non_artifact_route_title, non_artifact_swarm_plan,
     non_artifact_verification_receipts, non_artifact_worker_receipts,
@@ -196,7 +196,7 @@ fn non_artifact_materialization_contract(
     }
 }
 
-pub(in crate::kernel::studio) fn attach_non_artifact_studio_session(
+pub(in crate::kernel::studio) fn attach_non_artifact_chat_session(
     task: &mut AgentTask,
     intent: &str,
     provenance: crate::models::StudioRuntimeProvenance,
@@ -204,7 +204,7 @@ pub(in crate::kernel::studio) fn attach_non_artifact_studio_session(
 ) {
     let mut resolved_outcome_request = outcome_request.clone();
     let retained_widget_state = task
-        .studio_session
+        .chat_session
         .as_ref()
         .and_then(|session| session.widget_state.as_ref());
     super::refresh_outcome_request_topology(&mut resolved_outcome_request, retained_widget_state);
@@ -243,7 +243,7 @@ pub(in crate::kernel::studio) fn attach_non_artifact_studio_session(
     let navigator_nodes = navigator_nodes_for_manifest(&manifest);
     materialization.navigator_nodes = navigator_nodes.clone();
     let created_at = now_iso();
-    let mut studio_session = StudioArtifactSession {
+    let mut chat_session = ChatArtifactSession {
         session_id: Uuid::new_v4().to_string(),
         thread_id: task.session_id.clone().unwrap_or_else(|| task.id.clone()),
         artifact_id,
@@ -283,13 +283,13 @@ pub(in crate::kernel::studio) fn attach_non_artifact_studio_session(
         workspace_root: None,
         renderer_session_id: None,
     };
-    refresh_non_artifact_studio_surface(&mut studio_session);
-    refresh_pipeline_steps(&mut studio_session, None);
-    let initial_revision = initial_revision_for_session(&studio_session, intent);
-    studio_session.active_revision_id = Some(initial_revision.revision_id.clone());
-    studio_session.revisions = vec![initial_revision];
-    task.studio_outcome = Some(resolved_outcome_request.clone());
-    task.studio_session = Some(studio_session);
+    refresh_non_artifact_studio_surface(&mut chat_session);
+    refresh_pipeline_steps(&mut chat_session, None);
+    let initial_revision = initial_revision_for_session(&chat_session, intent);
+    chat_session.active_revision_id = Some(initial_revision.revision_id.clone());
+    chat_session.revisions = vec![initial_revision];
+    task.chat_outcome = Some(resolved_outcome_request.clone());
+    task.chat_session = Some(chat_session);
     task.renderer_session = None;
     task.build_session = None;
     task.gate_info = None;

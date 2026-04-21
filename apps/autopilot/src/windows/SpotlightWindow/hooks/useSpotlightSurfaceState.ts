@@ -118,7 +118,7 @@ function selectArtifactStatusPreviews({
 }
 
 function deriveTaskStudioExecutionChrome(task: any) {
-  const materialization = task?.studio_session?.materialization;
+  const materialization = task?.chat_session?.materialization;
   const executionEnvelope = materialization?.executionEnvelope ?? null;
   return deriveStudioExecutionChromeState({
     executionEnvelope,
@@ -134,8 +134,8 @@ function deriveTaskStudioExecutionChrome(task: any) {
 
 function isArtifactStudioRoute(task: any): boolean {
   return (
-    task?.studio_session?.outcomeRequest?.outcomeKind === "artifact" ||
-    task?.studio_outcome?.outcomeKind === "artifact"
+    task?.chat_session?.outcomeRequest?.outcomeKind === "artifact" ||
+    task?.chat_outcome?.outcomeKind === "artifact"
   );
 }
 
@@ -158,12 +158,12 @@ function formatArtifactThinkingStatus(status: string | null | undefined): string
 
 function resolveArtifactThinkingSubject(task: any): string {
   const subjectDomain =
-    task?.studio_session?.materialization?.artifactBrief?.subjectDomain?.trim() || "";
+    task?.chat_session?.materialization?.artifactBrief?.subjectDomain?.trim() || "";
   if (subjectDomain) {
     return subjectDomain;
   }
 
-  const title = task?.studio_session?.title?.trim() || "";
+  const title = task?.chat_session?.title?.trim() || "";
   if (title) {
     return title.toLowerCase();
   }
@@ -175,7 +175,7 @@ function buildArtifactThinkingPreview(
   task: any,
 ): StudioStatusPreview {
   const operatorSteps = (
-    (task?.studio_session?.materialization?.operatorSteps ?? []) as StudioArtifactOperatorStep[]
+    (task?.chat_session?.materialization?.operatorSteps ?? []) as StudioArtifactOperatorStep[]
   )
     .filter((step) => step.preview?.content?.trim());
   if (operatorSteps.length === 0) {
@@ -205,7 +205,7 @@ function buildArtifactThinkingPreview(
 }
 
 function buildArtifactThinkingProcesses(task: any): StudioExecutionProcess[] {
-  const materialization = task?.studio_session?.materialization;
+  const materialization = task?.chat_session?.materialization;
   const operatorSteps = ((materialization?.operatorSteps ?? []) as StudioArtifactOperatorStep[])
     .filter((step) => step.label.trim().length > 0);
   const skillDiscoveryResolution = (materialization?.skillDiscoveryResolution ??
@@ -374,11 +374,11 @@ export function useSpotlightSurfaceState({
     );
   }, [retainedArtifacts, selectedArtifact, selectedArtifactId]);
 
-  const activeStudioSessionId = task?.studio_session?.sessionId ?? null;
+  const activeChatSessionId = task?.chat_session?.sessionId ?? null;
   const studioArtifactExpected = isArtifactStudioRoute(task);
 
   const studioArtifactAvailable = useMemo(() => {
-    const manifest = task?.studio_session?.artifactManifest;
+    const manifest = task?.chat_session?.artifactManifest;
     if (!manifest) {
       return false;
     }
@@ -391,7 +391,7 @@ export function useSpotlightSurfaceState({
   }, [
     task?.build_session?.workspaceRoot,
     task?.renderer_session,
-    task?.studio_session,
+    task?.chat_session,
   ]);
 
   const isDualPanelSpotlight =
@@ -421,7 +421,7 @@ export function useSpotlightSurfaceState({
     useTurnContexts({
       activeHistory,
       activeEvents,
-      activeStudioSession: task?.studio_session ?? null,
+      activeChatSession: task?.chat_session ?? null,
       runPresentation,
     });
 
@@ -431,7 +431,7 @@ export function useSpotlightSurfaceState({
     conversationTurns.length > 0 ||
     activeEvents.length > 0 ||
     activeArtifacts.length > 0 ||
-    Boolean(task?.studio_session);
+    Boolean(task?.chat_session);
   const shouldAutoFocusStudioComposer =
     isStudioVariant &&
     !inputLockedByCredential &&
@@ -455,7 +455,7 @@ export function useSpotlightSurfaceState({
     if (!isStudioVariant) {
       return null;
     }
-    if (task?.studio_session?.activeOperatorRun) {
+    if (task?.chat_session?.activeOperatorRun) {
       return null;
     }
 
@@ -470,7 +470,7 @@ export function useSpotlightSurfaceState({
     const artifactThinkingLatestProcess =
       artifactThinkingProcesses[artifactThinkingProcesses.length - 1] ?? null;
     const artifactSelectedSkills = artifactRouteActive
-      ? ((task?.studio_session?.materialization?.selectedSkills ??
+      ? ((task?.chat_session?.materialization?.selectedSkills ??
           []) as StudioArtifactSelectedSkill[])
       : [];
     const artifactThinkingPreview = artifactRouteActive
@@ -541,7 +541,7 @@ export function useSpotlightSurfaceState({
     if (
       task &&
       isRunning &&
-      !activeStudioSessionId &&
+      !activeChatSessionId &&
       !runPresentation.finalAnswer
     ) {
       return {
@@ -555,7 +555,7 @@ export function useSpotlightSurfaceState({
 
     if (
       task?.clarification_request &&
-      task.studio_session &&
+      task.chat_session &&
       !studioArtifactAvailable
     ) {
       return {
@@ -566,55 +566,55 @@ export function useSpotlightSurfaceState({
     }
 
     if (
-      task?.studio_session &&
+      task?.chat_session &&
       isRunning &&
       !runPresentation.finalAnswer &&
-      task.studio_session.lifecycleState !== "blocked"
+      task.chat_session.lifecycleState !== "blocked"
     ) {
       const outcomeLabel = formatStudioStatusLabel(
-        task.studio_session.outcomeRequest?.outcomeKind,
+        task.chat_session.outcomeRequest?.outcomeKind,
       );
       return {
         title:
-          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+          studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingTitle
             : routeActivityTitle || outcomeLabel || "Preparing the reply",
         detail:
-          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+          studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingDetail
             : routeActivityDetail,
         metrics:
-          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+          studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? null
             : executionChrome.metrics,
         processes:
-          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+          studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactThinkingProcesses
             : executionChrome.processes,
         selectedSkills:
-          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+          studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactSelectedSkills
             : [],
         livePreview:
-          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+          studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactStatusPreviews.livePreview
             : executionChrome.livePreview,
         codePreview:
-          studioArtifactExpected || task.studio_session.outcomeRequest?.outcomeKind === "artifact"
+          studioArtifactExpected || task.chat_session.outcomeRequest?.outcomeKind === "artifact"
             ? artifactStatusPreviews.codePreview
             : executionChrome.codePreview,
       };
     }
 
     if (
-      task?.studio_session &&
+      task?.chat_session &&
       !studioArtifactAvailable &&
-      task.studio_session.lifecycleState === "blocked"
+      task.chat_session.lifecycleState === "blocked"
     ) {
       const blockedSummary = summarizeStudioFailure(
         task.current_step ||
-          task.studio_session.artifactManifest.verification.summary ||
-          task.studio_session.verifiedReply.summary,
+          task.chat_session.artifactManifest.verification.summary ||
+          task.chat_session.verifiedReply.summary,
       );
       return {
         tone: "error",
@@ -640,7 +640,7 @@ export function useSpotlightSurfaceState({
 
     return null;
   }, [
-    activeStudioSessionId,
+    activeChatSessionId,
     hasOperatorDecisionPrompt,
     isRunning,
     isStudioVariant,
@@ -653,7 +653,7 @@ export function useSpotlightSurfaceState({
   ]);
 
   return {
-    activeStudioSessionId,
+    activeChatSessionId,
     containerStyle,
     conversationTurns,
     hasOperatorDecisionPrompt,

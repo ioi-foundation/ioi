@@ -579,15 +579,16 @@ impl From<String> for StudioArtifactRuntimeEventStatus {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum StudioArtifactOperatorRunMode {
+pub enum ArtifactOperatorRunMode {
     #[default]
     Create,
     Edit,
 }
+pub type StudioArtifactOperatorRunMode = ArtifactOperatorRunMode;
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum StudioArtifactOperatorRunStatus {
+pub enum ArtifactOperatorRunStatus {
     Pending,
     Active,
     Complete,
@@ -596,10 +597,11 @@ pub enum StudioArtifactOperatorRunStatus {
     #[default]
     Other,
 }
+pub type StudioArtifactOperatorRunStatus = ArtifactOperatorRunStatus;
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum StudioArtifactOperatorPhase {
+pub enum ArtifactOperatorPhase {
     UnderstandRequest,
     RouteArtifact,
     ReopenArtifactContext,
@@ -613,6 +615,7 @@ pub enum StudioArtifactOperatorPhase {
     #[default]
     Other,
 }
+pub type StudioArtifactOperatorPhase = ArtifactOperatorPhase;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -632,7 +635,7 @@ pub struct StudioArtifactOperatorPreview {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactSourceReference {
+pub struct ArtifactSourceReference {
     pub source_id: String,
     #[serde(default)]
     pub origin_prompt_event_id: String,
@@ -651,19 +654,21 @@ pub struct StudioArtifactSourceReference {
     #[serde(default)]
     pub reason: String,
 }
+pub type StudioArtifactSourceReference = ArtifactSourceReference;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactSourcePack {
+pub struct ArtifactSourcePack {
     #[serde(default)]
     pub summary: String,
     #[serde(default)]
-    pub items: Vec<StudioArtifactSourceReference>,
+    pub items: Vec<ArtifactSourceReference>,
 }
+pub type StudioArtifactSourcePack = ArtifactSourcePack;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactFileRef {
+pub struct ArtifactFileRef {
     pub file_id: String,
     #[serde(default)]
     pub origin_prompt_event_id: String,
@@ -673,10 +678,11 @@ pub struct StudioArtifactFileRef {
     #[serde(default)]
     pub summary: String,
 }
+pub type StudioArtifactFileRef = ArtifactFileRef;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactVerificationRef {
+pub struct ArtifactVerificationRef {
     pub verification_id: String,
     #[serde(default)]
     pub origin_prompt_event_id: String,
@@ -688,12 +694,13 @@ pub struct StudioArtifactVerificationRef {
     #[serde(default)]
     pub selector: Option<String>,
 }
+pub type StudioArtifactVerificationRef = ArtifactVerificationRef;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactVerificationOutcome {
+pub struct ArtifactVerificationOutcome {
     #[serde(default)]
-    pub status: StudioArtifactOperatorRunStatus,
+    pub status: ArtifactOperatorRunStatus,
     pub summary: String,
     #[serde(default)]
     pub required_obligation_count: usize,
@@ -702,18 +709,19 @@ pub struct StudioArtifactVerificationOutcome {
     #[serde(default)]
     pub failed_obligation_count: usize,
 }
+pub type StudioArtifactVerificationOutcome = ArtifactVerificationOutcome;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactOperatorStep {
+pub struct ArtifactOperatorStep {
     pub step_id: String,
     #[serde(default)]
     pub origin_prompt_event_id: String,
     #[serde(default)]
-    pub phase: StudioArtifactOperatorPhase,
+    pub phase: ArtifactOperatorPhase,
     pub engine: String,
     #[serde(default)]
-    pub status: StudioArtifactOperatorRunStatus,
+    pub status: ArtifactOperatorRunStatus,
     pub label: String,
     pub detail: String,
     pub started_at_ms: u64,
@@ -722,41 +730,43 @@ pub struct StudioArtifactOperatorStep {
     #[serde(default)]
     pub preview: Option<StudioArtifactOperatorPreview>,
     #[serde(default)]
-    pub file_refs: Vec<StudioArtifactFileRef>,
+    pub file_refs: Vec<ArtifactFileRef>,
     #[serde(default)]
-    pub source_refs: Vec<StudioArtifactSourceReference>,
+    pub source_refs: Vec<ArtifactSourceReference>,
     #[serde(default)]
-    pub verification_refs: Vec<StudioArtifactVerificationRef>,
+    pub verification_refs: Vec<ArtifactVerificationRef>,
     #[serde(default)]
     pub attempt: u32,
 }
+pub type StudioArtifactOperatorStep = ArtifactOperatorStep;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactOperatorRun {
+pub struct ArtifactOperatorRun {
     pub run_id: String,
     #[serde(default)]
     pub origin_prompt_event_id: String,
     pub artifact_session_id: String,
     #[serde(default)]
-    pub mode: StudioArtifactOperatorRunMode,
+    pub mode: ArtifactOperatorRunMode,
     #[serde(default)]
-    pub status: StudioArtifactOperatorRunStatus,
+    pub status: ArtifactOperatorRunStatus,
     pub started_at_ms: u64,
     #[serde(default)]
     pub finished_at_ms: Option<u64>,
     pub engine_summary: String,
     #[serde(default)]
-    pub source_pack: StudioArtifactSourcePack,
+    pub source_pack: ArtifactSourcePack,
     #[serde(default)]
-    pub steps: Vec<StudioArtifactOperatorStep>,
+    pub steps: Vec<ArtifactOperatorStep>,
     #[serde(default)]
-    pub final_artifacts: Vec<StudioArtifactFileRef>,
+    pub final_artifacts: Vec<ArtifactFileRef>,
     #[serde(default)]
-    pub verification_outcome: Option<StudioArtifactVerificationOutcome>,
+    pub verification_outcome: Option<ArtifactVerificationOutcome>,
     #[serde(default)]
     pub repair_count: u32,
 }
+pub type StudioArtifactOperatorRun = ArtifactOperatorRun;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]

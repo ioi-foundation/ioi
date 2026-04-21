@@ -72,10 +72,10 @@ import type {
   TeamMemorySyncSnapshot,
 } from "../types";
 import {
-  recordStudioLaunchReceipt,
+  recordChatLaunchReceipt,
   summarizeAssistantWorkbenchSession,
-  showStudioWithLaunchRequest,
-} from "./studioLaunchState";
+  showChatWithLaunchRequest,
+} from "./chatLaunchState";
 
 const LOCAL_ENGINE_ZONE_ID = "local-engine";
 const ORCHESTRATION_ZONE_ID = "orchestration";
@@ -571,19 +571,19 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async showStudioShell(): Promise<void> {
-        await recordStudioLaunchReceipt("runtime_show_studio_requested", {});
-        await invoke("show_studio");
-        await recordStudioLaunchReceipt("runtime_show_studio_completed", {});
+        await recordChatLaunchReceipt("runtime_show_studio_requested", {});
+        await invoke("show_chat");
+        await recordChatLaunchReceipt("runtime_show_studio_completed", {});
     }
 
     private async showStudioShellWithTarget(
-      request: Parameters<typeof showStudioWithLaunchRequest>[0],
+      request: Parameters<typeof showChatWithLaunchRequest>[0],
       stage: string,
       detail: Record<string, unknown>,
     ): Promise<void> {
-        await recordStudioLaunchReceipt(stage, detail);
-        await showStudioWithLaunchRequest(request);
-        await recordStudioLaunchReceipt(`${stage}_completed`, detail);
+        await recordChatLaunchReceipt(stage, detail);
+        await showChatWithLaunchRequest(request);
+        await recordChatLaunchReceipt(`${stage}_completed`, detail);
     }
 
     async openStudioView(view: StudioViewTarget): Promise<void> {

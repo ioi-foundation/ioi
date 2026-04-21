@@ -214,7 +214,7 @@ export function useSpotlightSession({
       : undefined,
     resolveTaskFailureMessage: (currentTask) => {
       const verifiedStudioArtifact =
-        currentTask.studio_session?.artifactManifest?.verification.status ===
+        currentTask.chat_session?.artifactManifest?.verification.status ===
         "ready";
       return verifiedStudioArtifact
         ? null

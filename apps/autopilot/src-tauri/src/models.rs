@@ -1,16 +1,17 @@
 // apps/autopilot/src-tauri/src/models.rs
 use crate::kernel::connectors::{ConnectorCatalogEntry, ShieldPolicyState};
+use ioi_api::runtime_harness::{
+    ArtifactOperatorRun, ArtifactOperatorStep, ArtifactSourceReference,
+};
 use ioi_api::studio::{
     ExecutionEnvelope, ExecutionStage, StudioArtifactBlueprint, StudioArtifactBrief,
     StudioArtifactCandidateSummary, StudioArtifactEditIntent, StudioArtifactExemplar,
-    StudioArtifactIR, StudioArtifactOperatorRun, StudioArtifactOperatorStep,
-    StudioArtifactOutputOrigin, StudioArtifactPreparationNeeds,
+    StudioArtifactIR, StudioArtifactOutputOrigin, StudioArtifactPreparationNeeds,
     StudioArtifactPreparedContextResolution, StudioArtifactRenderEvaluation,
     StudioArtifactSelectedSkill, StudioArtifactSelectionTarget,
-    StudioArtifactSkillDiscoveryResolution, StudioArtifactSourceReference,
-    StudioArtifactTasteMemory, StudioArtifactUxLifecycle, StudioArtifactValidationResult,
-    SwarmChangeReceipt, SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan,
-    SwarmVerificationReceipt, SwarmWorkerReceipt,
+    StudioArtifactSkillDiscoveryResolution, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
+    StudioArtifactValidationResult, SwarmChangeReceipt, SwarmExecutionSummary, SwarmMergeReceipt,
+    SwarmPlan, SwarmVerificationReceipt, SwarmWorkerReceipt,
 };
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
@@ -25,7 +26,7 @@ pub use ioi_types::app::{
     StudioOutcomeArtifactRequest, StudioOutcomeArtifactScope,
     StudioOutcomeArtifactVerificationRequest, StudioOutcomeKind, StudioOutcomeRequest,
     StudioPresentationSurface, StudioRendererKind, StudioRetainedWidgetState,
-    StudioRuntimeProvenance, StudioRuntimeProvenanceKind, StudioVerifiedReply,
+    StudioRuntimeProvenance, StudioRuntimeProvenanceKind, StudioVerifiedReply as ChatVerifiedReply,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -639,7 +640,7 @@ pub struct LocalEngineApiConfig {
 #[serde(rename_all = "camelCase")]
 pub struct LocalEngineLauncherConfig {
     pub auto_start_on_boot: bool,
-    pub reopen_studio_on_launch: bool,
+    pub reopen_chat_on_launch: bool,
     pub auto_check_updates: bool,
     pub release_channel: String,
     pub show_kernel_console: bool,
@@ -1533,7 +1534,7 @@ pub struct StudioArtifactMaterializationContract {
     #[serde(default)]
     pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
     #[serde(default)]
-    pub retrieved_sources: Vec<StudioArtifactSourceReference>,
+    pub retrieved_sources: Vec<ArtifactSourceReference>,
     #[serde(default)]
     pub edit_intent: Option<StudioArtifactEditIntent>,
     #[serde(default)]
@@ -1583,7 +1584,7 @@ pub struct StudioArtifactMaterializationContract {
     #[serde(default)]
     pub pipeline_steps: Vec<StudioArtifactPipelineStep>,
     #[serde(default)]
-    pub operator_steps: Vec<StudioArtifactOperatorStep>,
+    pub operator_steps: Vec<ArtifactOperatorStep>,
     #[serde(default)]
     pub notes: Vec<String>,
 }
@@ -1617,7 +1618,7 @@ pub struct StudioArtifactRevision {
     #[serde(default)]
     pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
     #[serde(default)]
-    pub retrieved_sources: Vec<StudioArtifactSourceReference>,
+    pub retrieved_sources: Vec<ArtifactSourceReference>,
     #[serde(default)]
     pub edit_intent: Option<StudioArtifactEditIntent>,
     #[serde(default)]
@@ -1703,7 +1704,7 @@ pub struct StudioCodeWorkerLease {
 #[serde(rename_all = "camelCase")]
 pub struct StudioRendererSession {
     pub session_id: String,
-    pub studio_session_id: String,
+    pub chat_session_id: String,
     pub renderer: StudioRendererKind,
     pub workspace_root: String,
     pub entry_document: String,
@@ -1735,7 +1736,7 @@ pub struct StudioRendererSession {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactSession {
+pub struct ChatArtifactSession {
     pub session_id: String,
     pub thread_id: String,
     pub artifact_id: String,
@@ -1754,7 +1755,7 @@ pub struct StudioArtifactSession {
     pub materialization: StudioArtifactMaterializationContract,
     pub outcome_request: StudioOutcomeRequest,
     pub artifact_manifest: StudioArtifactManifest,
-    pub verified_reply: StudioVerifiedReply,
+    pub verified_reply: ChatVerifiedReply,
     pub lifecycle_state: StudioArtifactLifecycleState,
     pub status: String,
     #[serde(default)]
@@ -1766,7 +1767,7 @@ pub struct StudioArtifactSession {
     #[serde(default)]
     pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
     #[serde(default)]
-    pub retrieved_sources: Vec<StudioArtifactSourceReference>,
+    pub retrieved_sources: Vec<ArtifactSourceReference>,
     #[serde(default)]
     pub selected_targets: Vec<StudioArtifactSelectionTarget>,
     #[serde(default)]
@@ -1774,9 +1775,9 @@ pub struct StudioArtifactSession {
     #[serde(default)]
     pub ux_lifecycle: Option<StudioArtifactUxLifecycle>,
     #[serde(default)]
-    pub active_operator_run: Option<StudioArtifactOperatorRun>,
+    pub active_operator_run: Option<ArtifactOperatorRun>,
     #[serde(default)]
-    pub operator_run_history: Vec<StudioArtifactOperatorRun>,
+    pub operator_run_history: Vec<ArtifactOperatorRun>,
     pub created_at: String,
     pub updated_at: String,
     #[serde(default)]
@@ -1786,12 +1787,11 @@ pub struct StudioArtifactSession {
     #[serde(default)]
     pub renderer_session_id: Option<String>,
 }
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildArtifactSession {
     pub session_id: String,
-    pub studio_session_id: String,
+    pub chat_session_id: String,
     pub workspace_root: String,
     pub entry_document: String,
     #[serde(default)]
@@ -1958,10 +1958,10 @@ pub struct AgentTask {
     pub artifacts: Vec<Artifact>,
 
     #[serde(default)]
-    pub studio_session: Option<StudioArtifactSession>,
+    pub chat_session: Option<ChatArtifactSession>,
 
     #[serde(default)]
-    pub studio_outcome: Option<StudioOutcomeRequest>,
+    pub chat_outcome: Option<StudioOutcomeRequest>,
 
     #[serde(default)]
     pub renderer_session: Option<StudioRendererSession>,
@@ -2856,7 +2856,7 @@ pub struct GhostInputEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioLaunchReceipt {
+pub struct ChatLaunchReceipt {
     pub timestamp_ms: u64,
     pub stage: String,
     pub detail: Value,
@@ -3976,10 +3976,10 @@ pub struct AppState {
     pub memory_runtime: Option<Arc<MemoryRuntime>>,
 
     // Cross-window Studio launch intent survives a recreated Studio shell.
-    pub pending_studio_launch_request: Option<Value>,
+    pub pending_chat_launch_request: Option<Value>,
 
     // Recent launch receipts make Studio shell handoff failures inspectable.
-    pub studio_launch_receipts: Vec<StudioLaunchReceipt>,
+    pub chat_launch_receipts: Vec<ChatLaunchReceipt>,
 
     // Active assistant workbench session is kernel-owned so shell recreation
     // does not drop reply/prep context.

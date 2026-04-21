@@ -3,7 +3,7 @@ use super::operator_run::{
 };
 use super::revisions::persist_studio_artifact_exemplar;
 use super::*;
-use crate::models::StudioVerifiedReply;
+use crate::models::ChatVerifiedReply;
 use ioi_api::execution::{
     annotate_execution_envelope, build_execution_envelope_from_swarm,
     build_execution_envelope_from_swarm_with_receipts, completion_invariant_for_direct_execution,
@@ -13,14 +13,13 @@ use ioi_api::execution::{
     SwarmChangeReceipt, SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan,
     SwarmVerificationReceipt, SwarmWorkItemStatus, SwarmWorkerReceipt, SwarmWorkerResultKind,
 };
-use ioi_api::studio::{
-    derive_studio_topology_projection, StudioArtifactBlueprint, StudioArtifactExemplar,
-    StudioArtifactGenerationProgress, StudioArtifactGenerationProgressObserver, StudioArtifactIR,
-    StudioArtifactOperatorPhase, StudioArtifactOperatorRunMode, StudioArtifactOperatorRunStatus,
-    StudioArtifactOperatorStep, StudioArtifactPreparationNeeds,
+use ioi_api::runtime_harness::{
+    derive_studio_topology_projection, ArtifactOperatorPhase, ArtifactOperatorRunMode,
+    ArtifactOperatorRunStatus, ArtifactOperatorStep, ArtifactSourceReference,
+    StudioArtifactBlueprint, StudioArtifactExemplar, StudioArtifactGenerationProgress,
+    StudioArtifactGenerationProgressObserver, StudioArtifactIR, StudioArtifactPreparationNeeds,
     StudioArtifactPreparedContextResolution, StudioArtifactRenderEvaluation,
-    StudioArtifactSelectedSkill, StudioArtifactSkillDiscoveryResolution,
-    StudioArtifactSourceReference, StudioIntentContext,
+    StudioArtifactSelectedSkill, StudioArtifactSkillDiscoveryResolution, StudioIntentContext,
 };
 use ioi_types::app::{
     RoutingRouteDecision, StudioExecutionModeDecision, StudioExecutionStrategy,
@@ -41,7 +40,7 @@ use self::clarification::specialized_domain_clarification_question;
 pub(super) use self::connectors::{
     infer_connector_route_context_from_catalog, merge_connector_route_context,
 };
-pub(super) use self::non_artifact::attach_non_artifact_studio_session;
+pub(super) use self::non_artifact::attach_non_artifact_chat_session;
 pub(super) use self::non_artifact_surface::refresh_non_artifact_studio_surface;
 pub(crate) use self::route_contract::runtime_handoff_prompt_prefix_for_task;
 pub(super) use self::route_contract::{
@@ -49,7 +48,7 @@ pub(super) use self::route_contract::{
     build_route_contract_payload, non_artifact_route_status_message,
 };
 #[cfg(test)]
-pub(super) use ioi_api::studio::route_decision_for_outcome_request;
+pub(super) use ioi_api::runtime_harness::route_decision_for_outcome_request;
 
 pub(super) fn studio_routing_timeout_for_runtime(runtime: &Arc<dyn InferenceRuntime>) -> Duration {
     let seconds = [
@@ -89,7 +88,7 @@ pub(super) struct MaterializedContentArtifact {
     pub(super) artifact_ir: Option<StudioArtifactIR>,
     pub(super) selected_skills: Vec<StudioArtifactSelectedSkill>,
     pub(super) retrieved_exemplars: Vec<StudioArtifactExemplar>,
-    pub(super) retrieved_sources: Vec<StudioArtifactSourceReference>,
+    pub(super) retrieved_sources: Vec<ArtifactSourceReference>,
     pub(super) edit_intent: Option<StudioArtifactEditIntent>,
     pub(super) candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     pub(super) winning_candidate_id: Option<String>,
@@ -113,10 +112,10 @@ pub(super) struct MaterializedContentArtifact {
     pub(super) selected_targets: Vec<StudioArtifactSelectionTarget>,
     pub(super) lifecycle_state: StudioArtifactLifecycleState,
     pub(super) verification_summary: String,
-    pub(super) operator_steps: Vec<StudioArtifactOperatorStep>,
+    pub(super) operator_steps: Vec<ArtifactOperatorStep>,
 }
 
-fn default_studio_outcome_request(
+fn default_chat_outcome_request(
     raw_prompt: &str,
     active_artifact_id: Option<String>,
 ) -> StudioOutcomeRequest {
@@ -202,7 +201,7 @@ fn blocked_artifact_outcome_request(
     request
 }
 
-pub(super) fn studio_outcome_request(
+pub(super) fn chat_outcome_request(
     app: &AppHandle,
     intent: &str,
     active_artifact_id: Option<String>,
@@ -214,7 +213,7 @@ pub(super) fn studio_outcome_request(
             "Studio outcome routing runtime is unavailable while routing the request.".to_string()
         })?;
     let timeout = studio_routing_timeout_for_runtime(&runtime);
-    let mut outcome_request = studio_outcome_request_with_runtime_timeout(
+    let mut outcome_request = chat_outcome_request_with_runtime_timeout(
         runtime,
         intent,
         active_artifact_id,
@@ -228,7 +227,7 @@ pub(super) fn studio_outcome_request(
     Ok(outcome_request)
 }
 
-pub(super) fn studio_outcome_request_with_runtime_timeout(
+pub(super) fn chat_outcome_request_with_runtime_timeout(
     runtime: Arc<dyn InferenceRuntime>,
     intent: &str,
     active_artifact_id: Option<String>,
@@ -238,7 +237,7 @@ pub(super) fn studio_outcome_request_with_runtime_timeout(
 ) -> Result<StudioOutcomeRequest, String> {
     let trimmed_intent = intent.trim();
     if trimmed_intent.is_empty() {
-        return Ok(default_studio_outcome_request(
+        return Ok(default_chat_outcome_request(
             trimmed_intent,
             active_artifact_id,
         ));
@@ -345,10 +344,10 @@ pub(super) fn attach_blocked_studio_failure_session(
     failure: crate::models::StudioArtifactFailure,
 ) {
     let outcome_request = task
-        .studio_outcome
+        .chat_outcome
         .clone()
         .or_else(|| {
-            task.studio_session
+            task.chat_session
                 .as_ref()
                 .map(|session| session.outcome_request.clone())
         })
@@ -358,7 +357,7 @@ pub(super) fn attach_blocked_studio_failure_session(
         .clone()
         .unwrap_or_else(default_blocked_artifact_request);
     let title = task
-        .studio_session
+        .chat_session
         .as_ref()
         .map(|session| session.title.clone())
         .unwrap_or_else(|| derive_artifact_title(prompt));
@@ -439,7 +438,7 @@ pub(super) fn attach_blocked_studio_failure_session(
     }
 
     let created_at = now_iso();
-    let mut studio_session = StudioArtifactSession {
+    let mut chat_session = ChatArtifactSession {
         session_id: Uuid::new_v4().to_string(),
         thread_id: task.session_id.clone().unwrap_or_else(|| task.id.clone()),
         artifact_id: artifact_manifest.artifact_id.clone(),
@@ -478,7 +477,7 @@ pub(super) fn attach_blocked_studio_failure_session(
         renderer_session_id: None,
     };
     start_operator_run_for_session(
-        &mut studio_session,
+        &mut chat_session,
         task.events.iter().rev().find_map(|event| {
             event
                 .details
@@ -487,16 +486,16 @@ pub(super) fn attach_blocked_studio_failure_session(
                 .is_some_and(|value| value.eq_ignore_ascii_case("user_input"))
                 .then(|| event.event_id.as_str())
         }),
-        StudioArtifactOperatorRunMode::Create,
+        ArtifactOperatorRunMode::Create,
     );
-    refresh_active_operator_run_from_session(&mut studio_session, None);
-    refresh_pipeline_steps(&mut studio_session, None);
-    let initial_revision = initial_revision_for_session(&studio_session, prompt);
-    studio_session.active_revision_id = Some(initial_revision.revision_id.clone());
-    studio_session.revisions = vec![initial_revision];
+    refresh_active_operator_run_from_session(&mut chat_session, None);
+    refresh_pipeline_steps(&mut chat_session, None);
+    let initial_revision = initial_revision_for_session(&chat_session, prompt);
+    chat_session.active_revision_id = Some(initial_revision.revision_id.clone());
+    chat_session.revisions = vec![initial_revision];
 
-    task.studio_outcome = Some(outcome_request.clone());
-    task.studio_session = Some(studio_session);
+    task.chat_outcome = Some(outcome_request.clone());
+    task.chat_session = Some(chat_session);
     task.renderer_session = None;
     task.build_session = None;
     task.gate_info = None;
@@ -743,22 +742,22 @@ pub(super) fn materialization_contract_for_request(
         vec![
             pending_operator_step(
                 "workspace_scaffold",
-                StudioArtifactOperatorPhase::VerifyArtifact,
+                ArtifactOperatorPhase::VerifyArtifact,
                 "Scaffold workspace",
             ),
             pending_operator_step(
                 "workspace_install",
-                StudioArtifactOperatorPhase::VerifyArtifact,
+                ArtifactOperatorPhase::VerifyArtifact,
                 "Install dependencies",
             ),
             pending_operator_step(
                 "workspace_validation",
-                StudioArtifactOperatorPhase::VerifyArtifact,
+                ArtifactOperatorPhase::VerifyArtifact,
                 "Validate build",
             ),
             pending_operator_step(
                 "workspace_preview",
-                StudioArtifactOperatorPhase::VerifyArtifact,
+                ArtifactOperatorPhase::VerifyArtifact,
                 "Verify preview",
             ),
         ]
@@ -766,12 +765,12 @@ pub(super) fn materialization_contract_for_request(
         vec![
             pending_operator_step(
                 "materialize_artifact",
-                StudioArtifactOperatorPhase::AuthorArtifact,
+                ArtifactOperatorPhase::AuthorArtifact,
                 "Materialize artifact",
             ),
             pending_operator_step(
                 "verify_artifact_contract",
-                StudioArtifactOperatorPhase::VerifyArtifact,
+                ArtifactOperatorPhase::VerifyArtifact,
                 "Verify artifact contract",
             ),
         ]
@@ -849,15 +848,15 @@ pub(super) fn materialization_contract_for_request(
 
 fn pending_operator_step(
     step_id: &str,
-    phase: StudioArtifactOperatorPhase,
+    phase: ArtifactOperatorPhase,
     label: &str,
-) -> StudioArtifactOperatorStep {
-    StudioArtifactOperatorStep {
+) -> ArtifactOperatorStep {
+    ArtifactOperatorStep {
         step_id: step_id.to_string(),
         origin_prompt_event_id: String::new(),
         phase,
         engine: "studio".to_string(),
-        status: StudioArtifactOperatorRunStatus::Pending,
+        status: ArtifactOperatorRunStatus::Pending,
         label: label.to_string(),
         detail: format!("{label} is pending."),
         started_at_ms: 0,
@@ -928,10 +927,10 @@ pub(super) fn should_refine_current_non_workspace_artifact(
     task: &AgentTask,
     outcome_request: &StudioOutcomeRequest,
 ) -> bool {
-    let Some(studio_session) = task.studio_session.as_ref() else {
+    let Some(chat_session) = task.chat_session.as_ref() else {
         return false;
     };
-    let Some(current_request) = studio_session.outcome_request.artifact.as_ref() else {
+    let Some(current_request) = chat_session.outcome_request.artifact.as_ref() else {
         return false;
     };
     let Some(next_request) = outcome_request.artifact.as_ref() else {
@@ -953,7 +952,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         return Ok(false);
     }
 
-    let Some(mut studio_session) = task.studio_session.clone() else {
+    let Some(mut chat_session) = task.chat_session.clone() else {
         return Ok(false);
     };
     let Some(request) = outcome_request.artifact.clone() else {
@@ -975,20 +974,22 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         .clone()
         .ok_or_else(|| "Memory runtime is unavailable for Studio refinement.".to_string())?;
 
-    let refinement = studio_refinement_context_for_session(&memory_runtime, &studio_session);
+    let refinement = studio_refinement_context_for_session(&memory_runtime, &chat_session);
     let thread_id = task.session_id.clone().unwrap_or_else(|| task.id.clone());
-    studio_session.origin_prompt_event_id = origin_prompt_event_id.clone();
+    chat_session.origin_prompt_event_id = origin_prompt_event_id.clone();
     start_operator_run_for_session(
-        &mut studio_session,
+        &mut chat_session,
         origin_prompt_event_id.as_deref(),
-        StudioArtifactOperatorRunMode::Edit,
+        ArtifactOperatorRunMode::Edit,
     );
-    refresh_active_operator_run_from_session(&mut studio_session, None);
-    task.studio_outcome = Some(outcome_request.clone());
-    task.studio_session = Some(studio_session.clone());
+    refresh_active_operator_run_from_session(&mut chat_session, None);
+    task.chat_outcome = Some(outcome_request.clone());
+    task.chat_session = Some(chat_session.clone());
     super::prepare::publish_current_task_snapshot(app, task);
     let connector_grounding =
-        ioi_api::studio::artifact_connector_grounding_for_outcome_request(&outcome_request);
+        ioi_api::runtime_harness::artifact_connector_grounding_for_outcome_request(
+            &outcome_request,
+        );
     let progress_app = app.clone();
     let progress_task_id = task.id.clone();
     let progress_observer =
@@ -1003,7 +1004,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         materialize_non_workspace_artifact_with_execution_strategy_and_progress_observer(
             app,
             &thread_id,
-            &studio_session.title,
+            &chat_session.title,
             intent,
             &request,
             Some(&refinement),
@@ -1040,7 +1041,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     ) {
         derive_artifact_title(intent)
     } else {
-        studio_session.title.clone()
+        chat_session.title.clone()
     };
     let summary = if materialized_artifact
         .edit_intent
@@ -1059,28 +1060,28 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
     task.artifacts
         .extend(materialized_artifact.artifacts.iter().cloned());
 
-    studio_session.title = title.clone();
-    studio_session.summary = summary.clone();
-    studio_session.navigator_backing_mode = "logical".to_string();
-    studio_session.attached_artifact_ids.extend(
+    chat_session.title = title.clone();
+    chat_session.summary = summary.clone();
+    chat_session.navigator_backing_mode = "logical".to_string();
+    chat_session.attached_artifact_ids.extend(
         materialized_artifact
             .artifacts
             .iter()
             .map(|artifact| artifact.artifact_id.clone()),
     );
-    studio_session.outcome_request = outcome_request.clone();
-    studio_session.artifact_manifest.title = title.clone();
-    studio_session.artifact_manifest.artifact_class = request.artifact_class;
-    studio_session.artifact_manifest.renderer = request.renderer;
-    studio_session.artifact_manifest.primary_tab =
+    chat_session.outcome_request = outcome_request.clone();
+    chat_session.artifact_manifest.title = title.clone();
+    chat_session.artifact_manifest.artifact_class = request.artifact_class;
+    chat_session.artifact_manifest.renderer = request.renderer;
+    chat_session.artifact_manifest.primary_tab =
         if request.renderer == StudioRendererKind::DownloadCard {
             "download".to_string()
         } else {
             "render".to_string()
         };
-    studio_session.artifact_manifest.tabs = manifest_tabs_for_request(&request, None);
-    studio_session.artifact_manifest.files = materialized_artifact.files.clone();
-    studio_session.artifact_manifest.verification = StudioArtifactManifestVerification {
+    chat_session.artifact_manifest.tabs = manifest_tabs_for_request(&request, None);
+    chat_session.artifact_manifest.files = materialized_artifact.files.clone();
+    chat_session.artifact_manifest.verification = StudioArtifactManifestVerification {
         status: verification_status_for_lifecycle(materialized_artifact.lifecycle_state),
         lifecycle_state: materialized_artifact.lifecycle_state,
         summary: materialized_artifact.verification_summary.clone(),
@@ -1088,18 +1089,18 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         acceptance_provenance: materialized_artifact.acceptance_provenance.clone(),
         failure: materialized_artifact.failure.clone(),
     };
-    studio_session.available_lenses = studio_session
+    chat_session.available_lenses = chat_session
         .artifact_manifest
         .tabs
         .iter()
         .map(|tab| tab.id.clone())
         .collect();
-    if !studio_session
+    if !chat_session
         .available_lenses
         .iter()
-        .any(|lens| lens == &studio_session.current_lens)
+        .any(|lens| lens == &chat_session.current_lens)
     {
-        studio_session.current_lens = studio_session.artifact_manifest.primary_tab.clone();
+        chat_session.current_lens = chat_session.artifact_manifest.primary_tab.clone();
     }
 
     let mut materialization = materialization_contract_for_request(
@@ -1153,52 +1154,49 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
                     &materialization,
                 )
             });
-    materialization.navigator_nodes =
-        navigator_nodes_for_manifest(&studio_session.artifact_manifest);
+    materialization.navigator_nodes = navigator_nodes_for_manifest(&chat_session.artifact_manifest);
 
-    studio_session.materialization = materialization;
-    studio_session.navigator_nodes =
-        navigator_nodes_for_manifest(&studio_session.artifact_manifest);
-    studio_session.verified_reply =
-        verified_reply_from_manifest(&title, &studio_session.artifact_manifest);
-    studio_session.lifecycle_state = materialized_artifact.lifecycle_state;
-    studio_session.status =
-        lifecycle_state_label(materialized_artifact.lifecycle_state).to_string();
-    studio_session.taste_memory = taste_memory;
-    studio_session.retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
-    studio_session.retrieved_sources = materialized_artifact.retrieved_sources.clone();
-    studio_session.selected_targets = selected_targets;
-    studio_session.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
-    studio_session.updated_at = now_iso();
-    studio_session.origin_prompt_event_id = origin_prompt_event_id.clone();
-    refresh_active_operator_run_from_session(&mut studio_session, None);
-    refresh_pipeline_steps(&mut studio_session, None);
+    chat_session.materialization = materialization;
+    chat_session.navigator_nodes = navigator_nodes_for_manifest(&chat_session.artifact_manifest);
+    chat_session.verified_reply =
+        verified_reply_from_manifest(&title, &chat_session.artifact_manifest);
+    chat_session.lifecycle_state = materialized_artifact.lifecycle_state;
+    chat_session.status = lifecycle_state_label(materialized_artifact.lifecycle_state).to_string();
+    chat_session.taste_memory = taste_memory;
+    chat_session.retrieved_exemplars = materialized_artifact.retrieved_exemplars.clone();
+    chat_session.retrieved_sources = materialized_artifact.retrieved_sources.clone();
+    chat_session.selected_targets = selected_targets;
+    chat_session.ux_lifecycle = Some(materialized_artifact.ux_lifecycle);
+    chat_session.updated_at = now_iso();
+    chat_session.origin_prompt_event_id = origin_prompt_event_id.clone();
+    refresh_active_operator_run_from_session(&mut chat_session, None);
+    refresh_pipeline_steps(&mut chat_session, None);
 
     let (branch_id, branch_label, parent_revision_id) =
-        revision_branch_identity(&studio_session, materialized_artifact.edit_intent.as_ref());
+        revision_branch_identity(&chat_session, materialized_artifact.edit_intent.as_ref());
     let revision = revision_for_session(
-        &studio_session,
+        &chat_session,
         intent,
         branch_id,
         branch_label,
         parent_revision_id,
     );
-    studio_session.active_revision_id = Some(revision.revision_id.clone());
-    studio_session.revisions.push(revision.clone());
+    chat_session.active_revision_id = Some(revision.revision_id.clone());
+    chat_session.revisions.push(revision.clone());
     match persist_studio_artifact_exemplar(
         &memory_runtime,
         app_inference_runtime(app),
-        &studio_session,
+        &chat_session,
         &revision,
     ) {
-        Ok(Some(exemplar)) => studio_session.materialization.notes.push(format!(
+        Ok(Some(exemplar)) => chat_session.materialization.notes.push(format!(
             "Archived exemplar {} for {} / {}.",
             exemplar.record_id,
             renderer_kind_id(exemplar.renderer),
             exemplar.scaffold_family
         )),
         Ok(None) => {}
-        Err(error) => studio_session
+        Err(error) => chat_session
             .materialization
             .notes
             .push(format!("Exemplar archival skipped: {error}")),
@@ -1216,7 +1214,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         &thread_id,
         task.progress,
         EventType::Receipt,
-        format!("Studio refined {}", studio_session.title),
+        format!("Studio refined {}", chat_session.title),
         json!({
             "artifact_class": artifact_class_id_for_request(&request),
             "mode": materialized_artifact
@@ -1226,7 +1224,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
             "revision_id": revision.revision_id,
             "branch_id": revision.branch_id,
         }),
-        serde_json::to_value(&studio_session).unwrap_or_else(|_| json!({})),
+        serde_json::to_value(&chat_session).unwrap_or_else(|_| json!({})),
         EventStatus::Success,
         artifact_refs,
         None,
@@ -1234,7 +1232,7 @@ pub(super) fn maybe_refine_current_non_workspace_artifact_turn(
         Some(0),
     ));
 
-    task.studio_session = Some(studio_session);
+    task.chat_session = Some(chat_session);
     task.renderer_session = None;
     task.build_session = None;
     Ok(true)

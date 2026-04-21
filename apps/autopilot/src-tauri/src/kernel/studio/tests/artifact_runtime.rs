@@ -91,12 +91,12 @@ fn materialize_nonworkspace_artifact_replans_after_direct_author_timeout_then_re
     assert!(!materialized.fallback_used);
     assert!(materialized.files.is_empty());
     assert!(materialized.operator_steps.iter().any(|step| {
-        step.phase == ioi_api::studio::StudioArtifactOperatorPhase::RepairArtifact
-            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+        step.phase == ioi_api::runtime_harness::ArtifactOperatorPhase::RepairArtifact
+            && step.status == ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete
     }));
     assert!(materialized.operator_steps.iter().any(|step| {
-        step.phase == ioi_api::studio::StudioArtifactOperatorPhase::AuthorArtifact
-            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Blocked
+        step.phase == ioi_api::runtime_harness::ArtifactOperatorPhase::AuthorArtifact
+            && step.status == ioi_api::runtime_harness::ArtifactOperatorRunStatus::Blocked
             && step.detail.contains("stalled")
     }));
     assert!(materialized
@@ -239,8 +239,8 @@ fn direct_author_streaming_progress_prevents_mid_document_kernel_timeout() {
     }));
     assert!(observed_progress.iter().any(|progress| {
         progress.operator_steps.iter().any(|step| {
-            step.phase == ioi_api::studio::StudioArtifactOperatorPhase::AuthorArtifact
-                && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Active
+            step.phase == ioi_api::runtime_harness::ArtifactOperatorPhase::AuthorArtifact
+                && step.status == ioi_api::runtime_harness::ArtifactOperatorRunStatus::Active
         })
     }));
     let render_eval_index = observed_progress.iter().position(|progress| {
@@ -622,7 +622,7 @@ fn direct_author_inactivity_replans_to_plan_execute_and_returns_artifact() {
         Some(StudioExecutionStrategy::PlanExecute)
     );
     assert!(materialized.operator_steps.iter().any(|step| {
-        step.phase == ioi_api::studio::StudioArtifactOperatorPhase::RepairArtifact
+        step.phase == ioi_api::runtime_harness::ArtifactOperatorPhase::RepairArtifact
             && step
                 .detail
                 .contains("continuing with plan execute so the artifact route can still finish")
@@ -1026,11 +1026,11 @@ fn nonworkspace_materialization_contract_starts_pending_and_blocks_truthfully_on
     assert_eq!(contract.operator_steps.len(), 2);
     assert!(contract.operator_steps.iter().any(|step| {
         step.step_id == "materialize_artifact"
-            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Pending
+            && step.status == ioi_api::runtime_harness::ArtifactOperatorRunStatus::Pending
     }));
     assert!(contract.operator_steps.iter().any(|step| {
         step.step_id == "verify_artifact_contract"
-            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Pending
+            && step.status == ioi_api::runtime_harness::ArtifactOperatorRunStatus::Pending
     }));
 
     let blocked = blocked_materialized_artifact_from_error(
@@ -1069,7 +1069,7 @@ fn nonworkspace_materialization_contract_starts_pending_and_blocks_truthfully_on
     );
     assert!(blocked.operator_steps.iter().any(|step| {
         step.step_id == "present_artifact"
-            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Blocked
+            && step.status == ioi_api::runtime_harness::ArtifactOperatorRunStatus::Blocked
     }));
 }
 
@@ -1143,12 +1143,12 @@ fn blocked_nonworkspace_artifact_terminalizes_preview_and_invariant_state() {
         contract.execution_envelope.clone(),
         None,
         None,
-        vec![ioi_api::studio::StudioArtifactOperatorStep {
+        vec![ioi_api::runtime_harness::ArtifactOperatorStep {
             step_id: "author_artifact:candidate-1".to_string(),
             origin_prompt_event_id: String::new(),
-            phase: ioi_api::studio::StudioArtifactOperatorPhase::AuthorArtifact,
+            phase: ioi_api::runtime_harness::ArtifactOperatorPhase::AuthorArtifact,
             engine: "materialization".to_string(),
-            status: ioi_api::studio::StudioArtifactOperatorRunStatus::Blocked,
+            status: ioi_api::runtime_harness::ArtifactOperatorRunStatus::Blocked,
             label: "Write artifact".to_string(),
             detail: "Studio is authoring the first attempt.".to_string(),
             started_at_ms: 0,
@@ -1303,12 +1303,12 @@ fn apply_materialized_artifact_to_contract_marks_nonworkspace_steps_success_when
         ..studio_validation_fixture()
     });
     ready.operator_steps = vec![
-        ioi_api::studio::StudioArtifactOperatorStep {
+        ioi_api::runtime_harness::ArtifactOperatorStep {
             step_id: "materialize_artifact".to_string(),
             origin_prompt_event_id: String::new(),
-            phase: ioi_api::studio::StudioArtifactOperatorPhase::AuthorArtifact,
+            phase: ioi_api::runtime_harness::ArtifactOperatorPhase::AuthorArtifact,
             engine: "materialization".to_string(),
-            status: ioi_api::studio::StudioArtifactOperatorRunStatus::Complete,
+            status: ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete,
             label: "Materialize artifact".to_string(),
             detail: "Materialize artifact completed.".to_string(),
             started_at_ms: 0,
@@ -1319,12 +1319,12 @@ fn apply_materialized_artifact_to_contract_marks_nonworkspace_steps_success_when
             verification_refs: Vec::new(),
             attempt: 1,
         },
-        ioi_api::studio::StudioArtifactOperatorStep {
+        ioi_api::runtime_harness::ArtifactOperatorStep {
             step_id: "verify_artifact_contract".to_string(),
             origin_prompt_event_id: String::new(),
-            phase: ioi_api::studio::StudioArtifactOperatorPhase::VerifyArtifact,
+            phase: ioi_api::runtime_harness::ArtifactOperatorPhase::VerifyArtifact,
             engine: "materialization".to_string(),
-            status: ioi_api::studio::StudioArtifactOperatorRunStatus::Complete,
+            status: ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete,
             label: "Verify artifact contract".to_string(),
             detail: "Verify artifact contract completed.".to_string(),
             started_at_ms: 0,
@@ -1347,11 +1347,11 @@ fn apply_materialized_artifact_to_contract_marks_nonworkspace_steps_success_when
 
     assert!(contract.operator_steps.iter().any(|step| {
         step.step_id == "materialize_artifact"
-            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+            && step.status == ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete
     }));
     assert!(contract.operator_steps.iter().any(|step| {
         step.step_id == "verify_artifact_contract"
-            && step.status == ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+            && step.status == ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete
     }));
     assert_eq!(contract.file_writes.len(), 1);
     assert_eq!(
@@ -1448,7 +1448,7 @@ fn provisional_nonworkspace_session_surfaces_planning_context_before_materializa
         guidance_markdown: Some("Use strong hierarchy and visible evidence framing.".to_string()),
     }];
 
-    let studio_session = super::prepare::provisional_non_workspace_studio_session(
+    let chat_session = super::prepare::provisional_non_workspace_chat_session(
         "thread-1",
         "studio-session-1",
         title,
@@ -1461,26 +1461,26 @@ fn provisional_nonworkspace_session_surfaces_planning_context_before_materializa
     .expect("provisional session");
 
     assert_eq!(
-        studio_session.lifecycle_state,
+        chat_session.lifecycle_state,
         StudioArtifactLifecycleState::Materializing
     );
     assert_eq!(
-        studio_session.artifact_manifest.verification.status,
+        chat_session.artifact_manifest.verification.status,
         StudioArtifactVerificationStatus::Pending
     );
     assert_eq!(
-        studio_session.verified_reply.status,
+        chat_session.verified_reply.status,
         StudioArtifactVerificationStatus::Pending
     );
-    assert_eq!(studio_session.session_id, "studio-session-1");
-    assert_eq!(studio_session.materialization.selected_skills.len(), 1);
-    assert_eq!(studio_session.retrieved_exemplars.len(), 0);
-    assert!(studio_session
+    assert_eq!(chat_session.session_id, "studio-session-1");
+    assert_eq!(chat_session.materialization.selected_skills.len(), 1);
+    assert_eq!(chat_session.retrieved_exemplars.len(), 0);
+    assert!(chat_session
         .artifact_manifest
         .verification
         .summary
         .contains(&blueprint.scaffold_family));
-    assert!(studio_session
+    assert!(chat_session
         .materialization
         .pipeline_steps
         .iter()
@@ -1874,18 +1874,18 @@ fn attach_blocked_failure_session_surfaces_inference_unavailable() {
             message: "Local inference runtime is offline.".to_string(),
         },
     );
-    let studio_session = task.studio_session.as_ref().expect("studio session");
+    let chat_session = task.chat_session.as_ref().expect("studio session");
 
     assert_eq!(
-        studio_session.lifecycle_state,
+        chat_session.lifecycle_state,
         StudioArtifactLifecycleState::Blocked
     );
     assert_eq!(
-        studio_session.artifact_manifest.verification.status,
+        chat_session.artifact_manifest.verification.status,
         StudioArtifactVerificationStatus::Blocked
     );
     assert_eq!(
-        studio_session
+        chat_session
             .artifact_manifest
             .verification
             .production_provenance
@@ -1895,7 +1895,7 @@ fn attach_blocked_failure_session_surfaces_inference_unavailable() {
         crate::models::StudioRuntimeProvenanceKind::InferenceUnavailable
     );
     assert_eq!(
-        studio_session
+        chat_session
             .artifact_manifest
             .verification
             .failure
@@ -1904,8 +1904,8 @@ fn attach_blocked_failure_session_surfaces_inference_unavailable() {
             .code,
         "inference_unavailable"
     );
-    assert_eq!(studio_session.artifact_manifest.files.len(), 0);
-    assert!(studio_session
+    assert_eq!(chat_session.artifact_manifest.files.len(), 0);
+    assert!(chat_session
         .verified_reply
         .evidence
         .join("\n")

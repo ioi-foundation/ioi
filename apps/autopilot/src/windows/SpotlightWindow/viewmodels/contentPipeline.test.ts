@@ -5,7 +5,7 @@ import type {
   Artifact,
   ChatMessage,
   PlanSelectedSkill,
-  StudioArtifactSession,
+  ChatArtifactSession,
 } from "../../../types";
 import {
   buildRunPresentation,
@@ -17,7 +17,7 @@ import {
   buildTurnToolActivityGroup,
 } from "../components/conversationTranscriptModel";
 import { artifactReplyText } from "../components/ConversationTimeline.helpers";
-import { studioArtifactSessionIsPresentable } from "../components/studioArtifactConversationModel";
+import { artifactSessionIsPresentable } from "../components/artifactConversationModel";
 import { buildExecutionMoments } from "./contentPipeline.summaries";
 import { parseChatContractEnvelope } from "./chatContract";
 
@@ -442,7 +442,7 @@ function toolActivityGroupPresentationTest(): void {
 }
 
 function artifactRuntimeActivityGroupPresentationTest(): void {
-  const studioSession: StudioArtifactSession = {
+  const chatSession: ChatArtifactSession = {
     sessionId: "studio-session-1",
     threadId: "thread-a",
     artifactId: "artifact-1",
@@ -603,10 +603,10 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
 
   const group = buildTurnToolActivityGroup([], null, [], {
     defaultOpen: true,
-    studioSession,
+    chatSession,
   });
 
-  assert.equal(studioArtifactSessionIsPresentable(studioSession), false);
+  assert.equal(artifactSessionIsPresentable(chatSession), false);
   assert.ok(group);
   assert.equal(group?.label, "Thinking through Quantum computers explainer");
   assert.equal(group?.presentation, "inline_transcript");
@@ -618,19 +618,19 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
   assert.equal(group?.rows[1]?.label, "Write index.html");
   assert.equal(group?.rows[1]?.preview, "<!doctype html><main>Quantum</main>");
 
-  const readyStudioSession: StudioArtifactSession = {
-    ...studioSession,
+  const readyStudioSession: ChatArtifactSession = {
+    ...chatSession,
     artifactManifest: {
-      ...studioSession.artifactManifest,
+      ...chatSession.artifactManifest,
       verification: {
-        ...studioSession.artifactManifest.verification,
+        ...chatSession.artifactManifest.verification,
         status: "ready",
         lifecycleState: "ready",
         summary: "Preview ready",
       },
     },
     verifiedReply: {
-      ...studioSession.verifiedReply,
+      ...chatSession.verifiedReply,
       status: "ready",
       lifecycleState: "ready",
       summary: "Preview ready",
@@ -638,10 +638,10 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
     lifecycleState: "ready",
     status: "ready",
     activeOperatorRun: {
-      ...studioSession.activeOperatorRun!,
+      ...chatSession.activeOperatorRun!,
       status: "complete",
       steps: [
-        ...studioSession.activeOperatorRun!.steps,
+        ...chatSession.activeOperatorRun!.steps,
         {
           stepId: "run-1:verify_artifact:1",
           originPromptEventId: "prompt-1",
@@ -693,11 +693,11 @@ function artifactRuntimeActivityGroupPresentationTest(): void {
       repairCount: 0,
     },
   };
-  assert.equal(studioArtifactSessionIsPresentable(readyStudioSession), true);
+  assert.equal(artifactSessionIsPresentable(readyStudioSession), true);
 }
 
 function artifactRuntimeActivityOrderingAndSourcePlacementTest(): void {
-  const studioSession: StudioArtifactSession = {
+  const chatSession: ChatArtifactSession = {
     sessionId: "studio-session-ordered",
     threadId: "thread-a",
     artifactId: "artifact-ordered",
@@ -896,7 +896,7 @@ function artifactRuntimeActivityOrderingAndSourcePlacementTest(): void {
 
   const group = buildTurnToolActivityGroup([], null, [], {
     defaultOpen: true,
-    studioSession,
+    chatSession,
   });
 
   assert.ok(group);
@@ -943,7 +943,7 @@ function artifactReplyTextIsConversationalForCompletedArtifactsTest(): void {
         fileCount: 1,
         lifecycleState: "ready",
         status: "ready",
-        studioSession: {
+        chatSession: {
           sessionId: "studio-session-ordered",
           threadId: "thread-a",
           artifactId: "artifact-ordered",
@@ -1034,7 +1034,7 @@ function artifactReplyTextIsConversationalForCompletedArtifactsTest(): void {
     sourceSummaryUpdatedAt: null,
     defaultView: "active_context" as const,
     hasPendingStudioArtifact: false,
-    studioSession: null,
+    chatSession: null,
   };
 
   const reply = artifactReplyText(turnContext as any);

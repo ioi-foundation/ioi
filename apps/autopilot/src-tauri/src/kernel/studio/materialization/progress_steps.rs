@@ -3,9 +3,9 @@ use ioi_api::execution::{
     ExecutionCompletionInvariantStatus, ExecutionEnvelope, ExecutionLivePreview,
     ExecutionLivePreviewKind,
 };
-use ioi_api::studio::{
+use ioi_api::runtime_harness::{
+    ArtifactOperatorPhase, ArtifactOperatorRunStatus, ArtifactOperatorStep,
     StudioArtifactGenerationProgress, StudioArtifactGenerationProgressObserver,
-    StudioArtifactOperatorPhase, StudioArtifactOperatorRunStatus, StudioArtifactOperatorStep,
     StudioArtifactPlanningContext,
 };
 
@@ -30,13 +30,13 @@ pub(super) fn direct_author_error_requires_replan(message: &str) -> bool {
                 )))
 }
 
-pub(super) fn present_artifact_complete_step() -> StudioArtifactOperatorStep {
-    StudioArtifactOperatorStep {
+pub(super) fn present_artifact_complete_step() -> ArtifactOperatorStep {
+    ArtifactOperatorStep {
         step_id: "present_artifact".to_string(),
         origin_prompt_event_id: String::new(),
-        phase: StudioArtifactOperatorPhase::PresentArtifact,
+        phase: ArtifactOperatorPhase::PresentArtifact,
         engine: "materialization".to_string(),
-        status: StudioArtifactOperatorRunStatus::Complete,
+        status: ArtifactOperatorRunStatus::Complete,
         label: "Open artifact".to_string(),
         detail: "Studio finished materializing the artifact and can now surface it.".to_string(),
         started_at_ms: 0,
@@ -49,13 +49,13 @@ pub(super) fn present_artifact_complete_step() -> StudioArtifactOperatorStep {
     }
 }
 
-pub(super) fn present_artifact_blocked_step(error: &str) -> StudioArtifactOperatorStep {
-    StudioArtifactOperatorStep {
+pub(super) fn present_artifact_blocked_step(error: &str) -> ArtifactOperatorStep {
+    ArtifactOperatorStep {
         step_id: "present_artifact".to_string(),
         origin_prompt_event_id: String::new(),
-        phase: StudioArtifactOperatorPhase::PresentArtifact,
+        phase: ArtifactOperatorPhase::PresentArtifact,
         engine: "materialization".to_string(),
-        status: StudioArtifactOperatorRunStatus::Blocked,
+        status: ArtifactOperatorRunStatus::Blocked,
         label: "Open artifact".to_string(),
         detail: format!("Studio could not present the artifact because {error}"),
         started_at_ms: 0,
@@ -71,13 +71,13 @@ pub(super) fn present_artifact_blocked_step(error: &str) -> StudioArtifactOperat
 pub(super) fn direct_author_blocked_step(
     attempt_id: Option<&str>,
     detail: impl Into<String>,
-) -> StudioArtifactOperatorStep {
-    StudioArtifactOperatorStep {
+) -> ArtifactOperatorStep {
+    ArtifactOperatorStep {
         step_id: format!("author_artifact:{}", attempt_id.unwrap_or("1")),
         origin_prompt_event_id: String::new(),
-        phase: StudioArtifactOperatorPhase::AuthorArtifact,
+        phase: ArtifactOperatorPhase::AuthorArtifact,
         engine: "materialization".to_string(),
-        status: StudioArtifactOperatorRunStatus::Blocked,
+        status: ArtifactOperatorRunStatus::Blocked,
         label: "Write artifact".to_string(),
         detail: detail.into(),
         started_at_ms: 0,
@@ -96,13 +96,13 @@ pub(super) fn direct_author_blocked_step(
 pub(super) fn replan_execution_step(
     from: StudioExecutionStrategy,
     to: StudioExecutionStrategy,
-) -> StudioArtifactOperatorStep {
-    StudioArtifactOperatorStep {
+) -> ArtifactOperatorStep {
+    ArtifactOperatorStep {
         step_id: "replan_execution".to_string(),
         origin_prompt_event_id: String::new(),
-        phase: StudioArtifactOperatorPhase::RepairArtifact,
+        phase: ArtifactOperatorPhase::RepairArtifact,
         engine: "materialization".to_string(),
-        status: StudioArtifactOperatorRunStatus::Complete,
+        status: ArtifactOperatorRunStatus::Complete,
         label: "Switch execution strategy".to_string(),
         detail: format!(
             "Studio hit a concrete blocker under {} and is continuing with {} so the artifact route can still finish.",
@@ -120,8 +120,8 @@ pub(super) fn replan_execution_step(
 }
 
 pub(super) fn merge_operator_steps(
-    existing: &mut Vec<StudioArtifactOperatorStep>,
-    incoming: &[StudioArtifactOperatorStep],
+    existing: &mut Vec<ArtifactOperatorStep>,
+    incoming: &[ArtifactOperatorStep],
 ) {
     for step in incoming {
         if let Some(current) = existing
@@ -218,11 +218,11 @@ pub(super) fn finalize_latest_execution_preview(
     Some(execution_envelope)
 }
 
-pub(super) fn latest_author_attempt_id(steps: &[StudioArtifactOperatorStep]) -> Option<String> {
+pub(super) fn latest_author_attempt_id(steps: &[ArtifactOperatorStep]) -> Option<String> {
     steps
         .iter()
         .rev()
-        .find(|step| step.phase == StudioArtifactOperatorPhase::AuthorArtifact)
+        .find(|step| step.phase == ArtifactOperatorPhase::AuthorArtifact)
         .map(|step| {
             if step.step_id.trim().is_empty() {
                 format!("attempt-{}", step.attempt.max(1))
@@ -261,12 +261,12 @@ pub(super) fn emit_prepared_context_generation_progress(
         swarm_verification_receipts: Vec::new(),
         render_evaluation: None,
         validation: None,
-        operator_steps: vec![StudioArtifactOperatorStep {
+        operator_steps: vec![ArtifactOperatorStep {
             step_id: "prepared_context".to_string(),
             origin_prompt_event_id: String::new(),
-            phase: StudioArtifactOperatorPhase::RouteArtifact,
+            phase: ArtifactOperatorPhase::RouteArtifact,
             engine: "prepared_context".to_string(),
-            status: StudioArtifactOperatorRunStatus::Complete,
+            status: ArtifactOperatorRunStatus::Complete,
             label: "Route artifact".to_string(),
             detail: prepared_context_progress_message(execution_strategy),
             started_at_ms: 0,

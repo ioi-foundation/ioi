@@ -18,7 +18,7 @@ import {
 } from "@ioi/agent-ide";
 import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
 import { listenForAutopilotDataReset } from "../../services/autopilotReset";
-import { recordStudioLaunchReceipt } from "../../services/studioLaunchState";
+import { recordChatLaunchReceipt } from "../../services/chatLaunchState";
 import { buildAssistantWorkbenchSummary } from "../../lib/assistantWorkbenchSummary";
 import { useLiveValidationSummary } from "../../hooks/useLiveValidationSummary";
 import { useRetainedWorkbenchTrace } from "../../hooks/useRetainedWorkbenchTrace";
@@ -53,14 +53,14 @@ import { SpotlightInputSection } from "./components/SpotlightInputSection";
 import { SpotlightGateDock } from "./components/SpotlightGateDock";
 import { SpotlightOperatorStrip } from "./components/SpotlightOperatorStrip";
 import { SpotlightOrchestrationBoard } from "./components/SpotlightOrchestrationBoard";
-import { StudioConversationSurface } from "./components/StudioConversationSurface";
-import { StudioConversationSidebar } from "./components/StudioConversationSidebar";
-import { StudioArtifactSurface } from "./components/StudioArtifactSurface";
-import { collectAvailableStudioArtifacts } from "./components/studioArtifactConversationModel";
+import { ChatConversationSurface } from "./components/ChatConversationSurface";
+import { ChatConversationSidebar } from "./components/ChatConversationSidebar";
+import { ChatArtifactSurface } from "./components/ChatArtifactSurface";
+import { collectAvailableArtifacts } from "./components/artifactConversationModel";
 import {
-  StudioConversationWelcome,
-  StudioRunStateCard,
-} from "./components/StudioConversationPanels";
+  ChatConversationWelcome,
+  ChatRunStateCard,
+} from "./components/ChatConversationPanels";
 import { exportThreadTraceBundle } from "./utils/exportContext";
 import {
   CONTENT_PIPELINE_V2_ENABLED,
@@ -194,8 +194,8 @@ export function SpotlightWindow({
   sessionRuntime,
 }: SpotlightWindowProps) {
   const isStudioVariant = variant === "studio";
-  const [studioArtifactVisible, setStudioArtifactVisible] = useState(false);
-  const [selectedStudioArtifactSessionId, setSelectedStudioArtifactSessionId] =
+  const [chatArtifactVisible, setStudioArtifactVisible] = useState(false);
+  const [selectedChatArtifactSessionId, setSelectedChatArtifactSessionId] =
     useState<string | null>(null);
 
   // Layout management (synced with Tauri backend)
@@ -412,7 +412,7 @@ export function SpotlightWindow({
 
     const nextIntent = seedIntent.trim();
     if (submittedSeedIntentRef.current === nextIntent) {
-      void recordStudioLaunchReceipt("studio_seed_intent_submit_skipped_duplicate", {
+      void recordChatLaunchReceipt("studio_seed_intent_submit_skipped_duplicate", {
         intentLength: nextIntent.length,
       });
       onConsumeSeedIntent?.();
@@ -457,7 +457,7 @@ export function SpotlightWindow({
                 );
               });
             }
-            void recordStudioLaunchReceipt(
+            void recordChatLaunchReceipt(
               "studio_seed_intent_waiting_for_session_projection",
               {
                 intentLength: nextIntent.length,
@@ -472,13 +472,13 @@ export function SpotlightWindow({
           const attachKey = `${nextIntent}:${continuationSession.session_id}`;
           if (seedIntentAttachAttemptRef.current !== attachKey) {
             seedIntentAttachAttemptRef.current = attachKey;
-            void recordStudioLaunchReceipt("studio_seed_intent_attach_requested", {
+            void recordChatLaunchReceipt("studio_seed_intent_attach_requested", {
               intentLength: nextIntent.length,
               sessionId: continuationSession.session_id,
             });
             void handleLoadSession(continuationSession.session_id)
               .then(() => {
-                void recordStudioLaunchReceipt("studio_seed_intent_attach_resolved", {
+                void recordChatLaunchReceipt("studio_seed_intent_attach_resolved", {
                   intentLength: nextIntent.length,
                   sessionId: continuationSession.session_id,
                 });
@@ -489,7 +489,7 @@ export function SpotlightWindow({
                   "[Studio][SeedIntent] failed to attach retained session",
                   error,
                 );
-                void recordStudioLaunchReceipt("studio_seed_intent_attach_failed", {
+                void recordChatLaunchReceipt("studio_seed_intent_attach_failed", {
                   intentLength: nextIntent.length,
                   sessionId: continuationSession.session_id,
                   error:
@@ -507,14 +507,14 @@ export function SpotlightWindow({
       console.info("[Studio][SeedIntent] auto-submit requested", {
         length: nextIntent.length,
       });
-      void recordStudioLaunchReceipt("studio_seed_intent_submit_requested", {
+      void recordChatLaunchReceipt("studio_seed_intent_submit_requested", {
         intentLength: nextIntent.length,
       });
       window.setTimeout(() => {
         try {
           if (task?.clarification_request && clarificationOptionId) {
             console.info("[Studio][SeedIntent] clarification submit dispatching");
-            void recordStudioLaunchReceipt(
+            void recordChatLaunchReceipt(
               "studio_seed_intent_clarification_submit_dispatching",
               {
                 intentLength: nextIntent.length,
@@ -525,7 +525,7 @@ export function SpotlightWindow({
               clarificationOptionId,
               nextIntent,
             );
-            void recordStudioLaunchReceipt(
+            void recordChatLaunchReceipt(
               "studio_seed_intent_clarification_submit_called",
               {
                 intentLength: nextIntent.length,
@@ -535,7 +535,7 @@ export function SpotlightWindow({
             void submitPromise
               .then(() => {
                 console.info("[Studio][SeedIntent] clarification submit resolved");
-                void recordStudioLaunchReceipt(
+                void recordChatLaunchReceipt(
                   "studio_seed_intent_clarification_submit_resolved",
                   {
                     intentLength: nextIntent.length,
@@ -548,7 +548,7 @@ export function SpotlightWindow({
                   "[Studio][SeedIntent] clarification submit failed",
                   error,
                 );
-                void recordStudioLaunchReceipt(
+                void recordChatLaunchReceipt(
                   "studio_seed_intent_clarification_submit_failed",
                   {
                     intentLength: nextIntent.length,
@@ -561,30 +561,30 @@ export function SpotlightWindow({
           }
 
           console.info("[Studio][SeedIntent] auto-submit dispatching");
-          void recordStudioLaunchReceipt("studio_seed_intent_submit_dispatching", {
+          void recordChatLaunchReceipt("studio_seed_intent_submit_dispatching", {
             intentLength: nextIntent.length,
           });
           const submitPromise = handleSubmitText(nextIntent);
-          void recordStudioLaunchReceipt("studio_seed_intent_submit_called", {
+          void recordChatLaunchReceipt("studio_seed_intent_submit_called", {
             intentLength: nextIntent.length,
           });
           void submitPromise
             .then(() => {
               console.info("[Studio][SeedIntent] auto-submit resolved");
-              void recordStudioLaunchReceipt("studio_seed_intent_submit_resolved", {
+              void recordChatLaunchReceipt("studio_seed_intent_submit_resolved", {
                 intentLength: nextIntent.length,
               });
             })
             .catch((error) => {
               console.error("[Studio][SeedIntent] auto-submit failed", error);
-              void recordStudioLaunchReceipt("studio_seed_intent_submit_failed", {
+              void recordChatLaunchReceipt("studio_seed_intent_submit_failed", {
                 intentLength: nextIntent.length,
                 error: error instanceof Error ? error.message : String(error),
               });
             });
         } catch (error) {
           console.error("[Studio][SeedIntent] auto-submit threw synchronously", error);
-          void recordStudioLaunchReceipt("studio_seed_intent_submit_sync_failed", {
+          void recordChatLaunchReceipt("studio_seed_intent_submit_sync_failed", {
             intentLength: nextIntent.length,
             error: error instanceof Error ? error.message : String(error),
           });
@@ -747,12 +747,12 @@ export function SpotlightWindow({
     showPasswordPrompt,
   });
   const studioAvailableArtifacts = useMemo(
-    () => collectAvailableStudioArtifacts(activeEvents, task?.studio_session ?? null),
-    [activeEvents, task?.studio_session],
+    () => collectAvailableArtifacts(activeEvents, task?.chat_session ?? null),
+    [activeEvents, task?.chat_session],
   );
   const activeArtifactStudioSessionId =
-    task?.studio_session?.outcomeRequest?.outcomeKind === "artifact"
-      ? task.studio_session.sessionId
+    task?.chat_session?.outcomeRequest?.outcomeKind === "artifact"
+      ? task.chat_session.sessionId
       : null;
   const studioArtifactDrawerAvailable =
     studioArtifactAvailable || studioArtifactExpected || studioAvailableArtifacts.length > 0;
@@ -868,7 +868,7 @@ export function SpotlightWindow({
     if (!isStudioVariant) {
       return;
     }
-    setSelectedStudioArtifactSessionId((current) => {
+    setSelectedChatArtifactSessionId((current) => {
       if (
         current &&
         (current === activeArtifactStudioSessionId ||
@@ -885,43 +885,43 @@ export function SpotlightWindow({
     studioAvailableArtifacts,
   ]);
 
-  const handleOpenStudioArtifact = useCallback((studioSessionId: string) => {
-    setSelectedStudioArtifactSessionId(studioSessionId);
+  const handleOpenChatArtifact = useCallback((chatSessionId: string) => {
+    setSelectedChatArtifactSessionId(chatSessionId);
     setStudioArtifactVisible(true);
   }, []);
   const handleToggleStudioArtifacts = useCallback(() => {
-    if (!studioArtifactVisible) {
-      setSelectedStudioArtifactSessionId(null);
+    if (!chatArtifactVisible) {
+      setSelectedChatArtifactSessionId(null);
       setStudioArtifactVisible(true);
       return;
     }
 
-    if (selectedStudioArtifactSessionId !== null) {
-      setSelectedStudioArtifactSessionId(null);
+    if (selectedChatArtifactSessionId !== null) {
+      setSelectedChatArtifactSessionId(null);
       return;
     }
 
     setStudioArtifactVisible(false);
-  }, [selectedStudioArtifactSessionId, studioArtifactVisible]);
+  }, [selectedChatArtifactSessionId, chatArtifactVisible]);
   const studioArtifactMenuVisible =
-    studioArtifactVisible && selectedStudioArtifactSessionId === null;
+    chatArtifactVisible && selectedChatArtifactSessionId === null;
   const showStudioArtifactNav =
     isStudioVariant && studioArtifactDrawerAvailable;
   const handleStudioNewSession = useCallback(() => {
-    setSelectedStudioArtifactSessionId(null);
+    setSelectedChatArtifactSessionId(null);
     setStudioArtifactVisible(false);
     handleNewChat();
   }, [handleNewChat]);
   const handleStudioSelectSession = useCallback(
     (sessionId: string) => {
-      setSelectedStudioArtifactSessionId(null);
+      setSelectedChatArtifactSessionId(null);
       setStudioArtifactVisible(false);
       void handleLoadSession(sessionId);
     },
     [handleLoadSession],
   );
   const studioStatusCardNode = studioStatusCard ? (
-    <StudioRunStateCard
+    <ChatRunStateCard
       tone={studioStatusCard.tone}
       title={studioStatusCard.title}
       detail={studioStatusCard.detail}
@@ -933,7 +933,7 @@ export function SpotlightWindow({
     />
   ) : null;
   const studioSidebarNode = isStudioVariant ? (
-    <StudioConversationSidebar
+    <ChatConversationSidebar
       sessions={sessions}
       activeSessionId={task?.session_id || task?.id || null}
       searchQuery={searchQuery}
@@ -941,7 +941,7 @@ export function SpotlightWindow({
       onNewSession={handleStudioNewSession}
       onSelectSession={handleStudioSelectSession}
       showArtifactNav={showStudioArtifactNav}
-      artifactVisible={studioArtifactVisible}
+      artifactVisible={chatArtifactVisible}
       artifactCount={studioAvailableArtifacts.length}
       onToggleArtifacts={handleToggleStudioArtifacts}
     />
@@ -954,7 +954,7 @@ export function SpotlightWindow({
   const conversationSurface = (
     <div
       className={`${isStudioVariant ? "spot-studio-conversation" : "spot-main"} ${
-        studioArtifactVisible ? "is-artifact-open" : ""
+        chatArtifactVisible ? "is-artifact-open" : ""
       } ${isStudioVariant && !hasSessionContent ? "is-empty" : ""}`}
     >
       {!isStudioVariant && !layout.sidebarVisible && (
@@ -1047,7 +1047,7 @@ export function SpotlightWindow({
       <div className="spot-chat" ref={chatAreaRef}>
         {!hasSessionContent &&
           (isStudioVariant ? (
-            <StudioConversationWelcome
+            <ChatConversationWelcome
               onSuggestionClick={(text) => {
                 void handleSubmitText(text);
               }}
@@ -1074,9 +1074,9 @@ export function SpotlightWindow({
               void openArtifactHub(view, turnId);
             }}
             onOpenSourceSummary={openSourceSummaryPanel}
-            activeStudioArtifactSessionId={selectedStudioArtifactSessionId}
+            activeChatArtifactSessionId={selectedChatArtifactSessionId}
             onOpenStudioArtifact={
-              isStudioVariant ? handleOpenStudioArtifact : undefined
+              isStudioVariant ? handleOpenChatArtifact : undefined
             }
             inlineStatusCard={isStudioVariant ? studioStatusCardNode : null}
           />
@@ -1340,26 +1340,26 @@ export function SpotlightWindow({
           )}
 
           {isStudioVariant ? (
-            <StudioConversationSurface
+            <ChatConversationSurface
               sidebar={studioSidebarNode}
-              artifactVisible={studioArtifactVisible}
+              artifactVisible={chatArtifactVisible}
               artifactMenuVisible={studioArtifactMenuVisible}
               artifactDrawerVisible={
-                studioArtifactDrawerAvailable && studioArtifactVisible
+                studioArtifactDrawerAvailable && chatArtifactVisible
               }
               conversationSurface={overlaySurface}
               artifactDrawer={
                 <div
                   className={`spot-studio-artifact-drawer ${
-                    studioArtifactVisible ? "is-open" : ""
+                    chatArtifactVisible ? "is-open" : ""
                   } ${studioArtifactMenuVisible ? "is-menu" : ""}`}
-                  aria-hidden={!studioArtifactVisible}
+                  aria-hidden={!chatArtifactVisible}
                 >
-                  <StudioArtifactSurface
+                  <ChatArtifactSurface
                     task={task}
                     events={activeEvents}
-                    selectedStudioSessionId={selectedStudioArtifactSessionId}
-                    onSelectStudioSession={setSelectedStudioArtifactSessionId}
+                    selectedChatSessionId={selectedChatArtifactSessionId}
+                    onSelectChatSession={setSelectedChatArtifactSessionId}
                     onCollapse={() => setStudioArtifactVisible(false)}
                     onSeedIntent={(nextIntent) => {
                       setIntent(nextIntent);

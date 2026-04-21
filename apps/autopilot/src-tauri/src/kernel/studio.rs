@@ -17,10 +17,10 @@ mod workspace_build;
 mod workspace_scaffold;
 pub(crate) use self::content_session::runtime_handoff_prompt_prefix_for_task;
 use self::content_session::{
-    artifact_class_id_for_request, attach_blocked_studio_failure_session, lifecycle_state_label,
-    materialization_contract_for_request, maybe_refine_current_non_workspace_artifact_turn,
-    persistence_mode_id, presentation_surface_id, renderer_kind_id,
-    should_refine_current_non_workspace_artifact, studio_outcome_request, summary_for_request,
+    artifact_class_id_for_request, attach_blocked_studio_failure_session, chat_outcome_request,
+    lifecycle_state_label, materialization_contract_for_request,
+    maybe_refine_current_non_workspace_artifact_turn, persistence_mode_id, presentation_surface_id,
+    renderer_kind_id, should_refine_current_non_workspace_artifact, summary_for_request,
     MaterializedContentArtifact,
 };
 use self::manifest::{
@@ -51,7 +51,7 @@ use self::selection::{attach_artifact_selection, attach_widget_state};
 use self::task_state::{
     app_acceptance_inference_runtime, app_inference_runtime, app_studio_routing_inference_runtime,
     build_session_to_renderer_session, current_task_and_memory_runtime,
-    persist_current_task_update, update_studio_session_from_build_session,
+    persist_current_task_update, update_chat_session_from_build_session,
 };
 #[allow(unused_imports)]
 pub use self::task_state::{
@@ -69,25 +69,26 @@ use self::workspace_scaffold::{
 #[cfg(test)]
 use self::workspace_scaffold::{static_html_template_files, StudioStaticHtmlArchetype};
 use crate::models::{
-    AgentPhase, AgentTask, AppState, Artifact, ArtifactRef, BuildArtifactSession, EventStatus,
-    EventType, StudioArtifactClass, StudioArtifactDeliverableShape, StudioArtifactFailure,
-    StudioArtifactFailureKind, StudioArtifactLifecycleState, StudioArtifactManifest,
-    StudioArtifactManifestFile, StudioArtifactManifestTab, StudioArtifactManifestVerification,
+    AgentPhase, AgentTask, AppState, Artifact, ArtifactRef, BuildArtifactSession,
+    ChatArtifactSession, EventStatus, EventType, StudioArtifactClass,
+    StudioArtifactDeliverableShape, StudioArtifactFailure, StudioArtifactFailureKind,
+    StudioArtifactLifecycleState, StudioArtifactManifest, StudioArtifactManifestFile,
+    StudioArtifactManifestTab, StudioArtifactManifestVerification,
     StudioArtifactMaterializationContract, StudioArtifactMaterializationFileWrite,
     StudioArtifactMaterializationPreviewIntent, StudioArtifactPersistenceMode,
-    StudioArtifactRevision, StudioArtifactSession, StudioArtifactTabKind,
-    StudioArtifactVerificationStatus, StudioBuildReceipt, StudioCodeWorkerLease,
-    StudioExecutionSubstrate, StudioOutcomeArtifactRequest, StudioOutcomeArtifactScope,
+    StudioArtifactRevision, StudioArtifactTabKind, StudioArtifactVerificationStatus,
+    StudioBuildReceipt, StudioCodeWorkerLease, StudioExecutionSubstrate,
+    StudioOutcomeArtifactRequest, StudioOutcomeArtifactScope,
     StudioOutcomeArtifactVerificationRequest, StudioOutcomeKind, StudioOutcomeRequest,
     StudioPresentationSurface, StudioRendererKind, StudioRendererSession,
     StudioRetainedWidgetState,
 };
 use crate::orchestrator;
+use ioi_api::runtime_harness::ArtifactOperatorStep;
 #[cfg(test)]
 use ioi_api::studio::materialize_studio_artifact_with_runtime;
 #[cfg(test)]
 use ioi_api::studio::pdf_artifact_bytes;
-use ioi_api::studio::StudioArtifactOperatorStep;
 use ioi_api::studio::{
     plan_studio_outcome_with_runtime, StudioArtifactBrief, StudioArtifactCandidateSummary,
     StudioArtifactEditIntent, StudioArtifactEditMode, StudioArtifactOutputOrigin,
@@ -125,7 +126,7 @@ const BUILD_LENSES_READY: &[&str] = &[
 ];
 
 fn assign_operator_step_origin(
-    step: &mut StudioArtifactOperatorStep,
+    step: &mut ArtifactOperatorStep,
     origin_prompt_event_id: Option<&str>,
 ) {
     let Some(origin_prompt_event_id) = origin_prompt_event_id.map(str::trim) else {
@@ -160,7 +161,7 @@ fn assign_operator_step_origin(
 }
 
 fn assign_operator_steps_origin(
-    steps: &mut [StudioArtifactOperatorStep],
+    steps: &mut [ArtifactOperatorStep],
     origin_prompt_event_id: Option<&str>,
 ) {
     for step in steps {
@@ -168,8 +169,8 @@ fn assign_operator_steps_origin(
     }
 }
 
-fn assign_studio_session_turn_ownership(
-    session: &mut StudioArtifactSession,
+fn assign_chat_session_turn_ownership(
+    session: &mut ChatArtifactSession,
     origin_prompt_event_id: Option<&str>,
 ) {
     let Some(origin_prompt_event_id) = origin_prompt_event_id.map(str::trim) else {
@@ -211,8 +212,8 @@ pub fn studio_retry_renderer_session(
         .clone()
         .ok_or_else(|| "No active Studio task is loaded.".to_string())?;
 
-    let studio_session = task
-        .studio_session
+    let chat_session = task
+        .chat_session
         .clone()
         .ok_or_else(|| "No Studio artifact session is attached to the current task.".to_string())?;
     let build_session = task
@@ -227,7 +228,7 @@ pub fn studio_retry_renderer_session(
         );
     }
 
-    spawn_build_supervisor(app, studio_session, build_session);
+    spawn_build_supervisor(app, chat_session, build_session);
     Ok(())
 }
 

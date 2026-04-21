@@ -1,4 +1,4 @@
-use super::*;
+use ioi_api::runtime_harness::StudioIntentContext;
 use serde::Deserialize;
 
 #[derive(Clone, Copy)]
@@ -157,7 +157,7 @@ pub(super) fn fetch_sports_tool_widget_reply(intent: &str) -> Result<String, Str
     let team = sports_team_target_for_intent(intent).ok_or_else(|| {
         "Studio could not determine which team to use for the sports request.".to_string()
     })?;
-    let client = super::studio_surface_http_client()?;
+    let client = super::places::studio_surface_http_client()?;
 
     let team_url = format!(
         "https://site.api.espn.com/apis/site/v2/sports/{}/teams/{}",

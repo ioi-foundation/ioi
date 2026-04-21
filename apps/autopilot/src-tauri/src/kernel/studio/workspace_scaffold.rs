@@ -3,10 +3,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
-pub(super) fn workspace_root_for(app: &AppHandle, studio_session_id: &str) -> PathBuf {
+pub(super) fn workspace_root_for(app: &AppHandle, chat_session_id: &str) -> PathBuf {
     crate::autopilot_data_dir_for(app)
         .join("studio-artifacts")
-        .join(studio_session_id)
+        .join(chat_session_id)
         .join("workspace")
 }
 

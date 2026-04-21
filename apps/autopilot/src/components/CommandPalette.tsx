@@ -27,7 +27,7 @@ import {
 import type {
   PrimaryView,
   ProjectScope,
-} from "../windows/StudioWindow/studioWindowModel";
+} from "../windows/ChatWindow/chatWindowModel";
 import "./CommandPalette.css";
 
 type WorkflowSurface = "home" | "canvas" | "agents" | "catalog";

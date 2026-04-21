@@ -44,13 +44,13 @@ assert.match(
 
 assert.match(
   hookSource,
-  /const hasSessionContent =\s*activeHistory\.length > 0 \|\|\s*chatEvents\.length > 0 \|\|\s*conversationTurns\.length > 0 \|\|\s*activeEvents\.length > 0 \|\|\s*activeArtifacts\.length > 0 \|\|\s*Boolean\(task\?\.studio_session\);/,
+  /const hasSessionContent =\s*activeHistory\.length > 0 \|\|\s*chatEvents\.length > 0 \|\|\s*conversationTurns\.length > 0 \|\|\s*activeEvents\.length > 0 \|\|\s*activeArtifacts\.length > 0 \|\|\s*Boolean\(task\?\.chat_session\);/,
   "studio surface state should keep the session lane populated for receipt-driven artifact turns even when no assistant reply has landed yet",
 );
 
 assert.match(
   hookSource,
-  /if \(task\?\.studio_session\?\.activeOperatorRun\) \{\s*return null;\s*\}/,
+  /if \(task\?\.chat_session\?\.activeOperatorRun\) \{\s*return null;\s*\}/,
   "studio surface state should suppress the separate status card when the unified operator-run transcript is active",
 );
 

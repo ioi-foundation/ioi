@@ -1,19 +1,19 @@
 use super::content_session::{
-    apply_materialized_artifact_to_contract, clarification_request_for_outcome_request,
-    infer_connector_route_context_from_catalog, route_decision_for_outcome_request,
-    runtime_handoff_prompt_prefix_for_task, studio_outcome_request_with_runtime_timeout,
+    apply_materialized_artifact_to_contract, chat_outcome_request_with_runtime_timeout,
+    clarification_request_for_outcome_request, infer_connector_route_context_from_catalog,
+    route_decision_for_outcome_request, runtime_handoff_prompt_prefix_for_task,
 };
 use super::proof::run_studio_current_task_turn_for_proof_with_route_timeout;
 use super::revisions::{
-    apply_revision_to_studio_session, studio_artifact_exemplar_from_archival_record,
+    apply_revision_to_chat_session, studio_artifact_exemplar_from_archival_record,
     STUDIO_ARTIFACT_EXEMPLAR_SCOPE,
 };
 use super::*;
 use crate::kernel::connectors::ConnectorCatalogEntry;
 use crate::models::{ChatMessage, ClarificationRequest, GateInfo};
 use crate::models::{
-    StudioArtifactDeliverableShape, StudioArtifactFileRole, StudioExecutionSubstrate,
-    StudioVerifiedReply,
+    ChatVerifiedReply, StudioArtifactDeliverableShape, StudioArtifactFileRole,
+    StudioExecutionSubstrate,
 };
 use async_trait::async_trait;
 use ioi_api::execution::{
@@ -584,8 +584,8 @@ fn empty_task(intent: &str) -> AgentTask {
         history: Vec::new(),
         events: Vec::new(),
         artifacts: Vec::new(),
-        studio_session: None,
-        studio_outcome: None,
+        chat_session: None,
+        chat_outcome: None,
         renderer_session: None,
         build_session: None,
         run_bundle_id: None,
@@ -757,8 +757,8 @@ fn test_manifest(status: StudioArtifactVerificationStatus) -> StudioArtifactMani
     }
 }
 
-fn test_studio_session(status: StudioArtifactVerificationStatus) -> StudioArtifactSession {
-    StudioArtifactSession {
+fn test_chat_session(status: StudioArtifactVerificationStatus) -> ChatArtifactSession {
+    ChatArtifactSession {
         session_id: "studio-session-1".to_string(),
         thread_id: "thread-1".to_string(),
         artifact_id: "artifact-1".to_string(),
@@ -773,7 +773,7 @@ fn test_studio_session(status: StudioArtifactVerificationStatus) -> StudioArtifa
         materialization: test_materialization_contract(),
         outcome_request: test_outcome_request(),
         artifact_manifest: test_manifest(status),
-        verified_reply: StudioVerifiedReply {
+        verified_reply: ChatVerifiedReply {
             status,
             lifecycle_state: if status == StudioArtifactVerificationStatus::Ready {
                 StudioArtifactLifecycleState::Ready
@@ -832,7 +832,7 @@ fn test_studio_session(status: StudioArtifactVerificationStatus) -> StudioArtifa
 
 #[test]
 fn provisional_artifact_session_tracks_origin_prompt_event_id() {
-    let session = super::prepare::provisional_non_workspace_studio_session(
+    let session = super::prepare::provisional_non_workspace_chat_session(
         "thread-1",
         "studio-session-1",
         "Release artifact",
@@ -865,11 +865,11 @@ fn provisional_artifact_session_tracks_origin_prompt_event_id() {
 
 #[test]
 fn operator_run_restarts_for_follow_up_edit_and_preserves_history() {
-    let mut session = test_studio_session(StudioArtifactVerificationStatus::Ready);
+    let mut session = test_chat_session(StudioArtifactVerificationStatus::Ready);
     super::operator_run::start_operator_run_for_session(
         &mut session,
         Some("prompt-evt-1"),
-        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+        ioi_api::runtime_harness::ArtifactOperatorRunMode::Create,
     );
     let first_run_id = session
         .active_operator_run
@@ -881,7 +881,7 @@ fn operator_run_restarts_for_follow_up_edit_and_preserves_history() {
     super::operator_run::start_operator_run_for_session(
         &mut session,
         Some("prompt-evt-2"),
-        ioi_api::studio::StudioArtifactOperatorRunMode::Edit,
+        ioi_api::runtime_harness::ArtifactOperatorRunMode::Edit,
     );
 
     assert_eq!(session.operator_run_history.len(), 1);
@@ -905,11 +905,11 @@ fn operator_run_restarts_for_follow_up_edit_and_preserves_history() {
 
 #[test]
 fn operator_run_does_not_present_until_verify_exists_and_settles() {
-    let mut session = test_studio_session(StudioArtifactVerificationStatus::Ready);
+    let mut session = test_chat_session(StudioArtifactVerificationStatus::Ready);
     super::operator_run::start_operator_run_for_session(
         &mut session,
         Some("prompt-evt-1"),
-        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+        ioi_api::runtime_harness::ArtifactOperatorRunMode::Create,
     );
 
     super::operator_run::refresh_active_operator_run_from_session(&mut session, None);
@@ -917,16 +917,16 @@ fn operator_run_does_not_present_until_verify_exists_and_settles() {
     let run = session.active_operator_run.expect("active run");
     assert_eq!(
         run.status,
-        ioi_api::studio::StudioArtifactOperatorRunStatus::Active
+        ioi_api::runtime_harness::ArtifactOperatorRunStatus::Active
     );
     assert!(!run.steps.iter().any(|step| {
-        step.phase == ioi_api::studio::StudioArtifactOperatorPhase::PresentArtifact
+        step.phase == ioi_api::runtime_harness::ArtifactOperatorPhase::PresentArtifact
     }));
 }
 
 #[test]
 fn operator_run_settles_verify_before_presenting_ready_artifact() {
-    let mut session = test_studio_session(StudioArtifactVerificationStatus::Ready);
+    let mut session = test_chat_session(StudioArtifactVerificationStatus::Ready);
     session.materialization.render_evaluation = Some(StudioArtifactRenderEvaluation {
         supported: true,
         first_paint_captured: true,
@@ -949,7 +949,7 @@ fn operator_run_settles_verify_before_presenting_ready_artifact() {
     super::operator_run::start_operator_run_for_session(
         &mut session,
         Some("prompt-evt-1"),
-        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+        ioi_api::runtime_harness::ArtifactOperatorRunMode::Create,
     );
     super::operator_run::refresh_active_operator_run_from_session(&mut session, None);
 
@@ -957,25 +957,25 @@ fn operator_run_settles_verify_before_presenting_ready_artifact() {
     let verify_step = run
         .steps
         .iter()
-        .find(|step| step.phase == ioi_api::studio::StudioArtifactOperatorPhase::VerifyArtifact)
+        .find(|step| step.phase == ioi_api::runtime_harness::ArtifactOperatorPhase::VerifyArtifact)
         .expect("verify step");
     let present_step = run
         .steps
         .iter()
-        .find(|step| step.phase == ioi_api::studio::StudioArtifactOperatorPhase::PresentArtifact)
+        .find(|step| step.phase == ioi_api::runtime_harness::ArtifactOperatorPhase::PresentArtifact)
         .expect("present step");
 
     assert_eq!(
         verify_step.status,
-        ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+        ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete
     );
     assert_eq!(
         present_step.status,
-        ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+        ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete
     );
     assert_eq!(
         run.status,
-        ioi_api::studio::StudioArtifactOperatorRunStatus::Complete
+        ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete
     );
 }
 
@@ -998,7 +998,7 @@ fn proof_memory_runtime() -> Arc<MemoryRuntime> {
 fn test_build_session(status: &str, verification_status: &str) -> BuildArtifactSession {
     BuildArtifactSession {
         session_id: "build-1".to_string(),
-        studio_session_id: "studio-session-1".to_string(),
+        chat_session_id: "studio-session-1".to_string(),
         workspace_root: "/tmp/studio".to_string(),
         entry_document: "src/App.tsx".to_string(),
         preview_url: None,
@@ -1112,10 +1112,10 @@ fn derive_studio_taste_memory_accumulates_unique_directives() {
 
 #[test]
 fn revision_branch_identity_allocates_new_branch_when_requested() {
-    let mut studio_session = test_studio_session(StudioArtifactVerificationStatus::Ready);
-    let base_revision = initial_revision_for_session(&studio_session, "Create the artifact");
-    studio_session.active_revision_id = Some(base_revision.revision_id.clone());
-    studio_session.revisions = vec![base_revision.clone()];
+    let mut chat_session = test_chat_session(StudioArtifactVerificationStatus::Ready);
+    let base_revision = initial_revision_for_session(&chat_session, "Create the artifact");
+    chat_session.active_revision_id = Some(base_revision.revision_id.clone());
+    chat_session.revisions = vec![base_revision.clone()];
     let edit_intent = StudioArtifactEditIntent {
         mode: StudioArtifactEditMode::Branch,
         summary: "Branch this revision.".to_string(),
@@ -1131,7 +1131,7 @@ fn revision_branch_identity_allocates_new_branch_when_requested() {
     };
 
     let (branch_id, branch_label, parent_revision_id) =
-        revision_branch_identity(&studio_session, Some(&edit_intent));
+        revision_branch_identity(&chat_session, Some(&edit_intent));
 
     assert_eq!(branch_id, "branch-1");
     assert_eq!(branch_label, "Branch 1");
@@ -1139,10 +1139,10 @@ fn revision_branch_identity_allocates_new_branch_when_requested() {
 }
 
 #[test]
-fn apply_revision_to_studio_session_restores_manifest_and_selection() {
-    let mut studio_session = test_studio_session(StudioArtifactVerificationStatus::Ready);
-    studio_session.selected_targets = vec![test_selection_target()];
-    studio_session.taste_memory = Some(StudioArtifactTasteMemory {
+fn apply_revision_to_chat_session_restores_manifest_and_selection() {
+    let mut chat_session = test_chat_session(StudioArtifactVerificationStatus::Ready);
+    chat_session.selected_targets = vec![test_selection_target()];
+    chat_session.taste_memory = Some(StudioArtifactTasteMemory {
         directives: vec!["legacy".to_string()],
         summary: "Legacy taste memory".to_string(),
         typography_preferences: Vec::new(),
@@ -1153,7 +1153,7 @@ fn apply_revision_to_studio_session_restores_manifest_and_selection() {
         preferred_component_patterns: Vec::new(),
         anti_patterns: Vec::new(),
     });
-    let mut restored_revision = initial_revision_for_session(&studio_session, "Create artifact");
+    let mut restored_revision = initial_revision_for_session(&chat_session, "Create artifact");
     restored_revision.revision_id = "revision-2".to_string();
     restored_revision.artifact_manifest.title = "Restored artifact".to_string();
     restored_revision.artifact_manifest.files = vec![StudioArtifactManifestFile {
@@ -1197,25 +1197,22 @@ fn apply_revision_to_studio_session_restores_manifest_and_selection() {
         source_revision_id: Some("revision-source".to_string()),
     }];
 
-    apply_revision_to_studio_session(&mut studio_session, &restored_revision);
+    apply_revision_to_chat_session(&mut chat_session, &restored_revision);
 
-    assert_eq!(studio_session.title, "Restored artifact");
+    assert_eq!(chat_session.title, "Restored artifact");
+    assert_eq!(chat_session.artifact_manifest.files[0].path, "restored.md");
+    assert_eq!(chat_session.selected_targets[0].label, "Restored section");
     assert_eq!(
-        studio_session.artifact_manifest.files[0].path,
-        "restored.md"
-    );
-    assert_eq!(studio_session.selected_targets[0].label, "Restored section");
-    assert_eq!(
-        studio_session
+        chat_session
             .taste_memory
             .as_ref()
             .and_then(|memory| memory.density_preference.as_deref()),
         Some("airy")
     );
-    assert_eq!(studio_session.retrieved_exemplars.len(), 1);
-    assert_eq!(studio_session.retrieved_exemplars[0].record_id, 44);
+    assert_eq!(chat_session.retrieved_exemplars.len(), 1);
+    assert_eq!(chat_session.retrieved_exemplars[0].record_id, 44);
     assert_eq!(
-        studio_session.active_revision_id,
+        chat_session.active_revision_id,
         Some("revision-2".to_string())
     );
 }
@@ -1277,9 +1274,9 @@ fn revision_compare_detects_blob_changes_beyond_shared_preview_prefix() {
         .put_artifact_blob(thread_key, "artifact-refined", refined_body.as_bytes())
         .expect("refined blob");
 
-    let mut studio_session = test_studio_session(StudioArtifactVerificationStatus::Ready);
-    studio_session.artifact_manifest.renderer = StudioRendererKind::HtmlIframe;
-    studio_session.artifact_manifest.files = vec![StudioArtifactManifestFile {
+    let mut chat_session = test_chat_session(StudioArtifactVerificationStatus::Ready);
+    chat_session.artifact_manifest.renderer = StudioRendererKind::HtmlIframe;
+    chat_session.artifact_manifest.files = vec![StudioArtifactManifestFile {
         path: "index.html".to_string(),
         mime: "text/html".to_string(),
         role: StudioArtifactFileRole::Primary,
@@ -1290,7 +1287,7 @@ fn revision_compare_detects_blob_changes_beyond_shared_preview_prefix() {
     }];
 
     let preview = shared_prefix[..120].to_string();
-    let mut base_revision = initial_revision_for_session(&studio_session, "Create artifact");
+    let mut base_revision = initial_revision_for_session(&chat_session, "Create artifact");
     base_revision.file_writes = vec![StudioArtifactMaterializationFileWrite {
         path: "index.html".to_string(),
         kind: "write".to_string(),
@@ -1332,8 +1329,8 @@ fn test_task(status: StudioArtifactVerificationStatus) -> AgentTask {
         history: Vec::new(),
         events: Vec::new(),
         artifacts: Vec::new(),
-        studio_session: Some(test_studio_session(status)),
-        studio_outcome: Some(test_outcome_request()),
+        chat_session: Some(test_chat_session(status)),
+        chat_outcome: Some(test_outcome_request()),
         renderer_session: None,
         build_session: None,
         run_bundle_id: None,

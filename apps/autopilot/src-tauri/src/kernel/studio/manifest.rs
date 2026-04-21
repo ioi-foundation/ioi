@@ -1,12 +1,12 @@
 use crate::models::{
-    BuildArtifactSession, StudioArtifactFileRole, StudioArtifactLifecycleState,
+    BuildArtifactSession, ChatVerifiedReply, StudioArtifactFileRole, StudioArtifactLifecycleState,
     StudioArtifactManifest, StudioArtifactManifestFile, StudioArtifactManifestStorage,
     StudioArtifactManifestTab, StudioArtifactManifestVerification, StudioArtifactNavigatorNode,
     StudioArtifactPersistenceMode, StudioArtifactTabKind, StudioOutcomeArtifactRequest,
-    StudioRendererKind, StudioRendererSession, StudioVerifiedReply,
+    StudioRendererKind, StudioRendererSession,
 };
-pub(super) use ioi_api::studio::verification_status_for_lifecycle;
-use ioi_api::studio::verified_reply_evidence_for_manifest;
+pub(super) use ioi_api::runtime_harness::verification_status_for_lifecycle;
+use ioi_api::runtime_harness::verified_reply_evidence_for_manifest;
 use uuid::Uuid;
 
 use super::{mime_for_workspace_entry, now_iso};
@@ -221,8 +221,8 @@ pub(super) fn navigator_nodes_for_manifest(
 pub(super) fn verified_reply_from_manifest(
     title: &str,
     manifest: &StudioArtifactManifest,
-) -> StudioVerifiedReply {
-    StudioVerifiedReply {
+) -> ChatVerifiedReply {
+    ChatVerifiedReply {
         status: manifest.verification.status,
         lifecycle_state: manifest.verification.lifecycle_state,
         title: format!("Studio outcome: {}", title),

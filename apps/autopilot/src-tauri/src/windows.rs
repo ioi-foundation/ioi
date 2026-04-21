@@ -1,6 +1,6 @@
 // apps/autopilot/src-tauri/src/windows.rs
 
-use crate::models::{AppState, StudioLaunchReceipt};
+use crate::models::{AppState, ChatLaunchReceipt};
 mod commands;
 mod layout;
 mod monitor;
@@ -65,7 +65,7 @@ fn now_ms() -> u64 {
 }
 
 fn push_studio_launch_receipt(state: &mut AppState, stage: impl Into<String>, detail: Value) {
-    let receipt = StudioLaunchReceipt {
+    let receipt = ChatLaunchReceipt {
         timestamp_ms: now_ms(),
         stage: stage.into(),
         detail,
@@ -75,10 +75,10 @@ fn push_studio_launch_receipt(state: &mut AppState, stage: impl Into<String>, de
         "[Autopilot][StudioLaunch] stage={} detail={}",
         receipt.stage, detail_snapshot
     );
-    state.studio_launch_receipts.push(receipt);
-    let overflow = state.studio_launch_receipts.len().saturating_sub(128);
+    state.chat_launch_receipts.push(receipt);
+    let overflow = state.chat_launch_receipts.len().saturating_sub(128);
     if overflow > 0 {
-        state.studio_launch_receipts.drain(0..overflow);
+        state.chat_launch_receipts.drain(0..overflow);
     }
 }
 
@@ -184,7 +184,7 @@ pub(super) fn summarize_studio_launch_envelope(envelope: &Value) -> Value {
     })
 }
 
-pub(super) fn record_studio_launch_receipt_for_app(
+pub(super) fn record_chat_launch_receipt_for_app(
     app: &tauri::AppHandle,
     stage: impl Into<String>,
     detail: Value,
@@ -201,7 +201,7 @@ fn build_studio_launch_envelope(request: Value) -> Value {
     })
 }
 
-fn set_pending_studio_launch_request(state: &mut AppState, request: Value) -> Value {
+fn set_pending_chat_launch_request(state: &mut AppState, request: Value) -> Value {
     let envelope = build_studio_launch_envelope(request);
     let request_summary = summarize_studio_launch_envelope(&envelope);
     push_studio_launch_receipt(
@@ -211,7 +211,7 @@ fn set_pending_studio_launch_request(state: &mut AppState, request: Value) -> Va
             "launch": request_summary,
         }),
     );
-    state.pending_studio_launch_request = Some(envelope.clone());
+    state.pending_chat_launch_request = Some(envelope.clone());
     envelope
 }
 
@@ -223,7 +223,7 @@ pub(super) fn queue_pending_studio_launch_for_app(
     let mut state = state_handle
         .lock()
         .map_err(|_| "App state is unavailable.".to_string())?;
-    Ok(set_pending_studio_launch_request(&mut state, request))
+    Ok(set_pending_chat_launch_request(&mut state, request))
 }
 
 #[tauri::command]
@@ -272,14 +272,14 @@ pub fn hide_gate(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-pub fn show_studio(app: tauri::AppHandle) {
-    commands::show_studio(app);
+pub fn show_chat(app: tauri::AppHandle) {
+    commands::show_chat(app);
 }
 
 #[tauri::command]
-pub fn show_studio_with_target(app: tauri::AppHandle, request: Value) -> Result<(), String> {
+pub fn show_chat_with_target(app: tauri::AppHandle, request: Value) -> Result<(), String> {
     let envelope = queue_pending_studio_launch_for_app(&app, request)?;
-    commands::show_studio_with_target(app, envelope);
+    commands::show_chat_with_target(app, envelope);
     Ok(())
 }
 
@@ -289,23 +289,23 @@ pub fn hide_studio(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-pub fn set_pending_studio_launch(
+pub fn set_pending_chat_launch(
     state: State<'_, Mutex<AppState>>,
     request: Value,
 ) -> Result<(), String> {
     let mut state = state
         .lock()
         .map_err(|_| "App state is unavailable.".to_string())?;
-    set_pending_studio_launch_request(&mut state, request);
+    set_pending_chat_launch_request(&mut state, request);
     Ok(())
 }
 
 #[tauri::command]
-pub fn clear_pending_studio_launch(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn clear_pending_chat_launch(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
     let mut state = state
         .lock()
         .map_err(|_| "App state is unavailable.".to_string())?;
-    let previous = state.pending_studio_launch_request.clone();
+    let previous = state.pending_chat_launch_request.clone();
     push_studio_launch_receipt(
         &mut state,
         "cleared",
@@ -314,18 +314,18 @@ pub fn clear_pending_studio_launch(state: State<'_, Mutex<AppState>>) -> Result<
             "launch": previous.as_ref().map(summarize_studio_launch_envelope),
         }),
     );
-    state.pending_studio_launch_request = None;
+    state.pending_chat_launch_request = None;
     Ok(())
 }
 
 #[tauri::command]
-pub fn peek_pending_studio_launch(
+pub fn peek_pending_chat_launch(
     state: State<'_, Mutex<AppState>>,
 ) -> Result<Option<Value>, String> {
     let mut state = state
         .lock()
         .map_err(|_| "App state is unavailable.".to_string())?;
-    let request = state.pending_studio_launch_request.clone();
+    let request = state.pending_chat_launch_request.clone();
     push_studio_launch_receipt(
         &mut state,
         "peeked",
@@ -338,14 +338,14 @@ pub fn peek_pending_studio_launch(
 }
 
 #[tauri::command]
-pub fn ack_pending_studio_launch(
+pub fn ack_pending_chat_launch(
     state: State<'_, Mutex<AppState>>,
     launch_id: String,
 ) -> Result<bool, String> {
     let mut state = state
         .lock()
         .map_err(|_| "App state is unavailable.".to_string())?;
-    let pending_launch = state.pending_studio_launch_request.clone();
+    let pending_launch = state.pending_chat_launch_request.clone();
     let should_clear = pending_launch
         .as_ref()
         .and_then(studio_launch_envelope_id)
@@ -363,14 +363,14 @@ pub fn ack_pending_studio_launch(
     );
 
     if should_clear {
-        state.pending_studio_launch_request = None;
+        state.pending_chat_launch_request = None;
     }
 
     Ok(should_clear)
 }
 
 #[tauri::command]
-pub fn record_studio_launch_receipt(
+pub fn record_chat_launch_receipt(
     state: State<'_, Mutex<AppState>>,
     stage: String,
     detail: Option<Value>,
@@ -383,13 +383,13 @@ pub fn record_studio_launch_receipt(
 }
 
 #[tauri::command]
-pub fn get_studio_launch_receipts(
+pub fn get_chat_launch_receipts(
     state: State<'_, Mutex<AppState>>,
-) -> Result<Vec<StudioLaunchReceipt>, String> {
+) -> Result<Vec<ChatLaunchReceipt>, String> {
     let state = state
         .lock()
         .map_err(|_| "App state is unavailable.".to_string())?;
-    Ok(state.studio_launch_receipts.clone())
+    Ok(state.chat_launch_receipts.clone())
 }
 
 #[cfg(test)]

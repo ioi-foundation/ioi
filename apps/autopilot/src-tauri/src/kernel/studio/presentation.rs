@@ -1,7 +1,7 @@
 use crate::models::{
     StudioArtifactLifecycleState, StudioOutcomeArtifactRequest, StudioRendererKind,
 };
-use ioi_api::studio::{
+use ioi_api::runtime_harness::{
     StudioArtifactRenderEvaluation, StudioArtifactRenderFindingSeverity,
     StudioArtifactValidationResult,
 };
@@ -46,7 +46,7 @@ pub(super) struct ArtifactPresentationAssessment {
 
 fn studio_modal_first_html_enabled_for_request(request: &StudioOutcomeArtifactRequest) -> bool {
     request.renderer == StudioRendererKind::HtmlIframe
-        && ioi_api::studio::studio_modal_first_html_enabled_for_tests_and_runtime()
+        && ioi_api::runtime_harness::studio_modal_first_html_enabled_for_tests_and_runtime()
 }
 
 pub(super) fn assess_materialized_artifact_presentation(
@@ -397,7 +397,8 @@ pub(super) fn finalize_presentation_assessment(
     let acceptance_clears_primary_view = !fallback_used
         && !assessment.has_structural_blocker
         && render_clears_primary_view
-        && validation.classification == ioi_api::studio::StudioArtifactValidationStatus::Pass
+        && validation.classification
+            == ioi_api::runtime_harness::StudioArtifactValidationStatus::Pass
         && validation.deserves_primary_artifact_view;
 
     if acceptance_clears_primary_view {
@@ -420,7 +421,8 @@ pub(super) fn finalize_presentation_assessment(
     }
 
     let acceptance_denies_primary_view = fallback_used
-        || validation.classification != ioi_api::studio::StudioArtifactValidationStatus::Pass
+        || validation.classification
+            != ioi_api::runtime_harness::StudioArtifactValidationStatus::Pass
         || !validation.deserves_primary_artifact_view
         || validation.generic_shell_detected
         || validation.trivial_shell_detected;
@@ -440,7 +442,7 @@ pub(super) fn finalize_presentation_assessment(
     }
 
     let lifecycle_state = match validation.classification {
-        ioi_api::studio::StudioArtifactValidationStatus::Blocked => {
+        ioi_api::runtime_harness::StudioArtifactValidationStatus::Blocked => {
             StudioArtifactLifecycleState::Blocked
         }
         _ => match assessment.lifecycle_state {

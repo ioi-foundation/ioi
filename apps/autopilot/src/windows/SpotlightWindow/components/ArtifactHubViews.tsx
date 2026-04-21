@@ -60,7 +60,7 @@ import {
   type ShieldApprovalScopeMode,
   type ShieldRememberedApprovalSnapshot,
   type ShieldPolicyState,
-} from "../../StudioWindow/policyCenter";
+} from "../../ChatWindow/chatPolicyCenter";
 import type {
   SpotlightPermissionConnectorOverrideSummary,
   SpotlightPermissionProfileSummary,

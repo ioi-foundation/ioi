@@ -1,10 +1,10 @@
 use crate::models::{
-    BuildArtifactSession, StudioArtifactLifecycleState, StudioArtifactManifest,
-    StudioArtifactMaterializationCommandIntent, StudioArtifactMaterializationContract,
-    StudioArtifactPipelineStep, StudioArtifactSession, StudioOutcomeArtifactRequest,
-    StudioOutcomeKind, StudioRendererKind,
+    BuildArtifactSession, ChatArtifactSession, StudioArtifactLifecycleState,
+    StudioArtifactManifest, StudioArtifactMaterializationCommandIntent,
+    StudioArtifactMaterializationContract, StudioArtifactPipelineStep,
+    StudioOutcomeArtifactRequest, StudioOutcomeKind, StudioRendererKind,
 };
-use ioi_api::studio::{
+use ioi_api::runtime_harness::{
     ExecutionStage, StudioArtifactTasteMemory, StudioArtifactValidationStatus,
     StudioArtifactWorkItemStatus, StudioArtifactWorkerRole,
 };
@@ -362,12 +362,12 @@ fn outcome_kind_label(kind: StudioOutcomeKind) -> &'static str {
 }
 
 fn pipeline_steps_for_non_artifact_route(
-    studio_session: &StudioArtifactSession,
+    chat_session: &ChatArtifactSession,
 ) -> Vec<StudioArtifactPipelineStep> {
-    let materialization = &studio_session.materialization;
-    let outcome_request = &studio_session.outcome_request;
+    let materialization = &chat_session.materialization;
+    let outcome_request = &chat_session.outcome_request;
     let route_kind = outcome_kind_label(outcome_request.outcome_kind);
-    let lifecycle_state = studio_session.lifecycle_state;
+    let lifecycle_state = chat_session.lifecycle_state;
     let status = match lifecycle_state {
         StudioArtifactLifecycleState::Ready | StudioArtifactLifecycleState::Partial => "complete",
         StudioArtifactLifecycleState::Blocked => "blocked",
@@ -501,7 +501,7 @@ fn pipeline_steps_for_non_artifact_route(
             "Reply",
             status,
             "Studio keeps the user-facing reply truthful to the chosen surface without implying an artifact renderer ran.",
-            vec![studio_session.verified_reply.summary.clone()]
+            vec![chat_session.verified_reply.summary.clone()]
                 .into_iter()
                 .chain(route_hints.iter().take(3).cloned())
                 .collect(),
@@ -730,9 +730,9 @@ pub(super) fn pipeline_steps_for_state(
             .filter(|step| {
                 matches!(
                     step.phase,
-                    ioi_api::studio::StudioArtifactOperatorPhase::VerifyArtifact
-                        | ioi_api::studio::StudioArtifactOperatorPhase::InspectArtifact
-                        | ioi_api::studio::StudioArtifactOperatorPhase::PresentArtifact
+                    ioi_api::runtime_harness::ArtifactOperatorPhase::VerifyArtifact
+                        | ioi_api::runtime_harness::ArtifactOperatorPhase::InspectArtifact
+                        | ioi_api::runtime_harness::ArtifactOperatorPhase::PresentArtifact
                 )
             })
             .map(|step| format!("{} ({:?})", step.label, step.status))
@@ -1311,22 +1311,22 @@ pub(super) fn pipeline_steps_for_state(
 }
 
 pub(super) fn refresh_pipeline_steps(
-    studio_session: &mut StudioArtifactSession,
+    chat_session: &mut ChatArtifactSession,
     build_session: Option<&BuildArtifactSession>,
 ) {
-    let Some(request) = studio_session.outcome_request.artifact.as_ref() else {
-        studio_session.materialization.pipeline_steps =
-            pipeline_steps_for_non_artifact_route(studio_session);
+    let Some(request) = chat_session.outcome_request.artifact.as_ref() else {
+        chat_session.materialization.pipeline_steps =
+            pipeline_steps_for_non_artifact_route(chat_session);
         return;
     };
-    studio_session.materialization.pipeline_steps = pipeline_steps_for_state(
-        &studio_session.materialization.normalized_intent,
+    chat_session.materialization.pipeline_steps = pipeline_steps_for_state(
+        &chat_session.materialization.normalized_intent,
         request,
-        &studio_session.artifact_manifest,
-        &studio_session.materialization,
-        studio_session.lifecycle_state,
+        &chat_session.artifact_manifest,
+        &chat_session.materialization,
+        chat_session.lifecycle_state,
         build_session,
-        studio_session.taste_memory.as_ref(),
+        chat_session.taste_memory.as_ref(),
     );
 }
 

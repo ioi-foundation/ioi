@@ -1,4 +1,10 @@
 #![allow(dead_code)]
+//! Reserve queue-support pipeline.
+//!
+//! This module preserves a large amount of queue/query/synthesis support logic
+//! that is not all on the hot path at once. Treat it as reserve capability for
+//! research, synthesis, and grounded-query orchestration, not as a single
+//! always-on runtime surface.
 
 use super::envelope::{
     compile_constraint_set, score_evidence_candidate, verify_claim_envelope,

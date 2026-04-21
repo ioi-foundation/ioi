@@ -197,7 +197,7 @@ pub(crate) fn workspace_root_from_task(task: &crate::models::AgentTask) -> Optio
                 .map(|session| session.workspace_root.clone())
         })
         .or_else(|| {
-            task.studio_session
+            task.chat_session
                 .as_ref()
                 .and_then(|session| session.workspace_root.clone())
         })

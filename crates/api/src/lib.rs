@@ -43,6 +43,8 @@ pub mod ibc;
 pub mod identity;
 /// Defines traits for services that hook into the block processing lifecycle.
 pub mod lifecycle;
+/// Product-agnostic runtime-harness semantics shared by shell products.
+pub mod runtime_harness;
 /// Traits for pluggable, upgradable blockchain services.
 pub mod services;
 /// Core traits for state management, including `StateAccess` and `StateManager`.

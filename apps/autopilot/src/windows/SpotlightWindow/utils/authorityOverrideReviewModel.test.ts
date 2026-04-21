@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import type {
   CapabilityGovernanceRequest,
   ShieldPolicyState,
-} from "../../StudioWindow/policyCenter";
+} from "../../ChatWindow/chatPolicyCenter";
 import type { SpotlightPermissionConnectorOverrideSummary } from "../hooks/useSpotlightPermissions";
 import { buildAuthorityOverrideReviewCards } from "./authorityOverrideReviewModel.ts";
 

@@ -1,4 +1,7 @@
-import { countActiveOverrides, type ShieldPolicyState } from "../policyCenter";
+import {
+  countActiveOverrides,
+  type ShieldPolicyState,
+} from "../../ChatWindow/chatPolicyCenter";
 import type {
   AssistantUserProfile,
   AssistantWorkbenchSession,

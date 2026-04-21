@@ -1,7 +1,7 @@
 use super::*;
-use crate::models::{StudioArtifactRevision, StudioArtifactSession};
+use crate::models::{ChatArtifactSession, StudioArtifactRevision};
 use crate::orchestrator;
-use ioi_api::studio::{
+use ioi_api::runtime_harness::{
     StudioArtifactBlueprint, StudioArtifactBrief, StudioArtifactEditIntent, StudioArtifactExemplar,
     StudioArtifactIR, StudioArtifactRefinementContext, StudioArtifactTasteMemory,
     StudioArtifactUxLifecycle, StudioArtifactValidationResult, StudioArtifactValidationStatus,
@@ -266,7 +266,7 @@ pub(super) fn studio_artifact_exemplar_from_archival_record(
 pub(super) fn persist_studio_artifact_exemplar(
     memory_runtime: &Arc<MemoryRuntime>,
     inference_runtime: Option<Arc<dyn InferenceRuntime>>,
-    studio_session: &StudioArtifactSession,
+    chat_session: &ChatArtifactSession,
     revision: &StudioArtifactRevision,
 ) -> Result<Option<StudioArtifactExemplar>, String> {
     let Some(runtime) = inference_runtime else {
@@ -286,7 +286,7 @@ pub(super) fn persist_studio_artifact_exemplar(
     };
     if validation.classification != StudioArtifactValidationStatus::Pass
         || studio_artifact_validation_total_score(validation) < STUDIO_ARTIFACT_EXEMPLAR_MIN_SCORE
-        || studio_session.materialization.fallback_used
+        || chat_session.materialization.fallback_used
     {
         return Ok(None);
     }
@@ -294,13 +294,13 @@ pub(super) fn persist_studio_artifact_exemplar(
     let exemplar = StudioArtifactExemplar {
         record_id: 0,
         title: revision.artifact_manifest.title.clone(),
-        summary: studio_session.summary.clone(),
+        summary: chat_session.summary.clone(),
         renderer: revision.artifact_manifest.renderer,
         scaffold_family: blueprint.scaffold_family.clone(),
         thesis: brief.artifact_thesis.clone(),
         quality_rationale: exemplar_quality_rationale(
             validation,
-            studio_session
+            chat_session
                 .materialization
                 .winning_candidate_rationale
                 .as_deref(),
@@ -310,23 +310,20 @@ pub(super) fn persist_studio_artifact_exemplar(
             brief,
             blueprint,
             artifact_ir,
-            studio_session.taste_memory.as_ref(),
+            chat_session.taste_memory.as_ref(),
         ),
         component_patterns: exemplar_component_patterns(
             blueprint,
             artifact_ir,
-            studio_session.taste_memory.as_ref(),
+            chat_session.taste_memory.as_ref(),
         ),
-        anti_patterns: exemplar_anti_patterns(
-            studio_session.taste_memory.as_ref(),
-            Some(validation),
-        ),
+        anti_patterns: exemplar_anti_patterns(chat_session.taste_memory.as_ref(), Some(validation)),
         source_revision_id: Some(revision.revision_id.clone()),
     };
     let content = build_studio_artifact_exemplar_content(&exemplar, brief, blueprint, artifact_ir);
     let metadata = StudioArtifactExemplarArchivalMetadata {
         trust_level: "runtime_observed".to_string(),
-        artifact_id: studio_session.artifact_id.clone(),
+        artifact_id: chat_session.artifact_id.clone(),
         revision_id: revision.revision_id.clone(),
         renderer: exemplar.renderer,
         scaffold_family: exemplar.scaffold_family.clone(),
@@ -371,12 +368,12 @@ pub(super) fn compare_artifact_revisions(
     target_revision_id: String,
 ) -> Result<StudioArtifactRevisionComparison, String> {
     let (task, memory_runtime) = current_task_and_memory_runtime(&state)?;
-    let studio_session = task
-        .studio_session
+    let chat_session = task
+        .chat_session
         .as_ref()
         .ok_or_else(|| "No active Studio task is loaded.".to_string())?;
-    let base = current_studio_revision(studio_session, &base_revision_id)?;
-    let target = current_studio_revision(studio_session, &target_revision_id)?;
+    let base = current_studio_revision(chat_session, &base_revision_id)?;
+    let target = current_studio_revision(chat_session, &target_revision_id)?;
     let changed_paths = changed_paths_between_revisions(base, target, memory_runtime.as_ref());
 
     Ok(StudioArtifactRevisionComparison {
@@ -502,12 +499,12 @@ pub(super) fn restore_artifact_revision(
     revision_id: String,
 ) -> Result<(), String> {
     let (mut task, memory_runtime) = current_task_and_memory_runtime(&state)?;
-    let studio_session = task
-        .studio_session
+    let chat_session = task
+        .chat_session
         .as_mut()
         .ok_or_else(|| "No Studio artifact session is attached to the current task.".to_string())?;
-    let revision = current_studio_revision(studio_session, &revision_id)?.clone();
-    apply_revision_to_studio_session(studio_session, &revision);
+    let revision = current_studio_revision(chat_session, &revision_id)?.clone();
+    apply_revision_to_chat_session(chat_session, &revision);
     persist_current_task_update(&state, &app, task, memory_runtime)
 }
 
@@ -517,12 +514,12 @@ pub(super) fn branch_artifact_revision(
     revision_id: String,
 ) -> Result<StudioArtifactRevision, String> {
     let (mut task, memory_runtime) = current_task_and_memory_runtime(&state)?;
-    let studio_session = task
-        .studio_session
+    let chat_session = task
+        .chat_session
         .as_mut()
         .ok_or_else(|| "No Studio artifact session is attached to the current task.".to_string())?;
-    let seed_revision = current_studio_revision(studio_session, &revision_id)?.clone();
-    let branch_index = studio_session
+    let seed_revision = current_studio_revision(chat_session, &revision_id)?.clone();
+    let branch_index = chat_session
         .revisions
         .iter()
         .filter(|revision| revision.branch_id != "main")
@@ -540,103 +537,99 @@ pub(super) fn branch_artifact_revision(
         branch_revision.branch_label, branch_revision.created_at
     );
     branch_revision.created_at = now_iso();
-    studio_session.revisions.push(branch_revision.clone());
-    apply_revision_to_studio_session(studio_session, &branch_revision);
+    chat_session.revisions.push(branch_revision.clone());
+    apply_revision_to_chat_session(chat_session, &branch_revision);
     persist_current_task_update(&state, &app, task, memory_runtime)?;
     Ok(branch_revision)
 }
 
 pub(super) fn current_studio_revision<'a>(
-    studio_session: &'a StudioArtifactSession,
+    chat_session: &'a ChatArtifactSession,
     revision_id: &str,
 ) -> Result<&'a StudioArtifactRevision, String> {
-    studio_session
+    chat_session
         .revisions
         .iter()
         .find(|revision| revision.revision_id == revision_id)
         .ok_or_else(|| format!("Studio revision '{}' was not found.", revision_id))
 }
 
-pub(super) fn apply_revision_to_studio_session(
-    studio_session: &mut StudioArtifactSession,
+pub(super) fn apply_revision_to_chat_session(
+    chat_session: &mut ChatArtifactSession,
     revision: &StudioArtifactRevision,
 ) {
-    studio_session.title = revision.artifact_manifest.title.clone();
-    studio_session.artifact_manifest = revision.artifact_manifest.clone();
-    studio_session.navigator_nodes =
-        navigator_nodes_for_manifest(&studio_session.artifact_manifest);
-    studio_session.available_lenses = studio_session
+    chat_session.title = revision.artifact_manifest.title.clone();
+    chat_session.artifact_manifest = revision.artifact_manifest.clone();
+    chat_session.navigator_nodes = navigator_nodes_for_manifest(&chat_session.artifact_manifest);
+    chat_session.available_lenses = chat_session
         .artifact_manifest
         .tabs
         .iter()
         .map(|tab| tab.id.clone())
         .collect();
-    if !studio_session
+    if !chat_session
         .available_lenses
         .iter()
-        .any(|lens| lens == &studio_session.current_lens)
+        .any(|lens| lens == &chat_session.current_lens)
     {
-        studio_session.current_lens = studio_session.artifact_manifest.primary_tab.clone();
+        chat_session.current_lens = chat_session.artifact_manifest.primary_tab.clone();
     }
-    studio_session.materialization.artifact_brief = revision.artifact_brief.clone();
-    studio_session.materialization.blueprint = revision.blueprint.clone();
-    studio_session.materialization.artifact_ir = revision.artifact_ir.clone();
-    studio_session.materialization.edit_intent = revision.edit_intent.clone();
-    studio_session.materialization.candidate_summaries = revision.candidate_summaries.clone();
-    studio_session.materialization.winning_candidate_id = revision.winning_candidate_id.clone();
-    studio_session.materialization.winning_candidate_rationale = revision
+    chat_session.materialization.artifact_brief = revision.artifact_brief.clone();
+    chat_session.materialization.blueprint = revision.blueprint.clone();
+    chat_session.materialization.artifact_ir = revision.artifact_ir.clone();
+    chat_session.materialization.edit_intent = revision.edit_intent.clone();
+    chat_session.materialization.candidate_summaries = revision.candidate_summaries.clone();
+    chat_session.materialization.winning_candidate_id = revision.winning_candidate_id.clone();
+    chat_session.materialization.winning_candidate_rationale = revision
         .validation
         .as_ref()
         .map(|validation| validation.rationale.clone());
-    studio_session.materialization.execution_envelope = revision.execution_envelope.clone();
-    studio_session.materialization.swarm_plan = revision.swarm_plan.clone();
-    studio_session.materialization.swarm_execution = revision.swarm_execution.clone();
-    studio_session.materialization.swarm_worker_receipts = revision.swarm_worker_receipts.clone();
-    studio_session.materialization.swarm_change_receipts = revision.swarm_change_receipts.clone();
-    studio_session.materialization.swarm_merge_receipts = revision.swarm_merge_receipts.clone();
-    studio_session.materialization.swarm_verification_receipts =
+    chat_session.materialization.execution_envelope = revision.execution_envelope.clone();
+    chat_session.materialization.swarm_plan = revision.swarm_plan.clone();
+    chat_session.materialization.swarm_execution = revision.swarm_execution.clone();
+    chat_session.materialization.swarm_worker_receipts = revision.swarm_worker_receipts.clone();
+    chat_session.materialization.swarm_change_receipts = revision.swarm_change_receipts.clone();
+    chat_session.materialization.swarm_merge_receipts = revision.swarm_merge_receipts.clone();
+    chat_session.materialization.swarm_verification_receipts =
         revision.swarm_verification_receipts.clone();
-    studio_session.materialization.render_evaluation = revision.render_evaluation.clone();
-    studio_session.materialization.validation = revision.validation.clone();
-    studio_session.materialization.output_origin = revision.output_origin;
-    studio_session.materialization.production_provenance = revision.production_provenance.clone();
-    studio_session.materialization.acceptance_provenance = revision.acceptance_provenance.clone();
-    studio_session.materialization.failure = revision.failure.clone();
-    studio_session.materialization.file_writes = revision.file_writes.clone();
-    studio_session.materialization.navigator_nodes =
-        navigator_nodes_for_manifest(&studio_session.artifact_manifest);
-    studio_session.materialization.summary =
-        materialization_summary_for_revision(studio_session, revision);
-    studio_session.materialization.ux_lifecycle = Some(revision.ux_lifecycle);
-    studio_session.materialization.preparation_needs = revision.preparation_needs.clone();
-    studio_session.materialization.prepared_context_resolution =
+    chat_session.materialization.render_evaluation = revision.render_evaluation.clone();
+    chat_session.materialization.validation = revision.validation.clone();
+    chat_session.materialization.output_origin = revision.output_origin;
+    chat_session.materialization.production_provenance = revision.production_provenance.clone();
+    chat_session.materialization.acceptance_provenance = revision.acceptance_provenance.clone();
+    chat_session.materialization.failure = revision.failure.clone();
+    chat_session.materialization.file_writes = revision.file_writes.clone();
+    chat_session.materialization.navigator_nodes =
+        navigator_nodes_for_manifest(&chat_session.artifact_manifest);
+    chat_session.materialization.summary =
+        materialization_summary_for_revision(chat_session, revision);
+    chat_session.materialization.ux_lifecycle = Some(revision.ux_lifecycle);
+    chat_session.materialization.preparation_needs = revision.preparation_needs.clone();
+    chat_session.materialization.prepared_context_resolution =
         revision.prepared_context_resolution.clone();
-    studio_session.materialization.skill_discovery_resolution =
+    chat_session.materialization.skill_discovery_resolution =
         revision.skill_discovery_resolution.clone();
-    studio_session.materialization.selected_skills = revision.selected_skills.clone();
-    studio_session.materialization.retrieved_exemplars = revision.retrieved_exemplars.clone();
-    studio_session.verified_reply =
-        verified_reply_from_manifest(&studio_session.title, &studio_session.artifact_manifest);
-    studio_session.lifecycle_state = studio_session
-        .artifact_manifest
-        .verification
-        .lifecycle_state;
-    studio_session.status = lifecycle_state_label(studio_session.lifecycle_state).to_string();
-    studio_session.taste_memory = revision.taste_memory.clone();
-    studio_session.retrieved_exemplars = revision.retrieved_exemplars.clone();
-    studio_session.selected_targets = revision.selected_targets.clone();
-    studio_session.ux_lifecycle = Some(revision.ux_lifecycle);
-    studio_session.active_revision_id = Some(revision.revision_id.clone());
-    studio_session.updated_at = now_iso();
-    refresh_pipeline_steps(studio_session, None);
+    chat_session.materialization.selected_skills = revision.selected_skills.clone();
+    chat_session.materialization.retrieved_exemplars = revision.retrieved_exemplars.clone();
+    chat_session.verified_reply =
+        verified_reply_from_manifest(&chat_session.title, &chat_session.artifact_manifest);
+    chat_session.lifecycle_state = chat_session.artifact_manifest.verification.lifecycle_state;
+    chat_session.status = lifecycle_state_label(chat_session.lifecycle_state).to_string();
+    chat_session.taste_memory = revision.taste_memory.clone();
+    chat_session.retrieved_exemplars = revision.retrieved_exemplars.clone();
+    chat_session.selected_targets = revision.selected_targets.clone();
+    chat_session.ux_lifecycle = Some(revision.ux_lifecycle);
+    chat_session.active_revision_id = Some(revision.revision_id.clone());
+    chat_session.updated_at = now_iso();
+    refresh_pipeline_steps(chat_session, None);
 }
 
 pub(super) fn initial_revision_for_session(
-    studio_session: &StudioArtifactSession,
+    chat_session: &ChatArtifactSession,
     prompt: &str,
 ) -> StudioArtifactRevision {
     build_revision_from_session(
-        studio_session,
+        chat_session,
         prompt,
         "main".to_string(),
         "Main".to_string(),
@@ -646,7 +639,7 @@ pub(super) fn initial_revision_for_session(
 
 pub(super) fn studio_refinement_context_for_session(
     memory_runtime: &Arc<MemoryRuntime>,
-    session: &StudioArtifactSession,
+    session: &ChatArtifactSession,
 ) -> StudioArtifactRefinementContext {
     let files = session
         .artifact_manifest
@@ -838,14 +831,14 @@ pub(super) fn derive_studio_taste_memory(
 }
 
 pub(super) fn revision_branch_identity(
-    studio_session: &StudioArtifactSession,
+    chat_session: &ChatArtifactSession,
     edit_intent: Option<&StudioArtifactEditIntent>,
 ) -> (String, String, Option<String>) {
-    let active_revision = studio_session
+    let active_revision = chat_session
         .active_revision_id
         .as_ref()
         .and_then(|revision_id| {
-            studio_session
+            chat_session
                 .revisions
                 .iter()
                 .find(|revision| revision.revision_id == *revision_id)
@@ -853,7 +846,7 @@ pub(super) fn revision_branch_identity(
     let parent_revision_id = active_revision.map(|revision| revision.revision_id.clone());
 
     if edit_intent.is_some_and(|intent| intent.branch_requested) {
-        let branch_index = studio_session
+        let branch_index = chat_session
             .revisions
             .iter()
             .filter(|revision| revision.branch_id != "main")
@@ -880,14 +873,14 @@ pub(super) fn revision_branch_identity(
 }
 
 pub(super) fn revision_for_session(
-    studio_session: &StudioArtifactSession,
+    chat_session: &ChatArtifactSession,
     prompt: &str,
     branch_id: String,
     branch_label: String,
     parent_revision_id: Option<String>,
 ) -> StudioArtifactRevision {
     build_revision_from_session(
-        studio_session,
+        chat_session,
         prompt,
         branch_id,
         branch_label,
@@ -896,18 +889,18 @@ pub(super) fn revision_for_session(
 }
 
 fn materialization_summary_for_revision(
-    studio_session: &StudioArtifactSession,
+    chat_session: &ChatArtifactSession,
     revision: &StudioArtifactRevision,
 ) -> String {
     revision
         .validation
         .as_ref()
         .map(|validation| validation.rationale.clone())
-        .unwrap_or_else(|| studio_session.materialization.summary.clone())
+        .unwrap_or_else(|| chat_session.materialization.summary.clone())
 }
 
 fn build_revision_from_session(
-    studio_session: &StudioArtifactSession,
+    chat_session: &ChatArtifactSession,
     prompt: &str,
     branch_id: String,
     branch_label: String,
@@ -920,47 +913,47 @@ fn build_revision_from_session(
         branch_label,
         prompt: prompt.trim().to_string(),
         created_at: now_iso(),
-        ux_lifecycle: studio_session
+        ux_lifecycle: chat_session
             .ux_lifecycle
             .unwrap_or(StudioArtifactUxLifecycle::Validated),
-        artifact_manifest: studio_session.artifact_manifest.clone(),
-        artifact_brief: studio_session.materialization.artifact_brief.clone(),
-        preparation_needs: studio_session.materialization.preparation_needs.clone(),
-        prepared_context_resolution: studio_session
+        artifact_manifest: chat_session.artifact_manifest.clone(),
+        artifact_brief: chat_session.materialization.artifact_brief.clone(),
+        preparation_needs: chat_session.materialization.preparation_needs.clone(),
+        prepared_context_resolution: chat_session
             .materialization
             .prepared_context_resolution
             .clone(),
-        skill_discovery_resolution: studio_session
+        skill_discovery_resolution: chat_session
             .materialization
             .skill_discovery_resolution
             .clone(),
-        blueprint: studio_session.materialization.blueprint.clone(),
-        artifact_ir: studio_session.materialization.artifact_ir.clone(),
-        selected_skills: studio_session.materialization.selected_skills.clone(),
-        edit_intent: studio_session.materialization.edit_intent.clone(),
-        candidate_summaries: studio_session.materialization.candidate_summaries.clone(),
-        winning_candidate_id: studio_session.materialization.winning_candidate_id.clone(),
-        execution_envelope: studio_session.materialization.execution_envelope.clone(),
-        swarm_plan: studio_session.materialization.swarm_plan.clone(),
-        swarm_execution: studio_session.materialization.swarm_execution.clone(),
-        swarm_worker_receipts: studio_session.materialization.swarm_worker_receipts.clone(),
-        swarm_change_receipts: studio_session.materialization.swarm_change_receipts.clone(),
-        swarm_merge_receipts: studio_session.materialization.swarm_merge_receipts.clone(),
-        swarm_verification_receipts: studio_session
+        blueprint: chat_session.materialization.blueprint.clone(),
+        artifact_ir: chat_session.materialization.artifact_ir.clone(),
+        selected_skills: chat_session.materialization.selected_skills.clone(),
+        edit_intent: chat_session.materialization.edit_intent.clone(),
+        candidate_summaries: chat_session.materialization.candidate_summaries.clone(),
+        winning_candidate_id: chat_session.materialization.winning_candidate_id.clone(),
+        execution_envelope: chat_session.materialization.execution_envelope.clone(),
+        swarm_plan: chat_session.materialization.swarm_plan.clone(),
+        swarm_execution: chat_session.materialization.swarm_execution.clone(),
+        swarm_worker_receipts: chat_session.materialization.swarm_worker_receipts.clone(),
+        swarm_change_receipts: chat_session.materialization.swarm_change_receipts.clone(),
+        swarm_merge_receipts: chat_session.materialization.swarm_merge_receipts.clone(),
+        swarm_verification_receipts: chat_session
             .materialization
             .swarm_verification_receipts
             .clone(),
-        render_evaluation: studio_session.materialization.render_evaluation.clone(),
-        validation: studio_session.materialization.validation.clone(),
-        output_origin: studio_session.materialization.output_origin,
-        production_provenance: studio_session.materialization.production_provenance.clone(),
-        acceptance_provenance: studio_session.materialization.acceptance_provenance.clone(),
-        failure: studio_session.materialization.failure.clone(),
-        file_writes: studio_session.materialization.file_writes.clone(),
-        taste_memory: studio_session.taste_memory.clone(),
-        retrieved_exemplars: studio_session.retrieved_exemplars.clone(),
-        retrieved_sources: studio_session.retrieved_sources.clone(),
-        selected_targets: studio_session.selected_targets.clone(),
+        render_evaluation: chat_session.materialization.render_evaluation.clone(),
+        validation: chat_session.materialization.validation.clone(),
+        output_origin: chat_session.materialization.output_origin,
+        production_provenance: chat_session.materialization.production_provenance.clone(),
+        acceptance_provenance: chat_session.materialization.acceptance_provenance.clone(),
+        failure: chat_session.materialization.failure.clone(),
+        file_writes: chat_session.materialization.file_writes.clone(),
+        taste_memory: chat_session.taste_memory.clone(),
+        retrieved_exemplars: chat_session.retrieved_exemplars.clone(),
+        retrieved_sources: chat_session.retrieved_sources.clone(),
+        selected_targets: chat_session.selected_targets.clone(),
     }
 }
 

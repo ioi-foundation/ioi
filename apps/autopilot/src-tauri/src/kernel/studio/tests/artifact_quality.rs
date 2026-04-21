@@ -22,7 +22,7 @@ fn studio_authoritative_status_preserves_completed_inline_reply() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "What is the capital of Spain?",
         crate::models::StudioRuntimeProvenance {

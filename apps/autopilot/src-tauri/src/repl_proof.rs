@@ -170,7 +170,7 @@ fn build_seed_task(
 
     let build_session = BuildArtifactSession {
         session_id: Uuid::new_v4().to_string(),
-        studio_session_id: Uuid::new_v4().to_string(),
+        chat_session_id: Uuid::new_v4().to_string(),
         workspace_root: trimmed_root.to_string(),
         entry_document: "README.md".to_string(),
         preview_url: None,
@@ -308,8 +308,8 @@ fn build_seed_task(
         history,
         events: Vec::new(),
         artifacts,
-        studio_session: None,
-        studio_outcome: None,
+        chat_session: None,
+        chat_outcome: None,
         renderer_session: None,
         build_session: Some(build_session),
         run_bundle_id: None,

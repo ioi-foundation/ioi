@@ -1,4 +1,7 @@
-use super::*;
+use ioi_api::runtime_harness::StudioIntentContext;
+use ioi_types::app::StudioOutcomeRequest;
+use std::time::Duration;
+use url::Url;
 
 pub(super) fn extract_weather_scopes(intent: &str) -> Vec<String> {
     StudioIntentContext::new(intent).extract_weather_scopes()
@@ -102,7 +105,7 @@ pub(super) fn parse_weather_report_fallback(scope: &str, body: &str) -> Option<S
 }
 
 fn fetch_weather_scope_summary(scope: &str) -> Result<String, String> {
-    let client = super::studio_surface_http_client()?;
+    let client = super::places::studio_surface_http_client()?;
     let formats = [
         "%l: temp %t humidity %h wind %w pressure %P as of %T",
         "%l: %t %C",

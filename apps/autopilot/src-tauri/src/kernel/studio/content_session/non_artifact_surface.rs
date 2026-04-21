@@ -5,13 +5,13 @@
 //! reply assembly for non-artifact routes.
 //!
 //! If a helper here becomes provenance-free runtime policy, move it into
-//! `ioi_api::studio`. If it exists to support Studio session rendering or
+//! `ioi_api::runtime_harness`. If it exists to support Studio session rendering or
 //! manifest/navigation behavior, it should stay here.
 
 use super::*;
 use crate::models::StudioArtifactFileRole;
 use base64::Engine as _;
-use ioi_api::studio::{
+use ioi_api::runtime_harness::{
     derive_studio_domain_policy_bundle, non_artifact_verified_reply_evidence,
     route_decision_for_outcome_request, verification_status_for_lifecycle,
 };
@@ -23,10 +23,10 @@ pub(super) fn verified_reply_for_non_artifact_route(
     lifecycle_state: StudioArtifactLifecycleState,
     provenance: &crate::models::StudioRuntimeProvenance,
     outcome_request: &StudioOutcomeRequest,
-) -> StudioVerifiedReply {
+) -> ChatVerifiedReply {
     let status = verification_status_for_lifecycle(lifecycle_state);
 
-    StudioVerifiedReply {
+    ChatVerifiedReply {
         status,
         lifecycle_state,
         title: title.to_string(),
@@ -448,46 +448,45 @@ pub(super) fn non_artifact_manifest(
 }
 
 pub(in crate::kernel::studio) fn refresh_non_artifact_studio_surface(
-    studio_session: &mut StudioArtifactSession,
+    chat_session: &mut ChatArtifactSession,
 ) {
-    if studio_session.outcome_request.outcome_kind == StudioOutcomeKind::Artifact {
+    if chat_session.outcome_request.outcome_kind == StudioOutcomeKind::Artifact {
         return;
     }
-    let title = studio_session.title.clone();
-    let summary = studio_session.verified_reply.summary.clone();
-    let lifecycle_state = studio_session.lifecycle_state;
-    let provenance = studio_session
+    let title = chat_session.title.clone();
+    let summary = chat_session.verified_reply.summary.clone();
+    let lifecycle_state = chat_session.lifecycle_state;
+    let provenance = chat_session
         .verified_reply
         .production_provenance
         .clone()
-        .or_else(|| studio_session.verified_reply.acceptance_provenance.clone())
+        .or_else(|| chat_session.verified_reply.acceptance_provenance.clone())
         .unwrap_or(crate::models::StudioRuntimeProvenance {
             kind: crate::models::StudioRuntimeProvenanceKind::InferenceUnavailable,
             label: "inference unavailable".to_string(),
             model: None,
             endpoint: None,
         });
-    if studio_session.widget_state.is_none() {
-        studio_session.widget_state =
-            non_artifact_domain_policy_bundle(&studio_session.outcome_request, None)
+    if chat_session.widget_state.is_none() {
+        chat_session.widget_state =
+            non_artifact_domain_policy_bundle(&chat_session.outcome_request, None)
                 .retained_widget_state;
     }
     let manifest = non_artifact_manifest(
-        &studio_session.artifact_id,
+        &chat_session.artifact_id,
         &title,
         &summary,
         lifecycle_state,
         &provenance,
-        &studio_session.outcome_request,
-        studio_session.widget_state.as_ref(),
+        &chat_session.outcome_request,
+        chat_session.widget_state.as_ref(),
     );
-    studio_session.artifact_manifest = manifest;
-    studio_session.current_lens = "render".to_string();
-    studio_session.available_lenses = vec![
+    chat_session.artifact_manifest = manifest;
+    chat_session.current_lens = "render".to_string();
+    chat_session.available_lenses = vec![
         "render".to_string(),
         "source".to_string(),
         "evidence".to_string(),
     ];
-    studio_session.navigator_nodes =
-        navigator_nodes_for_manifest(&studio_session.artifact_manifest);
+    chat_session.navigator_nodes = navigator_nodes_for_manifest(&chat_session.artifact_manifest);
 }

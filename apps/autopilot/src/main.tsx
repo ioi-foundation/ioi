@@ -9,8 +9,8 @@ import "./services/sessionRuntime";
 
 import { GateWindow } from "./windows/GateWindow/index";
 import { PillWindow } from "./windows/PillWindow";
+import { ChatWindow } from "./windows/ChatWindow";
 import { SpotlightWindow } from "./windows/SpotlightWindow";
-import { StudioWindow } from "./windows/StudioWindow";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -19,8 +19,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/pill" element={<PillWindow />} />
         <Route path="/spotlight" element={<SpotlightWindow />} />
         <Route path="/gate" element={<GateWindow />} />
-        <Route path="/studio" element={<StudioWindow />} />
-        <Route path="/" element={<StudioWindow />} />
+        <Route path="/chat" element={<ChatWindow />} />
+        <Route path="/" element={<ChatWindow />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

@@ -15,8 +15,8 @@ use super::specialized_policy::{
     studio_specialized_domain_kind, studio_specialized_domain_policy,
 };
 use super::types::{
-    ArtifactConnectorGrounding, StudioArtifactOperatorPhase, StudioArtifactOperatorRunStatus,
-    StudioArtifactOperatorStep,
+    ArtifactConnectorGrounding, ArtifactOperatorPhase, ArtifactOperatorRunStatus,
+    ArtifactOperatorStep,
 };
 use crate::execution::{
     block_swarm_work_item_on, spawn_follow_up_swarm_work_item, ExecutionCompletionInvariant,
@@ -45,7 +45,7 @@ use ioi_types::app::{
 use serde_json::json;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct StudioTopologyProjection {
+pub struct TopologyProjection {
     pub lane_frame: Option<StudioDomainLaneFrame>,
     pub request_frame: Option<StudioNormalizedRequestFrame>,
     pub source_selection: Option<StudioSourceSelection>,
@@ -53,6 +53,7 @@ pub struct StudioTopologyProjection {
     pub lane_transitions: Vec<StudioLaneTransition>,
     pub orchestration_state: Option<StudioOrchestrationState>,
 }
+pub type StudioTopologyProjection = TopologyProjection;
 
 pub fn derive_studio_topology_projection(
     intent: &str,
@@ -66,7 +67,7 @@ pub fn derive_studio_topology_projection(
     clarification_questions: &[String],
     routing_hints: &[String],
     artifact: Option<&StudioOutcomeArtifactRequest>,
-) -> StudioTopologyProjection {
+) -> TopologyProjection {
     let context = StudioIntentContext::new(intent);
     let request_frame = derive_request_frame(&context, routing_hints, active_widget_state);
     let primary_lane = primary_lane_family(
@@ -769,14 +770,14 @@ pub fn non_artifact_verification_receipts(
 
 pub fn non_artifact_operator_steps(
     outcome_request: &StudioOutcomeRequest,
-) -> Vec<StudioArtifactOperatorStep> {
+) -> Vec<ArtifactOperatorStep> {
     vec![
-        StudioArtifactOperatorStep {
+        ArtifactOperatorStep {
             step_id: "verify_route".to_string(),
             origin_prompt_event_id: String::new(),
-            phase: StudioArtifactOperatorPhase::VerifyArtifact,
+            phase: ArtifactOperatorPhase::VerifyArtifact,
             engine: "non_artifact_route".to_string(),
-            status: StudioArtifactOperatorRunStatus::Complete,
+            status: ArtifactOperatorRunStatus::Complete,
             label: "Verify route".to_string(),
             detail: "Verify route completed.".to_string(),
             started_at_ms: 0,
@@ -787,15 +788,15 @@ pub fn non_artifact_operator_steps(
             verification_refs: Vec::new(),
             attempt: 1,
         },
-        StudioArtifactOperatorStep {
+        ArtifactOperatorStep {
             step_id: "verify_reply_surface".to_string(),
             origin_prompt_event_id: String::new(),
-            phase: StudioArtifactOperatorPhase::VerifyArtifact,
+            phase: ArtifactOperatorPhase::VerifyArtifact,
             engine: "non_artifact_route".to_string(),
             status: if outcome_request.needs_clarification {
-                StudioArtifactOperatorRunStatus::Blocked
+                ArtifactOperatorRunStatus::Blocked
             } else {
-                StudioArtifactOperatorRunStatus::Complete
+                ArtifactOperatorRunStatus::Complete
             },
             label: "Verify reply surface".to_string(),
             detail: if outcome_request.needs_clarification {

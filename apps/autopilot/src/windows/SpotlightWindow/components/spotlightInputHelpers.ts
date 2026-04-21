@@ -134,7 +134,7 @@ export function workspaceRootFromTask(task: AgentTask | null): string | null {
   return (
     task?.build_session?.workspaceRoot ||
     task?.renderer_session?.workspaceRoot ||
-    task?.studio_session?.workspaceRoot ||
+    task?.chat_session?.workspaceRoot ||
     null
   );
 }

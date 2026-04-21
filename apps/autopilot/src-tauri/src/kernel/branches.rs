@@ -27,7 +27,7 @@ fn workspace_root_from_task(task: &crate::models::AgentTask) -> Option<String> {
                 .map(|session| session.workspace_root.clone())
         })
         .or_else(|| {
-            task.studio_session
+            task.chat_session
                 .as_ref()
                 .and_then(|session| session.workspace_root.clone())
         })
@@ -731,9 +731,9 @@ fn apply_workspace_root_to_task(task: &mut AgentTask, next_workspace_root: &str)
         }
     }
 
-    if let Some(studio_session) = task.studio_session.as_mut() {
-        if studio_session.workspace_root.as_deref() != Some(next_workspace_root) {
-            studio_session.workspace_root = Some(next_workspace_root.to_string());
+    if let Some(chat_session) = task.chat_session.as_mut() {
+        if chat_session.workspace_root.as_deref() != Some(next_workspace_root) {
+            chat_session.workspace_root = Some(next_workspace_root.to_string());
             changed = true;
         }
     }

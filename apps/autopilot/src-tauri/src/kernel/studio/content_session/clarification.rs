@@ -1,6 +1,6 @@
 use super::route_contract::{routing_hint_flag, routing_hint_prefixed_value};
 use super::*;
-use ioi_api::studio::{
+use ioi_api::runtime_harness::{
     runtime_locality_scope_hint, studio_request_frame_clarification_slots,
     studio_specialized_domain_kind, StudioSpecializedDomainKind,
 };

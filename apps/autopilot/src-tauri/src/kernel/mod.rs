@@ -3,6 +3,7 @@
 pub mod artifacts;
 pub mod branches;
 pub mod capabilities;
+pub mod chat;
 pub mod connectors;
 pub mod cosmic;
 pub mod data;

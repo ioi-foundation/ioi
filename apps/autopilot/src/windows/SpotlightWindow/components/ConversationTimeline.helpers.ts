@@ -142,7 +142,7 @@ function artifactSummaryLooksOperational(summary: string): boolean {
 export function artifactReplyText(turnContext: TurnContext | null): string | null {
   if (
     !turnContext ||
-    turnContext.hasPendingStudioArtifact ||
+    turnContext.hasPendingArtifact ||
     turnContext.artifacts.length === 0
   ) {
     return null;
@@ -154,7 +154,7 @@ export function artifactReplyText(turnContext: TurnContext | null): string | nul
       return null;
     }
     const rawSummary =
-      artifact.studioSession.verifiedReply.summary.trim() ||
+      artifact.chatSession.verifiedReply.summary.trim() ||
       artifact.summary.trim();
     const summary = artifactSummaryLooksOperational(rawSummary) ? "" : rawSummary;
     const lifecycleState = String(artifact.lifecycleState || "")
@@ -212,7 +212,7 @@ export function artifactReplyText(turnContext: TurnContext | null): string | nul
 }
 
 export function operatorRunIsPending(turnContext: TurnContext | null): boolean {
-  const status = turnContext?.studioSession?.activeOperatorRun?.status;
+  const status = turnContext?.chatSession?.activeOperatorRun?.status;
   const normalized = String(status || "")
     .trim()
     .toLowerCase();

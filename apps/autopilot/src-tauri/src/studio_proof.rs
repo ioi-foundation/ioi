@@ -47,7 +47,7 @@ struct ProofGenerationEvidence {
     ux_lifecycle: Option<StudioArtifactUxLifecycle>,
     failure: Option<StudioArtifactFailure>,
     manifest: crate::models::StudioArtifactManifest,
-    verified_reply: crate::models::StudioVerifiedReply,
+    verified_reply: crate::models::ChatVerifiedReply,
     materialized_files: Vec<String>,
     renderable_files: Vec<String>,
     selected_targets: Vec<StudioArtifactSelectionTarget>,
@@ -184,16 +184,16 @@ fn compare_revisions(
 ) -> Result<(), String> {
     let memory_runtime = memory_runtime_for(state_root)?;
     let task = load_task(state_root)?;
-    let studio_session = task
-        .studio_session
+    let chat_session = task
+        .chat_session
         .as_ref()
         .ok_or_else(|| "no Studio session is available in proof state".to_string())?;
-    let base = studio_session
+    let base = chat_session
         .revisions
         .iter()
         .find(|revision| revision.revision_id == base_revision_id)
         .ok_or_else(|| format!("revision '{}' was not found", base_revision_id))?;
-    let target = studio_session
+    let target = chat_session
         .revisions
         .iter()
         .find(|revision| revision.revision_id == target_revision_id)
@@ -236,17 +236,17 @@ fn restore_revision(
 ) -> Result<(), String> {
     let memory_runtime = memory_runtime_for(state_root)?;
     let mut task = load_task(state_root)?;
-    let studio_session = task
-        .studio_session
+    let chat_session = task
+        .chat_session
         .as_mut()
         .ok_or_else(|| "no Studio session is available in proof state".to_string())?;
-    let revision = studio_session
+    let revision = chat_session
         .revisions
         .iter()
         .find(|candidate| candidate.revision_id == revision_id)
         .cloned()
         .ok_or_else(|| format!("revision '{}' was not found", revision_id))?;
-    apply_revision_to_session(studio_session, &revision);
+    apply_revision_to_session(chat_session, &revision);
     save_task(state_root, &task)?;
     let evidence =
         materialize_current_task_output(&task, &memory_runtime, output, revision.prompt.as_str())?;
@@ -267,17 +267,17 @@ fn branch_revision(
 ) -> Result<(), String> {
     let memory_runtime = memory_runtime_for(state_root)?;
     let mut task = load_task(state_root)?;
-    let studio_session = task
-        .studio_session
+    let chat_session = task
+        .chat_session
         .as_mut()
         .ok_or_else(|| "no Studio session is available in proof state".to_string())?;
-    let seed_revision = studio_session
+    let seed_revision = chat_session
         .revisions
         .iter()
         .find(|candidate| candidate.revision_id == revision_id)
         .cloned()
         .ok_or_else(|| format!("revision '{}' was not found", revision_id))?;
-    let branch_index = studio_session
+    let branch_index = chat_session
         .revisions
         .iter()
         .filter(|revision| revision.branch_id != "main")
@@ -295,8 +295,8 @@ fn branch_revision(
         branch_revision.branch_label, branch_revision.created_at
     );
     branch_revision.created_at = chrono::Utc::now().to_rfc3339();
-    studio_session.revisions.push(branch_revision.clone());
-    apply_revision_to_session(studio_session, &branch_revision);
+    chat_session.revisions.push(branch_revision.clone());
+    apply_revision_to_session(chat_session, &branch_revision);
     save_task(state_root, &task)?;
     let evidence = materialize_current_task_output(
         &task,
@@ -319,22 +319,22 @@ fn materialize_current_task_output(
     output: &Path,
     prompt: &str,
 ) -> Result<ProofGenerationEvidence, String> {
-    let studio_session = task
-        .studio_session
+    let chat_session = task
+        .chat_session
         .as_ref()
         .ok_or_else(|| "no Studio session is attached to the current proof task".to_string())?;
     ensure_clean_directory(output)?;
 
-    if studio_session.artifact_manifest.renderer
+    if chat_session.artifact_manifest.renderer
         == crate::models::StudioRendererKind::WorkspaceSurface
     {
-        let workspace_root = studio_session
+        let workspace_root = chat_session
             .workspace_root
             .as_ref()
             .ok_or_else(|| "workspace Studio session is missing a workspace root".to_string())?;
         copy_workspace_source_tree(Path::new(workspace_root), output)?;
     } else {
-        for file in &studio_session.artifact_manifest.files {
+        for file in &chat_session.artifact_manifest.files {
             let Some(artifact_id) = file.artifact_id.as_deref() else {
                 continue;
             };
@@ -359,7 +359,7 @@ fn materialize_current_task_output(
     let manifest_path = output.join("artifact-manifest.json");
     fs::write(
         &manifest_path,
-        serde_json::to_vec_pretty(&studio_session.artifact_manifest)
+        serde_json::to_vec_pretty(&chat_session.artifact_manifest)
             .map_err(|error| error.to_string())?,
     )
     .map_err(|error| format!("failed to write '{}': {}", manifest_path.display(), error))?;
@@ -367,19 +367,19 @@ fn materialize_current_task_output(
     let session_path = output.join("studio-session.json");
     fs::write(
         &session_path,
-        serde_json::to_vec_pretty(studio_session).map_err(|error| error.to_string())?,
+        serde_json::to_vec_pretty(chat_session).map_err(|error| error.to_string())?,
     )
     .map_err(|error| format!("failed to write '{}': {}", session_path.display(), error))?;
 
     let revisions_path = output.join("revision-history.json");
     fs::write(
         &revisions_path,
-        serde_json::to_vec_pretty(&studio_session.revisions).map_err(|error| error.to_string())?,
+        serde_json::to_vec_pretty(&chat_session.revisions).map_err(|error| error.to_string())?,
     )
     .map_err(|error| format!("failed to write '{}': {}", revisions_path.display(), error))?;
 
-    let validation = studio_session.materialization.validation.clone().or_else(|| {
-        let contradiction = studio_session
+    let validation = chat_session.materialization.validation.clone().or_else(|| {
+        let contradiction = chat_session
             .artifact_manifest
             .verification
             .summary
@@ -423,26 +423,26 @@ fn materialize_current_task_output(
 
     let evidence = ProofGenerationEvidence {
         prompt: prompt.to_string(),
-        title: studio_session.title.clone(),
+        title: chat_session.title.clone(),
         route: task
-            .studio_outcome
+            .chat_outcome
             .clone()
             .ok_or_else(|| "proof task is missing the Studio route outcome".to_string())?,
-        artifact_brief: studio_session.materialization.artifact_brief.clone(),
-        blueprint: studio_session.materialization.blueprint.clone(),
-        artifact_ir: studio_session.materialization.artifact_ir.clone(),
-        selected_skills: studio_session.materialization.selected_skills.clone(),
-        retrieved_exemplars: studio_session.materialization.retrieved_exemplars.clone(),
-        edit_intent: studio_session.materialization.edit_intent.clone(),
-        candidate_summaries: studio_session.materialization.candidate_summaries.clone(),
-        winning_candidate_id: studio_session.materialization.winning_candidate_id.clone(),
-        winning_candidate_rationale: studio_session
+        artifact_brief: chat_session.materialization.artifact_brief.clone(),
+        blueprint: chat_session.materialization.blueprint.clone(),
+        artifact_ir: chat_session.materialization.artifact_ir.clone(),
+        selected_skills: chat_session.materialization.selected_skills.clone(),
+        retrieved_exemplars: chat_session.materialization.retrieved_exemplars.clone(),
+        edit_intent: chat_session.materialization.edit_intent.clone(),
+        candidate_summaries: chat_session.materialization.candidate_summaries.clone(),
+        winning_candidate_id: chat_session.materialization.winning_candidate_id.clone(),
+        winning_candidate_rationale: chat_session
             .materialization
             .winning_candidate_rationale
             .clone(),
         validation,
-        output_origin: studio_session.materialization.output_origin.or_else(|| {
-            studio_session
+        output_origin: chat_session.materialization.output_origin.or_else(|| {
+            chat_session
                 .materialization
                 .production_provenance
                 .as_ref()
@@ -468,30 +468,30 @@ fn materialize_current_task_output(
                     }
                 })
         }),
-        production_provenance: studio_session.materialization.production_provenance.clone(),
-        acceptance_provenance: studio_session.materialization.acceptance_provenance.clone(),
-        fallback_used: studio_session.materialization.fallback_used,
-        ux_lifecycle: studio_session.materialization.ux_lifecycle,
-        failure: studio_session.materialization.failure.clone(),
-        manifest: studio_session.artifact_manifest.clone(),
-        verified_reply: studio_session.verified_reply.clone(),
-        materialized_files: studio_session
+        production_provenance: chat_session.materialization.production_provenance.clone(),
+        acceptance_provenance: chat_session.materialization.acceptance_provenance.clone(),
+        fallback_used: chat_session.materialization.fallback_used,
+        ux_lifecycle: chat_session.materialization.ux_lifecycle,
+        failure: chat_session.materialization.failure.clone(),
+        manifest: chat_session.artifact_manifest.clone(),
+        verified_reply: chat_session.verified_reply.clone(),
+        materialized_files: chat_session
             .artifact_manifest
             .files
             .iter()
             .map(|file| file.path.clone())
             .collect(),
-        renderable_files: studio_session
+        renderable_files: chat_session
             .artifact_manifest
             .files
             .iter()
             .filter(|file| file.renderable)
             .map(|file| file.path.clone())
             .collect(),
-        selected_targets: studio_session.selected_targets.clone(),
-        taste_memory: studio_session.taste_memory.clone(),
-        revisions: studio_session.revisions.clone(),
-        active_revision_id: studio_session.active_revision_id.clone(),
+        selected_targets: chat_session.selected_targets.clone(),
+        taste_memory: chat_session.taste_memory.clone(),
+        revisions: chat_session.revisions.clone(),
+        active_revision_id: chat_session.active_revision_id.clone(),
         full_studio_path: true,
     };
 
@@ -569,8 +569,8 @@ fn empty_task(intent: &str) -> AgentTask {
         history: Vec::new(),
         events: Vec::new(),
         artifacts: Vec::new(),
-        studio_session: None,
-        studio_outcome: None,
+        chat_session: None,
+        chat_outcome: None,
         renderer_session: None,
         build_session: None,
         run_bundle_id: None,
@@ -585,12 +585,12 @@ fn empty_task(intent: &str) -> AgentTask {
 }
 
 fn apply_revision_to_session(
-    studio_session: &mut crate::models::StudioArtifactSession,
+    chat_session: &mut crate::models::ChatArtifactSession,
     revision: &StudioArtifactRevision,
 ) {
-    studio_session.title = revision.artifact_manifest.title.clone();
-    studio_session.artifact_manifest = revision.artifact_manifest.clone();
-    studio_session.navigator_nodes = studio_session
+    chat_session.title = revision.artifact_manifest.title.clone();
+    chat_session.artifact_manifest = revision.artifact_manifest.clone();
+    chat_session.navigator_nodes = chat_session
         .artifact_manifest
         .files
         .iter()
@@ -606,39 +606,39 @@ fn apply_revision_to_session(
             children: Vec::new(),
         })
         .collect();
-    studio_session.available_lenses = studio_session
+    chat_session.available_lenses = chat_session
         .artifact_manifest
         .tabs
         .iter()
         .map(|tab| tab.id.clone())
         .collect();
-    if !studio_session
+    if !chat_session
         .available_lenses
         .iter()
-        .any(|lens| lens == &studio_session.current_lens)
+        .any(|lens| lens == &chat_session.current_lens)
     {
-        studio_session.current_lens = studio_session.artifact_manifest.primary_tab.clone();
+        chat_session.current_lens = chat_session.artifact_manifest.primary_tab.clone();
     }
-    studio_session.materialization.artifact_brief = revision.artifact_brief.clone();
-    studio_session.materialization.edit_intent = revision.edit_intent.clone();
-    studio_session.materialization.candidate_summaries = revision.candidate_summaries.clone();
-    studio_session.materialization.winning_candidate_id = revision.winning_candidate_id.clone();
-    studio_session.materialization.winning_candidate_rationale = revision
+    chat_session.materialization.artifact_brief = revision.artifact_brief.clone();
+    chat_session.materialization.edit_intent = revision.edit_intent.clone();
+    chat_session.materialization.candidate_summaries = revision.candidate_summaries.clone();
+    chat_session.materialization.winning_candidate_id = revision.winning_candidate_id.clone();
+    chat_session.materialization.winning_candidate_rationale = revision
         .validation
         .as_ref()
         .map(|validation| validation.rationale.clone());
-    studio_session.materialization.validation = revision.validation.clone();
-    studio_session.materialization.output_origin = revision.output_origin;
-    studio_session.materialization.production_provenance = revision.production_provenance.clone();
-    studio_session.materialization.acceptance_provenance = revision.acceptance_provenance.clone();
-    studio_session.materialization.failure = revision.failure.clone();
-    studio_session.materialization.file_writes = revision.file_writes.clone();
-    studio_session.materialization.summary = revision
+    chat_session.materialization.validation = revision.validation.clone();
+    chat_session.materialization.output_origin = revision.output_origin;
+    chat_session.materialization.production_provenance = revision.production_provenance.clone();
+    chat_session.materialization.acceptance_provenance = revision.acceptance_provenance.clone();
+    chat_session.materialization.failure = revision.failure.clone();
+    chat_session.materialization.file_writes = revision.file_writes.clone();
+    chat_session.materialization.summary = revision
         .validation
         .as_ref()
         .map(|validation| validation.rationale.clone())
-        .unwrap_or_else(|| studio_session.materialization.summary.clone());
-    studio_session.materialization.ux_lifecycle = Some(revision.ux_lifecycle);
+        .unwrap_or_else(|| chat_session.materialization.summary.clone());
+    chat_session.materialization.ux_lifecycle = Some(revision.ux_lifecycle);
     let mut evidence = revision
         .artifact_manifest
         .files
@@ -680,7 +680,7 @@ fn apply_revision_to_session(
     if let Some(failure) = revision.artifact_manifest.verification.failure.as_ref() {
         evidence.push(format!("failure: {} ({})", failure.message, failure.code));
     }
-    studio_session.verified_reply = crate::models::StudioVerifiedReply {
+    chat_session.verified_reply = crate::models::ChatVerifiedReply {
         status: revision.artifact_manifest.verification.status,
         lifecycle_state: revision.artifact_manifest.verification.lifecycle_state,
         title: format!("Studio outcome: {}", revision.artifact_manifest.title),
@@ -702,8 +702,8 @@ fn apply_revision_to_session(
         failure: revision.artifact_manifest.verification.failure.clone(),
         updated_at: chrono::Utc::now().to_rfc3339(),
     };
-    studio_session.lifecycle_state = revision.artifact_manifest.verification.lifecycle_state;
-    studio_session.status = match studio_session.lifecycle_state {
+    chat_session.lifecycle_state = revision.artifact_manifest.verification.lifecycle_state;
+    chat_session.status = match chat_session.lifecycle_state {
         crate::models::StudioArtifactLifecycleState::Ready => "ready",
         crate::models::StudioArtifactLifecycleState::Partial => "partial",
         crate::models::StudioArtifactLifecycleState::Blocked => "blocked",
@@ -716,10 +716,10 @@ fn apply_revision_to_session(
         crate::models::StudioArtifactLifecycleState::Verifying => "verifying",
     }
     .to_string();
-    studio_session.selected_targets = revision.selected_targets.clone();
-    studio_session.ux_lifecycle = Some(revision.ux_lifecycle);
-    studio_session.active_revision_id = Some(revision.revision_id.clone());
-    studio_session.updated_at = chrono::Utc::now().to_rfc3339();
+    chat_session.selected_targets = revision.selected_targets.clone();
+    chat_session.ux_lifecycle = Some(revision.ux_lifecycle);
+    chat_session.active_revision_id = Some(revision.revision_id.clone());
+    chat_session.updated_at = chrono::Utc::now().to_rfc3339();
 }
 
 fn ensure_clean_directory(target: &Path) -> Result<(), String> {
@@ -871,10 +871,10 @@ fn apply_selected_targets_to_task(
         return Ok(());
     }
 
-    let studio_session = task.studio_session.as_mut().ok_or_else(|| {
+    let chat_session = task.chat_session.as_mut().ok_or_else(|| {
         "--selected-target-json requires an existing Studio artifact session in proof state."
             .to_string()
     })?;
-    studio_session.selected_targets = selected_targets.to_vec();
+    chat_session.selected_targets = selected_targets.to_vec();
     Ok(())
 }
