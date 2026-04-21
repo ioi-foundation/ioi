@@ -9,6 +9,6 @@ export type {
   StudioArtifactManifestVerification,
   StudioArtifactNavigatorNode,
   StudioArtifactRevision,
-  StudioArtifactSession,
+  ChatArtifactSession,
   StudioArtifactTabKind,
 } from "../types";

@@ -676,7 +676,7 @@ pub fn run() {
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "spotlight" => windows::show_spotlight(app.clone()),
                         "pill" => windows::show_pill(app.clone()),
-                        "studio" => windows::show_studio(app.clone()),
+                        "studio" => windows::show_chat(app.clone()),
                         "quit" => std::process::exit(0),
                         _ => {}
                     })
@@ -720,7 +720,7 @@ pub fn run() {
                     match start_surface.as_deref() {
                         Some("studio") => {
                             if let Some(intent) = start_intent.as_deref() {
-                                let _ = windows::show_studio_with_target(
+                                let _ = windows::show_chat_with_target(
                                     handle.clone(),
                                     json!({
                                         "kind": "autopilot-intent",
@@ -729,7 +729,7 @@ pub fn run() {
                                     }),
                                 );
                             } else {
-                                windows::show_studio(handle);
+                                windows::show_chat(handle);
                             }
                         }
                         Some("spotlight") => {
@@ -745,7 +745,7 @@ pub fn run() {
                         Some("gate") => windows::show_gate(handle),
                         _ => {
                             if let Some(intent) = start_intent.as_deref() {
-                                let _ = windows::show_studio_with_target(
+                                let _ = windows::show_chat_with_target(
                                     handle.clone(),
                                     json!({
                                         "kind": "autopilot-intent",
@@ -754,7 +754,7 @@ pub fn run() {
                                     }),
                                 );
                             } else {
-                                windows::show_studio(handle);
+                                windows::show_chat(handle);
                             }
                         }
                     }
@@ -786,15 +786,15 @@ pub fn run() {
             windows::get_spotlight_layout,
             windows::show_gate,
             windows::hide_gate,
-            windows::show_studio,
-            windows::show_studio_with_target,
+            windows::show_chat,
+            windows::show_chat_with_target,
             windows::hide_studio,
-            windows::set_pending_studio_launch,
-            windows::clear_pending_studio_launch,
-            windows::peek_pending_studio_launch,
-            windows::ack_pending_studio_launch,
-            windows::record_studio_launch_receipt,
-            windows::get_studio_launch_receipts,
+            windows::set_pending_chat_launch,
+            windows::clear_pending_chat_launch,
+            windows::peek_pending_chat_launch,
+            windows::ack_pending_chat_launch,
+            windows::record_chat_launch_receipt,
+            windows::get_chat_launch_receipts,
             kernel::studio::studio_retry_renderer_session,
             kernel::studio::studio_attach_artifact_selection,
             kernel::studio::studio_attach_widget_state,

@@ -1,5 +1,5 @@
 use super::*;
-use ioi_api::studio::{
+use ioi_api::runtime_harness::{
     build_studio_route_contract_payload, build_studio_runtime_handoff_prompt_prefix,
     non_artifact_route_status_message as shared_non_artifact_route_status_message,
 };
@@ -32,7 +32,7 @@ fn workspace_root_from_task(task: &AgentTask) -> Option<String> {
                 .map(|session| session.workspace_root.clone())
         })
         .or_else(|| {
-            task.studio_session
+            task.chat_session
                 .as_ref()
                 .and_then(|session| session.workspace_root.clone())
         })
@@ -43,7 +43,7 @@ pub(crate) fn runtime_handoff_prompt_prefix_for_task(task: &AgentTask) -> Option
         return None;
     }
 
-    let outcome_request = task.studio_outcome.as_ref()?;
+    let outcome_request = task.chat_outcome.as_ref()?;
     Some(build_studio_runtime_handoff_prompt_prefix(
         outcome_request,
         workspace_root_from_task(task).as_deref(),
@@ -87,7 +87,7 @@ pub(in crate::kernel::studio) fn append_route_contract_event(
     let payload = build_route_contract_payload_with_widget_state(
         outcome_request,
         completed,
-        task.studio_session
+        task.chat_session
             .as_ref()
             .and_then(|session| session.widget_state.as_ref()),
     );

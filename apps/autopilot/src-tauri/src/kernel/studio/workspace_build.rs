@@ -1,12 +1,11 @@
 use crate::kernel::events::{build_event, register_artifact, register_event};
 use crate::kernel::state::update_task_state;
 use crate::models::{
-    AppState, Artifact, ArtifactRef, ArtifactType, BuildArtifactSession, EventStatus, EventType,
-    StudioArtifactLifecycleState, StudioArtifactManifestVerification,
-    StudioArtifactMaterializationContract, StudioArtifactSession, StudioArtifactVerificationStatus,
-    StudioBuildReceipt,
+    AppState, Artifact, ArtifactRef, ArtifactType, BuildArtifactSession, ChatArtifactSession,
+    EventStatus, EventType, StudioArtifactLifecycleState, StudioArtifactManifestVerification,
+    StudioArtifactMaterializationContract, StudioArtifactVerificationStatus, StudioBuildReceipt,
 };
-use ioi_api::studio::{StudioArtifactOperatorPhase, StudioArtifactOperatorRunStatus};
+use ioi_api::runtime_harness::{ArtifactOperatorPhase, ArtifactOperatorRunStatus};
 use once_cell::sync::Lazy;
 use serde_json::json;
 use std::collections::HashMap;
@@ -22,8 +21,8 @@ use uuid::Uuid;
 use super::{
     apply_studio_authoritative_status, build_session_to_renderer_session,
     create_receipt_report_artifact, lifecycle_state_label, now_iso, refresh_pipeline_steps,
-    update_studio_session_from_build_session, verified_reply_from_manifest,
-    BUILD_LENSES_IN_PROGRESS, BUILD_LENSES_READY,
+    update_chat_session_from_build_session, verified_reply_from_manifest, BUILD_LENSES_IN_PROGRESS,
+    BUILD_LENSES_READY,
 };
 
 static PREVIEW_PROCESS_REGISTRY: Lazy<Mutex<HashMap<String, StudioPreviewProcess>>> =
@@ -44,13 +43,13 @@ struct CommandExecutionResult {
 
 pub(super) fn spawn_build_supervisor(
     app: AppHandle,
-    studio_session: StudioArtifactSession,
+    chat_session: ChatArtifactSession,
     build_session: BuildArtifactSession,
 ) {
     tauri::async_runtime::spawn(async move {
         let app_for_thread = app.clone();
         let outcome = tokio::task::spawn_blocking(move || {
-            run_build_supervisor_blocking(&app_for_thread, studio_session, build_session)
+            run_build_supervisor_blocking(&app_for_thread, chat_session, build_session)
         })
         .await;
 
@@ -66,31 +65,31 @@ pub(super) fn spawn_build_supervisor(
                             "failed_terminal".to_string();
                     }
                     let build_session_snapshot = task.build_session.clone();
-                    if let Some(studio_session) = task.studio_session.as_mut() {
-                        studio_session.lifecycle_state = StudioArtifactLifecycleState::Failed;
-                        studio_session.status =
+                    if let Some(chat_session) = task.chat_session.as_mut() {
+                        chat_session.lifecycle_state = StudioArtifactLifecycleState::Failed;
+                        chat_session.status =
                             lifecycle_state_label(StudioArtifactLifecycleState::Failed).to_string();
-                        studio_session.artifact_manifest.verification =
+                        chat_session.artifact_manifest.verification =
                             StudioArtifactManifestVerification {
                                 status: StudioArtifactVerificationStatus::Failed,
                                 lifecycle_state: StudioArtifactLifecycleState::Failed,
                                 summary: error.clone(),
-                                production_provenance: studio_session
+                                production_provenance: chat_session
                                     .materialization
                                     .production_provenance
                                     .clone(),
-                                acceptance_provenance: studio_session
+                                acceptance_provenance: chat_session
                                     .materialization
                                     .acceptance_provenance
                                     .clone(),
-                                failure: studio_session.materialization.failure.clone(),
+                                failure: chat_session.materialization.failure.clone(),
                             };
-                        studio_session.verified_reply = verified_reply_from_manifest(
-                            &studio_session.title,
-                            &studio_session.artifact_manifest,
+                        chat_session.verified_reply = verified_reply_from_manifest(
+                            &chat_session.title,
+                            &chat_session.artifact_manifest,
                         );
-                        refresh_pipeline_steps(studio_session, build_session_snapshot.as_ref());
-                        studio_session.updated_at = now_iso();
+                        refresh_pipeline_steps(chat_session, build_session_snapshot.as_ref());
+                        chat_session.updated_at = now_iso();
                     }
                     task.current_step = format!("Studio build supervisor failed: {}", error);
                 });
@@ -106,17 +105,17 @@ pub(super) fn spawn_build_supervisor(
 }
 
 pub(super) fn run_build_supervisor_for_proof(
-    studio_session: &mut StudioArtifactSession,
+    chat_session: &mut ChatArtifactSession,
     build_session: &mut BuildArtifactSession,
 ) -> Result<(), String> {
     let workspace_root = PathBuf::from(&build_session.workspace_root);
 
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Implementing;
-    studio_session.status =
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Implementing;
+    chat_session.status =
         lifecycle_state_label(StudioArtifactLifecycleState::Implementing).to_string();
     build_session.build_status = "installing".to_string();
     build_session.current_worker_execution.execution_state = "validating".to_string();
-    update_workspace_verification_step(&mut studio_session.materialization, "install", "running");
+    update_workspace_verification_step(&mut chat_session.materialization, "install", "running");
 
     let install_result = run_command_capture(
         &workspace_root,
@@ -124,7 +123,7 @@ pub(super) fn run_build_supervisor_for_proof(
         &["install", "--no-audit", "--no-fund"],
     )?;
     record_command_receipt_for_proof(
-        studio_session,
+        chat_session,
         build_session,
         "install",
         "Install dependencies",
@@ -140,7 +139,7 @@ pub(super) fn run_build_supervisor_for_proof(
             &["install", "--no-audit", "--no-fund"],
         )?;
         record_command_receipt_for_proof(
-            studio_session,
+            chat_session,
             build_session,
             "install",
             "Retry dependency install",
@@ -149,7 +148,7 @@ pub(super) fn run_build_supervisor_for_proof(
         );
         if !retry_result.success {
             mark_build_failed_for_proof(
-                studio_session,
+                chat_session,
                 build_session,
                 "Install failed after a bounded retry.".to_string(),
             );
@@ -158,19 +157,15 @@ pub(super) fn run_build_supervisor_for_proof(
     }
 
     build_session.build_status = "validating".to_string();
-    update_workspace_verification_step(&mut studio_session.materialization, "install", "success");
-    update_workspace_verification_step(
-        &mut studio_session.materialization,
-        "validation",
-        "running",
-    );
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Implementing;
-    studio_session.status =
+    update_workspace_verification_step(&mut chat_session.materialization, "install", "success");
+    update_workspace_verification_step(&mut chat_session.materialization, "validation", "running");
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Implementing;
+    chat_session.status =
         lifecycle_state_label(StudioArtifactLifecycleState::Implementing).to_string();
 
     let build_result = run_command_capture(&workspace_root, npm_binary(), &["run", "build"])?;
     record_command_receipt_for_proof(
-        studio_session,
+        chat_session,
         build_session,
         "validation",
         "Validate build",
@@ -180,7 +175,7 @@ pub(super) fn run_build_supervisor_for_proof(
 
     if !build_result.success {
         mark_build_failed_for_proof(
-            studio_session,
+            chat_session,
             build_session,
             build_result
                 .stderr
@@ -194,14 +189,10 @@ pub(super) fn run_build_supervisor_for_proof(
         return Ok(());
     }
 
-    update_workspace_verification_step(
-        &mut studio_session.materialization,
-        "validation",
-        "success",
-    );
-    update_workspace_verification_step(&mut studio_session.materialization, "preview", "running");
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Verifying;
-    studio_session.status =
+    update_workspace_verification_step(&mut chat_session.materialization, "validation", "success");
+    update_workspace_verification_step(&mut chat_session.materialization, "preview", "running");
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Verifying;
+    chat_session.status =
         lifecycle_state_label(StudioArtifactLifecycleState::Verifying).to_string();
     build_session.current_worker_execution.execution_state = "validating".to_string();
     build_session.build_status = "preview-starting".to_string();
@@ -215,7 +206,7 @@ pub(super) fn run_build_supervisor_for_proof(
         append_proof_receipt(build_session, retry_preview.receipt.clone());
         if !retry_preview.success {
             mark_build_failed_for_proof(
-                studio_session,
+                chat_session,
                 build_session,
                 "Preview verification failed after a bounded restart.".to_string(),
             );
@@ -238,41 +229,41 @@ pub(super) fn run_build_supervisor_for_proof(
     build_session.build_status = "preview-ready".to_string();
     build_session.verification_status = "passed".to_string();
     build_session.current_worker_execution.execution_state = "complete".to_string();
-    if let Some(preview_intent) = studio_session.materialization.preview_intent.as_mut() {
+    if let Some(preview_intent) = chat_session.materialization.preview_intent.as_mut() {
         preview_intent.status = "ready".to_string();
         preview_intent.url = None;
     }
-    update_workspace_verification_step(&mut studio_session.materialization, "preview", "success");
-    update_studio_session_from_build_session(studio_session, Some(build_session));
-    studio_session.updated_at = now_iso();
+    update_workspace_verification_step(&mut chat_session.materialization, "preview", "success");
+    update_chat_session_from_build_session(chat_session, Some(build_session));
+    chat_session.updated_at = now_iso();
 
     Ok(())
 }
 
 fn run_build_supervisor_blocking(
     app: &AppHandle,
-    mut studio_session: StudioArtifactSession,
+    mut chat_session: ChatArtifactSession,
     mut build_session: BuildArtifactSession,
 ) -> Result<(), String> {
-    let thread_id = studio_session.thread_id.clone();
-    let artifact_title = studio_session.title.clone();
+    let thread_id = chat_session.thread_id.clone();
+    let artifact_title = chat_session.title.clone();
     let workspace_root = PathBuf::from(&build_session.workspace_root);
     sync_task_sessions(
         app,
-        &studio_session,
+        &chat_session,
         Some(&build_session),
         "Studio is installing dependencies...".to_string(),
     );
 
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Implementing;
-    studio_session.status =
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Implementing;
+    chat_session.status =
         lifecycle_state_label(StudioArtifactLifecycleState::Implementing).to_string();
     build_session.build_status = "installing".to_string();
     build_session.current_worker_execution.execution_state = "validating".to_string();
-    update_workspace_verification_step(&mut studio_session.materialization, "install", "running");
+    update_workspace_verification_step(&mut chat_session.materialization, "install", "running");
     sync_task_sessions(
         app,
-        &studio_session,
+        &chat_session,
         Some(&build_session),
         "Installing dependencies".to_string(),
     );
@@ -286,7 +277,7 @@ fn run_build_supervisor_blocking(
         app,
         &thread_id,
         &artifact_title,
-        &mut studio_session,
+        &mut chat_session,
         &mut build_session,
         "install",
         "Install dependencies",
@@ -305,7 +296,7 @@ fn run_build_supervisor_blocking(
             app,
             &thread_id,
             &artifact_title,
-            &mut studio_session,
+            &mut chat_session,
             &mut build_session,
             "install",
             "Retry dependency install",
@@ -315,7 +306,7 @@ fn run_build_supervisor_blocking(
         if !retry_result.success {
             mark_build_failed(
                 app,
-                &mut studio_session,
+                &mut chat_session,
                 &mut build_session,
                 "Install failed after a bounded retry.".to_string(),
             );
@@ -324,18 +315,14 @@ fn run_build_supervisor_blocking(
     }
 
     build_session.build_status = "validating".to_string();
-    update_workspace_verification_step(&mut studio_session.materialization, "install", "success");
-    update_workspace_verification_step(
-        &mut studio_session.materialization,
-        "validation",
-        "running",
-    );
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Implementing;
-    studio_session.status =
+    update_workspace_verification_step(&mut chat_session.materialization, "install", "success");
+    update_workspace_verification_step(&mut chat_session.materialization, "validation", "running");
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Implementing;
+    chat_session.status =
         lifecycle_state_label(StudioArtifactLifecycleState::Implementing).to_string();
     sync_task_sessions(
         app,
-        &studio_session,
+        &chat_session,
         Some(&build_session),
         "Validating the Studio artifact build".to_string(),
     );
@@ -345,7 +332,7 @@ fn run_build_supervisor_blocking(
         app,
         &thread_id,
         &artifact_title,
-        &mut studio_session,
+        &mut chat_session,
         &mut build_session,
         "validation",
         "Validate build",
@@ -356,7 +343,7 @@ fn run_build_supervisor_blocking(
     if !build_result.success {
         mark_build_failed(
             app,
-            &mut studio_session,
+            &mut chat_session,
             &mut build_session,
             build_result
                 .stderr
@@ -370,20 +357,16 @@ fn run_build_supervisor_blocking(
         return Ok(());
     }
 
-    update_workspace_verification_step(
-        &mut studio_session.materialization,
-        "validation",
-        "success",
-    );
-    update_workspace_verification_step(&mut studio_session.materialization, "preview", "running");
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Verifying;
-    studio_session.status =
+    update_workspace_verification_step(&mut chat_session.materialization, "validation", "success");
+    update_workspace_verification_step(&mut chat_session.materialization, "preview", "running");
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Verifying;
+    chat_session.status =
         lifecycle_state_label(StudioArtifactLifecycleState::Verifying).to_string();
     build_session.current_worker_execution.execution_state = "validating".to_string();
     build_session.build_status = "preview-starting".to_string();
     sync_task_sessions(
         app,
-        &studio_session,
+        &chat_session,
         Some(&build_session),
         "Launching preview".to_string(),
     );
@@ -411,7 +394,7 @@ fn run_build_supervisor_blocking(
         if !retry_preview.success {
             mark_build_failed(
                 app,
-                &mut studio_session,
+                &mut chat_session,
                 &mut build_session,
                 "Preview verification failed after a bounded restart.".to_string(),
             );
@@ -436,28 +419,28 @@ fn run_build_supervisor_blocking(
     build_session.build_status = "preview-ready".to_string();
     build_session.verification_status = "passed".to_string();
     build_session.current_worker_execution.execution_state = "complete".to_string();
-    studio_session.current_lens = "preview".to_string();
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Ready;
-    studio_session.status = lifecycle_state_label(StudioArtifactLifecycleState::Ready).to_string();
-    studio_session.available_lenses = BUILD_LENSES_READY
+    chat_session.current_lens = "preview".to_string();
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Ready;
+    chat_session.status = lifecycle_state_label(StudioArtifactLifecycleState::Ready).to_string();
+    chat_session.available_lenses = BUILD_LENSES_READY
         .iter()
         .map(|value| (*value).to_string())
         .collect();
-    studio_session.updated_at = now_iso();
-    if let Some(preview_intent) = studio_session.materialization.preview_intent.as_mut() {
+    chat_session.updated_at = now_iso();
+    if let Some(preview_intent) = chat_session.materialization.preview_intent.as_mut() {
         preview_intent.status = "ready".to_string();
         preview_intent.url = build_session.preview_url.clone();
     }
-    update_workspace_verification_step(&mut studio_session.materialization, "preview", "success");
+    update_workspace_verification_step(&mut chat_session.materialization, "preview", "success");
     sync_task_sessions(
         app,
-        &studio_session,
+        &chat_session,
         Some(&build_session),
         "Preview verified and ready".to_string(),
     );
 
     let final_event = build_event(
-        &studio_session.thread_id,
+        &chat_session.thread_id,
         build_session.receipts.len() as u32,
         EventType::Receipt,
         "Studio workspace renderer verified".to_string(),
@@ -698,7 +681,7 @@ fn record_command_receipt(
     app: &AppHandle,
     thread_id: &str,
     title: &str,
-    studio_session: &mut StudioArtifactSession,
+    chat_session: &mut ChatArtifactSession,
     build_session: &mut BuildArtifactSession,
     receipt_kind: &str,
     receipt_title: &str,
@@ -708,7 +691,7 @@ fn record_command_receipt(
     let status = if result.success { "success" } else { "failure" };
     if receipt_kind == "validation" {
         update_workspace_verification_step(
-            &mut studio_session.materialization,
+            &mut chat_session.materialization,
             "validation",
             if result.success { "success" } else { "failure" },
         );
@@ -762,7 +745,7 @@ fn record_command_receipt(
 }
 
 fn record_command_receipt_for_proof(
-    studio_session: &mut StudioArtifactSession,
+    chat_session: &mut ChatArtifactSession,
     build_session: &mut BuildArtifactSession,
     receipt_kind: &str,
     receipt_title: &str,
@@ -772,7 +755,7 @@ fn record_command_receipt_for_proof(
     let status = if result.success { "success" } else { "failure" };
     if receipt_kind == "validation" {
         update_workspace_verification_step(
-            &mut studio_session.materialization,
+            &mut chat_session.materialization,
             "validation",
             if result.success { "success" } else { "failure" },
         );
@@ -851,19 +834,19 @@ fn create_log_artifact_for_command(
 
 fn mark_build_failed(
     app: &AppHandle,
-    studio_session: &mut StudioArtifactSession,
+    chat_session: &mut ChatArtifactSession,
     build_session: &mut BuildArtifactSession,
     summary: String,
 ) {
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Failed;
-    studio_session.status = lifecycle_state_label(StudioArtifactLifecycleState::Failed).to_string();
-    studio_session.current_lens = "code".to_string();
-    studio_session.updated_at = now_iso();
-    if let Some(preview_intent) = studio_session.materialization.preview_intent.as_mut() {
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Failed;
+    chat_session.status = lifecycle_state_label(StudioArtifactLifecycleState::Failed).to_string();
+    chat_session.current_lens = "code".to_string();
+    chat_session.updated_at = now_iso();
+    if let Some(preview_intent) = chat_session.materialization.preview_intent.as_mut() {
         preview_intent.status = "failed".to_string();
         preview_intent.url = None;
     }
-    update_workspace_verification_step(&mut studio_session.materialization, "preview", "failure");
+    update_workspace_verification_step(&mut chat_session.materialization, "preview", "failure");
     build_session.build_status = "failed".to_string();
     build_session.verification_status = "failed".to_string();
     build_session.current_lens = "code".to_string();
@@ -875,24 +858,24 @@ fn mark_build_failed(
     build_session.last_failure_summary = Some(summary.clone());
     build_session.current_worker_execution.execution_state = "failed_retryable".to_string();
     build_session.current_worker_execution.last_summary = Some(summary.clone());
-    sync_task_sessions(app, studio_session, Some(build_session), summary);
+    sync_task_sessions(app, chat_session, Some(build_session), summary);
 }
 
 fn mark_build_failed_for_proof(
-    studio_session: &mut StudioArtifactSession,
+    chat_session: &mut ChatArtifactSession,
     build_session: &mut BuildArtifactSession,
     summary: String,
 ) {
     kill_preview_process(&build_session.session_id);
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Failed;
-    studio_session.status = lifecycle_state_label(StudioArtifactLifecycleState::Failed).to_string();
-    studio_session.current_lens = "code".to_string();
-    studio_session.updated_at = now_iso();
-    if let Some(preview_intent) = studio_session.materialization.preview_intent.as_mut() {
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Failed;
+    chat_session.status = lifecycle_state_label(StudioArtifactLifecycleState::Failed).to_string();
+    chat_session.current_lens = "code".to_string();
+    chat_session.updated_at = now_iso();
+    if let Some(preview_intent) = chat_session.materialization.preview_intent.as_mut() {
         preview_intent.status = "failed".to_string();
         preview_intent.url = None;
     }
-    update_workspace_verification_step(&mut studio_session.materialization, "preview", "failure");
+    update_workspace_verification_step(&mut chat_session.materialization, "preview", "failure");
     build_session.build_status = "failed".to_string();
     build_session.verification_status = "failed".to_string();
     build_session.preview_url = None;
@@ -907,29 +890,29 @@ fn mark_build_failed_for_proof(
     build_session.current_worker_execution.execution_state = "failed_retryable".to_string();
     build_session.current_worker_execution.last_summary =
         build_session.last_failure_summary.clone();
-    update_studio_session_from_build_session(studio_session, Some(build_session));
+    update_chat_session_from_build_session(chat_session, Some(build_session));
 }
 
 fn sync_task_sessions(
     app: &AppHandle,
-    studio_session: &StudioArtifactSession,
+    chat_session: &ChatArtifactSession,
     build_session: Option<&BuildArtifactSession>,
     current_step: String,
 ) {
-    let mut studio_session = studio_session.clone();
+    let mut chat_session = chat_session.clone();
     let build_session = build_session.cloned();
-    update_studio_session_from_build_session(&mut studio_session, build_session.as_ref());
+    update_chat_session_from_build_session(&mut chat_session, build_session.as_ref());
     let renderer_session = build_session
         .as_ref()
         .map(build_session_to_renderer_session);
     update_task_state(app, move |task| {
         if task
-            .studio_session
+            .chat_session
             .as_ref()
-            .is_some_and(|existing| existing.session_id == studio_session.session_id)
-            || task.studio_session.is_none()
+            .is_some_and(|existing| existing.session_id == chat_session.session_id)
+            || task.chat_session.is_none()
         {
-            task.studio_session = Some(studio_session.clone());
+            task.chat_session = Some(chat_session.clone());
             task.renderer_session = renderer_session.clone();
             task.build_session = build_session.clone();
             apply_studio_authoritative_status(task, Some(current_step.clone()));
@@ -959,15 +942,15 @@ fn update_operator_step_for_workspace_verification(
     };
     let normalized = status.trim().to_ascii_lowercase();
     let operator_status = match normalized.as_str() {
-        "running" | "active" => StudioArtifactOperatorRunStatus::Active,
-        "success" | "complete" | "completed" => StudioArtifactOperatorRunStatus::Complete,
-        "failure" | "failed" | "blocked" => StudioArtifactOperatorRunStatus::Blocked,
-        _ => StudioArtifactOperatorRunStatus::Pending,
+        "running" | "active" => ArtifactOperatorRunStatus::Active,
+        "success" | "complete" | "completed" => ArtifactOperatorRunStatus::Complete,
+        "failure" | "failed" | "blocked" => ArtifactOperatorRunStatus::Blocked,
+        _ => ArtifactOperatorRunStatus::Pending,
     };
     let detail = match operator_status {
-        StudioArtifactOperatorRunStatus::Active => format!("{label} is in progress."),
-        StudioArtifactOperatorRunStatus::Complete => format!("{label} completed."),
-        StudioArtifactOperatorRunStatus::Blocked => format!("{label} failed."),
+        ArtifactOperatorRunStatus::Active => format!("{label} is in progress."),
+        ArtifactOperatorRunStatus::Complete => format!("{label} completed."),
+        ArtifactOperatorRunStatus::Blocked => format!("{label} failed."),
         _ => format!("{label} is pending."),
     };
     if let Some(step) = contract
@@ -979,7 +962,7 @@ fn update_operator_step_for_workspace_verification(
         step.detail = detail;
         if matches!(
             operator_status,
-            StudioArtifactOperatorRunStatus::Complete | StudioArtifactOperatorRunStatus::Blocked
+            ArtifactOperatorRunStatus::Complete | ArtifactOperatorRunStatus::Blocked
         ) {
             step.finished_at_ms = Some(step.finished_at_ms.unwrap_or(0));
         }
@@ -988,10 +971,10 @@ fn update_operator_step_for_workspace_verification(
 
     contract
         .operator_steps
-        .push(ioi_api::studio::StudioArtifactOperatorStep {
+        .push(ioi_api::runtime_harness::ArtifactOperatorStep {
             step_id: operator_step_id.to_string(),
             origin_prompt_event_id: String::new(),
-            phase: StudioArtifactOperatorPhase::VerifyArtifact,
+            phase: ArtifactOperatorPhase::VerifyArtifact,
             engine: "workspace_build".to_string(),
             status: operator_status,
             label: label.to_string(),

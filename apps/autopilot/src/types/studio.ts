@@ -20,7 +20,7 @@ export type {
   StudioArtifactPersistenceMode,
   StudioArtifactPipelineStep,
   StudioArtifactRevision,
-  StudioArtifactSession,
+  ChatArtifactSession,
   StudioArtifactTabKind,
   StudioArtifactUxLifecycle,
   StudioBuildReceipt,
@@ -35,5 +35,5 @@ export type {
   StudioPresentationSurface,
   StudioRendererKind,
   StudioRendererSession,
-  StudioVerifiedReply,
+  ChatVerifiedReply,
 } from "../types";

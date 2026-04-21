@@ -278,6 +278,7 @@ where
     let db_path = Path::new(&config.state_file).with_extension("db");
     let db_preexisted = db_path.exists();
     let memory_db_path = Path::new(&config.state_file).with_extension("memory.db");
+    #[allow(unused_variables)]
     let memory_runtime = Arc::new(MemoryRuntime::open_sqlite(&memory_db_path)?);
 
     let store = Arc::new(RedbEpochStore::open(&db_path, config.epoch_size)?);

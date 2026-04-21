@@ -1,7 +1,7 @@
 use super::*;
-use crate::kernel::studio::content_session::attach_non_artifact_studio_session;
-use ioi_api::studio::{
-    StudioArtifactOperatorPhase, StudioArtifactOperatorRunStatus, StudioArtifactOperatorStep,
+use crate::kernel::studio::content_session::attach_non_artifact_chat_session;
+use ioi_api::runtime_harness::{
+    ArtifactOperatorPhase, ArtifactOperatorRunStatus, ArtifactOperatorStep,
 };
 
 #[test]
@@ -21,15 +21,15 @@ fn authoritative_studio_artifact_marks_task_complete_without_kernel_session() {
 #[test]
 fn authoritative_status_prefers_terminal_operator_run_over_stale_lifecycle_state() {
     let mut task = test_task(StudioArtifactVerificationStatus::Ready);
-    let studio_session = task.studio_session.as_mut().expect("studio session");
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Materializing;
-    studio_session.status = "materializing".to_string();
+    let chat_session = task.chat_session.as_mut().expect("studio session");
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Materializing;
+    chat_session.status = "materializing".to_string();
     super::operator_run::start_operator_run_for_session(
-        studio_session,
+        chat_session,
         Some("prompt-evt-1"),
-        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+        ioi_api::runtime_harness::ArtifactOperatorRunMode::Create,
     );
-    super::operator_run::refresh_active_operator_run_from_session(studio_session, None);
+    super::operator_run::refresh_active_operator_run_from_session(chat_session, None);
 
     apply_studio_authoritative_status(&mut task, None);
 
@@ -44,12 +44,12 @@ fn authoritative_status_prefers_terminal_operator_run_over_stale_lifecycle_state
 #[test]
 fn authoritative_ready_artifact_mentions_candidates_and_repairs_when_available() {
     let mut task = test_task(StudioArtifactVerificationStatus::Ready);
-    task.studio_session
+    task.chat_session
         .as_mut()
         .expect("studio session")
         .materialization
         .winning_candidate_id = Some("candidate-2".to_string());
-    task.studio_session
+    task.chat_session
         .as_mut()
         .expect("studio session")
         .materialization
@@ -170,23 +170,23 @@ fn authoritative_ready_artifact_mentions_candidates_and_repairs_when_available()
 #[test]
 fn authoritative_status_prefers_active_operator_step_detail_for_running_artifacts() {
     let mut task = test_task(StudioArtifactVerificationStatus::Blocked);
-    let studio_session = task.studio_session.as_mut().expect("studio session");
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Materializing;
-    studio_session.status = "materializing".to_string();
+    let chat_session = task.chat_session.as_mut().expect("studio session");
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Materializing;
+    chat_session.status = "materializing".to_string();
     super::operator_run::start_operator_run_for_session(
-        studio_session,
+        chat_session,
         Some("prompt-evt-1"),
-        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+        ioi_api::runtime_harness::ArtifactOperatorRunMode::Create,
     );
-    studio_session
+    chat_session
         .materialization
         .operator_steps
-        .push(StudioArtifactOperatorStep {
+        .push(ArtifactOperatorStep {
             step_id: "verify-step-1".to_string(),
             origin_prompt_event_id: "prompt-evt-1".to_string(),
-            phase: StudioArtifactOperatorPhase::VerifyArtifact,
+            phase: ArtifactOperatorPhase::VerifyArtifact,
             engine: "browser_verifier".to_string(),
-            status: StudioArtifactOperatorRunStatus::Active,
+            status: ArtifactOperatorRunStatus::Active,
             label: "Run browser verification".to_string(),
             detail: "Studio is checking the rendered draft for runtime errors.".to_string(),
             started_at_ms: 1,
@@ -197,7 +197,7 @@ fn authoritative_status_prefers_active_operator_step_detail_for_running_artifact
             verification_refs: Vec::new(),
             attempt: 1,
         });
-    super::operator_run::refresh_active_operator_run_from_session(studio_session, None);
+    super::operator_run::refresh_active_operator_run_from_session(chat_session, None);
 
     apply_studio_authoritative_status(&mut task, None);
 
@@ -212,23 +212,23 @@ fn authoritative_status_prefers_active_operator_step_detail_for_running_artifact
 fn authoritative_status_keeps_running_when_active_operator_step_conflicts_with_stale_ready_manifest(
 ) {
     let mut task = test_task(StudioArtifactVerificationStatus::Ready);
-    let studio_session = task.studio_session.as_mut().expect("studio session");
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Materializing;
-    studio_session.status = "materializing".to_string();
+    let chat_session = task.chat_session.as_mut().expect("studio session");
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Materializing;
+    chat_session.status = "materializing".to_string();
     super::operator_run::start_operator_run_for_session(
-        studio_session,
+        chat_session,
         Some("prompt-evt-1"),
-        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+        ioi_api::runtime_harness::ArtifactOperatorRunMode::Create,
     );
-    studio_session
+    chat_session
         .materialization
         .operator_steps
-        .push(StudioArtifactOperatorStep {
+        .push(ArtifactOperatorStep {
             step_id: "author-step-1".to_string(),
             origin_prompt_event_id: "prompt-evt-1".to_string(),
-            phase: StudioArtifactOperatorPhase::AuthorArtifact,
+            phase: ArtifactOperatorPhase::AuthorArtifact,
             engine: "direct_author".to_string(),
-            status: StudioArtifactOperatorRunStatus::Active,
+            status: ArtifactOperatorRunStatus::Active,
             label: "Write artifact".to_string(),
             detail: "Studio is still writing the strongest artifact draft.".to_string(),
             started_at_ms: 1,
@@ -239,7 +239,7 @@ fn authoritative_status_keeps_running_when_active_operator_step_conflicts_with_s
             verification_refs: Vec::new(),
             attempt: 1,
         });
-    super::operator_run::refresh_active_operator_run_from_session(studio_session, None);
+    super::operator_run::refresh_active_operator_run_from_session(chat_session, None);
 
     apply_studio_authoritative_status(&mut task, None);
 
@@ -253,23 +253,23 @@ fn authoritative_status_keeps_running_when_active_operator_step_conflicts_with_s
 #[test]
 fn authoritative_status_completes_when_ready_manifest_conflicts_with_stale_verify_step() {
     let mut task = test_task(StudioArtifactVerificationStatus::Ready);
-    let studio_session = task.studio_session.as_mut().expect("studio session");
-    studio_session.lifecycle_state = StudioArtifactLifecycleState::Ready;
-    studio_session.status = "ready".to_string();
+    let chat_session = task.chat_session.as_mut().expect("studio session");
+    chat_session.lifecycle_state = StudioArtifactLifecycleState::Ready;
+    chat_session.status = "ready".to_string();
     super::operator_run::start_operator_run_for_session(
-        studio_session,
+        chat_session,
         Some("prompt-evt-1"),
-        ioi_api::studio::StudioArtifactOperatorRunMode::Create,
+        ioi_api::runtime_harness::ArtifactOperatorRunMode::Create,
     );
-    studio_session
+    chat_session
         .materialization
         .operator_steps
-        .push(StudioArtifactOperatorStep {
+        .push(ArtifactOperatorStep {
             step_id: "verify-step-1".to_string(),
             origin_prompt_event_id: "prompt-evt-1".to_string(),
-            phase: StudioArtifactOperatorPhase::VerifyArtifact,
+            phase: ArtifactOperatorPhase::VerifyArtifact,
             engine: "browser_verifier".to_string(),
-            status: StudioArtifactOperatorRunStatus::Active,
+            status: ArtifactOperatorRunStatus::Active,
             label: "Run browser verification".to_string(),
             detail: "Render evaluation is complete and Studio is surfacing the rendered artifact."
                 .to_string(),
@@ -281,7 +281,7 @@ fn authoritative_status_completes_when_ready_manifest_conflicts_with_stale_verif
             verification_refs: Vec::new(),
             attempt: 1,
         });
-    super::operator_run::refresh_active_operator_run_from_session(studio_session, None);
+    super::operator_run::refresh_active_operator_run_from_session(chat_session, None);
 
     apply_studio_authoritative_status(&mut task, None);
 
@@ -309,7 +309,7 @@ fn authoritative_workspace_artifact_stays_running_until_verification_passes() {
 #[test]
 fn blocked_nonworkspace_artifact_marks_task_failed_without_clarification() {
     let mut task = test_task(StudioArtifactVerificationStatus::Blocked);
-    task.studio_session
+    task.chat_session
         .as_mut()
         .expect("studio session")
         .artifact_manifest
@@ -379,7 +379,7 @@ fn ready_nonartifact_route_with_gate_info_marks_task_gate() {
 }
 
 #[test]
-fn current_task_turn_surfaces_inference_unavailable_as_blocked_studio_session() {
+fn current_task_turn_surfaces_inference_unavailable_as_blocked_chat_session() {
     let prompt = "Create an interactive HTML artifact that explains a product rollout with charts";
     let mut task = empty_task(prompt);
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(UnavailableInferenceRuntime::new(
@@ -399,13 +399,13 @@ fn current_task_turn_surfaces_inference_unavailable_as_blocked_studio_session() 
     )
     .expect("proof turn");
 
-    let studio_session = task.studio_session.as_ref().expect("studio session");
+    let chat_session = task.chat_session.as_ref().expect("studio session");
     assert_eq!(
-        studio_session.lifecycle_state,
+        chat_session.lifecycle_state,
         StudioArtifactLifecycleState::Blocked
     );
     assert_eq!(
-        studio_session
+        chat_session
             .artifact_manifest
             .verification
             .production_provenance
@@ -415,7 +415,7 @@ fn current_task_turn_surfaces_inference_unavailable_as_blocked_studio_session() 
         crate::models::StudioRuntimeProvenanceKind::InferenceUnavailable
     );
     assert_eq!(
-        studio_session
+        chat_session
             .artifact_manifest
             .verification
             .failure
@@ -424,12 +424,12 @@ fn current_task_turn_surfaces_inference_unavailable_as_blocked_studio_session() 
             .code,
         "inference_unavailable"
     );
-    assert!(studio_session.artifact_manifest.files.is_empty());
+    assert!(chat_session.artifact_manifest.files.is_empty());
     let _ = fs::remove_dir_all(workspace_root_base);
 }
 
 #[test]
-fn current_task_turn_surfaces_routing_timeouts_as_blocked_studio_session() {
+fn current_task_turn_surfaces_routing_timeouts_as_blocked_chat_session() {
     let prompt = "Help me reason about a product rollout with charts";
     let mut task = empty_task(prompt);
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(SlowStudioOutcomeTestRuntime {
@@ -470,13 +470,13 @@ fn current_task_turn_surfaces_routing_timeouts_as_blocked_studio_session() {
     )
     .expect("proof turn");
 
-    let studio_session = task.studio_session.as_ref().expect("studio session");
+    let chat_session = task.chat_session.as_ref().expect("studio session");
     assert_eq!(
-        studio_session.lifecycle_state,
+        chat_session.lifecycle_state,
         StudioArtifactLifecycleState::Blocked
     );
     assert_eq!(
-        studio_session
+        chat_session
             .artifact_manifest
             .verification
             .failure
@@ -485,7 +485,7 @@ fn current_task_turn_surfaces_routing_timeouts_as_blocked_studio_session() {
             .code,
         "routing_failure"
     );
-    assert!(studio_session
+    assert!(chat_session
         .artifact_manifest
         .verification
         .failure
@@ -493,7 +493,7 @@ fn current_task_turn_surfaces_routing_timeouts_as_blocked_studio_session() {
         .expect("failure")
         .message
         .contains("timed out"));
-    assert!(studio_session.artifact_manifest.files.is_empty());
+    assert!(chat_session.artifact_manifest.files.is_empty());
     let _ = fs::remove_dir_all(workspace_root_base);
 }
 
@@ -526,33 +526,33 @@ fn current_task_turn_surfaces_non_artifact_routes_as_shared_execution_sessions()
     )
     .expect("proof turn");
 
-    let studio_session = task.studio_session.as_ref().expect("studio session");
+    let chat_session = task.chat_session.as_ref().expect("studio session");
     assert_eq!(
-        studio_session.lifecycle_state,
+        chat_session.lifecycle_state,
         StudioArtifactLifecycleState::Ready
     );
-    assert!(studio_session
+    assert!(chat_session
         .artifact_manifest
         .verification
         .failure
         .is_none());
-    assert!(studio_session
+    assert!(chat_session
         .artifact_manifest
         .verification
         .summary
         .contains("routed this request to conversation"));
-    assert!(studio_session
+    assert!(chat_session
         .outcome_request
         .routing_hints
         .iter()
         .any(|hint| hint == "no_persistent_artifact_requested"));
     assert_eq!(
-        studio_session.outcome_request.outcome_kind,
+        chat_session.outcome_request.outcome_kind,
         StudioOutcomeKind::Conversation
     );
-    assert!(studio_session.materialization.swarm_execution.is_some());
+    assert!(chat_session.materialization.swarm_execution.is_some());
     assert_eq!(
-        studio_session
+        chat_session
             .materialization
             .swarm_execution
             .as_ref()
@@ -560,7 +560,7 @@ fn current_task_turn_surfaces_non_artifact_routes_as_shared_execution_sessions()
             .execution_domain,
         "studio_conversation"
     );
-    assert!(studio_session
+    assert!(chat_session
         .materialization
         .pipeline_steps
         .iter()
@@ -594,7 +594,7 @@ fn authoritative_conversation_route_marks_task_complete_with_shared_summary() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "Explain the rollout in chat",
         crate::models::StudioRuntimeProvenance {
@@ -639,7 +639,7 @@ fn weather_tool_widget_route_requires_studio_primary_execution() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "What is the weather in Boston today?",
         crate::models::StudioRuntimeProvenance {
@@ -754,7 +754,7 @@ fn sports_tool_widget_route_requires_studio_primary_execution() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "What's the story with the Lakers this season?",
         crate::models::StudioRuntimeProvenance {
@@ -796,7 +796,7 @@ fn places_tool_widget_route_requires_studio_primary_execution() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "What are some good coffee shops near downtown Portland?",
         crate::models::StudioRuntimeProvenance {
@@ -834,7 +834,7 @@ fn conversation_single_pass_route_requires_studio_primary_execution() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "What is the capital of Spain?",
         crate::models::StudioRuntimeProvenance {
@@ -876,7 +876,7 @@ fn workspace_grounded_single_pass_route_stays_off_studio_primary_execution() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "What npm script launches the desktop app in this repo?",
         crate::models::StudioRuntimeProvenance {
@@ -914,7 +914,7 @@ fn visualizer_route_requires_studio_primary_execution() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "Show a simple mermaid diagram of the HTTP request lifecycle.",
         crate::models::StudioRuntimeProvenance {
@@ -952,7 +952,7 @@ fn non_artifact_route_receipt_event_preserves_explicit_route_decision() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "What is the capital of Spain?",
         crate::models::StudioRuntimeProvenance {
@@ -1501,7 +1501,7 @@ fn runtime_handoff_prefix_carries_workspace_grounded_route_contract() {
         artifact: None,
     };
 
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "What npm script launches the desktop app in this repo?",
         crate::models::StudioRuntimeProvenance {
@@ -1547,7 +1547,7 @@ fn clarification_non_artifact_route_stays_studio_primary() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "Make me a report.",
         crate::models::StudioRuntimeProvenance {
@@ -2074,7 +2074,7 @@ fn non_artifact_weather_route_builds_renderable_parity_surface_and_widget_state(
         artifact: None,
     };
 
-    attach_non_artifact_studio_session(
+    attach_non_artifact_chat_session(
         &mut task,
         "What is the weather in Boston today?",
         crate::models::StudioRuntimeProvenance {
@@ -2086,7 +2086,7 @@ fn non_artifact_weather_route_builds_renderable_parity_surface_and_widget_state(
         &outcome_request,
     );
 
-    let session = task.studio_session.expect("studio session");
+    let session = task.chat_session.expect("studio session");
     assert_eq!(
         session.artifact_manifest.renderer,
         StudioRendererKind::HtmlIframe
@@ -2147,7 +2147,7 @@ fn attach_non_artifact_session_preserves_retained_widget_state_during_topology_r
         orchestration_state: None,
         artifact: None,
     };
-    attach_non_artifact_studio_session(
+    attach_non_artifact_chat_session(
         &mut task,
         "What is the weather in Boston today?",
         provenance.clone(),
@@ -2177,7 +2177,7 @@ fn attach_non_artifact_session_preserves_retained_widget_state_during_topology_r
         orchestration_state: None,
         artifact: None,
     };
-    attach_non_artifact_studio_session(
+    attach_non_artifact_chat_session(
         &mut task,
         "How about tomorrow instead?",
         provenance,
@@ -2185,7 +2185,7 @@ fn attach_non_artifact_session_preserves_retained_widget_state_during_topology_r
     );
 
     match task
-        .studio_outcome
+        .chat_outcome
         .as_ref()
         .and_then(|request| request.request_frame.as_ref())
         .expect("request frame after retained follow-up")
@@ -2201,7 +2201,7 @@ fn attach_non_artifact_session_preserves_retained_widget_state_during_topology_r
         other => panic!("expected weather frame, got {other:?}"),
     }
     assert!(task
-        .studio_outcome
+        .chat_outcome
         .as_ref()
         .expect("studio outcome")
         .routing_hints
@@ -2832,7 +2832,7 @@ fn currentness_override_conversation_does_not_stay_studio_primary() {
         orchestration_state: None,
         artifact: None,
     };
-    super::content_session::attach_non_artifact_studio_session(
+    super::content_session::attach_non_artifact_chat_session(
         &mut task,
         "What is the latest OpenAI API pricing?",
         crate::models::StudioRuntimeProvenance {
@@ -2894,7 +2894,7 @@ fn provisional_artifact_route_state_emits_route_receipt_before_materialization()
     };
     let title = "Mortgage calculator";
     let summary = "Studio is preparing the interactive artifact.";
-    let studio_session = super::prepare::provisional_non_workspace_studio_session(
+    let chat_session = super::prepare::provisional_non_workspace_chat_session(
         "thread-1",
         "studio-session-1",
         title,
@@ -2917,7 +2917,7 @@ fn provisional_artifact_route_state_emits_route_receipt_before_materialization()
         &mut task,
         &outcome_request,
         summary,
-        studio_session,
+        chat_session,
         None,
         None,
     );
@@ -2950,5 +2950,5 @@ fn provisional_artifact_route_state_emits_route_receipt_before_materialization()
             .and_then(|value| value.as_bool()),
         Some(true)
     );
-    assert!(task.studio_session.is_some());
+    assert!(task.chat_session.is_some());
 }

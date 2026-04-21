@@ -1,4 +1,9 @@
 #![allow(dead_code)]
+//! Web retrieval reserve surface.
+//!
+//! Much of this tree is intentionally retained for experimental or reserve web
+//! retrieval capability. Keep hot-path call sites narrow, and do not assume
+//! every parser/provider helper here is part of the default runtime flow.
 
 mod anchor_policy;
 mod constants;

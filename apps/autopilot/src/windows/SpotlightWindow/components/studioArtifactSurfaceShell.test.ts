@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const surfaceSource = fs.readFileSync(
-  new URL("./StudioArtifactSurface.tsx", import.meta.url),
+  new URL("./ChatArtifactSurface.tsx", import.meta.url),
   "utf8",
 );
 const workbenchSource = fs.readFileSync(
@@ -80,7 +80,7 @@ assert.match(
 
 assert.match(
   spotlightWindowSource,
-  /const \[studioArtifactVisible, setStudioArtifactVisible\] = useState\(false\);/,
+  /const \[chatArtifactVisible, setStudioArtifactVisible\] = useState\(false\);/,
   "studio should start in the full-screen conversation layout with the artifact drawer closed",
 );
 

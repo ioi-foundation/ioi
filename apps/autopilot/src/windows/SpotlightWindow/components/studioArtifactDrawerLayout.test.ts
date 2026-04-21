@@ -12,7 +12,7 @@ const studioSurfaceSource = fs.readFileSync(
 
 assert.match(
   spotlightWindowSource,
-  /artifactDrawerVisible=\{\s*studioArtifactDrawerAvailable && studioArtifactVisible\s*\}/,
+  /artifactDrawerVisible=\{\s*studioArtifactDrawerAvailable && chatArtifactVisible\s*\}/,
   "studio should only mount the artifact drawer while it is explicitly open",
 );
 

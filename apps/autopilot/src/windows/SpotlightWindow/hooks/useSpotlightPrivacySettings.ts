@@ -8,7 +8,7 @@ import {
   type CapabilityGovernanceRequest,
   type DataHandlingMode,
   type ShieldPolicyState,
-} from "../../StudioWindow/policyCenter";
+} from "../../ChatWindow/chatPolicyCenter";
 import type { SpotlightPermissionConnectorOverrideSummary } from "./useSpotlightPermissions";
 import { buildPrivacyGovernanceHistoryOverview } from "../utils/privacyGovernanceHistoryModel";
 

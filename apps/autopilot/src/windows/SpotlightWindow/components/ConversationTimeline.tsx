@@ -44,8 +44,8 @@ type ConversationTimelineProps = {
     preferredTurnId?: string | null,
   ) => void;
   onOpenSourceSummary: (summary: SourceSummary) => void;
-  activeStudioArtifactSessionId?: string | null;
-  onOpenStudioArtifact?: (studioSessionId: string) => void;
+  activeChatArtifactSessionId?: string | null;
+  onOpenStudioArtifact?: (chatSessionId: string) => void;
   inlineStatusCard?: React.ReactNode;
 };
 
@@ -64,7 +64,7 @@ export function ConversationTimeline({
   onExportTraceBundle,
   onOpenArtifactHub,
   onOpenSourceSummary,
-  activeStudioArtifactSessionId = null,
+  activeChatArtifactSessionId = null,
   onOpenStudioArtifact,
   inlineStatusCard,
 }: ConversationTimelineProps) {
@@ -103,8 +103,8 @@ export function ConversationTimeline({
         const turnPlanSummary =
           turnContext?.planSummary ||
           (isLatestTurn ? runPresentation.planSummary : null);
-        const hasPendingStudioArtifact =
-          turnContext?.hasPendingStudioArtifact || false;
+        const hasPendingArtifact =
+          turnContext?.hasPendingArtifact || false;
         const hasPendingOperatorRun = operatorRunIsPending(turnContext);
         const latestAnswerMatches =
           isLatestAnsweredTurn &&
@@ -114,7 +114,7 @@ export function ConversationTimeline({
           isLatestTurn &&
           !!turn.prompt &&
           !turn.answer &&
-          !hasPendingStudioArtifact &&
+          !hasPendingArtifact &&
           !hasPendingOperatorRun &&
           !!runPresentation.finalAnswer &&
           runPresentation.finalAnswer.message.timestamp >=
@@ -210,7 +210,7 @@ export function ConversationTimeline({
         const showArtifactReplyBubble =
           !turn.answer &&
           !!inlineArtifactReply &&
-          !hasPendingStudioArtifact &&
+          !hasPendingArtifact &&
           !hasPendingOperatorRun &&
           !showPendingRunAnswer &&
           !showAssistantPendingBubble &&
@@ -238,7 +238,7 @@ export function ConversationTimeline({
             turnContext?.reasoningDurationLabel &&
             turnContext.thoughtSummary &&
             !hasPendingOperatorRun &&
-            !hasPendingStudioArtifact ? (
+            !hasPendingArtifact ? (
               <ReasoningDisclosure
                 label={turnContext.reasoningDurationLabel}
                 thoughtSummary={turnContext.thoughtSummary}
@@ -449,7 +449,7 @@ export function ConversationTimeline({
                 >
                   {turnContext.artifacts.map((artifact) => {
                     const active =
-                      artifact.sessionId === activeStudioArtifactSessionId;
+                      artifact.sessionId === activeChatArtifactSessionId;
                     return (
                       <button
                         key={artifact.key}
@@ -483,7 +483,7 @@ export function ConversationTimeline({
                   <div className="spot-conversation-artifact-list">
                     {turnContext.artifacts.map((artifact) => {
                       const active =
-                        artifact.sessionId === activeStudioArtifactSessionId;
+                        artifact.sessionId === activeChatArtifactSessionId;
                       return (
                         <button
                           key={artifact.key}

@@ -11,19 +11,19 @@ import type {
   ExecutionMoment,
   RunPresentation,
   SourceSummary,
-  StudioArtifactSession,
+  ChatArtifactSession,
   ThoughtSummary,
   ToolActivityGroupPresentation,
 } from "../../../types";
-import type { StudioConversationArtifactEntry } from "../components/studioArtifactConversationModel";
+import type { ConversationArtifactEntry } from "../components/artifactConversationModel";
 import {
   buildReasoningDurationLabel,
   buildTurnToolActivityGroup,
 } from "../components/conversationTranscriptModel";
 import {
-  collectStudioConversationArtifactsForTurn,
-  studioArtifactSessionIsPresentable,
-} from "../components/studioArtifactConversationModel";
+  collectConversationArtifactsForTurn,
+  artifactSessionIsPresentable,
+} from "../components/artifactConversationModel";
 import { collectScreenshotReceipts } from "../utils/screenshotEvidence";
 import {
   eventOutputText,
@@ -48,9 +48,9 @@ export type TurnContext = SessionTurnContext<
   ExecutionMoment,
   ArtifactHubViewKey
 > & {
-  studioSession: StudioArtifactSession | null;
-  artifacts: StudioConversationArtifactEntry[];
-  hasPendingStudioArtifact: boolean;
+  chatSession: ChatArtifactSession | null;
+  artifacts: ConversationArtifactEntry[];
+  hasPendingArtifact: boolean;
   sourceSummary: SourceSummary | null;
   thoughtSummary: ThoughtSummary | null;
   toolActivityGroup: ToolActivityGroupPresentation | null;
@@ -60,7 +60,7 @@ export type TurnContext = SessionTurnContext<
 type UseTurnContextsOptions = {
   activeHistory: ChatMessage[];
   activeEvents: AgentEvent[];
-  activeStudioSession?: StudioArtifactSession | null;
+  activeChatSession?: ChatArtifactSession | null;
   runPresentation: RunPresentation;
 };
 
@@ -105,7 +105,7 @@ function toActivityEventRefs(events: AgentEvent[]): ActivityEventRef[] {
 export function useTurnContexts({
   activeHistory,
   activeEvents,
-  activeStudioSession = null,
+  activeChatSession = null,
   runPresentation,
 }: UseTurnContextsOptions) {
   const base = useSessionTurnContexts({
@@ -152,23 +152,23 @@ export function useTurnContexts({
     const thoughtSummary = buildThoughtSummary(
       buildActivityGroups(activityRefs),
     );
-    const artifacts = collectStudioConversationArtifactsForTurn(
+    const artifacts = collectConversationArtifactsForTurn(
       activeEvents,
       windowEvents,
       window?.id ?? null,
-      activeStudioSession,
+      activeChatSession,
     );
-    const activeStudioSessionBelongsToTurn =
-      (activeStudioSession?.originPromptEventId ?? null) === (window?.id ?? null)
+    const activeChatSessionBelongsToTurn =
+      (activeChatSession?.originPromptEventId ?? null) === (window?.id ?? null)
       || (
         index === latestTurnIndex &&
         !!turn?.prompt &&
-        !!activeStudioSession &&
-        !activeStudioSession.originPromptEventId
+        !!activeChatSession &&
+        !activeChatSession.originPromptEventId
       );
-    const primaryStudioSession = activeStudioSessionBelongsToTurn
-      ? activeStudioSession
-      : artifacts[0]?.studioSession ?? null;
+    const primaryStudioSession = activeChatSessionBelongsToTurn
+      ? activeChatSession
+      : artifacts[0]?.chatSession ?? null;
     const operatorSourceRefs =
       primaryStudioSession?.activeOperatorRun?.steps.flatMap(
         (step) => step.sourceRefs || [],
@@ -176,17 +176,17 @@ export function useTurnContexts({
     const sourceSummary = buildSourceSummary(activityRefs, operatorSourceRefs);
     const hasActiveArtifactSession =
       !!primaryStudioSession &&
-      activeStudioSession?.sessionId === primaryStudioSession.sessionId;
-    const hasPendingStudioArtifact =
+      activeChatSession?.sessionId === primaryStudioSession.sessionId;
+    const hasPendingArtifact =
       !!primaryStudioSession &&
       primaryStudioSession.outcomeRequest.outcomeKind === "artifact" &&
-      !studioArtifactSessionIsPresentable(primaryStudioSession);
+      !artifactSessionIsPresentable(primaryStudioSession);
 
     return {
       ...context,
-      studioSession: primaryStudioSession,
+      chatSession: primaryStudioSession,
       artifacts,
-      hasPendingStudioArtifact,
+      hasPendingArtifact,
       sourceSummary,
       thoughtSummary,
       toolActivityGroup: buildTurnToolActivityGroup(
@@ -195,7 +195,7 @@ export function useTurnContexts({
         artifacts,
         {
           defaultOpen: hasActiveArtifactSession,
-          studioSession: primaryStudioSession,
+          chatSession: primaryStudioSession,
         },
       ),
       reasoningDurationLabel: turn?.prompt

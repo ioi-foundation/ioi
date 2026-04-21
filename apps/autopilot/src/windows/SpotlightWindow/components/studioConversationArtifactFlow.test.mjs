@@ -6,11 +6,11 @@ const timelineSource = fs.readFileSync(
   "utf8",
 );
 const surfaceSource = fs.readFileSync(
-  new URL("./StudioArtifactSurface.tsx", import.meta.url),
+  new URL("./ChatArtifactSurface.tsx", import.meta.url),
   "utf8",
 );
 const menuSurfaceSource = fs.readFileSync(
-  new URL("./StudioArtifactMenuSurface.tsx", import.meta.url),
+  new URL("./ArtifactMenuSurface.tsx", import.meta.url),
   "utf8",
 );
 const spotlightWindowSource = fs.readFileSync(
@@ -32,13 +32,13 @@ assert.match(
 
 assert.match(
   surfaceSource,
-  /selectedStudioSessionId[\s\S]*historicalStudioSessions/,
+  /selectedChatSessionId[\s\S]*historicalChatSessions/,
   "Studio artifact surface should resolve historical artifact sessions from the trace",
 );
 
 assert.match(
   surfaceSource,
-  /selectedStudioSessionId === null[\s\S]*<StudioArtifactMenuSurface/,
+  /selectedChatSessionId === null[\s\S]*<ArtifactMenuSurface/,
   "Studio artifact surface should show a higher-level artifact menu before a specific artifact view",
 );
 
@@ -50,19 +50,19 @@ assert.match(
 
 assert.match(
   spotlightWindowSource,
-  /onOpenStudioArtifact=\{\s*isStudioVariant \? handleOpenStudioArtifact : undefined\s*\}/,
+  /onOpenStudioArtifact=\{\s*isStudioVariant \? handleOpenChatArtifact : undefined\s*\}/,
   "conversation timeline should receive the Studio artifact selection callback",
 );
 
 assert.match(
   spotlightWindowSource,
-  /selectedStudioArtifactSessionId !== null[\s\S]*setSelectedStudioArtifactSessionId\(null\)/,
+  /selectedChatArtifactSessionId !== null[\s\S]*setSelectedChatArtifactSessionId\(null\)/,
   "Studio artifact toggle should return to the higher-level artifact menu before collapsing",
 );
 
 assert.match(
   spotlightWindowSource,
-  /<StudioConversationSidebar[\s\S]*showArtifactNav=\{showStudioArtifactNav\}[\s\S]*onToggleArtifacts=\{handleToggleStudioArtifacts\}/,
+  /<ChatConversationSidebar[\s\S]*showArtifactNav=\{showStudioArtifactNav\}[\s\S]*onToggleArtifacts=\{handleToggleStudioArtifacts\}/,
   "studio artifact navigation should be routed through the Studio sidebar",
 );
 
@@ -79,7 +79,7 @@ assert.match(
 );
 
 assert.match(
-  fs.readFileSync(new URL("./StudioArtifactStageHeader.tsx", import.meta.url), "utf8"),
+  fs.readFileSync(new URL("./ArtifactStageHeader.tsx", import.meta.url), "utf8"),
   /studio-artifact-copy-control[\s\S]*Refresh/,
   "artifact stage header should expose a split copy control and refresh action",
 );

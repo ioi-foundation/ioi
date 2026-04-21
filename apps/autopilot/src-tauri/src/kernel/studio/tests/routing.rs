@@ -97,7 +97,7 @@ fn typed_outcome_router_times_out_with_slow_runtime() {
         provenance: None,
     });
 
-    let error = studio_outcome_request_with_runtime_timeout(
+    let error = chat_outcome_request_with_runtime_timeout(
         runtime,
         "Help me think through routing timeouts for interactive launch work",
         None,

@@ -2002,8 +2002,8 @@ pub fn start_task(
         history,
         events: vec![build_user_input_event(&task_id, 0, &intent)],
         artifacts: Vec::new(),
-        studio_session: None,
-        studio_outcome: None,
+        chat_session: None,
+        chat_outcome: None,
         renderer_session: None,
         build_session: None,
         run_bundle_id: None,
@@ -2157,7 +2157,7 @@ pub async fn continue_task(
             "[Autopilot][StudioContinue] hydrated session={} task_session={} studio_backed={}",
             session_id,
             task.session_id.as_deref().unwrap_or(task.id.as_str()),
-            task.studio_session.is_some() && task.studio_outcome.is_some()
+            task.chat_session.is_some() && task.chat_outcome.is_some()
         );
     }
 
@@ -2241,7 +2241,7 @@ pub async fn continue_task(
         .map(|task| {
             let session_matches = session_hex_matches_task(&task, &session_id);
             let studio_backed =
-                session_matches && task.studio_session.is_some() && task.studio_outcome.is_some();
+                session_matches && task.chat_session.is_some() && task.chat_outcome.is_some();
             println!(
                 "[Autopilot][StudioContinue] session={} task_session={} session_matches={} studio_backed={} phase={:?} current_step={}",
                 session_id,

@@ -3,7 +3,7 @@ import type {
   CapabilityGovernanceRequest,
   SessionPermissionProfileId,
   ShieldRememberedApprovalSnapshot,
-} from "../../StudioWindow/policyCenter";
+} from "../../ChatWindow/chatPolicyCenter";
 
 export type AuthorityAutomationTone = "ready" | "review" | "setup";
 export type AuthorityAutomationActionKind =

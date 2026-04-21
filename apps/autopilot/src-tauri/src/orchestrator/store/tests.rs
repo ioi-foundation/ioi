@@ -27,7 +27,7 @@ use uuid::Uuid;
 fn build_session(workspace_root: &str) -> BuildArtifactSession {
     BuildArtifactSession {
         session_id: "build-session".to_string(),
-        studio_session_id: "studio-session".to_string(),
+        chat_session_id: "studio-session".to_string(),
         workspace_root: workspace_root.to_string(),
         entry_document: "src/App.tsx".to_string(),
         preview_url: Some("http://127.0.0.1:4173".to_string()),
@@ -76,8 +76,8 @@ fn task_with_workspace_root(workspace_root: &str) -> AgentTask {
         history: Vec::new(),
         events: Vec::new(),
         artifacts: Vec::new(),
-        studio_session: None,
-        studio_outcome: None,
+        chat_session: None,
+        chat_outcome: None,
         renderer_session: None,
         build_session: Some(build_session(workspace_root)),
         run_bundle_id: None,

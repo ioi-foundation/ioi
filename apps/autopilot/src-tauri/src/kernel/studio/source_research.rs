@@ -1,4 +1,6 @@
-use ioi_api::studio::{ArtifactRetrievalPlan, StudioArtifactBrief, StudioArtifactSourceReference};
+use ioi_api::runtime_harness::{
+    ArtifactRetrievalPlan, ArtifactSourceReference, StudioArtifactBrief,
+};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
 use regex::Regex;
@@ -428,8 +430,8 @@ fn source_rank(
 }
 
 fn diversity_penalty(
-    selected_sources: &[StudioArtifactSourceReference],
-    candidate: &StudioArtifactSourceReference,
+    selected_sources: &[ArtifactSourceReference],
+    candidate: &ArtifactSourceReference,
 ) -> i32 {
     let Some(candidate_domain) = candidate.domain.as_ref() else {
         return 0;
@@ -463,7 +465,7 @@ fn parse_bing_search_rss(
     source_id_prefix: &str,
     desired_source_kinds: &HashSet<String>,
     avoid_source_kinds: &HashSet<String>,
-) -> Vec<StudioArtifactSourceReference> {
+) -> Vec<ArtifactSourceReference> {
     let query_tokens = extract_tokens(query);
     let mut out = ITEM_RE
         .captures_iter(xml)
@@ -488,7 +490,7 @@ fn parse_bing_search_rss(
             );
             Some((
                 score,
-                StudioArtifactSourceReference {
+                ArtifactSourceReference {
                     source_id: format!("{source_id_prefix}:{index}"),
                     origin_prompt_event_id: String::new(),
                     title,
@@ -525,7 +527,7 @@ pub(super) fn source_query_from_reason(reason: &str) -> Option<String> {
 pub(super) async fn retrieve_research_sources_for_brief(
     runtime: Arc<dyn InferenceRuntime>,
     brief: &StudioArtifactBrief,
-) -> Vec<StudioArtifactSourceReference> {
+) -> Vec<ArtifactSourceReference> {
     let retrieval_plan = plan_retrieval_for_brief(runtime, brief)
         .await
         .or_else(|| fallback_retrieval_plan(brief));
@@ -556,7 +558,7 @@ pub(super) async fn retrieve_research_sources_for_brief(
         Err(_) => return Vec::new(),
     };
 
-    let mut ranked_by_url = HashMap::<String, (i32, StudioArtifactSourceReference)>::new();
+    let mut ranked_by_url = HashMap::<String, (i32, ArtifactSourceReference)>::new();
     for (query_index, query) in queries.iter().enumerate() {
         let response = match client
             .get("https://www.bing.com/search")

@@ -1,4 +1,4 @@
-use super::content_session::attach_non_artifact_studio_session;
+use super::content_session::attach_non_artifact_chat_session;
 use super::operator_run::{
     refresh_active_operator_run_from_session, start_operator_run_for_session,
 };
@@ -6,20 +6,16 @@ use super::revisions::persist_studio_artifact_exemplar;
 use super::*;
 use crate::models::ChatMessage;
 use ioi_api::execution::{ExecutionEnvelope, ExecutionStage};
-use ioi_api::studio::{
-    resolve_runtime_locality_placeholder, StudioArtifactExemplar, StudioArtifactGenerationProgress,
-    StudioArtifactMergeReceipt, StudioArtifactOperatorRunMode, StudioArtifactPatchReceipt,
-    StudioArtifactSwarmExecutionSummary, StudioArtifactSwarmPlan,
-    StudioArtifactVerificationReceipt, StudioArtifactWorkerReceipt, StudioIntentContext,
+use ioi_api::runtime_harness::{
+    ArtifactOperatorRunMode, StudioArtifactExemplar, StudioArtifactGenerationProgress,
+    StudioArtifactMergeReceipt, StudioArtifactPatchReceipt, StudioArtifactSwarmExecutionSummary,
+    StudioArtifactSwarmPlan, StudioArtifactVerificationReceipt, StudioArtifactWorkerReceipt,
 };
 use ioi_types::app::agentic::InferenceOptions;
 use ioi_types::app::StudioExecutionStrategy;
-use reqwest::blocking::Client;
-use serde::Deserialize;
-use std::collections::HashMap;
-use std::time::Duration;
-use url::Url;
 
+#[path = "prepare/places.rs"]
+mod places;
 #[path = "prepare/sports.rs"]
 mod sports;
 #[path = "prepare/weather.rs"]
@@ -87,455 +83,6 @@ fn tool_widget_family_hint(outcome_request: &StudioOutcomeRequest) -> Option<&st
         .routing_hints
         .iter()
         .find_map(|hint| hint.strip_prefix("tool_widget:"))
-}
-
-#[derive(Clone, Copy)]
-struct PlacesCategoryTarget {
-    amenity: &'static str,
-    label: &'static str,
-}
-
-#[derive(Clone)]
-struct ParsedPlacesRequest {
-    anchor_phrase: String,
-    category: PlacesCategoryTarget,
-}
-
-#[derive(Clone)]
-struct PlaceCandidate {
-    name: String,
-    address_line: String,
-    distance_miles: f64,
-}
-
-#[derive(Deserialize)]
-struct NominatimSearchResult {
-    lat: String,
-    lon: String,
-    display_name: String,
-    #[serde(default)]
-    name: Option<String>,
-    #[serde(default)]
-    address: Option<NominatimAddress>,
-}
-
-#[derive(Default, Deserialize)]
-struct NominatimAddress {
-    #[serde(default)]
-    amenity: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct OverpassResponse {
-    #[serde(default)]
-    elements: Vec<OverpassElement>,
-}
-
-#[derive(Deserialize)]
-struct OverpassElement {
-    #[serde(default)]
-    lat: Option<f64>,
-    #[serde(default)]
-    lon: Option<f64>,
-    #[serde(default)]
-    center: Option<OverpassCenter>,
-    #[serde(default)]
-    tags: HashMap<String, String>,
-}
-
-#[derive(Deserialize)]
-struct OverpassCenter {
-    lat: f64,
-    lon: f64,
-}
-
-fn studio_surface_http_client() -> Result<Client, String> {
-    Client::builder()
-        .timeout(Duration::from_secs(10))
-        .user_agent("ioi-autopilot-studio/0.1")
-        .build()
-        .map_err(|error| format!("Studio surface could not build its client: {error}"))
-}
-
-fn place_category_for_intent(intent: &str) -> Option<PlacesCategoryTarget> {
-    place_category_target_from_label(StudioIntentContext::new(intent).places_category_label()?)
-}
-
-fn place_category_target_from_label(label: &str) -> Option<PlacesCategoryTarget> {
-    match label.trim().to_ascii_lowercase().as_str() {
-        "coffee shops" => Some(PlacesCategoryTarget {
-            amenity: "cafe",
-            label: "coffee shops",
-        }),
-        "restaurants" => Some(PlacesCategoryTarget {
-            amenity: "restaurant",
-            label: "restaurants",
-        }),
-        "bars" => Some(PlacesCategoryTarget {
-            amenity: "bar",
-            label: "bars",
-        }),
-        _ => None,
-    }
-}
-
-fn anchor_phrase_for_places_intent(intent: &str) -> Option<String> {
-    StudioIntentContext::new(intent).places_anchor_phrase()
-}
-
-fn parse_places_request(intent: &str) -> Option<ParsedPlacesRequest> {
-    Some(ParsedPlacesRequest {
-        anchor_phrase: anchor_phrase_for_places_intent(intent)?,
-        category: place_category_for_intent(intent)?,
-    })
-}
-
-fn places_request_for_tool_widget(
-    intent: &str,
-    outcome_request: &StudioOutcomeRequest,
-) -> Option<ParsedPlacesRequest> {
-    match outcome_request.request_frame.as_ref() {
-        Some(ioi_types::app::studio::StudioNormalizedRequestFrame::Places(frame)) => {
-            let category = frame
-                .category
-                .as_deref()
-                .and_then(place_category_target_from_label);
-            let anchor_phrase = frame
-                .search_anchor
-                .clone()
-                .or_else(|| frame.location_scope.clone())
-                .filter(|scope| !scope.trim().is_empty())
-                .and_then(|scope| resolve_runtime_locality_placeholder(&scope));
-            if let (Some(anchor_phrase), Some(category)) = (anchor_phrase, category) {
-                return Some(ParsedPlacesRequest {
-                    anchor_phrase,
-                    category,
-                });
-            }
-        }
-        _ => {}
-    }
-
-    parse_places_request(intent)
-}
-
-fn parse_lat_lon_pair(lat: &str, lon: &str) -> Option<(f64, f64)> {
-    Some((lat.parse().ok()?, lon.parse().ok()?))
-}
-
-fn haversine_distance_miles(start: (f64, f64), end: (f64, f64)) -> f64 {
-    let earth_radius_miles = 3958.8_f64;
-    let lat1 = start.0.to_radians();
-    let lat2 = end.0.to_radians();
-    let dlat = (end.0 - start.0).to_radians();
-    let dlon = (end.1 - start.1).to_radians();
-    let a = (dlat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dlon / 2.0).sin().powi(2);
-    let c = 2.0 * a.sqrt().asin();
-    earth_radius_miles * c
-}
-
-fn short_place_name(result: &NominatimSearchResult) -> String {
-    result
-        .name
-        .as_deref()
-        .or_else(|| {
-            result
-                .address
-                .as_ref()
-                .and_then(|address| address.amenity.as_deref())
-        })
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| {
-            result
-                .display_name
-                .split(',')
-                .next()
-                .unwrap_or("Nearby place")
-                .trim()
-                .to_string()
-        })
-}
-
-fn short_place_address(result: &NominatimSearchResult) -> String {
-    let segments: Vec<&str> = result
-        .display_name
-        .split(',')
-        .map(str::trim)
-        .filter(|segment| !segment.is_empty())
-        .collect();
-    if segments.len() <= 1 {
-        return result.display_name.trim().to_string();
-    }
-    segments
-        .iter()
-        .skip(1)
-        .take(3)
-        .copied()
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-fn overpass_element_coords(element: &OverpassElement) -> Option<(f64, f64)> {
-    match (element.lat, element.lon) {
-        (Some(lat), Some(lon)) => Some((lat, lon)),
-        _ => element
-            .center
-            .as_ref()
-            .map(|center| (center.lat, center.lon)),
-    }
-}
-
-fn short_overpass_place_name(element: &OverpassElement) -> String {
-    element
-        .tags
-        .get("name")
-        .map(String::as_str)
-        .or_else(|| element.tags.get("amenity").map(String::as_str))
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-        .unwrap_or_else(|| "Nearby place".to_string())
-}
-
-fn short_overpass_place_address(element: &OverpassElement) -> String {
-    let mut segments = Vec::new();
-    if let Some(house_number) = element.tags.get("addr:housenumber") {
-        segments.push(house_number.trim().to_string());
-    }
-    if let Some(street) = element.tags.get("addr:street") {
-        if segments.is_empty() {
-            segments.push(street.trim().to_string());
-        } else if let Some(first) = segments.first_mut() {
-            *first = format!("{first} {}", street.trim());
-        }
-    }
-    for key in ["addr:neighbourhood", "addr:suburb", "addr:city"] {
-        if let Some(value) = element.tags.get(key) {
-            let trimmed = value.trim();
-            if !trimmed.is_empty() {
-                segments.push(trimmed.to_string());
-            }
-        }
-    }
-    if segments.is_empty() {
-        return "Address unavailable".to_string();
-    }
-    segments.join(", ")
-}
-
-fn geocode_anchor_result(
-    client: &Client,
-    anchor_phrase: &str,
-) -> Result<NominatimSearchResult, String> {
-    let mut url = Url::parse("https://nominatim.openstreetmap.org/search")
-        .expect("static nominatim search URL parses");
-    url.query_pairs_mut()
-        .append_pair("format", "jsonv2")
-        .append_pair("limit", "1")
-        .append_pair("addressdetails", "1")
-        .append_pair("q", anchor_phrase);
-    let results = client
-        .get(url)
-        .send()
-        .and_then(reqwest::blocking::Response::error_for_status)
-        .map_err(|error| {
-            format!("Studio places surface could not geocode '{anchor_phrase}': {error}")
-        })?
-        .json::<Vec<NominatimSearchResult>>()
-        .map_err(|error| {
-            format!("Studio places surface could not read its geocoder response: {error}")
-        })?;
-    results
-        .into_iter()
-        .next()
-        .ok_or_else(|| format!("Studio places surface could not locate '{anchor_phrase}'."))
-}
-
-fn nearby_place_subset(mut candidates: Vec<PlaceCandidate>) -> Vec<PlaceCandidate> {
-    candidates.sort_by(|left, right| left.distance_miles.total_cmp(&right.distance_miles));
-    candidates.dedup_by(|left, right| left.name.eq_ignore_ascii_case(&right.name));
-    candidates
-        .into_iter()
-        .filter(|candidate| candidate.distance_miles <= 3.0)
-        .take(5)
-        .collect()
-}
-
-fn nearby_places_from_overpass(
-    overpass: OverpassResponse,
-    anchor_coords: (f64, f64),
-) -> Vec<PlaceCandidate> {
-    let candidates = overpass
-        .elements
-        .into_iter()
-        .filter_map(|element| {
-            let coords = overpass_element_coords(&element)?;
-            Some(PlaceCandidate {
-                name: short_overpass_place_name(&element),
-                address_line: short_overpass_place_address(&element),
-                distance_miles: haversine_distance_miles(anchor_coords, coords),
-            })
-        })
-        .collect::<Vec<_>>();
-    nearby_place_subset(candidates)
-}
-
-fn nearby_places_from_nominatim(
-    results: Vec<NominatimSearchResult>,
-    anchor_coords: (f64, f64),
-) -> Vec<PlaceCandidate> {
-    let candidates = results
-        .into_iter()
-        .filter_map(|result| {
-            let coords = parse_lat_lon_pair(&result.lat, &result.lon)?;
-            Some(PlaceCandidate {
-                name: short_place_name(&result),
-                address_line: short_place_address(&result),
-                distance_miles: haversine_distance_miles(anchor_coords, coords),
-            })
-        })
-        .collect::<Vec<_>>();
-    nearby_place_subset(candidates)
-}
-
-fn search_places_with_overpass(
-    client: &Client,
-    request: &ParsedPlacesRequest,
-    anchor_coords: (f64, f64),
-) -> Result<Vec<PlaceCandidate>, String> {
-    let overpass_query = format!(
-        "[out:json][timeout:25];(node(around:5000,{lat},{lon})[amenity={amenity}];way(around:5000,{lat},{lon})[amenity={amenity}];relation(around:5000,{lat},{lon})[amenity={amenity}];);out center tags;",
-        lat = anchor_coords.0,
-        lon = anchor_coords.1,
-        amenity = request.category.amenity,
-    );
-    let mut last_error = None;
-    for endpoint in [
-        "https://overpass-api.de/api/interpreter",
-        "https://overpass.kumi.systems/api/interpreter",
-    ] {
-        match client
-            .post(endpoint)
-            .form(&[("data", overpass_query.clone())])
-            .send()
-            .and_then(reqwest::blocking::Response::error_for_status)
-        {
-            Ok(response) => match response.json::<OverpassResponse>() {
-                Ok(overpass) => {
-                    let nearby = nearby_places_from_overpass(overpass, anchor_coords);
-                    if !nearby.is_empty() {
-                        return Ok(nearby);
-                    }
-                    last_error = Some(format!(
-                        "Studio places surface found no {} near {} via {}.",
-                        request.category.label, request.anchor_phrase, endpoint
-                    ));
-                }
-                Err(error) => {
-                    last_error = Some(format!(
-                        "Studio places surface could not read nearby places from {}: {}",
-                        endpoint, error
-                    ));
-                }
-            },
-            Err(error) => {
-                last_error = Some(format!(
-                    "Studio places surface could not search nearby places via {}: {}",
-                    endpoint, error
-                ));
-            }
-        }
-    }
-
-    Err(last_error.unwrap_or_else(|| {
-        format!(
-            "Studio places surface could not find {} near {}.",
-            request.category.label, request.anchor_phrase
-        )
-    }))
-}
-
-fn search_places_with_nominatim(
-    client: &Client,
-    request: &ParsedPlacesRequest,
-    anchor_coords: (f64, f64),
-) -> Result<Vec<PlaceCandidate>, String> {
-    let mut url = Url::parse("https://nominatim.openstreetmap.org/search")
-        .expect("static nominatim search URL parses");
-    let query = format!("{} near {}", request.category.label, request.anchor_phrase);
-    url.query_pairs_mut()
-        .append_pair("format", "jsonv2")
-        .append_pair("limit", "10")
-        .append_pair("addressdetails", "1")
-        .append_pair("q", &query);
-    let results = client
-        .get(url)
-        .send()
-        .and_then(reqwest::blocking::Response::error_for_status)
-        .map_err(|error| {
-            format!("Studio places surface could not query fallback place search: {error}")
-        })?
-        .json::<Vec<NominatimSearchResult>>()
-        .map_err(|error| {
-            format!("Studio places surface could not read fallback place search: {error}")
-        })?;
-    let nearby = nearby_places_from_nominatim(results, anchor_coords);
-    if nearby.is_empty() {
-        return Err(format!(
-            "Studio places surface could not find {} near {}.",
-            request.category.label, request.anchor_phrase
-        ));
-    }
-    Ok(nearby)
-}
-
-fn fetch_places_candidates(
-    client: &Client,
-    intent: &str,
-    outcome_request: &StudioOutcomeRequest,
-) -> Result<(ParsedPlacesRequest, Vec<PlaceCandidate>), String> {
-    let request = places_request_for_tool_widget(intent, outcome_request).ok_or_else(|| {
-        "Studio could not determine which type of place and anchor location to use.".to_string()
-    })?;
-    let anchor = geocode_anchor_result(client, &request.anchor_phrase)?;
-    let anchor_coords = parse_lat_lon_pair(&anchor.lat, &anchor.lon).ok_or_else(|| {
-        format!(
-            "Studio places surface could not interpret coordinates for '{}'.",
-            request.anchor_phrase
-        )
-    })?;
-    match search_places_with_overpass(client, &request, anchor_coords) {
-        Ok(nearby) => Ok((request, nearby)),
-        Err(overpass_error) => {
-            match search_places_with_nominatim(client, &request, anchor_coords) {
-                Ok(nearby) => Ok((request, nearby)),
-                Err(nominatim_error) => Err(format!(
-                    "{overpass_error} Fallback search also failed: {nominatim_error}"
-                )),
-            }
-        }
-    }
-}
-
-fn format_places_tool_widget_reply(
-    intent: &str,
-    outcome_request: &StudioOutcomeRequest,
-) -> Result<String, String> {
-    let client = studio_surface_http_client()?;
-    let (request, candidates) = fetch_places_candidates(&client, intent, outcome_request)?;
-    let mut lines = vec![format!(
-        "Here are a few {} near {}:",
-        request.category.label, request.anchor_phrase
-    )];
-    for candidate in candidates {
-        lines.push(format!(
-            "- {} — {} ({:.1} mi away)",
-            candidate.name, candidate.address_line, candidate.distance_miles
-        ));
-    }
-    Ok(lines.join("\n"))
 }
 
 #[cfg(test)]
@@ -670,27 +217,27 @@ fn finalize_studio_primary_non_artifact_reply(
 ) {
     let timestamp = crate::kernel::state::now();
 
-    if let Some(studio_session) = task.studio_session.as_mut() {
-        studio_session.summary = reply.clone();
-        studio_session.lifecycle_state = StudioArtifactLifecycleState::Ready;
-        studio_session.status = "ready".to_string();
-        studio_session.updated_at = now_iso();
-        studio_session.verified_reply.status = StudioArtifactVerificationStatus::Ready;
-        studio_session.verified_reply.lifecycle_state = StudioArtifactLifecycleState::Ready;
-        studio_session.verified_reply.summary = reply.clone();
-        if !studio_session
+    if let Some(chat_session) = task.chat_session.as_mut() {
+        chat_session.summary = reply.clone();
+        chat_session.lifecycle_state = StudioArtifactLifecycleState::Ready;
+        chat_session.status = "ready".to_string();
+        chat_session.updated_at = now_iso();
+        chat_session.verified_reply.status = StudioArtifactVerificationStatus::Ready;
+        chat_session.verified_reply.lifecycle_state = StudioArtifactLifecycleState::Ready;
+        chat_session.verified_reply.summary = reply.clone();
+        if !chat_session
             .verified_reply
             .evidence
             .iter()
             .any(|entry| entry == route_execution_evidence)
         {
-            studio_session
+            chat_session
                 .verified_reply
                 .evidence
                 .push(route_execution_evidence.to_string());
         }
-        studio_session.verified_reply.updated_at = studio_session.updated_at.clone();
-        super::content_session::refresh_non_artifact_studio_surface(studio_session);
+        chat_session.verified_reply.updated_at = chat_session.updated_at.clone();
+        super::content_session::refresh_non_artifact_studio_surface(chat_session);
     }
 
     task.phase = AgentPhase::Complete;
@@ -788,7 +335,7 @@ pub(super) fn maybe_execute_studio_primary_non_artifact_reply(
                 Some("places") => {
                     publish_current_task_progress(app, task, "Finding nearby places...");
                     (
-                        format_places_tool_widget_reply(intent, outcome_request)?,
+                        places::format_places_tool_widget_reply(intent, outcome_request)?,
                         "route_execution:studio_tool_widget_places",
                         "Studio completed the places tool-widget route directly and preserved the final route contract.",
                     )
@@ -868,12 +415,9 @@ pub(super) fn publish_current_task_generation_progress(
 
         task.phase = AgentPhase::Running;
         task.current_step = progress.current_step.clone();
-        if let Some(session) = task.studio_session.as_mut() {
+        if let Some(session) = task.chat_session.as_mut() {
             let session_origin_prompt_event_id = session.origin_prompt_event_id.clone();
-            assign_studio_session_turn_ownership(
-                session,
-                session_origin_prompt_event_id.as_deref(),
-            );
+            assign_chat_session_turn_ownership(session, session_origin_prompt_event_id.as_deref());
             if progress.artifact_brief.is_some()
                 || progress.preparation_needs.is_some()
                 || progress.prepared_context_resolution.is_some()
@@ -944,16 +488,16 @@ pub(super) fn publish_current_task_generation_progress(
     publish_current_task_snapshot(app, &task_snapshot);
 }
 
-pub(super) fn provisional_non_workspace_studio_session(
+pub(super) fn provisional_non_workspace_chat_session(
     thread_id: &str,
-    studio_session_id: &str,
+    chat_session_id: &str,
     title: &str,
     summary: &str,
     created_at: &str,
     outcome_request: &StudioOutcomeRequest,
     origin_prompt_event_id: Option<&str>,
     materialization: StudioArtifactMaterializationContract,
-) -> Result<StudioArtifactSession, String> {
+) -> Result<ChatArtifactSession, String> {
     let artifact_request = outcome_request
         .artifact
         .as_ref()
@@ -972,8 +516,8 @@ pub(super) fn provisional_non_workspace_studio_session(
         materialization.acceptance_provenance.clone();
     let retrieved_exemplars = materialization.retrieved_exemplars.clone();
     let retrieved_sources = materialization.retrieved_sources.clone();
-    let mut studio_session = StudioArtifactSession {
-        session_id: studio_session_id.to_string(),
+    let mut chat_session = ChatArtifactSession {
+        session_id: chat_session_id.to_string(),
         thread_id: thread_id.to_string(),
         artifact_id: artifact_manifest.artifact_id.clone(),
         origin_prompt_event_id: origin_prompt_event_id.map(ToOwned::to_owned),
@@ -1010,27 +554,27 @@ pub(super) fn provisional_non_workspace_studio_session(
         workspace_root: None,
         renderer_session_id: None,
     };
-    assign_studio_session_turn_ownership(&mut studio_session, origin_prompt_event_id);
+    assign_chat_session_turn_ownership(&mut chat_session, origin_prompt_event_id);
     start_operator_run_for_session(
-        &mut studio_session,
+        &mut chat_session,
         origin_prompt_event_id,
-        StudioArtifactOperatorRunMode::Create,
+        ArtifactOperatorRunMode::Create,
     );
-    refresh_active_operator_run_from_session(&mut studio_session, None);
-    refresh_pipeline_steps(&mut studio_session, None);
-    Ok(studio_session)
+    refresh_active_operator_run_from_session(&mut chat_session, None);
+    refresh_pipeline_steps(&mut chat_session, None);
+    Ok(chat_session)
 }
 
 pub(super) fn seed_provisional_artifact_route_state(
     task: &mut AgentTask,
     outcome_request: &StudioOutcomeRequest,
     summary: &str,
-    studio_session: StudioArtifactSession,
+    chat_session: ChatArtifactSession,
     build_session: Option<BuildArtifactSession>,
     renderer_session: Option<StudioRendererSession>,
 ) {
-    task.studio_outcome = Some(outcome_request.clone());
-    task.studio_session = Some(studio_session);
+    task.chat_outcome = Some(outcome_request.clone());
+    task.chat_session = Some(chat_session);
     task.build_session = build_session;
     task.renderer_session = renderer_session;
     super::content_session::append_route_contract_event(
@@ -1049,10 +593,10 @@ pub fn maybe_prepare_task_for_studio(
 ) -> Result<(), String> {
     publish_current_task_progress(app, task, "Routing the request...");
     let active_artifact_id = task
-        .studio_session
+        .chat_session
         .as_ref()
         .map(|session| session.artifact_id.clone());
-    let active_refinement = task.studio_session.as_ref().and_then(|session| {
+    let active_refinement = task.chat_session.as_ref().and_then(|session| {
         app.state::<Mutex<AppState>>()
             .lock()
             .ok()
@@ -1064,7 +608,7 @@ pub fn maybe_prepare_task_for_studio(
             })
     });
     let active_widget_state = task
-        .studio_session
+        .chat_session
         .as_ref()
         .and_then(|session| session.widget_state.as_ref());
     if let Some(runtime) = app_studio_routing_inference_runtime(app) {
@@ -1107,7 +651,7 @@ pub fn maybe_prepare_task_for_studio(
         );
         return Ok(());
     }
-    let outcome_request = match studio_outcome_request(
+    let outcome_request = match chat_outcome_request(
         app,
         intent,
         active_artifact_id.clone(),
@@ -1138,7 +682,7 @@ pub fn maybe_prepare_task_for_studio(
             return Ok(());
         }
     };
-    task.studio_outcome = Some(outcome_request.clone());
+    task.chat_outcome = Some(outcome_request.clone());
 
     if outcome_request.needs_clarification {
         let provenance = app_studio_routing_inference_runtime(app)
@@ -1149,7 +693,7 @@ pub fn maybe_prepare_task_for_studio(
                 model: None,
                 endpoint: None,
             });
-        attach_non_artifact_studio_session(task, intent, provenance, &outcome_request);
+        attach_non_artifact_chat_session(task, intent, provenance, &outcome_request);
         apply_non_artifact_route_state(task, &outcome_request);
         publish_current_task_snapshot(app, task);
         return Ok(());
@@ -1164,7 +708,7 @@ pub fn maybe_prepare_task_for_studio(
                 model: None,
                 endpoint: None,
             });
-        attach_non_artifact_studio_session(task, intent, provenance, &outcome_request);
+        attach_non_artifact_chat_session(task, intent, provenance, &outcome_request);
         apply_non_artifact_route_state(task, &outcome_request);
         if maybe_execute_studio_primary_non_artifact_reply(app, task, intent, &outcome_request)? {
             return Ok(());
@@ -1194,7 +738,7 @@ fn maybe_prepare_task_for_studio_with_request(
     let thread_id = task.session_id.clone().unwrap_or_else(|| task.id.clone());
     let title = derive_artifact_title(intent);
     let summary = summary_for_request(&artifact_request, &title);
-    let studio_session_id = Uuid::new_v4().to_string();
+    let chat_session_id = Uuid::new_v4().to_string();
     let created_at = now_iso();
     let mut attached_artifact_ids = Vec::new();
     let mut manifest_files: Vec<StudioArtifactManifestFile> = Vec::new();
@@ -1206,7 +750,7 @@ fn maybe_prepare_task_for_studio_with_request(
         outcome_request.execution_strategy,
     );
     let workspace_root = if renderer_kind == StudioRendererKind::WorkspaceSurface {
-        Some(workspace_root_for(app, &studio_session_id))
+        Some(workspace_root_for(app, &chat_session_id))
     } else {
         None
     };
@@ -1228,7 +772,8 @@ fn maybe_prepare_task_for_studio_with_request(
     let mut swarm_change_receipts = Vec::<StudioArtifactPatchReceipt>::new();
     let mut swarm_merge_receipts = Vec::<StudioArtifactMergeReceipt>::new();
     let mut swarm_verification_receipts = Vec::<StudioArtifactVerificationReceipt>::new();
-    let mut render_evaluation: Option<ioi_api::studio::StudioArtifactRenderEvaluation> = None;
+    let mut render_evaluation: Option<ioi_api::runtime_harness::StudioArtifactRenderEvaluation> =
+        None;
     let mut validation: Option<StudioArtifactValidationResult> = None;
     let mut output_origin: Option<StudioArtifactOutputOrigin> = None;
     let mut production_provenance: Option<crate::models::StudioRuntimeProvenance> = None;
@@ -1243,7 +788,9 @@ fn maybe_prepare_task_for_studio_with_request(
         super::content_session::MaterializedContentArtifact,
     > = None;
     let connector_grounding =
-        ioi_api::studio::artifact_connector_grounding_for_outcome_request(&outcome_request);
+        ioi_api::runtime_harness::artifact_connector_grounding_for_outcome_request(
+            &outcome_request,
+        );
     let app_runtime_provenance =
         app_inference_runtime(app).map(|runtime| runtime.studio_runtime_provenance());
     let app_acceptance_runtime_provenance =
@@ -1293,14 +840,14 @@ fn maybe_prepare_task_for_studio_with_request(
         });
         for step in &mut materialization.operator_steps {
             if step.step_id == "workspace_scaffold" {
-                step.status = ioi_api::studio::StudioArtifactOperatorRunStatus::Complete;
+                step.status = ioi_api::runtime_harness::ArtifactOperatorRunStatus::Complete;
                 step.detail = "Scaffold workspace completed.".to_string();
                 step.finished_at_ms = Some(step.finished_at_ms.unwrap_or(0));
             }
         }
         Some(BuildArtifactSession {
             session_id: Uuid::new_v4().to_string(),
-            studio_session_id: studio_session_id.clone(),
+            chat_session_id: chat_session_id.clone(),
             workspace_root: root.to_string_lossy().to_string(),
             entry_document: recipe.entry_document().to_string(),
             preview_url: None,
@@ -1366,9 +913,9 @@ fn maybe_prepare_task_for_studio_with_request(
 
     if build_session.is_some() {
         publish_current_task_progress(app, task, "Selecting workspace scaffold...");
-        let mut provisional_session = provisional_non_workspace_studio_session(
+        let mut provisional_session = provisional_non_workspace_chat_session(
             &thread_id,
-            &studio_session_id,
+            &chat_session_id,
             &title,
             &summary,
             &created_at,
@@ -1406,9 +953,9 @@ fn maybe_prepare_task_for_studio_with_request(
         materialization.acceptance_provenance = app_acceptance_runtime_provenance
             .clone()
             .or_else(|| app_runtime_provenance.clone());
-        task.studio_session = Some(provisional_non_workspace_studio_session(
+        task.chat_session = Some(provisional_non_workspace_chat_session(
             &thread_id,
-            &studio_session_id,
+            &chat_session_id,
             &title,
             &summary,
             &created_at,
@@ -1591,18 +1138,18 @@ fn maybe_prepare_task_for_studio_with_request(
     materialization.navigator_nodes = navigator_nodes_for_manifest(&artifact_manifest);
     let verified_reply = verified_reply_from_manifest(&title, &artifact_manifest);
     let prior_operator_run = task
-        .studio_session
+        .chat_session
         .as_ref()
         .and_then(|session| session.active_operator_run.clone());
     let prior_operator_run_history = task
-        .studio_session
+        .chat_session
         .as_ref()
         .map(|session| session.operator_run_history.clone())
         .unwrap_or_default();
 
     let retrieved_sources = materialization.retrieved_sources.clone();
-    let mut studio_session = StudioArtifactSession {
-        session_id: studio_session_id.clone(),
+    let mut chat_session = ChatArtifactSession {
+        session_id: chat_session_id.clone(),
         thread_id: thread_id.clone(),
         artifact_id: attached_artifact_ids
             .first()
@@ -1652,22 +1199,22 @@ fn maybe_prepare_task_for_studio_with_request(
             .as_ref()
             .map(|session| session.session_id.clone()),
     };
-    assign_studio_session_turn_ownership(&mut studio_session, origin_prompt_event_id.as_deref());
-    if studio_session.active_operator_run.is_some() {
-        refresh_active_operator_run_from_session(&mut studio_session, build_session.as_ref());
+    assign_chat_session_turn_ownership(&mut chat_session, origin_prompt_event_id.as_deref());
+    if chat_session.active_operator_run.is_some() {
+        refresh_active_operator_run_from_session(&mut chat_session, build_session.as_ref());
     } else {
         start_operator_run_for_session(
-            &mut studio_session,
+            &mut chat_session,
             origin_prompt_event_id.as_deref(),
-            StudioArtifactOperatorRunMode::Create,
+            ArtifactOperatorRunMode::Create,
         );
-        refresh_active_operator_run_from_session(&mut studio_session, build_session.as_ref());
+        refresh_active_operator_run_from_session(&mut chat_session, build_session.as_ref());
     }
-    refresh_pipeline_steps(&mut studio_session, build_session.as_ref());
-    let initial_revision = initial_revision_for_session(&studio_session, intent);
-    studio_session.active_revision_id = Some(initial_revision.revision_id.clone());
-    studio_session.revisions = vec![initial_revision];
-    if let Some(initial_revision) = studio_session.revisions.first().cloned() {
+    refresh_pipeline_steps(&mut chat_session, build_session.as_ref());
+    let initial_revision = initial_revision_for_session(&chat_session, intent);
+    chat_session.active_revision_id = Some(initial_revision.revision_id.clone());
+    chat_session.revisions = vec![initial_revision];
+    if let Some(initial_revision) = chat_session.revisions.first().cloned() {
         if let Some(memory_runtime) = app
             .state::<Mutex<AppState>>()
             .lock()
@@ -1677,24 +1224,24 @@ fn maybe_prepare_task_for_studio_with_request(
             match persist_studio_artifact_exemplar(
                 &memory_runtime,
                 app_inference_runtime(app),
-                &studio_session,
+                &chat_session,
                 &initial_revision,
             ) {
-                Ok(Some(exemplar)) => studio_session.materialization.notes.push(format!(
+                Ok(Some(exemplar)) => chat_session.materialization.notes.push(format!(
                     "Archived exemplar {} for {} / {}.",
                     exemplar.record_id,
                     renderer_kind_id(exemplar.renderer),
                     exemplar.scaffold_family
                 )),
                 Ok(None) => {}
-                Err(error) => studio_session
+                Err(error) => chat_session
                     .materialization
                     .notes
                     .push(format!("Exemplar archival skipped: {error}")),
             }
         }
     }
-    sync_workspace_manifest_file(&studio_session);
+    sync_workspace_manifest_file(&chat_session);
 
     let artifact_refs = task
         .artifacts
@@ -1709,11 +1256,11 @@ fn maybe_prepare_task_for_studio_with_request(
         &thread_id,
         task.progress,
         EventType::Receipt,
-        format!("Studio created {}", studio_session.title),
+        format!("Studio created {}", chat_session.title),
         json!({
             "artifact_class": artifact_class_id_for_request(&artifact_request),
-            "navigator_backing_mode": studio_session.navigator_backing_mode,
-            "build_session_id": studio_session.build_session_id,
+            "navigator_backing_mode": chat_session.navigator_backing_mode,
+            "build_session_id": chat_session.build_session_id,
             "selected_route": super::content_session::build_route_contract_payload(
                 &outcome_request,
                 false,
@@ -1752,7 +1299,7 @@ fn maybe_prepare_task_for_studio_with_request(
             .unwrap_or_else(|| json!({})),
         }),
         {
-            let mut details = serde_json::to_value(&studio_session).unwrap_or_else(|_| json!({}));
+            let mut details = serde_json::to_value(&chat_session).unwrap_or_else(|_| json!({}));
             if let Some(details_object) = details.as_object_mut() {
                 let payload =
                     super::content_session::build_route_contract_payload(&outcome_request, false);
@@ -1788,12 +1335,12 @@ fn maybe_prepare_task_for_studio_with_request(
         Some(0),
     ));
 
-    task.studio_session = Some(studio_session.clone());
+    task.chat_session = Some(chat_session.clone());
     task.renderer_session = renderer_session.clone();
     task.build_session = build_session.clone();
 
     if let Some(build_session) = build_session {
-        spawn_build_supervisor(app.clone(), studio_session, build_session);
+        spawn_build_supervisor(app.clone(), chat_session, build_session);
     }
 
     Ok(())
@@ -1819,19 +1366,19 @@ pub fn maybe_prepare_current_task_for_studio_turn(
     };
     let origin_prompt_event_id = latest_user_request_event_id(&task);
     let current_artifact_id = task
-        .studio_session
+        .chat_session
         .as_ref()
         .map(|session| session.artifact_id.clone());
-    let active_refinement = task.studio_session.as_ref().and_then(|session| {
+    let active_refinement = task.chat_session.as_ref().and_then(|session| {
         memory_runtime
             .as_ref()
             .map(|runtime| studio_refinement_context_for_session(runtime, session))
     });
     let active_widget_state = task
-        .studio_session
+        .chat_session
         .as_ref()
         .and_then(|session| session.widget_state.as_ref());
-    let outcome_request = studio_outcome_request(
+    let outcome_request = chat_outcome_request(
         app,
         intent,
         current_artifact_id,
@@ -1843,33 +1390,33 @@ pub fn maybe_prepare_current_task_for_studio_turn(
         outcome_request.outcome_kind, outcome_request.routing_hints
     );
 
-    task.studio_outcome = Some(outcome_request.clone());
+    task.chat_outcome = Some(outcome_request.clone());
 
     let previous_build_session_id = task
         .build_session
         .as_ref()
         .map(|session| session.session_id.clone());
-    let previous_studio_session_id = task
-        .studio_session
+    let previous_chat_session_id = task
+        .chat_session
         .as_ref()
         .map(|session| session.session_id.clone());
     let previous_artifact_count = task.artifacts.len();
     let previous_phase = task.phase.clone();
     let previous_current_step = task.current_step.clone();
     let previous_outcome_request_id = task
-        .studio_outcome
+        .chat_outcome
         .as_ref()
         .map(|request| request.request_id.clone());
     let previous_studio_lifecycle = task
-        .studio_session
+        .chat_session
         .as_ref()
         .map(|session| session.lifecycle_state);
     let previous_revision_count = task
-        .studio_session
+        .chat_session
         .as_ref()
         .map(|session| session.revisions.len());
     let previous_file_count = task
-        .studio_session
+        .chat_session
         .as_ref()
         .map(|session| session.artifact_manifest.files.len());
 
@@ -1894,23 +1441,23 @@ pub fn maybe_prepare_current_task_for_studio_turn(
                     model: None,
                     endpoint: None,
                 });
-            attach_non_artifact_studio_session(&mut task, intent, provenance, &outcome_request);
+            attach_non_artifact_chat_session(&mut task, intent, provenance, &outcome_request);
         }
         apply_non_artifact_route_state(&mut task, &outcome_request);
         maybe_execute_studio_primary_non_artifact_reply(app, &mut task, intent, &outcome_request)?;
     }
 
-    if let Some(session) = task.studio_session.as_mut() {
-        assign_studio_session_turn_ownership(session, origin_prompt_event_id.as_deref());
+    if let Some(session) = task.chat_session.as_mut() {
+        assign_chat_session_turn_ownership(session, origin_prompt_event_id.as_deref());
     }
 
     if task_requires_studio_primary_execution(&task) {
         apply_studio_authoritative_status(&mut task, None);
     }
 
-    let studio_changed = previous_studio_session_id
+    let studio_changed = previous_chat_session_id
         != task
-            .studio_session
+            .chat_session
             .as_ref()
             .map(|session| session.session_id.clone());
     let build_changed = previous_build_session_id
@@ -1923,22 +1470,22 @@ pub fn maybe_prepare_current_task_for_studio_turn(
     let current_step_changed = previous_current_step != task.current_step;
     let outcome_changed = previous_outcome_request_id
         != task
-            .studio_outcome
+            .chat_outcome
             .as_ref()
             .map(|request| request.request_id.clone());
     let lifecycle_changed = previous_studio_lifecycle
         != task
-            .studio_session
+            .chat_session
             .as_ref()
             .map(|session| session.lifecycle_state);
     let revision_count_changed = previous_revision_count
         != task
-            .studio_session
+            .chat_session
             .as_ref()
             .map(|session| session.revisions.len());
     let file_count_changed = previous_file_count
         != task
-            .studio_session
+            .chat_session
             .as_ref()
             .map(|session| session.artifact_manifest.files.len());
 

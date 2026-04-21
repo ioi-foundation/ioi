@@ -1,8 +1,8 @@
-import type { SourceSummary, StudioArtifactSession } from "../../../../types";
+import type { SourceSummary, ChatArtifactSession } from "../../../../types";
 import { firstStringValue, normalizedDomain } from "../../viewmodels/contentPipeline.helpers";
 
 export function operatorStepSourceSummary(
-  step: NonNullable<StudioArtifactSession["activeOperatorRun"]>["steps"][number],
+  step: NonNullable<ChatArtifactSession["activeOperatorRun"]>["steps"][number],
   stepIndex: number,
 ): SourceSummary | null {
   const sourceUrls = new Set<string>();

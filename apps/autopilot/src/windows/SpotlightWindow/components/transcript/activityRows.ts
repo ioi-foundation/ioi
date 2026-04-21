@@ -1,5 +1,5 @@
 import type {
-  StudioArtifactSession,
+  ChatArtifactSession,
   ToolActivityKind,
   ToolActivityRow,
   ToolActivityStatus,
@@ -70,7 +70,7 @@ export function operatorStepKind(phase: string | null | undefined): ToolActivity
 }
 
 export function operatorStepPreview(
-  step: NonNullable<StudioArtifactSession["activeOperatorRun"]>["steps"][number],
+  step: NonNullable<ChatArtifactSession["activeOperatorRun"]>["steps"][number],
 ): string | null {
   if (step.preview?.content?.trim()) {
     return step.preview.content.trim();
@@ -104,10 +104,10 @@ export function operatorStepPreview(
 }
 
 export function buildOperatorActivityRows(
-  studioSession: StudioArtifactSession | null | undefined,
+  chatSession: ChatArtifactSession | null | undefined,
 ): TurnActivityEntry[] {
-  const operatorRun = studioSession?.activeOperatorRun;
-  if (!studioSession || !operatorRun) {
+  const operatorRun = chatSession?.activeOperatorRun;
+  if (!chatSession || !operatorRun) {
     return [];
   }
 
@@ -189,14 +189,14 @@ export function buildOperatorActivityRows(
 
 export function toolGroupLabel(
   rows: TurnActivityEntry[],
-  studioSession: StudioArtifactSession | null,
+  chatSession: ChatArtifactSession | null,
 ): string {
-  if (studioSession) {
+  if (chatSession) {
     const hasActiveRow = rows.some((row) => row.status === "active");
     if (hasActiveRow) {
-      return `Thinking through ${studioSession.title}`;
+      return `Thinking through ${chatSession.title}`;
     }
-    return `${studioSession.title} activity`;
+    return `${chatSession.title} activity`;
   }
 
   return `${rows.length} ${rows.length === 1 ? "tool call" : "tool calls"}`;

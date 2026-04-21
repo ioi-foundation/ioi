@@ -8,6 +8,11 @@
 //! Keep product-shell concerns out of this layer. Session wiring, event
 //! emission, task mutation, navigator state, and renderer-specific shell
 //! surfaces belong in `apps/autopilot/.../kernel/studio`.
+//!
+//! New product-agnostic shell consumers should prefer
+//! `crate::runtime_harness`. This module remains the compatibility/product-
+//! shaped facade while the reusable runtime core is extracted under neutral
+//! naming.
 
 use crate::vm::inference::InferenceRuntime;
 use ioi_types::app::agentic::InferenceOptions;
@@ -110,7 +115,7 @@ pub use domain_topology::{
     route_family_for_outcome_request, route_topology_for_outcome_request,
     selected_route_label_for_outcome_request, verification_status_for_lifecycle,
     verified_reply_evidence_for_manifest, verifier_state_for_outcome_event,
-    StudioTopologyProjection,
+    StudioTopologyProjection, TopologyProjection,
 };
 use html::*;
 use html_registry::*;

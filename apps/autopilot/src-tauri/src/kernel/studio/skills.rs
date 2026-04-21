@@ -5,18 +5,17 @@ use super::source_research::retrieve_research_sources_for_brief;
 use super::*;
 use crate::kernel::state::connect_public_api;
 use crate::models::AppState;
-use ioi_api::studio::{
+use ioi_api::runtime_harness::{
     apply_artifact_connector_grounding_to_brief, build_studio_artifact_exemplar_query,
     compile_studio_artifact_ir, derive_request_grounded_studio_artifact_brief,
     derive_studio_artifact_blueprint, derive_studio_artifact_prepared_context,
-    synthesize_studio_artifact_brief_for_execution_strategy_with_runtime,
-    ArtifactConnectorGrounding, StudioArtifactBlueprint, StudioArtifactExemplar,
-    StudioArtifactGenerationProgress, StudioArtifactGenerationProgressObserver, StudioArtifactIR,
-    StudioArtifactOperatorPhase, StudioArtifactOperatorRunStatus, StudioArtifactOperatorStep,
-    StudioArtifactPlanningContext, StudioArtifactPreparationNeeds,
-    StudioArtifactRuntimeEventStatus, StudioArtifactSelectedSkill,
+    synthesize_studio_artifact_brief_for_execution_strategy_with_runtime, ArtifactOperatorPhase,
+    ArtifactOperatorRunStatus, ArtifactOperatorStep, ArtifactSourceReference, ConnectorGrounding,
+    StudioArtifactBlueprint, StudioArtifactExemplar, StudioArtifactGenerationProgress,
+    StudioArtifactGenerationProgressObserver, StudioArtifactIR, StudioArtifactPlanningContext,
+    StudioArtifactPreparationNeeds, StudioArtifactRuntimeEventStatus, StudioArtifactSelectedSkill,
     StudioArtifactSkillDiscoveryResolution, StudioArtifactSkillNeed, StudioArtifactSkillNeedKind,
-    StudioArtifactSkillNeedPriority, StudioArtifactSourceReference, StudioArtifactTasteMemory,
+    StudioArtifactSkillNeedPriority, StudioArtifactTasteMemory,
 };
 use ioi_ipc::blockchain::QueryRawStateRequest;
 use ioi_ipc::public::public_api_client::PublicApiClient;
@@ -224,7 +223,7 @@ fn emit_planning_context_progress(
     observer: Option<&StudioArtifactGenerationProgressObserver>,
     current_step: impl Into<String>,
     planning_context: &StudioArtifactPlanningContext,
-    operator_steps: Vec<StudioArtifactOperatorStep>,
+    operator_steps: Vec<ArtifactOperatorStep>,
 ) {
     let Some(observer) = observer else {
         return;
@@ -260,7 +259,7 @@ fn emit_skill_discovery_progress(
     preparation_needs: Option<StudioArtifactPreparationNeeds>,
     skill_discovery_resolution: Option<StudioArtifactSkillDiscoveryResolution>,
     selected_skills: Vec<StudioArtifactSelectedSkill>,
-    operator_steps: Vec<StudioArtifactOperatorStep>,
+    operator_steps: Vec<ArtifactOperatorStep>,
 ) {
     let Some(observer) = observer else {
         return;
@@ -292,27 +291,27 @@ fn emit_skill_discovery_progress(
 
 fn operator_status_from_runtime_status(
     status: StudioArtifactRuntimeEventStatus,
-) -> StudioArtifactOperatorRunStatus {
+) -> ArtifactOperatorRunStatus {
     match status {
-        StudioArtifactRuntimeEventStatus::Pending => StudioArtifactOperatorRunStatus::Pending,
-        StudioArtifactRuntimeEventStatus::Active => StudioArtifactOperatorRunStatus::Active,
-        StudioArtifactRuntimeEventStatus::Complete => StudioArtifactOperatorRunStatus::Complete,
+        StudioArtifactRuntimeEventStatus::Pending => ArtifactOperatorRunStatus::Pending,
+        StudioArtifactRuntimeEventStatus::Active => ArtifactOperatorRunStatus::Active,
+        StudioArtifactRuntimeEventStatus::Complete => ArtifactOperatorRunStatus::Complete,
         StudioArtifactRuntimeEventStatus::Failed
-        | StudioArtifactRuntimeEventStatus::Interrupted => StudioArtifactOperatorRunStatus::Failed,
-        StudioArtifactRuntimeEventStatus::Blocked => StudioArtifactOperatorRunStatus::Blocked,
-        StudioArtifactRuntimeEventStatus::Other => StudioArtifactOperatorRunStatus::Other,
+        | StudioArtifactRuntimeEventStatus::Interrupted => ArtifactOperatorRunStatus::Failed,
+        StudioArtifactRuntimeEventStatus::Blocked => ArtifactOperatorRunStatus::Blocked,
+        StudioArtifactRuntimeEventStatus::Other => ArtifactOperatorRunStatus::Other,
     }
 }
 
 fn operator_step(
-    phase: StudioArtifactOperatorPhase,
+    phase: ArtifactOperatorPhase,
     step_id: &str,
     label: impl Into<String>,
     detail: impl Into<String>,
     status: StudioArtifactRuntimeEventStatus,
-) -> StudioArtifactOperatorStep {
+) -> ArtifactOperatorStep {
     let status = operator_status_from_runtime_status(status);
-    StudioArtifactOperatorStep {
+    ArtifactOperatorStep {
         step_id: step_id.to_string(),
         origin_prompt_event_id: String::new(),
         phase,
@@ -323,9 +322,9 @@ fn operator_step(
         started_at_ms: 0,
         finished_at_ms: matches!(
             status,
-            StudioArtifactOperatorRunStatus::Complete
-                | StudioArtifactOperatorRunStatus::Blocked
-                | StudioArtifactOperatorRunStatus::Failed
+            ArtifactOperatorRunStatus::Complete
+                | ArtifactOperatorRunStatus::Blocked
+                | ArtifactOperatorRunStatus::Failed
         )
         .then_some(0),
         preview: None,
@@ -336,9 +335,9 @@ fn operator_step(
     }
 }
 
-fn skill_discovery_active_step() -> StudioArtifactOperatorStep {
+fn skill_discovery_active_step() -> ArtifactOperatorStep {
     operator_step(
-        StudioArtifactOperatorPhase::SearchSources,
+        ArtifactOperatorPhase::SearchSources,
         "skill_discovery",
         "Check for guidance",
         "Studio is checking whether published runtime guidance should be attached before authoring.",
@@ -349,9 +348,9 @@ fn skill_discovery_active_step() -> StudioArtifactOperatorStep {
 fn skill_discovery_complete_steps(
     resolution: &StudioArtifactSkillDiscoveryResolution,
     selected_skills: &[StudioArtifactSelectedSkill],
-) -> Vec<StudioArtifactOperatorStep> {
+) -> Vec<ArtifactOperatorStep> {
     let mut steps = vec![operator_step(
-        StudioArtifactOperatorPhase::SearchSources,
+        ArtifactOperatorPhase::SearchSources,
         "skill_discovery",
         skill_discovery_title(resolution),
         resolution.rationale.clone(),
@@ -365,7 +364,7 @@ fn skill_discovery_complete_steps(
     )];
     if !selected_skills.is_empty() {
         steps.push(operator_step(
-            StudioArtifactOperatorPhase::ReadSources,
+            ArtifactOperatorPhase::ReadSources,
             "skill_read",
             if selected_skills.len() == 1 {
                 format!("Read {}", selected_skills[0].name)
@@ -389,9 +388,9 @@ fn skill_discovery_complete_steps(
     steps
 }
 
-fn artifact_brief_active_step() -> StudioArtifactOperatorStep {
+fn artifact_brief_active_step() -> ArtifactOperatorStep {
     operator_step(
-        StudioArtifactOperatorPhase::UnderstandRequest,
+        ArtifactOperatorPhase::UnderstandRequest,
         "artifact_brief",
         "Shape artifact brief",
         "Studio is shaping the artifact brief that will guide authoring.",
@@ -401,9 +400,9 @@ fn artifact_brief_active_step() -> StudioArtifactOperatorStep {
 
 fn artifact_brief_complete_step(
     planning_context: &StudioArtifactPlanningContext,
-) -> StudioArtifactOperatorStep {
+) -> ArtifactOperatorStep {
     operator_step(
-        StudioArtifactOperatorPhase::UnderstandRequest,
+        ArtifactOperatorPhase::UnderstandRequest,
         "artifact_brief",
         "Shape artifact brief",
         format!(
@@ -464,7 +463,7 @@ pub(super) fn prepare_studio_artifact_planning_context(
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
-    connector_grounding: Option<&ArtifactConnectorGrounding>,
+    connector_grounding: Option<&ConnectorGrounding>,
     execution_strategy: StudioExecutionStrategy,
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
 ) -> Result<StudioArtifactPlanningContext, String> {
@@ -640,7 +639,7 @@ pub(super) fn prepare_studio_artifact_planning_context(
         Ok(sources) => sources,
         Err(_) => {
             studio_skill_trace("planning_context:source_timeout");
-            Vec::<StudioArtifactSourceReference>::new()
+            Vec::<ArtifactSourceReference>::new()
         }
     };
     let planning_context = derive_studio_artifact_prepared_context(

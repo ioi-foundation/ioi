@@ -7,7 +7,7 @@ use super::layout::{apply_layout, focus_window_best_effort};
 use super::monitor::get_target_monitor;
 use super::state::SPOTLIGHT_LAYOUT;
 use super::{
-    queue_pending_studio_launch_for_app, record_studio_launch_receipt_for_app,
+    queue_pending_studio_launch_for_app, record_chat_launch_receipt_for_app,
     should_surface_overlay_windows_in_task_switcher, summarize_studio_launch_envelope,
     TASKBAR_MARGIN,
 };
@@ -58,9 +58,9 @@ fn show_autopilot_surface(app: AppHandle) {
         }),
     );
     if let Ok(envelope) = envelope {
-        show_studio_with_target(app, envelope);
+        show_chat_with_target(app, envelope);
     } else {
-        show_studio(app);
+        show_chat(app);
     }
 }
 
@@ -153,7 +153,7 @@ pub fn hide_gate(app: AppHandle) {
     }
 }
 
-pub fn show_studio(app: AppHandle) {
+pub fn show_chat(app: AppHandle) {
     hide_pill(app.clone());
     if let Some(window) = app.get_webview_window("spotlight") {
         let _ = window.hide();
@@ -169,7 +169,7 @@ pub fn show_studio(app: AppHandle) {
         .as_ref()
         .and_then(|window| window.is_maximized().ok());
     let existed_before = existing_window.is_some();
-    record_studio_launch_receipt_for_app(
+    record_chat_launch_receipt_for_app(
         &app,
         "show_requested",
         json!({
@@ -189,7 +189,7 @@ pub fn show_studio(app: AppHandle) {
         let _ = window.set_resizable(true);
         let _ = window.set_always_on_top(false);
         surface_window_best_effort(&window, true);
-        record_studio_launch_receipt_for_app(
+        record_chat_launch_receipt_for_app(
             &app,
             "show_surfaced",
             json!({
@@ -201,7 +201,7 @@ pub fn show_studio(app: AppHandle) {
             }),
         );
     } else {
-        record_studio_launch_receipt_for_app(
+        record_chat_launch_receipt_for_app(
             &app,
             "show_failed",
             json!({
@@ -213,9 +213,9 @@ pub fn show_studio(app: AppHandle) {
     }
 }
 
-pub fn show_studio_with_target(app: AppHandle, envelope: Value) {
+pub fn show_chat_with_target(app: AppHandle, envelope: Value) {
     let launch_summary = summarize_studio_launch_envelope(&envelope);
-    record_studio_launch_receipt_for_app(
+    record_chat_launch_receipt_for_app(
         &app,
         "show_target_requested",
         json!({
@@ -223,10 +223,10 @@ pub fn show_studio_with_target(app: AppHandle, envelope: Value) {
             "launch": launch_summary.clone(),
         }),
     );
-    show_studio(app.clone());
+    show_chat(app.clone());
 
     let Some(window) = app.get_webview_window("studio") else {
-        record_studio_launch_receipt_for_app(
+        record_chat_launch_receipt_for_app(
             &app,
             "show_target_window_missing",
             json!({
@@ -238,7 +238,7 @@ pub fn show_studio_with_target(app: AppHandle, envelope: Value) {
     };
 
     match window.emit("request-studio-launch", envelope.clone()) {
-        Ok(()) => record_studio_launch_receipt_for_app(
+        Ok(()) => record_chat_launch_receipt_for_app(
             &app,
             "show_target_emitted",
             json!({
@@ -246,7 +246,7 @@ pub fn show_studio_with_target(app: AppHandle, envelope: Value) {
                 "launch": launch_summary,
             }),
         ),
-        Err(error) => record_studio_launch_receipt_for_app(
+        Err(error) => record_chat_launch_receipt_for_app(
             &app,
             "show_target_emit_failed",
             json!({

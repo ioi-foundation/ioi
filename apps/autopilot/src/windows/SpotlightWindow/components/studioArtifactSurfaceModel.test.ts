@@ -80,7 +80,7 @@ function sampleWorkspaceSession(
 ): StudioRendererSession {
   return {
     sessionId: "renderer-1",
-    studioSessionId: "studio-1",
+    chatSessionId: "chat-1",
     renderer: "workspace_surface",
     workspaceRoot: "/tmp/studio-workspace",
     entryDocument: "src/App.tsx",

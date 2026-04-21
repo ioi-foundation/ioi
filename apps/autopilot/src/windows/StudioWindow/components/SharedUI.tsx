@@ -1,4 +1,4 @@
-// apps/autopilot/src/windows/StudioWindow/components/SharedUI.tsx
+// Shared UI primitives retained for legacy inspector surfaces.
 import React from "react";
 
 // --- Icons ---

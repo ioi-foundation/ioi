@@ -57,7 +57,7 @@ fn workspace_root_from_task(task: &crate::models::AgentTask) -> Option<String> {
                 .map(|session| session.workspace_root.clone())
         })
         .or_else(|| {
-            task.studio_session
+            task.chat_session
                 .as_ref()
                 .and_then(|session| session.workspace_root.clone())
         })
@@ -435,7 +435,7 @@ fn compaction_latest_artifact_outcome(task: &crate::models::AgentTask) -> Option
             })
         })
         .or_else(|| {
-            task.studio_session
+            task.chat_session
                 .as_ref()
                 .and_then(|session| compaction_excerpt(&session.summary, 96))
                 .map(|summary| format!("Studio artifact: {summary}"))
@@ -465,7 +465,7 @@ fn compaction_execution_targets(
                 targets.insert(value);
             }
         }
-        if let Some(session) = task.studio_session.as_ref() {
+        if let Some(session) = task.chat_session.as_ref() {
             for selection in &session.selected_targets {
                 if let Some(value) = selection
                     .path
@@ -3253,8 +3253,8 @@ pub async fn load_session(
                     history,
                     events: Vec::new(),
                     artifacts: Vec::new(),
-                    studio_session: None,
-                    studio_outcome: None,
+                    chat_session: None,
+                    chat_outcome: None,
                     renderer_session: None,
                     build_session: None,
                     run_bundle_id: None,

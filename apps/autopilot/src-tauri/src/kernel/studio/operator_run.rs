@@ -1,14 +1,18 @@
+mod source_pack;
+
 use super::content_session::renderer_kind_id;
 use super::presentation::truncate_preview;
 use super::*;
 use ioi_api::execution::ExecutionLivePreview;
-use ioi_api::studio::{
-    StudioArtifactFileRef, StudioArtifactOperatorPhase, StudioArtifactOperatorPreview,
-    StudioArtifactOperatorRun, StudioArtifactOperatorRunMode, StudioArtifactOperatorRunStatus,
-    StudioArtifactOperatorStep, StudioArtifactSourcePack, StudioArtifactSourceReference,
-    StudioArtifactVerificationOutcome, StudioArtifactVerificationRef,
+use ioi_api::runtime_harness::{
+    ArtifactFileRef, ArtifactOperatorPhase, ArtifactOperatorRun, ArtifactOperatorRunMode,
+    ArtifactOperatorRunStatus, ArtifactOperatorStep, ArtifactSourcePack, ArtifactSourceReference,
+    ArtifactVerificationOutcome, ArtifactVerificationRef, StudioArtifactOperatorPreview,
 };
 use ioi_types::app::StudioExecutionStrategy;
+use source_pack::{
+    build_source_activity_preview, prompt_requires_source_pack, source_pack_for_session,
+};
 use uuid::Uuid;
 
 fn now_ms() -> u64 {
@@ -39,7 +43,7 @@ fn basename(path: &str) -> String {
         .to_string()
 }
 
-fn session_is_presentable(session: &StudioArtifactSession) -> bool {
+fn session_is_presentable(session: &ChatArtifactSession) -> bool {
     let verification_status =
         format!("{:?}", session.artifact_manifest.verification.status).to_ascii_lowercase();
     let lifecycle_state = format!(
@@ -64,70 +68,70 @@ fn session_is_presentable(session: &StudioArtifactSession) -> bool {
 }
 
 fn operator_status_for_session(
-    session: &StudioArtifactSession,
+    session: &ChatArtifactSession,
     build_session: Option<&BuildArtifactSession>,
-) -> StudioArtifactOperatorRunStatus {
+) -> ArtifactOperatorRunStatus {
     if session.lifecycle_state == StudioArtifactLifecycleState::Failed {
-        return StudioArtifactOperatorRunStatus::Failed;
+        return ArtifactOperatorRunStatus::Failed;
     }
     if session.lifecycle_state == StudioArtifactLifecycleState::Blocked {
-        return StudioArtifactOperatorRunStatus::Blocked;
+        return ArtifactOperatorRunStatus::Blocked;
     }
     if build_session.is_some_and(|candidate| {
         candidate.build_status.eq_ignore_ascii_case("failed")
             || candidate.verification_status.eq_ignore_ascii_case("failed")
     }) {
-        return StudioArtifactOperatorRunStatus::Blocked;
+        return ArtifactOperatorRunStatus::Blocked;
     }
     if session_is_presentable(session) {
-        return StudioArtifactOperatorRunStatus::Complete;
+        return ArtifactOperatorRunStatus::Complete;
     }
-    StudioArtifactOperatorRunStatus::Active
+    ArtifactOperatorRunStatus::Active
 }
 
-fn step_status_is_settled(status: StudioArtifactOperatorRunStatus) -> bool {
+fn step_status_is_settled(status: ArtifactOperatorRunStatus) -> bool {
     matches!(
         status,
-        StudioArtifactOperatorRunStatus::Complete
-            | StudioArtifactOperatorRunStatus::Blocked
-            | StudioArtifactOperatorRunStatus::Failed
+        ArtifactOperatorRunStatus::Complete
+            | ArtifactOperatorRunStatus::Blocked
+            | ArtifactOperatorRunStatus::Failed
     )
 }
 
-fn phase_rank(phase: StudioArtifactOperatorPhase, attempt: u32) -> u32 {
+fn phase_rank(phase: ArtifactOperatorPhase, attempt: u32) -> u32 {
     let base = match phase {
-        StudioArtifactOperatorPhase::UnderstandRequest => 100,
-        StudioArtifactOperatorPhase::RouteArtifact => 150,
-        StudioArtifactOperatorPhase::ReopenArtifactContext => 180,
-        StudioArtifactOperatorPhase::SearchSources => 250,
-        StudioArtifactOperatorPhase::ReadSources => 300,
-        StudioArtifactOperatorPhase::AuthorArtifact => 500,
-        StudioArtifactOperatorPhase::RepairArtifact => 620,
-        StudioArtifactOperatorPhase::InspectArtifact => 700,
-        StudioArtifactOperatorPhase::VerifyArtifact => 800,
-        StudioArtifactOperatorPhase::PresentArtifact => 900,
-        StudioArtifactOperatorPhase::Other => 1_000,
+        ArtifactOperatorPhase::UnderstandRequest => 100,
+        ArtifactOperatorPhase::RouteArtifact => 150,
+        ArtifactOperatorPhase::ReopenArtifactContext => 180,
+        ArtifactOperatorPhase::SearchSources => 250,
+        ArtifactOperatorPhase::ReadSources => 300,
+        ArtifactOperatorPhase::AuthorArtifact => 500,
+        ArtifactOperatorPhase::RepairArtifact => 620,
+        ArtifactOperatorPhase::InspectArtifact => 700,
+        ArtifactOperatorPhase::VerifyArtifact => 800,
+        ArtifactOperatorPhase::PresentArtifact => 900,
+        ArtifactOperatorPhase::Other => 1_000,
     };
     base + attempt
 }
 
-fn phase_slug(phase: StudioArtifactOperatorPhase) -> &'static str {
+fn phase_slug(phase: ArtifactOperatorPhase) -> &'static str {
     match phase {
-        StudioArtifactOperatorPhase::UnderstandRequest => "understand_request",
-        StudioArtifactOperatorPhase::RouteArtifact => "route_artifact",
-        StudioArtifactOperatorPhase::ReopenArtifactContext => "reopen_artifact_context",
-        StudioArtifactOperatorPhase::SearchSources => "search_sources",
-        StudioArtifactOperatorPhase::ReadSources => "read_sources",
-        StudioArtifactOperatorPhase::AuthorArtifact => "author_artifact",
-        StudioArtifactOperatorPhase::InspectArtifact => "inspect_artifact",
-        StudioArtifactOperatorPhase::VerifyArtifact => "verify_artifact",
-        StudioArtifactOperatorPhase::RepairArtifact => "repair_artifact",
-        StudioArtifactOperatorPhase::PresentArtifact => "present_artifact",
-        StudioArtifactOperatorPhase::Other => "other",
+        ArtifactOperatorPhase::UnderstandRequest => "understand_request",
+        ArtifactOperatorPhase::RouteArtifact => "route_artifact",
+        ArtifactOperatorPhase::ReopenArtifactContext => "reopen_artifact_context",
+        ArtifactOperatorPhase::SearchSources => "search_sources",
+        ArtifactOperatorPhase::ReadSources => "read_sources",
+        ArtifactOperatorPhase::AuthorArtifact => "author_artifact",
+        ArtifactOperatorPhase::InspectArtifact => "inspect_artifact",
+        ArtifactOperatorPhase::VerifyArtifact => "verify_artifact",
+        ArtifactOperatorPhase::RepairArtifact => "repair_artifact",
+        ArtifactOperatorPhase::PresentArtifact => "present_artifact",
+        ArtifactOperatorPhase::Other => "other",
     }
 }
 
-fn build_step_id(run_id: &str, phase: StudioArtifactOperatorPhase, attempt: u32) -> String {
+fn build_step_id(run_id: &str, phase: ArtifactOperatorPhase, attempt: u32) -> String {
     format!("{run_id}:{}:{attempt}", phase_slug(phase))
 }
 
@@ -141,7 +145,7 @@ fn execution_strategy_id(strategy: StudioExecutionStrategy) -> &'static str {
     }
 }
 
-fn engine_summary_for_session(session: &StudioArtifactSession) -> String {
+fn engine_summary_for_session(session: &ChatArtifactSession) -> String {
     format!(
         "{} via {}",
         renderer_kind_id(session.artifact_manifest.renderer),
@@ -149,7 +153,7 @@ fn engine_summary_for_session(session: &StudioArtifactSession) -> String {
     )
 }
 
-fn latest_live_preview(session: &StudioArtifactSession) -> Option<ExecutionLivePreview> {
+fn latest_live_preview(session: &ChatArtifactSession) -> Option<ExecutionLivePreview> {
     session
         .materialization
         .execution_envelope
@@ -169,7 +173,7 @@ fn latest_live_preview(session: &StudioArtifactSession) -> Option<ExecutionLiveP
 }
 
 fn live_author_preview(
-    session: &StudioArtifactSession,
+    session: &ChatArtifactSession,
     origin_prompt_event_id: &str,
 ) -> Option<StudioArtifactOperatorPreview> {
     let preview = latest_live_preview(session)?;
@@ -184,7 +188,7 @@ fn live_author_preview(
     })
 }
 
-fn primary_manifest_file(session: &StudioArtifactSession) -> Option<&StudioArtifactManifestFile> {
+fn primary_manifest_file(session: &ChatArtifactSession) -> Option<&StudioArtifactManifestFile> {
     session
         .artifact_manifest
         .files
@@ -203,8 +207,8 @@ fn primary_manifest_file(session: &StudioArtifactSession) -> Option<&StudioArtif
 fn build_file_ref(
     file: &StudioArtifactManifestFile,
     origin_prompt_event_id: &str,
-) -> StudioArtifactFileRef {
-    StudioArtifactFileRef {
+) -> ArtifactFileRef {
+    ArtifactFileRef {
         file_id: file
             .artifact_id
             .clone()
@@ -222,9 +226,9 @@ fn build_file_ref(
 }
 
 fn final_artifacts_for_session(
-    session: &StudioArtifactSession,
+    session: &ChatArtifactSession,
     origin_prompt_event_id: &str,
-) -> Vec<StudioArtifactFileRef> {
+) -> Vec<ArtifactFileRef> {
     session
         .artifact_manifest
         .files
@@ -234,13 +238,9 @@ fn final_artifacts_for_session(
 }
 
 fn inspect_preview_for_session(
-    session: &StudioArtifactSession,
+    session: &ChatArtifactSession,
     origin_prompt_event_id: &str,
-) -> Option<(
-    String,
-    StudioArtifactOperatorPreview,
-    Vec<StudioArtifactFileRef>,
-)> {
+) -> Option<(String, StudioArtifactOperatorPreview, Vec<ArtifactFileRef>)> {
     if let Some(write) = session.materialization.file_writes.first() {
         let preview = write.content_preview.as_deref().unwrap_or_default().trim();
         if preview.is_empty() {
@@ -285,139 +285,12 @@ fn inspect_preview_for_session(
     ))
 }
 
-fn source_pack_for_session(
-    session: &StudioArtifactSession,
-    origin_prompt_event_id: &str,
-) -> StudioArtifactSourcePack {
-    let mut items = Vec::new();
-
-    for source in &session.materialization.retrieved_sources {
-        let mut source = source.clone();
-        if source.origin_prompt_event_id.trim().is_empty() {
-            source.origin_prompt_event_id = origin_prompt_event_id.to_string();
-        }
-        items.push(source);
-    }
-
-    if items.is_empty() {
-        if let Some(brief) = session.materialization.artifact_brief.as_ref() {
-            for (index, anchor) in brief.factual_anchors.iter().enumerate() {
-                let anchor = anchor.trim();
-                if anchor.is_empty() {
-                    continue;
-                }
-                items.push(StudioArtifactSourceReference {
-                    source_id: format!("anchor:{index}"),
-                    origin_prompt_event_id: origin_prompt_event_id.to_string(),
-                    title: anchor.to_string(),
-                    url: None,
-                    domain: None,
-                    excerpt: Some(anchor.to_string()),
-                    retrieved_at_ms: None,
-                    freshness: Some("brief_anchor".to_string()),
-                    reason: "Required factual anchor from the artifact brief.".to_string(),
-                });
-            }
-            for (index, hint) in brief.reference_hints.iter().enumerate() {
-                let hint = hint.trim();
-                if hint.is_empty() {
-                    continue;
-                }
-                items.push(StudioArtifactSourceReference {
-                    source_id: format!("hint:{index}"),
-                    origin_prompt_event_id: origin_prompt_event_id.to_string(),
-                    title: hint.to_string(),
-                    url: None,
-                    domain: None,
-                    excerpt: None,
-                    retrieved_at_ms: None,
-                    freshness: Some("reference_hint".to_string()),
-                    reason: "Reference hint captured while shaping the artifact brief.".to_string(),
-                });
-            }
-        }
-    }
-
-    for exemplar in &session.materialization.retrieved_exemplars {
-        items.push(StudioArtifactSourceReference {
-            source_id: format!("exemplar:{}", exemplar.record_id),
-            origin_prompt_event_id: origin_prompt_event_id.to_string(),
-            title: exemplar.title.clone(),
-            url: None,
-            domain: None,
-            excerpt: Some(exemplar.summary.clone()),
-            retrieved_at_ms: None,
-            freshness: Some("artifact_exemplar".to_string()),
-            reason: exemplar.quality_rationale.clone(),
-        });
-    }
-
-    let summary = if items.is_empty() {
-        String::new()
-    } else {
-        format!(
-            "Grounded this artifact run with {} source item(s).",
-            items.len()
-        )
-    };
-
-    StudioArtifactSourcePack { summary, items }
-}
-
-fn prompt_requires_source_pack(
-    session: &StudioArtifactSession,
-    source_pack: &StudioArtifactSourcePack,
-) -> bool {
-    if !source_pack.items.is_empty() {
-        return true;
-    }
-
-    let prompt = session.outcome_request.raw_prompt.to_ascii_lowercase();
-    [
-        "explainer",
-        "guide",
-        "overview",
-        "primer",
-        "current",
-        "latest",
-        "source-backed",
-        "sources",
-    ]
-    .iter()
-    .any(|keyword| prompt.contains(keyword))
-}
-
-fn build_source_activity_preview(source_pack: &StudioArtifactSourcePack) -> Option<String> {
-    let lines = source_pack
-        .items
-        .iter()
-        .take(6)
-        .map(|item| {
-            let title = item.title.trim();
-            let domain = item.domain.as_deref().unwrap_or_default().trim();
-            if title.is_empty() {
-                domain.to_string()
-            } else if domain.is_empty() {
-                title.to_string()
-            } else {
-                format!("{title} - {domain}")
-            }
-        })
-        .filter(|line| !line.trim().is_empty())
-        .collect::<Vec<_>>();
-    if lines.is_empty() {
-        None
-    } else {
-        Some(lines.join("\n"))
-    }
-}
-
 fn verification_refs_and_outcome(
-    session: &StudioArtifactSession,
+    session: &ChatArtifactSession,
     origin_prompt_event_id: &str,
 ) -> (
-    Vec<StudioArtifactVerificationRef>,
-    Option<StudioArtifactVerificationOutcome>,
+    Vec<ArtifactVerificationRef>,
+    Option<ArtifactVerificationOutcome>,
 ) {
     let Some(render_evaluation) = session.materialization.render_evaluation.as_ref() else {
         if session.lifecycle_state == StudioArtifactLifecycleState::Blocked
@@ -425,8 +298,8 @@ fn verification_refs_and_outcome(
         {
             return (
                 Vec::new(),
-                Some(StudioArtifactVerificationOutcome {
-                    status: StudioArtifactOperatorRunStatus::Blocked,
+                Some(ArtifactVerificationOutcome {
+                    status: ArtifactOperatorRunStatus::Blocked,
                     summary: session.artifact_manifest.verification.summary.clone(),
                     required_obligation_count: 0,
                     cleared_obligation_count: 0,
@@ -439,7 +312,7 @@ fn verification_refs_and_outcome(
 
     let mut refs = Vec::new();
     for obligation in &render_evaluation.acceptance_obligations {
-        refs.push(StudioArtifactVerificationRef {
+        refs.push(ArtifactVerificationRef {
             verification_id: obligation.obligation_id.clone(),
             origin_prompt_event_id: origin_prompt_event_id.to_string(),
             family: obligation.family.clone(),
@@ -450,7 +323,7 @@ fn verification_refs_and_outcome(
         });
     }
     for witness in &render_evaluation.execution_witnesses {
-        refs.push(StudioArtifactVerificationRef {
+        refs.push(ArtifactVerificationRef {
             verification_id: witness.witness_id.clone(),
             origin_prompt_event_id: origin_prompt_event_id.to_string(),
             family: witness.action_kind.clone(),
@@ -462,14 +335,14 @@ fn verification_refs_and_outcome(
     }
 
     let status = if render_evaluation.blocked_by_policy() {
-        StudioArtifactOperatorRunStatus::Blocked
+        ArtifactOperatorRunStatus::Blocked
     } else {
-        StudioArtifactOperatorRunStatus::Complete
+        ArtifactOperatorRunStatus::Complete
     };
 
     (
         refs,
-        Some(StudioArtifactVerificationOutcome {
+        Some(ArtifactVerificationOutcome {
             status,
             summary: render_evaluation.summary.clone(),
             required_obligation_count: render_evaluation.required_obligation_count(),
@@ -479,7 +352,7 @@ fn verification_refs_and_outcome(
     )
 }
 
-fn upsert_step(steps: &mut Vec<StudioArtifactOperatorStep>, next: StudioArtifactOperatorStep) {
+fn upsert_step(steps: &mut Vec<ArtifactOperatorStep>, next: ArtifactOperatorStep) {
     if let Some(existing) = steps.iter_mut().find(|step| step.step_id == next.step_id) {
         *existing = next;
     } else {
@@ -490,17 +363,17 @@ fn upsert_step(steps: &mut Vec<StudioArtifactOperatorStep>, next: StudioArtifact
 fn build_base_step(
     run_id: &str,
     origin_prompt_event_id: &str,
-    phase: StudioArtifactOperatorPhase,
+    phase: ArtifactOperatorPhase,
     label: impl Into<String>,
     detail: impl Into<String>,
     started_at_ms: u64,
-) -> StudioArtifactOperatorStep {
-    StudioArtifactOperatorStep {
+) -> ArtifactOperatorStep {
+    ArtifactOperatorStep {
         step_id: build_step_id(run_id, phase, 0),
         origin_prompt_event_id: origin_prompt_event_id.to_string(),
         phase,
         engine: "studio_operator".to_string(),
-        status: StudioArtifactOperatorRunStatus::Complete,
+        status: ArtifactOperatorRunStatus::Complete,
         label: label.into(),
         detail: detail.into(),
         started_at_ms,
@@ -514,12 +387,12 @@ fn build_base_step(
 }
 
 fn hydrate_typed_steps(
-    steps: &mut Vec<StudioArtifactOperatorStep>,
-    session: &StudioArtifactSession,
+    steps: &mut Vec<ArtifactOperatorStep>,
+    session: &ChatArtifactSession,
     origin_prompt_event_id: &str,
-    source_pack: &StudioArtifactSourcePack,
-    final_artifacts: &[StudioArtifactFileRef],
-    verification_refs: &[StudioArtifactVerificationRef],
+    source_pack: &ArtifactSourcePack,
+    final_artifacts: &[ArtifactFileRef],
+    verification_refs: &[ArtifactVerificationRef],
 ) {
     let live_preview = live_author_preview(session, origin_prompt_event_id);
     for step in steps.iter_mut() {
@@ -527,13 +400,12 @@ fn hydrate_typed_steps(
             step.origin_prompt_event_id = origin_prompt_event_id.to_string();
         }
         match step.phase {
-            StudioArtifactOperatorPhase::SearchSources
-            | StudioArtifactOperatorPhase::ReadSources => {
+            ArtifactOperatorPhase::SearchSources | ArtifactOperatorPhase::ReadSources => {
                 if step.source_refs.is_empty() {
                     step.source_refs = source_pack.items.clone();
                 }
             }
-            StudioArtifactOperatorPhase::AuthorArtifact => {
+            ArtifactOperatorPhase::AuthorArtifact => {
                 if step.preview.is_none() {
                     step.preview = live_preview.clone();
                 }
@@ -541,12 +413,12 @@ fn hydrate_typed_steps(
                     step.source_refs = source_pack.items.clone();
                 }
             }
-            StudioArtifactOperatorPhase::InspectArtifact => {
+            ArtifactOperatorPhase::InspectArtifact => {
                 if step.file_refs.is_empty() && !final_artifacts.is_empty() {
                     step.file_refs = final_artifacts.to_vec();
                 }
             }
-            StudioArtifactOperatorPhase::VerifyArtifact => {
+            ArtifactOperatorPhase::VerifyArtifact => {
                 if step.file_refs.is_empty() && !final_artifacts.is_empty() {
                     step.file_refs = final_artifacts.to_vec();
                 }
@@ -557,7 +429,7 @@ fn hydrate_typed_steps(
                     step.verification_refs = verification_refs.to_vec();
                 }
             }
-            StudioArtifactOperatorPhase::PresentArtifact => {
+            ArtifactOperatorPhase::PresentArtifact => {
                 if step.file_refs.is_empty() && !final_artifacts.is_empty() {
                     step.file_refs = final_artifacts.to_vec();
                 }
@@ -568,19 +440,19 @@ fn hydrate_typed_steps(
 }
 
 fn base_steps_for_new_run(
-    session: &StudioArtifactSession,
+    session: &ChatArtifactSession,
     run_id: &str,
     origin_prompt_event_id: &str,
-    mode: StudioArtifactOperatorRunMode,
+    mode: ArtifactOperatorRunMode,
     started_at_ms: u64,
-) -> Vec<StudioArtifactOperatorStep> {
+) -> Vec<ArtifactOperatorStep> {
     let mut steps = Vec::new();
     match mode {
-        StudioArtifactOperatorRunMode::Create => {
+        ArtifactOperatorRunMode::Create => {
             steps.push(build_base_step(
                 run_id,
                 origin_prompt_event_id,
-                StudioArtifactOperatorPhase::UnderstandRequest,
+                ArtifactOperatorPhase::UnderstandRequest,
                 "Understand request",
                 "Studio captured the request and established the active artifact context.",
                 started_at_ms,
@@ -588,7 +460,7 @@ fn base_steps_for_new_run(
             steps.push(build_base_step(
                 run_id,
                 origin_prompt_event_id,
-                StudioArtifactOperatorPhase::RouteArtifact,
+                ArtifactOperatorPhase::RouteArtifact,
                 "Route to artifact",
                 format!(
                     "Studio committed the request to the {} artifact route.",
@@ -597,11 +469,11 @@ fn base_steps_for_new_run(
                 started_at_ms.saturating_add(1),
             ));
         }
-        StudioArtifactOperatorRunMode::Edit => {
+        ArtifactOperatorRunMode::Edit => {
             steps.push(build_base_step(
                 run_id,
                 origin_prompt_event_id,
-                StudioArtifactOperatorPhase::ReopenArtifactContext,
+                ArtifactOperatorPhase::ReopenArtifactContext,
                 "Reopen artifact context",
                 "Studio reopened the current artifact session before applying the follow-up edit.",
                 started_at_ms,
@@ -609,12 +481,12 @@ fn base_steps_for_new_run(
             if let Some((path, preview, file_refs)) =
                 inspect_preview_for_session(session, origin_prompt_event_id)
             {
-                steps.push(StudioArtifactOperatorStep {
-                    step_id: build_step_id(run_id, StudioArtifactOperatorPhase::InspectArtifact, 0),
+                steps.push(ArtifactOperatorStep {
+                    step_id: build_step_id(run_id, ArtifactOperatorPhase::InspectArtifact, 0),
                     origin_prompt_event_id: origin_prompt_event_id.to_string(),
-                    phase: StudioArtifactOperatorPhase::InspectArtifact,
+                    phase: ArtifactOperatorPhase::InspectArtifact,
                     engine: "artifact_context".to_string(),
-                    status: StudioArtifactOperatorRunStatus::Complete,
+                    status: ArtifactOperatorRunStatus::Complete,
                     label: format!("Inspect {}", basename(&path)),
                     detail: format!(
                         "Studio inspected the current artifact before continuing the edit."
@@ -634,9 +506,9 @@ fn base_steps_for_new_run(
 }
 
 pub(super) fn start_operator_run_for_session(
-    session: &mut StudioArtifactSession,
+    session: &mut ChatArtifactSession,
     origin_prompt_event_id: Option<&str>,
-    mode: StudioArtifactOperatorRunMode,
+    mode: ArtifactOperatorRunMode,
 ) {
     if let Some(previous) = session.active_operator_run.take() {
         session.operator_run_history.push(previous);
@@ -650,16 +522,16 @@ pub(super) fn start_operator_run_for_session(
     }
     let started_at_ms = now_ms();
     let run_id = Uuid::new_v4().to_string();
-    let run = StudioArtifactOperatorRun {
+    let run = ArtifactOperatorRun {
         run_id: run_id.clone(),
         origin_prompt_event_id: origin_prompt_event_id.clone(),
         artifact_session_id: session.session_id.clone(),
         mode,
-        status: StudioArtifactOperatorRunStatus::Active,
+        status: ArtifactOperatorRunStatus::Active,
         started_at_ms,
         finished_at_ms: None,
         engine_summary: engine_summary_for_session(session),
-        source_pack: StudioArtifactSourcePack::default(),
+        source_pack: ArtifactSourcePack::default(),
         steps: base_steps_for_new_run(
             session,
             &run_id,
@@ -676,7 +548,7 @@ pub(super) fn start_operator_run_for_session(
 }
 
 pub(super) fn refresh_active_operator_run_from_session(
-    session: &mut StudioArtifactSession,
+    session: &mut ChatArtifactSession,
     build_session: Option<&BuildArtifactSession>,
 ) {
     let Some(mut run) = session.active_operator_run.take() else {
@@ -708,7 +580,7 @@ pub(super) fn refresh_active_operator_run_from_session(
     } else {
         run.steps.clone()
     };
-    steps.retain(|step| step.phase != StudioArtifactOperatorPhase::PresentArtifact);
+    steps.retain(|step| step.phase != ArtifactOperatorPhase::PresentArtifact);
     hydrate_typed_steps(
         &mut steps,
         session,
@@ -721,15 +593,15 @@ pub(super) fn refresh_active_operator_run_from_session(
     if prompt_requires_source_pack(session, &run.source_pack) {
         upsert_step(
             &mut steps,
-            StudioArtifactOperatorStep {
-                step_id: build_step_id(&run.run_id, StudioArtifactOperatorPhase::SearchSources, 0),
+            ArtifactOperatorStep {
+                step_id: build_step_id(&run.run_id, ArtifactOperatorPhase::SearchSources, 0),
                 origin_prompt_event_id: origin_prompt_event_id.clone(),
-                phase: StudioArtifactOperatorPhase::SearchSources,
+                phase: ArtifactOperatorPhase::SearchSources,
                 engine: "source_pack".to_string(),
                 status: if run.source_pack.items.is_empty() {
-                    StudioArtifactOperatorRunStatus::Active
+                    ArtifactOperatorRunStatus::Active
                 } else {
-                    StudioArtifactOperatorRunStatus::Complete
+                    ArtifactOperatorRunStatus::Complete
                 },
                 label: "Search for context".to_string(),
                 detail: if run.source_pack.items.is_empty() {
@@ -761,16 +633,16 @@ pub(super) fn refresh_active_operator_run_from_session(
         if !run.source_pack.items.is_empty() {
             upsert_step(
                 &mut steps,
-                StudioArtifactOperatorStep {
+                ArtifactOperatorStep {
                     step_id: build_step_id(
                         &run.run_id,
-                        StudioArtifactOperatorPhase::ReadSources,
+                        ArtifactOperatorPhase::ReadSources,
                         0,
                     ),
                     origin_prompt_event_id: origin_prompt_event_id.clone(),
-                    phase: StudioArtifactOperatorPhase::ReadSources,
+                    phase: ArtifactOperatorPhase::ReadSources,
                     engine: "source_pack".to_string(),
-                    status: StudioArtifactOperatorRunStatus::Complete,
+                    status: ArtifactOperatorRunStatus::Complete,
                     label: "Read sources".to_string(),
                     detail:
                         "Studio selected the source excerpts that will stay attached to authoring, verification, and repair."
@@ -798,39 +670,39 @@ pub(super) fn refresh_active_operator_run_from_session(
     }
 
     if build_session.is_none()
-        && !steps.iter().any(|step| {
-            step.phase == StudioArtifactOperatorPhase::AuthorArtifact && step.attempt >= 1
-        })
+        && !steps
+            .iter()
+            .any(|step| step.phase == ArtifactOperatorPhase::AuthorArtifact && step.attempt >= 1)
     {
         let author_status = if session.lifecycle_state == StudioArtifactLifecycleState::Blocked
             || session.lifecycle_state == StudioArtifactLifecycleState::Failed
         {
-            StudioArtifactOperatorRunStatus::Blocked
+            ArtifactOperatorRunStatus::Blocked
         } else if session.artifact_manifest.files.is_empty() {
-            StudioArtifactOperatorRunStatus::Active
+            ArtifactOperatorRunStatus::Active
         } else {
-            StudioArtifactOperatorRunStatus::Complete
+            ArtifactOperatorRunStatus::Complete
         };
         let target = primary_manifest_file(session)
             .map(|file| basename(&file.path))
             .unwrap_or_else(|| "artifact".to_string());
         upsert_step(
             &mut steps,
-            StudioArtifactOperatorStep {
-                step_id: build_step_id(&run.run_id, StudioArtifactOperatorPhase::AuthorArtifact, 1),
+            ArtifactOperatorStep {
+                step_id: build_step_id(&run.run_id, ArtifactOperatorPhase::AuthorArtifact, 1),
                 origin_prompt_event_id: origin_prompt_event_id.clone(),
-                phase: StudioArtifactOperatorPhase::AuthorArtifact,
+                phase: ArtifactOperatorPhase::AuthorArtifact,
                 engine: execution_strategy_id(session.outcome_request.execution_strategy)
                     .to_string(),
                 status: author_status,
-                label: if author_status == StudioArtifactOperatorRunStatus::Complete {
+                label: if author_status == ArtifactOperatorRunStatus::Complete {
                     format!("Wrote {target}")
                 } else {
                     format!("Write {target}")
                 },
                 detail: session.artifact_manifest.verification.summary.clone(),
                 started_at_ms: run.started_at_ms.saturating_add(4),
-                finished_at_ms: (author_status == StudioArtifactOperatorRunStatus::Complete)
+                finished_at_ms: (author_status == ArtifactOperatorRunStatus::Complete)
                     .then_some(now_ms()),
                 preview: live_author_preview(session, &origin_prompt_event_id),
                 file_refs: Vec::new(),
@@ -846,19 +718,15 @@ pub(super) fn refresh_active_operator_run_from_session(
     {
         upsert_step(
             &mut steps,
-            StudioArtifactOperatorStep {
-                step_id: build_step_id(
-                    &run.run_id,
-                    StudioArtifactOperatorPhase::InspectArtifact,
-                    1,
-                ),
+            ArtifactOperatorStep {
+                step_id: build_step_id(&run.run_id, ArtifactOperatorPhase::InspectArtifact, 1),
                 origin_prompt_event_id: origin_prompt_event_id.clone(),
-                phase: StudioArtifactOperatorPhase::InspectArtifact,
+                phase: ArtifactOperatorPhase::InspectArtifact,
                 engine: "artifact_readback".to_string(),
                 status: if session.artifact_manifest.files.is_empty() {
-                    StudioArtifactOperatorRunStatus::Active
+                    ArtifactOperatorRunStatus::Active
                 } else {
-                    StudioArtifactOperatorRunStatus::Complete
+                    ArtifactOperatorRunStatus::Complete
                 },
                 label: format!("Inspect {}", basename(&path)),
                 detail: format!(
@@ -877,27 +745,27 @@ pub(super) fn refresh_active_operator_run_from_session(
 
     if let Some(build_session) = build_session {
         let author_status = if build_session.build_status.eq_ignore_ascii_case("failed") {
-            StudioArtifactOperatorRunStatus::Blocked
+            ArtifactOperatorRunStatus::Blocked
         } else if build_session
             .verification_status
             .eq_ignore_ascii_case("passed")
         {
-            StudioArtifactOperatorRunStatus::Complete
+            ArtifactOperatorRunStatus::Complete
         } else {
-            StudioArtifactOperatorRunStatus::Active
+            ArtifactOperatorRunStatus::Active
         };
         upsert_step(
             &mut steps,
-            StudioArtifactOperatorStep {
-                step_id: build_step_id(&run.run_id, StudioArtifactOperatorPhase::AuthorArtifact, 1),
+            ArtifactOperatorStep {
+                step_id: build_step_id(&run.run_id, ArtifactOperatorPhase::AuthorArtifact, 1),
                 origin_prompt_event_id: origin_prompt_event_id.clone(),
-                phase: StudioArtifactOperatorPhase::AuthorArtifact,
+                phase: ArtifactOperatorPhase::AuthorArtifact,
                 engine: "workspace_build".to_string(),
                 status: author_status,
                 label: format!("Write {}", basename(&build_session.entry_document)),
-                detail: studio_session_entry_detail(session, build_session),
+                detail: chat_session_entry_detail(session, build_session),
                 started_at_ms: run.started_at_ms.saturating_add(4),
-                finished_at_ms: (author_status == StudioArtifactOperatorRunStatus::Complete)
+                finished_at_ms: (author_status == ArtifactOperatorRunStatus::Complete)
                     .then_some(now_ms()),
                 preview: None,
                 file_refs: final_artifacts_for_session(session, &origin_prompt_event_id),
@@ -908,19 +776,15 @@ pub(super) fn refresh_active_operator_run_from_session(
         );
         upsert_step(
             &mut steps,
-            StudioArtifactOperatorStep {
-                step_id: build_step_id(
-                    &run.run_id,
-                    StudioArtifactOperatorPhase::InspectArtifact,
-                    1,
-                ),
+            ArtifactOperatorStep {
+                step_id: build_step_id(&run.run_id, ArtifactOperatorPhase::InspectArtifact, 1),
                 origin_prompt_event_id: origin_prompt_event_id.clone(),
-                phase: StudioArtifactOperatorPhase::InspectArtifact,
+                phase: ArtifactOperatorPhase::InspectArtifact,
                 engine: "workspace_build".to_string(),
                 status: if build_session.build_status.eq_ignore_ascii_case("failed") {
-                    StudioArtifactOperatorRunStatus::Blocked
+                    ArtifactOperatorRunStatus::Blocked
                 } else {
-                    StudioArtifactOperatorRunStatus::Complete
+                    ArtifactOperatorRunStatus::Complete
                 },
                 label: format!("Inspect {}", basename(&build_session.entry_document)),
                 detail: format!(
@@ -945,10 +809,10 @@ pub(super) fn refresh_active_operator_run_from_session(
             .unwrap_or(session_status);
         upsert_step(
             &mut steps,
-            StudioArtifactOperatorStep {
-                step_id: build_step_id(&run.run_id, StudioArtifactOperatorPhase::VerifyArtifact, 1),
+            ArtifactOperatorStep {
+                step_id: build_step_id(&run.run_id, ArtifactOperatorPhase::VerifyArtifact, 1),
                 origin_prompt_event_id: origin_prompt_event_id.clone(),
-                phase: StudioArtifactOperatorPhase::VerifyArtifact,
+                phase: ArtifactOperatorPhase::VerifyArtifact,
                 engine: if matches!(
                     session.artifact_manifest.renderer,
                     StudioRendererKind::HtmlIframe
@@ -977,9 +841,9 @@ pub(super) fn refresh_active_operator_run_from_session(
                 started_at_ms: run.started_at_ms.saturating_add(7),
                 finished_at_ms: matches!(
                     verification_status,
-                    StudioArtifactOperatorRunStatus::Complete
-                        | StudioArtifactOperatorRunStatus::Blocked
-                        | StudioArtifactOperatorRunStatus::Failed
+                    ArtifactOperatorRunStatus::Complete
+                        | ArtifactOperatorRunStatus::Blocked
+                        | ArtifactOperatorRunStatus::Failed
                 )
                 .then_some(now_ms()),
                 preview: None,
@@ -993,7 +857,7 @@ pub(super) fn refresh_active_operator_run_from_session(
 
     let blocked_or_failed_session = matches!(
         session_status,
-        StudioArtifactOperatorRunStatus::Blocked | StudioArtifactOperatorRunStatus::Failed
+        ArtifactOperatorRunStatus::Blocked | ArtifactOperatorRunStatus::Failed
     );
     let session_terminal_ready = session_is_presentable(session)
         && !blocked_or_failed_session
@@ -1006,12 +870,12 @@ pub(super) fn refresh_active_operator_run_from_session(
         for step in steps.iter_mut().filter(|step| {
             matches!(
                 step.phase,
-                StudioArtifactOperatorPhase::AuthorArtifact
-                    | StudioArtifactOperatorPhase::RepairArtifact
-                    | StudioArtifactOperatorPhase::VerifyArtifact
-            ) && step.status == StudioArtifactOperatorRunStatus::Active
+                ArtifactOperatorPhase::AuthorArtifact
+                    | ArtifactOperatorPhase::RepairArtifact
+                    | ArtifactOperatorPhase::VerifyArtifact
+            ) && step.status == ArtifactOperatorRunStatus::Active
         }) {
-            step.status = StudioArtifactOperatorRunStatus::Complete;
+            step.status = ArtifactOperatorRunStatus::Complete;
             step.finished_at_ms.get_or_insert_with(now_ms);
             if step.detail.trim().is_empty() {
                 step.detail = session.artifact_manifest.verification.summary.clone();
@@ -1021,31 +885,31 @@ pub(super) fn refresh_active_operator_run_from_session(
     let has_active_runtime_step = steps.iter().any(|step| {
         matches!(
             step.phase,
-            StudioArtifactOperatorPhase::AuthorArtifact
-                | StudioArtifactOperatorPhase::RepairArtifact
-                | StudioArtifactOperatorPhase::VerifyArtifact
-        ) && step.status == StudioArtifactOperatorRunStatus::Active
+            ArtifactOperatorPhase::AuthorArtifact
+                | ArtifactOperatorPhase::RepairArtifact
+                | ArtifactOperatorPhase::VerifyArtifact
+        ) && step.status == ArtifactOperatorRunStatus::Active
     });
     let inspect_settled = steps
         .iter()
-        .filter(|step| step.phase == StudioArtifactOperatorPhase::InspectArtifact)
+        .filter(|step| step.phase == ArtifactOperatorPhase::InspectArtifact)
         .all(|step| step_status_is_settled(step.status))
         && steps
             .iter()
-            .any(|step| step.phase == StudioArtifactOperatorPhase::InspectArtifact);
+            .any(|step| step.phase == ArtifactOperatorPhase::InspectArtifact);
     let verify_steps_exist = steps
         .iter()
-        .any(|step| step.phase == StudioArtifactOperatorPhase::VerifyArtifact);
+        .any(|step| step.phase == ArtifactOperatorPhase::VerifyArtifact);
     if !has_active_runtime_step && session_is_presentable(session) && verify_steps_exist {
         for step in steps
             .iter_mut()
-            .filter(|step| step.phase == StudioArtifactOperatorPhase::VerifyArtifact)
+            .filter(|step| step.phase == ArtifactOperatorPhase::VerifyArtifact)
         {
             if !step_status_is_settled(step.status) {
                 step.status = if blocked_or_failed_session {
                     session_status
                 } else {
-                    StudioArtifactOperatorRunStatus::Complete
+                    ArtifactOperatorRunStatus::Complete
                 };
                 step.finished_at_ms.get_or_insert_with(now_ms);
                 if step.detail.trim().is_empty() {
@@ -1056,11 +920,11 @@ pub(super) fn refresh_active_operator_run_from_session(
     }
     let verify_settled = steps
         .iter()
-        .filter(|step| step.phase == StudioArtifactOperatorPhase::VerifyArtifact)
+        .filter(|step| step.phase == ArtifactOperatorPhase::VerifyArtifact)
         .all(|step| step_status_is_settled(step.status))
         && steps
             .iter()
-            .any(|step| step.phase == StudioArtifactOperatorPhase::VerifyArtifact);
+            .any(|step| step.phase == ArtifactOperatorPhase::VerifyArtifact);
     let can_present = !has_active_runtime_step
         && inspect_settled
         && verify_settled
@@ -1069,21 +933,17 @@ pub(super) fn refresh_active_operator_run_from_session(
         let status = if blocked_or_failed_session {
             session_status
         } else {
-            StudioArtifactOperatorRunStatus::Complete
+            ArtifactOperatorRunStatus::Complete
         };
         upsert_step(
             &mut steps,
-            StudioArtifactOperatorStep {
-                step_id: build_step_id(
-                    &run.run_id,
-                    StudioArtifactOperatorPhase::PresentArtifact,
-                    1,
-                ),
+            ArtifactOperatorStep {
+                step_id: build_step_id(&run.run_id, ArtifactOperatorPhase::PresentArtifact, 1),
                 origin_prompt_event_id: origin_prompt_event_id.clone(),
-                phase: StudioArtifactOperatorPhase::PresentArtifact,
+                phase: ArtifactOperatorPhase::PresentArtifact,
                 engine: "studio_surface".to_string(),
                 status,
-                label: if status == StudioArtifactOperatorRunStatus::Complete {
+                label: if status == ArtifactOperatorRunStatus::Complete {
                     "Open preview".to_string()
                 } else {
                     "Present artifact".to_string()
@@ -1109,28 +969,27 @@ pub(super) fn refresh_active_operator_run_from_session(
 
     run.repair_count = steps
         .iter()
-        .filter(|step| step.phase == StudioArtifactOperatorPhase::RepairArtifact)
+        .filter(|step| step.phase == ArtifactOperatorPhase::RepairArtifact)
         .count() as u32;
     run.steps = steps;
     run.verification_outcome = verification_outcome;
     let present_settled = run.steps.iter().any(|step| {
-        step.phase == StudioArtifactOperatorPhase::PresentArtifact
-            && step_status_is_settled(step.status)
+        step.phase == ArtifactOperatorPhase::PresentArtifact && step_status_is_settled(step.status)
     });
     run.status = if has_active_runtime_step {
-        StudioArtifactOperatorRunStatus::Active
+        ArtifactOperatorRunStatus::Active
     } else if present_settled {
         session_status
     } else if blocked_or_failed_session && verify_settled {
         session_status
     } else {
-        StudioArtifactOperatorRunStatus::Active
+        ArtifactOperatorRunStatus::Active
     };
     if matches!(
         run.status,
-        StudioArtifactOperatorRunStatus::Complete
-            | StudioArtifactOperatorRunStatus::Blocked
-            | StudioArtifactOperatorRunStatus::Failed
+        ArtifactOperatorRunStatus::Complete
+            | ArtifactOperatorRunStatus::Blocked
+            | ArtifactOperatorRunStatus::Failed
     ) {
         run.finished_at_ms = Some(now_ms());
     } else {
@@ -1141,8 +1000,8 @@ pub(super) fn refresh_active_operator_run_from_session(
     session.active_operator_run = Some(run);
 }
 
-fn studio_session_entry_detail(
-    session: &StudioArtifactSession,
+fn chat_session_entry_detail(
+    session: &ChatArtifactSession,
     build_session: &BuildArtifactSession,
 ) -> String {
     if build_session

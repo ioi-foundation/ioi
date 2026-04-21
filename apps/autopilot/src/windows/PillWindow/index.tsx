@@ -168,7 +168,7 @@ export function PillWindow() {
     await showSpotlightShell();
   }, []);
 
-  const handleOpenStudio = useCallback(async (view: string) => {
+  const handleOpenChat = useCallback(async (view: string) => {
     await openStudioShellView(view);
   }, []);
 
@@ -240,7 +240,7 @@ export function PillWindow() {
           void openPolicyTarget(connectorId);
         },
         onOpenSettings: () => {
-          void handleOpenStudio("settings");
+          void handleOpenChat("settings");
         },
         onOpenTarget: (item) => {
           if (!item.target) {
@@ -279,7 +279,7 @@ export function PillWindow() {
     }
   }, [
     handleOpenGate,
-    handleOpenStudio,
+    handleOpenChat,
     calendarEvent,
     focusAssistantNotification,
     gmailThread,
@@ -400,7 +400,7 @@ export function PillWindow() {
             type="button"
             className="pill-action"
             onClick={() => {
-              void handleOpenStudio("notifications");
+              void handleOpenChat("notifications");
             }}
           >
             Open inbox
@@ -410,7 +410,7 @@ export function PillWindow() {
           type="button"
           className="pill-action"
           onClick={() => {
-            void handleOpenStudio("autopilot");
+            void handleOpenChat("autopilot");
           }}
         >
           Studio
@@ -495,7 +495,7 @@ export function PillWindow() {
                   type="button"
                   className="pill-action"
                   onClick={() => {
-                    void handleOpenStudio("capabilities");
+                    void handleOpenChat("capabilities");
                   }}
                 >
                   Open capabilities
@@ -617,7 +617,7 @@ export function PillWindow() {
             }}
             onOpenNotifications={() => {
               setShowWorkbench(false);
-              void handleOpenStudio("notifications");
+              void handleOpenChat("notifications");
             }}
             onOpenAutopilot={(intent) => {
               setShowWorkbench(false);

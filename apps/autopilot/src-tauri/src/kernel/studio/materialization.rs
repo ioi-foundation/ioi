@@ -1,14 +1,14 @@
 use super::*;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ioi_api::execution::{execution_budget_envelope_for_strategy, ExecutionEnvelope};
-use ioi_api::studio::{
+use ioi_api::runtime_harness::{
     derive_request_grounded_studio_artifact_brief, derive_studio_artifact_prepared_context,
     generate_studio_artifact_bundle_with_runtime_plan_and_planning_context_and_execution_strategy_and_render_evaluator,
     pdf_artifact_bytes, render_eval_timeout_for_runtime, resolve_studio_artifact_runtime_plan,
-    synthesize_studio_artifact_brief_for_execution_strategy_with_runtime,
-    StudioArtifactActivityObserver, StudioArtifactBlueprint, StudioArtifactExemplar,
-    StudioArtifactGenerationProgress, StudioArtifactGenerationProgressObserver, StudioArtifactIR,
-    StudioArtifactOperatorPhase, StudioArtifactOperatorPreview, StudioArtifactOperatorRunStatus,
+    synthesize_studio_artifact_brief_for_execution_strategy_with_runtime, ArtifactOperatorPhase,
+    ArtifactOperatorRunStatus, ArtifactOperatorStep, StudioArtifactActivityObserver,
+    StudioArtifactBlueprint, StudioArtifactExemplar, StudioArtifactGenerationProgress,
+    StudioArtifactGenerationProgressObserver, StudioArtifactIR, StudioArtifactOperatorPreview,
     StudioArtifactPlanningContext, StudioArtifactRenderEvaluation, StudioArtifactRenderEvaluator,
     StudioArtifactRuntimePolicyProfile, StudioArtifactSelectedSkill,
     StudioGeneratedArtifactEncoding, StudioGeneratedArtifactFile,
@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 use tokio::time::MissedTickBehavior;
 
 #[cfg(test)]
-use ioi_api::studio::StudioGeneratedArtifactPayload;
+use ioi_api::runtime_harness::StudioGeneratedArtifactPayload;
 
 #[path = "materialization/progress_steps.rs"]
 mod progress_steps;
@@ -91,12 +91,12 @@ fn execution_strategy_id(strategy: StudioExecutionStrategy) -> &'static str {
 }
 
 fn synthesize_prepared_context_with_runtime_plan(
-    runtime_plan: &ioi_api::studio::StudioArtifactResolvedRuntimePlan,
+    runtime_plan: &ioi_api::runtime_harness::StudioArtifactResolvedRuntimePlan,
     title: &str,
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
-    connector_grounding: Option<&ioi_api::studio::ArtifactConnectorGrounding>,
+    connector_grounding: Option<&ioi_api::runtime_harness::ConnectorGrounding>,
     execution_strategy: StudioExecutionStrategy,
 ) -> Result<StudioArtifactPlanningContext, String> {
     let planning_timeout = Duration::from_secs(90).min(studio_generation_timeout_for_runtime(
@@ -133,7 +133,10 @@ fn synthesize_prepared_context_with_runtime_plan(
         }
     };
 
-    ioi_api::studio::apply_artifact_connector_grounding_to_brief(&mut brief, connector_grounding);
+    ioi_api::runtime_harness::apply_artifact_connector_grounding_to_brief(
+        &mut brief,
+        connector_grounding,
+    );
 
     Ok(derive_studio_artifact_prepared_context(
         request,
@@ -149,12 +152,12 @@ fn synthesize_prepared_context_with_runtime_plan(
         Vec::new(),
     ))
 }
-pub(super) fn sync_workspace_manifest_file(studio_session: &StudioArtifactSession) {
-    let Some(workspace_root) = studio_session.workspace_root.as_deref() else {
+pub(super) fn sync_workspace_manifest_file(chat_session: &ChatArtifactSession) {
+    let Some(workspace_root) = chat_session.workspace_root.as_deref() else {
         return;
     };
     let manifest_path = Path::new(workspace_root).join("artifact-manifest.json");
-    let Ok(json) = serde_json::to_vec_pretty(&studio_session.artifact_manifest) else {
+    let Ok(json) = serde_json::to_vec_pretty(&chat_session.artifact_manifest) else {
         return;
     };
     let _ = fs::write(manifest_path, json);
@@ -193,7 +196,7 @@ pub(super) fn materialize_non_workspace_artifact_with_execution_strategy_and_pro
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
-    connector_grounding: Option<&ioi_api::studio::ArtifactConnectorGrounding>,
+    connector_grounding: Option<&ioi_api::runtime_harness::ConnectorGrounding>,
     execution_strategy: StudioExecutionStrategy,
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
 ) -> Result<MaterializedContentArtifact, String> {
@@ -341,7 +344,7 @@ fn materialize_non_workspace_artifact_with_dependencies_and_execution_strategy_a
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
-    connector_grounding: Option<&ioi_api::studio::ArtifactConnectorGrounding>,
+    connector_grounding: Option<&ioi_api::runtime_harness::ConnectorGrounding>,
     planning_context: Option<StudioArtifactPlanningContext>,
     execution_strategy: StudioExecutionStrategy,
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
@@ -371,7 +374,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_execution
     intent: &str,
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
-    connector_grounding: Option<&ioi_api::studio::ArtifactConnectorGrounding>,
+    connector_grounding: Option<&ioi_api::runtime_harness::ConnectorGrounding>,
     planning_context: Option<StudioArtifactPlanningContext>,
     execution_strategy: StudioExecutionStrategy,
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
@@ -472,7 +475,7 @@ pub(super) fn studio_generation_timeout_for_request_and_execution_strategy(
 
 fn studio_modal_first_html_enabled_for_request(request: &StudioOutcomeArtifactRequest) -> bool {
     request.renderer == StudioRendererKind::HtmlIframe
-        && ioi_api::studio::studio_modal_first_html_enabled_for_tests_and_runtime()
+        && ioi_api::runtime_harness::studio_modal_first_html_enabled_for_tests_and_runtime()
 }
 
 fn studio_extended_local_html_timeout_enabled(
@@ -555,7 +558,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
     generation_timeout: Duration,
-    connector_grounding: Option<&ioi_api::studio::ArtifactConnectorGrounding>,
+    connector_grounding: Option<&ioi_api::runtime_harness::ConnectorGrounding>,
     planning_context: Option<StudioArtifactPlanningContext>,
     execution_strategy: StudioExecutionStrategy,
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
@@ -588,7 +591,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
     request: &StudioOutcomeArtifactRequest,
     refinement: Option<&StudioArtifactRefinementContext>,
     generation_timeout: Duration,
-    connector_grounding: Option<&ioi_api::studio::ArtifactConnectorGrounding>,
+    connector_grounding: Option<&ioi_api::runtime_harness::ConnectorGrounding>,
     planning_context: Option<StudioArtifactPlanningContext>,
     execution_strategy: StudioExecutionStrategy,
     progress_observer: Option<StudioArtifactGenerationProgressObserver>,
@@ -688,7 +691,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
         &prepared_context,
         execution_strategy,
     );
-    let mut observed_operator_steps: Vec<StudioArtifactOperatorStep>;
+    let mut observed_operator_steps: Vec<ArtifactOperatorStep>;
     let bundle = match inference_runtime {
         Some(runtime) => {
             let runtime_plan = resolve_studio_artifact_runtime_plan(
@@ -709,7 +712,7 @@ pub(super) fn materialize_non_workspace_artifact_with_dependencies_and_timeout_a
             let last_progress_snapshot =
                 Arc::new(Mutex::new(None::<StudioArtifactGenerationProgress>));
             let observed_operator_steps_state =
-                Arc::new(Mutex::new(Vec::<StudioArtifactOperatorStep>::new()));
+                Arc::new(Mutex::new(Vec::<ArtifactOperatorStep>::new()));
             let observed_progress = progress_observer.as_ref().map(|observer| {
                 let observer = observer.clone();
                 let last_activity = last_activity.clone();
@@ -1351,20 +1354,24 @@ pub(super) fn blocked_materialized_artifact_from_error(
     refinement: Option<&StudioArtifactRefinementContext>,
     error: &str,
     artifact_brief: Option<StudioArtifactBrief>,
-    preparation_needs: Option<ioi_api::studio::StudioArtifactPreparationNeeds>,
-    prepared_context_resolution: Option<ioi_api::studio::StudioArtifactPreparedContextResolution>,
-    skill_discovery_resolution: Option<ioi_api::studio::StudioArtifactSkillDiscoveryResolution>,
+    preparation_needs: Option<ioi_api::runtime_harness::StudioArtifactPreparationNeeds>,
+    prepared_context_resolution: Option<
+        ioi_api::runtime_harness::StudioArtifactPreparedContextResolution,
+    >,
+    skill_discovery_resolution: Option<
+        ioi_api::runtime_harness::StudioArtifactSkillDiscoveryResolution,
+    >,
     blueprint: Option<StudioArtifactBlueprint>,
     artifact_ir: Option<StudioArtifactIR>,
     selected_skills: Vec<StudioArtifactSelectedSkill>,
     retrieved_exemplars: Vec<StudioArtifactExemplar>,
-    retrieved_sources: Vec<ioi_api::studio::StudioArtifactSourceReference>,
+    retrieved_sources: Vec<ioi_api::runtime_harness::ArtifactSourceReference>,
     edit_intent: Option<StudioArtifactEditIntent>,
     candidate_summaries: Vec<StudioArtifactCandidateSummary>,
     execution_envelope: Option<ExecutionEnvelope>,
     render_evaluation: Option<StudioArtifactRenderEvaluation>,
     _last_validation: Option<StudioArtifactValidationResult>,
-    mut operator_steps: Vec<StudioArtifactOperatorStep>,
+    mut operator_steps: Vec<ArtifactOperatorStep>,
     production_runtime_provenance: Option<crate::models::StudioRuntimeProvenance>,
     acceptance_runtime_provenance: Option<crate::models::StudioRuntimeProvenance>,
 ) -> MaterializedContentArtifact {
@@ -1405,7 +1412,7 @@ pub(super) fn blocked_materialized_artifact_from_error(
         message: error.to_string(),
     };
     let validation = StudioArtifactValidationResult {
-        classification: ioi_api::studio::StudioArtifactValidationStatus::Blocked,
+        classification: ioi_api::runtime_harness::StudioArtifactValidationStatus::Blocked,
         request_faithfulness: 1,
         concept_coverage: 1,
         interaction_relevance: 1,
@@ -1441,10 +1448,10 @@ pub(super) fn blocked_materialized_artifact_from_error(
     let execution_envelope = finalize_blocked_execution_envelope(execution_envelope);
     let has_author_step = operator_steps
         .iter()
-        .any(|step| step.phase == StudioArtifactOperatorPhase::AuthorArtifact);
+        .any(|step| step.phase == ArtifactOperatorPhase::AuthorArtifact);
     let has_blocked_author_step = operator_steps.iter().any(|step| {
-        step.phase == StudioArtifactOperatorPhase::AuthorArtifact
-            && step.status == StudioArtifactOperatorRunStatus::Blocked
+        step.phase == ArtifactOperatorPhase::AuthorArtifact
+            && step.status == ArtifactOperatorRunStatus::Blocked
     });
     let latest_preview =
         latest_execution_live_preview(execution_envelope.as_ref()).map(|preview| {
@@ -1460,8 +1467,8 @@ pub(super) fn blocked_materialized_artifact_from_error(
         });
     if has_blocked_author_step {
         if let Some(step) = operator_steps.iter_mut().rev().find(|step| {
-            step.phase == StudioArtifactOperatorPhase::AuthorArtifact
-                && step.status == StudioArtifactOperatorRunStatus::Blocked
+            step.phase == ArtifactOperatorPhase::AuthorArtifact
+                && step.status == ArtifactOperatorRunStatus::Blocked
         }) {
             if step.preview.is_none() {
                 step.preview = latest_preview.clone();

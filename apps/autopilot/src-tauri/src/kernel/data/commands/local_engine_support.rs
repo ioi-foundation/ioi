@@ -181,7 +181,7 @@ pub fn default_local_engine_control_plane() -> crate::models::LocalEngineControl
         },
         launcher: crate::models::LocalEngineLauncherConfig {
             auto_start_on_boot: false,
-            reopen_studio_on_launch: true,
+            reopen_chat_on_launch: true,
             auto_check_updates: true,
             release_channel: "stable".to_string(),
             show_kernel_console: false,

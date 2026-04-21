@@ -1,10 +1,10 @@
 import type {
   ActivityEventRef,
   PlanSummary,
-  StudioArtifactSession,
+  ChatArtifactSession,
   ToolActivityGroupPresentation,
 } from "../../../types";
-import type { StudioConversationArtifactEntry } from "./studioArtifactConversationModel";
+import type { ConversationArtifactEntry } from "./artifactConversationModel";
 import {
   asRecord,
   firstStringValue,
@@ -103,11 +103,11 @@ function rowStatusFromEvent(entry: ActivityEventRef): "active" | "blocked" | "co
 
 type BuildTurnToolActivityOptions = {
   defaultOpen?: boolean;
-  studioSession?: StudioArtifactSession | null;
+  chatSession?: ChatArtifactSession | null;
 };
 
 function artifactPreviewRow(
-  artifact: StudioConversationArtifactEntry,
+  artifact: ConversationArtifactEntry,
 ): TurnActivityEntry {
   return {
     key: `preview:${artifact.sessionId}`,
@@ -125,7 +125,7 @@ function artifactPreviewRow(
 }
 
 function artifactVerificationRow(
-  artifact: StudioConversationArtifactEntry,
+  artifact: ConversationArtifactEntry,
   planSummary: PlanSummary | null,
 ): TurnActivityEntry | null {
   const quality = planSummary?.artifactQuality;
@@ -166,11 +166,11 @@ function appendRow(
 export function buildTurnToolActivityGroup(
   events: ActivityEventRef[],
   planSummary: PlanSummary | null,
-  artifacts: StudioConversationArtifactEntry[],
+  artifacts: ConversationArtifactEntry[],
   options: BuildTurnToolActivityOptions = {},
 ): ToolActivityGroupPresentation | null {
-  const studioSession = options.studioSession || artifacts[0]?.studioSession || null;
-  const operatorRows = buildOperatorActivityRows(studioSession);
+  const chatSession = options.chatSession || artifacts[0]?.chatSession || null;
+  const operatorRows = buildOperatorActivityRows(chatSession);
   const rows = [...operatorRows];
   const seen = new Set(rows.map((row) => row.key));
 
@@ -287,16 +287,16 @@ export function buildTurnToolActivityGroup(
   });
 
   const hasInlineTranscript =
-    !!studioSession ||
+    !!chatSession ||
     artifacts.length > 0 ||
     planSummary?.routeFamily === "research" ||
     planSummary?.routeFamily === "artifacts";
 
   return {
-    key: studioSession
-      ? `tool-group:${studioSession.sessionId}:${studioSession.originPromptEventId || "turn"}`
+    key: chatSession
+      ? `tool-group:${chatSession.sessionId}:${chatSession.originPromptEventId || "turn"}`
       : `tool-group:${rows[0]?.stepIndex || 0}:${rows.length}`,
-    label: toolGroupLabel(rows, studioSession),
+    label: toolGroupLabel(rows, chatSession),
     rows: rows.map(
       ({ sortOrder: _sortOrder, phaseOrder: _phaseOrder, source: _source, ...row }) => row,
     ),

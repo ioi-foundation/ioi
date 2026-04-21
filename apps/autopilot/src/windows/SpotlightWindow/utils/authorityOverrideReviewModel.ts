@@ -4,14 +4,14 @@ import type {
   PolicyDeltaDeck,
   PolicySimulationDeck,
   ShieldPolicyState,
-} from "../../StudioWindow/policyCenter";
+} from "../../ChatWindow/chatPolicyCenter";
 import {
   buildConnectorPolicySummary,
   buildPolicyDeltaDeck,
   buildPolicyIntentDeltaDeck,
   buildPolicySimulationDeck,
   resolveConnectorPolicy,
-} from "../../StudioWindow/policyCenter";
+} from "../../ChatWindow/chatPolicyCenter";
 import type { SpotlightPermissionConnectorOverrideSummary } from "../hooks/useSpotlightPermissions";
 
 export interface AuthorityOverrideReviewCard {
