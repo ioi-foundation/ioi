@@ -11,6 +11,10 @@ CEC complements CIRC:
 - CIRC governs `which intent` wins (Zero Heuristics).
 - CEC governs `how execution` is carried out and verified (Zero Fallbacks).
 
+Normative clarification:
+- "Zero Heuristics" in CIRC/CEC means zero ad hoc, topic-specific, or fallback-style heuristics in places that would undermine typed intent resolution or deterministic execution boundaries.
+- It does NOT forbid scalable deterministic heuristics that are generic, feature-based, task-class-aware, and policy-controlled.
+
 CEC prevents topology shortcuts (hardcoded app assumptions, static provider shortcuts, exit-code-only success claims). It enables safe **probabilistic synthesis** (e.g., dynamically writing scripts to handle infinite topology variance) by permitting quality adjustment loops *prior* to execution, while strictly enforcing a single-shot deterministic boundary *during* execution.
 
 ## 2. Applicability Classes (Normative)
@@ -39,6 +43,8 @@ For `remote_retrieval` and the remote-retrieval portions of `mixed` intents:
 - implementations MUST NOT use query archetypes, domain buckets, or other predesignated query designs as an execution-planning substitute for typed discovery and typed provider admission.
 - provider selection MUST NOT depend on static query-to-provider shortcuts, domain allowlists keyed by query class, or lexical asset/subject slug extraction used as a stand-in for discovery.
 - reusable execution shapes MAY exist only when they are structural, cross-domain forms inferred from typed requirements and then validated through discovery, rather than canned query-family branches.
+- policy-controlled feature scoring MAY be used to rank discovered candidates when it relies on generic evidence such as authority class, source kind, overlap, diversity, or freshness fit.
+- such scoring MUST NOT hardcode topic-specific publishers, query-family-specific provider ladders, or domain-specific boost tables as a substitute for typed discovery.
 
 For connector-backed execution:
 - `discovery` MUST construct provider candidates from registered connector probes and currently connected accounts.
@@ -61,6 +67,7 @@ Normative constraints:
 - **Single-Shot Execution Boundary:** Once the payload transitions to State 4 (`execution`), it is the point of no return. State 4 MUST be a single-shot invocation. Post-execution heuristic retries using the real environment as a sandbox are strictly forbidden.
 - **Remote Retrieval Payload Linting:** For multi-source retrieval intents, State 3 MUST validate source-independence constraints (for example, a distinct-domain floor) before State 4 is allowed.
 - **Discovery-Backed Provider Selection:** For remote retrieval, State 3 MUST choose providers only from candidates evidenced in State 2 discovery. Hardcoded provider ladders keyed by content class are forbidden.
+- **Scalable Heuristic Admission:** Within State 2 and State 3, implementations MAY use generic, deterministic, policy-scoped scoring heuristics to rank already admitted candidates. Those heuristics MUST be feature-based and cross-domain; they MUST NOT introduce topic-specific special casing or post-execution fallback behavior.
 - For `deterministic_local`, states `discovery` and `provider_selection` MAY be skipped by contract.
 - Verification MUST always execute unless the contract explicitly defines a `no_verify` class, which is forbidden in v0.5.
 
