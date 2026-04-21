@@ -171,7 +171,7 @@ pub struct ActiveServiceMeta {
 
     /// [NEW] Regex pattern for window titles where this service is relevant.
     /// If None, the service is globally available.
-    /// e.g. "Visual Studio Code.*"
+    /// e.g. "Visual Chat Code.*"
     #[serde(default)]
     pub context_filter: Option<String>,
 }

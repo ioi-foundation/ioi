@@ -35,7 +35,7 @@ pub mod consensus;
 pub mod crypto;
 /// Re-exports all core error types from the central `ioi-types` crate.
 pub mod error;
-/// Shared execution substrate and strategy helpers across Studio domains.
+/// Shared execution substrate and strategy helpers across Chat domains.
 pub mod execution;
 /// Defines traits for Inter-Blockchain Communication (IBC).
 pub mod ibc;
@@ -51,9 +51,9 @@ pub mod services;
 pub mod state;
 /// An API for a durable, epoch-sharded, content-addressed node store.
 pub mod storage;
-/// Shared Studio routing and artifact materialization helpers.
-pub mod studio;
-pub(crate) mod studio_mock;
+/// Shared Chat routing and artifact materialization helpers.
+pub mod chat;
+pub(crate) mod chat_mock;
 /// Defines the core `TransactionModel` trait.
 pub mod transaction;
 /// Defines the core traits and structures for the validator architecture.

@@ -11,14 +11,14 @@ test("buildBenchmarkDataPayload sorts latest cases and focuses suite summaries o
     generatedAt: "2026-04-05T22:50:16.168Z",
     latestCases: [
       {
-        suite: "Studio Artifacts",
+        suite: "Chat Artifacts",
         result: "pass",
         caseId: "artifact-pass",
         runId: "run-pass",
         runSort: 10,
       },
       {
-        suite: "Studio Artifacts",
+        suite: "Chat Artifacts",
         result: "interrupted",
         caseId: "artifact-interrupted",
         runId: "run-interrupted",
@@ -43,7 +43,7 @@ test("buildBenchmarkDataPayload sorts latest cases and focuses suite summaries o
   assert.equal(payload.latestCases[0].result, "interrupted");
 
   const studioArtifacts = payload.suiteSummaries.find(
-    (entry) => entry.suite === "Studio Artifacts",
+    (entry) => entry.suite === "Chat Artifacts",
   );
   assert.ok(studioArtifacts);
   assert.equal(studioArtifacts.counts.pass, 1);

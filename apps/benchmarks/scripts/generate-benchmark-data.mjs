@@ -39,7 +39,7 @@ const studioArtifactEvidenceRoot = path.join(
 );
 const liveDataPath = "/generated/benchmark-data.json";
 const liveStorePath = "/generated/benchmark-store.json";
-const SUITE_ORDER = ["MiniWoB++", "OSWorld", "WorkArena", "Studio Artifacts", "Unknown"];
+const SUITE_ORDER = ["MiniWoB++", "OSWorld", "WorkArena", "Chat Artifacts", "Unknown"];
 
 const TRACE_LANE_ORDER = [
   "case",
@@ -52,7 +52,7 @@ const TRACE_LANE_ORDER = [
   "bridge",
 ];
 const REWARD_FLOOR_EPSILON = 1e-4;
-const STUDIO_ARTIFACT_SUITE = "Studio Artifacts";
+const STUDIO_ARTIFACT_SUITE = "Chat Artifacts";
 
 function writeOutputFiles(payload) {
   const encoded = JSON.stringify(payload, null, 2);
@@ -819,7 +819,7 @@ function buildStudioArtifactTrace(entry) {
       stepIndex: null,
       status: shimStatus,
       summary: entry.shimDependent
-        ? "Artifact depended on Studio normalization repair shims."
+        ? "Artifact depended on Chat normalization repair shims."
         : entry.renderer === "html_iframe"
           ? "Artifact rendered without normalization repair shims."
           : "Shim dependency is only tracked for HTML artifacts.",
@@ -859,7 +859,7 @@ function buildStudioArtifactTrace(entry) {
     });
 
   return {
-    source: "studio_artifact_corpus",
+    source: "chat_artifact_corpus",
     rangeStartMs: startMs,
     rangeEndMs: endMs,
     spanCount: spans.length,
@@ -881,7 +881,7 @@ function collectStudioArtifactCases(corpus = collectStudioArtifactCorpusIndex({ 
       findings.push(entry.strongestContradiction);
     }
     if (entry.shimDependent) {
-      findings.push("Artifact depended on Studio normalization repair shims.");
+      findings.push("Artifact depended on Chat normalization repair shims.");
     }
     if (entry.winningCandidateRationale) {
       findings.push(entry.winningCandidateRationale);
@@ -955,9 +955,9 @@ function collectStudioArtifactCases(corpus = collectStudioArtifactCorpusIndex({ 
               ? "pass"
               : "unknown",
           summary: entry.shimDependent
-            ? "Artifact still required Studio normalization repair shims."
+            ? "Artifact still required Chat normalization repair shims."
             : entry.renderer === "html_iframe"
-              ? "Artifact rendered without Studio normalization repair shims."
+              ? "Artifact rendered without Chat normalization repair shims."
               : "Shim dependency is only tracked for HTML artifacts.",
           supportingSpanIds: ["receipt:shim"],
         },

@@ -48,7 +48,7 @@ function App() {
     void runtime
       .stageRuntimeCatalogEntry(
         entry.id,
-        `Staged from Agent Studio at ${new Date().toISOString()}`,
+        `Staged from Agent Chat at ${new Date().toISOString()}`,
       )
       .then(() => {
         setRuntimeRevision((current) => current + 1);
@@ -90,7 +90,7 @@ function App() {
       <div className="agent-studio-workspace-shell">
         <header className="agent-studio-shell-header">
           <div>
-            <span className="agent-studio-shell-kicker">Agent Studio</span>
+            <span className="agent-studio-shell-kicker">Agent Chat</span>
             <h1>{shellTitle}</h1>
           </div>
           <div className="agent-studio-shell-meta">

@@ -144,7 +144,7 @@ export function ChatBenchmarkTraceDeck({
 
   if (loading) {
     return (
-      <div className="studio-trace-deck studio-trace-deck--empty">
+      <div className="chat-trace-deck chat-trace-deck--empty">
         <p>Loading local benchmark replay data…</p>
       </div>
     );
@@ -152,7 +152,7 @@ export function ChatBenchmarkTraceDeck({
 
   if (error) {
     return (
-      <div className="studio-trace-deck studio-trace-deck--empty">
+      <div className="chat-trace-deck chat-trace-deck--empty">
         <p>{error}</p>
       </div>
     );
@@ -160,7 +160,7 @@ export function ChatBenchmarkTraceDeck({
 
   if (!selectedCase || !selectedTrace) {
     return (
-      <div className="studio-trace-deck studio-trace-deck--empty">
+      <div className="chat-trace-deck chat-trace-deck--empty">
         <p>No local benchmark traces are available yet.</p>
       </div>
     );
@@ -169,27 +169,27 @@ export function ChatBenchmarkTraceDeck({
   const totalDuration = Math.max(1, selectedTrace.rangeEndMs - selectedTrace.rangeStartMs);
 
   return (
-    <div className="studio-trace-deck">
-      <div className="studio-trace-deck-head">
+    <div className="chat-trace-deck">
+      <div className="chat-trace-deck-head">
         <div>
-          <span className="studio-trace-deck-kicker">
+          <span className="chat-trace-deck-kicker">
             {mode === "trace" ? "Replay" : "Evidence"}
           </span>
           <strong>{formatCaseLabel(selectedCase.caseId)}</strong>
         </div>
-        <span className="studio-trace-deck-generated">
+        <span className="chat-trace-deck-generated">
           {formatTimestamp(feed?.generatedAt ?? null)}
         </span>
       </div>
 
-      <div className="studio-trace-case-switcher" role="tablist" aria-label="Trace cases">
+      <div className="chat-trace-case-switcher" role="tablist" aria-label="Trace cases">
         {cases.map((entry) => (
           <button
             key={entry.caseId}
             type="button"
             role="tab"
             aria-selected={entry.caseId === selectedCase.caseId}
-            className={`studio-trace-case-chip ${
+            className={`chat-trace-case-chip ${
               entry.caseId === selectedCase.caseId ? "is-active" : ""
             }`}
             onClick={() => {
@@ -202,32 +202,32 @@ export function ChatBenchmarkTraceDeck({
         ))}
       </div>
 
-      <article className="studio-trace-summary-card">
-        <div className="studio-trace-summary-head">
+      <article className="chat-trace-summary-card">
+        <div className="chat-trace-summary-head">
           <div>
-            <span className="studio-trace-summary-suite">{selectedCase.suite}</span>
+            <span className="chat-trace-summary-suite">{selectedCase.suite}</span>
             <h3>{selectedCase.summary.query_text || selectedCase.caseId}</h3>
           </div>
-          <div className="studio-trace-summary-meta">
+          <div className="chat-trace-summary-meta">
             <span>{selectedCase.runId}</span>
             <span>{selectedCase.summary.model ?? "model n/a"}</span>
             <span>{selectedCase.summary.env_id || "env n/a"}</span>
           </div>
         </div>
-        <p className="studio-trace-summary-finding">
+        <p className="chat-trace-summary-finding">
           {selectedCase.findings[0] ??
             `reward=${selectedCase.summary.reward} · provider_calls=${selectedCase.summary.provider_calls}`}
         </p>
       </article>
 
-      <div className="studio-trace-metrics">
+      <div className="chat-trace-metrics">
         {selectedCase.traceMetrics.map((metric) => {
           const metricSelected = metric.supportingSpanIds.includes(selectedSpan?.id ?? "");
           return (
             <button
               key={metric.metricId}
               type="button"
-              className={`studio-trace-metric studio-trace-metric--${toneForStatus(metric.status)} ${
+              className={`chat-trace-metric chat-trace-metric--${toneForStatus(metric.status)} ${
                 metricSelected ? "is-selected" : ""
               }`}
               onClick={() => {
@@ -246,12 +246,12 @@ export function ChatBenchmarkTraceDeck({
 
       {mode === "trace" ? (
         <>
-          <div className="studio-trace-bookmarks">
+          <div className="chat-trace-bookmarks">
             {selectedTrace.bookmarks.map((bookmark) => (
               <button
                 key={bookmark.id}
                 type="button"
-                className={`studio-trace-bookmark studio-trace-bookmark--${bookmark.kind}`}
+                className={`chat-trace-bookmark chat-trace-bookmark--${bookmark.kind}`}
                 onClick={() => {
                   startTransition(() => onSelectSpan(bookmark.spanId));
                 }}
@@ -261,14 +261,14 @@ export function ChatBenchmarkTraceDeck({
             ))}
           </div>
 
-          <div className="studio-trace-lanes">
+          <div className="chat-trace-lanes">
             {groupedLanes.map((lane) => (
-              <div key={lane.lane} className="studio-trace-lane-row">
-                <div className="studio-trace-lane-meta">
+              <div key={lane.lane} className="chat-trace-lane-row">
+                <div className="chat-trace-lane-meta">
                   <strong>{lane.lane}</strong>
                   <span>{lane.spans.length}</span>
                 </div>
-                <div className="studio-trace-lane-track">
+                <div className="chat-trace-lane-track">
                   {lane.spans.map((span) => {
                     const left = ((span.startMs - selectedTrace.rangeStartMs) / totalDuration) * 100;
                     const rawWidth =
@@ -278,7 +278,7 @@ export function ChatBenchmarkTraceDeck({
                       <button
                         key={span.id}
                         type="button"
-                        className={`studio-trace-lane-span studio-trace-lane-span--${toneForStatus(
+                        className={`chat-trace-lane-span chat-trace-lane-span--${toneForStatus(
                           span.status,
                         )} ${selectedSpan?.id === span.id ? "is-selected" : ""}`}
                         style={{ left: `${left}%`, width: `${width}%` }}
@@ -299,19 +299,19 @@ export function ChatBenchmarkTraceDeck({
       ) : (
         <>
           {receipts.length > 0 ? (
-            <div className="studio-trace-receipts">
+            <div className="chat-trace-receipts">
               {receipts.map((receipt) => (
                 <button
                   key={receipt.id}
                   type="button"
-                  className={`studio-trace-receipt studio-trace-receipt--${toneForStatus(
+                  className={`chat-trace-receipt chat-trace-receipt--${toneForStatus(
                     receipt.status,
                   )} ${selectedSpan?.id === receipt.id ? "is-selected" : ""}`}
                   onClick={() => {
                     startTransition(() => onSelectSpan(receipt.id));
                   }}
                 >
-                  <div className="studio-trace-receipt-head">
+                  <div className="chat-trace-receipt-head">
                     <span>{receipt.lane}</span>
                     <strong>{formatDuration(receipt.durationMs)}</strong>
                   </div>
@@ -320,7 +320,7 @@ export function ChatBenchmarkTraceDeck({
               ))}
             </div>
           ) : (
-            <div className="studio-trace-inline-empty">
+            <div className="chat-trace-inline-empty">
               <p>No receipt spans were emitted for this trace.</p>
             </div>
           )}
@@ -328,35 +328,35 @@ export function ChatBenchmarkTraceDeck({
       )}
 
       {selectedSpan ? (
-        <article className="studio-trace-inspector">
-          <div className="studio-trace-inspector-head">
+        <article className="chat-trace-inspector">
+          <div className="chat-trace-inspector-head">
             <div>
-              <span className={`studio-trace-inspector-status is-${toneForStatus(selectedSpan.status)}`}>
+              <span className={`chat-trace-inspector-status is-${toneForStatus(selectedSpan.status)}`}>
                 {selectedSpan.status}
               </span>
               <strong>{selectedSpan.summary}</strong>
             </div>
-            <div className="studio-trace-inspector-timing">
+            <div className="chat-trace-inspector-timing">
               <span>{formatOffset(selectedTrace.rangeStartMs, selectedSpan.startMs)}</span>
               <span>{formatDuration(selectedSpan.durationMs)}</span>
             </div>
           </div>
-          <div className="studio-trace-inspector-meta">
+          <div className="chat-trace-inspector-meta">
             <span>{selectedSpan.lane}</span>
             {selectedSpan.stepIndex != null ? <span>step {selectedSpan.stepIndex}</span> : null}
             {selectedSpan.capabilityTags.slice(0, 3).map((tag) => (
               <span key={tag}>{tag}</span>
             ))}
           </div>
-          <p className="studio-trace-inspector-attrs">
+          <p className="chat-trace-inspector-attrs">
             {selectedSpan.attributesSummary || "No additional attributes were captured."}
           </p>
-          <div className="studio-trace-artifacts">
+          <div className="chat-trace-artifacts">
             {selectedSpan.artifactLinks.map((link) => (
               <button
                 key={`${selectedSpan.id}:${link.path}`}
                 type="button"
-                className="studio-trace-artifact"
+                className="chat-trace-artifact"
                 onClick={() => {
                   void openArtifactLink(link.href);
                 }}

@@ -8,19 +8,19 @@ import {
 } from "@ioi/workspace-substrate";
 import type {
   ArtifactContentPayload,
-  StudioArtifactManifestFile,
-  StudioRendererKind,
-  StudioRendererSession,
+  ChatArtifactManifestFile,
+  ChatRendererKind,
+  ChatRendererSession,
 } from "../../../types";
 import { MarkdownMessage } from "./MarkdownMessage";
 
 export interface ArtifactRendererHostProps {
-  renderer: StudioRendererKind;
+  renderer: ChatRendererKind;
   title: string;
-  file?: StudioArtifactManifestFile | null;
-  files?: StudioArtifactManifestFile[];
+  file?: ChatArtifactManifestFile | null;
+  files?: ChatArtifactManifestFile[];
   payload?: ArtifactContentPayload | null;
-  rendererSession?: StudioRendererSession | null;
+  rendererSession?: ChatRendererSession | null;
   requestedOpen?: WorkspaceOpenRequest | null;
   onWorkspaceActivityChange?: (activity: WorkspaceActivityEntry[]) => void;
   onWorkspacePathChange?: (path: string | null) => void;
@@ -164,7 +164,7 @@ if (candidate) {
 
   return (
     <iframe
-      className="studio-artifact-embed-frame"
+      className="chat-artifact-embed-frame"
       title={title}
       srcDoc={selectionBridgeSrcDoc(srcDoc, artifactPath)}
     />
@@ -207,7 +207,7 @@ ${code}
 
   return (
     <iframe
-      className="studio-artifact-embed-frame"
+      className="chat-artifact-embed-frame"
       title={title}
       srcDoc={selectionBridgeSrcDoc(srcDoc, artifactPath)}
     />
@@ -278,7 +278,7 @@ export function ArtifactRendererHost({
       if (!widgetState || typeof widgetState !== "object" || Array.isArray(widgetState)) {
         return;
       }
-      void invoke("studio_attach_widget_state", { widgetState });
+      void invoke("chat_attach_widget_state", { widgetState });
     };
     window.addEventListener("message", listener);
     return () => window.removeEventListener("message", listener);
@@ -286,11 +286,11 @@ export function ArtifactRendererHost({
 
   const selectionAction =
     selection && onAttachSelection ? (
-      <div className="studio-artifact-render-selection">
+      <div className="chat-artifact-render-selection">
         <p>{selection}</p>
         <button
           type="button"
-          className="studio-artifact-stage-button"
+          className="chat-artifact-stage-button"
           onClick={() => onAttachSelection({ path: artifactPath, selection })}
         >
           Attach render selection
@@ -354,7 +354,7 @@ export function ArtifactRendererHost({
     if (rendererSession?.previewUrl) {
       return (
         <iframe
-          className="studio-artifact-embed-frame"
+          className="chat-artifact-embed-frame"
           title={title}
           src={rendererSession.previewUrl}
         />
@@ -363,18 +363,18 @@ export function ArtifactRendererHost({
 
     if (!rendererSession?.workspaceRoot) {
       return (
-        <div className="studio-artifact-renderer-empty">
+        <div className="chat-artifact-renderer-empty">
           <strong>Workspace renderer unavailable.</strong>
-          <p>Studio has not finished materializing the workspace session yet.</p>
+          <p>Chat has not finished materializing the workspace session yet.</p>
         </div>
       );
     }
 
     return (
-      <div className="studio-artifact-renderer-empty">
+      <div className="chat-artifact-renderer-empty">
         <strong>Render surface pending verification.</strong>
         <p>
-          Studio has the workspace session, but preview is not verified yet. Switch to
+          Chat has the workspace session, but preview is not verified yet. Switch to
           Source to inspect the materialized code while verification continues.
         </p>
       </div>
@@ -384,7 +384,7 @@ export function ArtifactRendererHost({
   if (renderer === "markdown") {
     return (
       <div
-        className="studio-artifact-renderer-panel"
+        className="chat-artifact-renderer-panel"
         onMouseUp={() => setSelection(clampSelection(window.getSelection?.()?.toString() ?? ""))}
       >
         <MarkdownMessage text={text || "No markdown content available."} />
@@ -395,9 +395,9 @@ export function ArtifactRendererHost({
 
   if (renderer === "html_iframe") {
     return (
-      <div className="studio-artifact-renderer-panel">
+      <div className="chat-artifact-renderer-panel">
         <iframe
-          className="studio-artifact-embed-frame"
+          className="chat-artifact-embed-frame"
           title={title}
           srcDoc={selectionBridgeSrcDoc(text || "<p>No HTML content available.</p>", artifactPath)}
         />
@@ -408,7 +408,7 @@ export function ArtifactRendererHost({
 
   if (renderer === "jsx_sandbox") {
     return (
-      <div className="studio-artifact-renderer-panel">
+      <div className="chat-artifact-renderer-panel">
         <JsxSandboxFrame
           source={text || "export default function Artifact() { return null; }"}
           title={title}
@@ -421,9 +421,9 @@ export function ArtifactRendererHost({
 
   if (renderer === "svg") {
     return (
-      <div className="studio-artifact-renderer-panel">
+      <div className="chat-artifact-renderer-panel">
         <div
-          className="studio-artifact-renderer-svg"
+          className="chat-artifact-renderer-svg"
           onMouseUp={() => setSelection(clampSelection(window.getSelection?.()?.toString() ?? ""))}
           dangerouslySetInnerHTML={{ __html: text || "<svg></svg>" }}
         />
@@ -434,7 +434,7 @@ export function ArtifactRendererHost({
 
   if (renderer === "mermaid") {
     return (
-      <div className="studio-artifact-renderer-panel">
+      <div className="chat-artifact-renderer-panel">
         <MermaidFrame code={text || "flowchart TD\nA[Empty]"} title={title} artifactPath={artifactPath} />
         {selectionAction}
       </div>
@@ -444,44 +444,44 @@ export function ArtifactRendererHost({
   if (renderer === "pdf_embed") {
     if (!dataUri) {
       return (
-        <div className="studio-artifact-renderer-empty">
+        <div className="chat-artifact-renderer-empty">
           <strong>PDF not available.</strong>
         </div>
       );
     }
-    return <iframe className="studio-artifact-embed-frame" title={title} src={dataUri} />;
+    return <iframe className="chat-artifact-embed-frame" title={title} src={dataUri} />;
   }
 
   if (renderer === "bundle_manifest") {
     return (
-      <div className="studio-artifact-renderer-panel">
-        <div className="studio-artifact-download-card">
-          <header className="studio-artifact-download-card-head">
+      <div className="chat-artifact-renderer-panel">
+        <div className="chat-artifact-download-card">
+          <header className="chat-artifact-download-card-head">
             <div>
-              <span className="studio-artifact-panel-label">Bundle manifest</span>
+              <span className="chat-artifact-panel-label">Bundle manifest</span>
               <h3>{title}</h3>
             </div>
-            <div className="studio-artifact-chip-row">
-              <span className="studio-artifact-chip">
+            <div className="chat-artifact-chip-row">
+              <span className="chat-artifact-chip">
                 {files.length} {files.length === 1 ? "file" : "files"}
               </span>
-              <span className="studio-artifact-chip">
+              <span className="chat-artifact-chip">
                 {renderableFiles.length} renderable
               </span>
             </div>
           </header>
 
-          <div className="studio-artifact-download-card-grid">
-            <section className="studio-artifact-download-card-list">
+          <div className="chat-artifact-download-card-grid">
+            <section className="chat-artifact-download-card-list">
               {files.map((entry) => (
-                <article key={entry.path} className="studio-artifact-download-row">
+                <article key={entry.path} className="chat-artifact-download-row">
                   <strong>{entry.path}</strong>
                   <span>{entry.mime}</span>
                 </article>
               ))}
             </section>
 
-            <section className="studio-artifact-download-preview">
+            <section className="chat-artifact-download-preview">
               <pre>{text || "No bundle manifest content available."}</pre>
             </section>
           </div>
@@ -492,26 +492,26 @@ export function ArtifactRendererHost({
 
   if (renderer === "download_card") {
     return (
-      <div className="studio-artifact-renderer-panel">
-        <div className="studio-artifact-download-card">
-          <header className="studio-artifact-download-card-head">
+      <div className="chat-artifact-renderer-panel">
+        <div className="chat-artifact-download-card">
+          <header className="chat-artifact-download-card-head">
             <div>
-              <span className="studio-artifact-panel-label">Downloadable artifact</span>
+              <span className="chat-artifact-panel-label">Downloadable artifact</span>
               <h3>{title}</h3>
               <p>
-                Studio surfaced the files that actually exist for this artifact. Select a file
+                Chat surfaced the files that actually exist for this artifact. Select a file
                 in the explorer to preview its source without replacing the primary download view.
               </p>
             </div>
-            <div className="studio-artifact-chip-row">
-              <span className="studio-artifact-chip">
+            <div className="chat-artifact-chip-row">
+              <span className="chat-artifact-chip">
                 {downloadFiles.length} download{downloadFiles.length === 1 ? "" : "s"}
               </span>
-              {file?.path ? <span className="studio-artifact-chip">{file.path}</span> : null}
+              {file?.path ? <span className="chat-artifact-chip">{file.path}</span> : null}
               {selectedDownloadArtifactId ? (
                 <button
                   type="button"
-                  className="studio-artifact-stage-button"
+                  className="chat-artifact-stage-button"
                   disabled={downloadActionPending !== null}
                   onClick={() => void handleSaveDownload()}
                 >
@@ -521,7 +521,7 @@ export function ArtifactRendererHost({
               {selectedDownloadArtifactId ? (
                 <button
                   type="button"
-                  className="studio-artifact-stage-button"
+                  className="chat-artifact-stage-button"
                   disabled={downloadActionPending !== null}
                   onClick={() => void handleOpenDownload()}
                 >
@@ -531,22 +531,22 @@ export function ArtifactRendererHost({
             </div>
           </header>
 
-          <div className="studio-artifact-download-card-grid">
-            <section className="studio-artifact-download-card-list">
+          <div className="chat-artifact-download-card-grid">
+            <section className="chat-artifact-download-card-list">
               {downloadFiles.map((entry) => (
-                <article key={entry.path} className="studio-artifact-download-row">
+                <article key={entry.path} className="chat-artifact-download-row">
                   <strong>{entry.path}</strong>
                   <span>{entry.mime}</span>
                 </article>
               ))}
             </section>
 
-            <section className="studio-artifact-download-preview">
+            <section className="chat-artifact-download-preview">
               {selectedDownloadIsBinary && file ? (
-                <div className="studio-artifact-renderer-empty">
+                <div className="chat-artifact-renderer-empty">
                   <strong>{file.path}</strong>
                   <p>
-                    Studio is keeping this file as a real binary artifact instead of forcing a text
+                    Chat is keeping this file as a real binary artifact instead of forcing a text
                     preview. Save it or open it in the default desktop app.
                   </p>
                   <p>{file.mime}</p>
@@ -554,13 +554,13 @@ export function ArtifactRendererHost({
               ) : text ? (
                 <pre>{text}</pre>
               ) : (
-                <div className="studio-artifact-renderer-empty">
+                <div className="chat-artifact-renderer-empty">
                   <strong>Preview a file from the explorer.</strong>
                   <p>Source previews open in the stage while the download surface stays primary.</p>
                 </div>
               )}
               {downloadActionError ? (
-                <div className="studio-artifact-renderer-empty">
+                <div className="chat-artifact-renderer-empty">
                   <strong>Artifact action failed.</strong>
                   <p>{downloadActionError}</p>
                 </div>
@@ -573,7 +573,7 @@ export function ArtifactRendererHost({
   }
 
   return (
-    <div className="studio-artifact-renderer-empty">
+    <div className="chat-artifact-renderer-empty">
       <strong>Renderer unavailable.</strong>
       <p>{renderer}</p>
     </div>

@@ -1,11 +1,11 @@
-use ioi_api::studio::{
+use ioi_api::chat::{
     plan_studio_artifact_brief_with_runtime, plan_studio_artifact_edit_intent_with_runtime,
-    validate_studio_artifact_candidate_with_runtime, StudioArtifactBrief, StudioArtifactEditIntent,
-    StudioArtifactGenerationBundle, StudioArtifactRefinementContext, StudioArtifactUxLifecycle,
-    StudioGeneratedArtifactFile, StudioGeneratedArtifactPayload,
+    validate_studio_artifact_candidate_with_runtime, ChatArtifactBrief, ChatArtifactEditIntent,
+    ChatArtifactGenerationBundle, ChatArtifactRefinementContext, ChatArtifactUxLifecycle,
+    ChatGeneratedArtifactFile, ChatGeneratedArtifactPayload,
 };
 use ioi_api::vm::inference::InferenceRuntime;
-use ioi_types::app::{StudioArtifactFileRole, StudioOutcomeArtifactRequest};
+use ioi_types::app::{ChatArtifactFileRole, ChatOutcomeArtifactRequest};
 use std::sync::Arc;
 
 use super::runtime::{runtime_model_label, runtime_origin_label};
@@ -30,9 +30,9 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
     acceptance_runtime: Arc<dyn InferenceRuntime>,
     title: &str,
     intent: &str,
-    request: &StudioOutcomeArtifactRequest,
-    refinement: Option<&StudioArtifactRefinementContext>,
-) -> Result<StudioArtifactGenerationBundle, String> {
+    request: &ChatOutcomeArtifactRequest,
+    refinement: Option<&ChatArtifactRefinementContext>,
+) -> Result<ChatArtifactGenerationBundle, String> {
     let brief = plan_studio_artifact_brief_with_runtime(
         runtime.clone(),
         title,
@@ -66,10 +66,10 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
     )
     .await?;
     let candidate_id = "candidate-1".to_string();
-    let production_provenance = runtime.studio_runtime_provenance();
-    let acceptance_provenance = acceptance_runtime.studio_runtime_provenance();
+    let production_provenance = runtime.chat_runtime_provenance();
+    let acceptance_provenance = acceptance_runtime.chat_runtime_provenance();
     let origin = runtime_origin_label(&production_provenance);
-    let summary = ioi_api::studio::StudioArtifactCandidateSummary {
+    let summary = ioi_api::chat::ChatArtifactCandidateSummary {
         candidate_id: candidate_id.clone(),
         seed: workspace_candidate_seed(title, intent),
         model: runtime_model_label(&runtime),
@@ -93,7 +93,7 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
         validation: validation.clone(),
     };
 
-    Ok(StudioArtifactGenerationBundle {
+    Ok(ChatArtifactGenerationBundle {
         brief,
         blueprint: None,
         artifact_ir: None,
@@ -118,7 +118,7 @@ pub(super) async fn generate_workspace_artifact_bundle_with_runtimes(
         runtime_policy: None,
         adaptive_search_budget: None,
         fallback_used: false,
-        ux_lifecycle: StudioArtifactUxLifecycle::Validated,
+        ux_lifecycle: ChatArtifactUxLifecycle::Validated,
         taste_memory: refinement.and_then(|context| context.taste_memory.clone()),
         failure: None,
     })
@@ -131,7 +131,7 @@ pub(super) fn workspace_candidate_seed(title: &str, intent: &str) -> u64 {
 }
 
 pub(super) fn workspace_recipe_for_request(
-    request: &StudioOutcomeArtifactRequest,
+    request: &ChatOutcomeArtifactRequest,
 ) -> WorkspaceRecipe {
     match request.workspace_recipe_id.as_deref() {
         Some("react-vite") => WorkspaceRecipe::ReactVite,
@@ -165,10 +165,10 @@ pub(super) fn package_name_for_title(title: &str) -> String {
 
 pub(super) fn materialize_workspace_artifact_payload(
     title: &str,
-    request: &StudioOutcomeArtifactRequest,
-    brief: &StudioArtifactBrief,
-    edit_intent: Option<&StudioArtifactEditIntent>,
-) -> StudioGeneratedArtifactPayload {
+    request: &ChatOutcomeArtifactRequest,
+    brief: &ChatArtifactBrief,
+    edit_intent: Option<&ChatArtifactEditIntent>,
+) -> ChatGeneratedArtifactPayload {
     let recipe = workspace_recipe_for_request(request);
     let package_name = package_name_for_title(title);
     let subject = fallback_if_empty(brief.subject_domain.as_str(), title);
@@ -192,7 +192,7 @@ pub(super) fn materialize_workspace_artifact_payload(
         ),
     };
 
-    StudioGeneratedArtifactPayload {
+    ChatGeneratedArtifactPayload {
         summary: match edit_intent {
             Some(intent) if intent.patch_existing_artifact => format!(
                 "Patched the workspace scaffold for {subject} while preserving the current implementation surface."
@@ -215,7 +215,7 @@ pub(super) fn materialize_workspace_artifact_payload(
     }
 }
 
-pub(super) fn workspace_focus_points(brief: &StudioArtifactBrief) -> Vec<String> {
+pub(super) fn workspace_focus_points(brief: &ChatArtifactBrief) -> Vec<String> {
     let mut points = brief.required_concepts.clone();
     if points.is_empty() {
         points.push(brief.subject_domain.clone());
@@ -227,11 +227,11 @@ pub(super) fn workspace_focus_points(brief: &StudioArtifactBrief) -> Vec<String>
 pub(super) fn workspace_file(
     path: impl Into<String>,
     mime: impl Into<String>,
-    role: StudioArtifactFileRole,
+    role: ChatArtifactFileRole,
     renderable: bool,
     body: impl Into<String>,
-) -> StudioGeneratedArtifactFile {
-    StudioGeneratedArtifactFile {
+) -> ChatGeneratedArtifactFile {
+    ChatGeneratedArtifactFile {
         path: path.into(),
         mime: mime.into(),
         role,
@@ -247,9 +247,9 @@ pub(super) fn workspace_static_html_files(
     package_name: &str,
     subject: &str,
     focus_points: &[String],
-    brief: &StudioArtifactBrief,
-    edit_intent: Option<&StudioArtifactEditIntent>,
-) -> Vec<StudioGeneratedArtifactFile> {
+    brief: &ChatArtifactBrief,
+    edit_intent: Option<&ChatArtifactEditIntent>,
+) -> Vec<ChatGeneratedArtifactFile> {
     let tone = if brief
         .visual_tone
         .iter()
@@ -322,25 +322,25 @@ pub(super) fn workspace_static_html_files(
     let script = "const chips = Array.from(document.querySelectorAll('[data-focus]'));\nconst panels = Array.from(document.querySelectorAll('[data-panel]'));\nfunction activate(index) {\n  chips.forEach((chip) => chip.classList.toggle('is-active', chip.dataset.focus === String(index)));\n  panels.forEach((panel) => panel.classList.toggle('is-active', panel.dataset.panel === String(index)));\n}\nchips.forEach((chip) => chip.addEventListener('click', () => activate(chip.dataset.focus)));\nactivate(0);\n".to_string();
 
     vec![
-        workspace_file("index.html", "text/html", StudioArtifactFileRole::Primary, true, html),
+        workspace_file("index.html", "text/html", ChatArtifactFileRole::Primary, true, html),
         workspace_file(
             "styles.css",
             "text/css",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             styles,
         ),
         workspace_file(
             "script.js",
             "application/javascript",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             script,
         ),
         workspace_file(
             "package.json",
             "application/json",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             format!(
                 "{{\n  \"name\": \"{package_name}\",\n  \"private\": true,\n  \"version\": \"0.1.0\",\n  \"type\": \"module\",\n  \"scripts\": {{\n    \"dev\": \"vite\",\n    \"build\": \"vite build\",\n    \"preview\": \"vite preview\"\n  }},\n  \"devDependencies\": {{\n    \"vite\": \"^6.0.5\"\n  }}\n}}\n"
@@ -349,7 +349,7 @@ pub(super) fn workspace_static_html_files(
         workspace_file(
             "README.md",
             "text/markdown",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             format!(
                 "# {title}\n\nSubject: {subject}\n\nAudience: {}\n\nBuild:\n\n```bash\nnpm install\nnpm run build\n```\n",
@@ -364,9 +364,9 @@ pub(super) fn workspace_react_vite_files(
     package_name: &str,
     subject: &str,
     focus_points: &[String],
-    brief: &StudioArtifactBrief,
-    edit_intent: Option<&StudioArtifactEditIntent>,
-) -> Vec<StudioGeneratedArtifactFile> {
+    brief: &ChatArtifactBrief,
+    edit_intent: Option<&ChatArtifactEditIntent>,
+) -> Vec<ChatGeneratedArtifactFile> {
     let focus_cards = focus_points
         .iter()
         .map(|point| {
@@ -393,32 +393,32 @@ pub(super) fn workspace_react_vite_files(
     let app_css = ".shell { min-height: 100vh; padding: 3rem clamp(1.5rem, 4vw, 4rem); background: linear-gradient(180deg, #f4f7fb, #e9eef8); color: #162033; font-family: \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif; }\n.hero { display: grid; grid-template-columns: minmax(0, 1.2fr) 320px; gap: 20px; }\n.hero, .brief-card, .focus-card { border: 1px solid rgba(22,32,51,0.12); border-radius: 24px; background: white; box-shadow: 0 18px 50px rgba(22,32,51,0.08); }\n.hero { padding: 24px; }\n.brief-card { padding: 20px; background: linear-gradient(180deg, rgba(30,107,255,0.08), rgba(255,255,255,0.98)); }\n.eyebrow { margin: 0 0 10px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #1e6bff; }\nh1, h3 { margin: 0; letter-spacing: -0.03em; }\nh1 { font-size: clamp(2.6rem, 6vw, 4.6rem); line-height: 0.94; }\n.lede, .brief-card p, .focus-card p { color: #5e6b82; line-height: 1.65; }\n.focus-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 18px; }\n.focus-card { padding: 18px; }\n@media (max-width: 920px) { .hero { grid-template-columns: 1fr; } }\n".to_string();
 
     vec![
-        workspace_file("src/App.tsx", "text/tsx", StudioArtifactFileRole::Primary, true, app),
+        workspace_file("src/App.tsx", "text/tsx", ChatArtifactFileRole::Primary, true, app),
         workspace_file(
             "src/main.tsx",
             "text/tsx",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             "import React from 'react'\nimport ReactDOM from 'react-dom/client'\nimport App from './App'\nimport './index.css'\n\nReactDOM.createRoot(document.getElementById('root')!).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>,\n)\n",
         ),
         workspace_file(
             "src/App.css",
             "text/css",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             app_css,
         ),
         workspace_file(
             "src/index.css",
             "text/css",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             ":root { color-scheme: light; font-family: \"Segoe UI\", \"Helvetica Neue\", Arial, sans-serif; line-height: 1.5; font-weight: 400; background: #f4f7fb; color: #162033; }\n* { box-sizing: border-box; }\nhtml, body, #root { margin: 0; min-height: 100%; }\nbody { min-width: 320px; }\n".to_string(),
         ),
         workspace_file(
             "index.html",
             "text/html",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             format!(
                 "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>{}</title>\n  </head>\n  <body>\n    <div id=\"root\"></div>\n    <script type=\"module\" src=\"/src/main.tsx\"></script>\n  </body>\n</html>\n",
@@ -428,35 +428,35 @@ pub(super) fn workspace_react_vite_files(
         workspace_file(
             "vite.config.ts",
             "text/typescript",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             "import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\n\nexport default defineConfig({\n  plugins: [react()],\n})\n",
         ),
         workspace_file(
             "tsconfig.json",
             "application/json",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             "{\n  \"files\": [],\n  \"references\": [\n    { \"path\": \"./tsconfig.app.json\" },\n    { \"path\": \"./tsconfig.node.json\" }\n  ]\n}\n",
         ),
         workspace_file(
             "tsconfig.app.json",
             "application/json",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             "{\n  \"compilerOptions\": {\n    \"target\": \"ES2020\",\n    \"useDefineForClassFields\": true,\n    \"lib\": [\"ES2020\", \"DOM\", \"DOM.Iterable\"],\n    \"skipLibCheck\": true,\n    \"esModuleInterop\": true,\n    \"allowSyntheticDefaultImports\": true,\n    \"strict\": true,\n    \"module\": \"ESNext\",\n    \"moduleResolution\": \"Node\",\n    \"resolveJsonModule\": true,\n    \"isolatedModules\": true,\n    \"noEmit\": true,\n    \"jsx\": \"react-jsx\"\n  },\n  \"include\": [\"src\"]\n}\n",
         ),
         workspace_file(
             "tsconfig.node.json",
             "application/json",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             "{\n  \"compilerOptions\": {\n    \"composite\": true,\n    \"skipLibCheck\": true,\n    \"module\": \"ESNext\",\n    \"moduleResolution\": \"Node\",\n    \"allowSyntheticDefaultImports\": true\n  },\n  \"include\": [\"vite.config.ts\"]\n}\n",
         ),
         workspace_file(
             "package.json",
             "application/json",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             format!(
                 "{{\n  \"name\": \"{package_name}\",\n  \"private\": true,\n  \"version\": \"0.1.0\",\n  \"type\": \"module\",\n  \"scripts\": {{\n    \"dev\": \"vite\",\n    \"build\": \"tsc -b && vite build\",\n    \"preview\": \"vite preview\"\n  }},\n  \"dependencies\": {{\n    \"react\": \"^18.3.1\",\n    \"react-dom\": \"^18.3.1\"\n  }},\n  \"devDependencies\": {{\n    \"@types/react\": \"^18.3.18\",\n    \"@types/react-dom\": \"^18.3.5\",\n    \"@vitejs/plugin-react\": \"^4.3.4\",\n    \"typescript\": \"^5.6.2\",\n    \"vite\": \"^6.0.5\"\n  }}\n}}\n"
@@ -465,7 +465,7 @@ pub(super) fn workspace_react_vite_files(
         workspace_file(
             "README.md",
             "text/markdown",
-            StudioArtifactFileRole::Supporting,
+            ChatArtifactFileRole::Supporting,
             false,
             format!(
                 "# {title}\n\nSubject: {subject}\n\nAudience: {}\n\nBuild:\n\n```bash\nnpm install\nnpm run build\n```\n",

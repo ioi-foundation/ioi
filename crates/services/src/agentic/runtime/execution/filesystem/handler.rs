@@ -7,7 +7,7 @@ use super::{
 use crate::agentic::runtime::execution::workload;
 use crate::agentic::web::sample_local_video_preview;
 use image::ImageFormat;
-use ioi_api::studio::extract_searchable_pdf_text;
+use ioi_api::chat::extract_searchable_pdf_text;
 use ioi_types::app::{WorkloadActivityKind, WorkloadFsWriteReceipt, WorkloadReceipt};
 use std::fs;
 use std::io::Cursor;

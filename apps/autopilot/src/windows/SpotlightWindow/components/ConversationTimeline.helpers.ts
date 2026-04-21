@@ -129,7 +129,7 @@ function artifactSummaryLooksOperational(summary: string): boolean {
     return false;
   }
   return (
-    normalized.includes("studio materialized")
+    normalized.includes("chat materialized")
     || normalized.includes("final acceptance validation")
     || normalized.includes("primary artifact view")
     || normalized.includes("lifecycle")

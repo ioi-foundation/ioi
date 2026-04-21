@@ -55,14 +55,14 @@ pub(super) fn synthesize_node_policy(node_type: &str, law_config: &Value) -> Act
     };
 
     rules.push(Rule {
-        rule_id: Some("studio-rule-1".into()),
+        rule_id: Some("chat-rule-1".into()),
         target: target.to_string(),
         conditions,
         action,
     });
 
     ActionRules {
-        policy_id: "studio-simulation".into(),
+        policy_id: "chat-simulation".into(),
         defaults: DefaultPolicy::DenyAll,
         rules,
         ontology_policy: Default::default(),
@@ -145,7 +145,7 @@ pub(super) fn map_to_action_request(
         target,
         params: params_bytes,
         context: ActionContext {
-            agent_id: "studio-simulator".into(),
+            agent_id: "chat-simulator".into(),
             session_id: session_id_bytes,
             window_id: None,
         },

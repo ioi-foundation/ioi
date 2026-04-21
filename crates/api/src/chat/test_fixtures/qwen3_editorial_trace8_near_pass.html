@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Tools Editorial Launch</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, sans-serif;
+      background: #f5f7fb;
+      color: #0f172a;
+    }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #eff3ff 0%, #f8fafc 48%, #ffffff 100%);
+      color: inherit;
+    }
+    header,
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    header h1,
+    header p,
+    main h2,
+    main h3 {
+      margin-top: 0;
+    }
+    .control-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .control-bar button {
+      font: inherit;
+      padding: 0.75rem 1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(15, 23, 42, 0.16);
+      background: rgba(255, 255, 255, 0.96);
+      color: #0f172a;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .control-bar button[aria-selected="true"] {
+      background: #0f172a;
+      border-color: #0f172a;
+      color: #fff;
+    }
+    main {
+      display: grid;
+      gap: 20px;
+    }
+    .hero,
+    .evidence-panel,
+    .shared-detail {
+      border-radius: 20px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+      padding: 24px;
+    }
+    .panel-grid,
+    .comparison-table {
+      display: grid;
+      gap: 16px;
+    }
+    .panel-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .metric-card {
+      border-radius: 16px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: #f8fafc;
+      padding: 16px;
+    }
+    .detail-chip-rail {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .detail-chip-rail button,
+    .detail-chip {
+      font: inherit;
+      border-radius: 999px;
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      background: rgba(219, 234, 254, 0.72);
+      color: #0f172a;
+      padding: 0.5rem 0.8rem;
+      cursor: pointer;
+    }
+    .comparison-table table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .comparison-table th,
+    .comparison-table td {
+      padding: 0.6rem 0.7rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+    }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      margin-top: 16px;
+    }
+    [hidden] {
+      display: none !important;
+    }
+    @media (max-width: 720px) {
+      header,
+      main {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI Tools Editorial Launch</h1>
+    <p>Inspect the editorial launch narrative, tool signals, and launch comparisons without leaving the artifact.</p>
+  </header>
+  <main>
+    <section class="hero">
+      <h2>Launch the editorial package with visible evidence</h2>
+      <p>The launch surface keeps the editorial thesis, evidence views, and shared detail context visible before any script runs.</p>
+      <nav class="control-bar" aria-label="Editorial launch views">
+        <button type="button" data-view="overview" aria-controls="chat-view-panel-overview" aria-selected="true">Overview</button>
+        <button type="button" data-view="tools" aria-controls="chat-view-panel-tools" aria-selected="false">Tools</button>
+        <button type="button" data-view="comparison" aria-controls="chat-view-panel-comparison" aria-selected="false" data-chat-render-primary-action="true">Comparison</button>
+      </nav>
+    </section>
+
+    <section
+      class="evidence-panel"
+      id="chat-view-panel-overview"
+      data-view-panel="overview"
+      data-chat-view-panel-repair="true"
+    >
+      <h2>Editorial overview</h2>
+      <p>Frame the launch with one charted view, a visible detail chip, and a default explanation that keeps the first paint evidence-rich.</p>
+      <span class="detail-chip" data-detail="Launch readiness" tabindex="0">Launch readiness</span>
+      <svg viewBox="0 0 360 160" role="img" aria-label="Launch readiness chart">
+        <rect x="32" y="74" width="52" height="54" fill="#2563eb"></rect>
+        <rect x="128" y="52" width="52" height="76" fill="#0f172a"></rect>
+        <rect x="224" y="34" width="52" height="94" fill="#7c3aed"></rect>
+        <text x="32" y="148">Brief</text>
+        <text x="128" y="148">Proof</text>
+        <text x="224" y="148">Launch</text>
+      </svg>
+    </section>
+
+    <section
+      class="evidence-panel"
+      id="chat-view-panel-tools"
+      data-view-panel="tools"
+      data-chat-view-panel-repair="true"
+      hidden
+      aria-hidden="true"
+    >
+      <h2>Tool features</h2>
+      <div class="panel-grid">
+        <article class="metric-card">
+          <h3>AI content generator</h3>
+          <p>Highlights editorial angle variants and launch copy experiments.</p>
+        </article>
+        <article class="metric-card">
+          <h3>Fact checking copilot</h3>
+          <p>Surfaces evidence trails and source confidence for fast review.</p>
+        </article>
+        <article class="metric-card">
+          <h3>Style consistency monitor</h3>
+          <p>Tracks voice, compliance, and launch readiness across the package.</p>
+        </article>
+      </div>
+      <div class="detail-chip-rail" data-chat-rollover-chip-rail="true">
+        <button type="button" data-detail="Generator keeps launch copy variants visible." tabindex="0">Copy variants</button>
+        <button type="button" data-detail="Fact checking keeps claims grounded before publication." tabindex="0">Grounded claims</button>
+        <button type="button" data-detail="Style monitoring keeps the editorial package consistent." tabindex="0">Consistent voice</button>
+      </div>
+    </section>
+
+    <section
+      class="evidence-panel comparison-table"
+      id="chat-view-panel-comparison"
+      data-view-panel="comparison"
+      data-chat-view-panel-repair="true"
+      hidden
+      aria-hidden="true"
+    >
+      <h2>Launch comparison</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Surface</th>
+            <th>What stays visible</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Overview</td>
+            <td>Launch readiness chart and thesis framing</td>
+          </tr>
+          <tr>
+            <td>Tools</td>
+            <td>Editorial feature cards and detail chips</td>
+          </tr>
+          <tr>
+            <td>Comparison</td>
+            <td>Side-by-side launch packaging guidance</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <aside class="shared-detail" id="detail-panel" data-chat-normalized="true" data-chat-shared-detail="true">
+      <h2>Detail</h2>
+      <p id="detail-copy">Overview is selected by default.</p>
+    </aside>
+
+    <footer class="hero">
+      <h2>Takeaway</h2>
+      <p>The editorial launch stays legible because each view has pre-rendered evidence and updates one shared explanation panel.</p>
+    </footer>
+  </main>
+  <script data-chat-normalized="true" data-chat-view-switch-repair="true">
+    (() => {
+      const controls = Array.from(document.querySelectorAll('button[data-view]'));
+      const panels = Array.from(document.querySelectorAll('[data-view-panel]'));
+      const detailCopy = document.getElementById('detail-copy');
+      const detailMarks = Array.from(document.querySelectorAll('[data-detail]'));
+
+      const setDetail = (value) => {
+        if (detailCopy && value) {
+          detailCopy.textContent = value;
+        }
+      };
+
+      const selectView = (activeControl) => {
+        const targetView = activeControl.dataset.view || '';
+        panels.forEach((panel) => {
+          const active = panel.dataset.viewPanel === targetView;
+          panel.hidden = !active;
+          panel.setAttribute('aria-hidden', String(!active));
+        });
+        controls.forEach((control) => {
+          control.setAttribute('aria-selected', String(control === activeControl));
+        });
+        setDetail(`${activeControl.textContent.trim()} is selected.`);
+      };
+
+      controls.forEach((control) => {
+        control.addEventListener('click', () => selectView(control));
+      });
+
+      detailMarks.forEach((mark) => {
+        const update = () => setDetail(mark.dataset.detail || mark.textContent || '');
+        mark.addEventListener('mouseenter', update);
+        mark.addEventListener('focus', update);
+      });
+
+      const defaultControl =
+        controls.find((control) => control.getAttribute('aria-selected') === 'true') || controls[0];
+      if (defaultControl) {
+        selectView(defaultControl);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -64,7 +64,7 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-fn push_studio_launch_receipt(state: &mut AppState, stage: impl Into<String>, detail: Value) {
+fn push_chat_launch_receipt(state: &mut AppState, stage: impl Into<String>, detail: Value) {
     let receipt = ChatLaunchReceipt {
         timestamp_ms: now_ms(),
         stage: stage.into(),
@@ -72,7 +72,7 @@ fn push_studio_launch_receipt(state: &mut AppState, stage: impl Into<String>, de
     };
     let detail_snapshot = receipt.detail.clone();
     eprintln!(
-        "[Autopilot][StudioLaunch] stage={} detail={}",
+        "[Autopilot][ChatLaunch] stage={} detail={}",
         receipt.stage, detail_snapshot
     );
     state.chat_launch_receipts.push(receipt);
@@ -131,7 +131,7 @@ fn summarize_assistant_workbench_session(session: Option<&Value>) -> Value {
     }
 }
 
-pub(super) fn summarize_studio_launch_request(request: &Value) -> Value {
+pub(super) fn summarize_chat_launch_request(request: &Value) -> Value {
     let kind = request
         .get("kind")
         .and_then(Value::as_str)
@@ -169,18 +169,18 @@ pub(super) fn summarize_studio_launch_request(request: &Value) -> Value {
     }
 }
 
-fn studio_launch_envelope_request(envelope: &Value) -> &Value {
+fn chat_launch_envelope_request(envelope: &Value) -> &Value {
     envelope.get("request").unwrap_or(envelope)
 }
 
-fn studio_launch_envelope_id(envelope: &Value) -> Option<&str> {
+fn chat_launch_envelope_id(envelope: &Value) -> Option<&str> {
     envelope.get("launchId").and_then(Value::as_str)
 }
 
-pub(super) fn summarize_studio_launch_envelope(envelope: &Value) -> Value {
+pub(super) fn summarize_chat_launch_envelope(envelope: &Value) -> Value {
     json!({
-        "launchId": studio_launch_envelope_id(envelope),
-        "request": summarize_studio_launch_request(studio_launch_envelope_request(envelope)),
+        "launchId": chat_launch_envelope_id(envelope),
+        "request": summarize_chat_launch_request(chat_launch_envelope_request(envelope)),
     })
 }
 
@@ -190,11 +190,11 @@ pub(super) fn record_chat_launch_receipt_for_app(
     detail: Value,
 ) {
     if let Ok(mut state) = app.state::<Mutex<AppState>>().lock() {
-        push_studio_launch_receipt(&mut state, stage, detail);
+        push_chat_launch_receipt(&mut state, stage, detail);
     }
 }
 
-fn build_studio_launch_envelope(request: Value) -> Value {
+fn build_chat_launch_envelope(request: Value) -> Value {
     json!({
         "launchId": Uuid::new_v4().to_string(),
         "request": request,
@@ -202,9 +202,9 @@ fn build_studio_launch_envelope(request: Value) -> Value {
 }
 
 fn set_pending_chat_launch_request(state: &mut AppState, request: Value) -> Value {
-    let envelope = build_studio_launch_envelope(request);
-    let request_summary = summarize_studio_launch_envelope(&envelope);
-    push_studio_launch_receipt(
+    let envelope = build_chat_launch_envelope(request);
+    let request_summary = summarize_chat_launch_envelope(&envelope);
+    push_chat_launch_receipt(
         state,
         "queued",
         json!({
@@ -215,7 +215,7 @@ fn set_pending_chat_launch_request(state: &mut AppState, request: Value) -> Valu
     envelope
 }
 
-pub(super) fn queue_pending_studio_launch_for_app(
+pub(super) fn queue_pending_chat_launch_for_app(
     app: &tauri::AppHandle,
     request: Value,
 ) -> Result<Value, String> {
@@ -278,14 +278,14 @@ pub fn show_chat(app: tauri::AppHandle) {
 
 #[tauri::command]
 pub fn show_chat_with_target(app: tauri::AppHandle, request: Value) -> Result<(), String> {
-    let envelope = queue_pending_studio_launch_for_app(&app, request)?;
+    let envelope = queue_pending_chat_launch_for_app(&app, request)?;
     commands::show_chat_with_target(app, envelope);
     Ok(())
 }
 
 #[tauri::command]
-pub fn hide_studio(app: tauri::AppHandle) {
-    commands::hide_studio(app);
+pub fn hide_chat(app: tauri::AppHandle) {
+    commands::hide_chat(app);
 }
 
 #[tauri::command]
@@ -306,12 +306,12 @@ pub fn clear_pending_chat_launch(state: State<'_, Mutex<AppState>>) -> Result<()
         .lock()
         .map_err(|_| "App state is unavailable.".to_string())?;
     let previous = state.pending_chat_launch_request.clone();
-    push_studio_launch_receipt(
+    push_chat_launch_receipt(
         &mut state,
         "cleared",
         json!({
             "hadPendingRequest": previous.is_some(),
-            "launch": previous.as_ref().map(summarize_studio_launch_envelope),
+            "launch": previous.as_ref().map(summarize_chat_launch_envelope),
         }),
     );
     state.pending_chat_launch_request = None;
@@ -326,12 +326,12 @@ pub fn peek_pending_chat_launch(
         .lock()
         .map_err(|_| "App state is unavailable.".to_string())?;
     let request = state.pending_chat_launch_request.clone();
-    push_studio_launch_receipt(
+    push_chat_launch_receipt(
         &mut state,
         "peeked",
         json!({
             "foundPendingRequest": request.is_some(),
-            "launch": request.as_ref().map(summarize_studio_launch_envelope),
+            "launch": request.as_ref().map(summarize_chat_launch_envelope),
         }),
     );
     Ok(request)
@@ -348,17 +348,17 @@ pub fn ack_pending_chat_launch(
     let pending_launch = state.pending_chat_launch_request.clone();
     let should_clear = pending_launch
         .as_ref()
-        .and_then(studio_launch_envelope_id)
+        .and_then(chat_launch_envelope_id)
         .map(|pending_launch_id| pending_launch_id == launch_id)
         .unwrap_or(false);
 
-    push_studio_launch_receipt(
+    push_chat_launch_receipt(
         &mut state,
         if should_clear { "acked" } else { "ack_ignored" },
         json!({
             "launchId": launch_id,
             "hadPendingRequest": pending_launch.is_some(),
-            "launch": pending_launch.as_ref().map(summarize_studio_launch_envelope),
+            "launch": pending_launch.as_ref().map(summarize_chat_launch_envelope),
         }),
     );
 
@@ -378,7 +378,7 @@ pub fn record_chat_launch_receipt(
     let mut state = state
         .lock()
         .map_err(|_| "App state is unavailable.".to_string())?;
-    push_studio_launch_receipt(&mut state, stage, detail.unwrap_or_else(|| json!({})));
+    push_chat_launch_receipt(&mut state, stage, detail.unwrap_or_else(|| json!({})));
     Ok(())
 }
 

@@ -6,13 +6,13 @@ assert.equal(
   buildClarificationPromptForTests(
     {
       kind: "intent_resolution",
-      question: "Where should Studio search?",
+      question: "Where should Chat search?",
       options: [
         {
           id: "use_current_area",
           label: "Use my area",
           description:
-            "Use the current area already available to this Studio session.",
+            "Use the current area already available to this Chat session.",
         },
       ],
     },
@@ -27,7 +27,7 @@ assert.equal(
   buildClarificationPromptForTests(
     {
       kind: "intent_resolution",
-      question: "Should Studio broaden the search?",
+      question: "Should Chat broaden the search?",
       options: [
         {
           id: "broad_city_recs",
@@ -48,13 +48,13 @@ assert.equal(
   buildClarificationPromptForTests(
     {
       kind: "intent_resolution",
-      question: "What city should Studio check?",
+      question: "What city should Chat check?",
       options: [
         {
           id: "share_city",
           label: "Share a city",
           description:
-            "Tell Studio which city or area to use for the forecast.",
+            "Tell Chat which city or area to use for the forecast.",
         },
       ],
     },

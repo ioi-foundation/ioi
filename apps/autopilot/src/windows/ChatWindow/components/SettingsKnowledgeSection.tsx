@@ -158,7 +158,7 @@ export function SettingsKnowledgeSection({
     setTeamMemoryError(null);
     try {
       const snapshot = await runtime.syncTeamMemory({
-        actorLabel: "Studio",
+        actorLabel: "Chat",
         actorRole: "operator",
         includeGovernanceCritical,
       });
@@ -323,14 +323,14 @@ export function SettingsKnowledgeSection({
       : "Monitoring";
 
   return (
-    <div className="studio-settings-stack">
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+    <div className="chat-settings-stack">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Team memory</span>
+            <span className="chat-settings-card-eyebrow">Team memory</span>
             <h2>Scoped shared sync</h2>
           </div>
-          <span className="studio-settings-pill">
+          <span className="chat-settings-pill">
             {teamMemoryStatus === "syncing" || teamMemoryStatus === "forgetting"
               ? "Updating"
               : teamMemorySnapshot
@@ -338,25 +338,25 @@ export function SettingsKnowledgeSection({
                 : "No scope"}
           </span>
         </div>
-        <p className="studio-settings-body">
+        <p className="chat-settings-body">
           Promote carried-forward session memory into a scoped multi-actor
           ledger. Governance-critical blocker context stays local by default,
           and sensitive values are redacted before shared sync.
         </p>
-        <div className="studio-settings-summary-grid">
-          <article className="studio-settings-subcard">
+        <div className="chat-settings-summary-grid">
+          <article className="chat-settings-subcard">
             <strong>Scope</strong>
             <span>{teamMemorySnapshot?.activeScopeLabel || "Current scope"}</span>
           </article>
-          <article className="studio-settings-subcard">
+          <article className="chat-settings-subcard">
             <strong>Redacted</strong>
             <span>{teamMemorySnapshot?.redactedEntryCount ?? 0}</span>
           </article>
-          <article className="studio-settings-subcard">
+          <article className="chat-settings-subcard">
             <strong>Review required</strong>
             <span>{teamMemorySnapshot?.reviewRequiredCount ?? 0}</span>
           </article>
-          <article className="studio-settings-subcard">
+          <article className="chat-settings-subcard">
             <strong>Updated</strong>
             <span>
               {teamMemorySnapshot
@@ -365,14 +365,14 @@ export function SettingsKnowledgeSection({
             </span>
           </article>
         </div>
-        <p className="studio-settings-body">
+        <p className="chat-settings-body">
           {teamMemorySnapshot?.summary ||
             "Sync the active retained session after a meaningful run to seed team memory."}
         </p>
         {teamMemoryError ? (
-          <p className="studio-settings-error">{teamMemoryError}</p>
+          <p className="chat-settings-error">{teamMemoryError}</p>
         ) : null}
-        <label className="studio-settings-field">
+        <label className="chat-settings-field">
           <span>Governance-critical sync policy</span>
           <select
             value={includeGovernanceCritical ? "include" : "keep_local"}
@@ -384,10 +384,10 @@ export function SettingsKnowledgeSection({
             <option value="include">Sync blockers and mark for review</option>
           </select>
         </label>
-        <div className="studio-settings-actions">
+        <div className="chat-settings-actions">
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             disabled={teamMemoryStatus === "syncing" || teamMemoryStatus === "forgetting"}
             onClick={() => {
               void syncTeamMemory();
@@ -397,7 +397,7 @@ export function SettingsKnowledgeSection({
           </button>
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             disabled={teamMemoryStatus === "syncing" || teamMemoryStatus === "forgetting"}
             onClick={() => {
               void refreshTeamMemory();
@@ -407,9 +407,9 @@ export function SettingsKnowledgeSection({
           </button>
         </div>
         {teamMemorySnapshot?.entries.length ? (
-          <div className="studio-settings-summary-grid">
+          <div className="chat-settings-summary-grid">
             {teamMemorySnapshot.entries.map((entry) => (
-              <article className="studio-settings-subcard" key={entry.entryId}>
+              <article className="chat-settings-subcard" key={entry.entryId}>
                 <strong>{entry.actorLabel}</strong>
                 <span>{entry.scopeLabel}</span>
                 <small>{formatSettingsTime(entry.syncedAtMs)}</small>
@@ -419,10 +419,10 @@ export function SettingsKnowledgeSection({
                   Redactions: {entry.redaction.redactionCount} · Review:{" "}
                   {entry.syncStatus === "review_required" ? "yes" : "no"}
                 </small>
-                <div className="studio-settings-actions">
+                <div className="chat-settings-actions">
                   <button
                     type="button"
-                    className="studio-settings-danger"
+                    className="chat-settings-danger"
                     disabled={teamMemoryStatus === "syncing" || teamMemoryStatus === "forgetting"}
                     onClick={() => {
                       void forgetTeamMemory(entry.entryId);
@@ -435,19 +435,19 @@ export function SettingsKnowledgeSection({
             ))}
           </div>
         ) : (
-          <p className="studio-settings-body">
+          <p className="chat-settings-body">
             No scoped team-memory entries are stored yet.
           </p>
         )}
       </article>
 
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Compaction</span>
+            <span className="chat-settings-card-eyebrow">Compaction</span>
             <h2>Long-session durability</h2>
           </div>
-          <span className="studio-settings-pill">
+          <span className="chat-settings-pill">
             {compactionBusy
               ? "Compacting"
               : compactionSnapshot
@@ -455,21 +455,21 @@ export function SettingsKnowledgeSection({
                 : "No records"}
           </span>
         </div>
-        <p className="studio-settings-body">
+        <p className="chat-settings-body">
           Review the shared runtime compaction recommendation, inspect the
           resume-safety posture, and run the same retained-session compaction
-          flow Studio now shares with Spotlight and the standalone REPL.
+          flow Chat now shares with Spotlight and the standalone REPL.
         </p>
-        <div className="studio-settings-summary-grid">
-          <article className="studio-settings-subcard">
+        <div className="chat-settings-summary-grid">
+          <article className="chat-settings-subcard">
             <strong>Active session</strong>
             <span>{compactionSnapshot?.activeSessionTitle || "No retained session"}</span>
           </article>
-          <article className="studio-settings-subcard">
+          <article className="chat-settings-subcard">
             <strong>Auto state</strong>
             <span>{compactionAutoState}</span>
           </article>
-          <article className="studio-settings-subcard">
+          <article className="chat-settings-subcard">
             <strong>Preview safety</strong>
             <span>
               {compactionPreview
@@ -477,7 +477,7 @@ export function SettingsKnowledgeSection({
                 : "No preview"}
             </span>
           </article>
-          <article className="studio-settings-subcard">
+          <article className="chat-settings-subcard">
             <strong>Updated</strong>
             <span>
               {compactionSnapshot
@@ -486,30 +486,30 @@ export function SettingsKnowledgeSection({
             </span>
           </article>
         </div>
-        <p className="studio-settings-body">
+        <p className="chat-settings-body">
           {compactionRecommendation?.reasonLabels.length
             ? compactionRecommendation.reasonLabels.join(" · ")
             : "No compaction threshold is active right now. The runtime keeps watching transcript pressure, file-context size, and blocker or idle age."}
         </p>
         {durabilityPortfolio ? (
           <>
-            <div className="studio-settings-summary-grid">
-              <article className="studio-settings-subcard">
+            <div className="chat-settings-summary-grid">
+              <article className="chat-settings-subcard">
                 <strong>Replay-ready sessions</strong>
                 <span>
                   {durabilityPortfolio.replayReadySessionCount}/
                   {durabilityPortfolio.retainedSessionCount}
                 </span>
               </article>
-              <article className="studio-settings-subcard">
+              <article className="chat-settings-subcard">
                 <strong>Stale checkpoints</strong>
                 <span>{durabilityPortfolio.staleCompactionCount}</span>
               </article>
-              <article className="studio-settings-subcard">
+              <article className="chat-settings-subcard">
                 <strong>Degraded resumes</strong>
                 <span>{durabilityPortfolio.degradedCompactionCount}</span>
               </article>
-              <article className="studio-settings-subcard">
+              <article className="chat-settings-subcard">
                 <strong>Team-memory coverage</strong>
                 <span>
                   {durabilityPortfolio.teamMemoryCoveredSessionCount} sessions ·{" "}
@@ -517,26 +517,26 @@ export function SettingsKnowledgeSection({
                 </span>
               </article>
             </div>
-            <p className="studio-settings-body">
+            <p className="chat-settings-body">
               {durabilityPortfolio.coverageSummary}
             </p>
-            <p className="studio-settings-body">
+            <p className="chat-settings-body">
               {durabilityPortfolio.teamMemorySummary}
             </p>
-            <p className="studio-settings-body">
+            <p className="chat-settings-body">
               {durabilityPortfolio.attentionSummary}
             </p>
           </>
         ) : null}
         {compactionError ? (
-          <p className="studio-settings-error">{compactionError}</p>
+          <p className="chat-settings-error">{compactionError}</p>
         ) : null}
-        <div className="studio-settings-summary-grid">
-          <article className="studio-settings-subcard">
+        <div className="chat-settings-summary-grid">
+          <article className="chat-settings-subcard">
             <strong>Current preview policy</strong>
             <span>{compactionPolicySummary(activeCompactionPolicy)}</span>
           </article>
-          <article className="studio-settings-subcard">
+          <article className="chat-settings-subcard">
             <strong>Recommended policy</strong>
             <span>
               {recommendedCompactionPolicy
@@ -544,7 +544,7 @@ export function SettingsKnowledgeSection({
                 : "Balanced default policy"}
             </span>
           </article>
-          <article className="studio-settings-subcard">
+          <article className="chat-settings-subcard">
             <strong>Preview shape</strong>
             <span>
               Carry {previewDecisionCounts.carry_forward} · Summary{" "}
@@ -552,7 +552,7 @@ export function SettingsKnowledgeSection({
               {previewDecisionCounts.pruned}
             </span>
           </article>
-          <article className="studio-settings-subcard">
+          <article className="chat-settings-subcard">
             <strong>Latest record</strong>
             <span>
               {latestCompaction
@@ -563,10 +563,10 @@ export function SettingsKnowledgeSection({
             </span>
           </article>
         </div>
-        <div className="studio-settings-actions">
+        <div className="chat-settings-actions">
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             disabled={
               compactionBusy || !compactionSnapshot?.activeSessionId || recommendedPolicyMatches
             }
@@ -578,7 +578,7 @@ export function SettingsKnowledgeSection({
           </button>
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             disabled={compactionBusy || !compactionSnapshot?.activeSessionId}
             onClick={() => {
               void compactSession();
@@ -588,7 +588,7 @@ export function SettingsKnowledgeSection({
           </button>
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             disabled={
               compactionBusy ||
               compactionPoliciesMatch(activeCompactionPolicy, defaultCompactionPolicy())
@@ -601,7 +601,7 @@ export function SettingsKnowledgeSection({
           </button>
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             disabled={compactionBusy}
             onClick={() => {
               void refreshCompaction();
@@ -611,9 +611,9 @@ export function SettingsKnowledgeSection({
           </button>
         </div>
         {compactionRecommendation?.recommendedPolicyReasonLabels.length ? (
-          <div className="studio-settings-summary-grid">
+          <div className="chat-settings-summary-grid">
             {compactionRecommendation.recommendedPolicyReasonLabels.map((reason) => (
-              <article className="studio-settings-subcard" key={reason}>
+              <article className="chat-settings-subcard" key={reason}>
                 <strong>Recommendation reason</strong>
                 <span>{reason}</span>
               </article>
@@ -621,9 +621,9 @@ export function SettingsKnowledgeSection({
           </div>
         ) : null}
         {compactionRecommendation?.resumeSafeguardLabels.length ? (
-          <div className="studio-settings-summary-grid">
+          <div className="chat-settings-summary-grid">
             {compactionRecommendation.resumeSafeguardLabels.map((label) => (
-              <article className="studio-settings-subcard" key={label}>
+              <article className="chat-settings-subcard" key={label}>
                 <strong>Resume safeguard</strong>
                 <span>{label}</span>
               </article>
@@ -631,36 +631,36 @@ export function SettingsKnowledgeSection({
           </div>
         ) : null}
         {compactionPreview ? (
-          <div className="studio-settings-summary-grid">
-            <article className="studio-settings-subcard">
+          <div className="chat-settings-summary-grid">
+            <article className="chat-settings-subcard">
               <strong>Preview span</strong>
               <span>{compactionPreview.preCompactionSpan}</span>
             </article>
-            <article className="studio-settings-subcard">
+            <article className="chat-settings-subcard">
               <strong>Resume anchor</strong>
               <span>{compactionPreview.resumeAnchor}</span>
             </article>
-            <article className="studio-settings-subcard">
+            <article className="chat-settings-subcard">
               <strong>Preview summary</strong>
               <span>{compactionPreview.summary}</span>
             </article>
           </div>
         ) : (
-          <p className="studio-settings-body">
+          <p className="chat-settings-body">
             No retained-session compaction preview is available yet.
           </p>
         )}
         {latestCompaction ? (
-          <div className="studio-settings-summary-grid">
-            <article className="studio-settings-subcard">
+          <div className="chat-settings-summary-grid">
+            <article className="chat-settings-subcard">
               <strong>Last applied policy</strong>
               <span>{compactionPolicySummary(latestCompaction.policy)}</span>
             </article>
-            <article className="studio-settings-subcard">
+            <article className="chat-settings-subcard">
               <strong>Last run</strong>
               <span>{formatSettingsTime(latestCompaction.compactedAtMs)}</span>
             </article>
-            <article className="studio-settings-subcard">
+            <article className="chat-settings-subcard">
               <strong>Retained shape</strong>
               <span>
                 Carry {latestDecisionCounts.carry_forward} · Summary{" "}
@@ -668,7 +668,7 @@ export function SettingsKnowledgeSection({
                 {latestDecisionCounts.pruned}
               </span>
             </article>
-            <article className="studio-settings-subcard">
+            <article className="chat-settings-subcard">
               <strong>Last anchor</strong>
               <span>{latestCompaction.resumeAnchor}</span>
             </article>
@@ -676,29 +676,29 @@ export function SettingsKnowledgeSection({
         ) : null}
       </article>
 
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Knowledge</span>
+            <span className="chat-settings-card-eyebrow">Knowledge</span>
             <h2>Collections and retrieval scopes</h2>
           </div>
-          <span className="studio-settings-pill">
+          <span className="chat-settings-pill">
             {knowledgeCollections.length} collections
           </span>
         </div>
-        <p className="studio-settings-body">
+        <p className="chat-settings-body">
           Collections now land in `ioi-memory` as durable, embedding-backed
           knowledge entries. Each entry gets its own retrieval scope so agent
           IDE flows can target or exclude it cleanly.
         </p>
         {knowledgeMessage ? (
-          <p className="studio-settings-success">{knowledgeMessage}</p>
+          <p className="chat-settings-success">{knowledgeMessage}</p>
         ) : null}
         {knowledgeError ? (
-          <p className="studio-settings-error">{knowledgeError}</p>
+          <p className="chat-settings-error">{knowledgeError}</p>
         ) : null}
-        <div className="studio-settings-profile-grid">
-          <label className="studio-settings-field">
+        <div className="chat-settings-profile-grid">
+          <label className="chat-settings-field">
             <span>Collection name</span>
             <input
               value={knowledgeCollectionName}
@@ -706,7 +706,7 @@ export function SettingsKnowledgeSection({
               placeholder="research-notes"
             />
           </label>
-          <label className="studio-settings-field studio-settings-field--wide">
+          <label className="chat-settings-field chat-settings-field--wide">
             <span>Description</span>
             <input
               value={knowledgeCollectionDescription}
@@ -717,10 +717,10 @@ export function SettingsKnowledgeSection({
             />
           </label>
         </div>
-        <div className="studio-settings-actions">
+        <div className="chat-settings-actions">
           <button
             type="button"
-            className="studio-settings-secondary"
+            className="chat-settings-secondary"
             disabled={knowledgeBusy || knowledgeCollectionName.trim().length === 0}
             onClick={() =>
               void runKnowledgeAction(async () => {
@@ -739,30 +739,30 @@ export function SettingsKnowledgeSection({
         </div>
       </article>
 
-      <article className="studio-settings-card">
-        <div className="studio-settings-card-head">
+      <article className="chat-settings-card">
+        <div className="chat-settings-card-head">
           <div>
-            <span className="studio-settings-card-eyebrow">Collections</span>
+            <span className="chat-settings-card-eyebrow">Collections</span>
             <h2>Registry</h2>
           </div>
-          <span className="studio-settings-pill">
+          <span className="chat-settings-pill">
             {knowledgeLoading ? "Loading" : `${knowledgeCollections.length} live`}
           </span>
         </div>
         {knowledgeLoading ? (
-          <p className="studio-settings-body">Loading knowledge collections...</p>
+          <p className="chat-settings-body">Loading knowledge collections...</p>
         ) : knowledgeCollections.length === 0 ? (
-          <p className="studio-settings-body">
+          <p className="chat-settings-body">
             No knowledge collections exist yet. Create one above to begin
             ingesting files or durable notes.
           </p>
         ) : (
-          <div className="studio-settings-summary-grid">
+          <div className="chat-settings-summary-grid">
             {knowledgeCollections.map((collection) => (
               <button
                 key={collection.collectionId}
                 type="button"
-                className={`studio-settings-subcard ${
+                className={`chat-settings-subcard ${
                   selectedKnowledgeCollection?.collectionId ===
                   collection.collectionId
                     ? "is-live"
@@ -785,49 +785,49 @@ export function SettingsKnowledgeSection({
       </article>
 
       {selectedKnowledgeCollection ? (
-        <article className="studio-settings-card">
-          <div className="studio-settings-card-head">
+        <article className="chat-settings-card">
+          <div className="chat-settings-card-head">
             <div>
-              <span className="studio-settings-card-eyebrow">
+              <span className="chat-settings-card-eyebrow">
                 Selected collection
               </span>
               <h2>{selectedKnowledgeCollection.label}</h2>
             </div>
-            <span className="studio-settings-pill">
+            <span className="chat-settings-pill">
               {selectedKnowledgeCollection.entries.length} entries
             </span>
           </div>
-          <p className="studio-settings-body">
+          <p className="chat-settings-body">
             Scope root: <code>{selectedKnowledgeCollection.collectionId}</code>.
             Entries are kept as independent retrieval scopes for clean
             delete/reset semantics.
           </p>
-          <div className="studio-settings-summary-grid">
-            <article className="studio-settings-subcard">
+          <div className="chat-settings-summary-grid">
+            <article className="chat-settings-subcard">
               <strong>Entries</strong>
               <span>{selectedKnowledgeCollection.entries.length}</span>
             </article>
-            <article className="studio-settings-subcard">
+            <article className="chat-settings-subcard">
               <strong>Sources</strong>
               <span>{selectedKnowledgeCollection.sources.length}</span>
             </article>
-            <article className="studio-settings-subcard">
+            <article className="chat-settings-subcard">
               <strong>Updated</strong>
               <span>
                 {formatSettingsTime(selectedKnowledgeCollection.updatedAtMs)}
               </span>
             </article>
-            <article className="studio-settings-subcard">
+            <article className="chat-settings-subcard">
               <strong>Created</strong>
               <span>
                 {formatSettingsTime(selectedKnowledgeCollection.createdAtMs)}
               </span>
             </article>
           </div>
-          <div className="studio-settings-actions">
+          <div className="chat-settings-actions">
             <button
               type="button"
-              className="studio-settings-secondary"
+              className="chat-settings-secondary"
               disabled={knowledgeBusy}
               onClick={() =>
                 void runKnowledgeAction(
@@ -843,7 +843,7 @@ export function SettingsKnowledgeSection({
             </button>
             <button
               type="button"
-              className="studio-settings-danger"
+              className="chat-settings-danger"
               disabled={knowledgeBusy}
               onClick={() =>
                 void runKnowledgeAction(async () => {
@@ -863,16 +863,16 @@ export function SettingsKnowledgeSection({
       ) : null}
 
       {selectedKnowledgeCollection ? (
-        <article className="studio-settings-card">
-          <div className="studio-settings-card-head">
+        <article className="chat-settings-card">
+          <div className="chat-settings-card-head">
             <div>
-              <span className="studio-settings-card-eyebrow">Ingestion</span>
+              <span className="chat-settings-card-eyebrow">Ingestion</span>
               <h2>Add entries</h2>
             </div>
-            <span className="studio-settings-pill">Retrieval-ready</span>
+            <span className="chat-settings-pill">Retrieval-ready</span>
           </div>
-          <div className="studio-settings-profile-grid">
-            <label className="studio-settings-field">
+          <div className="chat-settings-profile-grid">
+            <label className="chat-settings-field">
               <span>Entry title</span>
               <input
                 value={knowledgeEntryTitle}
@@ -880,7 +880,7 @@ export function SettingsKnowledgeSection({
                 placeholder="Q2 launch notes"
               />
             </label>
-            <label className="studio-settings-field studio-settings-field--wide">
+            <label className="chat-settings-field chat-settings-field--wide">
               <span>Note content</span>
               <textarea
                 value={knowledgeEntryContent}
@@ -889,10 +889,10 @@ export function SettingsKnowledgeSection({
                 rows={6}
               />
             </label>
-            <div className="studio-settings-actions">
+            <div className="chat-settings-actions">
               <button
                 type="button"
-                className="studio-settings-secondary"
+                className="chat-settings-secondary"
                 disabled={
                   knowledgeBusy ||
                   knowledgeEntryTitle.trim().length === 0 ||
@@ -914,8 +914,8 @@ export function SettingsKnowledgeSection({
               </button>
             </div>
           </div>
-          <div className="studio-settings-profile-grid">
-            <label className="studio-settings-field studio-settings-field--wide">
+          <div className="chat-settings-profile-grid">
+            <label className="chat-settings-field chat-settings-field--wide">
               <span>Import file path</span>
               <input
                 value={knowledgeImportPath}
@@ -923,10 +923,10 @@ export function SettingsKnowledgeSection({
                 placeholder="/abs/path/to/doc.md"
               />
             </label>
-            <div className="studio-settings-actions">
+            <div className="chat-settings-actions">
               <button
                 type="button"
-                className="studio-settings-secondary"
+                className="chat-settings-secondary"
                 disabled={knowledgeBusy || knowledgeImportPath.trim().length === 0}
                 onClick={() =>
                   void runKnowledgeAction(async () => {
@@ -946,18 +946,18 @@ export function SettingsKnowledgeSection({
       ) : null}
 
       {selectedKnowledgeCollection ? (
-        <article className="studio-settings-card">
-          <div className="studio-settings-card-head">
+        <article className="chat-settings-card">
+          <div className="chat-settings-card-head">
             <div>
-              <span className="studio-settings-card-eyebrow">Sources</span>
+              <span className="chat-settings-card-eyebrow">Sources</span>
               <h2>Registered source endpoints</h2>
             </div>
-            <span className="studio-settings-pill">
+            <span className="chat-settings-pill">
               {selectedKnowledgeCollection.sources.length} configured
             </span>
           </div>
-          <div className="studio-settings-profile-grid">
-            <label className="studio-settings-field studio-settings-field--wide">
+          <div className="chat-settings-profile-grid">
+            <label className="chat-settings-field chat-settings-field--wide">
               <span>Source URI or path</span>
               <input
                 value={knowledgeSourceUri}
@@ -965,7 +965,7 @@ export function SettingsKnowledgeSection({
                 placeholder="https://docs.example.com or /data/docs"
               />
             </label>
-            <label className="studio-settings-field">
+            <label className="chat-settings-field">
               <span>Poll interval minutes</span>
               <input
                 value={knowledgeSourceInterval}
@@ -976,10 +976,10 @@ export function SettingsKnowledgeSection({
               />
             </label>
           </div>
-          <div className="studio-settings-actions">
+          <div className="chat-settings-actions">
             <button
               type="button"
-              className="studio-settings-secondary"
+              className="chat-settings-secondary"
               disabled={knowledgeBusy || knowledgeSourceUri.trim().length === 0}
               onClick={() =>
                 void runKnowledgeAction(async () => {
@@ -998,35 +998,35 @@ export function SettingsKnowledgeSection({
               Add source
             </button>
           </div>
-          <div className="studio-settings-stack studio-settings-stack--compact">
+          <div className="chat-settings-stack chat-settings-stack--compact">
             {selectedKnowledgeCollection.sources.length === 0 ? (
-              <p className="studio-settings-body">
+              <p className="chat-settings-body">
                 No recurring sources are registered for this collection yet.
               </p>
             ) : (
               selectedKnowledgeCollection.sources.map((source) => (
-                <article key={source.sourceId} className="studio-settings-subcard">
-                  <div className="studio-settings-subcard-head">
+                <article key={source.sourceId} className="chat-settings-subcard">
+                  <div className="chat-settings-subcard-head">
                     <strong>{source.uri}</strong>
                     <span>{humanize(source.syncStatus)}</span>
                   </div>
-                  <div className="studio-settings-chip-row">
-                    <span className="studio-settings-chip">
+                  <div className="chat-settings-chip-row">
+                    <span className="chat-settings-chip">
                       {humanize(source.kind)}
                     </span>
-                    <span className="studio-settings-chip">
+                    <span className="chat-settings-chip">
                       {source.enabled ? "Enabled" : "Disabled"}
                     </span>
                     {source.pollIntervalMinutes ? (
-                      <span className="studio-settings-chip">
+                      <span className="chat-settings-chip">
                         Every {source.pollIntervalMinutes} min
                       </span>
                     ) : null}
                   </div>
-                  <div className="studio-settings-actions">
+                  <div className="chat-settings-actions">
                     <button
                       type="button"
-                      className="studio-settings-secondary"
+                      className="chat-settings-secondary"
                       disabled={knowledgeBusy}
                       onClick={() =>
                         void runKnowledgeAction(
@@ -1050,16 +1050,16 @@ export function SettingsKnowledgeSection({
       ) : null}
 
       {selectedKnowledgeCollection ? (
-        <article className="studio-settings-card">
-          <div className="studio-settings-card-head">
+        <article className="chat-settings-card">
+          <div className="chat-settings-card-head">
             <div>
-              <span className="studio-settings-card-eyebrow">Search</span>
+              <span className="chat-settings-card-eyebrow">Search</span>
               <h2>Collection retrieval check</h2>
             </div>
-            <span className="studio-settings-pill">Hybrid</span>
+            <span className="chat-settings-pill">Hybrid</span>
           </div>
-          <div className="studio-settings-profile-grid">
-            <label className="studio-settings-field studio-settings-field--wide">
+          <div className="chat-settings-profile-grid">
+            <label className="chat-settings-field chat-settings-field--wide">
               <span>Search query</span>
               <input
                 value={knowledgeSearchQuery}
@@ -1068,10 +1068,10 @@ export function SettingsKnowledgeSection({
               />
             </label>
           </div>
-          <div className="studio-settings-actions">
+          <div className="chat-settings-actions">
             <button
               type="button"
-              className="studio-settings-secondary"
+              className="chat-settings-secondary"
               disabled={
                 knowledgeSearchLoading || knowledgeSearchQuery.trim().length === 0
               }
@@ -1095,20 +1095,20 @@ export function SettingsKnowledgeSection({
               {knowledgeSearchLoading ? "Searching..." : "Search collection"}
             </button>
           </div>
-          <div className="studio-settings-stack studio-settings-stack--compact">
+          <div className="chat-settings-stack chat-settings-stack--compact">
             {knowledgeSearchResults.map((result) => (
               <article
                 key={`${result.archivalRecordId}-${result.entryId}`}
-                className="studio-settings-subcard"
+                className="chat-settings-subcard"
               >
-                <div className="studio-settings-subcard-head">
+                <div className="chat-settings-subcard-head">
                   <strong>{result.title}</strong>
                   <span>{Math.round(result.score * 100)}%</span>
                 </div>
-                <div className="studio-settings-chip-row">
-                  <span className="studio-settings-chip">{result.entryId}</span>
-                  <span className="studio-settings-chip">{result.trustLevel}</span>
-                  <span className="studio-settings-chip">{result.scope}</span>
+                <div className="chat-settings-chip-row">
+                  <span className="chat-settings-chip">{result.entryId}</span>
+                  <span className="chat-settings-chip">{result.trustLevel}</span>
+                  <span className="chat-settings-chip">{result.scope}</span>
                 </div>
                 <p>{result.snippet}</p>
               </article>
@@ -1116,7 +1116,7 @@ export function SettingsKnowledgeSection({
             {!knowledgeSearchLoading &&
             knowledgeSearchQuery.trim().length > 0 &&
             knowledgeSearchResults.length === 0 ? (
-              <p className="studio-settings-body">
+              <p className="chat-settings-body">
                 No hits yet for this query in the selected collection.
               </p>
             ) : null}
@@ -1125,42 +1125,42 @@ export function SettingsKnowledgeSection({
       ) : null}
 
       {selectedKnowledgeCollection ? (
-        <article className="studio-settings-card">
-          <div className="studio-settings-card-head">
+        <article className="chat-settings-card">
+          <div className="chat-settings-card-head">
             <div>
-              <span className="studio-settings-card-eyebrow">Entries</span>
+              <span className="chat-settings-card-eyebrow">Entries</span>
               <h2>Stored artifacts and scopes</h2>
             </div>
-            <span className="studio-settings-pill">
+            <span className="chat-settings-pill">
               {selectedKnowledgeCollection.entries.length} stored
             </span>
           </div>
-          <div className="studio-settings-stack studio-settings-stack--compact">
+          <div className="chat-settings-stack chat-settings-stack--compact">
             {selectedKnowledgeCollection.entries.length === 0 ? (
-              <p className="studio-settings-body">
+              <p className="chat-settings-body">
                 This collection does not have any entries yet.
               </p>
             ) : (
               selectedKnowledgeCollection.entries.map((entry) => (
-                <article key={entry.entryId} className="studio-settings-subcard">
-                  <div className="studio-settings-subcard-head">
+                <article key={entry.entryId} className="chat-settings-subcard">
+                  <div className="chat-settings-subcard-head">
                     <strong>{entry.title}</strong>
                     <span>{humanize(entry.kind)}</span>
                   </div>
-                  <div className="studio-settings-chip-row">
-                    <span className="studio-settings-chip">{entry.scope}</span>
-                    <span className="studio-settings-chip">
+                  <div className="chat-settings-chip-row">
+                    <span className="chat-settings-chip">{entry.scope}</span>
+                    <span className="chat-settings-chip">
                       {entry.chunkCount} chunks
                     </span>
-                    <span className="studio-settings-chip">
+                    <span className="chat-settings-chip">
                       {entry.byteCount} bytes
                     </span>
                   </div>
                   <p>{entry.contentPreview}</p>
-                  <div className="studio-settings-actions">
+                  <div className="chat-settings-actions">
                     <button
                       type="button"
-                      className="studio-settings-secondary"
+                      className="chat-settings-secondary"
                       disabled={knowledgeEntryLoading}
                       onClick={async () => {
                         setKnowledgeEntryLoading(true);
@@ -1183,7 +1183,7 @@ export function SettingsKnowledgeSection({
                     </button>
                     <button
                       type="button"
-                      className="studio-settings-danger"
+                      className="chat-settings-danger"
                       disabled={knowledgeBusy}
                       onClick={() =>
                         void runKnowledgeAction(
@@ -1214,17 +1214,17 @@ export function SettingsKnowledgeSection({
       ) : null}
 
       {selectedKnowledgeEntryContent ? (
-        <article className="studio-settings-card">
-          <div className="studio-settings-card-head">
+        <article className="chat-settings-card">
+          <div className="chat-settings-card-head">
             <div>
-              <span className="studio-settings-card-eyebrow">Entry content</span>
+              <span className="chat-settings-card-eyebrow">Entry content</span>
               <h2>{selectedKnowledgeEntryContent.title}</h2>
             </div>
-            <span className="studio-settings-pill">
+            <span className="chat-settings-pill">
               {selectedKnowledgeEntryContent.byteCount} bytes
             </span>
           </div>
-          <label className="studio-settings-field studio-settings-field--wide">
+          <label className="chat-settings-field chat-settings-field--wide">
             <span>Materialized artifact</span>
             <textarea
               value={selectedKnowledgeEntryContent.content}

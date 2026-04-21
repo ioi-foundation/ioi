@@ -1,4 +1,4 @@
-import { openStudioShellView } from "@ioi/agent-ide";
+import { openChatShellView } from "@ioi/agent-ide";
 import { useMemo } from "react";
 import type {
   ArtifactHubViewKey,
@@ -117,9 +117,9 @@ export function DoctorView({
                 <button
                   type="button"
                   className="artifact-hub-open-btn secondary"
-                  onClick={() => void openStudioShellView("settings")}
+                  onClick={() => void openChatShellView("settings")}
                 >
-                  Open Studio Settings
+                  Open Chat Settings
                 </button>
               ) : null}
             </div>
@@ -135,7 +135,7 @@ export function DoctorView({
         <p>
           Spotlight Doctor is a projection over the same kernel snapshots that
           power Branches, Compact, Permissions, Plugins, Server, Hooks, Remote
-          Env, and Studio diagnostics.
+          Env, and Chat diagnostics.
         </p>
         <div className="artifact-hub-files-meta artifact-hub-permissions__meta">
           <span>{localEngineSnapshot?.capabilities.length ?? 0} capability families</span>
@@ -160,9 +160,9 @@ export function DoctorView({
           <button
             type="button"
             className="artifact-hub-open-btn secondary"
-            onClick={() => void openStudioShellView("settings")}
+            onClick={() => void openChatShellView("settings")}
           >
-            Open Studio Diagnostics
+            Open Chat Diagnostics
           </button>
         </div>
       </section>

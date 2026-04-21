@@ -3,7 +3,10 @@ use crate::models::VoiceInputTranscriptionRequest;
 use async_trait::async_trait;
 use ioi_api::vm::inference::{InferenceRuntime, TranscriptionRequest, TranscriptionResult};
 use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::{StudioRuntimeProvenance, StudioRuntimeProvenanceKind};
+use ioi_types::app::{
+    ChatRuntimeProvenance as ChatRuntimeProvenance,
+    ChatRuntimeProvenanceKind as ChatRuntimeProvenanceKind,
+};
 use ioi_types::error::VmError;
 use std::path::Path;
 use std::sync::Arc;
@@ -40,9 +43,9 @@ impl InferenceRuntime for VoiceTestRuntime {
         Ok(())
     }
 
-    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
-        StudioRuntimeProvenance {
-            kind: StudioRuntimeProvenanceKind::FixtureRuntime,
+    fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
+        ChatRuntimeProvenance {
+            kind: ChatRuntimeProvenanceKind::FixtureRuntime,
             label: "voice-test-runtime".to_string(),
             model: Some("voice-test-runtime".to_string()),
             endpoint: None,

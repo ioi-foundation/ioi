@@ -125,7 +125,7 @@ export function useSessionDeferredFocus({
   }, [delayMs, enabled, focusRef, ...focusDeps]);
 }
 
-export interface UseSessionStudioArtifactDrawerOptions {
+export interface UseSessionChatArtifactDrawerOptions {
   enabled: boolean;
   artifactAvailable: boolean;
   artifactExpected?: boolean;
@@ -134,14 +134,14 @@ export interface UseSessionStudioArtifactDrawerOptions {
   setVisible: Dispatch<SetStateAction<boolean>>;
 }
 
-export function useSessionStudioArtifactDrawer({
+export function useSessionChatArtifactDrawer({
   enabled,
   artifactAvailable,
   artifactExpected = false,
   activeSessionId = null,
   fallbackSessionId = null,
   setVisible,
-}: UseSessionStudioArtifactDrawerOptions) {
+}: UseSessionChatArtifactDrawerOptions) {
   const autoOpenedSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {

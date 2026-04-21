@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AssistantWorkbenchView,
   hidePillShell,
-  openStudioAutopilotIntent,
-  openStudioCapabilityTarget,
-  openStudioPolicyTarget,
-  openStudioShellView,
+  openChatAutopilotIntent,
+  openChatCapabilityTarget,
+  openChatPolicyTarget,
+  openChatShellView,
   showGateShell,
   showSpotlightShell,
   useAssistantWorkbenchState,
@@ -161,7 +161,7 @@ export function PillWindow() {
     if (badgeCount > 0) {
       return `${badgeCount} pending inbox item${badgeCount === 1 ? "" : "s"}.`;
     }
-    return "Open Spotlight for a live run, or Studio for deeper inspection.";
+    return "Open Spotlight for a live run, or Chat for deeper inspection.";
   }, [badgeCount, focusItem, task]);
 
   const handleOpenSpotlight = useCallback(async () => {
@@ -169,18 +169,18 @@ export function PillWindow() {
   }, []);
 
   const handleOpenChat = useCallback(async (view: string) => {
-    await openStudioShellView(view);
+    await openChatShellView(view);
   }, []);
 
   const openCapabilityTarget = useCallback(async (connectorId?: string | null) => {
-    await openStudioCapabilityTarget(
+    await openChatCapabilityTarget(
       connectorId,
       connectorId ? "setup" : undefined,
     );
   }, []);
 
   const openPolicyTarget = useCallback(async (connectorId?: string | null) => {
-    await openStudioPolicyTarget(connectorId);
+    await openChatPolicyTarget(connectorId);
   }, []);
 
   const handleOpenGate = useCallback(async () => {
@@ -413,7 +413,7 @@ export function PillWindow() {
             void handleOpenChat("autopilot");
           }}
         >
-          Studio
+          Chat
         </button>
         <button
           type="button"
@@ -621,7 +621,7 @@ export function PillWindow() {
             }}
             onOpenAutopilot={(intent) => {
               setShowWorkbench(false);
-              void openStudioAutopilotIntent(intent);
+              void openChatAutopilotIntent(intent);
             }}
           />
         </section>

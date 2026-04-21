@@ -17,12 +17,12 @@ export function ChatConversationSurface({
 }) {
   return (
     <div
-      className={`spot-studio-shell ${
+      className={`spot-chat-shell ${
         artifactVisible ? "is-artifact-open" : "is-artifact-collapsed"
       } ${artifactMenuVisible ? "is-artifact-menu-open" : ""}`}
     >
-      <div className="spot-studio-sidebar-shell-item">{sidebar}</div>
-      <div className="spot-studio-conversation-shell-item">{conversationSurface}</div>
+      <div className="spot-chat-sidebar-shell-item">{sidebar}</div>
+      <div className="spot-chat-conversation-shell-item">{conversationSurface}</div>
       {artifactDrawerVisible ? artifactDrawer : null}
     </div>
   );

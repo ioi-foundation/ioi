@@ -1,16 +1,16 @@
 use anyhow::{Context, Result};
-use ioi_api::studio::{
-    parse_studio_generated_artifact_payload, pdf_artifact_bytes, StudioArtifactBlueprint,
-    StudioArtifactCandidateSummary, StudioArtifactSelectedSkill, StudioArtifactTasteMemory,
-    StudioArtifactUxLifecycle, StudioArtifactValidationResult, StudioArtifactValidationStatus,
-    StudioGeneratedArtifactFile, StudioGeneratedArtifactPayload,
+use ioi_api::chat::{
+    parse_studio_generated_artifact_payload, pdf_artifact_bytes, ChatArtifactBlueprint,
+    ChatArtifactCandidateSummary, ChatArtifactSelectedSkill, ChatArtifactTasteMemory,
+    ChatArtifactUxLifecycle, ChatArtifactValidationResult, ChatArtifactValidationStatus,
+    ChatGeneratedArtifactFile, ChatGeneratedArtifactPayload,
 };
 use ioi_types::app::{
-    StudioArtifactFailure, StudioArtifactFileRole, StudioArtifactLifecycleState,
-    StudioArtifactManifest, StudioArtifactManifestFile, StudioArtifactManifestStorage,
-    StudioArtifactManifestTab, StudioArtifactManifestVerification, StudioArtifactPersistenceMode,
-    StudioArtifactTabKind, StudioArtifactVerificationStatus, StudioOutcomeArtifactRequest,
-    StudioRendererKind, StudioRuntimeProvenance,
+    ChatArtifactFailure, ChatArtifactFileRole, ChatArtifactLifecycleState,
+    ChatArtifactManifest, ChatArtifactManifestFile, ChatArtifactManifestStorage,
+    ChatArtifactManifestTab, ChatArtifactManifestVerification, ChatArtifactPersistenceMode,
+    ChatArtifactTabKind, ChatArtifactVerificationStatus, ChatOutcomeArtifactRequest,
+    ChatRendererKind, ChatRuntimeProvenance,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -46,13 +46,13 @@ pub(super) fn run_validation_result(evidence_path: &Path, json_output: bool) -> 
 
 pub(super) fn derive_generated_artifact_title(prompt: &str) -> String {
     let trimmed = prompt.trim();
-    let first_line = trimmed.lines().next().unwrap_or("Studio artifact");
+    let first_line = trimmed.lines().next().unwrap_or("Chat artifact");
     let normalized = first_line
         .trim_start_matches("Create ")
         .trim_start_matches("create ")
         .trim();
     if normalized.is_empty() {
-        "Studio artifact".to_string()
+        "Chat artifact".to_string()
     } else {
         normalized.chars().take(72).collect::<String>()
     }
@@ -76,11 +76,11 @@ fn artifact_lane_receipt(
 }
 
 pub(super) fn build_artifact_lane_receipts(
-    blueprint: Option<&StudioArtifactBlueprint>,
-    selected_skills: &[StudioArtifactSelectedSkill],
-    candidate_summaries: &[StudioArtifactCandidateSummary],
-    validation: &StudioArtifactValidationResult,
-    ux_lifecycle: StudioArtifactUxLifecycle,
+    blueprint: Option<&ChatArtifactBlueprint>,
+    selected_skills: &[ChatArtifactSelectedSkill],
+    candidate_summaries: &[ChatArtifactCandidateSummary],
+    validation: &ChatArtifactValidationResult,
+    ux_lifecycle: ChatArtifactUxLifecycle,
 ) -> Vec<ArtifactLaneReceipt> {
     let component_families = blueprint
         .map(|resolved| {
@@ -207,7 +207,7 @@ pub(super) fn build_artifact_lane_receipts(
             "audit_findings",
             if validation.issue_classes.is_empty() && validation.truthfulness_warnings.is_empty() {
                 "success"
-            } else if validation.classification == StudioArtifactValidationStatus::Blocked {
+            } else if validation.classification == ChatArtifactValidationStatus::Blocked {
                 "blocked"
             } else {
                 "warning"
@@ -233,9 +233,9 @@ pub(super) fn build_artifact_lane_receipts(
         artifact_lane_receipt(
             "validation_findings",
             match validation.classification {
-                StudioArtifactValidationStatus::Pass => "success",
-                StudioArtifactValidationStatus::Repairable => "warning",
-                StudioArtifactValidationStatus::Blocked => "blocked",
+                ChatArtifactValidationStatus::Pass => "success",
+                ChatArtifactValidationStatus::Repairable => "warning",
+                ChatArtifactValidationStatus::Blocked => "blocked",
             },
             "Validation findings",
             format!(
@@ -297,7 +297,7 @@ pub(super) fn build_artifact_lane_receipts(
 pub(super) fn write_generated_payload(
     output: &Path,
     title: &str,
-    payload: &StudioGeneratedArtifactPayload,
+    payload: &ChatGeneratedArtifactPayload,
 ) -> Result<()> {
     for file in &payload.files {
         let target_path = output.join(&file.path);
@@ -325,7 +325,7 @@ pub(super) fn write_generated_payload(
     Ok(())
 }
 
-fn unwrap_nested_html_artifact_body(file: &StudioGeneratedArtifactFile) -> Option<String> {
+fn unwrap_nested_html_artifact_body(file: &ChatGeneratedArtifactFile) -> Option<String> {
     if !(file.mime.eq_ignore_ascii_case("text/html")
         || file.path.to_ascii_lowercase().ends_with(".html"))
     {
@@ -341,7 +341,7 @@ fn unwrap_nested_html_artifact_body(file: &StudioGeneratedArtifactFile) -> Optio
     let nested_primary = nested_payload.files.iter().find(|nested_file| {
         matches!(
             nested_file.role,
-            StudioArtifactFileRole::Primary | StudioArtifactFileRole::Export
+            ChatArtifactFileRole::Primary | ChatArtifactFileRole::Export
         ) && (nested_file.mime.eq_ignore_ascii_case("text/html")
             || nested_file.path.to_ascii_lowercase().ends_with(".html"))
     })?;
@@ -358,38 +358,38 @@ fn unwrap_nested_html_artifact_body(file: &StudioGeneratedArtifactFile) -> Optio
 }
 
 pub(super) fn generated_tabs_for_request(
-    request: &StudioOutcomeArtifactRequest,
-    payload: &StudioGeneratedArtifactPayload,
-) -> Vec<StudioArtifactManifestTab> {
+    request: &ChatOutcomeArtifactRequest,
+    payload: &ChatGeneratedArtifactPayload,
+) -> Vec<ChatArtifactManifestTab> {
     let recipe = workspace_recipe_for_request(request);
     let primary_path = payload
         .files
         .iter()
-        .find(|file| file.role == StudioArtifactFileRole::Primary)
+        .find(|file| file.role == ChatArtifactFileRole::Primary)
         .map(|file| file.path.clone())
         .or_else(|| payload.files.first().map(|file| file.path.clone()));
-    if request.renderer == StudioRendererKind::WorkspaceSurface {
+    if request.renderer == ChatRendererKind::WorkspaceSurface {
         return vec![
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "preview".to_string(),
                 label: "Preview".to_string(),
-                kind: StudioArtifactTabKind::Render,
-                renderer: Some(StudioRendererKind::HtmlIframe),
+                kind: ChatArtifactTabKind::Render,
+                renderer: Some(ChatRendererKind::HtmlIframe),
                 file_path: None,
                 lens: Some("preview".to_string()),
             },
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "workspace".to_string(),
                 label: "Workspace".to_string(),
-                kind: StudioArtifactTabKind::Workspace,
-                renderer: Some(StudioRendererKind::WorkspaceSurface),
+                kind: ChatArtifactTabKind::Workspace,
+                renderer: Some(ChatRendererKind::WorkspaceSurface),
                 file_path: Some(recipe.entry_document().to_string()),
                 lens: Some("code".to_string()),
             },
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "evidence".to_string(),
                 label: "Evidence".to_string(),
-                kind: StudioArtifactTabKind::Evidence,
+                kind: ChatArtifactTabKind::Evidence,
                 renderer: None,
                 file_path: None,
                 lens: Some("evidence".to_string()),
@@ -397,45 +397,45 @@ pub(super) fn generated_tabs_for_request(
         ];
     }
     match request.renderer {
-        StudioRendererKind::DownloadCard => vec![
-            StudioArtifactManifestTab {
+        ChatRendererKind::DownloadCard => vec![
+            ChatArtifactManifestTab {
                 id: "download".to_string(),
                 label: "Download".to_string(),
-                kind: StudioArtifactTabKind::Download,
-                renderer: Some(StudioRendererKind::DownloadCard),
+                kind: ChatArtifactTabKind::Download,
+                renderer: Some(ChatRendererKind::DownloadCard),
                 file_path: primary_path,
                 lens: Some("download".to_string()),
             },
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "evidence".to_string(),
                 label: "Evidence".to_string(),
-                kind: StudioArtifactTabKind::Evidence,
+                kind: ChatArtifactTabKind::Evidence,
                 renderer: None,
                 file_path: None,
                 lens: Some("evidence".to_string()),
             },
         ],
         _ => vec![
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "render".to_string(),
                 label: "Render".to_string(),
-                kind: StudioArtifactTabKind::Render,
+                kind: ChatArtifactTabKind::Render,
                 renderer: Some(request.renderer),
                 file_path: primary_path.clone(),
                 lens: Some("render".to_string()),
             },
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "source".to_string(),
                 label: "Source".to_string(),
-                kind: StudioArtifactTabKind::Source,
+                kind: ChatArtifactTabKind::Source,
                 renderer: None,
                 file_path: primary_path,
                 lens: Some("source".to_string()),
             },
-            StudioArtifactManifestTab {
+            ChatArtifactManifestTab {
                 id: "evidence".to_string(),
                 label: "Evidence".to_string(),
-                kind: StudioArtifactTabKind::Evidence,
+                kind: ChatArtifactTabKind::Evidence,
                 renderer: None,
                 file_path: None,
                 lens: Some("evidence".to_string()),
@@ -445,24 +445,24 @@ pub(super) fn generated_tabs_for_request(
 }
 
 pub(super) fn manifest_verification_from_validation(
-    validation: &StudioArtifactValidationResult,
-    production_provenance: &StudioRuntimeProvenance,
-    acceptance_provenance: &StudioRuntimeProvenance,
-    failure: Option<&StudioArtifactFailure>,
-) -> StudioArtifactManifestVerification {
+    validation: &ChatArtifactValidationResult,
+    production_provenance: &ChatRuntimeProvenance,
+    acceptance_provenance: &ChatRuntimeProvenance,
+    failure: Option<&ChatArtifactFailure>,
+) -> ChatArtifactManifestVerification {
     let lifecycle_state = match validation.classification {
-        StudioArtifactValidationStatus::Pass => StudioArtifactLifecycleState::Ready,
-        StudioArtifactValidationStatus::Repairable => StudioArtifactLifecycleState::Partial,
-        StudioArtifactValidationStatus::Blocked => StudioArtifactLifecycleState::Blocked,
+        ChatArtifactValidationStatus::Pass => ChatArtifactLifecycleState::Ready,
+        ChatArtifactValidationStatus::Repairable => ChatArtifactLifecycleState::Partial,
+        ChatArtifactValidationStatus::Blocked => ChatArtifactLifecycleState::Blocked,
     };
     let status = match lifecycle_state {
-        StudioArtifactLifecycleState::Ready => StudioArtifactVerificationStatus::Ready,
-        StudioArtifactLifecycleState::Partial => StudioArtifactVerificationStatus::Partial,
-        StudioArtifactLifecycleState::Blocked => StudioArtifactVerificationStatus::Blocked,
-        _ => StudioArtifactVerificationStatus::Failed,
+        ChatArtifactLifecycleState::Ready => ChatArtifactVerificationStatus::Ready,
+        ChatArtifactLifecycleState::Partial => ChatArtifactVerificationStatus::Partial,
+        ChatArtifactLifecycleState::Blocked => ChatArtifactVerificationStatus::Blocked,
+        _ => ChatArtifactVerificationStatus::Failed,
     };
 
-    StudioArtifactManifestVerification {
+    ChatArtifactManifestVerification {
         status,
         lifecycle_state,
         summary: validation.rationale.clone(),
@@ -474,24 +474,24 @@ pub(super) fn manifest_verification_from_validation(
 
 pub(super) fn build_generated_manifest(
     title: &str,
-    request: &StudioOutcomeArtifactRequest,
-    payload: &StudioGeneratedArtifactPayload,
-    validation: &StudioArtifactValidationResult,
-    production_provenance: &StudioRuntimeProvenance,
-    acceptance_provenance: &StudioRuntimeProvenance,
-    failure: Option<&StudioArtifactFailure>,
-) -> StudioArtifactManifest {
+    request: &ChatOutcomeArtifactRequest,
+    payload: &ChatGeneratedArtifactPayload,
+    validation: &ChatArtifactValidationResult,
+    production_provenance: &ChatRuntimeProvenance,
+    acceptance_provenance: &ChatRuntimeProvenance,
+    failure: Option<&ChatArtifactFailure>,
+) -> ChatArtifactManifest {
     let mut files = payload
         .files
         .iter()
-        .map(|file| StudioArtifactManifestFile {
+        .map(|file| ChatArtifactManifestFile {
             path: file.path.clone(),
             mime: file.mime.clone(),
             role: match file.role {
-                StudioArtifactFileRole::Primary => StudioArtifactFileRole::Primary,
-                StudioArtifactFileRole::Source => StudioArtifactFileRole::Source,
-                StudioArtifactFileRole::Export => StudioArtifactFileRole::Export,
-                StudioArtifactFileRole::Supporting => StudioArtifactFileRole::Supporting,
+                ChatArtifactFileRole::Primary => ChatArtifactFileRole::Primary,
+                ChatArtifactFileRole::Source => ChatArtifactFileRole::Source,
+                ChatArtifactFileRole::Export => ChatArtifactFileRole::Export,
+                ChatArtifactFileRole::Supporting => ChatArtifactFileRole::Supporting,
             },
             renderable: file.renderable,
             downloadable: file.downloadable,
@@ -499,11 +499,11 @@ pub(super) fn build_generated_manifest(
             external_url: None,
         })
         .collect::<Vec<_>>();
-    if request.renderer == StudioRendererKind::WorkspaceSurface {
-        files.push(StudioArtifactManifestFile {
+    if request.renderer == ChatRendererKind::WorkspaceSurface {
+        files.push(ChatArtifactManifestFile {
             path: "artifact-manifest.json".to_string(),
             mime: "application/json".to_string(),
-            role: StudioArtifactFileRole::Supporting,
+            role: ChatArtifactFileRole::Supporting,
             renderable: false,
             downloadable: true,
             artifact_id: Some("generated-artifact-manifest".to_string()),
@@ -511,14 +511,14 @@ pub(super) fn build_generated_manifest(
         });
     }
 
-    StudioArtifactManifest {
+    ChatArtifactManifest {
         artifact_id: Uuid::new_v4().to_string(),
         title: title.to_string(),
         artifact_class: request.artifact_class,
         renderer: request.renderer,
-        primary_tab: if request.renderer == StudioRendererKind::WorkspaceSurface {
+        primary_tab: if request.renderer == ChatRendererKind::WorkspaceSurface {
             "workspace".to_string()
-        } else if request.renderer == StudioRendererKind::DownloadCard {
+        } else if request.renderer == ChatRendererKind::DownloadCard {
             "download".to_string()
         } else {
             "render".to_string()
@@ -531,8 +531,8 @@ pub(super) fn build_generated_manifest(
             acceptance_provenance,
             failure,
         ),
-        storage: Some(StudioArtifactManifestStorage {
-            mode: StudioArtifactPersistenceMode::ArtifactScoped,
+        storage: Some(ChatArtifactManifestStorage {
+            mode: ChatArtifactPersistenceMode::ArtifactScoped,
             api_label: Some("artifact storage".to_string()),
         }),
     }
@@ -576,7 +576,7 @@ pub(super) fn load_refinement_evidence(
                 return None;
             }
             let body = fs::read_to_string(&file_path).ok()?;
-            Some(StudioGeneratedArtifactFile {
+            Some(ChatGeneratedArtifactFile {
                 path: file.path.clone(),
                 mime: file.mime.clone(),
                 role: file.role,
@@ -603,7 +603,7 @@ pub(super) fn load_refinement_evidence(
         taste_memory: evidence
             .artifact_brief
             .as_ref()
-            .map(|brief| StudioArtifactTasteMemory {
+            .map(|brief| ChatArtifactTasteMemory {
                 directives: brief.style_directives.clone(),
                 summary: brief.artifact_thesis.clone(),
                 typography_preferences: Vec::new(),
@@ -617,11 +617,11 @@ pub(super) fn load_refinement_evidence(
     }))
 }
 
-pub(super) fn format_validation_label(validation: &StudioArtifactValidationResult) -> &'static str {
+pub(super) fn format_validation_label(validation: &ChatArtifactValidationResult) -> &'static str {
     match validation.classification {
-        StudioArtifactValidationStatus::Pass => "pass",
-        StudioArtifactValidationStatus::Repairable => "repairable",
-        StudioArtifactValidationStatus::Blocked => "blocked",
+        ChatArtifactValidationStatus::Pass => "pass",
+        ChatArtifactValidationStatus::Repairable => "repairable",
+        ChatArtifactValidationStatus::Blocked => "blocked",
     }
 }
 

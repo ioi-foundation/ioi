@@ -1,13 +1,13 @@
 use super::evidence::build_artifact_lane_receipts;
 use super::*;
-use ioi_api::studio::{
+use ioi_api::chat::{
     compile_studio_artifact_ir, derive_request_grounded_studio_artifact_brief,
     derive_studio_artifact_blueprint,
     generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator,
-    StudioArtifactPlanningContext, StudioArtifactRuntimePolicyProfile,
-    StudioArtifactSelectionTarget,
+    ChatArtifactPlanningContext, ChatArtifactRuntimePolicyProfile,
+    ChatArtifactSelectionTarget,
 };
-use ioi_drivers::studio_render::BrowserStudioArtifactRenderEvaluator;
+use ioi_drivers::chat_render::BrowserStudioArtifactRenderEvaluator;
 use std::env;
 
 pub(super) async fn run_route(
@@ -31,7 +31,7 @@ pub(super) async fn run_route(
         api_key,
         model_name,
     )?;
-    let provenance = runtime.studio_runtime_provenance();
+    let provenance = runtime.chat_runtime_provenance();
     let selected_targets = parse_selected_targets(selected_target_json)?;
     let (_, refinement_context) =
         load_selected_refinement(refinement_path, selected_targets.as_slice())?;
@@ -47,11 +47,11 @@ pub(super) async fn run_route(
         Err(error) => {
             emit_json_failure(
                 json_output,
-                StudioArtifactFailure {
-                    kind: StudioArtifactFailureKind::RoutingFailure,
+                ChatArtifactFailure {
+                    kind: ChatArtifactFailureKind::RoutingFailure,
                     code: if matches!(
                         provenance.kind,
-                        StudioRuntimeProvenanceKind::InferenceUnavailable
+                        ChatRuntimeProvenanceKind::InferenceUnavailable
                     ) {
                         "inference_unavailable"
                     } else {
@@ -102,12 +102,12 @@ pub(super) async fn route_with_runtime(
     runtime: Arc<dyn InferenceRuntime>,
     prompt: &str,
     active_artifact_id: Option<&str>,
-    active_artifact: Option<&StudioArtifactRefinementContext>,
-) -> Result<StudioOutcomePlanningPayload> {
+    active_artifact: Option<&ChatArtifactRefinementContext>,
+) -> Result<ChatOutcomePlanningPayload> {
     plan_studio_outcome_with_runtime(runtime, prompt, active_artifact_id, active_artifact)
         .await
         .map_err(|error| {
-            anyhow::anyhow!("Failed to route Studio prompt through local inference: {error}")
+            anyhow::anyhow!("Failed to route Chat prompt through local inference: {error}")
         })
 }
 
@@ -116,12 +116,12 @@ async fn route_with_runtime(
     runtime: Arc<dyn InferenceRuntime>,
     prompt: &str,
     active_artifact_id: Option<&str>,
-    active_artifact: Option<&StudioArtifactRefinementContext>,
-) -> Result<StudioOutcomePlanningPayload> {
+    active_artifact: Option<&ChatArtifactRefinementContext>,
+) -> Result<ChatOutcomePlanningPayload> {
     plan_studio_outcome_with_runtime(runtime, prompt, active_artifact_id, active_artifact)
         .await
         .map_err(|error| {
-            anyhow::anyhow!("Failed to route Studio prompt through local inference: {error}")
+            anyhow::anyhow!("Failed to route Chat prompt through local inference: {error}")
         })
 }
 
@@ -129,10 +129,10 @@ pub(super) fn select_generate_route_runtime(
     production_runtime: &Arc<dyn InferenceRuntime>,
     acceptance_runtime: &Arc<dyn InferenceRuntime>,
 ) -> Arc<dyn InferenceRuntime> {
-    let production_provenance = production_runtime.studio_runtime_provenance();
-    let acceptance_provenance = acceptance_runtime.studio_runtime_provenance();
-    if production_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
-        && acceptance_provenance.kind == StudioRuntimeProvenanceKind::RealLocalRuntime
+    let production_provenance = production_runtime.chat_runtime_provenance();
+    let acceptance_provenance = acceptance_runtime.chat_runtime_provenance();
+    if production_provenance.kind == ChatRuntimeProvenanceKind::RealLocalRuntime
+        && acceptance_provenance.kind == ChatRuntimeProvenanceKind::RealLocalRuntime
         && !runtime_provenance_matches(&production_provenance, &acceptance_provenance)
     {
         return acceptance_runtime.clone();
@@ -142,14 +142,14 @@ pub(super) fn select_generate_route_runtime(
 
 pub(super) fn parse_selected_targets(
     selected_target_json: &[String],
-) -> Result<Vec<StudioArtifactSelectionTarget>> {
+) -> Result<Vec<ChatArtifactSelectionTarget>> {
     selected_target_json
         .iter()
         .enumerate()
         .map(|(index, raw)| {
-            serde_json::from_str::<StudioArtifactSelectionTarget>(raw).with_context(|| {
+            serde_json::from_str::<ChatArtifactSelectionTarget>(raw).with_context(|| {
                 format!(
-                    "Failed to parse --selected-target-json value {} as a StudioArtifactSelectionTarget.",
+                    "Failed to parse --selected-target-json value {} as a ChatArtifactSelectionTarget.",
                     index + 1
                 )
             })
@@ -159,7 +159,7 @@ pub(super) fn parse_selected_targets(
 
 pub(super) fn apply_selected_targets_to_loaded_refinement(
     refinement: &mut Option<super::types::LoadedRefinementEvidence>,
-    selected_targets: &[StudioArtifactSelectionTarget],
+    selected_targets: &[ChatArtifactSelectionTarget],
 ) -> Result<()> {
     if selected_targets.is_empty() {
         return Ok(());
@@ -176,10 +176,10 @@ pub(super) fn apply_selected_targets_to_loaded_refinement(
 
 fn load_selected_refinement(
     refinement_path: Option<&Path>,
-    selected_targets: &[StudioArtifactSelectionTarget],
+    selected_targets: &[ChatArtifactSelectionTarget],
 ) -> Result<(
     Option<super::types::LoadedRefinementEvidence>,
-    Option<StudioArtifactRefinementContext>,
+    Option<ChatArtifactRefinementContext>,
 )> {
     let mut refinement = load_refinement_evidence(refinement_path)?;
     apply_selected_targets_to_loaded_refinement(&mut refinement, selected_targets)?;
@@ -191,8 +191,8 @@ fn load_selected_refinement(
 
 fn refinement_context_from_loaded_evidence(
     loaded: &super::types::LoadedRefinementEvidence,
-) -> StudioArtifactRefinementContext {
-    StudioArtifactRefinementContext {
+) -> ChatArtifactRefinementContext {
+    ChatArtifactRefinementContext {
         artifact_id: loaded.artifact_id.clone(),
         revision_id: loaded.revision_id.clone(),
         title: loaded.title.clone(),
@@ -208,7 +208,7 @@ fn refinement_context_from_loaded_evidence(
     }
 }
 
-fn configured_runtime_profile() -> StudioArtifactRuntimePolicyProfile {
+fn configured_runtime_profile() -> ChatArtifactRuntimePolicyProfile {
     [
         "AUTOPILOT_STUDIO_MODEL_ROUTING_PROFILE",
         "IOI_STUDIO_MODEL_ROUTING_PROFILE",
@@ -218,9 +218,9 @@ fn configured_runtime_profile() -> StudioArtifactRuntimePolicyProfile {
         env::var(key)
             .ok()
             .as_deref()
-            .and_then(StudioArtifactRuntimePolicyProfile::parse)
+            .and_then(ChatArtifactRuntimePolicyProfile::parse)
     })
-    .unwrap_or(StudioArtifactRuntimePolicyProfile::Auto)
+    .unwrap_or(ChatArtifactRuntimePolicyProfile::Auto)
 }
 
 pub(super) async fn run_generate(
@@ -249,7 +249,7 @@ pub(super) async fn run_generate(
         api_key,
         model_name,
     )?;
-    let provenance = runtime.studio_runtime_provenance();
+    let provenance = runtime.chat_runtime_provenance();
     let acceptance_runtime = build_acceptance_inference_runtime(
         runtime.clone(),
         fixture_path,
@@ -258,7 +258,7 @@ pub(super) async fn run_generate(
         acceptance_api_key,
         acceptance_model_name,
     )?;
-    let acceptance_provenance = acceptance_runtime.studio_runtime_provenance();
+    let acceptance_provenance = acceptance_runtime.chat_runtime_provenance();
     let route_runtime = select_generate_route_runtime(&runtime, &acceptance_runtime);
     let selected_targets = parse_selected_targets(selected_target_json)?;
     let (refinement, refinement_context) =
@@ -275,11 +275,11 @@ pub(super) async fn run_generate(
         Err(error) => {
             emit_json_failure(
                 json_output,
-                StudioArtifactFailure {
-                    kind: ioi_types::app::StudioArtifactFailureKind::RoutingFailure,
+                ChatArtifactFailure {
+                    kind: ioi_types::app::ChatArtifactFailureKind::RoutingFailure,
                     code: if matches!(
                         provenance.kind,
-                        ioi_types::app::StudioRuntimeProvenanceKind::InferenceUnavailable
+                        ioi_types::app::ChatRuntimeProvenanceKind::InferenceUnavailable
                     ) {
                         "inference_unavailable"
                     } else {
@@ -297,10 +297,10 @@ pub(super) async fn run_generate(
     let request = route
         .artifact
         .clone()
-        .ok_or_else(|| anyhow::anyhow!("Studio route did not produce an artifact request."))?;
+        .ok_or_else(|| anyhow::anyhow!("Chat route did not produce an artifact request."))?;
     let title = derive_generated_artifact_title(prompt);
     let bundle: Result<_, anyhow::Error> =
-        if request.renderer == StudioRendererKind::WorkspaceSurface {
+        if request.renderer == ChatRendererKind::WorkspaceSurface {
             generate_workspace_artifact_bundle_with_runtimes(
                 runtime,
                 acceptance_runtime,
@@ -321,7 +321,7 @@ pub(super) async fn run_generate(
             );
             let blueprint = derive_studio_artifact_blueprint(&request, &brief);
             let artifact_ir = compile_studio_artifact_ir(&request, &brief, &blueprint);
-            let planning_context = StudioArtifactPlanningContext {
+            let planning_context = ChatArtifactPlanningContext {
                 brief,
                 blueprint: Some(blueprint),
                 artifact_ir: Some(artifact_ir),
@@ -346,20 +346,20 @@ pub(super) async fn run_generate(
             .await
             .map_err(anyhow::Error::new)
         }
-        .map_err(|error| anyhow::anyhow!("Failed to generate Studio artifact bundle: {error}"));
+        .map_err(|error| anyhow::anyhow!("Failed to generate Chat artifact bundle: {error}"));
     let bundle = match bundle {
         Ok(bundle) => bundle,
         Err(error) => {
             emit_json_failure(
                 json_output,
-                StudioArtifactFailure {
-                    kind: StudioArtifactFailureKind::GenerationFailure,
+                ChatArtifactFailure {
+                    kind: ChatArtifactFailureKind::GenerationFailure,
                     code: if matches!(
                         provenance.kind,
-                        StudioRuntimeProvenanceKind::InferenceUnavailable
+                        ChatRuntimeProvenanceKind::InferenceUnavailable
                     ) || matches!(
                         acceptance_provenance.kind,
-                        StudioRuntimeProvenanceKind::InferenceUnavailable
+                        ChatRuntimeProvenanceKind::InferenceUnavailable
                     ) {
                         "inference_unavailable"
                     } else {
@@ -468,9 +468,9 @@ pub(super) async fn run_generate(
 
 fn emit_json_failure(
     json_output: bool,
-    error: StudioArtifactFailure,
-    production_provenance: Option<StudioRuntimeProvenance>,
-    acceptance_provenance: Option<StudioRuntimeProvenance>,
+    error: ChatArtifactFailure,
+    production_provenance: Option<ChatRuntimeProvenance>,
+    acceptance_provenance: Option<ChatRuntimeProvenance>,
 ) -> Result<()> {
     if json_output {
         println!(

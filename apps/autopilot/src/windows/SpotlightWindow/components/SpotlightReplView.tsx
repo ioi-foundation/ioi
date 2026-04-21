@@ -398,7 +398,7 @@ export function SpotlightReplView({
               className="artifact-hub-action artifact-hub-action--secondary"
               onClick={() => onOpenStudioSession(selectedTarget.sessionId)}
             >
-              Continue in Studio
+              Continue in Chat
             </button>
           ) : null}
           {selectedTarget?.workspaceRoot ? (
@@ -541,7 +541,7 @@ export function SpotlightReplView({
                       className="artifact-hub-action artifact-hub-action--secondary"
                       onClick={() => onOpenStudioSession(target.sessionId)}
                     >
-                      Studio
+                      Chat
                     </button>
                   ) : null}
                 </div>

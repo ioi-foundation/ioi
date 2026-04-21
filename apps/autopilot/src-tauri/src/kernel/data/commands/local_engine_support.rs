@@ -799,13 +799,13 @@ fn engine_family_specs() -> [(&'static str, &'static str, &'static str, &'static
         ),
         (
             "image",
-            "Image Studio",
+            "Image Chat",
             "Image generation and editing mapped into first-party kernel media jobs.",
-            "Image workflows look like native Studio capabilities, not a separate product shell.",
+            "Image workflows look like native Chat capabilities, not a separate product shell.",
         ),
         (
             "video",
-            "Video Studio",
+            "Video Chat",
             "Video generation workloads routed through the absorbed local media substrate.",
             "Longer-running media generations surface as operator-visible workloads with typed receipts.",
         ),

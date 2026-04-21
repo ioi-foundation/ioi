@@ -102,7 +102,7 @@ fn continuity_detail(
     }
 
     if remote_history_available {
-        return "The kernel is reachable and remote session history is already flowing into the same retained projection used by Spotlight, Studio, and the standalone REPL."
+        return "The kernel is reachable and remote session history is already flowing into the same retained projection used by Spotlight, Chat, and the standalone REPL."
             .to_string();
     }
 
@@ -188,7 +188,7 @@ fn current_session_continuity(
         return (
             "mirrored_attachable".to_string(),
             "Current session mirrored remotely".to_string(),
-            "The active session is visible in remote retained history and still carries a workspace root, so Spotlight, Studio, and the standalone REPL can reopen the same remote-backed continuity target.".to_string(),
+            "The active session is visible in remote retained history and still carries a workspace root, so Spotlight, Chat, and the standalone REPL can reopen the same remote-backed continuity target.".to_string(),
         );
     }
 

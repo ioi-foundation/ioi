@@ -65,19 +65,19 @@ export function ArtifactMenuSurface({
 }: ArtifactMenuSurfaceProps) {
   return (
     <section
-      className="studio-artifact-surface studio-artifact-surface--menu"
-      aria-label="Studio artifact menu"
+      className="chat-artifact-surface chat-artifact-surface--menu"
+      aria-label="Chat artifact menu"
     >
-      <div className="studio-artifact-menu">
-        <header className="studio-artifact-menu-header">
-          <div className="studio-artifact-menu-copy">
-            <span className="studio-artifact-kicker">Artifacts</span>
+      <div className="chat-artifact-menu">
+        <header className="chat-artifact-menu-header">
+          <div className="chat-artifact-menu-copy">
+            <span className="chat-artifact-kicker">Artifacts</span>
           </div>
 
           {onCollapse ? (
             <button
               type="button"
-              className="studio-artifact-stage-button"
+              className="chat-artifact-stage-button"
               onClick={onCollapse}
             >
               Collapse artifact
@@ -85,7 +85,7 @@ export function ArtifactMenuSurface({
           ) : null}
         </header>
 
-        <div className="studio-artifact-menu-list" role="list">
+        <div className="chat-artifact-menu-list" role="list">
           {artifacts.map((artifact) => {
             const isLive = artifact.sessionId === activeChatSessionId;
             const lifecycleState = String(artifact.lifecycleState || "").trim().toLowerCase();
@@ -98,15 +98,15 @@ export function ArtifactMenuSurface({
               <button
                 key={artifact.key}
                 type="button"
-                className={`studio-artifact-menu-item ${showLiveStyling ? "is-live" : ""}`}
+                className={`chat-artifact-menu-item ${showLiveStyling ? "is-live" : ""}`}
                 onClick={() => onOpenChatSession(artifact.sessionId)}
               >
-                <div className="studio-artifact-menu-item-head">
-                  <div className="studio-artifact-menu-item-title-row">
+                <div className="chat-artifact-menu-item-head">
+                  <div className="chat-artifact-menu-item-title-row">
                     <strong>{artifact.title}</strong>
                     {badge ? (
                       <span
-                        className={`studio-artifact-badge ${badge.muted ? "is-muted" : ""}`.trim()}
+                        className={`chat-artifact-badge ${badge.muted ? "is-muted" : ""}`.trim()}
                       >
                         {badge.label}
                       </span>
@@ -114,7 +114,7 @@ export function ArtifactMenuSurface({
                   </div>
                   {timestampLabel ? (
                     <time
-                      className="studio-artifact-menu-item-time"
+                      className="chat-artifact-menu-item-time"
                       dateTime={artifact.chatSession.updatedAt || artifact.timestamp}
                     >
                       {timestampLabel}
@@ -124,7 +124,7 @@ export function ArtifactMenuSurface({
 
                 <p>{artifactMenuSummary(artifact)}</p>
 
-                <div className="studio-artifact-menu-item-meta">
+                <div className="chat-artifact-menu-item-meta">
                   <span>{displayArtifactClassLabel(artifact.artifactClass)}</span>
                   <span>{displayRendererLabel(artifact.renderer)}</span>
                   <span>

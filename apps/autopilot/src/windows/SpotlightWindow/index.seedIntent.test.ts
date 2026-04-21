@@ -27,18 +27,18 @@ assert.match(
 assert.match(
   source,
   /const requiresRetainedContext =[\s\S]*isLikelyContextDependentSeedIntent\(nextIntent\)/,
-  "studio seed intent bootstrap should explicitly detect follow-up prompts before auto-submitting",
+  "chat seed intent bootstrap should explicitly detect follow-up prompts before auto-submitting",
 );
 
 assert.match(
   source,
   /hasPendingFollowUpSession[\s\S]*looksEllipticalReply[\s\S]*shouldWaitForRetainedProjection/,
-  "studio seed intent bootstrap should use pending gated sessions to classify terse follow-up replies",
+  "chat seed intent bootstrap should use pending gated sessions to classify terse follow-up replies",
 );
 
 assert.match(
   source,
-  /studio_seed_intent_waiting_for_session_projection/,
+  /chat_seed_intent_waiting_for_session_projection/,
   "seed intent bootstrap should wait for retained session projection when a follow-up prompt needs prior context",
 );
 
@@ -51,13 +51,13 @@ assert.match(
 assert.match(
   source,
   /handleLoadSession\(continuationSession\.session_id\)[\s\S]*return;/,
-  "studio seed intent bootstrap should attach the retained session before submitting the follow-up prompt",
+  "chat seed intent bootstrap should attach the retained session before submitting the follow-up prompt",
 );
 
 assert.match(
   source,
   /preferredClarificationOptionId\(task\)[\s\S]*handleSubmitClarification\(\s*clarificationOptionId,\s*nextIntent,\s*\)/,
-  "studio seed intent bootstrap should route retained clarification follow-ups through the clarification submit path",
+  "chat seed intent bootstrap should route retained clarification follow-ups through the clarification submit path",
 );
 
 console.log("index.seedIntent.test.ts: ok");

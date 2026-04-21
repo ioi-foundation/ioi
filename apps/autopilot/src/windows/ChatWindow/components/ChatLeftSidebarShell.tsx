@@ -23,15 +23,15 @@ export function ChatLeftSidebarShell({
 }: ChatLeftSidebarShellProps) {
   return (
     <aside
-      className={joinClassNames("studio-left-sidebar", className)}
+      className={joinClassNames("chat-left-sidebar", className)}
       aria-label={ariaLabel}
     >
-      <div className="studio-left-sidebar-header">
-        <span className="studio-left-sidebar-title">{title}</span>
-        {actions ? <div className="studio-left-sidebar-actions">{actions}</div> : null}
+      <div className="chat-left-sidebar-header">
+        <span className="chat-left-sidebar-title">{title}</span>
+        {actions ? <div className="chat-left-sidebar-actions">{actions}</div> : null}
       </div>
 
-      <div className={joinClassNames("studio-left-sidebar-body", bodyClassName)}>
+      <div className={joinClassNames("chat-left-sidebar-body", bodyClassName)}>
         {children}
       </div>
     </aside>

@@ -134,8 +134,8 @@ export function useAssistantWorkbenchActions({
       status: "started",
       message:
         actionId === "gmail.draft_email"
-          ? "Saving Gmail draft from Gate/Studio workbench."
-          : "Sending Gmail reply from Gate/Studio workbench.",
+          ? "Saving Gmail draft from Gate/Chat workbench."
+          : "Sending Gmail reply from Gate/Chat workbench.",
     });
 
     try {

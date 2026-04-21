@@ -12,7 +12,7 @@ use crate::kernel::file_context::{
 };
 use crate::models::{
     AgentPhase, AgentTask, BuildArtifactSession, LocalEngineConfigMigrationRecord,
-    LocalEngineControlPlaneDocument, SessionFileContext, SessionSummary, StudioCodeWorkerLease,
+    LocalEngineControlPlaneDocument, SessionFileContext, SessionSummary, ChatCodeWorkerLease,
 };
 use crate::open_or_create_memory_runtime;
 use ioi_memory::MemoryRuntime;
@@ -27,7 +27,7 @@ use uuid::Uuid;
 fn build_session(workspace_root: &str) -> BuildArtifactSession {
     BuildArtifactSession {
         session_id: "build-session".to_string(),
-        chat_session_id: "studio-session".to_string(),
+        chat_session_id: "chat-session".to_string(),
         workspace_root: workspace_root.to_string(),
         entry_document: "src/App.tsx".to_string(),
         preview_url: Some("http://127.0.0.1:4173".to_string()),
@@ -38,7 +38,7 @@ fn build_session(workspace_root: &str) -> BuildArtifactSession {
         build_status: "ready".to_string(),
         verification_status: "ready".to_string(),
         receipts: Vec::new(),
-        current_worker_execution: StudioCodeWorkerLease {
+        current_worker_execution: ChatCodeWorkerLease {
             backend: "local".to_string(),
             planner_authority: "runtime".to_string(),
             allowed_mutation_scope: vec!["workspace".to_string()],

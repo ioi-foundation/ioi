@@ -1,4 +1,4 @@
-export type StudioRuntimeProvenanceKind =
+export type ChatRuntimeProvenanceKind =
   | "real_remote_model_runtime"
   | "real_local_runtime"
   | "fixture_runtime"
@@ -7,8 +7,8 @@ export type StudioRuntimeProvenanceKind =
   | "inference_unavailable"
   | "opaque_runtime";
 
-export interface StudioRuntimeProvenance {
-  kind: StudioRuntimeProvenanceKind;
+export interface ChatRuntimeProvenance {
+  kind: ChatRuntimeProvenanceKind;
   label: string;
   model?: string | null;
   endpoint?: string | null;
@@ -179,7 +179,7 @@ export interface SwarmWorkerReceipt {
   summary: string;
   startedAt: string;
   finishedAt?: string | null;
-  runtime: StudioRuntimeProvenance;
+  runtime: ChatRuntimeProvenance;
   readPaths: string[];
   writePaths: string[];
   writeRegions: string[];
@@ -273,12 +273,12 @@ export interface ExecutionBudgetSummary {
   status: string;
 }
 
-export type StudioExecutionBudgetExpansionPolicy =
+export type ChatExecutionBudgetExpansionPolicy =
   | "fixed"
   | "confidence_gated"
   | "frontier_adaptive";
 
-export interface StudioExecutionBudgetEnvelope {
+export interface ChatExecutionBudgetEnvelope {
   maxWorkers: number;
   maxParallelDepth: number;
   maxReplans: number;
@@ -286,12 +286,12 @@ export interface StudioExecutionBudgetEnvelope {
   maxTokens: number;
   maxToolCalls: number;
   maxRepairs: number;
-  expansionPolicy: StudioExecutionBudgetExpansionPolicy;
+  expansionPolicy: ChatExecutionBudgetExpansionPolicy;
 }
 
-export interface StudioExecutionModeDecision {
-  requestedStrategy: StudioExecutionStrategy;
-  resolvedStrategy: StudioExecutionStrategy;
+export interface ChatExecutionModeDecision {
+  requestedStrategy: ChatExecutionStrategy;
+  resolvedStrategy: ChatExecutionStrategy;
   modeConfidence: number;
   oneShotSufficiency: number;
   ambiguity: number;
@@ -304,7 +304,7 @@ export interface StudioExecutionModeDecision {
   decompositionPayoff: number;
   workGraphRequired: boolean;
   decompositionReason: string;
-  budgetEnvelope: StudioExecutionBudgetEnvelope;
+  budgetEnvelope: ChatExecutionBudgetEnvelope;
 }
 
 export type ExecutionCompletionInvariantStatus =
@@ -341,9 +341,9 @@ export interface ExecutionLivePreview {
 
 export interface ExecutionEnvelope {
   version: number;
-  strategy?: StudioExecutionStrategy | null;
-  modeDecision?: StudioExecutionModeDecision | null;
-  budgetEnvelope?: StudioExecutionBudgetEnvelope | null;
+  strategy?: ChatExecutionStrategy | null;
+  modeDecision?: ChatExecutionModeDecision | null;
+  budgetEnvelope?: ChatExecutionBudgetEnvelope | null;
   executionDomain: string;
   domainKind?: ExecutionDomainKind | null;
   completionInvariant?: ExecutionCompletionInvariant | null;
@@ -361,7 +361,7 @@ export interface ExecutionEnvelope {
   livePreviews: ExecutionLivePreview[];
 }
 
-export type StudioExecutionStrategy =
+export type ChatExecutionStrategy =
   | "single_pass"
   | "direct_author"
   | "plan_execute"

@@ -12,7 +12,7 @@ export type SettingsSection =
   | "diagnostics";
 
 export const RESET_COPY = [
-  "Local conversation history, events, and artifacts in `studio-memory.db`.",
+  "Local conversation history, events, and artifacts in `chat-memory.db`.",
   "Connector subscription registry and control policy state.",
   "Spotlight validation artifacts and browser-side local storage for the app origin.",
   "Kernel-backed runtime settings only reset when explicitly cleared or replaced.",

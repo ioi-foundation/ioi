@@ -130,7 +130,7 @@ export function buildSessionContinuityOverview(
       currentSessionId: activeTarget.sessionId,
       statusLabel: "Current session ready",
       detail:
-        "The active canonical session already has a retained workspace root, so Studio and Spotlight can resume and attach without rebuilding local shell state.",
+        "The active canonical session already has a retained workspace root, so Chat and Spotlight can resume and attach without rebuilding local shell state.",
     };
   }
 
@@ -146,7 +146,7 @@ export function buildSessionContinuityOverview(
       currentSessionId: activeTarget?.sessionId ?? currentSessionId ?? null,
       statusLabel: label,
       detail:
-        "Recent canonical sessions still carry workspace roots, so the shared bridge can resume them in Studio or attach a REPL lens on demand.",
+        "Recent canonical sessions still carry workspace roots, so the shared bridge can resume them in Chat or attach a REPL lens on demand.",
     };
   }
 

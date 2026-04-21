@@ -16,7 +16,7 @@
 .assistant-workbench-card,
 .assistant-workbench-result {
   border-radius: 16px;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   background: var(--surface-3);
 }
 
@@ -42,7 +42,7 @@
 .assistant-workbench-summary,
 .assistant-workbench-card p {
   margin: 0;
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
 }
 
 .assistant-workbench-shell {
@@ -77,7 +77,7 @@
 .assistant-workbench-panel-head span,
 .assistant-workbench-card-head span,
 .assistant-workbench-meta span {
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
   font-size: 12px;
 }
 
@@ -100,9 +100,9 @@
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  background: var(--studio-accent-muted);
-  border: 1px solid var(--studio-selection-border);
-  color: var(--studio-text);
+  background: var(--chat-accent-muted);
+  border: 1px solid var(--chat-selection-border);
+  color: var(--chat-text);
   font-size: 12px;
 }
 
@@ -114,7 +114,7 @@
 
 .assistant-workbench-field span {
   font-size: 12px;
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
 }
 
 .assistant-workbench-field input,
@@ -125,7 +125,7 @@
   border-radius: 12px;
   border: 1px solid transparent;
   background: var(--surface-3);
-  color: var(--studio-text);
+  color: var(--chat-text);
   outline: none;
   font: inherit;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
@@ -139,7 +139,7 @@
 .assistant-workbench-field input:focus,
 .assistant-workbench-field textarea:focus {
   background: var(--surface-4);
-  box-shadow: inset 0 0 0 1px var(--studio-border-focus);
+  box-shadow: inset 0 0 0 1px var(--chat-border-focus);
 }
 
 .assistant-workbench-field-grow {
@@ -148,13 +148,13 @@
 
 .assistant-workbench-result {
   padding: 12px 14px;
-  color: var(--studio-text);
-  background: var(--studio-accent-muted);
-  border-color: var(--studio-selection-border);
+  color: var(--chat-text);
+  background: var(--chat-accent-muted);
+  border-color: var(--chat-selection-border);
 }
 
 .notifications-secondary-link {
-  color: var(--studio-accent);
+  color: var(--chat-accent);
   text-decoration: none;
 }
 

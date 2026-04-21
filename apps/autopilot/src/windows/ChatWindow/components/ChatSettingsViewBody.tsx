@@ -19,15 +19,15 @@ export function ChatSettingsViewBody({
 
   return (
     <>
-      <aside className="studio-settings-sidebar">
-        <div className="studio-settings-sidebar-head">
+      <aside className="chat-settings-sidebar">
+        <div className="chat-settings-sidebar-head">
           <strong>Control documents</strong>
           <span>Kernel-backed</span>
         </div>
 
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "identity" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("identity")}
@@ -37,7 +37,7 @@ export function ChatSettingsViewBody({
         </button>
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "knowledge" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("knowledge")}
@@ -47,7 +47,7 @@ export function ChatSettingsViewBody({
         </button>
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "skill_sources" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("skill_sources")}
@@ -57,7 +57,7 @@ export function ChatSettingsViewBody({
         </button>
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "managed_settings" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("managed_settings")}
@@ -67,7 +67,7 @@ export function ChatSettingsViewBody({
         </button>
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "runtime" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("runtime")}
@@ -77,7 +77,7 @@ export function ChatSettingsViewBody({
         </button>
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "storage_api" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("storage_api")}
@@ -87,7 +87,7 @@ export function ChatSettingsViewBody({
         </button>
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "sources" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("sources")}
@@ -97,7 +97,7 @@ export function ChatSettingsViewBody({
         </button>
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "environment" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("environment")}
@@ -107,7 +107,7 @@ export function ChatSettingsViewBody({
         </button>
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "local_data" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("local_data")}
@@ -117,7 +117,7 @@ export function ChatSettingsViewBody({
         </button>
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "repair_reset" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("repair_reset")}
@@ -127,7 +127,7 @@ export function ChatSettingsViewBody({
         </button>
         <button
           type="button"
-          className={`studio-settings-target ${
+          className={`chat-settings-target ${
             selectedSection === "diagnostics" ? "active" : ""
           }`}
           onClick={() => setSelectedSection("diagnostics")}
@@ -137,7 +137,7 @@ export function ChatSettingsViewBody({
         </button>
       </aside>
 
-      <section className="studio-settings-panel">
+      <section className="chat-settings-panel">
         {isEngineSection(selectedSection) ? renderEngineControls() : null}
 
         {selectedSection === "identity" ? (

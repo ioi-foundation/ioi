@@ -70,7 +70,7 @@ function isEditableElement(target: EventTarget | null): boolean {
 }
 
 function initialTabForView(view: PrimaryView): UtilityTab {
-  if (view === "studio") return "receipts";
+  if (view === "chat") return "receipts";
   if (view === "inbox") return "receipts";
   if (view === "policy" || view === "settings") return "trace";
   return "logs";
@@ -117,7 +117,7 @@ export function ChatUtilityDrawer({
   assistantWorkbench,
   onOpenChatConversation,
 }: ChatUtilityDrawerProps) {
-  const [isOpen, setIsOpen] = useState(activeView !== "studio");
+  const [isOpen, setIsOpen] = useState(activeView !== "chat");
   const [activeTab, setActiveTab] = useState<UtilityTab>(
     initialTabForView(activeView),
   );
@@ -155,7 +155,7 @@ export function ChatUtilityDrawer({
   }, []);
 
   useEffect(() => {
-    if (activeView === "studio") {
+    if (activeView === "chat") {
       setIsOpen(false);
     }
   }, [activeView]);
@@ -342,18 +342,18 @@ export function ChatUtilityDrawer({
 
   return (
     <section
-      className={`studio-utility-drawer ${isOpen ? "is-open" : "is-collapsed"}`}
+      className={`chat-utility-drawer ${isOpen ? "is-open" : "is-collapsed"}`}
       aria-label="Utility drawer"
     >
-      <div className="studio-utility-header">
-        <div className="studio-utility-tabs" role="tablist" aria-label="Utility tabs">
+      <div className="chat-utility-header">
+        <div className="chat-utility-tabs" role="tablist" aria-label="Utility tabs">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               role="tab"
               aria-selected={activeTab === tab.id}
-              className={`studio-utility-tab ${
+              className={`chat-utility-tab ${
                 activeTab === tab.id ? "is-active" : ""
               }`}
               onClick={() => {
@@ -365,16 +365,16 @@ export function ChatUtilityDrawer({
             </button>
           ))}
         </div>
-        <div className="studio-utility-meta">
-          <span className="studio-utility-kicker">Panel</span>
+        <div className="chat-utility-meta">
+          <span className="chat-utility-kicker">Panel</span>
           <strong>{activeTabName}</strong>
-          <span className="studio-utility-context">
+          <span className="chat-utility-context">
             {currentProject.name} · {prettySurfaceLabel(activeView)}
           </span>
         </div>
         <button
           type="button"
-          className="studio-utility-toggle"
+          className="chat-utility-toggle"
           onClick={() => setIsOpen((open) => !open)}
         >
           {isOpen ? "Collapse" : "Expand"} ⌘J
@@ -382,12 +382,12 @@ export function ChatUtilityDrawer({
       </div>
 
       {isOpen ? (
-        <div className="studio-utility-body">
+        <div className="chat-utility-body">
           {activeTab === "logs" ? (
-            <div className="studio-utility-log-list">
+            <div className="chat-utility-log-list">
               {logItems.map((item) => (
-                <article key={`${item.lane}:${item.title}`} className="studio-utility-card">
-                  <div className="studio-utility-card-head">
+                <article key={`${item.lane}:${item.title}`} className="chat-utility-card">
+                  <div className="chat-utility-card-head">
                     <span>{item.lane}</span>
                     <strong>{item.title}</strong>
                   </div>
@@ -398,14 +398,14 @@ export function ChatUtilityDrawer({
           ) : null}
 
           {activeTab === "sessions" ? (
-            <div className="studio-utility-log-list">
-              <article className="studio-utility-card">
-                <div className="studio-utility-card-head">
+            <div className="chat-utility-log-list">
+              <article className="chat-utility-card">
+                <div className="chat-utility-card-head">
                   <span>continuity</span>
                   <strong>{continuityOverview.statusLabel}</strong>
                 </div>
                 <p>{continuityOverview.detail}</p>
-                <div className="studio-utility-session-meta">
+                <div className="chat-utility-session-meta">
                   <span>{continuityOverview.targetCount} targets</span>
                   <span>{continuityOverview.attachableCount} attachable</span>
                   <span>{continuityOverview.liveCount} live</span>
@@ -420,8 +420,8 @@ export function ChatUtilityDrawer({
                 </div>
               </article>
               {sessionSurfaceError ? (
-                <article className="studio-utility-card">
-                  <div className="studio-utility-card-head">
+                <article className="chat-utility-card">
+                  <div className="chat-utility-card-head">
                     <span>bridge</span>
                     <strong>Session continuity needs attention</strong>
                   </div>
@@ -457,7 +457,7 @@ export function ChatUtilityDrawer({
 
           {activeTab === "receipts" ? (
             activeChatSession ? (
-              <div className="studio-utility-receipts">
+              <div className="chat-utility-receipts">
                 <ArtifactEvidencePanel
                   manifest={activeChatSession.artifactManifest}
                   chatSession={activeChatSession}
@@ -468,14 +468,14 @@ export function ChatUtilityDrawer({
                 />
               </div>
             ) : (
-              <div className="studio-utility-log-list">
-                <article className="studio-utility-card">
-                  <div className="studio-utility-card-head">
+              <div className="chat-utility-log-list">
+                <article className="chat-utility-card">
+                  <div className="chat-utility-card-head">
                     <span>execution</span>
                     <strong>No active execution receipts yet</strong>
                   </div>
                   <p>
-                    Start a Studio run to inspect plan, dispatch, work, merge,
+                    Start a Chat run to inspect plan, dispatch, work, merge,
                     verification, and repair evidence here.
                   </p>
                 </article>

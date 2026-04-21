@@ -18,14 +18,14 @@ import type {
   SessionClarificationRequest as SharedSessionClarificationRequest,
   SessionCredentialRequest as SharedSessionCredentialRequest,
   SessionGateInfo as SharedSessionGateInfo,
-  StudioCapabilityDetailSection,
+  ChatCapabilityDetailSection,
 } from "@ioi/agent-ide";
 import type {
   ExecutionEnvelope,
   ExecutionStage,
-  StudioExecutionModeDecision,
-  StudioExecutionStrategy,
-  StudioRuntimeProvenance,
+  ChatExecutionModeDecision,
+  ChatExecutionStrategy,
+  ChatRuntimeProvenance,
   SwarmChangeReceipt,
   SwarmExecutionSummary,
   SwarmMergeReceipt,
@@ -55,15 +55,18 @@ export type {
   SharedSessionClarificationRequest as SessionClarificationRequest,
   SharedSessionCredentialRequest as SessionCredentialRequest,
   SharedSessionGateInfo as SessionGateInfo,
-  StudioCapabilityDetailSection,
+  ChatCapabilityDetailSection,
 };
 export type {
+  ChatExecutionBudgetEnvelope,
+  ChatExecutionBudgetExpansionPolicy,
+  ChatExecutionModeDecision,
+  ChatExecutionStrategy,
+  ChatRuntimeProvenance,
+  ChatRuntimeProvenanceKind,
+  ExecutionBudgetSummary,
   ExecutionCompletionInvariant,
   ExecutionCompletionInvariantStatus,
-  ExecutionBudgetSummary,
-  StudioExecutionBudgetEnvelope,
-  StudioExecutionBudgetExpansionPolicy,
-  StudioExecutionModeDecision,
   ExecutionDispatchBatch,
   ExecutionDomainKind,
   ExecutionEnvelope,
@@ -73,9 +76,6 @@ export type {
   ExecutionRepairReceipt,
   ExecutionReplanReceipt,
   ExecutionStage,
-  StudioExecutionStrategy,
-  StudioRuntimeProvenance,
-  StudioRuntimeProvenanceKind,
   SwarmChangeReceipt,
   SwarmLeaseMode,
   SwarmLeaseRequirement,
@@ -173,7 +173,7 @@ export type Artifact = Omit<GeneratedArtifact, "metadata"> & {
   metadata: JsonRecord;
 };
 
-export interface StudioArtifactNavigatorNode {
+export interface ChatArtifactNavigatorNode {
   id: string;
   label: string;
   kind: string;
@@ -182,29 +182,29 @@ export interface StudioArtifactNavigatorNode {
   status?: string | null;
   lens?: string | null;
   path?: string | null;
-  children: StudioArtifactNavigatorNode[];
+  children: ChatArtifactNavigatorNode[];
 }
 
-export interface StudioArtifactMaterializationFileWrite {
+export interface ChatArtifactMaterializationFileWrite {
   path: string;
   kind: string;
   contentPreview?: string | null;
 }
 
-export interface StudioArtifactMaterializationCommandIntent {
+export interface ChatArtifactMaterializationCommandIntent {
   id: string;
   kind: string;
   label: string;
   command: string;
 }
 
-export interface StudioArtifactMaterializationPreviewIntent {
+export interface ChatArtifactMaterializationPreviewIntent {
   label: string;
   url?: string | null;
   status: string;
 }
 
-export interface StudioArtifactPipelineStep {
+export interface ChatArtifactPipelineStep {
   id: string;
   stage: ExecutionStage;
   label: string;
@@ -214,14 +214,14 @@ export interface StudioArtifactPipelineStep {
   verificationGate?: string | null;
 }
 
-export type StudioArtifactEditMode = "create" | "patch" | "replace" | "branch";
+export type ChatArtifactEditMode = "create" | "patch" | "replace" | "branch";
 
-export type StudioArtifactValidationStatus =
+export type ChatArtifactValidationStatus =
   | "pass"
   | "repairable"
   | "blocked";
 
-export type StudioArtifactOutputOrigin =
+export type ChatArtifactOutputOrigin =
   | "live_inference"
   | "mock_inference"
   | "deterministic_fallback"
@@ -229,30 +229,30 @@ export type StudioArtifactOutputOrigin =
   | "inference_unavailable"
   | "opaque_runtime";
 
-export type StudioArtifactFailureKind =
+export type ChatArtifactFailureKind =
   | "inference_unavailable"
   | "routing_failure"
   | "generation_failure"
   | "verification_failure";
 
-export interface StudioArtifactFailure {
-  kind: StudioArtifactFailureKind;
+export interface ChatArtifactFailure {
+  kind: ChatArtifactFailureKind;
   code: string;
   message: string;
 }
 
-export type StudioArtifactRenderCaptureViewport =
+export type ChatArtifactRenderCaptureViewport =
   | "desktop"
   | "mobile"
   | "interaction";
 
-export type StudioArtifactRenderFindingSeverity =
+export type ChatArtifactRenderFindingSeverity =
   | "info"
   | "warning"
   | "blocked";
 
-export interface StudioArtifactRenderCapture {
-  viewport: StudioArtifactRenderCaptureViewport;
+export interface ChatArtifactRenderCapture {
+  viewport: ChatArtifactRenderCaptureViewport;
   width: number;
   height: number;
   screenshotSha256: string;
@@ -263,29 +263,29 @@ export interface StudioArtifactRenderCapture {
   screenshotChangedFromPrevious: boolean;
 }
 
-export interface StudioArtifactRenderFinding {
+export interface ChatArtifactRenderFinding {
   code: string;
-  severity: StudioArtifactRenderFindingSeverity;
+  severity: ChatArtifactRenderFindingSeverity;
   summary: string;
 }
 
-export type StudioArtifactExecutionWitnessStatus =
+export type ChatArtifactExecutionWitnessStatus =
   | "passed"
   | "failed"
   | "blocked"
   | "not_applicable";
 
-export type StudioArtifactAcceptanceObligationStatus =
+export type ChatArtifactAcceptanceObligationStatus =
   | "passed"
   | "failed"
   | "blocked"
   | "not_applicable";
 
-export interface StudioArtifactExecutionWitness {
+export interface ChatArtifactExecutionWitness {
   witnessId: string;
   obligationId?: string | null;
   actionKind: string;
-  status: StudioArtifactExecutionWitnessStatus;
+  status: ChatArtifactExecutionWitnessStatus;
   summary: string;
   detail?: string | null;
   selector?: string | null;
@@ -293,22 +293,22 @@ export interface StudioArtifactExecutionWitness {
   stateChanged: boolean;
 }
 
-export interface StudioArtifactAcceptanceObligation {
+export interface ChatArtifactAcceptanceObligation {
   obligationId: string;
   family: string;
   required: boolean;
-  status: StudioArtifactAcceptanceObligationStatus;
+  status: ChatArtifactAcceptanceObligationStatus;
   summary: string;
   detail?: string | null;
   witnessIds: string[];
 }
 
-export type StudioArtifactRenderPolicyMode =
+export type ChatArtifactRenderPolicyMode =
   | "balanced"
   | "observation_only"
   | "strict";
 
-export interface StudioArtifactRenderObservation {
+export interface ChatArtifactRenderObservation {
   primaryRegionPresent: boolean;
   firstPaintVisibleTextChars: number;
   mobileVisibleTextChars: number;
@@ -321,8 +321,8 @@ export interface StudioArtifactRenderObservation {
   interactionStateChanged: boolean;
 }
 
-export interface StudioArtifactRenderAcceptancePolicy {
-  mode: StudioArtifactRenderPolicyMode;
+export interface ChatArtifactRenderAcceptancePolicy {
+  mode: ChatArtifactRenderPolicyMode;
   minimumFirstPaintTextChars: number;
   minimumSemanticRegions: number;
   minimumEvidenceSurfaces: number;
@@ -334,39 +334,39 @@ export interface StudioArtifactRenderAcceptancePolicy {
   requireStateChangeWhenInteractive: boolean;
 }
 
-export interface StudioArtifactRenderEvaluation {
+export interface ChatArtifactRenderEvaluation {
   supported: boolean;
   firstPaintCaptured: boolean;
   interactionCaptureAttempted: boolean;
-  captures: StudioArtifactRenderCapture[];
-  observation?: StudioArtifactRenderObservation | null;
-  acceptancePolicy?: StudioArtifactRenderAcceptancePolicy | null;
+  captures: ChatArtifactRenderCapture[];
+  observation?: ChatArtifactRenderObservation | null;
+  acceptancePolicy?: ChatArtifactRenderAcceptancePolicy | null;
   layoutDensityScore: number;
   spacingAlignmentScore: number;
   typographyContrastScore: number;
   visualHierarchyScore: number;
   blueprintConsistencyScore: number;
   overallScore: number;
-  findings: StudioArtifactRenderFinding[];
-  acceptanceObligations: StudioArtifactAcceptanceObligation[];
-  executionWitnesses: StudioArtifactExecutionWitness[];
+  findings: ChatArtifactRenderFinding[];
+  acceptanceObligations: ChatArtifactAcceptanceObligation[];
+  executionWitnesses: ChatArtifactExecutionWitness[];
   summary: string;
 }
 
-export type StudioArtifactUxLifecycle =
+export type ChatArtifactUxLifecycle =
   | "draft"
   | "refining"
   | "validated"
   | "locked";
 
-export interface StudioArtifactSelectionTarget {
+export interface ChatArtifactSelectionTarget {
   sourceSurface: string;
   path?: string | null;
   label: string;
   snippet: string;
 }
 
-export interface StudioArtifactTasteMemory {
+export interface ChatArtifactTasteMemory {
   directives: string[];
   summary: string;
   typographyPreferences: string[];
@@ -378,11 +378,11 @@ export interface StudioArtifactTasteMemory {
   antiPatterns: string[];
 }
 
-export interface StudioArtifactExemplar {
+export interface ChatArtifactExemplar {
   recordId: number;
   title: string;
   summary: string;
-  renderer: StudioRendererKind;
+  renderer: ChatRendererKind;
   scaffoldFamily: string;
   thesis: string;
   qualityRationale: string;
@@ -393,21 +393,21 @@ export interface StudioArtifactExemplar {
   sourceRevisionId?: string | null;
 }
 
-export interface StudioArtifactBrief {
+export interface ChatArtifactBrief {
   audience: string;
   jobToBeDone: string;
   subjectDomain: string;
   artifactThesis: string;
   requiredConcepts: string[];
   requiredInteractions: string[];
-  queryProfile?: StudioArtifactQueryProfile | null;
+  queryProfile?: ChatArtifactQueryProfile | null;
   visualTone: string[];
   factualAnchors: string[];
   styleDirectives: string[];
   referenceHints: string[];
 }
 
-export type StudioArtifactContentGoalKind =
+export type ChatArtifactContentGoalKind =
   | "orient"
   | "explain"
   | "compare"
@@ -416,20 +416,20 @@ export type StudioArtifactContentGoalKind =
   | "summary"
   | "implementation";
 
-export type StudioArtifactInteractionGoalKind =
+export type ChatArtifactInteractionGoalKind =
   | "state_switch"
   | "detail_inspect"
   | "sequence_browse"
   | "state_adjust"
   | "guided_response";
 
-export type StudioArtifactEvidenceGoalKind =
+export type ChatArtifactEvidenceGoalKind =
   | "primary_surface"
   | "comparison_surface"
   | "detail_surface"
   | "supporting_surface";
 
-export type StudioArtifactPresentationConstraintKind =
+export type ChatArtifactPresentationConstraintKind =
   | "semantic_structure"
   | "first_paint_evidence"
   | "response_region"
@@ -437,38 +437,38 @@ export type StudioArtifactPresentationConstraintKind =
   | "runtime_self_containment"
   | "typography_separation";
 
-export interface StudioArtifactContentGoal {
-  kind: StudioArtifactContentGoalKind;
+export interface ChatArtifactContentGoal {
+  kind: ChatArtifactContentGoalKind;
   summary: string;
   required: boolean;
 }
 
-export interface StudioArtifactInteractionGoal {
-  kind: StudioArtifactInteractionGoalKind;
+export interface ChatArtifactInteractionGoal {
+  kind: ChatArtifactInteractionGoalKind;
   summary: string;
   required: boolean;
 }
 
-export interface StudioArtifactEvidenceGoal {
-  kind: StudioArtifactEvidenceGoalKind;
+export interface ChatArtifactEvidenceGoal {
+  kind: ChatArtifactEvidenceGoalKind;
   summary: string;
   required: boolean;
 }
 
-export interface StudioArtifactPresentationConstraint {
-  kind: StudioArtifactPresentationConstraintKind;
+export interface ChatArtifactPresentationConstraint {
+  kind: ChatArtifactPresentationConstraintKind;
   summary: string;
   required: boolean;
 }
 
-export interface StudioArtifactQueryProfile {
-  contentGoals: StudioArtifactContentGoal[];
-  interactionGoals: StudioArtifactInteractionGoal[];
-  evidenceGoals: StudioArtifactEvidenceGoal[];
-  presentationConstraints: StudioArtifactPresentationConstraint[];
+export interface ChatArtifactQueryProfile {
+  contentGoals: ChatArtifactContentGoal[];
+  interactionGoals: ChatArtifactInteractionGoal[];
+  evidenceGoals: ChatArtifactEvidenceGoal[];
+  presentationConstraints: ChatArtifactPresentationConstraint[];
 }
 
-export type StudioArtifactSkillNeedKind =
+export type ChatArtifactSkillNeedKind =
   | "visual_art_direction"
   | "editorial_layout"
   | "motion_hierarchy"
@@ -476,27 +476,27 @@ export type StudioArtifactSkillNeedKind =
   | "accessibility_review"
   | "data_storytelling";
 
-export type StudioArtifactSkillNeedPriority = "required" | "recommended";
+export type ChatArtifactSkillNeedPriority = "required" | "recommended";
 
-export interface StudioArtifactSkillNeed {
-  kind: StudioArtifactSkillNeedKind;
-  priority: StudioArtifactSkillNeedPriority;
+export interface ChatArtifactSkillNeed {
+  kind: ChatArtifactSkillNeedKind;
+  priority: ChatArtifactSkillNeedPriority;
   rationale: string;
 }
 
-export interface StudioArtifactPreparationNeeds {
-  renderer: StudioRendererKind;
+export interface ChatArtifactPreparationNeeds {
+  renderer: ChatRendererKind;
   requiredConcepts: string[];
   requiredInteractions: string[];
-  skillNeeds: StudioArtifactSkillNeed[];
+  skillNeeds: ChatArtifactSkillNeed[];
   requireBlueprint: boolean;
   requireArtifactIr: boolean;
   exemplarDiscoveryEnabled: boolean;
 }
 
-export interface StudioArtifactPreparedContextResolution {
+export interface ChatArtifactPreparedContextResolution {
   status: string;
-  renderer: StudioRendererKind;
+  renderer: ChatRendererKind;
   requireBlueprint: boolean;
   requireArtifactIr: boolean;
   skillNeedCount: number;
@@ -505,7 +505,7 @@ export interface StudioArtifactPreparedContextResolution {
   selectedSkillNames: string[];
 }
 
-export interface StudioArtifactSkillDiscoveryResolution {
+export interface ChatArtifactSkillDiscoveryResolution {
   status: string;
   guidanceStatus?: string;
   guidanceEvaluated: boolean;
@@ -520,7 +520,7 @@ export interface StudioArtifactSkillDiscoveryResolution {
   failureReason?: string | null;
 }
 
-export interface StudioArtifactSectionPlan {
+export interface ChatArtifactSectionPlan {
   id: string;
   role: string;
   visiblePurpose: string;
@@ -529,7 +529,7 @@ export interface StudioArtifactSectionPlan {
   firstPaintRequirements: string[];
 }
 
-export interface StudioArtifactInteractionPlan {
+export interface ChatArtifactInteractionPlan {
   id: string;
   family: string;
   sourceControls: string[];
@@ -538,7 +538,7 @@ export interface StudioArtifactInteractionPlan {
   requiredFirstPaintAffordances: string[];
 }
 
-export interface StudioArtifactEvidencePlanEntry {
+export interface ChatArtifactEvidencePlanEntry {
   id: string;
   kind: string;
   purpose: string;
@@ -547,7 +547,7 @@ export interface StudioArtifactEvidencePlanEntry {
   detailTargets: string[];
 }
 
-export interface StudioArtifactDesignSystem {
+export interface ChatArtifactDesignSystem {
   colorStrategy: string;
   typographyStrategy: string;
   density: string;
@@ -555,7 +555,7 @@ export interface StudioArtifactDesignSystem {
   emphasisModes: string[];
 }
 
-export interface StudioArtifactComponentPlanEntry {
+export interface ChatArtifactComponentPlanEntry {
   id: string;
   componentFamily: string;
   role: string;
@@ -563,13 +563,13 @@ export interface StudioArtifactComponentPlanEntry {
   interactionIds: string[];
 }
 
-export interface StudioArtifactAccessibilityPlan {
+export interface ChatArtifactAccessibilityPlan {
   obligations: string[];
   focusOrder: string[];
   ariaExpectations: string[];
 }
 
-export interface StudioArtifactAcceptanceTargets {
+export interface ChatArtifactAcceptanceTargets {
   minimumSectionCount: number;
   minimumInteractiveRegions: number;
   requireFirstPaintEvidence: boolean;
@@ -578,23 +578,23 @@ export interface StudioArtifactAcceptanceTargets {
   requireKeyboardAffordances: boolean;
 }
 
-export interface StudioArtifactBlueprint {
+export interface ChatArtifactBlueprint {
   version: number;
-  renderer: StudioRendererKind;
+  renderer: ChatRendererKind;
   narrativeArc: string;
-  sectionPlan: StudioArtifactSectionPlan[];
-  interactionPlan: StudioArtifactInteractionPlan[];
-  evidencePlan: StudioArtifactEvidencePlanEntry[];
-  designSystem: StudioArtifactDesignSystem;
-  componentPlan: StudioArtifactComponentPlanEntry[];
-  accessibilityPlan: StudioArtifactAccessibilityPlan;
-  acceptanceTargets: StudioArtifactAcceptanceTargets;
+  sectionPlan: ChatArtifactSectionPlan[];
+  interactionPlan: ChatArtifactInteractionPlan[];
+  evidencePlan: ChatArtifactEvidencePlanEntry[];
+  designSystem: ChatArtifactDesignSystem;
+  componentPlan: ChatArtifactComponentPlanEntry[];
+  accessibilityPlan: ChatArtifactAccessibilityPlan;
+  acceptanceTargets: ChatArtifactAcceptanceTargets;
   scaffoldFamily: string;
   variationStrategy: string;
-  skillNeeds: StudioArtifactSkillNeed[];
+  skillNeeds: ChatArtifactSkillNeed[];
 }
 
-export interface StudioArtifactIRNode {
+export interface ChatArtifactIRNode {
   id: string;
   kind: string;
   parentId?: string | null;
@@ -603,7 +603,7 @@ export interface StudioArtifactIRNode {
   bindings: string[];
 }
 
-export interface StudioArtifactIRInteractionEdge {
+export interface ChatArtifactIRInteractionEdge {
   id: string;
   family: string;
   controlNodeIds: string[];
@@ -611,7 +611,7 @@ export interface StudioArtifactIRInteractionEdge {
   defaultState: string;
 }
 
-export interface StudioArtifactIREvidenceSurface {
+export interface ChatArtifactIREvidenceSurface {
   id: string;
   kind: string;
   sectionId: string;
@@ -619,20 +619,20 @@ export interface StudioArtifactIREvidenceSurface {
   firstPaintExpectations: string[];
 }
 
-export interface StudioArtifactDesignToken {
+export interface ChatArtifactDesignToken {
   name: string;
   category: string;
   value: string;
 }
 
-export interface StudioArtifactIR {
+export interface ChatArtifactIR {
   version: number;
-  renderer: StudioRendererKind;
+  renderer: ChatRendererKind;
   scaffoldFamily: string;
-  semanticStructure: StudioArtifactIRNode[];
-  interactionGraph: StudioArtifactIRInteractionEdge[];
-  evidenceSurfaces: StudioArtifactIREvidenceSurface[];
-  designTokens: StudioArtifactDesignToken[];
+  semanticStructure: ChatArtifactIRNode[];
+  interactionGraph: ChatArtifactIRInteractionEdge[];
+  evidenceSurfaces: ChatArtifactIREvidenceSurface[];
+  designTokens: ChatArtifactDesignToken[];
   motionPlan: string[];
   accessibilityObligations: string[];
   responsiveLayoutRules: string[];
@@ -641,7 +641,7 @@ export interface StudioArtifactIR {
   renderEvalChecklist: string[];
 }
 
-export interface StudioArtifactSelectedSkill {
+export interface ChatArtifactSelectedSkill {
   skillHash: string;
   name: string;
   description: string;
@@ -652,13 +652,13 @@ export interface StudioArtifactSelectedSkill {
   adjustedScoreBps: number;
   relativePath?: string | null;
   matchedNeedIds: string[];
-  matchedNeedKinds: StudioArtifactSkillNeedKind[];
+  matchedNeedKinds: ChatArtifactSkillNeedKind[];
   matchRationale: string;
   guidanceMarkdown?: string | null;
 }
 
-export interface StudioArtifactEditIntent {
-  mode: StudioArtifactEditMode;
+export interface ChatArtifactEditIntent {
+  mode: ChatArtifactEditMode;
   summary: string;
   patchExistingArtifact: boolean;
   preserveStructure: boolean;
@@ -666,13 +666,13 @@ export interface StudioArtifactEditIntent {
   targetPaths: string[];
   requestedOperations: string[];
   toneDirectives: string[];
-  selectedTargets: StudioArtifactSelectionTarget[];
+  selectedTargets: ChatArtifactSelectionTarget[];
   styleDirectives: string[];
   branchRequested: boolean;
 }
 
-export interface StudioArtifactValidationResult {
-  classification: StudioArtifactValidationStatus;
+export interface ChatArtifactValidationResult {
+  classification: ChatArtifactValidationStatus;
   requestFaithfulness: number;
   conceptCoverage: number;
   interactionRelevance: number;
@@ -703,26 +703,26 @@ export interface StudioArtifactValidationResult {
   rationale: string;
 }
 
-export interface StudioArtifactCandidateSummary {
+export interface ChatArtifactCandidateSummary {
   candidateId: string;
   seed: number;
   model: string;
   temperature: number;
   strategy: string;
-  origin: StudioArtifactOutputOrigin;
-  provenance?: StudioRuntimeProvenance | null;
+  origin: ChatArtifactOutputOrigin;
+  provenance?: ChatRuntimeProvenance | null;
   summary: string;
   renderablePaths: string[];
   selected: boolean;
   fallback: boolean;
   failure?: string | null;
   rawOutputPreview?: string | null;
-  convergence?: StudioArtifactCandidateConvergenceTrace | null;
-  renderEvaluation?: StudioArtifactRenderEvaluation | null;
-  validation: StudioArtifactValidationResult;
+  convergence?: ChatArtifactCandidateConvergenceTrace | null;
+  renderEvaluation?: ChatArtifactRenderEvaluation | null;
+  validation: ChatArtifactValidationResult;
 }
 
-export interface StudioArtifactCandidateConvergenceTrace {
+export interface ChatArtifactCandidateConvergenceTrace {
   lineageRootId: string;
   parentCandidateId?: string | null;
   passKind: string;
@@ -732,17 +732,17 @@ export interface StudioArtifactCandidateConvergenceTrace {
   terminatedReason?: string | null;
 }
 
-export type StudioArtifactWorkerRole = SwarmWorkerRole;
-export type StudioArtifactWorkItemStatus = SwarmWorkItemStatus;
-export type StudioArtifactWorkItem = SwarmWorkItem;
-export type StudioArtifactSwarmPlan = SwarmPlan;
-export type StudioArtifactSwarmExecutionSummary = SwarmExecutionSummary;
-export type StudioArtifactWorkerReceipt = SwarmWorkerReceipt;
-export type StudioArtifactPatchReceipt = SwarmChangeReceipt;
-export type StudioArtifactMergeReceipt = SwarmMergeReceipt;
-export type StudioArtifactVerificationReceipt = SwarmVerificationReceipt;
+export type ChatArtifactWorkerRole = SwarmWorkerRole;
+export type ChatArtifactWorkItemStatus = SwarmWorkItemStatus;
+export type ChatArtifactWorkItem = SwarmWorkItem;
+export type ChatArtifactSwarmPlan = SwarmPlan;
+export type ChatArtifactSwarmExecutionSummary = SwarmExecutionSummary;
+export type ChatArtifactWorkerReceipt = SwarmWorkerReceipt;
+export type ChatArtifactPatchReceipt = SwarmChangeReceipt;
+export type ChatArtifactMergeReceipt = SwarmMergeReceipt;
+export type ChatArtifactVerificationReceipt = SwarmVerificationReceipt;
 
-export interface StudioArtifactRuntimePreviewSnapshot {
+export interface ChatArtifactRuntimePreviewSnapshot {
   label: string;
   content: string;
   status: string;
@@ -753,7 +753,7 @@ export interface StudioArtifactRuntimePreviewSnapshot {
 }
 
 export type ArtifactOperatorRunMode = "create" | "edit";
-export type StudioArtifactOperatorRunMode = ArtifactOperatorRunMode;
+export type ChatArtifactOperatorRunMode = ArtifactOperatorRunMode;
 
 export type ArtifactOperatorRunStatus =
   | "pending"
@@ -762,7 +762,7 @@ export type ArtifactOperatorRunStatus =
   | "blocked"
   | "failed"
   | "other";
-export type StudioArtifactOperatorRunStatus = ArtifactOperatorRunStatus;
+export type ChatArtifactOperatorRunStatus = ArtifactOperatorRunStatus;
 
 export type ArtifactOperatorPhase =
   | "understand_request"
@@ -776,9 +776,9 @@ export type ArtifactOperatorPhase =
   | "repair_artifact"
   | "present_artifact"
   | "other";
-export type StudioArtifactOperatorPhase = ArtifactOperatorPhase;
+export type ChatArtifactOperatorPhase = ArtifactOperatorPhase;
 
-export interface StudioArtifactOperatorPreview {
+export interface ChatArtifactOperatorPreview {
   originPromptEventId?: string;
   label: string;
   content: string;
@@ -799,23 +799,23 @@ export interface ArtifactSourceReference {
   freshness?: string | null;
   reason: string;
 }
-export type StudioArtifactSourceReference = ArtifactSourceReference;
+export type ChatArtifactSourceReference = ArtifactSourceReference;
 
 export interface ArtifactSourcePack {
   summary: string;
   items: ArtifactSourceReference[];
 }
-export type StudioArtifactSourcePack = ArtifactSourcePack;
+export type ChatArtifactSourcePack = ArtifactSourcePack;
 
 export interface ArtifactFileRef {
   fileId: string;
   originPromptEventId?: string;
   path: string;
-  role: StudioArtifactFileRole;
+  role: ChatArtifactFileRole;
   mime: string;
   summary: string;
 }
-export type StudioArtifactFileRef = ArtifactFileRef;
+export type ChatArtifactFileRef = ArtifactFileRef;
 
 export interface ArtifactVerificationRef {
   verificationId: string;
@@ -826,7 +826,7 @@ export interface ArtifactVerificationRef {
   detail?: string | null;
   selector?: string | null;
 }
-export type StudioArtifactVerificationRef = ArtifactVerificationRef;
+export type ChatArtifactVerificationRef = ArtifactVerificationRef;
 
 export interface ArtifactVerificationOutcome {
   status?: ArtifactOperatorRunStatus | null;
@@ -835,7 +835,7 @@ export interface ArtifactVerificationOutcome {
   clearedObligationCount: number;
   failedObligationCount: number;
 }
-export type StudioArtifactVerificationOutcome = ArtifactVerificationOutcome;
+export type ChatArtifactVerificationOutcome = ArtifactVerificationOutcome;
 
 export interface ArtifactOperatorStep {
   stepId: string;
@@ -847,13 +847,13 @@ export interface ArtifactOperatorStep {
   detail: string;
   startedAtMs: number;
   finishedAtMs?: number | null;
-  preview?: StudioArtifactOperatorPreview | null;
+  preview?: ChatArtifactOperatorPreview | null;
   fileRefs: ArtifactFileRef[];
   sourceRefs: ArtifactSourceReference[];
   verificationRefs: ArtifactVerificationRef[];
   attempt: number;
 }
-export type StudioArtifactOperatorStep = ArtifactOperatorStep;
+export type ChatArtifactOperatorStep = ArtifactOperatorStep;
 
 export interface ArtifactOperatorRun {
   runId: string;
@@ -870,9 +870,9 @@ export interface ArtifactOperatorRun {
   verificationOutcome?: ArtifactVerificationOutcome | null;
   repairCount: number;
 }
-export type StudioArtifactOperatorRun = ArtifactOperatorRun;
+export type ChatArtifactOperatorRun = ArtifactOperatorRun;
 
-export type StudioArtifactRuntimeEventType =
+export type ChatArtifactRuntimeEventType =
   | "understand_request"
   | "artifact_route_committed"
   | "skill_discovery"
@@ -885,7 +885,7 @@ export type StudioArtifactRuntimeEventType =
   | "present_artifact"
   | "other";
 
-export type StudioArtifactRuntimeStepId =
+export type ChatArtifactRuntimeStepId =
   | "understand_request"
   | "artifact_route_committed"
   | "skill_discovery"
@@ -897,7 +897,7 @@ export type StudioArtifactRuntimeStepId =
   | "present_artifact"
   | "other";
 
-export type StudioArtifactRuntimeStepKind =
+export type ChatArtifactRuntimeStepKind =
   | "intake"
   | "routing"
   | "guidance"
@@ -908,9 +908,9 @@ export type StudioArtifactRuntimeStepKind =
   | "presentation"
   | "other";
 
-export type StudioArtifactRuntimeEventKind = "step" | "preview";
+export type ChatArtifactRuntimeEventKind = "step" | "preview";
 
-export type StudioArtifactRuntimeEventStatus =
+export type ChatArtifactRuntimeEventStatus =
   | "pending"
   | "active"
   | "complete"
@@ -919,21 +919,21 @@ export type StudioArtifactRuntimeEventStatus =
   | "interrupted"
   | "other";
 
-export interface StudioArtifactMaterializationContract {
+export interface ChatArtifactMaterializationContract {
   version: number;
   requestKind: string;
   normalizedIntent: string;
   summary: string;
-  artifactBrief?: StudioArtifactBrief | null;
-  preparationNeeds?: StudioArtifactPreparationNeeds | null;
-  preparedContextResolution?: StudioArtifactPreparedContextResolution | null;
-  skillDiscoveryResolution?: StudioArtifactSkillDiscoveryResolution | null;
-  blueprint?: StudioArtifactBlueprint | null;
-  artifactIr?: StudioArtifactIR | null;
-  selectedSkills: StudioArtifactSelectedSkill[];
-  retrievedExemplars: StudioArtifactExemplar[];
-  editIntent?: StudioArtifactEditIntent | null;
-  candidateSummaries: StudioArtifactCandidateSummary[];
+  artifactBrief?: ChatArtifactBrief | null;
+  preparationNeeds?: ChatArtifactPreparationNeeds | null;
+  preparedContextResolution?: ChatArtifactPreparedContextResolution | null;
+  skillDiscoveryResolution?: ChatArtifactSkillDiscoveryResolution | null;
+  blueprint?: ChatArtifactBlueprint | null;
+  artifactIr?: ChatArtifactIR | null;
+  selectedSkills: ChatArtifactSelectedSkill[];
+  retrievedExemplars: ChatArtifactExemplar[];
+  editIntent?: ChatArtifactEditIntent | null;
+  candidateSummaries: ChatArtifactCandidateSummary[];
   winningCandidateId?: string | null;
   winningCandidateRationale?: string | null;
   executionEnvelope?: ExecutionEnvelope | null;
@@ -944,23 +944,23 @@ export interface StudioArtifactMaterializationContract {
   swarmPatchReceipts?: SwarmChangeReceipt[];
   swarmMergeReceipts: SwarmMergeReceipt[];
   swarmVerificationReceipts: SwarmVerificationReceipt[];
-  renderEvaluation?: StudioArtifactRenderEvaluation | null;
-  validation?: StudioArtifactValidationResult | null;
-  outputOrigin?: StudioArtifactOutputOrigin | null;
-  productionProvenance?: StudioRuntimeProvenance | null;
-  acceptanceProvenance?: StudioRuntimeProvenance | null;
+  renderEvaluation?: ChatArtifactRenderEvaluation | null;
+  validation?: ChatArtifactValidationResult | null;
+  outputOrigin?: ChatArtifactOutputOrigin | null;
+  productionProvenance?: ChatRuntimeProvenance | null;
+  acceptanceProvenance?: ChatRuntimeProvenance | null;
   fallbackUsed: boolean;
-  uxLifecycle?: StudioArtifactUxLifecycle | null;
-  failure?: StudioArtifactFailure | null;
-  navigatorNodes: StudioArtifactNavigatorNode[];
-  fileWrites: StudioArtifactMaterializationFileWrite[];
-  commandIntents: StudioArtifactMaterializationCommandIntent[];
-  previewIntent?: StudioArtifactMaterializationPreviewIntent | null;
-  pipelineSteps: StudioArtifactPipelineStep[];
+  uxLifecycle?: ChatArtifactUxLifecycle | null;
+  failure?: ChatArtifactFailure | null;
+  navigatorNodes: ChatArtifactNavigatorNode[];
+  fileWrites: ChatArtifactMaterializationFileWrite[];
+  commandIntents: ChatArtifactMaterializationCommandIntent[];
+  previewIntent?: ChatArtifactMaterializationPreviewIntent | null;
+  pipelineSteps: ChatArtifactPipelineStep[];
   notes: string[];
 }
 
-export interface StudioBuildReceipt {
+export interface ChatBuildReceipt {
   receiptId: string;
   kind: string;
   title: string;
@@ -976,7 +976,7 @@ export interface StudioBuildReceipt {
   replayClassification?: string | null;
 }
 
-export interface StudioCodeWorkerLease {
+export interface ChatCodeWorkerLease {
   backend: string;
   plannerAuthority: string;
   allowedMutationScope: string[];
@@ -986,13 +986,13 @@ export interface StudioCodeWorkerLease {
   lastSummary?: string | null;
 }
 
-export type StudioOutcomeKind =
+export type ChatOutcomeKind =
   | "conversation"
   | "tool_widget"
   | "visualizer"
   | "artifact";
 
-export type StudioArtifactClass =
+export type ChatArtifactClass =
   | "document"
   | "visual"
   | "interactive_single_file"
@@ -1002,12 +1002,12 @@ export type StudioArtifactClass =
   | "code_patch"
   | "report_bundle";
 
-export type StudioArtifactDeliverableShape =
+export type ChatArtifactDeliverableShape =
   | "single_file"
   | "file_set"
   | "workspace_project";
 
-export type StudioRendererKind =
+export type ChatRendererKind =
   | "markdown"
   | "html_iframe"
   | "jsx_sandbox"
@@ -1018,45 +1018,45 @@ export type StudioRendererKind =
   | "workspace_surface"
   | "bundle_manifest";
 
-export type StudioPresentationSurface =
+export type ChatPresentationSurface =
   | "inline"
   | "side_panel"
   | "overlay"
   | "tabbed_panel";
 
-export type StudioArtifactPersistenceMode =
+export type ChatArtifactPersistenceMode =
   | "ephemeral"
   | "artifact_scoped"
   | "shared_artifact_scoped"
   | "workspace_filesystem";
 
-export type StudioExecutionSubstrate =
+export type ChatExecutionSubstrate =
   | "none"
   | "client_sandbox"
   | "binary_generator"
   | "workspace_runtime";
 
-export type StudioArtifactTabKind =
+export type ChatArtifactTabKind =
   | "render"
   | "source"
   | "download"
   | "evidence"
   | "workspace";
 
-export type StudioArtifactFileRole =
+export type ChatArtifactFileRole =
   | "primary"
   | "source"
   | "export"
   | "supporting";
 
-export type StudioArtifactVerificationStatus =
+export type ChatArtifactVerificationStatus =
   | "pending"
   | "ready"
   | "blocked"
   | "failed"
   | "partial";
 
-export type StudioArtifactLifecycleState =
+export type ChatArtifactLifecycleState =
   | "draft"
   | "planned"
   | "materializing"
@@ -1068,13 +1068,13 @@ export type StudioArtifactLifecycleState =
   | "blocked"
   | "failed";
 
-export interface StudioOutcomeArtifactScope {
+export interface ChatOutcomeArtifactScope {
   targetProject?: string | null;
   createNewWorkspace: boolean;
   mutationBoundary: string[];
 }
 
-export interface StudioOutcomeArtifactVerificationRequest {
+export interface ChatOutcomeArtifactVerificationRequest {
   requireRender: boolean;
   requireBuild: boolean;
   requirePreview: boolean;
@@ -1082,73 +1082,73 @@ export interface StudioOutcomeArtifactVerificationRequest {
   requireDiffReview: boolean;
 }
 
-export interface StudioOutcomeArtifactRequest {
-  artifactClass: StudioArtifactClass;
-  deliverableShape: StudioArtifactDeliverableShape;
-  renderer: StudioRendererKind;
-  presentationSurface: StudioPresentationSurface;
-  persistence: StudioArtifactPersistenceMode;
-  executionSubstrate: StudioExecutionSubstrate;
+export interface ChatOutcomeArtifactRequest {
+  artifactClass: ChatArtifactClass;
+  deliverableShape: ChatArtifactDeliverableShape;
+  renderer: ChatRendererKind;
+  presentationSurface: ChatPresentationSurface;
+  persistence: ChatArtifactPersistenceMode;
+  executionSubstrate: ChatExecutionSubstrate;
   workspaceRecipeId?: string | null;
   presentationVariantId?: string | null;
-  scope: StudioOutcomeArtifactScope;
-  verification: StudioOutcomeArtifactVerificationRequest;
+  scope: ChatOutcomeArtifactScope;
+  verification: ChatOutcomeArtifactVerificationRequest;
 }
 
-export interface StudioOutcomeRequest {
+export interface ChatOutcomeRequest {
   requestId: string;
   rawPrompt: string;
   activeArtifactId?: string | null;
-  outcomeKind: StudioOutcomeKind;
-  executionStrategy: StudioExecutionStrategy;
-  executionModeDecision?: StudioExecutionModeDecision | null;
+  outcomeKind: ChatOutcomeKind;
+  executionStrategy: ChatExecutionStrategy;
+  executionModeDecision?: ChatExecutionModeDecision | null;
   confidence: number;
   needsClarification: boolean;
   clarificationQuestions: string[];
   routingHints?: string[];
-  artifact?: StudioOutcomeArtifactRequest | null;
+  artifact?: ChatOutcomeArtifactRequest | null;
 }
 
-export interface StudioOutcomePlanningPayload {
-  outcomeKind: StudioOutcomeKind;
-  executionStrategy: StudioExecutionStrategy;
-  executionModeDecision?: StudioExecutionModeDecision | null;
+export interface ChatOutcomePlanningPayload {
+  outcomeKind: ChatOutcomeKind;
+  executionStrategy: ChatExecutionStrategy;
+  executionModeDecision?: ChatExecutionModeDecision | null;
   confidence: number;
   needsClarification: boolean;
   clarificationQuestions: string[];
   routingHints?: string[];
-  artifact?: StudioOutcomeArtifactRequest | null;
+  artifact?: ChatOutcomeArtifactRequest | null;
 }
 
-export interface StudioArtifactManifestTab {
+export interface ChatArtifactManifestTab {
   id: string;
   label: string;
-  kind: StudioArtifactTabKind;
-  renderer?: StudioRendererKind | null;
+  kind: ChatArtifactTabKind;
+  renderer?: ChatRendererKind | null;
   filePath?: string | null;
   lens?: string | null;
 }
 
-export interface StudioArtifactManifestFile {
+export interface ChatArtifactManifestFile {
   path: string;
   mime: string;
-  role: StudioArtifactFileRole;
+  role: ChatArtifactFileRole;
   renderable: boolean;
   downloadable: boolean;
   artifactId?: string | null;
   externalUrl?: string | null;
 }
 
-export interface StudioArtifactManifestVerification {
-  status: StudioArtifactVerificationStatus;
-  lifecycleState: StudioArtifactLifecycleState;
+export interface ChatArtifactManifestVerification {
+  status: ChatArtifactVerificationStatus;
+  lifecycleState: ChatArtifactLifecycleState;
   summary: string;
-  productionProvenance?: StudioRuntimeProvenance | null;
-  acceptanceProvenance?: StudioRuntimeProvenance | null;
-  failure?: StudioArtifactFailure | null;
+  productionProvenance?: ChatRuntimeProvenance | null;
+  acceptanceProvenance?: ChatRuntimeProvenance | null;
+  failure?: ChatArtifactFailure | null;
 }
 
-export interface StudioRetainedWidgetState {
+export interface ChatRetainedWidgetState {
   widgetFamily?: string | null;
   bindings: {
     key: string;
@@ -1158,39 +1158,39 @@ export interface StudioRetainedWidgetState {
   lastUpdatedAt?: string | null;
 }
 
-export interface StudioArtifactManifestStorage {
-  mode: StudioArtifactPersistenceMode;
+export interface ChatArtifactManifestStorage {
+  mode: ChatArtifactPersistenceMode;
   apiLabel?: string | null;
 }
 
-export interface StudioArtifactManifest {
+export interface ChatArtifactManifest {
   artifactId: string;
   title: string;
-  artifactClass: StudioArtifactClass;
-  renderer: StudioRendererKind;
+  artifactClass: ChatArtifactClass;
+  renderer: ChatRendererKind;
   primaryTab: string;
-  tabs: StudioArtifactManifestTab[];
-  files: StudioArtifactManifestFile[];
-  verification: StudioArtifactManifestVerification;
-  storage?: StudioArtifactManifestStorage | null;
+  tabs: ChatArtifactManifestTab[];
+  files: ChatArtifactManifestFile[];
+  verification: ChatArtifactManifestVerification;
+  storage?: ChatArtifactManifestStorage | null;
 }
 
 export interface ChatVerifiedReply {
-  status: StudioArtifactVerificationStatus;
-  lifecycleState: StudioArtifactLifecycleState;
+  status: ChatArtifactVerificationStatus;
+  lifecycleState: ChatArtifactLifecycleState;
   title: string;
   summary: string;
   evidence: string[];
-  productionProvenance?: StudioRuntimeProvenance | null;
-  acceptanceProvenance?: StudioRuntimeProvenance | null;
-  failure?: StudioArtifactFailure | null;
+  productionProvenance?: ChatRuntimeProvenance | null;
+  acceptanceProvenance?: ChatRuntimeProvenance | null;
+  failure?: ChatArtifactFailure | null;
   updatedAt: string;
 }
 
-export interface StudioRendererSession {
+export interface ChatRendererSession {
   sessionId: string;
   chatSessionId: string;
-  renderer: StudioRendererKind;
+  renderer: ChatRendererKind;
   workspaceRoot: string;
   entryDocument: string;
   previewUrl?: string | null;
@@ -1200,8 +1200,8 @@ export interface StudioRendererSession {
   packageManager?: string | null;
   status: string;
   verificationStatus: string;
-  receipts: StudioBuildReceipt[];
-  currentWorkerExecution?: StudioCodeWorkerLease | null;
+  receipts: ChatBuildReceipt[];
+  currentWorkerExecution?: ChatCodeWorkerLease | null;
   currentTab: string;
   availableTabs: string[];
   readyTabs: string[];
@@ -1209,24 +1209,24 @@ export interface StudioRendererSession {
   lastFailureSummary?: string | null;
 }
 
-export interface StudioArtifactRevision {
+export interface ChatArtifactRevision {
   revisionId: string;
   parentRevisionId?: string | null;
   branchId: string;
   branchLabel: string;
   prompt: string;
   createdAt: string;
-  uxLifecycle: StudioArtifactUxLifecycle;
-  artifactManifest: StudioArtifactManifest;
-  artifactBrief?: StudioArtifactBrief | null;
-  preparationNeeds?: StudioArtifactPreparationNeeds | null;
-  preparedContextResolution?: StudioArtifactPreparedContextResolution | null;
-  skillDiscoveryResolution?: StudioArtifactSkillDiscoveryResolution | null;
-  blueprint?: StudioArtifactBlueprint | null;
-  artifactIr?: StudioArtifactIR | null;
-  selectedSkills: StudioArtifactSelectedSkill[];
-  editIntent?: StudioArtifactEditIntent | null;
-  candidateSummaries: StudioArtifactCandidateSummary[];
+  uxLifecycle: ChatArtifactUxLifecycle;
+  artifactManifest: ChatArtifactManifest;
+  artifactBrief?: ChatArtifactBrief | null;
+  preparationNeeds?: ChatArtifactPreparationNeeds | null;
+  preparedContextResolution?: ChatArtifactPreparedContextResolution | null;
+  skillDiscoveryResolution?: ChatArtifactSkillDiscoveryResolution | null;
+  blueprint?: ChatArtifactBlueprint | null;
+  artifactIr?: ChatArtifactIR | null;
+  selectedSkills: ChatArtifactSelectedSkill[];
+  editIntent?: ChatArtifactEditIntent | null;
+  candidateSummaries: ChatArtifactCandidateSummary[];
   winningCandidateId?: string | null;
   executionEnvelope?: ExecutionEnvelope | null;
   swarmPlan?: SwarmPlan | null;
@@ -1236,16 +1236,16 @@ export interface StudioArtifactRevision {
   swarmPatchReceipts?: SwarmChangeReceipt[];
   swarmMergeReceipts: SwarmMergeReceipt[];
   swarmVerificationReceipts: SwarmVerificationReceipt[];
-  renderEvaluation?: StudioArtifactRenderEvaluation | null;
-  validation?: StudioArtifactValidationResult | null;
-  outputOrigin?: StudioArtifactOutputOrigin | null;
-  productionProvenance?: StudioRuntimeProvenance | null;
-  acceptanceProvenance?: StudioRuntimeProvenance | null;
-  failure?: StudioArtifactFailure | null;
-  fileWrites: StudioArtifactMaterializationFileWrite[];
-  tasteMemory?: StudioArtifactTasteMemory | null;
-  retrievedExemplars: StudioArtifactExemplar[];
-  selectedTargets: StudioArtifactSelectionTarget[];
+  renderEvaluation?: ChatArtifactRenderEvaluation | null;
+  validation?: ChatArtifactValidationResult | null;
+  outputOrigin?: ChatArtifactOutputOrigin | null;
+  productionProvenance?: ChatRuntimeProvenance | null;
+  acceptanceProvenance?: ChatRuntimeProvenance | null;
+  failure?: ChatArtifactFailure | null;
+  fileWrites: ChatArtifactMaterializationFileWrite[];
+  tasteMemory?: ChatArtifactTasteMemory | null;
+  retrievedExemplars: ChatArtifactExemplar[];
+  selectedTargets: ChatArtifactSelectionTarget[];
 }
 
 export interface ChatArtifactSession {
@@ -1257,22 +1257,22 @@ export interface ChatArtifactSession {
   summary: string;
   currentLens: string;
   navigatorBackingMode: string;
-  navigatorNodes: StudioArtifactNavigatorNode[];
+  navigatorNodes: ChatArtifactNavigatorNode[];
   attachedArtifactIds: string[];
   availableLenses: string[];
-  materialization: StudioArtifactMaterializationContract;
-  outcomeRequest: StudioOutcomeRequest;
-  artifactManifest: StudioArtifactManifest;
+  materialization: ChatArtifactMaterializationContract;
+  outcomeRequest: ChatOutcomeRequest;
+  artifactManifest: ChatArtifactManifest;
   verifiedReply: ChatVerifiedReply;
-  lifecycleState: StudioArtifactLifecycleState;
+  lifecycleState: ChatArtifactLifecycleState;
   status: string;
   activeRevisionId?: string | null;
-  revisions: StudioArtifactRevision[];
-  tasteMemory?: StudioArtifactTasteMemory | null;
-  retrievedExemplars: StudioArtifactExemplar[];
-  selectedTargets: StudioArtifactSelectionTarget[];
-  widgetState?: StudioRetainedWidgetState | null;
-  uxLifecycle?: StudioArtifactUxLifecycle | null;
+  revisions: ChatArtifactRevision[];
+  tasteMemory?: ChatArtifactTasteMemory | null;
+  retrievedExemplars: ChatArtifactExemplar[];
+  selectedTargets: ChatArtifactSelectionTarget[];
+  widgetState?: ChatRetainedWidgetState | null;
+  uxLifecycle?: ChatArtifactUxLifecycle | null;
   activeOperatorRun?: ArtifactOperatorRun | null;
   operatorRunHistory?: ArtifactOperatorRun[];
   createdAt: string;
@@ -1294,8 +1294,8 @@ export interface BuildArtifactSession {
   packageManager: string;
   buildStatus: string;
   verificationStatus: string;
-  receipts: StudioBuildReceipt[];
-  currentWorkerExecution: StudioCodeWorkerLease;
+  receipts: ChatBuildReceipt[];
+  currentWorkerExecution: ChatCodeWorkerLease;
   currentLens: string;
   availableLenses: string[];
   readyLenses: string[];
@@ -1709,8 +1709,8 @@ export interface AgentTask {
   session_checklist: SessionChecklistItem[];
   background_tasks: SessionBackgroundTaskRecord[];
   chat_session?: ChatArtifactSession | null;
-  chat_outcome?: StudioOutcomeRequest | null;
-  renderer_session?: StudioRendererSession | null;
+  chat_outcome?: ChatOutcomeRequest | null;
+  renderer_session?: ChatRendererSession | null;
   build_session?: BuildArtifactSession | null;
 }
 
@@ -2319,7 +2319,7 @@ export interface LocalEngineApiConfig {
 
 export interface LocalEngineLauncherConfig {
   autoStartOnBoot: boolean;
-  reopenStudioOnLaunch: boolean;
+  reopenChatOnLaunch: boolean;
   autoCheckUpdates: boolean;
   releaseChannel: string;
   showKernelConsole: boolean;
@@ -3522,7 +3522,7 @@ export interface PlanFallbackPolicySummary {
 export interface PlanPresentationPolicySummary {
   primarySurface: string;
   widgetFamily: string | null;
-  renderer: StudioRendererKind | null;
+  renderer: ChatRendererKind | null;
   tabPriority: string[];
   rationale: string;
 }

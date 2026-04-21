@@ -4,7 +4,7 @@
   gap: 0;
   min-height: 0;
   flex: 1;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   border-radius: 18px;
   overflow: hidden;
   background: rgba(10, 10, 12, 0.92);
@@ -25,7 +25,7 @@
   flex-direction: column;
   gap: 14px;
   padding: 18px 16px;
-  border-right: 1px solid var(--studio-border);
+  border-right: 1px solid var(--chat-border);
   background: rgba(255, 255, 255, 0.015);
 }
 
@@ -38,12 +38,12 @@
 }
 
 .notifications-sidebar-head strong {
-  color: var(--studio-text);
+  color: var(--chat-text);
   font-size: 12px;
 }
 
 .notifications-sidebar-head span {
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -80,12 +80,12 @@
 }
 
 .notifications-filter-button strong {
-  color: var(--studio-text);
+  color: var(--chat-text);
   font-size: 14px;
 }
 
 .notifications-filter-button span {
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -99,9 +99,9 @@
   height: 34px;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   background: rgba(255, 255, 255, 0.04);
-  color: var(--studio-text);
+  color: var(--chat-text);
   font-size: 12px;
   font-style: normal;
   font-weight: 600;
@@ -109,8 +109,8 @@
 
 .notifications-filter-button:hover,
 .notifications-filter-button.active {
-  border-color: var(--studio-selection-border);
-  background: var(--studio-selection-bg);
+  border-color: var(--chat-selection-border);
+  background: var(--chat-selection-bg);
 }
 
 .notifications-queue-pane {
@@ -136,7 +136,7 @@
   border-radius: 12px;
   border: 1px solid transparent;
   background: var(--surface-3);
-  color: var(--studio-text);
+  color: var(--chat-text);
   outline: none;
   font: inherit;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
@@ -144,12 +144,12 @@
 
 .notifications-search-input:focus {
   background: var(--surface-4);
-  box-shadow: inset 0 0 0 1px var(--studio-border-focus);
+  box-shadow: inset 0 0 0 1px var(--chat-border-focus);
 }
 
 .notifications-card-eyebrow {
   display: inline-block;
-  color: var(--studio-accent-soft);
+  color: var(--chat-accent-soft);
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -174,7 +174,7 @@
 .notifications-empty-card {
   padding: 14px 16px;
   border-radius: 16px;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   background: var(--surface-3);
 }
 
@@ -193,8 +193,8 @@
 }
 
 .notifications-card-selected {
-  border-color: var(--studio-selection-border);
-  box-shadow: 0 0 0 1px var(--studio-focus-ring);
+  border-color: var(--chat-selection-border);
+  box-shadow: 0 0 0 1px var(--chat-focus-ring);
 }
 
 .notifications-card h3 {
@@ -223,7 +223,7 @@
 }
 
 .notifications-card-time {
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -240,31 +240,31 @@
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(232, 237, 242, 0.04);
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
   font-size: 11px;
   text-transform: capitalize;
 }
 
 .notifications-pill-type-approval {
-  background: var(--studio-warning-muted);
-  color: var(--studio-warning);
+  background: var(--chat-warning-muted);
+  color: var(--chat-warning);
 }
 
 .notifications-pill-type-clarification {
-  background: var(--studio-accent-muted);
-  color: var(--studio-text);
+  background: var(--chat-accent-muted);
+  color: var(--chat-text);
 }
 
 .notifications-pill-type-result,
 .notifications-pill-type-digest {
   background: rgba(232, 237, 242, 0.06);
-  color: var(--studio-text);
+  color: var(--chat-text);
 }
 
 .notifications-pill-type-anomaly,
 .notifications-pill-type-escalation {
-  background: var(--studio-error-muted);
-  color: var(--studio-error);
+  background: var(--chat-error-muted);
+  color: var(--chat-error);
 }
 
 .notifications-card-critical {
@@ -276,7 +276,7 @@
 }
 
 .notifications-card-medium {
-  border-color: var(--studio-selection-border);
+  border-color: var(--chat-selection-border);
 }
 
 .notifications-card-engine {
@@ -288,14 +288,14 @@
 .notifications-summary,
 .notifications-next-step {
   margin: 0;
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
 }
 
 .notifications-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
 }
 
 .notifications-meta span {
@@ -304,9 +304,9 @@
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   background: rgba(255, 255, 255, 0.03);
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
   font-size: 12px;
 }
 
@@ -314,7 +314,7 @@
 .notifications-secondary-button,
 .notifications-quiet-button {
   border-radius: 10px;
-  border: 1px solid var(--studio-border);
+  border: 1px solid var(--chat-border);
   padding: 9px 12px;
   font: inherit;
   cursor: pointer;
@@ -325,19 +325,19 @@
 }
 
 .notifications-primary-button {
-  background: var(--studio-primary-bg);
-  border-color: var(--studio-primary-border);
+  background: var(--chat-primary-bg);
+  border-color: var(--chat-primary-border);
   color: var(--button-primary-text);
 }
 
 .notifications-secondary-button {
   background: rgba(255, 255, 255, 0.03);
-  color: var(--studio-text);
+  color: var(--chat-text);
 }
 
 .notifications-quiet-button {
   background: transparent;
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
 }
 
 .notifications-primary-button:disabled,
@@ -352,11 +352,11 @@
   align-items: center;
   justify-content: center;
   min-height: 160px;
-  color: var(--studio-text-secondary);
+  color: var(--chat-text-secondary);
 }
 
 .notifications-error {
-  color: var(--studio-error);
+  color: var(--chat-error);
 }
 
 @media (max-width: 1200px) {
@@ -380,6 +380,6 @@
   .notifications-sidebar,
   .notifications-queue-pane {
     border-right: none;
-    border-bottom: 1px solid var(--studio-border);
+    border-bottom: 1px solid var(--chat-border);
   }
 }

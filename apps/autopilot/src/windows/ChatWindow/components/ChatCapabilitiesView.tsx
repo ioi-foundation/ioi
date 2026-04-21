@@ -1,7 +1,7 @@
 import type {
   ConnectorSummary,
-  StudioCapabilityDetailSection,
 } from "@ioi/agent-ide";
+import type { ChatCapabilityDetailSection } from "../../../types";
 import { useEffect } from "react";
 import { type TauriRuntime } from "../../../services/TauriRuntime";
 import type {
@@ -29,7 +29,7 @@ interface ChatCapabilitiesViewProps {
   onOpenSkillSources?: () => void;
   seedSurface?: CapabilitySurface | null;
   seedConnectorId?: string | null;
-  seedConnectionDetailSection?: StudioCapabilityDetailSection | null;
+  seedConnectionDetailSection?: ChatCapabilityDetailSection | null;
   onConsumeSeedSurface?: () => void;
   onConsumeSeedConnector?: () => void;
 }

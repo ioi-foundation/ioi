@@ -5,13 +5,13 @@ use std::sync::Mutex;
 use tauri::{Emitter, State};
 
 #[tauri::command]
-pub async fn run_studio_graph(
+pub async fn run_chat_graph(
     state: State<'_, Mutex<AppState>>,
     app: tauri::AppHandle,
     payload: GraphPayload,
 ) -> Result<(), String> {
     println!(
-        "[Studio] Received Graph with {} nodes. Starting local execution...",
+        "[Chat] Received Graph with {} nodes. Starting local execution...",
         payload.nodes.len()
     );
 
@@ -36,9 +36,9 @@ pub async fn run_studio_graph(
             .await;
 
         if let Err(e) = result {
-            eprintln!("[Studio] Orchestrator Runtime Error: {}", e);
+            eprintln!("[Chat] Orchestrator Runtime Error: {}", e);
         } else {
-            println!("[Studio] Graph execution completed successfully.");
+            println!("[Chat] Graph execution completed successfully.");
         }
     });
 
@@ -56,7 +56,7 @@ pub async fn test_node_execution(
     global_config: Option<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
     println!(
-        "[Studio] Running Ephemeral Execution: {} (Session: {:?})",
+        "[Chat] Running Ephemeral Execution: {} (Session: {:?})",
         node_type, session_id
     );
 
@@ -125,7 +125,7 @@ pub async fn test_node_execution(
             serde_json::to_value(result).map_err(|e| e.to_string())
         }
         Err(e) => {
-            eprintln!("[Studio] Execution Error: {}", e);
+            eprintln!("[Chat] Execution Error: {}", e);
             Ok(serde_json::json!({
                 "status": "error",
                 "output": format!("Execution Logic Failed: {}", e),

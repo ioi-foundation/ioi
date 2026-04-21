@@ -109,18 +109,18 @@ export function ChatConversationSidebar({
   const hasResults = filteredGroups.length > 0;
 
   return (
-    <aside className="spot-studio-sidebar" aria-label="Chat sidebar">
-      <div className="spot-studio-sidebar-head">
-        <div className="spot-studio-sidebar-title-block">
-          <strong className="spot-studio-sidebar-title">Chat</strong>
-          <span className="spot-studio-sidebar-subtitle">
+    <aside className="spot-chat-sidebar" aria-label="Chat sidebar">
+      <div className="spot-chat-sidebar-head">
+        <div className="spot-chat-sidebar-title-block">
+          <strong className="spot-chat-sidebar-title">Chat</strong>
+          <span className="spot-chat-sidebar-subtitle">
             Outcome-first workspace
           </span>
         </div>
 
         <button
           type="button"
-          className="spot-studio-sidebar-head-action"
+          className="spot-chat-sidebar-head-action"
           onClick={onNewSession}
           aria-label="Start a new Chat request"
           title="New outcome"
@@ -129,8 +129,8 @@ export function ChatConversationSidebar({
         </button>
       </div>
 
-      <label className="spot-studio-sidebar-search" aria-label="Search Chat sessions">
-        <span className="spot-studio-sidebar-search-icon" aria-hidden="true">
+      <label className="spot-chat-sidebar-search" aria-label="Search Chat sessions">
+        <span className="spot-chat-sidebar-search-icon" aria-hidden="true">
           {icons.search}
         </span>
         <input
@@ -141,13 +141,13 @@ export function ChatConversationSidebar({
         />
       </label>
 
-      <div className="spot-studio-sidebar-actions">
+      <div className="spot-chat-sidebar-actions">
         <button
           type="button"
-          className="spot-studio-sidebar-utility"
+          className="spot-chat-sidebar-utility"
           onClick={onNewSession}
         >
-          <span className="spot-studio-sidebar-utility-icon" aria-hidden="true">
+          <span className="spot-chat-sidebar-utility-icon" aria-hidden="true">
             {icons.plus}
           </span>
           <span>New outcome</span>
@@ -156,32 +156,32 @@ export function ChatConversationSidebar({
         {showArtifactNav ? (
           <button
             type="button"
-            className={`spot-studio-sidebar-utility ${
+            className={`spot-chat-sidebar-utility ${
               artifactVisible ? "is-active" : ""
             }`}
             onClick={onToggleArtifacts}
           >
-            <span className="spot-studio-sidebar-utility-icon" aria-hidden="true">
+            <span className="spot-chat-sidebar-utility-icon" aria-hidden="true">
               {icons.artifacts}
             </span>
-            <span className="spot-studio-sidebar-utility-label">Artifacts</span>
-            <span className="spot-studio-sidebar-utility-badge">
+            <span className="spot-chat-sidebar-utility-label">Artifacts</span>
+            <span className="spot-chat-sidebar-utility-badge">
               {Math.max(1, artifactCount)}
             </span>
           </button>
         ) : null}
       </div>
 
-      <div className="spot-studio-sidebar-history">
-        <div className="spot-studio-sidebar-section-head">
+      <div className="spot-chat-sidebar-history">
+        <div className="spot-chat-sidebar-section-head">
           <span>Recent</span>
         </div>
 
         {hasResults ? (
           filteredGroups.map((group) => (
-            <section key={group.label} className="spot-studio-sidebar-group">
-              <div className="spot-studio-sidebar-group-label">{group.label}</div>
-              <div className="spot-studio-sidebar-group-items">
+            <section key={group.label} className="spot-chat-sidebar-group">
+              <div className="spot-chat-sidebar-group-label">{group.label}</div>
+              <div className="spot-chat-sidebar-group-items">
                 {group.sessions.map((session) => {
                   const isActive = activeSessionId === session.session_id;
                   const secondary =
@@ -197,13 +197,13 @@ export function ChatConversationSidebar({
                     <button
                       key={session.session_id}
                       type="button"
-                      className={`spot-studio-sidebar-session ${
+                      className={`spot-chat-sidebar-session ${
                         isActive ? "is-active" : ""
                       }`}
                       onClick={() => onSelectSession(session.session_id)}
                       title={sessionTooltip}
                     >
-                      <span className="spot-studio-sidebar-session-copy">
+                      <span className="spot-chat-sidebar-session-copy">
                         <strong>{session.title}</strong>
                         {isActive && secondary ? <span>{secondary}</span> : null}
                       </span>
@@ -214,10 +214,10 @@ export function ChatConversationSidebar({
             </section>
           ))
         ) : (
-          <div className="spot-studio-sidebar-empty">
+          <div className="spot-chat-sidebar-empty">
             {searchQuery.trim()
-              ? "No Studio sessions match that search."
-              : "Start a Studio request to build a recent history."}
+              ? "No Chat sessions match that search."
+              : "Start a Chat request to build a recent history."}
           </div>
         )}
       </div>

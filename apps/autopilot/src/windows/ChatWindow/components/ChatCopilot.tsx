@@ -1,4 +1,4 @@
-// Compatibility aliases remain so the legacy Studio shell path can re-export this view.
+// Compatibility aliases remain so the shared chat shell can re-export this view.
 import type { AssistantSessionRuntime } from "@ioi/agent-ide";
 import { SpotlightWindow } from "../../SpotlightWindow";
 
@@ -15,7 +15,7 @@ export function ChatCopilotView({
 }: ChatCopilotViewProps) {
   return (
     <SpotlightWindow
-      variant="studio"
+      variant="chat"
       seedIntent={seedIntent}
       onConsumeSeedIntent={onConsumeSeedIntent}
       sessionRuntime={sessionRuntime}

@@ -15,7 +15,7 @@ import "@ioi/agent-ide/dist/style.css";
 import "../shared/AssistantWorkbench.css";
 import "./ChatWindow.css";
 
-const runtime = new TauriRuntime("studio");
+const runtime = new TauriRuntime("chat");
 
 type ChatCrashReport = {
   source: "render" | "runtime";
@@ -98,33 +98,33 @@ function ChatWindowCrashScreen({
   error: ChatCrashReport;
 }) {
   return (
-    <div className="studio-window studio-window--crashed">
-      <section className="studio-window-crash-card" aria-live="polite">
-        <p className="studio-window-crash-kicker">Chat render blocked</p>
+    <div className="chat-window chat-window--crashed">
+      <section className="chat-window-crash-card" aria-live="polite">
+        <p className="chat-window-crash-kicker">Chat render blocked</p>
         <h1>{error.message}</h1>
         <p>
           Chat hit a native render failure instead of opening a usable main
           app surface. Reload this window and, if needed, continue from
           Spotlight while we fix the underlying seam.
         </p>
-        <div className="studio-window-crash-meta">
+        <div className="chat-window-crash-meta">
           <span>{error.source === "render" ? "React render error" : "Runtime error"}</span>
           {error.detail ? <span>Stack captured</span> : <span>No stack available</span>}
         </div>
         {error.detail ? (
-          <pre className="studio-window-crash-detail">{error.detail}</pre>
+          <pre className="chat-window-crash-detail">{error.detail}</pre>
         ) : null}
-        <div className="studio-window-crash-actions">
+        <div className="chat-window-crash-actions">
           <button
             type="button"
-            className="studio-window-crash-button"
+            className="chat-window-crash-button"
             onClick={() => window.location.reload()}
           >
             Reload Chat
           </button>
           <button
             type="button"
-            className="studio-window-crash-button secondary"
+            className="chat-window-crash-button secondary"
             onClick={() => window.location.replace("/spotlight")}
           >
             Open Spotlight Route
@@ -249,7 +249,7 @@ function ChatWindowLoaded() {
   };
 
   return (
-    <div className="studio-window">
+    <div className="chat-window">
       <ChatWindowMainContent controller={controller} runtime={runtime} />
 
       {controller.modals.commandPaletteOpen ? (

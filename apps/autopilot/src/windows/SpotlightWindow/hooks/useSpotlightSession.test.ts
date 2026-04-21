@@ -9,13 +9,13 @@ const hookSource = fs.readFileSync(
 assert.match(
   hookSource,
   /export function shouldContinueSpotlightComposerSession\([\s\S]*if \(!task\?\.id \|\| task\.phase === "Failed"\) \{\s*return false;\s*\}[\s\S]*if \(isStudioVariant && task\.phase === "Complete"\) \{\s*[\s\S]*return true;\s*\}[\s\S]*return true;/,
-  "Studio should keep completed outcomes attachable so follow-up submits can reuse retained context until the user explicitly starts a new outcome",
+  "Chat should keep completed outcomes attachable so follow-up submits can reuse retained context until the user explicitly starts a new outcome",
 );
 
 assert.match(
   hookSource,
   /shouldContinueExistingSession: \(currentTask\) =>\s*shouldContinueSpotlightComposerSession\(isStudioVariant, currentTask\)/,
-  "Spotlight should pass the Studio-aware continuation guard into the shared composer",
+  "Spotlight should pass the Chat-aware continuation guard into the shared composer",
 );
 
 console.log("useSpotlightSession.test.ts: ok");

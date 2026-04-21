@@ -28,18 +28,18 @@ export function ChatWindowMainContent({
   const { activeView, currentProject, projects, notificationBadgeCount } =
     controller;
   const auxiliaryChatVisible =
-    activeView !== "studio" && controller.chat.paneVisible;
+    activeView !== "chat" && controller.chat.paneVisible;
   const auxiliaryChatFullscreen =
     auxiliaryChatVisible && controller.chat.paneMaximized;
   const openNewTerminal = useCallback(() => {
     controller.chat.openAutopilotWithIntent(
       "Open the active artifact's workspace terminal lens if a workspace renderer is available.",
     );
-    controller.changePrimaryView("studio");
+    controller.changePrimaryView("chat");
   }, [controller]);
 
   return (
-    <div className="studio-shell">
+    <div className="chat-shell">
       <ChatIdeHeader
         workspaceName={WORKSPACE_NAME}
         currentProject={currentProject}
@@ -54,7 +54,7 @@ export function ChatWindowMainContent({
         onOpenNewTerminal={openNewTerminal}
       />
 
-      <div className="studio-workspace">
+      <div className="chat-workspace">
         <ChatLocalActivityBar
           activeView={activeView}
           onViewChange={controller.changePrimaryView}
@@ -62,13 +62,13 @@ export function ChatWindowMainContent({
           currentProject={currentProject}
         />
 
-        <div className="studio-main">
+        <div className="chat-main">
           <div
-            className={`studio-content ${auxiliaryChatFullscreen ? "is-chat-fullscreen" : ""}`}
+            className={`chat-content ${auxiliaryChatFullscreen ? "is-chat-fullscreen" : ""}`}
           >
-            <div className="studio-center-area">
-              <div className="studio-content-main">
-                {activeView === "studio" ? (
+            <div className="chat-center-area">
+              <div className="chat-content-main">
+                {activeView === "chat" ? (
                   <ChatCopilotView
                     seedIntent={controller.chat.seedIntent}
                     onConsumeSeedIntent={controller.chat.consumeSeedIntent}
@@ -86,7 +86,7 @@ export function ChatWindowMainContent({
                     editingAgent={controller.agents.editingAgent}
                     onSurfaceChange={controller.workflow.setSurface}
                     onSelectProject={controller.workflow.selectProject}
-                    onOpenStudio={() => controller.changePrimaryView("studio")}
+                    onOpenChat={() => controller.changePrimaryView("chat")}
                     onOpenInbox={() => controller.changePrimaryView("inbox")}
                     onOpenCapabilities={() =>
                       controller.changePrimaryView("capabilities")
@@ -211,7 +211,7 @@ export function ChatWindowMainContent({
                 ) : null}
               </div>
 
-              {activeView !== "studio" ? (
+              {activeView !== "chat" ? (
                 <ChatUtilityDrawer
                   runtime={runtime}
                   activeView={activeView}
@@ -222,7 +222,7 @@ export function ChatWindowMainContent({
                   currentProject={currentProject}
                   focusedPolicyConnectorId={controller.policy.focusedConnectorId}
                   assistantWorkbench={controller.chat.assistantWorkbench}
-                  onOpenChatConversation={() => controller.changePrimaryView("studio")}
+                  onOpenChatConversation={() => controller.changePrimaryView("chat")}
                 />
               ) : null}
             </div>

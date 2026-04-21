@@ -45,7 +45,7 @@ enum Commands {
     /// Scaffold new components (services, contracts).
     Scaffold(scaffold::ScaffoldArgs),
 
-    /// Inspect, validate, and materialize Studio artifact packages.
+    /// Inspect, validate, and materialize Chat artifact packages.
     Artifact(artifact::ArtifactArgs),
 
     // --- Devnet ---

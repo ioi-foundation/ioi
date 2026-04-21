@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { hasOpenableArtifactSurface } from "../components/studioArtifactSurfaceModel";
+import { hasOpenableArtifactSurface } from "../components/chatArtifactSurfaceModel";
 import {
   ARTIFACT_PANEL_WIDTH,
   BASE_PANEL_WIDTH,
@@ -11,11 +11,11 @@ import {
 import { buildRunPresentation } from "../viewmodels/contentPipeline";
 import { useTurnContexts } from "./useTurnContexts";
 import {
-  deriveStudioExecutionChrome as deriveStudioExecutionChromeState,
+  deriveChatExecutionChrome as deriveChatExecutionChromeState,
   formatStudioStatusLabel,
-  type StudioExecutionMetrics,
-  type StudioExecutionProcess,
-} from "../components/studioExecutionChrome";
+  type ChatExecutionMetrics,
+  type ChatExecutionProcess,
+} from "../components/chatExecutionChrome";
 import {
   defaultRunActivityDetail,
   defaultRunActivityTitle,
@@ -27,18 +27,18 @@ import type {
   ChatMessage,
   RunPresentation,
   SessionSummary,
-  StudioArtifactOperatorStep,
-  StudioArtifactSelectedSkill,
-  StudioArtifactSkillDiscoveryResolution,
+  ChatArtifactOperatorStep,
+  ChatArtifactSelectedSkill,
+  ChatArtifactSkillDiscoveryResolution,
 } from "../../../types";
 
-export type StudioStatusCardState = {
+export type ChatStatusCardState = {
   tone?: "active" | "error";
   title: string;
   detail: string;
-  metrics?: StudioExecutionMetrics;
-  processes?: StudioExecutionProcess[];
-  selectedSkills?: StudioArtifactSelectedSkill[];
+  metrics?: ChatExecutionMetrics;
+  processes?: ChatExecutionProcess[];
+  selectedSkills?: ChatArtifactSelectedSkill[];
   livePreview?: {
     label: string;
     content: string;
@@ -57,10 +57,10 @@ export type StudioStatusCardState = {
   } | null;
 } | null;
 
-type StudioStatusPreview = NonNullable<StudioStatusCardState>["livePreview"];
+type ChatStatusPreview = NonNullable<ChatStatusCardState>["livePreview"];
 
 function shouldDisplayArtifactStatusPreview(
-  preview: StudioStatusPreview,
+  preview: ChatStatusPreview,
 ): boolean {
   if (!preview) {
     return false;
@@ -82,12 +82,12 @@ function selectArtifactStatusPreviews({
   executionChromeLivePreview,
   executionChromeCodePreview,
 }: {
-  artifactThinkingPreview: StudioStatusPreview;
-  executionChromeLivePreview: StudioStatusPreview;
-  executionChromeCodePreview: StudioStatusPreview;
+  artifactThinkingPreview: ChatStatusPreview;
+  executionChromeLivePreview: ChatStatusPreview;
+  executionChromeCodePreview: ChatStatusPreview;
 }): {
-  livePreview: StudioStatusPreview;
-  codePreview: StudioStatusPreview;
+  livePreview: ChatStatusPreview;
+  codePreview: ChatStatusPreview;
 } {
   const filteredArtifactThinkingPreview = shouldDisplayArtifactStatusPreview(
     artifactThinkingPreview,
@@ -117,10 +117,10 @@ function selectArtifactStatusPreviews({
   return { livePreview, codePreview };
 }
 
-function deriveTaskStudioExecutionChrome(task: any) {
+function deriveTaskChatExecutionChrome(task: any) {
   const materialization = task?.chat_session?.materialization;
   const executionEnvelope = materialization?.executionEnvelope ?? null;
-  return deriveStudioExecutionChromeState({
+  return deriveChatExecutionChromeState({
     executionEnvelope,
     swarmExecution:
       materialization?.swarmExecution ?? executionEnvelope?.executionSummary ?? null,
@@ -173,9 +173,9 @@ function resolveArtifactThinkingSubject(task: any): string {
 
 function buildArtifactThinkingPreview(
   task: any,
-): StudioStatusPreview {
+): ChatStatusPreview {
   const operatorSteps = (
-    (task?.chat_session?.materialization?.operatorSteps ?? []) as StudioArtifactOperatorStep[]
+    (task?.chat_session?.materialization?.operatorSteps ?? []) as ChatArtifactOperatorStep[]
   )
     .filter((step) => step.preview?.content?.trim());
   if (operatorSteps.length === 0) {
@@ -204,24 +204,24 @@ function buildArtifactThinkingPreview(
   };
 }
 
-function buildArtifactThinkingProcesses(task: any): StudioExecutionProcess[] {
+function buildArtifactThinkingProcesses(task: any): ChatExecutionProcess[] {
   const materialization = task?.chat_session?.materialization;
-  const operatorSteps = ((materialization?.operatorSteps ?? []) as StudioArtifactOperatorStep[])
+  const operatorSteps = ((materialization?.operatorSteps ?? []) as ChatArtifactOperatorStep[])
     .filter((step) => step.label.trim().length > 0);
   const skillDiscoveryResolution = (materialization?.skillDiscoveryResolution ??
-    null) as StudioArtifactSkillDiscoveryResolution | null;
+    null) as ChatArtifactSkillDiscoveryResolution | null;
   if (operatorSteps.length === 0) {
     return [];
   }
 
   const processes = operatorSteps.map((step) => ({
     id: step.stepId || `${String(step.phase || "other")}:${step.startedAtMs}`,
-    label: step.label || "Studio artifact step",
+    label: step.label || "Chat artifact step",
     status: formatArtifactThinkingStatus(step.status || "pending"),
     summary:
       step.detail ||
       skillDiscoveryResolution?.rationale ||
-      "Studio is working through the active artifact step.",
+      "Chat is working through the active artifact step.",
     isActive: String(step.status || "").trim().toLowerCase() === "active",
     iconKey: artifactThinkingIconKeyForStep(step),
   }));
@@ -230,7 +230,7 @@ function buildArtifactThinkingProcesses(task: any): StudioExecutionProcess[] {
 }
 
 function artifactThinkingIconKeyForStep(
-  step: StudioArtifactOperatorStep,
+  step: ChatArtifactOperatorStep,
 ): "search" | "cube" | "copy" | "code" | "retry" | "check" | "artifacts" | "sparkles" {
   switch (String(step.phase || "").trim().toLowerCase()) {
     case "understand_request":
@@ -269,7 +269,7 @@ function summarizeStudioFailure(
     normalized.includes("inmempool")
   ) {
     return {
-      title: "Studio kept the request in conversation",
+      title: "Chat kept the request in conversation",
       detail:
         "The artifact route stalled before a stable surface was ready. Keep iterating in chat, or inspect the thinking trace if you need runtime detail.",
     };
@@ -281,16 +281,16 @@ function summarizeStudioFailure(
     normalized.includes("renderer")
   ) {
     return {
-      title: "Studio did not open an artifact yet",
+      title: "Chat did not open an artifact yet",
       detail:
         "The request is still here, but the artifact surface was not ready to open. Continue in chat, or inspect the trace if you need to see what happened.",
     };
   }
 
   return {
-    title: "Studio kept the request in conversation",
+    title: "Chat kept the request in conversation",
     detail:
-      "The request did not settle into a usable Studio surface yet. Continue in chat, or inspect the trace if you need the underlying runtime details.",
+      "The request did not settle into a usable Chat surface yet. Continue in chat, or inspect the trace if you need the underlying runtime details.",
   };
 }
 
@@ -451,7 +451,7 @@ export function useSpotlightSurfaceState({
     ? isRunning && conversationTurns.length === 0
     : false;
 
-  const studioStatusCard: StudioStatusCardState = useMemo(() => {
+  const chatStatusCard: ChatStatusCardState = useMemo(() => {
     if (!isStudioVariant) {
       return null;
     }
@@ -460,7 +460,7 @@ export function useSpotlightSurfaceState({
     }
 
     const submissionFailureSummary = summarizeStudioFailure(submissionError);
-    const executionChrome = deriveTaskStudioExecutionChrome(task);
+    const executionChrome = deriveTaskChatExecutionChrome(task);
     const artifactRouteActive = isArtifactStudioRoute(task);
     const artifactThinkingProcesses = artifactRouteActive
       ? buildArtifactThinkingProcesses(task)
@@ -471,7 +471,7 @@ export function useSpotlightSurfaceState({
       artifactThinkingProcesses[artifactThinkingProcesses.length - 1] ?? null;
     const artifactSelectedSkills = artifactRouteActive
       ? ((task?.chat_session?.materialization?.selectedSkills ??
-          []) as StudioArtifactSelectedSkill[])
+          []) as ChatArtifactSelectedSkill[])
       : [];
     const artifactThinkingPreview = artifactRouteActive
       ? buildArtifactThinkingPreview(task)
@@ -488,7 +488,7 @@ export function useSpotlightSurfaceState({
       artifactThinkingActiveProcess?.summary ||
       artifactThinkingLatestProcess?.summary ||
       task?.current_step ||
-      "Studio is moving through the current artifact run.";
+      "Chat is moving through the current artifact run.";
     const routeActivityTitle = defaultRunActivityTitle(runPresentation.planSummary);
     const routeActivityDetail =
       operatorFacingCurrentStep(task, runPresentation.planSummary) ||
@@ -561,7 +561,7 @@ export function useSpotlightSurfaceState({
       return {
         title: "Clarification needed",
         detail: task.clarification_request.question,
-        ...deriveTaskStudioExecutionChrome(task),
+        ...deriveTaskChatExecutionChrome(task),
       };
     }
 
@@ -623,18 +623,18 @@ export function useSpotlightSurfaceState({
           artifactRouteActive && artifactThinkingDetail
             ? artifactThinkingDetail
             : blockedSummary.detail,
-        metrics: artifactRouteActive ? null : deriveTaskStudioExecutionChrome(task).metrics,
+        metrics: artifactRouteActive ? null : deriveTaskChatExecutionChrome(task).metrics,
         processes: artifactRouteActive
           ? artifactThinkingProcesses
-          : deriveTaskStudioExecutionChrome(task).processes,
+          : deriveTaskChatExecutionChrome(task).processes,
         selectedSkills: artifactRouteActive ? artifactSelectedSkills : [],
         livePreview:
           artifactRouteActive
             ? artifactStatusPreviews.livePreview
-            : deriveTaskStudioExecutionChrome(task).livePreview,
+            : deriveTaskChatExecutionChrome(task).livePreview,
         codePreview: artifactRouteActive
           ? artifactStatusPreviews.codePreview
-          : deriveTaskStudioExecutionChrome(task).codePreview,
+          : deriveTaskChatExecutionChrome(task).codePreview,
       };
     }
 
@@ -668,9 +668,9 @@ export function useSpotlightSurfaceState({
     showOverlaySessionChrome,
     studioArtifactAvailable,
     studioArtifactExpected,
-    studioStatusCard,
+    chatStatusCard,
     suppressConversationPendingIndicators:
-      hasOperatorDecisionPrompt || Boolean(studioStatusCard),
+      hasOperatorDecisionPrompt || Boolean(chatStatusCard),
     turnContexts,
   };
 }

@@ -25,8 +25,8 @@ pub mod model_registry;
 pub mod penalties;
 /// Data structures for economic settlement.
 pub mod settlement;
-/// Shared Studio outcome routing and artifact contracts.
-pub mod studio;
+/// Shared Chat outcome routing and artifact contracts.
+pub mod chat;
 /// Data structures for deterministic block timing.
 pub mod timing; // [NEW]
 /// Data structures for wallet.network control-plane and session artifacts.
@@ -55,7 +55,7 @@ pub use media::*;
 pub use model_registry::*;
 pub use penalties::*;
 pub use settlement::*;
-pub use studio::*;
+pub use chat::*;
 pub use timing::*; // [NEW]
 pub use wallet_network::*;
 pub use workload::*;

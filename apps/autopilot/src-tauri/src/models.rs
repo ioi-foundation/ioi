@@ -3,30 +3,59 @@ use crate::kernel::connectors::{ConnectorCatalogEntry, ShieldPolicyState};
 use ioi_api::runtime_harness::{
     ArtifactOperatorRun, ArtifactOperatorStep, ArtifactSourceReference,
 };
-use ioi_api::studio::{
-    ExecutionEnvelope, ExecutionStage, StudioArtifactBlueprint, StudioArtifactBrief,
-    StudioArtifactCandidateSummary, StudioArtifactEditIntent, StudioArtifactExemplar,
-    StudioArtifactIR, StudioArtifactOutputOrigin, StudioArtifactPreparationNeeds,
-    StudioArtifactPreparedContextResolution, StudioArtifactRenderEvaluation,
-    StudioArtifactSelectedSkill, StudioArtifactSelectionTarget,
-    StudioArtifactSkillDiscoveryResolution, StudioArtifactTasteMemory, StudioArtifactUxLifecycle,
-    StudioArtifactValidationResult, SwarmChangeReceipt, SwarmExecutionSummary, SwarmMergeReceipt,
-    SwarmPlan, SwarmVerificationReceipt, SwarmWorkerReceipt,
+pub use ioi_api::chat::{
+    ChatArtifactValidationResult as ChatArtifactValidationResult,
+    ChatArtifactValidationStatus as ChatArtifactValidationStatus,
+};
+use ioi_api::chat::{
+    ExecutionEnvelope, ExecutionStage, ChatArtifactBlueprint as ChatArtifactBlueprint,
+    ChatArtifactBrief as ChatArtifactBrief,
+    ChatArtifactCandidateSummary as ChatArtifactCandidateSummary,
+    ChatArtifactEditIntent as ChatArtifactEditIntent,
+    ChatArtifactExemplar as ChatArtifactExemplar, ChatArtifactIR as ChatArtifactIR,
+    ChatArtifactOutputOrigin as ChatArtifactOutputOrigin,
+    ChatArtifactPreparationNeeds as ChatArtifactPreparationNeeds,
+    ChatArtifactPreparedContextResolution as ChatArtifactPreparedContextResolution,
+    ChatArtifactRenderEvaluation as ChatArtifactRenderEvaluation,
+    ChatArtifactSelectedSkill as ChatArtifactSelectedSkill,
+    ChatArtifactSelectionTarget as ChatArtifactSelectionTarget,
+    ChatArtifactSkillDiscoveryResolution as ChatArtifactSkillDiscoveryResolution,
+    ChatArtifactTasteMemory as ChatArtifactTasteMemory,
+    ChatArtifactUxLifecycle as ChatArtifactUxLifecycle, SwarmChangeReceipt,
+    SwarmExecutionSummary, SwarmMergeReceipt, SwarmPlan, SwarmVerificationReceipt,
+    SwarmWorkerReceipt,
 };
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_memory::MemoryRuntime;
 use ioi_types::app::agentic::{LlmToolDefinition, PiiTarget};
 pub use ioi_types::app::{
-    StudioArtifactClass, StudioArtifactDeliverableShape, StudioArtifactFailure,
-    StudioArtifactFailureKind, StudioArtifactFileRole, StudioArtifactLifecycleState,
-    StudioArtifactManifest, StudioArtifactManifestFile, StudioArtifactManifestStorage,
-    StudioArtifactManifestTab, StudioArtifactManifestVerification, StudioArtifactPersistenceMode,
-    StudioArtifactTabKind, StudioArtifactVerificationStatus, StudioExecutionSubstrate,
-    StudioOutcomeArtifactRequest, StudioOutcomeArtifactScope,
-    StudioOutcomeArtifactVerificationRequest, StudioOutcomeKind, StudioOutcomeRequest,
-    StudioPresentationSurface, StudioRendererKind, StudioRetainedWidgetState,
-    StudioRuntimeProvenance, StudioRuntimeProvenanceKind, StudioVerifiedReply as ChatVerifiedReply,
+    ChatArtifactClass as ChatArtifactClass,
+    ChatArtifactDeliverableShape as ChatArtifactDeliverableShape,
+    ChatArtifactFailure as ChatArtifactFailure,
+    ChatArtifactFailureKind as ChatArtifactFailureKind,
+    ChatArtifactFileRole as ChatArtifactFileRole,
+    ChatArtifactLifecycleState as ChatArtifactLifecycleState,
+    ChatArtifactManifest as ChatArtifactManifest,
+    ChatArtifactManifestFile as ChatArtifactManifestFile,
+    ChatArtifactManifestStorage as ChatArtifactManifestStorage,
+    ChatArtifactManifestTab as ChatArtifactManifestTab,
+    ChatArtifactManifestVerification as ChatArtifactManifestVerification,
+    ChatArtifactPersistenceMode as ChatArtifactPersistenceMode,
+    ChatArtifactTabKind as ChatArtifactTabKind,
+    ChatArtifactVerificationStatus as ChatArtifactVerificationStatus,
+    ChatExecutionSubstrate as ChatExecutionSubstrate,
+    ChatOutcomeArtifactRequest as ChatOutcomeArtifactRequest,
+    ChatOutcomeArtifactScope as ChatOutcomeArtifactScope,
+    ChatOutcomeArtifactVerificationRequest as ChatOutcomeArtifactVerificationRequest,
+    ChatOutcomeKind as ChatOutcomeKind,
+    ChatOutcomeRequest as ChatOutcomeRequest,
+    ChatPresentationSurface as ChatPresentationSurface,
+    ChatRendererKind as ChatRendererKind,
+    ChatRetainedWidgetState as ChatRetainedWidgetState,
+    ChatRuntimeProvenance as ChatRuntimeProvenance,
+    ChatRuntimeProvenanceKind as ChatRuntimeProvenanceKind,
+    ChatVerifiedReply as ChatVerifiedReply,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -1451,7 +1480,7 @@ pub struct ChatMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactNavigatorNode {
+pub struct ChatArtifactNavigatorNode {
     pub id: String,
     pub label: String,
     pub kind: String,
@@ -1466,12 +1495,12 @@ pub struct StudioArtifactNavigatorNode {
     #[serde(default)]
     pub path: Option<String>,
     #[serde(default)]
-    pub children: Vec<StudioArtifactNavigatorNode>,
+    pub children: Vec<ChatArtifactNavigatorNode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactMaterializationFileWrite {
+pub struct ChatArtifactMaterializationFileWrite {
     pub path: String,
     pub kind: String,
     #[serde(default)]
@@ -1480,7 +1509,7 @@ pub struct StudioArtifactMaterializationFileWrite {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactMaterializationCommandIntent {
+pub struct ChatArtifactMaterializationCommandIntent {
     pub id: String,
     pub kind: String,
     pub label: String,
@@ -1489,7 +1518,7 @@ pub struct StudioArtifactMaterializationCommandIntent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactMaterializationPreviewIntent {
+pub struct ChatArtifactMaterializationPreviewIntent {
     pub label: String,
     pub url: Option<String>,
     pub status: String,
@@ -1498,7 +1527,7 @@ pub struct StudioArtifactMaterializationPreviewIntent {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactPipelineStep {
+pub struct ChatArtifactPipelineStep {
     pub id: String,
     pub stage: ExecutionStage,
     pub label: String,
@@ -1512,33 +1541,33 @@ pub struct StudioArtifactPipelineStep {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactMaterializationContract {
+pub struct ChatArtifactMaterializationContract {
     pub version: u32,
     pub request_kind: String,
     pub normalized_intent: String,
     pub summary: String,
     #[serde(default)]
-    pub artifact_brief: Option<StudioArtifactBrief>,
+    pub artifact_brief: Option<ChatArtifactBrief>,
     #[serde(default)]
-    pub preparation_needs: Option<StudioArtifactPreparationNeeds>,
+    pub preparation_needs: Option<ChatArtifactPreparationNeeds>,
     #[serde(default)]
-    pub prepared_context_resolution: Option<StudioArtifactPreparedContextResolution>,
+    pub prepared_context_resolution: Option<ChatArtifactPreparedContextResolution>,
     #[serde(default)]
-    pub skill_discovery_resolution: Option<StudioArtifactSkillDiscoveryResolution>,
+    pub skill_discovery_resolution: Option<ChatArtifactSkillDiscoveryResolution>,
     #[serde(default)]
-    pub blueprint: Option<StudioArtifactBlueprint>,
+    pub blueprint: Option<ChatArtifactBlueprint>,
     #[serde(default)]
-    pub artifact_ir: Option<StudioArtifactIR>,
+    pub artifact_ir: Option<ChatArtifactIR>,
     #[serde(default)]
-    pub selected_skills: Vec<StudioArtifactSelectedSkill>,
+    pub selected_skills: Vec<ChatArtifactSelectedSkill>,
     #[serde(default)]
-    pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    pub retrieved_exemplars: Vec<ChatArtifactExemplar>,
     #[serde(default)]
     pub retrieved_sources: Vec<ArtifactSourceReference>,
     #[serde(default)]
-    pub edit_intent: Option<StudioArtifactEditIntent>,
+    pub edit_intent: Option<ChatArtifactEditIntent>,
     #[serde(default)]
-    pub candidate_summaries: Vec<StudioArtifactCandidateSummary>,
+    pub candidate_summaries: Vec<ChatArtifactCandidateSummary>,
     #[serde(default)]
     pub winning_candidate_id: Option<String>,
     #[serde(default)]
@@ -1558,31 +1587,31 @@ pub struct StudioArtifactMaterializationContract {
     #[serde(default)]
     pub swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
     #[serde(default)]
-    pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
+    pub render_evaluation: Option<ChatArtifactRenderEvaluation>,
     #[serde(default)]
-    pub validation: Option<StudioArtifactValidationResult>,
+    pub validation: Option<ChatArtifactValidationResult>,
     #[serde(default)]
-    pub output_origin: Option<StudioArtifactOutputOrigin>,
+    pub output_origin: Option<ChatArtifactOutputOrigin>,
     #[serde(default)]
-    pub production_provenance: Option<StudioRuntimeProvenance>,
+    pub production_provenance: Option<ChatRuntimeProvenance>,
     #[serde(default)]
-    pub acceptance_provenance: Option<StudioRuntimeProvenance>,
+    pub acceptance_provenance: Option<ChatRuntimeProvenance>,
     #[serde(default)]
     pub fallback_used: bool,
     #[serde(default)]
-    pub ux_lifecycle: Option<StudioArtifactUxLifecycle>,
+    pub ux_lifecycle: Option<ChatArtifactUxLifecycle>,
     #[serde(default)]
-    pub failure: Option<StudioArtifactFailure>,
+    pub failure: Option<ChatArtifactFailure>,
     #[serde(default)]
-    pub navigator_nodes: Vec<StudioArtifactNavigatorNode>,
+    pub navigator_nodes: Vec<ChatArtifactNavigatorNode>,
     #[serde(default)]
-    pub file_writes: Vec<StudioArtifactMaterializationFileWrite>,
+    pub file_writes: Vec<ChatArtifactMaterializationFileWrite>,
     #[serde(default)]
-    pub command_intents: Vec<StudioArtifactMaterializationCommandIntent>,
+    pub command_intents: Vec<ChatArtifactMaterializationCommandIntent>,
     #[serde(default)]
-    pub preview_intent: Option<StudioArtifactMaterializationPreviewIntent>,
+    pub preview_intent: Option<ChatArtifactMaterializationPreviewIntent>,
     #[serde(default)]
-    pub pipeline_steps: Vec<StudioArtifactPipelineStep>,
+    pub pipeline_steps: Vec<ChatArtifactPipelineStep>,
     #[serde(default)]
     pub operator_steps: Vec<ArtifactOperatorStep>,
     #[serde(default)]
@@ -1591,7 +1620,7 @@ pub struct StudioArtifactMaterializationContract {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioArtifactRevision {
+pub struct ChatArtifactRevision {
     pub revision_id: String,
     #[serde(default)]
     pub parent_revision_id: Option<String>,
@@ -1599,30 +1628,30 @@ pub struct StudioArtifactRevision {
     pub branch_label: String,
     pub prompt: String,
     pub created_at: String,
-    pub ux_lifecycle: StudioArtifactUxLifecycle,
-    pub artifact_manifest: StudioArtifactManifest,
+    pub ux_lifecycle: ChatArtifactUxLifecycle,
+    pub artifact_manifest: ChatArtifactManifest,
     #[serde(default)]
-    pub artifact_brief: Option<StudioArtifactBrief>,
+    pub artifact_brief: Option<ChatArtifactBrief>,
     #[serde(default)]
-    pub preparation_needs: Option<StudioArtifactPreparationNeeds>,
+    pub preparation_needs: Option<ChatArtifactPreparationNeeds>,
     #[serde(default)]
-    pub prepared_context_resolution: Option<StudioArtifactPreparedContextResolution>,
+    pub prepared_context_resolution: Option<ChatArtifactPreparedContextResolution>,
     #[serde(default)]
-    pub skill_discovery_resolution: Option<StudioArtifactSkillDiscoveryResolution>,
+    pub skill_discovery_resolution: Option<ChatArtifactSkillDiscoveryResolution>,
     #[serde(default)]
-    pub blueprint: Option<StudioArtifactBlueprint>,
+    pub blueprint: Option<ChatArtifactBlueprint>,
     #[serde(default)]
-    pub artifact_ir: Option<StudioArtifactIR>,
+    pub artifact_ir: Option<ChatArtifactIR>,
     #[serde(default)]
-    pub selected_skills: Vec<StudioArtifactSelectedSkill>,
+    pub selected_skills: Vec<ChatArtifactSelectedSkill>,
     #[serde(default)]
-    pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    pub retrieved_exemplars: Vec<ChatArtifactExemplar>,
     #[serde(default)]
     pub retrieved_sources: Vec<ArtifactSourceReference>,
     #[serde(default)]
-    pub edit_intent: Option<StudioArtifactEditIntent>,
+    pub edit_intent: Option<ChatArtifactEditIntent>,
     #[serde(default)]
-    pub candidate_summaries: Vec<StudioArtifactCandidateSummary>,
+    pub candidate_summaries: Vec<ChatArtifactCandidateSummary>,
     #[serde(default)]
     pub winning_candidate_id: Option<String>,
     #[serde(default)]
@@ -1640,28 +1669,28 @@ pub struct StudioArtifactRevision {
     #[serde(default)]
     pub swarm_verification_receipts: Vec<SwarmVerificationReceipt>,
     #[serde(default)]
-    pub render_evaluation: Option<StudioArtifactRenderEvaluation>,
+    pub render_evaluation: Option<ChatArtifactRenderEvaluation>,
     #[serde(default)]
-    pub validation: Option<StudioArtifactValidationResult>,
+    pub validation: Option<ChatArtifactValidationResult>,
     #[serde(default)]
-    pub output_origin: Option<StudioArtifactOutputOrigin>,
+    pub output_origin: Option<ChatArtifactOutputOrigin>,
     #[serde(default)]
-    pub production_provenance: Option<StudioRuntimeProvenance>,
+    pub production_provenance: Option<ChatRuntimeProvenance>,
     #[serde(default)]
-    pub acceptance_provenance: Option<StudioRuntimeProvenance>,
+    pub acceptance_provenance: Option<ChatRuntimeProvenance>,
     #[serde(default)]
-    pub failure: Option<StudioArtifactFailure>,
+    pub failure: Option<ChatArtifactFailure>,
     #[serde(default)]
-    pub file_writes: Vec<StudioArtifactMaterializationFileWrite>,
+    pub file_writes: Vec<ChatArtifactMaterializationFileWrite>,
     #[serde(default)]
-    pub taste_memory: Option<StudioArtifactTasteMemory>,
+    pub taste_memory: Option<ChatArtifactTasteMemory>,
     #[serde(default)]
-    pub selected_targets: Vec<StudioArtifactSelectionTarget>,
+    pub selected_targets: Vec<ChatArtifactSelectionTarget>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioBuildReceipt {
+pub struct ChatBuildReceipt {
     pub receipt_id: String,
     pub kind: String,
     pub title: String,
@@ -1686,7 +1715,7 @@ pub struct StudioBuildReceipt {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioCodeWorkerLease {
+pub struct ChatCodeWorkerLease {
     pub backend: String,
     pub planner_authority: String,
     #[serde(default)]
@@ -1702,10 +1731,10 @@ pub struct StudioCodeWorkerLease {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StudioRendererSession {
+pub struct ChatRendererSession {
     pub session_id: String,
     pub chat_session_id: String,
-    pub renderer: StudioRendererKind,
+    pub renderer: ChatRendererKind,
     pub workspace_root: String,
     pub entry_document: String,
     #[serde(default)]
@@ -1721,9 +1750,9 @@ pub struct StudioRendererSession {
     pub status: String,
     pub verification_status: String,
     #[serde(default)]
-    pub receipts: Vec<StudioBuildReceipt>,
+    pub receipts: Vec<ChatBuildReceipt>,
     #[serde(default)]
-    pub current_worker_execution: Option<StudioCodeWorkerLease>,
+    pub current_worker_execution: Option<ChatCodeWorkerLease>,
     pub current_tab: String,
     #[serde(default)]
     pub available_tabs: Vec<String>,
@@ -1747,33 +1776,33 @@ pub struct ChatArtifactSession {
     pub current_lens: String,
     pub navigator_backing_mode: String,
     #[serde(default)]
-    pub navigator_nodes: Vec<StudioArtifactNavigatorNode>,
+    pub navigator_nodes: Vec<ChatArtifactNavigatorNode>,
     #[serde(default)]
     pub attached_artifact_ids: Vec<String>,
     #[serde(default)]
     pub available_lenses: Vec<String>,
-    pub materialization: StudioArtifactMaterializationContract,
-    pub outcome_request: StudioOutcomeRequest,
-    pub artifact_manifest: StudioArtifactManifest,
+    pub materialization: ChatArtifactMaterializationContract,
+    pub outcome_request: ChatOutcomeRequest,
+    pub artifact_manifest: ChatArtifactManifest,
     pub verified_reply: ChatVerifiedReply,
-    pub lifecycle_state: StudioArtifactLifecycleState,
+    pub lifecycle_state: ChatArtifactLifecycleState,
     pub status: String,
     #[serde(default)]
     pub active_revision_id: Option<String>,
     #[serde(default)]
-    pub revisions: Vec<StudioArtifactRevision>,
+    pub revisions: Vec<ChatArtifactRevision>,
     #[serde(default)]
-    pub taste_memory: Option<StudioArtifactTasteMemory>,
+    pub taste_memory: Option<ChatArtifactTasteMemory>,
     #[serde(default)]
-    pub retrieved_exemplars: Vec<StudioArtifactExemplar>,
+    pub retrieved_exemplars: Vec<ChatArtifactExemplar>,
     #[serde(default)]
     pub retrieved_sources: Vec<ArtifactSourceReference>,
     #[serde(default)]
-    pub selected_targets: Vec<StudioArtifactSelectionTarget>,
+    pub selected_targets: Vec<ChatArtifactSelectionTarget>,
     #[serde(default)]
-    pub widget_state: Option<StudioRetainedWidgetState>,
+    pub widget_state: Option<ChatRetainedWidgetState>,
     #[serde(default)]
-    pub ux_lifecycle: Option<StudioArtifactUxLifecycle>,
+    pub ux_lifecycle: Option<ChatArtifactUxLifecycle>,
     #[serde(default)]
     pub active_operator_run: Option<ArtifactOperatorRun>,
     #[serde(default)]
@@ -1805,8 +1834,8 @@ pub struct BuildArtifactSession {
     pub build_status: String,
     pub verification_status: String,
     #[serde(default)]
-    pub receipts: Vec<StudioBuildReceipt>,
-    pub current_worker_execution: StudioCodeWorkerLease,
+    pub receipts: Vec<ChatBuildReceipt>,
+    pub current_worker_execution: ChatCodeWorkerLease,
     pub current_lens: String,
     #[serde(default)]
     pub available_lenses: Vec<String>,
@@ -1961,10 +1990,10 @@ pub struct AgentTask {
     pub chat_session: Option<ChatArtifactSession>,
 
     #[serde(default)]
-    pub chat_outcome: Option<StudioOutcomeRequest>,
+    pub chat_outcome: Option<ChatOutcomeRequest>,
 
     #[serde(default)]
-    pub renderer_session: Option<StudioRendererSession>,
+    pub renderer_session: Option<ChatRendererSession>,
 
     #[serde(default)]
     pub build_session: Option<BuildArtifactSession>,
@@ -3964,21 +3993,21 @@ pub struct AppState {
     // absorbed model/media capability calls.
     pub inference_runtime: Option<Arc<dyn InferenceRuntime>>,
 
-    // Studio's typed outcome router may use a separate real runtime so
+    // Chat's typed outcome router may use a separate real runtime so
     // lightweight route planning does not stall behind heavier artifact generation.
-    pub studio_routing_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
+    pub chat_routing_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
 
     // Acceptance validation runtime kept distinct from the production artifact runtime
-    // so Studio can surface separate provenance truthfully.
+    // so Chat can surface separate provenance truthfully.
     pub acceptance_inference_runtime: Option<Arc<dyn InferenceRuntime>>,
 
     // Primary local runtime for checkpoints, memory, events, artifacts, and cache state.
     pub memory_runtime: Option<Arc<MemoryRuntime>>,
 
-    // Cross-window Studio launch intent survives a recreated Studio shell.
+    // Cross-window chat launch intent survives a recreated Chat shell.
     pub pending_chat_launch_request: Option<Value>,
 
-    // Recent launch receipts make Studio shell handoff failures inspectable.
+    // Recent launch receipts make Chat shell handoff failures inspectable.
     pub chat_launch_receipts: Vec<ChatLaunchReceipt>,
 
     // Active assistant workbench session is kernel-owned so shell recreation

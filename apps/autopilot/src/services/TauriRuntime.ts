@@ -28,8 +28,7 @@ import {
   RuntimeCatalogEntry,
   ProjectFile,
   AgentSummary,
-  StudioCapabilityDetailSection,
-  StudioViewTarget,
+  ChatViewTarget,
   WalletMailConfigureAccountInput,
   WalletMailConfigureAccountResult,
   WalletMailConfiguredAccount,
@@ -70,6 +69,7 @@ import type {
   SkillSourceRecord,
   SubstrateProofView,
   TeamMemorySyncSnapshot,
+  ChatCapabilityDetailSection,
 } from "../types";
 import {
   recordChatLaunchReceipt,
@@ -415,7 +415,7 @@ function liveFleetStateFromSnapshot(snapshot: LocalEngineSnapshot): FleetState {
   };
 }
 
-type RuntimeShellSurface = "overlay" | "studio";
+type RuntimeShellSurface = "overlay" | "chat";
 
 export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRuntime {
     constructor(
@@ -570,13 +570,13 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         await invoke("hide_gate");
     }
 
-    async showStudioShell(): Promise<void> {
-        await recordChatLaunchReceipt("runtime_show_studio_requested", {});
+    async showChatShell(): Promise<void> {
+        await recordChatLaunchReceipt("runtime_show_chat_requested", {});
         await invoke("show_chat");
-        await recordChatLaunchReceipt("runtime_show_studio_completed", {});
+        await recordChatLaunchReceipt("runtime_show_chat_completed", {});
     }
 
-    private async showStudioShellWithTarget(
+    private async showChatShellWithTarget(
       request: Parameters<typeof showChatWithLaunchRequest>[0],
       stage: string,
       detail: Record<string, unknown>,
@@ -586,8 +586,8 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         await recordChatLaunchReceipt(`${stage}_completed`, detail);
     }
 
-    async openStudioView(view: StudioViewTarget): Promise<void> {
-        await this.showStudioShellWithTarget(
+    async openChatView(view: ChatViewTarget): Promise<void> {
+        await this.showChatShellWithTarget(
           {
             kind: "view",
             view,
@@ -599,8 +599,8 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         );
     }
 
-    async openStudioSessionTarget(sessionId: string): Promise<void> {
-        await this.showStudioShellWithTarget(
+    async openChatSessionTarget(sessionId: string): Promise<void> {
+        await this.showChatShellWithTarget(
           {
             kind: "session-target",
             sessionId,
@@ -612,11 +612,11 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         );
     }
 
-    async openStudioCapabilityTarget(
+    async openChatCapabilityTarget(
       connectorId?: string | null,
-      detailSection?: StudioCapabilityDetailSection | null,
+      detailSection?: ChatCapabilityDetailSection | null,
     ): Promise<void> {
-        await this.showStudioShellWithTarget(
+        await this.showChatShellWithTarget(
           {
             kind: "capability",
             connectorId: connectorId ?? null,
@@ -630,8 +630,8 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         );
     }
 
-    async openStudioPolicyTarget(connectorId?: string | null): Promise<void> {
-        await this.showStudioShellWithTarget(
+    async openChatPolicyTarget(connectorId?: string | null): Promise<void> {
+        await this.showChatShellWithTarget(
           {
             kind: "policy",
             connectorId: connectorId ?? null,
@@ -643,11 +643,11 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         );
     }
 
-    async openStudioAssistantWorkbench(
+    async openChatAssistantWorkbench(
       session: AssistantWorkbenchSession,
     ): Promise<void> {
         await this.activateAssistantWorkbenchSession(session);
-        await this.showStudioShellWithTarget(
+        await this.showChatShellWithTarget(
           {
             kind: "assistant-workbench",
             session,
@@ -679,8 +679,8 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         return invoke("get_active_assistant_workbench_session");
     }
 
-    async openStudioAutopilotIntent(intent: string): Promise<void> {
-        await this.showStudioShellWithTarget(
+    async openChatAutopilotIntent(intent: string): Promise<void> {
+        await this.showChatShellWithTarget(
           {
             kind: "autopilot-intent",
             intent,

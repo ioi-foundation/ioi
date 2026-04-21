@@ -1,6 +1,6 @@
-export type StudioViewTarget = string;
+export type ChatViewTarget = string;
 
-export type StudioCapabilityDetailSection =
+export type ChatCapabilityDetailSection =
   | "overview"
   | "setup"
   | "actions"
@@ -156,21 +156,21 @@ export interface AssistantSessionRuntime {
   hideSpotlightShell(): Promise<void>;
   showGateShell(): Promise<void>;
   hideGateShell(): Promise<void>;
-  showStudioShell(): Promise<void>;
-  openStudioView(view: StudioViewTarget): Promise<void>;
-  openStudioSessionTarget(sessionId: string): Promise<void>;
-  openStudioCapabilityTarget(
+  showChatShell(): Promise<void>;
+  openChatView(view: ChatViewTarget): Promise<void>;
+  openChatSessionTarget(sessionId: string): Promise<void>;
+  openChatCapabilityTarget(
     connectorId?: string | null,
-    detailSection?: StudioCapabilityDetailSection | null,
+    detailSection?: ChatCapabilityDetailSection | null,
   ): Promise<void>;
-  openStudioPolicyTarget(connectorId?: string | null): Promise<void>;
-  openStudioAssistantWorkbench(
+  openChatPolicyTarget(connectorId?: string | null): Promise<void>;
+  openChatAssistantWorkbench(
     session: AssistantWorkbenchSession,
   ): Promise<void>;
   activateAssistantWorkbenchSession(
     session: AssistantWorkbenchSession,
   ): Promise<void>;
-  openStudioAutopilotIntent(intent: string): Promise<void>;
+  openChatAutopilotIntent(intent: string): Promise<void>;
   getActiveAssistantWorkbenchSession(): Promise<AssistantWorkbenchSession | null>;
   listenAssistantWorkbenchSession(
     handler: (session: AssistantWorkbenchSession) => void,

@@ -380,15 +380,23 @@ kernel_rpc_port() {
 kernel_ready() {
   local rpc_url="$1"
   local port
+  local ready_signal
+  local cli_bin
   local probe_key
   port="$(kernel_rpc_port "$rpc_url")"
+  ready_signal="ORCHESTRATION_RPC_LISTENING_ON_127.0.0.1:${port}"
   probe_key="00"
 
   if ! port_in_use "$port"; then
     return 1
   fi
 
-  if timeout 2 "${ROOT_DIR}/target/debug/cli" query --ipc-addr "127.0.0.1:${port}" state "$probe_key" >/dev/null 2>&1; then
+  if [[ -n "${kernel_log:-}" && -f "${kernel_log}" ]] && grep -Fq "$ready_signal" "${kernel_log}"; then
+    return 0
+  fi
+
+  cli_bin="${ROOT_DIR}/target/debug/cli"
+  if [[ -x "$cli_bin" ]] && timeout 2 "$cli_bin" query --ipc-addr "127.0.0.1:${port}" state "$probe_key" >/dev/null 2>&1; then
     return 0
   fi
 

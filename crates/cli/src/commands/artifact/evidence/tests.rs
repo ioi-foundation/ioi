@@ -1,39 +1,39 @@
 use super::*;
-use ioi_api::studio::{
-    StudioArtifactAcceptanceTargets, StudioArtifactAccessibilityPlan,
-    StudioArtifactCandidateConvergenceTrace, StudioArtifactComponentPlanEntry,
-    StudioArtifactDesignSystem, StudioArtifactOutputOrigin, StudioArtifactSkillNeed,
-    StudioArtifactSkillNeedKind, StudioArtifactSkillNeedPriority,
+use ioi_api::chat::{
+    ChatArtifactAcceptanceTargets, ChatArtifactAccessibilityPlan,
+    ChatArtifactCandidateConvergenceTrace, ChatArtifactComponentPlanEntry,
+    ChatArtifactDesignSystem, ChatArtifactOutputOrigin, ChatArtifactSkillNeed,
+    ChatArtifactSkillNeedKind, ChatArtifactSkillNeedPriority,
 };
 
-fn sample_blueprint() -> StudioArtifactBlueprint {
-    StudioArtifactBlueprint {
+fn sample_blueprint() -> ChatArtifactBlueprint {
+    ChatArtifactBlueprint {
         version: 1,
-        renderer: StudioRendererKind::HtmlIframe,
+        renderer: ChatRendererKind::HtmlIframe,
         narrative_arc: "comparison_story".to_string(),
         section_plan: vec![],
         interaction_plan: vec![],
         evidence_plan: vec![],
-        design_system: StudioArtifactDesignSystem {
+        design_system: ChatArtifactDesignSystem {
             color_strategy: "editorial".to_string(),
             typography_strategy: "display+mono".to_string(),
             density: "medium".to_string(),
             motion_style: "restrained".to_string(),
             emphasis_modes: vec!["contrast-led".to_string(), "detail-rail".to_string()],
         },
-        component_plan: vec![StudioArtifactComponentPlanEntry {
+        component_plan: vec![ChatArtifactComponentPlanEntry {
             id: "component-1".to_string(),
             component_family: "tabbed_evidence_rail".to_string(),
             role: "evidence".to_string(),
             section_ids: vec!["section-1".to_string()],
             interaction_ids: vec!["interaction-1".to_string()],
         }],
-        accessibility_plan: StudioArtifactAccessibilityPlan {
+        accessibility_plan: ChatArtifactAccessibilityPlan {
             obligations: vec!["keyboard".to_string()],
             focus_order: vec![],
             aria_expectations: vec![],
         },
-        acceptance_targets: StudioArtifactAcceptanceTargets {
+        acceptance_targets: ChatArtifactAcceptanceTargets {
             minimum_section_count: 2,
             minimum_interactive_regions: 1,
             require_first_paint_evidence: true,
@@ -43,16 +43,16 @@ fn sample_blueprint() -> StudioArtifactBlueprint {
         },
         scaffold_family: "comparison_story".to_string(),
         variation_strategy: "editorial".to_string(),
-        skill_needs: vec![StudioArtifactSkillNeed {
-            kind: StudioArtifactSkillNeedKind::VisualArtDirection,
-            priority: StudioArtifactSkillNeedPriority::Required,
+        skill_needs: vec![ChatArtifactSkillNeed {
+            kind: ChatArtifactSkillNeedKind::VisualArtDirection,
+            priority: ChatArtifactSkillNeedPriority::Required,
             rationale: "Need strong art direction.".to_string(),
         }],
     }
 }
 
-fn sample_selected_skill() -> StudioArtifactSelectedSkill {
-    StudioArtifactSelectedSkill {
+fn sample_selected_skill() -> ChatArtifactSelectedSkill {
+    ChatArtifactSelectedSkill {
         skill_hash: "a".repeat(64),
         name: "frontend-skill".to_string(),
         description: "Frontend design".to_string(),
@@ -63,15 +63,15 @@ fn sample_selected_skill() -> StudioArtifactSelectedSkill {
         adjusted_score_bps: 9500,
         relative_path: Some("skills/frontend/SKILL.md".to_string()),
         matched_need_ids: vec!["visual_art_direction-1".to_string()],
-        matched_need_kinds: vec![StudioArtifactSkillNeedKind::VisualArtDirection],
+        matched_need_kinds: vec![ChatArtifactSkillNeedKind::VisualArtDirection],
         match_rationale: "Structural visual match.".to_string(),
         guidance_markdown: Some("Use a strong visual hierarchy.".to_string()),
     }
 }
 
-fn sample_validation() -> StudioArtifactValidationResult {
-    StudioArtifactValidationResult {
-        classification: StudioArtifactValidationStatus::Repairable,
+fn sample_validation() -> ChatArtifactValidationResult {
+    ChatArtifactValidationResult {
+        classification: ChatArtifactValidationStatus::Repairable,
         request_faithfulness: 4,
         concept_coverage: 4,
         interaction_relevance: 4,
@@ -104,15 +104,15 @@ fn sample_validation() -> StudioArtifactValidationResult {
 }
 
 fn sample_candidate_summary(
-    validation: &StudioArtifactValidationResult,
-) -> StudioArtifactCandidateSummary {
-    StudioArtifactCandidateSummary {
+    validation: &ChatArtifactValidationResult,
+) -> ChatArtifactCandidateSummary {
+    ChatArtifactCandidateSummary {
         candidate_id: "candidate-1".to_string(),
         seed: 7,
         model: "fixture".to_string(),
         temperature: 0.0,
         strategy: "fixture".to_string(),
-        origin: StudioArtifactOutputOrigin::FixtureRuntime,
+        origin: ChatArtifactOutputOrigin::FixtureRuntime,
         provenance: None,
         summary: "Fixture candidate".to_string(),
         renderable_paths: vec!["index.html".to_string()],
@@ -120,7 +120,7 @@ fn sample_candidate_summary(
         fallback: false,
         failure: None,
         raw_output_preview: None,
-        convergence: Some(StudioArtifactCandidateConvergenceTrace {
+        convergence: Some(ChatArtifactCandidateConvergenceTrace {
             lineage_root_id: "candidate-1".to_string(),
             parent_candidate_id: None,
             pass_kind: "semantic_refinement".to_string(),
@@ -142,7 +142,7 @@ fn build_artifact_lane_receipts_captures_all_conformance_categories() {
         &[sample_selected_skill()],
         &[sample_candidate_summary(&validation)],
         &validation,
-        StudioArtifactUxLifecycle::Validated,
+        ChatArtifactUxLifecycle::Validated,
     );
 
     let kinds = receipts

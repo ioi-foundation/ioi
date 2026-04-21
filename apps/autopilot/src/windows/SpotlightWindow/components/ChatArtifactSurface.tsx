@@ -12,7 +12,7 @@ import {
   mirrorBuildSession,
   type ChatArtifactSurfaceProps,
 } from "./artifactSurfaceShared";
-import { resolveStudioExecutionPreview } from "./studioExecutionPreview";
+import { resolveChatExecutionPreview } from "./chatExecutionPreview";
 import { ArtifactWorkspaceSurface } from "./ArtifactWorkspaceSurface";
 
 export function ChatArtifactSurface({
@@ -62,7 +62,7 @@ export function ChatArtifactSurface({
     chatSession?.materialization?.swarmExecution ??
     executionEnvelope?.executionSummary ??
     null;
-  const livePreview = resolveStudioExecutionPreview({
+  const livePreview = resolveChatExecutionPreview({
     executionEnvelope,
     workerReceipts: chatSession?.materialization?.swarmWorkerReceipts,
     changeReceipts: chatSession?.materialization?.swarmChangeReceipts,
@@ -89,9 +89,9 @@ export function ChatArtifactSurface({
 
   if (!chatSession) {
     return (
-      <section className="studio-artifact-surface studio-artifact-surface--empty">
-        <div className="studio-artifact-empty-copy">
-          <span className="studio-artifact-kicker">Chat</span>
+      <section className="chat-artifact-surface chat-artifact-surface--empty">
+        <div className="chat-artifact-empty-copy">
+          <span className="chat-artifact-kicker">Chat</span>
           <h2>Artifact-first creation starts here.</h2>
           <p>
             Conversation stays in control. Chat only opens an artifact stage when
@@ -100,7 +100,7 @@ export function ChatArtifactSurface({
           </p>
         </div>
 
-        <div className="studio-artifact-empty-actions">
+        <div className="chat-artifact-empty-actions">
           <button
             type="button"
             onClick={() => onSeedIntent("Create a markdown artifact that documents our release checklist")}
@@ -126,9 +126,9 @@ export function ChatArtifactSurface({
 
   if (!manifest) {
     return (
-      <section className="studio-artifact-surface studio-artifact-surface--empty">
-        <div className="studio-artifact-empty-copy">
-          <span className="studio-artifact-kicker">Artifact stage</span>
+      <section className="chat-artifact-surface chat-artifact-surface--empty">
+        <div className="chat-artifact-empty-copy">
+          <span className="chat-artifact-kicker">Artifact stage</span>
           <h2>Materializing the artifact surface.</h2>
           <p>
             Chat has already committed this request to an artifact route. The
@@ -144,7 +144,7 @@ export function ChatArtifactSurface({
         </div>
 
         {livePreview?.content ? (
-          <div className="studio-artifact-renderer-empty">
+          <div className="chat-artifact-renderer-empty">
             <strong>{livePreview.label || "Live artifact output"}</strong>
             <pre>{livePreview.content}</pre>
           </div>
@@ -157,7 +157,7 @@ export function ChatArtifactSurface({
     ? async () => {
         setRetrying(true);
         try {
-          await invoke("studio_retry_renderer_session", {
+          await invoke("chat_retry_renderer_session", {
             sessionId: rendererSession.sessionId,
           });
         } finally {

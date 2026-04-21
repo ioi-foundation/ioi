@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use futures_util::StreamExt;
 use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::{StudioRuntimeProvenance, StudioRuntimeProvenanceKind};
+use ioi_types::app::{ChatRuntimeProvenance, ChatRuntimeProvenanceKind};
 use ioi_types::error::VmError;
 use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
@@ -724,7 +724,7 @@ struct OllamaNativeChatMessage {
 }
 
 fn local_ollama_native_chat_url(api_url: &str) -> Option<String> {
-    if runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime {
+    if runtime_kind_for_api_url(api_url) != ChatRuntimeProvenanceKind::RealLocalRuntime {
         return None;
     }
 
@@ -1173,7 +1173,7 @@ where
 
 fn default_inference_http_stream_idle_timeout_seconds(api_url: &str) -> u64 {
     match runtime_kind_for_api_url(api_url) {
-        StudioRuntimeProvenanceKind::RealLocalRuntime => 20,
+        ChatRuntimeProvenanceKind::RealLocalRuntime => 20,
         _ => 30,
     }
 }
@@ -1207,7 +1207,7 @@ where
 }
 
 fn ollama_request_options_for_api_url(api_url: &str) -> Option<Value> {
-    if runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime {
+    if runtime_kind_for_api_url(api_url) != ChatRuntimeProvenanceKind::RealLocalRuntime {
         return None;
     }
 
@@ -1222,7 +1222,7 @@ fn ollama_native_request_options_for_request(
     api_url: &str,
     options: &InferenceOptions,
 ) -> Option<Value> {
-    if runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime {
+    if runtime_kind_for_api_url(api_url) != ChatRuntimeProvenanceKind::RealLocalRuntime {
         return None;
     }
 
@@ -1262,8 +1262,8 @@ fn local_qwen_family_model(model_name: &str) -> bool {
 }
 
 fn inference_stream_trace(message: impl AsRef<str>) {
-    if std::env::var_os("IOI_STUDIO_PROOF_TRACE").is_some() {
-        eprintln!("[studio-proof-trace] {}", message.as_ref());
+    if std::env::var_os("IOI_CHAT_PROOF_TRACE").is_some() {
+        eprintln!("[chat-proof-trace] {}", message.as_ref());
     }
 }
 
@@ -1295,7 +1295,7 @@ fn local_openai_reasoning_effort_for_request_with_lookup<F>(
 where
     F: Fn(&str) -> Option<String>,
 {
-    if runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime {
+    if runtime_kind_for_api_url(api_url) != ChatRuntimeProvenanceKind::RealLocalRuntime {
         return None;
     }
 
@@ -1327,7 +1327,7 @@ fn apply_local_qwen_no_think_prompt_for_request_with_lookup<F>(
 ) where
     F: Fn(&str) -> Option<String>,
 {
-    if runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime {
+    if runtime_kind_for_api_url(api_url) != ChatRuntimeProvenanceKind::RealLocalRuntime {
         return;
     }
     if !local_qwen_family_model(model_name) {
@@ -1423,7 +1423,7 @@ where
 
 fn default_inference_http_timeout_seconds(api_url: &str) -> u64 {
     match runtime_kind_for_api_url(api_url) {
-        StudioRuntimeProvenanceKind::RealLocalRuntime => 600,
+        ChatRuntimeProvenanceKind::RealLocalRuntime => 600,
         _ => 60,
     }
 }
@@ -1444,7 +1444,7 @@ fn should_use_openai_streaming(
     }
 
     !options.tools.is_empty()
-        && runtime_kind_for_api_url(api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime
+        && runtime_kind_for_api_url(api_url) != ChatRuntimeProvenanceKind::RealLocalRuntime
 }
 
 fn normalize_embedding_env(value: Option<String>) -> Option<String> {
@@ -1650,7 +1650,7 @@ impl InferenceRuntime for HttpInferenceRuntime {
     }
 
     async fn load_model(&self, _hash: [u8; 32], _path: &Path) -> Result<(), VmError> {
-        if runtime_kind_for_api_url(&self.api_url) != StudioRuntimeProvenanceKind::RealLocalRuntime
+        if runtime_kind_for_api_url(&self.api_url) != ChatRuntimeProvenanceKind::RealLocalRuntime
         {
             return Ok(());
         }
@@ -1671,8 +1671,8 @@ impl InferenceRuntime for HttpInferenceRuntime {
         Ok(())
     }
 
-    fn studio_runtime_provenance(&self) -> StudioRuntimeProvenance {
-        StudioRuntimeProvenance {
+    fn chat_runtime_provenance(&self) -> ChatRuntimeProvenance {
+        ChatRuntimeProvenance {
             kind: runtime_kind_for_api_url(&self.api_url),
             label: self.provider_kind.label().to_string(),
             model: Some(self.model_name.clone()),
@@ -1681,16 +1681,16 @@ impl InferenceRuntime for HttpInferenceRuntime {
     }
 }
 
-fn runtime_kind_for_api_url(api_url: &str) -> StudioRuntimeProvenanceKind {
+fn runtime_kind_for_api_url(api_url: &str) -> ChatRuntimeProvenanceKind {
     let host = reqwest::Url::parse(api_url)
         .ok()
         .and_then(|url| url.host_str().map(str::to_ascii_lowercase));
     match host.as_deref() {
         Some("localhost") | Some("127.0.0.1") | Some("::1") => {
-            StudioRuntimeProvenanceKind::RealLocalRuntime
+            ChatRuntimeProvenanceKind::RealLocalRuntime
         }
-        Some(_) => StudioRuntimeProvenanceKind::RealRemoteModelRuntime,
-        None => StudioRuntimeProvenanceKind::OpaqueRuntime,
+        Some(_) => ChatRuntimeProvenanceKind::RealRemoteModelRuntime,
+        None => ChatRuntimeProvenanceKind::OpaqueRuntime,
     }
 }
 

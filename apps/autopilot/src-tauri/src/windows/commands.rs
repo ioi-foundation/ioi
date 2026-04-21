@@ -7,8 +7,8 @@ use super::layout::{apply_layout, focus_window_best_effort};
 use super::monitor::get_target_monitor;
 use super::state::SPOTLIGHT_LAYOUT;
 use super::{
-    queue_pending_studio_launch_for_app, record_chat_launch_receipt_for_app,
-    should_surface_overlay_windows_in_task_switcher, summarize_studio_launch_envelope,
+    queue_pending_chat_launch_for_app, record_chat_launch_receipt_for_app,
+    should_surface_overlay_windows_in_task_switcher, summarize_chat_launch_envelope,
     TASKBAR_MARGIN,
 };
 use serde_json::{json, Value};
@@ -50,7 +50,7 @@ fn show_autopilot_surface(app: AppHandle) {
         return;
     }
 
-    let envelope = queue_pending_studio_launch_for_app(
+    let envelope = queue_pending_chat_launch_for_app(
         &app,
         json!({
             "kind": "view",
@@ -71,7 +71,7 @@ fn hide_autopilot_surface(app: AppHandle) {
         return;
     }
 
-    hide_studio(app);
+    hide_chat(app);
 }
 
 fn position_pill_window(app: &AppHandle, window: &WebviewWindow) {
@@ -158,7 +158,7 @@ pub fn show_chat(app: AppHandle) {
     if let Some(window) = app.get_webview_window("spotlight") {
         let _ = window.hide();
     }
-    let existing_window = app.get_webview_window("studio");
+    let existing_window = app.get_webview_window("chat");
     let visible_before = existing_window
         .as_ref()
         .and_then(|window| window.is_visible().ok());
@@ -173,14 +173,14 @@ pub fn show_chat(app: AppHandle) {
         &app,
         "show_requested",
         json!({
-            "windowLabel": "studio",
+            "windowLabel": "chat",
             "windowExistedBefore": existed_before,
             "visibleBefore": visible_before,
             "minimizedBefore": minimized_before,
             "maximizedBefore": maximized_before,
         }),
     );
-    if let Some(window) = ensure_webview_window(&app, "studio") {
+    if let Some(window) = ensure_webview_window(&app, "chat") {
         let recreated = !existed_before;
         if window.is_maximized().unwrap_or(false) {
             let _ = window.unmaximize();
@@ -193,7 +193,7 @@ pub fn show_chat(app: AppHandle) {
             &app,
             "show_surfaced",
             json!({
-                "windowLabel": "studio",
+                "windowLabel": "chat",
                 "recreatedWindow": recreated,
                 "visibleAfter": window.is_visible().ok(),
                 "minimizedAfter": window.is_minimized().ok(),
@@ -205,44 +205,44 @@ pub fn show_chat(app: AppHandle) {
             &app,
             "show_failed",
             json!({
-                "windowLabel": "studio",
+                "windowLabel": "chat",
                 "windowExistedBefore": existed_before,
             }),
         );
-        eprintln!("[Autopilot] Unable to surface Studio because the window is unavailable.");
+        eprintln!("[Autopilot] Unable to surface Chat because the window is unavailable.");
     }
 }
 
 pub fn show_chat_with_target(app: AppHandle, envelope: Value) {
-    let launch_summary = summarize_studio_launch_envelope(&envelope);
+    let launch_summary = summarize_chat_launch_envelope(&envelope);
     record_chat_launch_receipt_for_app(
         &app,
         "show_target_requested",
         json!({
-            "windowLabel": "studio",
+            "windowLabel": "chat",
             "launch": launch_summary.clone(),
         }),
     );
     show_chat(app.clone());
 
-    let Some(window) = app.get_webview_window("studio") else {
+    let Some(window) = app.get_webview_window("chat") else {
         record_chat_launch_receipt_for_app(
             &app,
             "show_target_window_missing",
             json!({
-                "windowLabel": "studio",
+                "windowLabel": "chat",
                 "launch": launch_summary,
             }),
         );
         return;
     };
 
-    match window.emit("request-studio-launch", envelope.clone()) {
+    match window.emit("request-chat-launch", envelope.clone()) {
         Ok(()) => record_chat_launch_receipt_for_app(
             &app,
             "show_target_emitted",
             json!({
-                "windowLabel": "studio",
+                "windowLabel": "chat",
                 "launch": launch_summary,
             }),
         ),
@@ -250,7 +250,7 @@ pub fn show_chat_with_target(app: AppHandle, envelope: Value) {
             &app,
             "show_target_emit_failed",
             json!({
-                "windowLabel": "studio",
+                "windowLabel": "chat",
                 "launch": launch_summary,
                 "error": error.to_string(),
             }),
@@ -258,8 +258,8 @@ pub fn show_chat_with_target(app: AppHandle, envelope: Value) {
     }
 }
 
-pub fn hide_studio(app: AppHandle) {
-    if let Some(window) = app.get_webview_window("studio") {
+pub fn hide_chat(app: AppHandle) {
+    if let Some(window) = app.get_webview_window("chat") {
         let _ = window.hide();
     }
     if no_primary_operator_surface_visible(&app) {
@@ -272,8 +272,8 @@ fn no_primary_operator_surface_visible(app: &AppHandle) -> bool {
         .get_webview_window("spotlight")
         .and_then(|window| window.is_visible().ok())
         .unwrap_or(false);
-    let studio_visible = app
-        .get_webview_window("studio")
+    let chat_visible = app
+        .get_webview_window("chat")
         .and_then(|window| window.is_visible().ok())
         .unwrap_or(false);
     let gate_visible = app
@@ -281,7 +281,7 @@ fn no_primary_operator_surface_visible(app: &AppHandle) -> bool {
         .and_then(|window| window.is_visible().ok())
         .unwrap_or(false);
 
-    !spotlight_visible && !studio_visible && !gate_visible
+    !spotlight_visible && !chat_visible && !gate_visible
 }
 
 fn ensure_webview_window(app: &AppHandle, label: &str) -> Option<WebviewWindow> {

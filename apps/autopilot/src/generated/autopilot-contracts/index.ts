@@ -29,6 +29,6 @@ export type { NotificationSource } from "./NotificationSource";
 export type { NotificationTarget } from "./NotificationTarget";
 export type { ObservationTier } from "./ObservationTier";
 export type { SkillCatalogEntry } from "./SkillCatalogEntry";
-export type { StudioArtifactPipelineStep } from "./StudioArtifactPipelineStep";
+export type { ChatArtifactPipelineStep } from "./ChatArtifactPipelineStep";
 export type { SubstrateProofReceipt } from "./SubstrateProofReceipt";
 export type { SubstrateProofView } from "./SubstrateProofView";

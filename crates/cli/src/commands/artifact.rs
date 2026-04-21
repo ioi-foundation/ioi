@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use ioi_api::studio::{plan_studio_outcome_with_runtime, StudioArtifactRefinementContext};
+use ioi_api::chat::{plan_studio_outcome_with_runtime, ChatArtifactRefinementContext};
 use ioi_api::vm::inference::InferenceRuntime;
 use ioi_types::app::{
-    StudioArtifactFailure, StudioArtifactFailureKind, StudioOutcomePlanningPayload,
-    StudioRendererKind, StudioRuntimeProvenance, StudioRuntimeProvenanceKind,
+    ChatArtifactFailure, ChatArtifactFailureKind, ChatOutcomePlanningPayload,
+    ChatRendererKind, ChatRuntimeProvenance, ChatRuntimeProvenanceKind,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -42,17 +42,17 @@ pub struct ArtifactArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum ArtifactCommands {
-    /// Inspect a Studio artifact manifest.
+    /// Inspect a Chat artifact manifest.
     Inspect {
-        /// Path to a Studio artifact manifest JSON file.
+        /// Path to a Chat artifact manifest JSON file.
         manifest: PathBuf,
         /// Emit machine-readable JSON instead of human text.
         #[clap(long)]
         json: bool,
     },
-    /// Validate a Studio artifact manifest contract.
+    /// Validate a Chat artifact manifest contract.
     Validate {
-        /// Path to a Studio artifact manifest JSON file.
+        /// Path to a Chat artifact manifest JSON file.
         manifest: PathBuf,
         /// Optional source root for renderer-aware validation against real files.
         #[clap(long)]
@@ -60,7 +60,7 @@ pub enum ArtifactCommands {
     },
     /// Materialize an artifact package/repo from a manifest and source root.
     Materialize {
-        /// Path to a Studio artifact manifest JSON file.
+        /// Path to a Chat artifact manifest JSON file.
         manifest: PathBuf,
         /// Root directory that contains the manifest's referenced files.
         #[clap(long)]
@@ -72,7 +72,7 @@ pub enum ArtifactCommands {
         #[clap(long)]
         force: bool,
     },
-    /// Route or query a Studio prompt through the shared local inference contract.
+    /// Route or query a Chat prompt through the shared local inference contract.
     #[clap(alias = "query")]
     Route {
         /// Prompt to route.
@@ -92,7 +92,7 @@ pub enum ArtifactCommands {
         /// Route through the local inference runtime instead of a fixture payload.
         #[clap(long, conflicts_with = "fixture")]
         local: bool,
-        /// Route through Studio's mock inference runtime.
+        /// Route through Chat's mock inference runtime.
         #[clap(long, conflicts_with_all = ["fixture", "local"])]
         mock: bool,
         /// Local inference API URL (defaults to LOCAL_LLM_URL or Ollama OpenAI shim).
@@ -108,7 +108,7 @@ pub enum ArtifactCommands {
         #[clap(long)]
         json: bool,
     },
-    /// Generate a Studio artifact package and evidence bundle through the shared generation path.
+    /// Generate a Chat artifact package and evidence bundle through the shared generation path.
     Generate {
         /// Prompt to generate.
         prompt: String,
@@ -133,7 +133,7 @@ pub enum ArtifactCommands {
         /// Route through the local inference runtime instead of a fixture payload.
         #[clap(long, conflicts_with_all = ["fixture", "mock"])]
         local: bool,
-        /// Route through Studio's mock inference runtime.
+        /// Route through Chat's mock inference runtime.
         #[clap(long, conflicts_with_all = ["fixture", "local"])]
         mock: bool,
         /// Local inference API URL (defaults to LOCAL_LLM_URL or Ollama OpenAI shim).
@@ -166,9 +166,9 @@ pub enum ArtifactCommands {
         #[clap(long)]
         json: bool,
     },
-    /// Compose the verification-backed reply that Studio would show for a manifest.
+    /// Compose the verification-backed reply that Chat would show for a manifest.
     ComposeReply {
-        /// Path to a Studio artifact manifest JSON file.
+        /// Path to a Chat artifact manifest JSON file.
         manifest: PathBuf,
         /// Emit machine-readable JSON instead of human text.
         #[clap(long)]

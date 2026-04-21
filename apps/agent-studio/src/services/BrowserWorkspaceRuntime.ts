@@ -426,7 +426,7 @@ export class BrowserWorkspaceRuntime implements AgentWorkbenchRuntime {
   }
 
   async installAgent(agentId: string): Promise<void> {
-    await this.stageRuntimeCatalogEntry(agentId, "Installed from Agent Studio");
+    await this.stageRuntimeCatalogEntry(agentId, "Installed from Agent Chat");
   }
 
   async getConnectors(): Promise<ConnectorSummary[]> {

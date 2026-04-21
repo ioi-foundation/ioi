@@ -2,8 +2,8 @@ import type {
   AgentEvent,
   BuildArtifactSession,
   ChatArtifactSession,
-  StudioRendererKind,
-  StudioRendererSession,
+  ChatRendererKind,
+  ChatRendererSession,
 } from "../../../types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -56,7 +56,7 @@ export interface ConversationArtifactEntry {
   artifactId: string;
   title: string;
   summary: string;
-  renderer: StudioRendererKind;
+  renderer: ChatRendererKind;
   artifactClass: ChatArtifactSession["artifactManifest"]["artifactClass"];
   status: string;
   lifecycleState: ChatArtifactSession["lifecycleState"];
@@ -263,7 +263,7 @@ export function collectAvailableArtifacts(
   );
 }
 
-function mirrorBuildSession(buildSession: BuildArtifactSession): StudioRendererSession {
+function mirrorBuildSession(buildSession: BuildArtifactSession): ChatRendererSession {
   return {
     sessionId: buildSession.sessionId,
     chatSessionId: buildSession.chatSessionId,
@@ -291,9 +291,9 @@ function mirrorBuildSession(buildSession: BuildArtifactSession): StudioRendererS
 
 export function deriveRendererSessionForChatSession(
   chatSession: ChatArtifactSession,
-  activeRendererSession?: StudioRendererSession | null,
+  activeRendererSession?: ChatRendererSession | null,
   activeBuildSession?: BuildArtifactSession | null,
-): StudioRendererSession | null {
+): ChatRendererSession | null {
   if (activeRendererSession?.chatSessionId === chatSession.sessionId) {
     return activeRendererSession;
   }

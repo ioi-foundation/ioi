@@ -2,10 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import type {
   SkillDetailView,
-  StudioArtifactSelectedSkill,
+  ChatArtifactSelectedSkill,
 } from "../../../types";
 import { icons } from "./Icons";
-import { formatStudioExecutionPreviewPhase } from "./studioExecutionPreview";
+import { formatChatExecutionPreviewPhase } from "./chatExecutionPreview";
 
 type ChatConversationWelcomeProps = {
   onSuggestionClick: (text: string) => void;
@@ -29,7 +29,7 @@ type ChatRunStateCardProps = {
     isActive?: boolean;
     iconKey?: string | null;
   }>;
-  selectedSkills?: StudioArtifactSelectedSkill[];
+  selectedSkills?: ChatArtifactSelectedSkill[];
   livePreview?: {
     label: string;
     content: string;
@@ -125,13 +125,13 @@ export function ChatConversationWelcome({
   onSuggestionClick,
 }: ChatConversationWelcomeProps) {
   return (
-      <section className="spot-studio-welcome" aria-label="Chat welcome">
-      <div className="spot-studio-welcome-mark" aria-hidden="true">
+      <section className="spot-chat-welcome" aria-label="Chat welcome">
+      <div className="spot-chat-welcome-mark" aria-hidden="true">
         {icons.sparkles}
       </div>
 
-      <div className="spot-studio-welcome-copy">
-        <span className="spot-studio-welcome-kicker">Outcome control plane</span>
+      <div className="spot-chat-welcome-copy">
+        <span className="spot-chat-welcome-kicker">Outcome control plane</span>
         <h2>What do you want to materialize?</h2>
         <p>
           Start with the outcome. Chat chooses the right delivery surface,
@@ -139,21 +139,21 @@ export function ChatConversationWelcome({
         </p>
       </div>
 
-      <div className="spot-studio-lens-grid">
+      <div className="spot-chat-lens-grid">
         {operatingLenses.map((lens) => (
-          <div key={lens.label} className="spot-studio-lens-card">
+          <div key={lens.label} className="spot-chat-lens-card">
             <strong>{lens.label}</strong>
             <span>{lens.detail}</span>
           </div>
         ))}
       </div>
 
-      <div className="spot-studio-suggestion-row">
+      <div className="spot-chat-suggestion-row">
         {suggestionPrompts.map((prompt) => (
           <button
             key={prompt}
             type="button"
-            className="spot-studio-suggestion"
+            className="spot-chat-suggestion"
             onClick={() => onSuggestionClick(prompt)}
           >
             {prompt}
@@ -243,7 +243,7 @@ export function ChatRunStateCard({
   const renderPreviewAriaLabel = (
     preview: NonNullable<ChatRunStateCardProps["livePreview"]>,
   ) =>
-    `${preview.label}. ${formatStudioExecutionPreviewPhase(preview)}.`;
+    `${preview.label}. ${formatChatExecutionPreviewPhase(preview)}.`;
   const activeSkill = useMemo(
     () =>
       selectedSkills.find((skill) => skill.skillHash === activeSkillHash) ??
@@ -272,52 +272,52 @@ export function ChatRunStateCard({
 
   return (
     <section
-      className={`spot-studio-status-card ${
+      className={`spot-chat-status-card ${
         isThinkingRail ? "is-thinking" : isError ? "is-error" : "is-active"
       }`}
       aria-live="polite"
     >
-      <div className="spot-studio-status-icon">
+      <div className="spot-chat-status-icon">
         {isThinkingRail ? icons.sparkles : isError ? icons.alert : icons.spinner}
       </div>
-      <div className="spot-studio-status-copy">
+      <div className="spot-chat-status-copy">
         <strong>{title}</strong>
         <p>{detail}</p>
         {metrics ? (
-          <div className="spot-studio-status-metrics">
+          <div className="spot-chat-status-metrics">
             {metrics.stage ? (
-              <span className="spot-studio-status-chip">{metrics.stage}</span>
+              <span className="spot-chat-status-chip">{metrics.stage}</span>
             ) : null}
             {metrics.activeRole ? (
-              <span className="spot-studio-status-chip is-muted">
+              <span className="spot-chat-status-chip is-muted">
                 {metrics.activeRole}
               </span>
             ) : null}
             {metrics.progress ? (
-              <span className="spot-studio-status-chip is-muted">
+              <span className="spot-chat-status-chip is-muted">
                 {metrics.progress}
               </span>
             ) : null}
             {metrics.verification ? (
-              <span className="spot-studio-status-chip is-muted">
+              <span className="spot-chat-status-chip is-muted">
                 {metrics.verification}
               </span>
             ) : null}
           </div>
         ) : null}
         {processes.length ? (
-          <div className="spot-studio-status-process-list" aria-label="Thinking processes">
+          <div className="spot-chat-status-process-list" aria-label="Thinking processes">
             {processes.map((process) => (
               <div
                 key={process.id}
-                className={`spot-studio-status-process ${
+                className={`spot-chat-status-process ${
                   process.isActive ? "is-active" : ""
                 }`}
                 aria-label={`${process.label}. ${process.status}. ${process.summary}`}
               >
-                <div className="spot-studio-status-process-row">
-                  <div className="spot-studio-status-process-head">
-                    <span className="spot-studio-status-process-icon" aria-hidden="true">
+                <div className="spot-chat-status-process-row">
+                  <div className="spot-chat-status-process-head">
+                    <span className="spot-chat-status-process-icon" aria-hidden="true">
                       {processIcon(process.iconKey)}
                     </span>
                     <strong>{process.label}</strong>
@@ -330,20 +330,20 @@ export function ChatRunStateCard({
           </div>
         ) : null}
         {selectedSkills.length ? (
-          <div className="spot-studio-status-skill-shell" aria-label="Selected skill guidance">
-            <div className="spot-studio-status-skill-copy">
+          <div className="spot-chat-status-skill-shell" aria-label="Selected skill guidance">
+            <div className="spot-chat-status-skill-copy">
               <span>Skill guidance</span>
               <p>
                 Skill guidance was resolved before authoring. Open a skill to inspect
                 the exact procedure attached to this run.
               </p>
             </div>
-            <div className="spot-studio-status-skill-row">
+            <div className="spot-chat-status-skill-row">
               {selectedSkills.map((skill) => (
                 <button
                   key={skill.skillHash}
                   type="button"
-                  className={`spot-studio-status-skill-chip ${
+                  className={`spot-chat-status-skill-chip ${
                     activeSkill?.skillHash === skill.skillHash ? "is-active" : ""
                   }`}
                   onClick={() => setActiveSkillHash(skill.skillHash)}
@@ -353,33 +353,33 @@ export function ChatRunStateCard({
               ))}
             </div>
             {activeSkill ? (
-              <div className="spot-studio-status-skill-detail">
-                <div className="spot-studio-status-skill-detail-head">
+              <div className="spot-chat-status-skill-detail">
+                <div className="spot-chat-status-skill-detail-head">
                   <div>
                     <strong>{activeSkill.name}</strong>
                     <p>{activeSkill.description}</p>
                   </div>
                   {activeSkillMeta.length ? (
-                    <span className="spot-studio-status-chip is-muted">
+                    <span className="spot-chat-status-chip is-muted">
                       {activeSkillMeta.join(" · ")}
                     </span>
                   ) : null}
                 </div>
-                <p className="spot-studio-status-skill-note">
+                <p className="spot-chat-status-skill-note">
                   {activeSkill.matchRationale}
                 </p>
                 {skillDetailsLoading && !activeSkillContext ? (
-                  <p className="spot-studio-status-skill-note">
+                  <p className="spot-chat-status-skill-note">
                     Loading live skill detail...
                   </p>
                 ) : null}
                 {activeSkillContext?.error ? (
-                  <p className="spot-studio-status-skill-note">
+                  <p className="spot-chat-status-skill-note">
                     Live skill detail unavailable: {activeSkillContext.error}
                   </p>
                 ) : null}
                 {activeSkillMarkdown ? (
-                  <pre className="spot-studio-status-skill-markdown">
+                  <pre className="spot-chat-status-skill-markdown">
                     {activeSkillMarkdown}
                   </pre>
                 ) : null}
@@ -389,7 +389,7 @@ export function ChatRunStateCard({
         ) : null}
         {livePreview?.content ? (
           <div
-            className={`spot-studio-status-preview ${
+            className={`spot-chat-status-preview ${
               previewMode(livePreview) === "code"
                 ? "is-code-preview"
                 : "is-stream-preview"
@@ -397,13 +397,13 @@ export function ChatRunStateCard({
             aria-live="polite"
             aria-label={renderPreviewAriaLabel(livePreview)}
           >
-            <div className="spot-studio-status-preview-head">
+            <div className="spot-chat-status-preview-head">
               <span>{livePreview.label}</span>
               <span>
-                {formatStudioExecutionPreviewPhase(livePreview)}
+                {formatChatExecutionPreviewPhase(livePreview)}
               </span>
             </div>
-            <div className="spot-studio-status-preview-meta">
+            <div className="spot-chat-status-preview-meta">
               <span>{formatPreviewStats(livePreview.content)}</span>
               {previewMode(livePreview) === "code" ? (
                 <span>Scroll to inspect the full artifact.</span>
@@ -416,7 +416,7 @@ export function ChatRunStateCard({
         ) : null}
         {codePreview?.content && codePreview.content !== livePreview?.content ? (
           <div
-            className={`spot-studio-status-preview ${
+            className={`spot-chat-status-preview ${
               previewMode(codePreview) === "code"
                 ? "is-code-preview"
                 : "is-stream-preview"
@@ -424,13 +424,13 @@ export function ChatRunStateCard({
             aria-live="polite"
             aria-label={renderPreviewAriaLabel(codePreview)}
           >
-            <div className="spot-studio-status-preview-head">
+            <div className="spot-chat-status-preview-head">
               <span>{codePreview.label}</span>
               <span>
-                {formatStudioExecutionPreviewPhase(codePreview)}
+                {formatChatExecutionPreviewPhase(codePreview)}
               </span>
             </div>
-            <div className="spot-studio-status-preview-meta">
+            <div className="spot-chat-status-preview-meta">
               <span>{formatPreviewStats(codePreview.content)}</span>
               {previewMode(codePreview) === "code" ? (
                 <span>Scroll to inspect the full artifact.</span>

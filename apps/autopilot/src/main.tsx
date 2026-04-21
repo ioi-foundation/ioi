@@ -21,6 +21,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/gate" element={<GateWindow />} />
         <Route path="/chat" element={<ChatWindow />} />
         <Route path="/" element={<ChatWindow />} />
+        <Route path="*" element={<ChatWindow />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
