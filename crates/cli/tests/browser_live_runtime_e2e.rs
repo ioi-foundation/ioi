@@ -4,6 +4,7 @@ mod live_inference_support;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use image::{ImageBuffer, ImageFormat, Rgba};
+use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::BlockchainService;
 use ioi_api::state::StateAccess;
@@ -11,6 +12,8 @@ use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_crypto::sign::eddsa::Ed25519KeyPair;
 use ioi_cli::testing::build_test_artifacts;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
@@ -20,13 +23,16 @@ use ioi_services::agentic::runtime::keys::{AGENT_POLICY_PREFIX, INCIDENT_PREFIX}
 use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::service::step::incident::IncidentState;
 use ioi_services::agentic::runtime::{
-    AgentMode, AgentState, AgentStatus, ResumeAgentParams, RuntimeAgentService, StartAgentParams,
-    StepAgentParams,
+    AgentMode, AgentState, AgentStatus, ResumeAgentParams, RuntimeAgentService,
+    StartAgentParams, StepAgentParams,
 };
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
-use ioi_types::app::action::{ApprovalScope, ApprovalToken};
-use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent, SignatureSuite};
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
+use ioi_types::app::{
+    account_id_from_key_material, ActionRequest, ContextSlice, KernelEvent, SignatureSuite,
+};
+use ioi_types::app::agentic::RegisterApprovalAuthorityParams;
 use ioi_types::codec;
 use ioi_types::error::VmError;
 use serde_json::json;
@@ -217,30 +223,71 @@ fn read_incident_pending_gate_hash(
         .and_then(|gate| parse_hex_hash_32(&gate.request_hash))
 }
 
-fn build_approval_token_for_resume(
+fn active_policy_hash_for_session(
+    state: &IAVLTree<HashCommitmentScheme>,
+    session_id: [u8; 32],
+) -> Result<[u8; 32]> {
+    let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
+    let rules = match state.get(&policy_key)? {
+        Some(bytes) => codec::from_bytes_canonical::<ioi_services::agentic::rules::ActionRules>(&bytes)
+            .map_err(anyhow::Error::msg)?,
+        None => default_safe_policy(),
+    };
+    let canonical = serde_jcs::to_vec(&rules).map_err(anyhow::Error::msg)?;
+    let digest = sha256(&canonical).map_err(anyhow::Error::msg)?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(digest.as_ref());
+    Ok(out)
+}
+
+fn build_approval_grant_for_resume(
+    session_id: [u8; 32],
     request_hash: [u8; 32],
+    policy_hash: [u8; 32],
     now_ms: u64,
-    pending_visual_hash: Option<[u8; 32]>,
-) -> ApprovalToken {
+    _pending_visual_hash: Option<[u8; 32]>,
+) -> Result<(ApprovalAuthority, ApprovalGrant)> {
+    let keypair =
+        Ed25519KeyPair::generate().map_err(|e| anyhow!("approval keygen failed: {}", e))?;
+    let public_key = keypair.public_key().to_bytes();
+    let authority_id = account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+        .map_err(anyhow::Error::msg)?;
     let mut nonce = [0u8; 32];
     nonce.copy_from_slice(&request_hash);
-    ApprovalToken {
-        schema_version: 2,
+    let authority = ApprovalAuthority {
+        schema_version: 1,
+        authority_id,
+        public_key: public_key.clone(),
+        signature_suite: SignatureSuite::ED25519,
+        expires_at: now_ms.saturating_add(120_000),
+        revoked: false,
+        scope_allowlist: vec!["desktop_agent.resume".to_string()],
+    };
+    let mut grant = ApprovalGrant {
+        schema_version: 1,
+        authority_id,
         request_hash,
-        audience: [0u8; 32],
-        revocation_epoch: 0,
+        policy_hash,
+        audience: session_id,
         nonce,
         counter: 1,
-        scope: ApprovalScope {
-            expires_at: now_ms.saturating_add(120_000),
-            max_usages: Some(1),
-        },
-        visual_hash: pending_visual_hash,
+        expires_at: now_ms.saturating_add(120_000),
+        max_usages: Some(1),
+        window_id: None,
         pii_action: None,
         scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: public_key,
         approver_sig: Vec::new(),
         approver_suite: SignatureSuite::ED25519,
-    }
+    };
+    let signing_bytes = grant.signing_bytes().map_err(anyhow::Error::msg)?;
+    grant.approver_sig = keypair
+        .sign(&signing_bytes)
+        .map_err(|e| anyhow!("approval signing failed: {}", e))?
+        .to_bytes()
+        .to_vec();
+    Ok((authority, grant))
 }
 
 fn fixture_html() -> &'static str {
@@ -379,11 +426,26 @@ async fn browser_live_http_runtime_validation() -> Result<()> {
                         .duration_since(UNIX_EPOCH)
                         .unwrap_or_default()
                         .as_millis() as u64;
-                    let approval_token = build_approval_token_for_resume(
+                    let policy_hash = active_policy_hash_for_session(&state, session_id)?;
+                    let (authority, approval_grant) = build_approval_grant_for_resume(
+                        session_id,
                         request_hash,
+                        policy_hash,
                         now_ms,
                         agent_state.pending_visual_hash,
-                    );
+                    )?;
+                    service
+                        .handle_service_call(
+                            &mut state,
+                            "register_approval_authority@v1",
+                            &codec::to_bytes_canonical(&RegisterApprovalAuthorityParams {
+                                authority,
+                            })
+                            .map_err(anyhow::Error::msg)?,
+                            &mut ctx,
+                        )
+                        .await
+                        .map_err(anyhow::Error::msg)?;
                     match tokio::time::timeout(
                         service_call_timeout,
                         service.handle_service_call(
@@ -391,7 +453,7 @@ async fn browser_live_http_runtime_validation() -> Result<()> {
                             "resume@v1",
                             &codec::to_bytes_canonical(&ResumeAgentParams {
                                 session_id,
-                                approval_token: Some(approval_token),
+                                approval_grant: Some(approval_grant),
                             })
                             .map_err(anyhow::Error::msg)?,
                             &mut ctx,

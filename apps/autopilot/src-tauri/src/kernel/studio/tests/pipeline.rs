@@ -411,6 +411,7 @@ fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
             max_repairs: 1,
             expansion_policy: ioi_types::app::StudioExecutionBudgetExpansionPolicy::ConfidenceGated,
         }),
+        workflow_artifact_root_hash: None,
         completion_invariant: Some(ioi_api::execution::ExecutionCompletionInvariant {
             summary: "Complete when the bounded HTML graph and verification pass.".to_string(),
             status: ioi_api::execution::ExecutionCompletionInvariantStatus::Pending,
@@ -437,10 +438,14 @@ fn pipeline_steps_label_micro_swarm_and_surface_completion_progress() {
         change_receipts: Vec::new(),
         merge_receipts: Vec::new(),
         verification_receipts: Vec::new(),
+        work_item_commits: Vec::new(),
+        merge_decision_artifacts: Vec::new(),
         graph_mutation_receipts: Vec::new(),
         dispatch_batches: Vec::new(),
         repair_receipts: Vec::new(),
         replan_receipts: Vec::new(),
+        retry_decision_artifacts: Vec::new(),
+        repair_action_artifacts: Vec::new(),
         budget_summary: None,
         live_previews: Vec::new(),
     });

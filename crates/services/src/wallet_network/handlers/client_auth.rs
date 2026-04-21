@@ -162,6 +162,8 @@ pub(crate) fn authorize_wallet_method(
         | "commit_receipt_root@v1"
         | "record_secret_injection_request@v1"
         | "grant_secret_injection@v1"
+        | "register_approval_authority@v1"
+        | "revoke_approval_authority@v1"
         | "panic_stop@v1" => ensure_wallet_client_role(state, ctx, WalletAuthRole::ControlPlane),
         "mail_connector_ensure_binding@v1"
         | "mail_read_latest@v1"
@@ -171,7 +173,7 @@ pub(crate) fn authorize_wallet_method(
         | "mail_reply@v1"
         | "record_interception@v1"
         | "record_approval@v1"
-        | "consume_approval_token@v1" => {
+        | "consume_approval_grant@v1" => {
             ensure_wallet_client_role(state, ctx, WalletAuthRole::Capability)
         }
         _ => Ok(()),

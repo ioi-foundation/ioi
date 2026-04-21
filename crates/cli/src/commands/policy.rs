@@ -4,12 +4,15 @@ use crate::util::create_cli_tx;
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+use ioi_crypto::algorithms::hash::sha256;
 use ioi_ipc::public::public_api_client::PublicApiClient;
 use ioi_ipc::public::{
     GetTransactionStatusRequest, SetRuntimeSecretRequest, SubmitTransactionRequest,
 };
+use ioi_services::agentic::rules::ActionRules;
 use ioi_services::agentic::runtime::ResumeAgentParams;
-use ioi_types::app::action::{ApprovalScope, ApprovalToken};
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
+use ioi_types::app::agentic::RegisterApprovalAuthorityParams;
 use ioi_types::app::agentic::StepTrace;
 use ioi_types::app::{SignatureSuite, SystemPayload};
 use ioi_types::codec;
@@ -151,6 +154,29 @@ fn parse_hex_32(label: &str, input: &str) -> Result<[u8; 32]> {
     Ok(out)
 }
 
+async fn fetch_active_policy_hash(
+    client: &mut PublicApiClient<tonic::transport::Channel>,
+) -> Result<[u8; 32]> {
+    let key = [b"agent::policy::".as_slice(), &[0u8; 32]].concat();
+    let resp = client
+        .query_raw_state(ioi_ipc::blockchain::QueryRawStateRequest { key })
+        .await
+        .context("Failed to query active policy state")?
+        .into_inner();
+    let rules = if resp.found && !resp.value.is_empty() {
+        codec::from_bytes_canonical::<ActionRules>(&resp.value)
+            .map_err(|e| anyhow!("Failed to decode ActionRules: {}", e))?
+    } else {
+        ActionRules::default()
+    };
+    let canonical =
+        serde_jcs::to_vec(&rules).map_err(|e| anyhow!("Failed to canonicalize ActionRules: {}", e))?;
+    let digest = sha256(&canonical).map_err(|e| anyhow!("Failed to hash ActionRules: {}", e))?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(digest.as_ref());
+    Ok(out)
+}
+
 async fn run_approve(args: PolicyApproveArgs) -> Result<()> {
     let request_hash = parse_hex_32("request hash", &args.request_hash)?;
     let session_id = parse_hex_32("session id", &args.session_id)?;
@@ -170,43 +196,67 @@ async fn run_approve(args: PolicyApproveArgs) -> Result<()> {
     )
     .map_err(|e| anyhow!("Failed to derive approver account id: {}", e))?;
 
-    let now_secs = std::time::SystemTime::now()
+    let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .context("System time is before UNIX_EPOCH")?
-        .as_secs();
+        .as_millis() as u64;
 
-    let mut token = ApprovalToken {
-        schema_version: 2,
-        request_hash,
-        audience: approver_account_id,
-        revocation_epoch: 0,
-        nonce: request_hash,
-        counter: now_secs.max(1),
-        scope: ApprovalScope {
-            expires_at: now_secs + 3600,
-            max_usages: Some(1),
-        },
-        visual_hash: None,
-        pii_action: None,
-        scoped_exception: None,
-        approver_sig: vec![],
-        approver_suite: SignatureSuite::ED25519,
+    let authority = ApprovalAuthority {
+        schema_version: 1,
+        authority_id: approver_account_id,
+        public_key: approver_pub.to_bytes(),
+        signature_suite: SignatureSuite::ED25519,
+        expires_at: now_ms + 3_600_000,
+        revoked: false,
+        scope_allowlist: vec!["desktop_agent.resume".to_string()],
     };
-    token.nonce[0] ^= (now_secs & 0xFF) as u8;
-    if token.nonce == [0u8; 32] {
-        token.nonce[0] = 1;
+    let register_payload = SystemPayload::CallService {
+        service_id: "desktop_agent".to_string(),
+        method: "register_approval_authority@v1".to_string(),
+        params: codec::to_bytes_canonical(&RegisterApprovalAuthorityParams {
+            authority: authority.clone(),
+        })
+        .map_err(|e| anyhow!("Failed to encode authority registration params: {}", e))?,
+    };
+    let register_tx = create_cli_tx(&keypair, register_payload, 0);
+    let _ = submit_tx_and_wait(&mut client, &register_tx, "approval authority registration").await?;
+    let active_policy_hash = fetch_active_policy_hash(&mut client).await?;
+
+    let mut grant_nonce = request_hash;
+    grant_nonce[0] ^= (now_ms & 0xFF) as u8;
+    if grant_nonce == [0u8; 32] {
+        grant_nonce[0] = 1;
     }
 
-    let token_bytes = codec::to_bytes_canonical(&token)
-        .map_err(|e| anyhow!("Failed to encode approval token: {}", e))?;
-    let token_sig = keypair
-        .sign(&token_bytes)
-        .map_err(|e| anyhow!("Failed to sign approval token: {}", e))?;
-    token.approver_sig = token_sig.to_bytes();
+    let mut approval_grant = ApprovalGrant {
+        schema_version: 1,
+        authority_id: approver_account_id,
+        request_hash,
+        policy_hash: active_policy_hash,
+        audience: approver_account_id,
+        nonce: grant_nonce,
+        counter: now_ms.max(1),
+        expires_at: now_ms + 3_600_000,
+        max_usages: Some(1),
+        window_id: None,
+        pii_action: None,
+        scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: authority.public_key.clone(),
+        approver_sig: Vec::new(),
+        approver_suite: SignatureSuite::ED25519,
+    };
+    let grant_bytes = approval_grant
+        .signing_bytes()
+        .map_err(|e| anyhow!("Failed to encode approval grant: {}", e))?;
+    let grant_sig = keypair
+        .sign(&grant_bytes)
+        .map_err(|e| anyhow!("Failed to sign approval grant: {}", e))?;
+    approval_grant.approver_sig = grant_sig.to_bytes();
 
     let resume = ResumeAgentParams {
         session_id,
-        approval_token: Some(token),
+        approval_grant: Some(approval_grant),
     };
     let payload = SystemPayload::CallService {
         service_id: "desktop_agent".to_string(),
@@ -327,7 +377,7 @@ async fn run_runtime_password(args: PolicyRuntimePasswordArgs) -> Result<()> {
         .map_err(|e| anyhow!("Failed to generate signer key: {}", e))?;
     let resume = ResumeAgentParams {
         session_id,
-        approval_token: None,
+        approval_grant: None,
     };
     let resume_payload = SystemPayload::CallService {
         service_id: "desktop_agent".to_string(),

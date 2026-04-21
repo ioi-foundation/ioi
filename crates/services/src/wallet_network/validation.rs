@@ -1,10 +1,12 @@
 // Path: crates/services/src/wallet_network/validation.rs
 
+use crate::wallet_network::keys::approval_authority_key;
 use crate::guardian_registry::GuardianRegistry;
 use ioi_api::crypto::{SerializableKey, VerifyingKey};
 use ioi_api::state::StateAccess;
 use ioi_crypto::sign::dilithium::{MldsaPublicKey, MldsaSignature};
 use ioi_crypto::sign::eddsa::{Ed25519PublicKey, Ed25519Signature};
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
 use ioi_types::app::wallet_network::{
     GuardianAttestation, SecretInjectionRequest, SessionChannelClose, SessionChannelOpenAck,
     SessionChannelOpenConfirm, SessionChannelOpenInit, SessionChannelOpenTry, SessionLease,
@@ -164,93 +166,149 @@ pub(super) fn validate_guardian_attestation(
     Ok(())
 }
 
-pub(super) fn validate_approval(approval: &WalletApprovalDecision) -> Result<(), TransactionError> {
-    let token_present = approval.approval_token.is_some();
+pub(super) fn validate_approval(
+    approval: &WalletApprovalDecision,
+) -> Result<(), TransactionError> {
+    let grant_present = approval.approval_grant.is_some();
     match approval.decision {
         WalletApprovalDecisionKind::AutoApproved | WalletApprovalDecisionKind::ApprovedByHuman => {
-            if !token_present {
+            if !grant_present {
                 return Err(TransactionError::Invalid(
-                    "approved decisions require an approval_token".to_string(),
+                    "approved decisions require an approval_grant".to_string(),
                 ));
             }
         }
         WalletApprovalDecisionKind::DeniedByHuman
         | WalletApprovalDecisionKind::RequiresHumanReview => {
-            if token_present {
+            if grant_present {
                 return Err(TransactionError::Invalid(
-                    "denied/review decisions must not include approval_token".to_string(),
+                    "denied/review decisions must not include approval_grant".to_string(),
                 ));
             }
         }
     }
 
-    if let Some(token) = &approval.approval_token {
-        if token.request_hash != approval.interception.request_hash {
+    if approval.interception.policy_hash == [0u8; 32] {
+        return Err(TransactionError::Invalid(
+            "wallet interception policy_hash must not be all zeroes".to_string(),
+        ));
+    }
+
+    if let Some(grant) = &approval.approval_grant {
+        if grant.request_hash != approval.interception.request_hash {
             return Err(TransactionError::Invalid(
-                "approval_token request hash mismatch".to_string(),
+                "approval_grant request hash mismatch".to_string(),
             ));
         }
-        if token.schema_version < 2 {
+        if grant.policy_hash != approval.interception.policy_hash {
             return Err(TransactionError::Invalid(
-                "approval_token schema_version must be >= 2".to_string(),
+                "approval_grant policy hash mismatch".to_string(),
             ));
         }
-        if token.audience == [0u8; 32] {
-            return Err(TransactionError::Invalid(
-                "approval_token audience must not be all zeroes".to_string(),
-            ));
+        grant
+            .verify()
+            .map_err(|e| TransactionError::Invalid(format!("Invalid approval grant: {}", e)))?;
+    }
+    Ok(())
+}
+
+pub(super) fn load_registered_approval_authority(
+    state: &dyn StateAccess,
+    authority_id: &[u8; 32],
+) -> Result<Option<ApprovalAuthority>, TransactionError> {
+    match state.get(&approval_authority_key(authority_id))? {
+        Some(bytes) => Ok(Some(codec::from_bytes_canonical(&bytes)?)),
+        None => Ok(None),
+    }
+}
+
+fn verify_approval_grant_signature(grant: &ApprovalGrant) -> Result<(), TransactionError> {
+    let message = grant
+        .signing_bytes()
+        .map_err(|e| TransactionError::Invalid(format!("Invalid approval grant: {}", e)))?;
+    match grant.approver_suite {
+        ioi_types::app::SignatureSuite::ED25519 => {
+            let pk = Ed25519PublicKey::from_bytes(&grant.approver_public_key).map_err(|e| {
+                TransactionError::Invalid(format!("Invalid approval grant public key: {}", e))
+            })?;
+            let sig = Ed25519Signature::from_bytes(&grant.approver_sig).map_err(|e| {
+                TransactionError::Invalid(format!("Invalid approval grant signature: {}", e))
+            })?;
+            pk.verify(&message, &sig).map_err(|e| {
+                TransactionError::Invalid(format!(
+                    "Approval grant signature verification failed: {}",
+                    e
+                ))
+            })?;
         }
-        if token.nonce == [0u8; 32] {
-            return Err(TransactionError::Invalid(
-                "approval_token nonce must not be all zeroes".to_string(),
-            ));
+        ioi_types::app::SignatureSuite::ML_DSA_44 => {
+            let pk = MldsaPublicKey::from_bytes(&grant.approver_public_key).map_err(|e| {
+                TransactionError::Invalid(format!("Invalid approval grant public key: {}", e))
+            })?;
+            let sig = MldsaSignature::from_bytes(&grant.approver_sig).map_err(|e| {
+                TransactionError::Invalid(format!("Invalid approval grant signature: {}", e))
+            })?;
+            pk.verify(&message, &sig).map_err(|e| {
+                TransactionError::Invalid(format!(
+                    "Approval grant signature verification failed: {}",
+                    e
+                ))
+            })?;
         }
-        if token.counter == 0 {
-            return Err(TransactionError::Invalid(
-                "approval_token counter must be >= 1".to_string(),
-            ));
-        }
-        if token.scope.expires_at == 0 {
-            return Err(TransactionError::Invalid(
-                "approval_token expiry must be non-zero".to_string(),
-            ));
-        }
-        if let Some(max_usages) = token.scope.max_usages {
-            if max_usages == 0 {
-                return Err(TransactionError::Invalid(
-                    "approval_token max_usages must be >= 1".to_string(),
-                ));
-            }
+        _ => {
+            return Err(TransactionError::Invalid(format!(
+                "Unsupported approval grant signature suite: {}",
+                grant.approver_suite.0
+            )));
         }
     }
     Ok(())
 }
 
-pub(super) fn validate_approval_token_hybrid_signature(
-    approval: &WalletApprovalDecision,
-) -> Result<[u8; 32], TransactionError> {
-    if !matches!(
-        approval.decision,
-        WalletApprovalDecisionKind::AutoApproved | WalletApprovalDecisionKind::ApprovedByHuman
-    ) {
+pub(super) fn validate_registered_approval_grant(
+    state: &dyn StateAccess,
+    grant: &ApprovalGrant,
+    now_ms: u64,
+    expected_policy_hash: [u8; 32],
+) -> Result<(), TransactionError> {
+    grant
+        .verify()
+        .map_err(|e| TransactionError::Invalid(format!("Invalid approval grant: {}", e)))?;
+    verify_approval_grant_signature(grant)?;
+    let authority = load_registered_approval_authority(state, &grant.authority_id)?.ok_or_else(
+        || TransactionError::Invalid("Approval authority is not registered".to_string()),
+    )?;
+    authority
+        .verify()
+        .map_err(|e| TransactionError::Invalid(format!("Invalid approval authority: {}", e)))?;
+    if authority.revoked {
         return Err(TransactionError::Invalid(
-            "hybrid approval signature validation requires an approved decision".to_string(),
+            "Approval authority has been revoked".to_string(),
         ));
     }
-
-    let mut canonical = approval.clone();
-    let token = canonical.approval_token.as_mut().ok_or_else(|| {
-        TransactionError::Invalid("approved decision missing approval_token".to_string())
-    })?;
-    if token.approver_suite != SignatureSuite::HYBRID_ED25519_ML_DSA_44 {
+    if authority.signature_suite != grant.approver_suite
+        || authority.public_key != grant.approver_public_key
+    {
         return Err(TransactionError::Invalid(
-            "approval_token approver_suite must be HYBRID_ED25519_ML_DSA_44".to_string(),
+            "Approval authority does not match approval grant signer".to_string(),
         ));
     }
-    let proof = decode_hybrid_signature_proof(&token.approver_sig, "approval_token.approver_sig")?;
-    token.approver_sig.clear();
-    let payload = codec::to_bytes_canonical(&canonical)?;
-    verify_hybrid_signature(&proof, &payload, "record_approval")
+    if now_ms > grant.expires_at {
+        return Err(TransactionError::Invalid(
+            "Approval grant has expired".to_string(),
+        ));
+    }
+    if now_ms > authority.expires_at {
+        return Err(TransactionError::Invalid(
+            "Approval authority has expired".to_string(),
+        ));
+    }
+    if grant.policy_hash != expected_policy_hash {
+        return Err(TransactionError::Invalid(
+            "Approval grant policy hash mismatch".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 pub(super) fn validate_channel_open_init(

@@ -1,5 +1,5 @@
 use super::{
-    classify_domain, filesystem_scope_paths, network_host, network_url, wallet_approval_token_ref,
+    classify_domain, filesystem_scope_paths, network_host, network_url, wallet_approval_grant_ref,
     wallet_eei_bundle, wallet_tx_hash, RrsaDomain,
 };
 use ioi_types::app::agentic::AgentTool;
@@ -100,9 +100,9 @@ fn wallet_tx_hash_prefers_tool_args_then_history_json() {
 
 #[test]
 fn wallet_approval_ref_extracts_from_args() {
-    let args = json!({ "approval_token_ref": "sha256:deadbeef" });
+    let args = json!({ "approval_grant_ref": "sha256:deadbeef" });
     assert_eq!(
-        wallet_approval_token_ref(&args, None).as_deref(),
+        wallet_approval_grant_ref(&args, None).as_deref(),
         Some("sha256:deadbeef")
     );
 }

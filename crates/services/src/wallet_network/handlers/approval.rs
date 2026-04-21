@@ -1,20 +1,19 @@
-// Path: crates/services/src/wallet_network/handlers/approval.rs
-
 use crate::wallet_network::keys::{
-    approval_consumption_key, approval_key, interception_key, PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
+    approval_authority_key, approval_consumption_key, approval_key, interception_key,
+    PANIC_FLAG_KEY, REVOCATION_EPOCH_KEY,
 };
 use crate::wallet_network::support::{
     append_audit_event, base_audit_metadata, block_timestamp_ms, load_revocation_epoch, load_typed,
     store_typed,
 };
-use crate::wallet_network::validation::{
-    validate_approval, validate_approval_token_hybrid_signature,
-};
+use crate::wallet_network::validation::{validate_approval, validate_registered_approval_grant};
 use crate::wallet_network::{
-    ApprovalConsumptionState, BumpRevocationEpochParams, ConsumeApprovalTokenParams,
+    ApprovalConsumptionState, BumpRevocationEpochParams, ConsumeApprovalGrantParams,
+    RegisterApprovalAuthorityParams, RevokeApprovalAuthorityParams,
 };
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
+use ioi_types::app::action::ApprovalAuthority;
 use ioi_types::app::wallet_network::{
     VaultAuditEventKind, WalletApprovalDecision, WalletApprovalDecisionKind,
     WalletInterceptionContext,
@@ -35,7 +34,53 @@ pub(crate) fn record_interception(
         hex::encode(interception.request_hash),
     );
     meta.insert("target".to_string(), interception.target.canonical_label());
+    meta.insert(
+        "policy_hash".to_string(),
+        hex::encode(interception.policy_hash),
+    );
     append_audit_event(state, ctx, VaultAuditEventKind::InterceptionObserved, meta)?;
+    Ok(())
+}
+
+pub(crate) fn register_approval_authority(
+    state: &mut dyn StateAccess,
+    ctx: &TxContext<'_>,
+    params: RegisterApprovalAuthorityParams,
+) -> Result<(), TransactionError> {
+    params
+        .authority
+        .verify()
+        .map_err(|e| TransactionError::Invalid(format!("Invalid approval authority: {}", e)))?;
+    store_typed(
+        state,
+        &approval_authority_key(&params.authority.authority_id),
+        &params.authority,
+    )?;
+
+    let mut meta = base_audit_metadata(ctx);
+    meta.insert(
+        "authority_id".to_string(),
+        hex::encode(params.authority.authority_id),
+    );
+    append_audit_event(state, ctx, VaultAuditEventKind::ApprovalDecided, meta)?;
+    Ok(())
+}
+
+pub(crate) fn revoke_approval_authority(
+    state: &mut dyn StateAccess,
+    ctx: &TxContext<'_>,
+    params: RevokeApprovalAuthorityParams,
+) -> Result<(), TransactionError> {
+    let key = approval_authority_key(&params.authority_id);
+    let mut authority: ApprovalAuthority = load_typed(state, &key)?.ok_or_else(|| {
+        TransactionError::Invalid("approval authority is not registered".to_string())
+    })?;
+    authority.revoked = true;
+    store_typed(state, &key, &authority)?;
+
+    let mut meta = base_audit_metadata(ctx);
+    meta.insert("authority_id".to_string(), hex::encode(params.authority_id));
+    append_audit_event(state, ctx, VaultAuditEventKind::ApprovalDecided, meta)?;
     Ok(())
 }
 
@@ -49,27 +94,32 @@ pub(crate) fn record_approval(
         approval.decision,
         WalletApprovalDecisionKind::AutoApproved | WalletApprovalDecisionKind::ApprovedByHuman
     ) {
-        Some(validate_approval_token_hybrid_signature(&approval)?)
+        let grant = approval.approval_grant.as_ref().ok_or_else(|| {
+            TransactionError::Invalid("approved decision missing approval_grant".to_string())
+        })?;
+        validate_registered_approval_grant(
+            state,
+            grant,
+            approval.decided_at_ms,
+            approval.interception.policy_hash,
+        )?;
+        Some(grant.authority_id)
     } else {
         None
     };
+
     let request_hash = approval.interception.request_hash;
     let approval_state_key = approval_key(&request_hash);
     store_typed(state, &approval_state_key, &approval)?;
 
     let consumption_key = approval_consumption_key(&request_hash);
     let active_revocation_epoch = load_revocation_epoch(state)?;
-    match approval.approval_token.as_ref() {
-        Some(token) => {
-            let max_usages = effective_max_usages(token.scope.max_usages)?;
-            if token.scope.expires_at <= approval.decided_at_ms {
+    match approval.approval_grant.as_ref() {
+        Some(grant) => {
+            let max_usages = effective_max_usages(grant.max_usages)?;
+            if grant.expires_at <= approval.decided_at_ms {
                 return Err(TransactionError::Invalid(
-                    "approval_token expiry must be later than decided_at_ms".to_string(),
-                ));
-            }
-            if token.revocation_epoch < active_revocation_epoch {
-                return Err(TransactionError::Invalid(
-                    "approval_token revocation_epoch is below active revocation epoch".to_string(),
+                    "approval_grant expiry must be later than decided_at_ms".to_string(),
                 ));
             }
 
@@ -77,11 +127,11 @@ pub(crate) fn record_approval(
                 request_hash,
                 target: approval.interception.target.clone(),
                 session_id: approval.interception.session_id,
-                bound_audience: Some(token.audience),
-                issued_revocation_epoch: token.revocation_epoch,
-                token_nonce: token.nonce,
-                token_counter: token.counter,
-                expires_at_ms: token.scope.expires_at,
+                bound_audience: Some(grant.audience),
+                issued_revocation_epoch: active_revocation_epoch,
+                grant_nonce: grant.nonce,
+                grant_counter: grant.counter,
+                expires_at_ms: grant.expires_at,
                 max_usages,
                 uses_consumed: 0,
                 remaining_usages: max_usages,
@@ -107,10 +157,10 @@ pub(crate) fn record_approval(
     Ok(())
 }
 
-pub(crate) fn consume_approval_token(
+pub(crate) fn consume_approval_grant(
     state: &mut dyn StateAccess,
     ctx: &TxContext<'_>,
-    params: ConsumeApprovalTokenParams,
+    params: ConsumeApprovalGrantParams,
 ) -> Result<(), TransactionError> {
     if params.request_hash == [0u8; 32] {
         return Err(TransactionError::Invalid(
@@ -133,29 +183,14 @@ pub(crate) fn consume_approval_token(
         ));
     }
 
-    let Some(token) = approval.approval_token.as_ref() else {
+    let Some(grant) = approval.approval_grant.as_ref() else {
         return Err(TransactionError::Invalid(
-            "approved decision missing approval_token".to_string(),
+            "approved decision missing approval_grant".to_string(),
         ));
     };
-    if token.request_hash != params.request_hash {
+    if grant.request_hash != params.request_hash {
         return Err(TransactionError::Invalid(
-            "approval_token request hash mismatch".to_string(),
-        ));
-    }
-    if token.audience == [0u8; 32] {
-        return Err(TransactionError::Invalid(
-            "approval_token audience must not be all zeroes".to_string(),
-        ));
-    }
-    if token.nonce == [0u8; 32] {
-        return Err(TransactionError::Invalid(
-            "approval_token nonce must not be all zeroes".to_string(),
-        ));
-    }
-    if token.counter == 0 {
-        return Err(TransactionError::Invalid(
-            "approval_token counter must be >= 1".to_string(),
+            "approval_grant request hash mismatch".to_string(),
         ));
     }
 
@@ -164,6 +199,8 @@ pub(crate) fn consume_approval_token(
     } else {
         params.consumed_at_ms
     };
+
+    validate_registered_approval_grant(state, grant, now_ms, approval.interception.policy_hash)?;
 
     let consumption_key = approval_consumption_key(&params.request_hash);
     let mut consumption_state: ApprovalConsumptionState = load_typed(state, &consumption_key)?
@@ -174,21 +211,14 @@ pub(crate) fn consume_approval_token(
         })?;
 
     let active_revocation_epoch = load_revocation_epoch(state)?;
-    if token.revocation_epoch < active_revocation_epoch
-        || consumption_state.issued_revocation_epoch < active_revocation_epoch
-    {
+    if consumption_state.issued_revocation_epoch < active_revocation_epoch {
         return Err(TransactionError::Invalid(
-            "approval token invalidated by revocation epoch bump".to_string(),
-        ));
-    }
-    if consumption_state.issued_revocation_epoch != token.revocation_epoch {
-        return Err(TransactionError::Invalid(
-            "approval token revocation epoch binding mismatch".to_string(),
+            "approval grant invalidated by revocation epoch bump".to_string(),
         ));
     }
     if now_ms > consumption_state.expires_at_ms {
         return Err(TransactionError::Invalid(
-            "approval token has expired".to_string(),
+            "approval grant has expired".to_string(),
         ));
     }
     if consumption_state.target.canonical_label() != approval.interception.target.canonical_label()
@@ -202,27 +232,26 @@ pub(crate) fn consume_approval_token(
             "approval consumption session mismatch".to_string(),
         ));
     }
-    if consumption_state.token_nonce != token.nonce
-        || consumption_state.token_counter != token.counter
+    if consumption_state.grant_nonce != grant.nonce
+        || consumption_state.grant_counter != grant.counter
     {
         return Err(TransactionError::Invalid(
-            "approval token replay binding mismatch".to_string(),
+            "approval grant replay binding mismatch".to_string(),
         ));
     }
-    if consumption_state.bound_audience != Some(token.audience) {
+    if consumption_state.bound_audience != Some(grant.audience) {
         return Err(TransactionError::Invalid(
-            "approval token audience binding mismatch".to_string(),
+            "approval grant audience binding mismatch".to_string(),
         ));
     }
-    if ctx.signer_account_id.0 != token.audience {
+    if ctx.signer_account_id.0 != grant.audience {
         return Err(TransactionError::Invalid(
-            "approval token audience does not match transaction signer".to_string(),
+            "approval grant audience does not match transaction signer".to_string(),
         ));
     }
-
     if consumption_state.remaining_usages == 0 {
         return Err(TransactionError::Invalid(
-            "approval token has no remaining usages".to_string(),
+            "approval grant has no remaining usages".to_string(),
         ));
     }
 
@@ -237,10 +266,10 @@ pub(crate) fn consume_approval_token(
         "target".to_string(),
         approval.interception.target.canonical_label(),
     );
-    meta.insert("audience".to_string(), hex::encode(token.audience));
+    meta.insert("audience".to_string(), hex::encode(grant.audience));
     meta.insert(
-        "token_counter".to_string(),
-        consumption_state.token_counter.to_string(),
+        "grant_counter".to_string(),
+        consumption_state.grant_counter.to_string(),
     );
     meta.insert(
         "remaining_usages".to_string(),
@@ -275,7 +304,7 @@ pub(crate) fn panic_stop(
 fn effective_max_usages(max_usages: Option<u32>) -> Result<u32, TransactionError> {
     match max_usages {
         Some(0) => Err(TransactionError::Invalid(
-            "approval_token max_usages must be >= 1".to_string(),
+            "approval_grant max_usages must be >= 1".to_string(),
         )),
         Some(value) => Ok(value),
         None => Ok(1),

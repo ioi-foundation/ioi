@@ -413,7 +413,7 @@ fn rrsa_wallet_domain_enforces_tx_approval_and_eei_bindings() {
 
     let rules = ActionRules::default();
     let missing = missing_execution_contract_markers_with_rules(&state, &rules);
-    assert!(missing.contains(&"receipt::rrsa_approval_token_ref=true".to_string()));
+    assert!(missing.contains(&"receipt::rrsa_approval_grant_ref=true".to_string()));
     assert!(missing.contains(&"receipt::rrsa_eei_bundle_commitment=true".to_string()));
 }
 

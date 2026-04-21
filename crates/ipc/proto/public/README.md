@@ -9,7 +9,7 @@ This directory defines the user-facing API exposed by the **Orchestrator**. It s
 ### `PublicApi`
 
 #### Transaction Management
-*   **`SubmitTransaction`**: Accepts a canonical SCALE-encoded transaction. Returns a hash immediately or an `ApprovalToken` request if the Agency Firewall intercepts the action.
+*   **`SubmitTransaction`**: Accepts a canonical SCALE-encoded transaction. Returns a hash immediately or an `ApprovalGrant` request if the Agency Firewall intercepts the action.
 *   **`GetTransactionStatus`**: Polls for the commit status of a transaction hash.
 
 #### State & Data

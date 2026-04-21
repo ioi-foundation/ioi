@@ -13,13 +13,14 @@ use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
 use ioi_services::agentic::runtime::{AgentMode, StartAgentParams};
 use ioi_services::wallet_network::{
-    ApprovalConsumptionState, BumpRevocationEpochParams, ConsumeApprovalTokenParams,
-    IssueSessionGrantParams, LeaseConsumptionState, SessionDelegationState,
+    ApprovalConsumptionState, BumpRevocationEpochParams, ConsumeApprovalGrantParams,
+    IssueSessionGrantParams, LeaseConsumptionState, RegisterApprovalAuthorityParams,
+    SessionDelegationState,
 };
 use ioi_types::{
     app::{
-        account_id_from_key_material, AccountId, ApprovalScope, ApprovalToken, ChainId,
-        ChainTransaction, GuardianAttestation, MailConnectorAuthMode, MailConnectorConfig,
+        account_id_from_key_material, action::{ApprovalAuthority, ApprovalGrant}, AccountId,
+        ChainId, ChainTransaction, GuardianAttestation, MailConnectorAuthMode, MailConnectorConfig,
         MailConnectorEndpoint, MailConnectorProvider, MailConnectorSecretAliases,
         MailConnectorTlsMode, MailConnectorUpsertParams, MailDeleteSpamParams,
         MailDeleteSpamReceipt, MailListRecentParams, MailListRecentReceipt, MailReadLatestParams,
@@ -97,25 +98,96 @@ fn sign_hybrid_payload(signer: &HybridSigner, payload: &[u8]) -> Result<Vec<u8>>
 }
 
 fn sign_wallet_approval_decision(
-    mut approval: WalletApprovalDecision,
-    signer: &HybridSigner,
+    approval: WalletApprovalDecision,
+    _signer: &HybridSigner,
 ) -> Result<WalletApprovalDecision> {
-    {
-        let token = approval
-            .approval_token
-            .as_mut()
-            .ok_or_else(|| anyhow!("approval decision missing approval_token"))?;
-        token.approver_suite = SignatureSuite::HYBRID_ED25519_ML_DSA_44;
-        token.approver_sig.clear();
-    }
-    let sign_bytes = encode_canonical(&approval)?;
-    let signature = sign_hybrid_payload(signer, &sign_bytes)?;
-    approval
-        .approval_token
-        .as_mut()
-        .ok_or_else(|| anyhow!("approval decision missing approval_token"))?
-        .approver_sig = signature;
     Ok(approval)
+}
+
+#[derive(Clone)]
+struct ApprovalSigner {
+    keypair: Ed25519KeyPair,
+    authority: ApprovalAuthority,
+}
+
+fn new_approval_signer() -> Result<ApprovalSigner> {
+    let keypair = Ed25519KeyPair::generate().map_err(|e| anyhow!(e.to_string()))?;
+    let public_key = keypair.public_key().to_bytes();
+    let authority_id = account_id_from_key_material(SignatureSuite::ED25519, &public_key)?;
+    Ok(ApprovalSigner {
+        keypair,
+        authority: ApprovalAuthority {
+            schema_version: 1,
+            authority_id,
+            public_key,
+            signature_suite: SignatureSuite::ED25519,
+            expires_at: 4_500_000_000_000,
+            revoked: false,
+            scope_allowlist: vec!["wallet_network.approval".to_string()],
+        },
+    })
+}
+
+fn signed_wallet_approval_grant(
+    signer: &ApprovalSigner,
+    request_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    audience: [u8; 32],
+    nonce: [u8; 32],
+    counter: u64,
+    max_usages: Option<u32>,
+    expires_at: u64,
+) -> Result<ApprovalGrant> {
+    let mut grant = ApprovalGrant {
+        schema_version: 1,
+        authority_id: signer.authority.authority_id,
+        request_hash,
+        policy_hash,
+        audience,
+        nonce,
+        counter,
+        expires_at,
+        max_usages,
+        window_id: None,
+        pii_action: None,
+        scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: signer.authority.public_key.clone(),
+        approver_sig: Vec::new(),
+        approver_suite: SignatureSuite::ED25519,
+    };
+    let sign_bytes = grant
+        .signing_bytes()
+        .map_err(|e| anyhow!("approval grant signing failed: {}", e))?;
+    grant.approver_sig = signer
+        .keypair
+        .sign(&sign_bytes)
+        .map_err(|e| anyhow!(e.to_string()))?
+        .to_bytes();
+    Ok(grant)
+}
+
+async fn register_wallet_approval_authority(
+    cluster: &TestCluster,
+    rpc_addr: &str,
+    keypair: &Keypair,
+    chain_id: ChainId,
+    nonce: u64,
+    signer: &ApprovalSigner,
+) -> Result<()> {
+    submit_wallet_call(
+        rpc_addr,
+        keypair,
+        chain_id,
+        nonce,
+        "register_approval_authority@v1",
+        RegisterApprovalAuthorityParams {
+            authority: signer.authority.clone(),
+        },
+    )
+    .await?;
+    let _ = cluster;
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -379,7 +451,7 @@ fn wallet_network_user_policy() -> ServicePolicy {
         "grant_secret_injection@v1",
         "record_interception@v1",
         "record_approval@v1",
-        "consume_approval_token@v1",
+        "consume_approval_grant@v1",
         "panic_stop@v1",
     ] {
         methods.insert(method.to_string(), MethodPermission::User);
@@ -592,7 +664,7 @@ async fn load_wallet_value<T: Decode>(rpc_addr: &str, local_key: &[u8]) -> Resul
     codec::from_bytes_canonical(&bytes).map_err(|e| anyhow!(e))
 }
 
-mod approval_token_consumption;
+mod approval_grant_consumption;
 mod bridge_interceptions;
 mod lifecycle;
 mod mail_delete_spam;

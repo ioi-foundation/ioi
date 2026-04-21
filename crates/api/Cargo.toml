@@ -10,11 +10,11 @@ repository = "https://github.com/ioi-foundation/ioi"
 
 [dependencies]
 ioi-types = { path = "../types" }
-# REVERTED: ioi-crypto = { path = "../crypto" }
 async-trait = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+serde_jcs = "0.1.0"
 thiserror = { workspace = true }
 bytes = { workspace = true }
 libp2p = { workspace = true }
@@ -36,6 +36,7 @@ zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 reqwest = { version = "0.11", features = ["json", "stream"] }
 futures-util = { workspace = true }
 ts-rs = "12.0.0"
+sha2 = "0.10"
 
 [dev-dependencies]
 rand = { workspace = true }

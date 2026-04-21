@@ -57,6 +57,7 @@ pub(crate) fn emit_execution_contract_receipt_event_with_observation(
             evidence_type: evidence_type.map(str::to_string),
             provider_id,
             synthesized_payload_hash,
+            authoritative: false,
         },
     ));
 }

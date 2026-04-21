@@ -25,6 +25,8 @@ schemars = "0.8"
 
 [dev-dependencies]
 toml = { workspace = true }
+ioi-crypto = { path = "../crypto" }
+ioi-api = { path = "../api" }
 
 [features]
 default = []

@@ -7,8 +7,11 @@ use ioi_services::agentic::rules::ActionRules;
 use ioi_types::app::agentic::{IntentMatrixEntry, IntentRoutingPolicy};
 use ioi_types::app::{
     determinism_commit_state_key, determinism_evidence_state_key,
-    determinism_step_contract_state_key, CommittedAction, DeterminismEvidence,
-    DeterminismStepContractEvidence,
+    determinism_step_contract_state_key, execution_observation_receipt_state_key,
+    policy_decision_state_key, postcondition_proof_state_key,
+    required_receipt_manifest_state_key, settlement_receipt_bundle_state_key, CommittedAction,
+    DeterminismEvidence, DeterminismStepContractEvidence, ExecutionObservationReceipt,
+    PolicyDecisionRecord, PostconditionProof, RequiredReceiptManifest, SettlementReceiptBundle,
 };
 use ioi_types::codec;
 use serde::Serialize;
@@ -51,7 +54,9 @@ struct VerifyDeterminismOutput {
     recovery_reason: Option<String>,
     request_hash: Option<String>,
     policy_hash: Option<String>,
+    policy_decision_hash: Option<String>,
     commitment_hash: Option<String>,
+    settlement_artifact_root_hash: Option<String>,
 }
 
 impl VerifyDeterminismOutput {
@@ -67,7 +72,9 @@ impl VerifyDeterminismOutput {
             recovery_reason: None,
             request_hash: None,
             policy_hash: None,
+            policy_decision_hash: None,
             commitment_hash: None,
+            settlement_artifact_root_hash: None,
         }
     }
 
@@ -232,6 +239,216 @@ async fn run_verify_determinism(
         Ok(None) => output.push_reason(
             "COMMIT_RECORD_MISSING",
             "No committed-action state record found for session/step",
+        ),
+        Err(err) => output.push_reason("STATE_QUERY_FAILED", err),
+    }
+
+    let policy_decision_key = policy_decision_state_key(session_id, step_index);
+    match query_raw_state(&mut client, policy_decision_key).await {
+        Ok(Some(bytes)) => match codec::from_bytes_canonical::<PolicyDecisionRecord>(&bytes) {
+            Ok(record) => {
+                output.policy_decision_hash = Some(hex::encode(record.decision_hash));
+                if record.request_hash != evidence.committed_action.request_hash {
+                    output.push_reason(
+                        "POLICY_DECISION_REQUEST_HASH_MISMATCH",
+                        "policy decision request_hash does not match committed action request_hash",
+                    );
+                }
+                if record.policy_hash != evidence.committed_action.policy_hash {
+                    output.push_reason(
+                        "POLICY_DECISION_POLICY_HASH_MISMATCH",
+                        "policy decision policy_hash does not match committed action policy_hash",
+                    );
+                }
+                if let Err(err) = record.verify() {
+                    output.push_reason("POLICY_DECISION_VERIFY_FAILED", err.to_string());
+                }
+            }
+            Err(err) => output.push_reason("POLICY_DECISION_DECODE_FAILED", err.to_string()),
+        },
+        Ok(None) => output.push_reason(
+            "POLICY_DECISION_MISSING",
+            "No persisted policy decision record found for session/step",
+        ),
+        Err(err) => output.push_reason("STATE_QUERY_FAILED", err),
+    }
+
+    let settlement_bundle_key = settlement_receipt_bundle_state_key(session_id, step_index);
+    match query_raw_state(&mut client, settlement_bundle_key).await {
+        Ok(Some(bytes)) => match codec::from_bytes_canonical::<SettlementReceiptBundle>(&bytes) {
+            Ok(bundle) => {
+                output.settlement_artifact_root_hash = Some(hex::encode(bundle.artifact_root_hash));
+                if bundle.request_hash != evidence.committed_action.request_hash {
+                    output.push_reason(
+                        "SETTLEMENT_REQUEST_HASH_MISMATCH",
+                        "settlement bundle request_hash does not match committed action request_hash",
+                    );
+                }
+                if bundle.committed_action_hash != evidence.committed_action.commitment_hash {
+                    output.push_reason(
+                        "SETTLEMENT_COMMITMENT_HASH_MISMATCH",
+                        "settlement bundle committed_action_hash does not match committed action commitment_hash",
+                    );
+                }
+                if let Some(policy_decision_hash) = output.policy_decision_hash.as_ref() {
+                    let parsed = hex::decode(policy_decision_hash)
+                        .ok()
+                        .filter(|bytes| bytes.len() == 32)
+                        .map(|bytes| {
+                            let mut out = [0u8; 32];
+                            out.copy_from_slice(&bytes);
+                            out
+                        });
+                    if parsed != Some(bundle.policy_decision_hash) {
+                        output.push_reason(
+                            "SETTLEMENT_POLICY_DECISION_HASH_MISMATCH",
+                            "settlement bundle policy_decision_hash does not match persisted policy decision",
+                        );
+                    }
+                }
+                if let Err(err) = bundle.verify() {
+                    output.push_reason("SETTLEMENT_BUNDLE_VERIFY_FAILED", err.to_string());
+                }
+
+                let manifest_key = required_receipt_manifest_state_key(session_id, step_index);
+                match query_raw_state(&mut client, manifest_key).await {
+                    Ok(Some(manifest_bytes)) => {
+                        match codec::from_bytes_canonical::<RequiredReceiptManifest>(&manifest_bytes)
+                        {
+                            Ok(manifest) => {
+                                if let Err(err) = manifest.verify() {
+                                    output.push_reason(
+                                        "REQUIRED_RECEIPT_MANIFEST_VERIFY_FAILED",
+                                        err.to_string(),
+                                    );
+                                }
+                                if bundle.required_receipt_manifest_hash
+                                    != Some(manifest.manifest_hash)
+                                {
+                                    output.push_reason(
+                                        "SETTLEMENT_MANIFEST_HASH_MISMATCH",
+                                        "settlement bundle required_receipt_manifest_hash does not match persisted manifest",
+                                    );
+                                }
+                                if bundle.execution_receipt_hashes.len()
+                                    < manifest.required_execution_receipt_keys.len()
+                                {
+                                    output.push_reason(
+                                        "SETTLEMENT_EXECUTION_RECEIPT_INCOMPLETE",
+                                        "settlement bundle is missing required execution observation receipts",
+                                    );
+                                }
+                                if bundle.postcondition_proof_hashes.len()
+                                    < manifest.required_postcondition_keys.len()
+                                {
+                                    output.push_reason(
+                                        "SETTLEMENT_POSTCONDITION_INCOMPLETE",
+                                        "settlement bundle is missing required postcondition proofs",
+                                    );
+                                }
+                            }
+                            Err(err) => output.push_reason(
+                                "REQUIRED_RECEIPT_MANIFEST_DECODE_FAILED",
+                                err.to_string(),
+                            ),
+                        }
+                    }
+                    Ok(None) => output.push_reason(
+                        "REQUIRED_RECEIPT_MANIFEST_MISSING",
+                        "No required receipt manifest found for session/step",
+                    ),
+                    Err(err) => output.push_reason("STATE_QUERY_FAILED", err),
+                }
+
+                let execution_receipt_key =
+                    execution_observation_receipt_state_key(session_id, step_index, 0);
+                match query_raw_state(&mut client, execution_receipt_key).await {
+                    Ok(Some(receipt_bytes)) => match codec::from_bytes_canonical::<
+                        ExecutionObservationReceipt,
+                    >(&receipt_bytes)
+                    {
+                        Ok(receipt) => {
+                            if let Err(err) = receipt.verify() {
+                                output.push_reason(
+                                    "EXECUTION_OBSERVATION_VERIFY_FAILED",
+                                    err.to_string(),
+                                );
+                            }
+                            if receipt.request_hash != evidence.committed_action.request_hash {
+                                output.push_reason(
+                                    "EXECUTION_OBSERVATION_REQUEST_HASH_MISMATCH",
+                                    "execution observation request_hash does not match committed action request_hash",
+                                );
+                            }
+                            if !bundle
+                                .execution_receipt_hashes
+                                .iter()
+                                .any(|hash| *hash == receipt.receipt_hash)
+                            {
+                                output.push_reason(
+                                    "SETTLEMENT_EXECUTION_RECEIPT_HASH_MISMATCH",
+                                    "settlement bundle does not reference the persisted execution observation receipt",
+                                );
+                            }
+                        }
+                        Err(err) => output.push_reason(
+                            "EXECUTION_OBSERVATION_DECODE_FAILED",
+                            err.to_string(),
+                        ),
+                    },
+                    Ok(None) => output.push_reason(
+                        "EXECUTION_OBSERVATION_MISSING",
+                        "No persisted execution observation receipt found for session/step",
+                    ),
+                    Err(err) => output.push_reason("STATE_QUERY_FAILED", err),
+                }
+
+                let postcondition_key = postcondition_proof_state_key(session_id, step_index, 0);
+                match query_raw_state(&mut client, postcondition_key).await {
+                    Ok(Some(proof_bytes)) => {
+                        match codec::from_bytes_canonical::<PostconditionProof>(&proof_bytes) {
+                            Ok(proof) => {
+                                if let Err(err) = proof.verify() {
+                                    output.push_reason(
+                                        "POSTCONDITION_PROOF_VERIFY_FAILED",
+                                        err.to_string(),
+                                    );
+                                }
+                                if proof.request_hash != evidence.committed_action.request_hash {
+                                    output.push_reason(
+                                        "POSTCONDITION_PROOF_REQUEST_HASH_MISMATCH",
+                                        "postcondition proof request_hash does not match committed action request_hash",
+                                    );
+                                }
+                                if !bundle
+                                    .postcondition_proof_hashes
+                                    .iter()
+                                    .any(|hash| *hash == proof.proof_hash)
+                                {
+                                    output.push_reason(
+                                        "SETTLEMENT_POSTCONDITION_HASH_MISMATCH",
+                                        "settlement bundle does not reference the persisted postcondition proof",
+                                    );
+                                }
+                            }
+                            Err(err) => output.push_reason(
+                                "POSTCONDITION_PROOF_DECODE_FAILED",
+                                err.to_string(),
+                            ),
+                        }
+                    }
+                    Ok(None) => output.push_reason(
+                        "POSTCONDITION_PROOF_MISSING",
+                        "No persisted postcondition proof found for session/step",
+                    ),
+                    Err(err) => output.push_reason("STATE_QUERY_FAILED", err),
+                }
+            }
+            Err(err) => output.push_reason("SETTLEMENT_BUNDLE_DECODE_FAILED", err.to_string()),
+        },
+        Ok(None) => output.push_reason(
+            "SETTLEMENT_BUNDLE_MISSING",
+            "No persisted settlement receipt bundle found for session/step",
         ),
         Err(err) => output.push_reason("STATE_QUERY_FAILED", err),
     }

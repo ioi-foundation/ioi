@@ -23,6 +23,7 @@ pub(super) const INJECTION_ATTESTATION_PREFIX: &[u8] = b"injection_attestation::
 pub(super) const INTERCEPTION_PREFIX: &[u8] = b"interception::";
 pub(super) const APPROVAL_PREFIX: &[u8] = b"approval::";
 pub(super) const APPROVAL_CONSUMPTION_PREFIX: &[u8] = b"approval_consumption::";
+pub(super) const APPROVAL_AUTHORITY_PREFIX: &[u8] = b"approval_authority::";
 pub(super) const CHANNEL_PREFIX: &[u8] = b"channel::";
 pub(super) const CHANNEL_KEY_STATE_PREFIX: &[u8] = b"channel_key_state::";
 pub(super) const LEASE_PREFIX: &[u8] = b"lease::";
@@ -122,6 +123,10 @@ pub(super) fn approval_key(request_hash: &[u8; 32]) -> Vec<u8> {
 
 pub(super) fn approval_consumption_key(request_hash: &[u8; 32]) -> Vec<u8> {
     [APPROVAL_CONSUMPTION_PREFIX, request_hash.as_slice()].concat()
+}
+
+pub(super) fn approval_authority_key(authority_id: &[u8; 32]) -> Vec<u8> {
+    [APPROVAL_AUTHORITY_PREFIX, authority_id.as_slice()].concat()
 }
 
 pub(super) fn channel_key(channel_id: &[u8; 32]) -> Vec<u8> {

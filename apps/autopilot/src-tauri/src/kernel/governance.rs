@@ -1,7 +1,6 @@
 use crate::kernel::notifications;
 use crate::kernel::state::{get_rpc_client, now, update_task_state};
 use crate::models::{AgentPhase, AppState, ChatMessage, EventType, GateResponse};
-use crate::windows;
 use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_api::state::service_namespace_prefix;
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
@@ -13,7 +12,7 @@ use ioi_ipc::public::{
 use ioi_services::agentic::runtime::keys as runtime_keys;
 use ioi_services::agentic::runtime::service::step::incident::IncidentState;
 use ioi_services::agentic::runtime::AgentState;
-use ioi_types::app::action::{ApprovalScope, ApprovalToken, PiiApprovalAction};
+use ioi_types::app::action::PiiApprovalAction;
 use ioi_types::app::agentic::ResumeAgentParams;
 use ioi_types::app::{
     account_id_from_key_material, AccountId, ChainId, ChainTransaction, SignHeader, SignatureProof,
@@ -21,7 +20,7 @@ use ioi_types::app::{
 };
 use ioi_types::codec;
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 use tonic::transport::Channel;
 
 fn decode_session_id_hex(session_id_hex: &str) -> Result<[u8; 32], String> {
@@ -175,7 +174,7 @@ pub fn clear_gate_response(state: State<Mutex<AppState>>) -> Result<(), String> 
 #[tauri::command]
 pub async fn gate_respond(
     state: State<'_, Mutex<AppState>>,
-    app: AppHandle,
+    _app: AppHandle,
     approved: bool,
     action: Option<String>,
     request_hash: Option<String>,
@@ -319,175 +318,12 @@ pub async fn gate_respond(
         None
     };
 
-    let approver_kp = Ed25519KeyPair::generate().map_err(|e| e.to_string())?;
-    let approver_pub = approver_kp.public_key();
-    let approver_account_id =
-        account_id_from_key_material(SignatureSuite::ED25519, &approver_pub.to_bytes())
-            .map_err(|e| format!("Failed to derive approver account id: {}", e))?;
-
-    let now_ms = now();
-    let mut token_nonce = request_hash_arr;
-    token_nonce[0] ^= (now_ms & 0xFF) as u8;
-    if token_nonce == [0u8; 32] {
-        token_nonce[0] = 1;
-    }
-
-    let token = ApprovalToken {
-        schema_version: 2,
-        request_hash: request_hash_arr,
-        audience: approver_account_id,
-        revocation_epoch: 0,
-        nonce: token_nonce,
-        counter: now_ms.max(1),
-        scope: ApprovalScope {
-            expires_at: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-                + 3600,
-            max_usages: Some(1),
-        },
-        visual_hash: visual_hash_arr,
-        pii_action: pii_action.clone(),
-        scoped_exception: None,
-        approver_sig: vec![],
-        approver_suite: SignatureSuite::ED25519,
-    };
-
-    let mut token_for_signing = token.clone();
-    let token_bytes = codec::to_bytes_canonical(&token_for_signing).map_err(|e| e.to_string())?;
-    let sig = approver_kp.sign(&token_bytes).map_err(|e| e.to_string())?;
-
-    token_for_signing.approver_sig = sig.to_bytes();
-    token_for_signing.approver_suite = SignatureSuite::ED25519;
-
-    let resume_params = ResumeAgentParams {
-        session_id: session_id_arr,
-        approval_token: Some(token_for_signing),
-    };
-    let params_bytes = codec::to_bytes_canonical(&resume_params).map_err(|e| e.to_string())?;
-
-    let sys_payload = SystemPayload::CallService {
-        service_id: "desktop_agent".to_string(),
-        method: "resume@v1".to_string(),
-        params: params_bytes,
-    };
-
-    let header = SignHeader {
-        account_id: AccountId(approver_account_id),
-        nonce: 0,
-        chain_id: ChainId(0),
-        tx_version: 1,
-        session_auth: None,
-    };
-
-    let mut tx = SystemTransaction {
-        header,
-        payload: sys_payload,
-        signature_proof: SignatureProof::default(),
-    };
-
-    let tx_sign_bytes = tx.to_sign_bytes().map_err(|e| e.to_string())?;
-    let tx_sig = approver_kp
-        .sign(&tx_sign_bytes)
-        .map_err(|e| e.to_string())?;
-
-    tx.signature_proof = SignatureProof {
-        suite: SignatureSuite::ED25519,
-        public_key: approver_pub.to_bytes(),
-        signature: tx_sig.to_bytes(),
-    };
-
-    let final_tx = ChainTransaction::System(Box::new(tx));
-    let final_tx_bytes = codec::to_bytes_canonical(&final_tx).map_err(|e| e.to_string())?;
-
-    let request = tonic::Request::new(SubmitTransactionRequest {
-        transaction_bytes: final_tx_bytes,
-    });
-
-    match client.submit_transaction(request).await {
-        Ok(resp) => {
-            let tx_hash = resp.into_inner().tx_hash;
-            println!("[Autopilot] Gate action transaction submitted: {}", tx_hash);
-
-            let mut attempts = 0;
-            loop {
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                attempts += 1;
-                if attempts > 20 {
-                    return Err("Timed out waiting for gate action transaction commit".to_string());
-                }
-
-                let status_req = tonic::Request::new(GetTransactionStatusRequest {
-                    tx_hash: tx_hash.clone(),
-                });
-
-                if let Ok(status_resp) = client.get_transaction_status(status_req).await {
-                    let status_body = status_resp.into_inner();
-                    let status = status_body.status;
-                    if status == 3 {
-                        println!("[Autopilot] Gate action transaction committed!");
-                        break;
-                    } else if status == 4 {
-                        if status_body.error_message.trim().is_empty() {
-                            return Err("Gate action transaction rejected".to_string());
-                        }
-                        return Err(format!(
-                            "Gate action transaction rejected: {}",
-                            status_body.error_message
-                        ));
-                    }
-                }
-            }
-
-            update_task_state(&app, |t| {
-                t.phase = AgentPhase::Running;
-                t.gate_info = None;
-                t.pending_request_hash = None;
-                t.credential_request = None;
-                t.clarification_request = None;
-                t.current_step = match pii_action {
-                    Some(PiiApprovalAction::Deny) => {
-                        "Deny submitted. Failing current step...".to_string()
-                    }
-                    Some(PiiApprovalAction::GrantScopedException) => {
-                        "Scoped exception granted. Resuming agent...".to_string()
-                    }
-                    Some(PiiApprovalAction::ApproveTransform) => {
-                        "Transform approved. Resuming agent...".to_string()
-                    }
-                    None => "Approved. Resuming agent...".to_string(),
-                };
-                t.history.push(ChatMessage {
-                    role: "system".to_string(),
-                    text: match pii_action {
-                        Some(PiiApprovalAction::Deny) => {
-                            "❌ Deny submitted. Current step will fail closed.".to_string()
-                        }
-                        Some(PiiApprovalAction::GrantScopedException) => {
-                            "✅ Scoped exception granted.".to_string()
-                        }
-                        Some(PiiApprovalAction::ApproveTransform) => {
-                            "✅ Transform approved.".to_string()
-                        }
-                        None => "✅ Approved.".to_string(),
-                    },
-                    timestamp: now(),
-                });
-            });
-            notifications::resolve_intervention_by_request_hash(&app, &hash_hex);
-            windows::hide_gate(app.clone());
-            let _ = app.emit("gate-response", approved);
-        }
-        Err(e) => {
-            eprintln!(
-                "[Autopilot] Failed to submit gate action transaction: {}",
-                e
-            );
-            return Err(format!("Failed to submit gate action: {}", e));
-        }
-    }
-    Ok(())
+    let _ = visual_hash_arr;
+    let _ = client;
+    Err(
+        "Desktop UI cannot mint approval authority locally. Submit an externally issued ApprovalGrant via resume@v1."
+            .to_string(),
+    )
 }
 
 #[tauri::command]
@@ -523,7 +359,7 @@ pub async fn submit_runtime_password(
 
     let resume_params = ResumeAgentParams {
         session_id: session_id_arr,
-        approval_token: None,
+        approval_grant: None,
     };
     let params_bytes = codec::to_bytes_canonical(&resume_params).map_err(|e| e.to_string())?;
     let payload = SystemPayload::CallService {

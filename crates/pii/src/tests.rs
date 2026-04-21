@@ -4,19 +4,20 @@ use super::{
     apply_transform, build_assist_receipt, check_exception_usage_increment_ok,
     decode_exception_usage_state, expected_assist_identity, graph_hash,
     mint_default_scoped_exception, route_pii_decision_for_target,
-    route_pii_decision_with_assist_for_target, scrub_text, validate_resume_review_contract,
-    validate_review_request_compat, verify_scoped_exception_for_decision, CimAssistContext,
-    CimAssistProvider, CimAssistReceipt, CimAssistResult, CimAssistV0Provider,
-    NoopCimAssistProvider, PiiReviewContractError, PiiRoutingOutcome, ResumeReviewMode,
-    RiskSurface, ScopedExceptionVerifyError, REVIEW_REQUEST_VERSION,
+    route_pii_decision_with_assist_for_target, scrub_text,
+    validate_resume_review_contract_for_grant, validate_review_request_compat,
+    verify_scoped_exception_for_decision, CimAssistContext, CimAssistProvider, CimAssistReceipt,
+    CimAssistResult, CimAssistV0Provider, NoopCimAssistProvider, PiiReviewContractError,
+    PiiRoutingOutcome, ResumeReviewMode, RiskSurface, ScopedExceptionVerifyError,
+    REVIEW_REQUEST_VERSION,
 };
-use ioi_types::app::action::{ApprovalScope, ApprovalToken, PiiApprovalAction};
+use ioi_types::app::action::{ApprovalGrant, PiiApprovalAction};
 use ioi_types::app::agentic::{
     EvidenceGraph, EvidenceSpan, FirewallDecision, PiiClass, PiiConfidenceBucket, PiiControls,
     PiiDecisionMaterial, PiiReviewRequest, PiiReviewSummary, PiiSeverity, PiiTarget,
     RawOverrideMode,
 };
-use ioi_types::app::ActionTarget;
+use ioi_types::app::{account_id_from_key_material, ActionTarget, SignatureSuite};
 
 #[derive(Debug, Clone, Copy)]
 struct IdentityProvider {
@@ -477,26 +478,30 @@ fn scoped_exception_verifier_rejects_expired_and_overused_and_binding_mismatch()
     );
 }
 
-fn sample_approval_token(
+fn sample_approval_grant(
     request_hash: [u8; 32],
     pii_action: Option<PiiApprovalAction>,
-) -> ApprovalToken {
-    ApprovalToken {
-        schema_version: 2,
+) -> ApprovalGrant {
+    let public_key = vec![7u8; 32];
+    let authority_id =
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key).expect("authority id");
+    ApprovalGrant {
+        schema_version: 1,
+        authority_id,
         request_hash,
+        policy_hash: [3u8; 32],
         audience: [1u8; 32],
-        revocation_epoch: 0,
         nonce: [2u8; 32],
         counter: 1,
-        scope: ApprovalScope {
-            expires_at: 9_999,
-            max_usages: Some(1),
-        },
-        visual_hash: None,
+        expires_at: 9_999,
+        max_usages: Some(1),
+        window_id: None,
         pii_action,
         scoped_exception: None,
-        approver_sig: vec![],
-        approver_suite: ioi_types::app::SignatureSuite::ED25519,
+        review_request_hash: None,
+        approver_public_key: public_key,
+        approver_sig: vec![1u8; 64],
+        approver_suite: SignatureSuite::ED25519,
     }
 }
 
@@ -540,21 +545,22 @@ fn sample_review_request(hash: [u8; 32], deadline_ms: u64) -> PiiReviewRequest {
 #[test]
 fn resume_contract_rejects_hash_mismatch() {
     let expected_hash = [7u8; 32];
-    let token = sample_approval_token([8u8; 32], Some(PiiApprovalAction::Deny));
+    let grant = sample_approval_grant([8u8; 32], Some(PiiApprovalAction::Deny));
     let request = sample_review_request(expected_hash, 10_000);
 
-    let result = validate_resume_review_contract(expected_hash, &token, Some(&request), 9_000);
+    let result =
+        validate_resume_review_contract_for_grant(expected_hash, &grant, Some(&request), 9_000);
     assert_eq!(
         result,
-        Err(PiiReviewContractError::ApprovalTokenHashMismatch)
+        Err(PiiReviewContractError::ApprovalGrantHashMismatch)
     );
 }
 
 #[test]
 fn resume_contract_rejects_missing_request_when_pii_action_present() {
     let expected_hash = [9u8; 32];
-    let token = sample_approval_token(expected_hash, Some(PiiApprovalAction::ApproveTransform));
-    let result = validate_resume_review_contract(expected_hash, &token, None, 500);
+    let grant = sample_approval_grant(expected_hash, Some(PiiApprovalAction::ApproveTransform));
+    let result = validate_resume_review_contract_for_grant(expected_hash, &grant, None, 500);
     assert_eq!(
         result,
         Err(PiiReviewContractError::PiiActionWithoutReviewRequest)
@@ -564,8 +570,8 @@ fn resume_contract_rejects_missing_request_when_pii_action_present() {
 #[test]
 fn resume_contract_accepts_deny_without_review_request() {
     let expected_hash = [9u8; 32];
-    let token = sample_approval_token(expected_hash, Some(PiiApprovalAction::Deny));
-    let result = validate_resume_review_contract(expected_hash, &token, None, 500)
+    let grant = sample_approval_grant(expected_hash, Some(PiiApprovalAction::Deny));
+    let result = validate_resume_review_contract_for_grant(expected_hash, &grant, None, 500)
         .expect("deny should be allowed without a review request");
     assert_eq!(result, ResumeReviewMode::LegacyApproval);
 }
@@ -573,10 +579,11 @@ fn resume_contract_accepts_deny_without_review_request() {
 #[test]
 fn resume_contract_rejects_missing_pii_action_for_review_request() {
     let expected_hash = [10u8; 32];
-    let token = sample_approval_token(expected_hash, None);
+    let grant = sample_approval_grant(expected_hash, None);
     let request = sample_review_request(expected_hash, 10_000);
 
-    let result = validate_resume_review_contract(expected_hash, &token, Some(&request), 9_000);
+    let result =
+        validate_resume_review_contract_for_grant(expected_hash, &grant, Some(&request), 9_000);
     assert_eq!(
         result,
         Err(PiiReviewContractError::MissingPiiActionForReview)
@@ -586,10 +593,11 @@ fn resume_contract_rejects_missing_pii_action_for_review_request() {
 #[test]
 fn resume_contract_rejects_expired_deadline() {
     let expected_hash = [11u8; 32];
-    let token = sample_approval_token(expected_hash, Some(PiiApprovalAction::Deny));
+    let grant = sample_approval_grant(expected_hash, Some(PiiApprovalAction::Deny));
     let request = sample_review_request(expected_hash, 1_000);
 
-    let result = validate_resume_review_contract(expected_hash, &token, Some(&request), 1_001);
+    let result =
+        validate_resume_review_contract_for_grant(expected_hash, &grant, Some(&request), 1_001);
     assert_eq!(
         result,
         Err(PiiReviewContractError::ReviewApprovalDeadlineExceeded)
@@ -599,10 +607,12 @@ fn resume_contract_rejects_expired_deadline() {
 #[test]
 fn resume_contract_accepts_review_bound_token_at_deadline_boundary() {
     let expected_hash = [12u8; 32];
-    let token = sample_approval_token(expected_hash, Some(PiiApprovalAction::Deny));
+    let mut grant = sample_approval_grant(expected_hash, Some(PiiApprovalAction::Deny));
     let request = sample_review_request(expected_hash, 1_000);
+    grant.review_request_hash = Some(request.decision_hash);
 
-    let result = validate_resume_review_contract(expected_hash, &token, Some(&request), 1_000)
+    let result =
+        validate_resume_review_contract_for_grant(expected_hash, &grant, Some(&request), 1_000)
         .expect("boundary deadline should be valid");
     assert_eq!(result, ResumeReviewMode::ReviewBound);
 }

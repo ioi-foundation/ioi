@@ -3,7 +3,7 @@ use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::{LocalSafetyModel, PiiRiskSurface};
 use ioi_pii::{build_decision_material, inspect_and_route_with_for_target, RiskSurface};
 use ioi_types::app::agentic::{PiiDecisionMaterial, PiiTarget};
-use ioi_types::app::{ActionRequest, ApprovalToken};
+use ioi_types::app::ActionRequest;
 use std::sync::Arc;
 
 use super::pii::{pii_decision_to_verdict, to_shared_risk_surface};
@@ -19,7 +19,6 @@ impl PolicyEngine {
         working_directory: Option<&str>,
         safety_model: &Arc<dyn LocalSafetyModel>,
         os_driver: &Arc<dyn OsDriver>,
-        presented_approval: Option<&ApprovalToken>,
     ) -> Verdict {
         let request_hash = match request.try_hash() {
             Ok(hash) => hash,
@@ -31,22 +30,6 @@ impl PolicyEngine {
                 return Verdict::Block;
             }
         };
-
-        // 1. Authorization Gate: Check for valid ApprovalToken first.
-        // If the user has already signed a token for this EXACT request hash, it bypasses policy checks.
-        // This is how the "Gate Window" flow resolves.
-        if let Some(token) = presented_approval {
-            if token.request_hash == request_hash {
-                tracing::info!("Policy Gate: Valid Approval Token presented. Allowing action.");
-                return Verdict::Allow;
-            } else {
-                tracing::warn!(
-                    "Policy Gate: Token mismatch. Token for {:?}, Request is {:?}",
-                    hex::encode(token.request_hash),
-                    hex::encode(request_hash)
-                );
-            }
-        }
 
         let target_aliases = policy_target_aliases(&request.target);
 
@@ -102,7 +85,6 @@ impl PolicyEngine {
         request: &ActionRequest,
         safety_model: &Arc<dyn LocalSafetyModel>,
         os_driver: &Arc<dyn OsDriver>,
-        presented_approval: Option<&ApprovalToken>,
     ) -> Verdict {
         Self::evaluate_with_working_directory(
             rules,
@@ -110,7 +92,6 @@ impl PolicyEngine {
             None,
             safety_model,
             os_driver,
-            presented_approval,
         )
         .await
     }

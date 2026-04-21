@@ -21,7 +21,9 @@ use ioi_pii::{
     REVIEW_REQUEST_VERSION,
 };
 use ioi_services::agentic::rules::{ActionRules, DefaultPolicy};
-use ioi_services::agentic::runtime::keys::{get_incident_key, get_state_key, pii};
+use ioi_services::agentic::runtime::keys::{
+    get_approval_authority_key, get_incident_key, get_state_key, pii,
+};
 use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::service::step::incident::{
     action_fingerprint_from_tool_jcs, load_incident_state, register_pending_approval,
@@ -29,7 +31,7 @@ use ioi_services::agentic::runtime::service::step::incident::{
 use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus, RuntimeAgentService};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
-use ioi_types::app::action::{ApprovalScope, ApprovalToken, PiiApprovalAction};
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant, PiiApprovalAction};
 use ioi_types::app::agentic::{
     AgentTool, EvidenceGraph, EvidenceSpan, InferenceOptions, PiiClass, PiiConfidenceBucket,
     PiiControls, PiiReviewRequest, PiiSeverity, PiiTarget,
@@ -358,29 +360,6 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         compute_decision_hash(&validator_visible_request.material)
     );
 
-    let approval_token = ApprovalToken {
-        schema_version: 2,
-        request_hash: decision_hash,
-        audience: [1u8; 32],
-        revocation_epoch: 0,
-        nonce: [2u8; 32],
-        counter: 1,
-        scope: ApprovalScope {
-            expires_at: now_secs + 3_600,
-            max_usages: Some(1),
-        },
-        visual_hash: Some([0u8; 32]),
-        pii_action: Some(PiiApprovalAction::Deny),
-        scoped_exception: None,
-        approver_sig: vec![],
-        approver_suite: SignatureSuite::ED25519,
-    };
-    let resume_params = ioi_services::agentic::runtime::ResumeAgentParams {
-        session_id,
-        approval_token: Some(approval_token.clone()),
-    };
-    let resume_bytes = codec::to_bytes_canonical(&resume_params).map_err(anyhow::Error::msg)?;
-
     let signer = Ed25519KeyPair::generate()?;
     let signer_pub = signer.public_key();
     let signer_pub_bytes = signer_pub.to_bytes();
@@ -388,6 +367,50 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         SignatureSuite::ED25519,
         &signer_pub_bytes,
     )?);
+    let policy_canonical = serde_jcs::to_vec(&permissive_rules).map_err(anyhow::Error::msg)?;
+    let policy_digest = sha256(&policy_canonical).map_err(anyhow::Error::msg)?;
+    let mut policy_hash = [0u8; 32];
+    policy_hash.copy_from_slice(policy_digest.as_ref());
+    let authority = ApprovalAuthority {
+        schema_version: 1,
+        authority_id: account_id.0,
+        public_key: signer_pub_bytes.clone(),
+        signature_suite: SignatureSuite::ED25519,
+        expires_at: now_ms + 3_600_000,
+        revoked: false,
+        scope_allowlist: vec!["desktop_agent.resume".to_string()],
+    };
+    state.insert(
+        &get_approval_authority_key(&authority.authority_id),
+        &codec::to_bytes_canonical(&authority).map_err(anyhow::Error::msg)?,
+    )?;
+    let mut approval_grant = ApprovalGrant {
+        schema_version: 1,
+        authority_id: account_id.0,
+        request_hash: decision_hash,
+        policy_hash,
+        audience: account_id.0,
+        nonce: [2u8; 32],
+        counter: 1,
+        expires_at: now_ms + 3_600_000,
+        max_usages: Some(1),
+        window_id: None,
+        pii_action: Some(PiiApprovalAction::Deny),
+        scoped_exception: None,
+        review_request_hash: Some(decision_hash),
+        approver_public_key: signer_pub_bytes.clone(),
+        approver_sig: Vec::new(),
+        approver_suite: SignatureSuite::ED25519,
+    };
+    let approval_signing_bytes = approval_grant
+        .signing_bytes()
+        .map_err(anyhow::Error::msg)?;
+    approval_grant.approver_sig = signer.sign(&approval_signing_bytes)?.to_bytes();
+    let resume_params = ioi_services::agentic::runtime::ResumeAgentParams {
+        session_id,
+        approval_grant: Some(approval_grant),
+    };
+    let resume_bytes = codec::to_bytes_canonical(&resume_params).map_err(anyhow::Error::msg)?;
 
     let mut tx = SystemTransaction {
         header: SignHeader {

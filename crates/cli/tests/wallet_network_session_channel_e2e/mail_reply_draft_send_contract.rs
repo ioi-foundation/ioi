@@ -32,7 +32,7 @@ async fn wallet_network_mail_reply_draft_send_contract_replay_window_via_real_ca
         let mut nonce = 0u64;
         let lc_signer = new_hybrid_signer()?;
         let rc_signer = new_hybrid_signer()?;
-        let approval_signer = new_hybrid_signer()?;
+        let approval_signer = new_approval_signer()?;
 
         wait_for_height(rpc_addr, 1, Duration::from_secs(30)).await?;
 
@@ -257,6 +257,7 @@ async fn wallet_network_mail_reply_draft_send_contract_replay_window_via_real_ca
             session_id: Some(approval_session_id),
             request_hash: approval_request_hash,
             target: ioi_types::app::ActionTarget::Custom("mail::reply".to_string()),
+            policy_hash: unique_id("wallet_network_mail_reply_contract_policy"),
             value_usd_micros: None,
             reason: "manual approval required".to_string(),
             intercepted_at_ms: 4_100_000_010_000,
@@ -272,32 +273,33 @@ async fn wallet_network_mail_reply_draft_send_contract_replay_window_via_real_ca
         .await?;
         nonce += 1;
 
-        let approval = sign_wallet_approval_decision(
-            WalletApprovalDecision {
-                interception: interception.clone(),
-                decision: WalletApprovalDecisionKind::ApprovedByHuman,
-                approval_token: Some(ApprovalToken {
-                    schema_version: 2,
-                    request_hash: approval_request_hash,
-                    audience: tx_signer_audience,
-                    revocation_epoch: 0,
-                    nonce: unique_id("wallet_network_mail_reply_contract_approval_nonce"),
-                    counter: 1,
-                    scope: ApprovalScope {
-                        expires_at: 4_200_000_000_000,
-                        max_usages: Some(1),
-                    },
-                    visual_hash: None,
-                    pii_action: None,
-                    scoped_exception: None,
-                    approver_sig: vec![],
-                    approver_suite: SignatureSuite::HYBRID_ED25519_ML_DSA_44,
-                }),
-                surface: VaultSurface::Desktop,
-                decided_at_ms: 4_100_000_010_500,
-            },
+        register_wallet_approval_authority(
+            &cluster,
+            rpc_addr,
+            keypair,
+            chain_id,
+            nonce,
             &approval_signer,
-        )?;
+        )
+        .await?;
+        nonce += 1;
+
+        let approval = WalletApprovalDecision {
+            interception: interception.clone(),
+            decision: WalletApprovalDecisionKind::ApprovedByHuman,
+            approval_grant: Some(signed_wallet_approval_grant(
+                &approval_signer,
+                approval_request_hash,
+                unique_id("wallet_network_mail_reply_contract_policy"),
+                tx_signer_audience,
+                unique_id("wallet_network_mail_reply_contract_approval_nonce"),
+                1,
+                Some(1),
+                4_200_000_000_000,
+            )?),
+            surface: VaultSurface::Desktop,
+            decided_at_ms: 4_100_000_010_500,
+        };
         submit_wallet_call(
             rpc_addr,
             keypair,
@@ -314,8 +316,8 @@ async fn wallet_network_mail_reply_draft_send_contract_replay_window_via_real_ca
             keypair,
             chain_id,
             nonce,
-            "consume_approval_token@v1",
-            ConsumeApprovalTokenParams {
+            "consume_approval_grant@v1",
+            ConsumeApprovalGrantParams {
                 request_hash: approval_request_hash,
                 consumed_at_ms: 4_100_000_011_000,
             },
@@ -508,8 +510,8 @@ async fn wallet_network_mail_reply_draft_send_contract_replay_window_via_real_ca
             keypair,
             chain_id,
             nonce,
-            "consume_approval_token@v1",
-            ConsumeApprovalTokenParams {
+            "consume_approval_grant@v1",
+            ConsumeApprovalGrantParams {
                 request_hash: approval_request_hash,
                 consumed_at_ms: 4_100_000_014_500,
             },

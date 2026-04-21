@@ -12,7 +12,10 @@ mod worker_results;
 pub(crate) use browser_subagent::{browser_subagent_request_from_dynamic, run_browser_subagent};
 pub use compaction::perform_cognitive_compaction;
 pub use delegation::spawn_delegated_child_session;
-pub use handlers::{handle_delete_session, handle_post_message, handle_resume, handle_start};
+pub use handlers::{
+    handle_delete_session, handle_post_message, handle_register_approval_authority,
+    handle_resume, handle_revoke_approval_authority, handle_start,
+};
 pub(crate) use runtime_locality::maybe_seed_runtime_locality_context;
 pub(crate) use worker_results::{
     await_child_worker_result, load_child_state, load_worker_assignment,

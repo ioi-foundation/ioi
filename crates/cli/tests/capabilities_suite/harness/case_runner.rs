@@ -981,19 +981,33 @@ pub async fn run_case(
                         } else {
                             None
                         };
-                        let approval_token = build_approval_token_for_resume(
+                        let policy_hash = active_policy_hash_for_session(&state, session_id)?;
+                        let (authority, approval_grant) = build_approval_grant_for_resume(
+                            session_id,
                             request_hash,
+                            policy_hash,
                             now_ms,
                             current.pending_visual_hash,
                             pii_action,
-                        );
+                        )?;
+                        service
+                            .handle_service_call(
+                                &mut state,
+                                "register_approval_authority@v1",
+                                &codec::to_bytes_canonical(&RegisterApprovalAuthorityParams {
+                                    authority,
+                                })
+                                .map_err(|e| anyhow!("failed to encode authority params: {}", e))?,
+                                &mut ctx,
+                            )
+                            .await?;
                         service
                             .handle_service_call(
                                 &mut state,
                                 "resume@v1",
                                 &codec::to_bytes_canonical(&ResumeAgentParams {
                                     session_id,
-                                    approval_token: Some(approval_token),
+                                    approval_grant: Some(approval_grant),
                                 })
                                 .map_err(|e| anyhow!("failed to encode resume params: {}", e))?,
                                 &mut ctx,

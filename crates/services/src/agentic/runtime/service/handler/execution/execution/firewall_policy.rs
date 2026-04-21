@@ -176,22 +176,23 @@ fn compute_policy_hash(rules: &ActionRules) -> Result<[u8; 32], TransactionError
     Ok(out)
 }
 
-fn compute_approval_token_ref(token: &ApprovalToken) -> Result<[u8; 32], TransactionError> {
-    let canonical =
-        serde_jcs::to_vec(token).map_err(|e| TransactionError::Serialization(e.to_string()))?;
-    let digest = ioi_crypto::algorithms::hash::sha256(&canonical).map_err(|e| {
-        TransactionError::Invalid(format!(
-            "ERROR_CLASS=DeterminismBoundary Approval token hash failed: {}",
-            e
-        ))
-    })?;
-    let mut out = [0u8; 32];
-    out.copy_from_slice(digest.as_ref());
-    Ok(out)
+fn compute_approval_grant_ref(grant: &ApprovalGrant) -> Result<[u8; 32], TransactionError> {
+    grant
+        .artifact_hash()
+        .map_err(|e| TransactionError::Invalid(format!("Invalid approval grant hash: {}", e)))
+}
+
+fn default_policy_label(rules: &ActionRules) -> &'static str {
+    match rules.defaults {
+        crate::agentic::rules::DefaultPolicy::AllowAll => "allow_all",
+        crate::agentic::rules::DefaultPolicy::DenyAll => "deny_all",
+        crate::agentic::rules::DefaultPolicy::RequireApproval => "require_approval",
+    }
 }
 
 fn emit_policy_decision_and_exit(
     service: &RuntimeAgentService,
+    rules: &ActionRules,
     execution_state: &mut Option<&mut dyn StateAccess>,
     session_id: [u8; 32],
     step_index: u32,
@@ -202,6 +203,17 @@ fn emit_policy_decision_and_exit(
     exit_error: TransactionError,
 ) -> Result<TransactionError, TransactionError> {
     let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut() {
+        let policy_decision = PolicyDecisionRecord::build(
+            determinism.request_hash,
+            determinism.policy_hash,
+            Vec::new(),
+            default_policy_label(rules).to_string(),
+            None,
+            verdict == "REQUIRE_APPROVAL" || matches!(firewall_verdict, PolicyVerdict::Approved(_)),
+            firewall_verdict.clone(),
+        )
+        .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+        persist_policy_decision_record(state, session_id, step_index, &policy_decision)?;
         Some(persist_firewall_decision_receipt(
             state,
             session_id,
@@ -317,6 +329,7 @@ async fn enforce_policy_and_record(
     if !workload_lease_check.satisfied {
         let exit = emit_policy_decision_and_exit(
             service,
+            rules,
             execution_state,
             session_id,
             step_index,
@@ -329,29 +342,52 @@ async fn enforce_policy_and_record(
         return Err(exit);
     }
 
-    let matched_approval_token = agent_state
-        .pending_approval
-        .as_ref()
-        .filter(|token| token.request_hash == determinism.request_hash);
+    let matched_approval_grant = execution_state
+        .as_deref_mut()
+        .map(|state| {
+            let key = get_approval_grant_key(&session_id);
+            match state.get(&key) {
+                Ok(Some(bytes)) => {
+                    let grant: ApprovalGrant = codec::from_bytes_canonical(&bytes).map_err(|e| {
+                        TransactionError::Invalid(format!("Invalid approval grant: {}", e))
+                    })?;
+                    crate::agentic::runtime::service::actions::resume::validate_registered_approval_grant(
+                        state,
+                        &grant,
+                        None,
+                        Some(determinism.policy_hash),
+                    )?;
+                    if grant.request_hash == determinism.request_hash
+                        && grant.policy_hash == determinism.policy_hash
+                    {
+                        Ok(Some(grant))
+                    } else {
+                        Ok(None)
+                    }
+                }
+                Ok(None) => Ok(None),
+                Err(err) => Err(TransactionError::State(err)),
+            }
+        })
+        .transpose()?
+        .flatten();
     let approved_by_runtime_secret = approvals::is_runtime_secret_install_retry_approved(
         tool,
         determinism.tool_hash,
         session_id,
         agent_state,
     );
-    let is_approved = matched_approval_token.is_some() || approved_by_runtime_secret;
+    let is_approved = matched_approval_grant.is_some() || approved_by_runtime_secret;
     let mut firewall_verdict = PolicyVerdict::Allow;
 
     if is_approved {
-        if matched_approval_token.is_some() {
+        if let Some(grant) = matched_approval_grant.as_ref() {
             log::info!(
-                "Policy Gate: Pre-approved via Token for hash {}",
+                "Policy Gate: Pre-approved via ApprovalGrant for hash {}",
                 hex::encode(determinism.request_hash)
             );
-            if let Some(token) = matched_approval_token {
-                let approval_ref = compute_approval_token_ref(token)?;
-                firewall_verdict = PolicyVerdict::Approved(approval_ref);
-            }
+            let approval_ref = compute_approval_grant_ref(grant)?;
+            firewall_verdict = PolicyVerdict::Approved(approval_ref);
         } else {
             log::info!(
                 "Policy Gate: Pre-approved via runtime secret retry for hash {}",
@@ -369,7 +405,6 @@ async fn enforce_policy_and_record(
             Some(agent_state.working_directory.as_str()),
             &service.scrubber.model,
             os_driver,
-            None,
         )
         .await;
 
@@ -380,6 +415,7 @@ async fn enforce_policy_and_record(
             Verdict::Block => {
                 let exit = emit_policy_decision_and_exit(
                     service,
+                    rules,
                     execution_state,
                     session_id,
                     step_index,
@@ -398,6 +434,7 @@ async fn enforce_policy_and_record(
                 );
                 let exit = emit_policy_decision_and_exit(
                     service,
+                    rules,
                     execution_state,
                     session_id,
                     step_index,
@@ -412,7 +449,23 @@ async fn enforce_policy_and_record(
         }
     }
 
+    let policy_decision = PolicyDecisionRecord::build(
+        determinism.request_hash,
+        determinism.policy_hash,
+        Vec::new(),
+        default_policy_label(rules).to_string(),
+        workload_lease_check
+            .reason
+            .as_ref()
+            .filter(|_| !workload_lease_check.satisfied)
+            .cloned(),
+        matches!(firewall_verdict, PolicyVerdict::Approved(_)),
+        firewall_verdict.clone(),
+    )
+    .map_err(|e| TransactionError::Invalid(e.to_string()))?;
+
     let firewall_receipt_hash = if let Some(state) = execution_state.as_deref_mut() {
+        persist_policy_decision_record(state, session_id, step_index, &policy_decision)?;
         Some(persist_firewall_decision_receipt(
             state,
             session_id,
@@ -443,9 +496,11 @@ async fn enforce_policy_and_record(
         ),
     );
 
-    let approval_ref = matched_approval_token
-        .map(compute_approval_token_ref)
-        .transpose()?;
+    let approval_ref = if let Some(grant) = matched_approval_grant.as_ref() {
+        Some(compute_approval_grant_ref(grant)?)
+    } else {
+        None
+    };
     let recovery_retry = agent_state.consecutive_failures > 0;
     let recovery_reason = recovery_retry
         .then(|| format!("consecutive_failures={}", agent_state.consecutive_failures));

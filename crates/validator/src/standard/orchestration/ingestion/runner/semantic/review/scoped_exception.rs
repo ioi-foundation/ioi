@@ -20,7 +20,7 @@ use std::sync::Arc;
 pub(crate) async fn verify_scoped_exception(
     p_tx: &ProcessedTx,
     expected_request_hash: [u8; 32],
-    token: &ioi_types::app::ApprovalToken,
+    grant: &ioi_types::app::action::ApprovalGrant,
     agent_state: &AgentState,
     workload_client: &Arc<WorkloadClient>,
     safety_model: &Arc<dyn LocalSafetyModel>,
@@ -114,7 +114,7 @@ pub(crate) async fn verify_scoped_exception(
             continue;
         }
 
-        let scoped_exception = if let Some(existing) = token.scoped_exception.as_ref() {
+        let scoped_exception = if let Some(existing) = grant.scoped_exception.as_ref() {
             existing.clone()
         } else {
             match mint_default_scoped_exception(

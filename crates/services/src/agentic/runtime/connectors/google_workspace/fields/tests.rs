@@ -16,7 +16,7 @@ use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::{mock::MockInferenceRuntime, InferenceRuntime};
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
-use ioi_types::app::action::{ApprovalScope, ApprovalToken};
+use ioi_types::app::action::ApprovalGrant;
 use ioi_types::app::agentic::ProtectedSlotKind;
 use ioi_types::app::{ActionTarget, KernelEvent, SignatureSuite};
 use ioi_types::error::{TransactionError, VmError};
@@ -506,17 +506,21 @@ fn matching_pending_approval_allows_google_write_action() {
         compute_google_shield_request_hash(&spec, &input).expect("request hash should compute");
 
     let mut agent_state = base_agent_state();
-    agent_state.pending_approval = Some(ApprovalToken {
-        schema_version: 2,
+    agent_state.pending_approval = Some(ApprovalGrant {
+        schema_version: 1,
+        authority_id: [1u8; 32],
         request_hash,
         audience: [0u8; 32],
-        revocation_epoch: 0,
         nonce: [0u8; 32],
-        counter: 0,
-        scope: ApprovalScope::default(),
-        visual_hash: None,
+        counter: 1,
+        policy_hash: [2u8; 32],
+        expires_at: 1,
+        max_usages: Some(1),
+        window_id: None,
         pii_action: None,
         scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: vec![1],
         approver_sig: vec![],
         approver_suite: SignatureSuite::ED25519,
     });
@@ -531,7 +535,7 @@ fn matching_pending_approval_allows_google_write_action() {
     );
     assert!(
         result.is_ok(),
-        "matching approval token should allow execution"
+        "matching approval grant should allow execution"
     );
 
     let _ = std::fs::remove_file(policy_path);
@@ -562,17 +566,21 @@ fn canonical_resume_approval_allows_google_write_action_without_connector_hash_m
     });
 
     let mut agent_state = base_agent_state();
-    agent_state.pending_approval = Some(ApprovalToken {
-        schema_version: 2,
+    agent_state.pending_approval = Some(ApprovalGrant {
+        schema_version: 1,
+        authority_id: [1u8; 32],
         request_hash: [7u8; 32],
         audience: [0u8; 32],
-        revocation_epoch: 0,
         nonce: [0u8; 32],
-        counter: 0,
-        scope: ApprovalScope::default(),
-        visual_hash: None,
+        counter: 1,
+        policy_hash: [2u8; 32],
+        expires_at: 1,
+        max_usages: Some(1),
+        window_id: None,
         pii_action: None,
         scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: vec![1],
         approver_sig: vec![],
         approver_suite: SignatureSuite::ED25519,
     });

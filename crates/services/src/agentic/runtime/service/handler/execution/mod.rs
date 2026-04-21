@@ -4,6 +4,7 @@ use super::focus;
 use super::pii;
 use super::{normalize_web_research_tool_call, reconcile_pending_web_research_tool_call};
 use crate::agentic::rules::ActionRules;
+use crate::agentic::runtime::keys::get_approval_grant_key;
 use crate::agentic::runtime::adapters;
 use crate::agentic::runtime::execution::ToolExecutor;
 use crate::agentic::runtime::types::AgentState;
@@ -17,10 +18,14 @@ use ioi_crypto::sign::eddsa::{
 use ioi_drivers::mcp::McpManager;
 use ioi_types::app::agentic::AgentTool;
 use ioi_types::app::{
-    determinism_commit_state_key, determinism_evidence_state_key, AccountId, ActionRequest,
-    ActionTarget, ApprovalToken, CapabilityLease, CapabilityLeaseMode, ChainId, CommittedAction,
-    DeterminismEvidence, ExecutionContractReceiptEvent, FirewallDecisionReceipt, KernelEvent,
-    NetMode, PolicyVerdict, RuntimeTarget, SignatureSuite, UiSurfaceSpec, WorkloadSpec,
+    determinism_commit_state_key, determinism_evidence_state_key, policy_decision_state_key,
+    execution_observation_receipt_state_key, postcondition_proof_state_key,
+    required_receipt_manifest_state_key, settlement_receipt_bundle_state_key, AccountId,
+    ActionRequest, ActionTarget, ApprovalGrant, CapabilityLease, CapabilityLeaseMode, ChainId,
+    CommittedAction, DeterminismEvidence, ExecutionContractReceiptEvent,
+    ExecutionObservationReceipt, FirewallDecisionReceipt, KernelEvent, NetMode,
+    PolicyDecisionRecord, PolicyVerdict, PostconditionProof, RequiredReceiptManifest,
+    RuntimeTarget, SettlementReceiptBundle, SignatureSuite, UiSurfaceSpec, WorkloadSpec,
 };
 use ioi_types::codec;
 use ioi_types::error::TransactionError;

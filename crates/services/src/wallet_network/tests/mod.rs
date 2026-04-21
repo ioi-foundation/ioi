@@ -19,7 +19,7 @@ use ioi_api::transaction::context::TxContext;
 use ioi_crypto::security::SecurityLevel;
 use ioi_crypto::sign::dilithium::{MldsaKeyPair, MldsaScheme};
 use ioi_crypto::sign::eddsa::Ed25519KeyPair;
-use ioi_types::app::action::{ApprovalScope, ApprovalToken};
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
 use ioi_types::app::wallet_network::{
     ConnectorAuthExportParams, ConnectorAuthExportReceipt, ConnectorAuthGetParams,
     ConnectorAuthGetReceipt, ConnectorAuthImportParams, ConnectorAuthImportReceipt,
@@ -175,25 +175,73 @@ fn sign_hybrid_payload(signer: &HybridSigner, payload: &[u8]) -> Vec<u8> {
 }
 
 fn sign_wallet_approval_decision(
-    mut approval: WalletApprovalDecision,
-    signer: &HybridSigner,
+    approval: WalletApprovalDecision,
+    _signer: &HybridSigner,
 ) -> WalletApprovalDecision {
-    {
-        let token = approval
-            .approval_token
-            .as_mut()
-            .expect("approval decision requires approval_token");
-        token.approver_suite = SignatureSuite::HYBRID_ED25519_ML_DSA_44;
-        token.approver_sig.clear();
+    approval
+}
+
+#[derive(Clone)]
+struct ApprovalSigner {
+    keypair: Ed25519KeyPair,
+    authority: ApprovalAuthority,
+}
+
+fn new_approval_signer() -> ApprovalSigner {
+    let keypair = Ed25519KeyPair::generate().expect("approval ed25519 keypair");
+    let public_key = keypair.public_key().to_bytes();
+    let authority_id =
+        account_id_from_key_material(SignatureSuite::ED25519, &public_key).expect("authority id");
+    ApprovalSigner {
+        keypair,
+        authority: ApprovalAuthority {
+            schema_version: 1,
+            authority_id,
+            public_key,
+            signature_suite: SignatureSuite::ED25519,
+            expires_at: 1_850_000_000_000,
+            revoked: false,
+            scope_allowlist: vec!["wallet_network.approval".to_string()],
+        },
     }
-    let sign_bytes = codec::to_bytes_canonical(&approval).expect("encode approval decision");
-    let signature = sign_hybrid_payload(signer, &sign_bytes);
-    approval
-        .approval_token
-        .as_mut()
-        .expect("approval decision requires approval_token")
-        .approver_sig = signature;
-    approval
+}
+
+fn signed_wallet_approval_grant(
+    signer: &ApprovalSigner,
+    request_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    audience: [u8; 32],
+    nonce: [u8; 32],
+    counter: u64,
+    max_usages: Option<u32>,
+    expires_at: u64,
+) -> ApprovalGrant {
+    let mut grant = ApprovalGrant {
+        schema_version: 1,
+        authority_id: signer.authority.authority_id,
+        request_hash,
+        policy_hash,
+        audience,
+        nonce,
+        counter,
+        expires_at,
+        max_usages,
+        window_id: None,
+        pii_action: None,
+        scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: signer.authority.public_key.clone(),
+        approver_sig: Vec::new(),
+        approver_suite: SignatureSuite::ED25519,
+    };
+    let bytes = grant.signing_bytes().expect("grant signing bytes");
+    grant.approver_sig = signer
+        .keypair
+        .sign(&bytes)
+        .expect("sign grant")
+        .to_bytes()
+        .to_vec();
+    grant
 }
 
 fn make_session_grant(

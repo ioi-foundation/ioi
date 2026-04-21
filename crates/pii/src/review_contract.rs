@@ -1,6 +1,6 @@
-// Submodule: review_contract (resume-token invariants)
+// Submodule: review_contract (resume-grant invariants)
 
-use ioi_types::app::action::{ApprovalToken, PiiApprovalAction};
+use ioi_types::app::action::{ApprovalGrant, PiiApprovalAction};
 use ioi_types::app::agentic::PiiReviewRequest;
 
 use crate::assist::CimAssistProvider;
@@ -22,7 +22,7 @@ pub enum ResumeReviewMode {
 /// Deterministic validation errors for the review resume contract.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PiiReviewContractError {
-    ApprovalTokenHashMismatch,
+    ApprovalGrantHashMismatch,
     MissingReviewRequest,
     ReviewRequestHashMismatch,
     UnsupportedReviewRequestVersion { found: u32, expected: u32 },
@@ -39,8 +39,8 @@ pub enum PiiReviewContractError {
 impl std::fmt::Display for PiiReviewContractError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PiiReviewContractError::ApprovalTokenHashMismatch => {
-                write!(f, "Approval token hash mismatch")
+            PiiReviewContractError::ApprovalGrantHashMismatch => {
+                write!(f, "Approval grant hash mismatch")
             }
             PiiReviewContractError::MissingReviewRequest => {
                 write!(f, "Missing PII review request for pending decision")
@@ -144,22 +144,19 @@ pub fn resolve_expected_request_hash(
     pending_gate_hash.unwrap_or(pending_tool_hash)
 }
 
-/// Validates resume-token review contract invariants.
-pub fn validate_resume_review_contract(
+/// Validates resume-grant review contract invariants.
+pub fn validate_resume_review_contract_for_grant(
     expected_request_hash: [u8; 32],
-    approval_token: &ApprovalToken,
+    approval_grant: &ApprovalGrant,
     review_request: Option<&PiiReviewRequest>,
     now_ms: u64,
 ) -> std::result::Result<ResumeReviewMode, PiiReviewContractError> {
-    if approval_token.request_hash != expected_request_hash {
-        return Err(PiiReviewContractError::ApprovalTokenHashMismatch);
+    if approval_grant.request_hash != expected_request_hash {
+        return Err(PiiReviewContractError::ApprovalGrantHashMismatch);
     }
 
     let Some(request) = review_request else {
-        // Legacy approvals are not review-bound. We still allow explicit denial for
-        // non-review (policy) gates so UIs can deterministically clear pending actions
-        // without minting a review request.
-        if let Some(action) = approval_token.pii_action.as_ref() {
+        if let Some(action) = approval_grant.pii_action.as_ref() {
             if !matches!(action, PiiApprovalAction::Deny) {
                 return Err(PiiReviewContractError::PiiActionWithoutReviewRequest);
             }
@@ -174,7 +171,10 @@ pub fn validate_resume_review_contract(
     if now_ms > request.deadline_ms {
         return Err(PiiReviewContractError::ReviewApprovalDeadlineExceeded);
     }
-    if approval_token.pii_action.is_none() {
+    if approval_grant.review_request_hash != Some(request.decision_hash) {
+        return Err(PiiReviewContractError::ReviewRequestHashMismatch);
+    }
+    if approval_grant.pii_action.is_none() {
         return Err(PiiReviewContractError::MissingPiiActionForReview);
     }
 

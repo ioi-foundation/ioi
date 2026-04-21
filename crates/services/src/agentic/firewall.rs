@@ -8,9 +8,21 @@ pub struct SemanticFirewall;
 
 impl SemanticFirewall {
     /// Validates inputs against a DIM Template.
-    /// This is a placeholder for future logic (spending limits, rate limits).
-    pub fn preflight_check(_input: &[u8]) -> Result<()> {
-        // Future: Check against active governance policies
+    /// This stage is now fail-closed: non-canonical or empty inputs are rejected.
+    pub fn preflight_check(input: &[u8]) -> Result<()> {
+        if input.is_empty() {
+            return Err(anyhow!(
+                "semantic firewall preflight rejected empty input; no authoritative policy artifact can be derived"
+            ));
+        }
+        let raw = std::str::from_utf8(input)
+            .map_err(|e| anyhow!("semantic firewall preflight requires UTF-8 JSON: {}", e))?;
+        let canonical = Self::canonicalize(raw)?;
+        if canonical.is_empty() {
+            return Err(anyhow!(
+                "semantic firewall preflight rejected empty canonical payload"
+            ));
+        }
         Ok(())
     }
 
