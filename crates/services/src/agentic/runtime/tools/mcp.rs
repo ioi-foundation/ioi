@@ -2,6 +2,7 @@ use ioi_drivers::mcp::McpManager;
 use ioi_types::app::agentic::LlmToolDefinition;
 use std::collections::HashSet;
 
+#[allow(dead_code)]
 pub(super) async fn push_mcp_tools(
     mcp: &McpManager,
     tools: &mut Vec<LlmToolDefinition>,

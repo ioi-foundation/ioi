@@ -552,6 +552,7 @@ async fn attempt_click_element_with_target(
 #[path = "attempt/tests.rs"]
 mod tests;
 
+#[allow(unused_assignments)]
 pub(super) async fn handle_browser_click_element(
     exec: &ToolExecutor,
     id: &str,

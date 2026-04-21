@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use super::*;
 
 pub(super) fn top_edge_jump_name() -> &'static str {
@@ -2044,7 +2046,7 @@ fn extract_message_source_target(text: &str) -> Option<String> {
         let mut search_start = 0usize;
         while let Some(relative_idx) = lower[search_start..].find(marker) {
             let message_end = search_start + relative_idx + marker.len();
-            let original_rest = &text[message_end..];
+            let _original_rest = &text[message_end..];
             let lower_rest = &lower[message_end..];
 
             for pattern in SOURCE_PATTERNS {

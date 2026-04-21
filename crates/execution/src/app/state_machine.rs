@@ -901,7 +901,7 @@ where
         let block_timestamp_ms = prepared.block_timestamp_ms;
         let state_changes = prepared.state_changes;
         let (inserts, deletes) = state_changes.as_ref();
-        let mut proof_verify_elapsed = Duration::ZERO;
+        let proof_verify_elapsed;
         let mut apply_elapsed = Duration::ZERO;
         let mut end_block_elapsed = Duration::ZERO;
         let mut persist_elapsed = Duration::ZERO;

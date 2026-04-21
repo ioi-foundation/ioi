@@ -597,10 +597,6 @@ impl WorkspaceTerminalBridge {
         terminal_write_bytes(&self.session, data)
     }
 
-    pub(crate) fn resize(&self, cols: u16, rows: u16) -> Result<(), String> {
-        terminal_resize(&self.session, cols, rows)
-    }
-
     pub(crate) fn close(&self) -> Result<(), String> {
         terminal_close(Arc::clone(&self.session))
     }

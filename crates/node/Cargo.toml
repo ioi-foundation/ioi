@@ -238,7 +238,7 @@ required-features = ["provider-mode"]
 # [NEW] Explicit binary for the heavy bridge node
 [[bin]]
 name = "ioi-bridge"
-path = "src/bin/ioi-validator.rs" # Reuses validator main, just different features
+path = "src/bin/ioi-bridge.rs"
 required-features = ["bridge-mode"]
 
 # [NEW] The Agent Runtime Binary

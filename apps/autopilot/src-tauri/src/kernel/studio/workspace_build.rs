@@ -31,7 +31,6 @@ static PREVIEW_PROCESS_REGISTRY: Lazy<Mutex<HashMap<String, StudioPreviewProcess
 
 struct StudioPreviewProcess {
     child: Child,
-    log_path: PathBuf,
 }
 
 struct CommandExecutionResult {
@@ -535,13 +534,7 @@ fn start_preview_process(
     PREVIEW_PROCESS_REGISTRY
         .lock()
         .map_err(|_| "Failed to lock preview registry".to_string())?
-        .insert(
-            session_id.to_string(),
-            StudioPreviewProcess {
-                child,
-                log_path: log_path.clone(),
-            },
-        );
+        .insert(session_id.to_string(), StudioPreviewProcess { child });
 
     let success = poll_preview_health(&preview_url, Duration::from_secs(24));
     if !success {

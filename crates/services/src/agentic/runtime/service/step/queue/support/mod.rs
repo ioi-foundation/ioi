@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use super::envelope::{
     compile_constraint_set, score_evidence_candidate, verify_claim_envelope,
     CandidateEvidenceScore, ConstraintScope, ConstraintSet, EnvelopeStatus, ResolutionPolicy,

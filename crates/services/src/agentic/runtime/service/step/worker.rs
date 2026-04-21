@@ -169,6 +169,7 @@ fn worker_assignment_recovery_disallowed_tool_error(
     )
 }
 
+#[allow(dead_code)]
 pub(crate) fn filter_tools_for_worker_assignment(
     tools: &[LlmToolDefinition],
     assignment: Option<&WorkerAssignment>,

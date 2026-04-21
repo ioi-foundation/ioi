@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::agentic::rules::{ActionRules, Verdict};
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{AgentState, ExecutionTier};

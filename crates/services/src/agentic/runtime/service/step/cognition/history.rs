@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::agentic::runtime::service::actions::safe_truncate;
 use crate::agentic::runtime::types::{CommandExecution, MAX_PROMPT_HISTORY};
 use ioi_types::app::agentic::ChatMessage;

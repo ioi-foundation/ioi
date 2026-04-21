@@ -342,6 +342,7 @@ fn collect_missing_contract_markers(
     missing
 }
 
+#[allow(dead_code)]
 pub fn missing_execution_contract_markers(agent_state: &AgentState) -> Vec<String> {
     let default_matrix = IntentRoutingPolicy::default().matrix;
     let (required_receipts, required_postconditions) =

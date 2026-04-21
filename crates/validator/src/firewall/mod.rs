@@ -31,7 +31,7 @@ use ioi_api::state::{service_namespace_prefix, StateAccess, StateOverlay};
 use ioi_api::transaction::context::TxContext;
 use ioi_tx::system::{nonce, validation};
 use ioi_types::app::action::PiiApprovalAction;
-use ioi_types::app::agentic::{AgentTool, PiiEgressRiskSurface, PiiReviewRequest, PiiTarget};
+use ioi_types::app::agentic::{AgentTool, PiiEgressRiskSurface, PiiTarget};
 use ioi_types::app::{action::ApprovalToken, ChainTransaction, KernelEvent, SystemPayload};
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
@@ -193,8 +193,6 @@ pub async fn enforce_firewall(
             let mut agent_state_opt: Option<AgentState> = None;
             let mut pending_gate_hash_opt: Option<[u8; 32]> = None;
             let mut expected_request_hash_opt: Option<[u8; 32]> = None;
-            let mut pii_request_opt: Option<PiiReviewRequest> = None;
-
             if service_id == "desktop_agent" && method == "step@v1" {
                 if let Ok(p) = codec::from_bytes_canonical::<StepAgentParams>(params) {
                     session_id_opt = Some(p.session_id);
@@ -289,7 +287,7 @@ pub async fn enforce_firewall(
                     request_key_local.as_slice(),
                 ]
                 .concat();
-                pii_request_opt = overlay
+                let pii_request_opt = overlay
                     .get(&request_key)?
                     .and_then(|bytes| codec::from_bytes_canonical(&bytes).ok());
                 if let Some(request) = pii_request_opt.as_ref() {
@@ -539,7 +537,7 @@ pub async fn enforce_firewall(
 
                         // [NEW] Attempt to extract visual hash from params for the event
                         // This allows the UI to display the screenshot the agent saw when requesting the action.
-                        let mut visual_hash_opt: Option<[u8; 32]> = None;
+                        let mut _visual_hash_opt: Option<[u8; 32]> = None;
                         if let Ok(json) =
                             serde_json::from_slice::<serde_json::Value>(&dummy_request.params)
                         {
@@ -550,7 +548,7 @@ pub async fn enforce_firewall(
                                     if bytes.len() == 32 {
                                         let mut arr = [0u8; 32];
                                         arr.copy_from_slice(&bytes);
-                                        visual_hash_opt = Some(arr);
+                                        _visual_hash_opt = Some(arr);
                                     }
                                 }
                             }

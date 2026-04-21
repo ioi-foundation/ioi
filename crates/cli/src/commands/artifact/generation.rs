@@ -330,6 +330,7 @@ pub(super) async fn run_generate(
                 skill_discovery_resolution: None,
                 selected_skills: Vec::new(),
                 retrieved_exemplars: Vec::new(),
+                retrieved_sources: Vec::new(),
             };
             generate_studio_artifact_bundle_with_runtimes_and_planning_context_and_render_evaluator(
                 runtime,

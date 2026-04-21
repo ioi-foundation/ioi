@@ -6,8 +6,8 @@ use reqwest::Client;
 use serde::Deserialize;
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
-use std::sync::LazyLock;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Duration;
 use url::Url;
 
@@ -22,6 +22,7 @@ static DESCRIPTION_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 static TAG_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?s)<[^>]+>").expect("valid html tag regex"));
+#[cfg(test)]
 static QUOTE_QUERY_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"for "([^"]+)""#).expect("valid source reason query regex"));
 static TOKEN_RE: LazyLock<Regex> =
@@ -375,14 +376,8 @@ fn source_kind_score(
     avoid_source_kinds: &HashSet<String>,
 ) -> i32 {
     let mut score = 0;
-    score += 80
-        * source_kinds
-            .intersection(desired_source_kinds)
-            .count() as i32;
-    score -= 120
-        * source_kinds
-            .intersection(avoid_source_kinds)
-            .count() as i32;
+    score += 80 * source_kinds.intersection(desired_source_kinds).count() as i32;
+    score -= 120 * source_kinds.intersection(avoid_source_kinds).count() as i32;
     if source_kinds.contains("official") {
         score += 70;
     }
@@ -418,8 +413,8 @@ fn source_rank(
     let authority_signals = infer_authority_signals(domain, title, excerpt);
     let source_kinds = infer_source_kinds(domain, title, excerpt);
 
-    let mut score =
-        authority_score(&authority_signals) + source_kind_score(&source_kinds, desired_source_kinds, avoid_source_kinds);
+    let mut score = authority_score(&authority_signals)
+        + source_kind_score(&source_kinds, desired_source_kinds, avoid_source_kinds);
     if lower_title.contains("explained") || lower_title.starts_with("what is ") {
         score += 45;
     }
@@ -518,6 +513,7 @@ fn parse_bing_search_rss(
         .collect()
 }
 
+#[cfg(test)]
 pub(super) fn source_query_from_reason(reason: &str) -> Option<String> {
     QUOTE_QUERY_RE
         .captures(reason)
@@ -632,7 +628,11 @@ pub(super) async fn retrieve_research_sources_for_brief(
                 )
             })
             .max_by_key(|(_, adjusted_score, domain, title)| {
-                (*adjusted_score, Reverse(domain.clone()), Reverse(title.clone()))
+                (
+                    *adjusted_score,
+                    Reverse(domain.clone()),
+                    Reverse(title.clone()),
+                )
             })
         else {
             break;
@@ -646,7 +646,8 @@ pub(super) async fn retrieve_research_sources_for_brief(
 #[cfg(test)]
 mod tests {
     use super::{
-        infer_authority_signals, infer_source_kinds, parse_bing_search_rss, source_query_from_reason,
+        infer_authority_signals, infer_source_kinds, parse_bing_search_rss,
+        source_query_from_reason,
     };
     use std::collections::HashSet;
 

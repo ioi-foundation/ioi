@@ -208,6 +208,7 @@ impl RuntimeAgentService {
         self::visual::restore_visual_context(self, visual_hash).await
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn handle_action_execution(
         &self,
         tool: ioi_types::app::agentic::AgentTool,
@@ -288,6 +289,7 @@ impl RuntimeAgentService {
         self::memory::retrieve_context_hybrid_with_receipt(self, query, visual_phash).await
     }
 
+    #[allow(dead_code)]
     pub(crate) fn select_runtime(
         &self,
         state: &crate::agentic::runtime::types::AgentState,

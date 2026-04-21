@@ -91,7 +91,6 @@ where
                             | ioi_types::app::ApplicationTransaction::CallContract {
                                 header, ..
                             } => (Some(header.account_id), Some(header.nonce)),
-                            _ => (None, None),
                         },
                         _ => (None, None),
                     };

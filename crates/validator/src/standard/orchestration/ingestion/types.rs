@@ -84,6 +84,7 @@ pub struct ChainTipInfo {
 pub(crate) struct ProcessedTx {
     pub tx: ChainTransaction,
     pub canonical_hash: TxHash,
+    #[allow(dead_code)]
     pub raw_bytes: Vec<u8>,
     pub receipt_hash_hex: String,
     pub account_id: Option<AccountId>,

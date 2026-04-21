@@ -457,6 +457,7 @@ fn prune_redundant_dom_fallback_aggregates(mut root: AccessibilityNode) -> Acces
     root
 }
 
+#[allow(dead_code)]
 fn rects_are_equivalent_or_nested(left: &AccessibilityRect, right: &AccessibilityRect) -> bool {
     if rect_contains(left, right) || rect_contains(right, left) {
         return true;
@@ -473,6 +474,7 @@ fn rects_are_equivalent_or_nested(left: &AccessibilityRect, right: &Accessibilit
         && (left.height - right.height).abs() <= 24
 }
 
+#[allow(dead_code)]
 fn node_locator_hint(node: &AccessibilityNode, key: &str) -> Option<String> {
     node_attr_value(node, key)
         .map(str::trim)
@@ -480,6 +482,7 @@ fn node_locator_hint(node: &AccessibilityNode, key: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+#[allow(dead_code)]
 fn dom_fallback_locator_matches(
     candidate: &AccessibilityNode,
     existing: &AccessibilityNode,
@@ -499,6 +502,7 @@ fn dom_fallback_locator_matches(
     false
 }
 
+#[allow(dead_code)]
 fn nodes_semantically_overlap(candidate: &AccessibilityNode, existing: &AccessibilityNode) -> bool {
     if !existing.is_visible {
         return false;
@@ -527,6 +531,7 @@ fn nodes_semantically_overlap(candidate: &AccessibilityNode, existing: &Accessib
     rects_are_equivalent_or_nested(&candidate.rect, &existing.rect)
 }
 
+#[allow(dead_code)]
 fn should_merge_dom_fallback_candidate(node: &AccessibilityNode) -> bool {
     if node_attr_value(node, "dom_fallback") != Some("true") || !node.is_visible {
         return false;
@@ -552,6 +557,7 @@ fn should_merge_dom_fallback_candidate(node: &AccessibilityNode) -> bool {
         .any(|key| node_attr_value(node, key).is_some())
 }
 
+#[allow(dead_code)]
 fn collect_visible_nodes(node: &AccessibilityNode, out: &mut Vec<AccessibilityNode>) {
     if node.is_visible {
         out.push(node.clone());
@@ -561,6 +567,7 @@ fn collect_visible_nodes(node: &AccessibilityNode, out: &mut Vec<AccessibilityNo
     }
 }
 
+#[allow(dead_code)]
 fn merge_missing_dom_fallback_nodes(
     mut ax_tree: AccessibilityNode,
     dom_tree: AccessibilityNode,

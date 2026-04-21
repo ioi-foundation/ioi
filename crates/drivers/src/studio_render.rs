@@ -63,6 +63,7 @@ struct DomCaptureMetrics {
     dominant_left_alignment_ratio: f64,
     gap_consistency: f64,
     overlap_count: usize,
+    #[allow(dead_code)]
     #[serde(default)]
     response_region_text: Option<String>,
 }

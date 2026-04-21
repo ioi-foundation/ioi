@@ -2280,6 +2280,7 @@ fn invalid_arguments_error(tool_name: &str, detail: impl Into<String>) -> String
     )
 }
 
+#[allow(dead_code)]
 fn unsupported_tool_error(tool_name: &str, detail: impl Into<String>) -> String {
     format!(
         "ERROR_CLASS=UnsupportedTool {}",

@@ -67,6 +67,7 @@ pub(super) struct GuardianRegistryPublisher {
     pub(super) chain_id: ioi_types::app::ChainId,
 }
 
+#[allow(dead_code)]
 pub(super) fn local_account_id_from_keypair(
     local_keypair: &libp2p::identity::Keypair,
 ) -> Result<AccountId> {
@@ -539,6 +540,7 @@ pub(super) fn build_experimental_recovery_scaffold_artifacts(
     })
 }
 
+#[allow(dead_code)]
 pub(super) fn build_experimental_recovery_scaffold_share_receipt(
     header: &BlockHeader,
     certificate: &ioi_types::app::RecoveryWitnessCertificate,

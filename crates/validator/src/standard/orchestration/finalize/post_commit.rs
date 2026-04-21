@@ -1,5 +1,6 @@
 use super::*;
 
+#[allow(dead_code)]
 pub(super) fn relay_fanout() -> usize {
     std::env::var("IOI_AFT_TX_RELAY_FANOUT")
         .ok()
@@ -687,7 +688,7 @@ pub(super) async fn relay_remaining_mempool_to_upcoming_leaders<CS, ST, CE, V>(
         return;
     }
 
-    let (local_account_id, leader_peer_targets, leader_peers, swarm_commander) = {
+    let (local_account_id, _leader_peer_targets, leader_peers, swarm_commander) = {
         let ctx = context_arc.lock().await;
         let local_account_id = AccountId(
             account_id_from_key_material(

@@ -835,6 +835,7 @@ pub struct ArtifactRef {
     pub artifact_type: ArtifactType,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReceiptDigest {
     pub receipt_id: String,

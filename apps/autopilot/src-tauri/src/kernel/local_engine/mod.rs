@@ -112,6 +112,7 @@ struct ModelInstallMaterialization {
     bytes_transferred: u64,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct InstalledModelManifest {
@@ -167,6 +168,7 @@ struct BackendPackageManifest {
     alias: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct InstalledBackendManifest {
@@ -298,6 +300,7 @@ struct LocalAiModelGalleryEntry {
     overrides: LocalAiModelGalleryOverrides,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct LocalAiGalleryFile {
@@ -318,6 +321,7 @@ struct LocalAiModelGalleryOverrides {
     known_usecases: Vec<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct LocalAiBackendGalleryEntry {

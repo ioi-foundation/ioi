@@ -311,7 +311,7 @@ impl ToolExecutor {
         tool: AgentTool,
         session_id: [u8; 32],
         step_index: u32,
-        visual_phash: [u8; 32],
+        _visual_phash: [u8; 32],
         som_map: Option<&BTreeMap<u32, (i32, i32, i32, i32)>>,
         semantic_map: Option<&BTreeMap<u32, String>>,
         active_lens: Option<&str>,

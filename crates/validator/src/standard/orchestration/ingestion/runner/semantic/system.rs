@@ -35,10 +35,7 @@ pub(crate) async fn evaluate_system_transaction(
         method,
         params,
         ..
-    } = &sys.payload
-    else {
-        return true;
-    };
+    } = &sys.payload;
 
     if service_id != "agentic" && service_id != "desktop_agent" && service_id != "compute_market" {
         return true;

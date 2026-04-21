@@ -353,10 +353,7 @@ fn direct_author_renderable_html_prefix(
     None
 }
 
-fn direct_author_preview_ready_document(
-    request: &StudioOutcomeArtifactRequest,
-    raw: &str,
-) -> bool {
+fn direct_author_preview_ready_document(request: &StudioOutcomeArtifactRequest, raw: &str) -> bool {
     if request.renderer != StudioRendererKind::HtmlIframe
         || request.artifact_class != StudioArtifactClass::Document
     {
@@ -2482,10 +2479,7 @@ pub(crate) async fn materialize_studio_artifact_candidate_with_runtime_direct_au
                     && direct_author_preview_ready_document(request, &salvaged)
                 {
                     if let Some(mut generated) =
-                        synthesize_generated_artifact_payload_from_raw_document(
-                            &salvaged,
-                            request,
-                        )
+                        synthesize_generated_artifact_payload_from_raw_document(&salvaged, request)
                     {
                         super::normalize_generated_artifact_payload(&mut generated, request);
                         super::enrich_generated_artifact_payload(&mut generated, request, brief);

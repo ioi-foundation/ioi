@@ -1005,8 +1005,8 @@ async fn wait_for_tx_commit(
     timeout_ms: u64,
 ) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_millis(timeout_ms);
-    let mut last_status = TxStatus::Unknown;
-    let mut last_error = String::new();
+    let mut last_status: TxStatus;
+    let mut last_error: String;
 
     loop {
         let response = timeout(
