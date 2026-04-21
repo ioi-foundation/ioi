@@ -9,6 +9,8 @@ mod phases;
 mod status;
 mod visual;
 
+pub(crate) use approvals::validate_registered_approval_grant;
+
 use super::checks::requires_visual_integrity;
 use super::evaluation::evaluate_and_crystallize;
 use crate::agentic::rules::ActionRules;

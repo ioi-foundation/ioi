@@ -65,7 +65,7 @@ fn blocked_web_read_note_distinguishes_challenge_from_generic_failure() {
 }
 
 #[test]
-fn normalize_blocked_web_read_for_continuation_clears_failure_state() {
+fn normalize_blocked_web_read_for_continuation_preserves_failure_state() {
     let mut success = false;
     let mut error_msg = Some("ERROR_CLASS=HumanChallengeRequired captcha".to_string());
     let mut history_entry = None;
@@ -86,8 +86,8 @@ fn normalize_blocked_web_read_for_continuation_clears_failure_state() {
         true,
     );
 
-    assert!(success);
-    assert!(error_msg.is_none());
+    assert!(!success);
+    assert!(error_msg.is_some());
     assert_eq!(
         history_entry.as_deref(),
         Some(
@@ -95,11 +95,14 @@ fn normalize_blocked_web_read_for_continuation_clears_failure_state() {
         )
     );
     assert_eq!(history_entry, action_output);
-    assert!(!stop_condition_hit);
-    assert!(escalation_path.is_none());
+    assert!(stop_condition_hit);
+    assert_eq!(
+        escalation_path.as_deref(),
+        Some("pause")
+    );
     assert!(verification_checks
         .iter()
-        .any(|check| check == "web_blocked_read_continues=true"));
+        .any(|check| check == "web_blocked_read_requires_remediation=true"));
 }
 
 #[test]

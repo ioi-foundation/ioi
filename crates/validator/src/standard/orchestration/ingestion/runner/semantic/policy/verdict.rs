@@ -4,7 +4,7 @@ use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_services::agentic::policy::PolicyEngine;
 use ioi_services::agentic::rules::{ActionRules, Verdict};
-use ioi_types::app::{ActionRequest, ApprovalToken, KernelEvent};
+use ioi_types::app::{ActionRequest, KernelEvent};
 use lru::LruCache;
 use std::sync::Arc;
 
@@ -15,13 +15,11 @@ pub(crate) async fn evaluate_policy_verdict(
     request: &ActionRequest,
     safety_model: &Arc<dyn LocalSafetyModel>,
     os_driver: &Arc<dyn OsDriver>,
-    presented_approval: Option<&ApprovalToken>,
     status_guard: &mut LruCache<String, TxStatusEntry>,
     event_broadcaster: &tokio::sync::broadcast::Sender<KernelEvent>,
     allow_approval_bypass_for_message: bool,
 ) -> bool {
-    let verdict =
-        PolicyEngine::evaluate(rules, request, safety_model, os_driver, presented_approval).await;
+    let verdict = PolicyEngine::evaluate(rules, request, safety_model, os_driver).await;
 
     let mut is_safe = true;
     match verdict {

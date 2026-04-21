@@ -8,15 +8,15 @@ use ioi_services::agentic::runtime::keys::{get_incident_key, get_state_key, pii}
 use ioi_services::agentic::runtime::service::step::incident::IncidentState;
 use ioi_services::agentic::runtime::utils::load_agent_state_checkpoint;
 use ioi_services::agentic::runtime::{AgentState, ResumeAgentParams};
+use ioi_types::app::action::ApprovalGrant;
 use ioi_types::app::agentic::PiiReviewRequest;
-use ioi_types::app::ApprovalToken;
 use ioi_types::codec;
 use ioi_types::error::TransactionError;
 use lru::LruCache;
 use std::sync::Arc;
 
 pub(crate) struct ResumeContext {
-    pub approval_token: Option<ApprovalToken>,
+    pub approval_grant: Option<ApprovalGrant>,
     pub resume_session_id: Option<[u8; 32]>,
     pub agent_state: Option<AgentState>,
     pub expected_request_hash: Option<[u8; 32]>,
@@ -45,7 +45,7 @@ pub(crate) async fn resolve_resume_context(
     };
 
     let resume_session_id = resume.session_id;
-    let mut approval_token = resume.approval_token.clone();
+    let approval_grant = resume.approval_grant.clone();
 
     let ns_prefix = service_namespace_prefix("desktop_agent");
     let state_key = get_state_key(&resume.session_id);
@@ -136,10 +136,6 @@ pub(crate) async fn resolve_resume_context(
 
     let agent_state = agent_state.expect("checked above");
 
-    if approval_token.is_none() {
-        approval_token = agent_state.pending_approval.clone();
-    }
-
     let pending_tool_hash = match agent_state.pending_tool_hash {
         Some(v) => v,
         None => {
@@ -224,7 +220,7 @@ pub(crate) async fn resolve_resume_context(
     };
 
     Some(ResumeContext {
-        approval_token,
+        approval_grant,
         resume_session_id: Some(resume_session_id),
         agent_state: Some(agent_state),
         expected_request_hash: Some(expected_request_hash),

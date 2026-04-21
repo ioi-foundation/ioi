@@ -104,11 +104,24 @@ async fn timer_query_live_openai_e2e_with_model_arbiter() -> Result<()> {
                     .duration_since(UNIX_EPOCH)
                     .unwrap_or_default()
                     .as_millis() as u64;
-                let approval_token = build_approval_token_for_resume(
+                let policy_hash = active_policy_hash_for_session(&state, session_id)?;
+                let (authority, approval_grant) = build_approval_grant_for_resume(
+                    session_id,
                     request_hash,
+                    policy_hash,
                     now_ms,
                     agent_state.pending_visual_hash,
-                );
+                )?;
+                service
+                    .handle_service_call(
+                        &mut state,
+                        "register_approval_authority@v1",
+                        &codec::to_bytes_canonical(&RegisterApprovalAuthorityParams { authority })
+                            .map_err(anyhow::Error::msg)?,
+                        &mut ctx,
+                    )
+                    .await
+                    .map_err(anyhow::Error::msg)?;
                 tokio::time::timeout(
                     LIVE_SERVICE_CALL_TIMEOUT,
                     service.handle_service_call(
@@ -116,7 +129,7 @@ async fn timer_query_live_openai_e2e_with_model_arbiter() -> Result<()> {
                         "resume@v1",
                         &codec::to_bytes_canonical(&ResumeAgentParams {
                             session_id,
-                            approval_token: Some(approval_token),
+                            approval_grant: Some(approval_grant),
                         })
                         .map_err(anyhow::Error::msg)?,
                         &mut ctx,

@@ -16,6 +16,8 @@ pub const SKILL_SESSION_OUTCOME_PREFIX: &[u8] = b"skills::session_outcome::";
 pub const MUTATION_RECEIPT_PTR_PREFIX: &[u8] = b"agent::mutation_receipt_ptr::";
 pub const REMEDIATION_PREFIX: &[u8] = b"agent::remediation::";
 pub const INCIDENT_PREFIX: &[u8] = b"agent::incident::";
+pub const APPROVAL_GRANT_PREFIX: &[u8] = b"agent::approval_grant::";
+pub const APPROVAL_AUTHORITY_PREFIX: &[u8] = b"agent::approval_authority::";
 pub const WORKER_ASSIGNMENT_PREFIX: &[u8] = b"agent::worker_assignment::";
 pub const PARENT_PLAYBOOK_RUN_PREFIX: &[u8] = b"agent::parent_playbook_run::";
 
@@ -94,4 +96,12 @@ pub fn get_remediation_key(session_id: &[u8; 32]) -> Vec<u8> {
 
 pub fn get_incident_key(session_id: &[u8; 32]) -> Vec<u8> {
     [INCIDENT_PREFIX, session_id.as_slice()].concat()
+}
+
+pub fn get_approval_grant_key(session_id: &[u8; 32]) -> Vec<u8> {
+    [APPROVAL_GRANT_PREFIX, session_id.as_slice()].concat()
+}
+
+pub fn get_approval_authority_key(authority_id: &[u8; 32]) -> Vec<u8> {
+    [APPROVAL_AUTHORITY_PREFIX, authority_id.as_slice()].concat()
 }

@@ -1,12 +1,15 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use image::{ImageBuffer, ImageFormat, Rgba};
+use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::BlockchainService;
 use ioi_api::state::StateAccess;
 use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::inference::InferenceRuntime;
+use ioi_crypto::algorithms::hash::sha256;
+use ioi_crypto::sign::eddsa::Ed25519KeyPair;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::MemoryRuntime;
@@ -15,22 +18,24 @@ use ioi_services::agentic::runtime::keys::{AGENT_POLICY_PREFIX, INCIDENT_PREFIX}
 use ioi_services::agentic::runtime::service::step::helpers::default_safe_policy;
 use ioi_services::agentic::runtime::service::step::incident::IncidentState;
 use ioi_services::agentic::runtime::{
-    AgentMode, AgentState, AgentStatus, ResumeAgentParams, RuntimeAgentService, StartAgentParams,
-    StepAgentParams,
+    AgentMode, AgentState, AgentStatus, ResumeAgentParams, RuntimeAgentService,
+    StartAgentParams, StepAgentParams,
 };
 use ioi_services::wallet_network::WalletNetworkService;
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
 use ioi_types::app::action::PiiApprovalAction;
-use ioi_types::app::action::{ApprovalScope, ApprovalToken};
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
+use ioi_types::app::agentic::RegisterApprovalAuthorityParams;
 use ioi_types::app::agentic::{
     CapabilityId, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
 use ioi_types::app::{
-    ActionRequest, ContextSlice, KernelEvent, MailConnectorAuthMode, MailConnectorConfig,
-    MailConnectorEndpoint, MailConnectorProvider, MailConnectorSecretAliases, MailConnectorTlsMode,
-    MailConnectorUpsertParams, RoutingReceiptEvent, SecretKind, SignatureSuite, VaultSecretRecord,
-    WorkloadActivityKind, WorkloadExecReceipt, WorkloadReceipt,
+    account_id_from_key_material, ActionRequest, ContextSlice, KernelEvent,
+    MailConnectorAuthMode, MailConnectorConfig, MailConnectorEndpoint, MailConnectorProvider,
+    MailConnectorSecretAliases, MailConnectorTlsMode, MailConnectorUpsertParams,
+    RoutingReceiptEvent, SecretKind, SignatureSuite, VaultSecretRecord, WorkloadActivityKind,
+    WorkloadExecReceipt, WorkloadReceipt,
 };
 use ioi_types::keys::active_service_key;
 use ioi_types::service_configs::{ActiveServiceMeta, Capabilities, MethodPermission};
@@ -342,31 +347,72 @@ fn session_id_for_index(run_index: usize) -> [u8; 32] {
     deterministic_id(run_index, 0x63)
 }
 
-fn build_approval_token_for_resume(
+fn active_policy_hash_for_session(
+    state: &IAVLTree<HashCommitmentScheme>,
+    session_id: [u8; 32],
+) -> Result<[u8; 32]> {
+    let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
+    let rules = match state.get(&policy_key)? {
+        Some(bytes) => codec::from_bytes_canonical::<ioi_services::agentic::rules::ActionRules>(&bytes)
+            .map_err(anyhow::Error::msg)?,
+        None => default_safe_policy(),
+    };
+    let canonical = serde_jcs::to_vec(&rules).map_err(anyhow::Error::msg)?;
+    let digest = sha256(&canonical).map_err(anyhow::Error::msg)?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(digest.as_ref());
+    Ok(out)
+}
+
+fn build_approval_grant_for_resume(
+    session_id: [u8; 32],
     request_hash: [u8; 32],
+    policy_hash: [u8; 32],
     now_ms: u64,
-    pending_visual_hash: Option<[u8; 32]>,
+    _pending_visual_hash: Option<[u8; 32]>,
     pii_action: Option<PiiApprovalAction>,
-) -> ApprovalToken {
+) -> Result<(ApprovalAuthority, ApprovalGrant)> {
+    let keypair =
+        Ed25519KeyPair::generate().map_err(|e| anyhow!("approval keygen failed: {}", e))?;
+    let public_key = keypair.public_key().to_bytes();
+    let authority_id = account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+        .map_err(anyhow::Error::msg)?;
     let mut nonce = [0u8; 32];
     nonce.copy_from_slice(&request_hash);
-    ApprovalToken {
-        schema_version: 2,
+    let authority = ApprovalAuthority {
+        schema_version: 1,
+        authority_id,
+        public_key: public_key.clone(),
+        signature_suite: SignatureSuite::ED25519,
+        expires_at: now_ms.saturating_add(120_000),
+        revoked: false,
+        scope_allowlist: vec!["desktop_agent.resume".to_string()],
+    };
+    let mut grant = ApprovalGrant {
+        schema_version: 1,
+        authority_id,
         request_hash,
-        audience: [0u8; 32],
-        revocation_epoch: 0,
+        policy_hash,
+        audience: session_id,
         nonce,
         counter: 1,
-        scope: ApprovalScope {
-            expires_at: now_ms.saturating_add(120_000),
-            max_usages: Some(1),
-        },
-        visual_hash: pending_visual_hash,
+        expires_at: now_ms.saturating_add(120_000),
+        max_usages: Some(1),
+        window_id: None,
         pii_action,
         scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: public_key,
         approver_sig: Vec::new(),
         approver_suite: SignatureSuite::ED25519,
-    }
+    };
+    let signing_bytes = grant.signing_bytes().map_err(anyhow::Error::msg)?;
+    grant.approver_sig = keypair
+        .sign(&signing_bytes)
+        .map_err(|e| anyhow!("approval signing failed: {}", e))?
+        .to_bytes()
+        .to_vec();
+    Ok((authority, grant))
 }
 
 fn parse_hex_hash_32(raw: &str) -> Option<[u8; 32]> {

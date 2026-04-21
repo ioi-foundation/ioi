@@ -332,7 +332,7 @@ fn hard_gate_policy_blocks_high_risk_non_utf8_payload() {
         .enable_all()
         .build()
         .expect("runtime");
-    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
     assert!(matches!(verdict, Verdict::Block));
 }
 

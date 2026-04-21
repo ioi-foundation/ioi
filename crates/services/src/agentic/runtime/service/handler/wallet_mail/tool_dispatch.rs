@@ -39,6 +39,7 @@ fn emit_execution_contract_receipt_event(
             evidence_type: None,
             provider_id: None,
             synthesized_payload_hash: None,
+            authoritative: false,
         },
     ));
 }

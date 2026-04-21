@@ -5,7 +5,7 @@ use ioi_api::vm::drivers::os::OsDriver;
 use ioi_api::vm::inference::LocalSafetyModel;
 use ioi_client::WorkloadClient;
 use ioi_memory::MemoryRuntime;
-use ioi_pii::validate_resume_review_contract;
+use ioi_pii::validate_resume_review_contract_for_grant;
 use ioi_services::agentic::rules::ActionRules;
 use ioi_types::app::{ChainTransaction, KernelEvent};
 use lru::LruCache;
@@ -50,7 +50,7 @@ pub(crate) async fn evaluate_system_transaction(
         );
     }
 
-    let mut approval_token = None;
+    let mut approval_grant = None;
     let mut resume_session_id = None;
     let mut agent_state = None;
     let mut expected_request_hash_opt = None;
@@ -70,7 +70,7 @@ pub(crate) async fn evaluate_system_transaction(
             None => return false,
         };
 
-        approval_token = context.approval_token;
+        approval_grant = context.approval_grant;
         resume_session_id = context.resume_session_id;
         expected_request_hash_opt = context.expected_request_hash;
         pii_request_opt = context.pii_request;
@@ -98,8 +98,8 @@ pub(crate) async fn evaluate_system_transaction(
     };
 
     if service_id == "desktop_agent" && method == "resume@v1" {
-        if pii_request_opt.is_some() && approval_token.is_none() {
-            let reason = "Missing approval token for review request";
+        if pii_request_opt.is_some() && approval_grant.is_none() {
+            let reason = "Missing approval grant for review request";
             warn!(target: "ingestion", "{}", reason);
             status_guard.put(
                 p_tx.receipt_hash_hex.clone(),
@@ -110,12 +110,12 @@ pub(crate) async fn evaluate_system_transaction(
                 },
             );
             return false;
-        } else if let (Some(expected_request_hash), Some(token)) =
-            (expected_request_hash_opt, approval_token.as_ref())
+        } else if let (Some(expected_request_hash), Some(grant)) =
+            (expected_request_hash_opt, approval_grant.as_ref())
         {
-            if let Err(e) = validate_resume_review_contract(
+            if let Err(e) = validate_resume_review_contract_for_grant(
                 expected_request_hash,
-                token,
+                grant,
                 pii_request_opt.as_ref(),
                 expected_ts.saturating_mul(1000),
             ) {
@@ -132,16 +132,16 @@ pub(crate) async fn evaluate_system_transaction(
             }
         }
 
-        if approval_token.as_ref().and_then(|t| t.pii_action.clone())
+        if approval_grant.as_ref().and_then(|t| t.pii_action.clone())
             == Some(ioi_types::app::action::PiiApprovalAction::GrantScopedException)
         {
-            let token = approval_token.as_ref().expect("checked above");
+            let grant = approval_grant.as_ref().expect("checked above");
             if let Some(agent_state) = agent_state.as_ref() {
                 if let Some(expected_request_hash) = expected_request_hash_opt {
                     if !verify_scoped_exception(
                         p_tx,
                         expected_request_hash,
-                        token,
+                        grant,
                         agent_state,
                         workload_client,
                         safety_model,
@@ -182,7 +182,6 @@ pub(crate) async fn evaluate_system_transaction(
         status_guard,
         event_broadcaster,
         allow_approval_bypass_for_message,
-        approval_token.as_ref(),
         resume_session_id,
     )
     .await

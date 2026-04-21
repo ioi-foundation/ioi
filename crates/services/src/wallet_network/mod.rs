@@ -17,7 +17,7 @@ use ioi_types::app::wallet_network::{
     WalletConfigureControlRootParams, WalletGetClientParams, WalletInterceptionContext,
     WalletListClientsParams, WalletRegisterClientParams, WalletRevokeClientParams,
 };
-use ioi_types::app::ActionTarget;
+use ioi_types::app::{action::ApprovalAuthority, ActionTarget};
 use ioi_types::codec;
 use ioi_types::error::{TransactionError, UpgradeError};
 use parity_scale_codec::{Decode, Encode};
@@ -52,9 +52,9 @@ pub struct BumpRevocationEpochParams {
     pub reason: String,
 }
 
-/// Parameters for consuming an issued approval token in a one-shot/lease-safe way.
+/// Parameters for consuming an issued approval grant in a one-shot/lease-safe way.
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
-pub struct ConsumeApprovalTokenParams {
+pub struct ConsumeApprovalGrantParams {
     /// Approved request hash to consume.
     pub request_hash: [u8; 32],
     /// Optional explicit consume timestamp in ms; if 0, block timestamp is used.
@@ -62,7 +62,19 @@ pub struct ConsumeApprovalTokenParams {
     pub consumed_at_ms: u64,
 }
 
-/// Mutable approval-token usage state tracked by wallet_network.
+/// Parameters for registering an approval authority.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RegisterApprovalAuthorityParams {
+    pub authority: ApprovalAuthority,
+}
+
+/// Parameters for revoking an approval authority.
+#[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]
+pub struct RevokeApprovalAuthorityParams {
+    pub authority_id: [u8; 32],
+}
+
+/// Mutable approval-grant usage state tracked by wallet_network.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Encode, Decode)]
 pub struct ApprovalConsumptionState {
     pub request_hash: [u8; 32],
@@ -73,9 +85,9 @@ pub struct ApprovalConsumptionState {
     pub bound_audience: Option<[u8; 32]>,
     pub issued_revocation_epoch: u64,
     #[serde(default)]
-    pub token_nonce: [u8; 32],
+    pub grant_nonce: [u8; 32],
     #[serde(default)]
-    pub token_counter: u64,
+    pub grant_counter: u64,
     pub expires_at_ms: u64,
     pub max_usages: u32,
     pub uses_consumed: u32,
@@ -349,9 +361,18 @@ impl BlockchainService for WalletNetworkService {
                 let approval: WalletApprovalDecision = codec::from_bytes_canonical(params)?;
                 handlers::approval::record_approval(state, ctx, approval)
             }
-            "consume_approval_token@v1" => {
-                let consume: ConsumeApprovalTokenParams = codec::from_bytes_canonical(params)?;
-                handlers::approval::consume_approval_token(state, ctx, consume)
+            "register_approval_authority@v1" => {
+                let register: RegisterApprovalAuthorityParams =
+                    codec::from_bytes_canonical(params)?;
+                handlers::approval::register_approval_authority(state, ctx, register)
+            }
+            "revoke_approval_authority@v1" => {
+                let revoke: RevokeApprovalAuthorityParams = codec::from_bytes_canonical(params)?;
+                handlers::approval::revoke_approval_authority(state, ctx, revoke)
+            }
+            "consume_approval_grant@v1" => {
+                let consume: ConsumeApprovalGrantParams = codec::from_bytes_canonical(params)?;
+                handlers::approval::consume_approval_grant(state, ctx, consume)
             }
             "panic_stop@v1" => {
                 let params: BumpRevocationEpochParams = codec::from_bytes_canonical(params)?;

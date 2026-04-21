@@ -83,6 +83,11 @@ fn sample_validation() -> StudioArtifactValidationResult {
         deserves_primary_artifact_view: true,
         patched_existing_artifact: Some(true),
         continuity_revision_ux: Some(4),
+        score_total: 28,
+        proof_kind: "render_validation".to_string(),
+        primary_view_cleared: true,
+        validated_paths: vec!["index.html".to_string()],
+        issue_codes: vec!["first_paint_density".to_string()],
         issue_classes: vec!["first_paint_density".to_string()],
         repair_hints: vec!["Add a richer first-paint evidence rail.".to_string()],
         strengths: vec!["Strong layout".to_string()],
@@ -93,6 +98,7 @@ fn sample_validation() -> StudioArtifactValidationResult {
         truthfulness_warnings: vec!["Needs more visible evidence.".to_string()],
         recommended_next_pass: Some("repair_loop".to_string()),
         strongest_contradiction: Some("Needs more visible evidence.".to_string()),
+        summary: "The artifact is close but still needs a denser first paint.".to_string(),
         rationale: "Repairable with a stronger first paint.".to_string(),
     }
 }

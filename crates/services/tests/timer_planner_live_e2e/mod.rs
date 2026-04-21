@@ -1,6 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use image::{ImageBuffer, ImageFormat, Rgba};
+use ioi_api::crypto::{SerializableKey, SigningKeyPair};
 use ioi_api::services::access::ServiceDirectory;
 use ioi_api::services::BlockchainService;
 use ioi_api::state::StateAccess;
@@ -8,6 +9,7 @@ use ioi_api::transaction::context::TxContext;
 use ioi_api::vm::drivers::gui::{GuiDriver, InputEvent};
 use ioi_api::vm::drivers::os::{OsDriver, WindowInfo};
 use ioi_api::vm::inference::{HttpInferenceRuntime, InferenceRuntime};
+use ioi_crypto::sign::eddsa::Ed25519KeyPair;
 use ioi_crypto::algorithms::hash::sha256;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
@@ -19,9 +21,11 @@ use ioi_services::agentic::runtime::{AgentMode, AgentState, AgentStatus, Runtime
 use ioi_services::agentic::runtime::{ResumeAgentParams, StartAgentParams, StepAgentParams};
 use ioi_state::primitives::hash::HashCommitmentScheme;
 use ioi_state::tree::iavl::IAVLTree;
-use ioi_types::app::action::{ApprovalScope, ApprovalToken};
-use ioi_types::app::agentic::InferenceOptions;
-use ioi_types::app::{ActionRequest, ContextSlice, KernelEvent, SignatureSuite};
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
+use ioi_types::app::agentic::{InferenceOptions, RegisterApprovalAuthorityParams};
+use ioi_types::app::{
+    account_id_from_key_material, ActionRequest, ContextSlice, KernelEvent, SignatureSuite,
+};
 use ioi_types::codec;
 use ioi_types::error::VmError;
 use serde::{Deserialize, Serialize};
@@ -41,7 +45,7 @@ const LIVE_EVENT_DRAIN_WINDOW: Duration = Duration::from_millis(500);
 const LIVE_SERVICE_CALL_TIMEOUT: Duration = Duration::from_secs(70);
 const LIVE_ARBITER_INFERENCE_TIMEOUT: Duration = Duration::from_secs(70);
 const OPENAI_CHAT_COMPLETIONS_URL: &str = "https://api.openai.com/v1/chat/completions";
-const APPROVAL_TOKEN_TTL_MS: u64 = 120_000;
+const APPROVAL_GRANT_TTL_MS: u64 = 120_000;
 const LIVE_MAX_AUTO_APPROVAL_RESUMES: usize = 8;
 const LIVE_TIMER_EXPECTED_DELAY_SECS: i64 = 15 * 60;
 const LIVE_TIMER_DELAY_TOLERANCE_SECS: i64 = 120;
@@ -523,30 +527,70 @@ fn routing_verification_checks_for_arbiter(checks: &[String]) -> Vec<String> {
         .collect()
 }
 
-fn build_approval_token_for_resume(
+fn active_policy_hash_for_session(
+    state: &IAVLTree<HashCommitmentScheme>,
+    session_id: [u8; 32],
+) -> Result<[u8; 32]> {
+    let policy_key = [AGENT_POLICY_PREFIX, session_id.as_slice()].concat();
+    let rules = match state.get(&policy_key)? {
+        Some(bytes) => codec::from_bytes_canonical::<ActionRules>(&bytes).map_err(anyhow::Error::msg)?,
+        None => default_safe_policy(),
+    };
+    let canonical = serde_jcs::to_vec(&rules).map_err(anyhow::Error::msg)?;
+    let digest = sha256(&canonical).map_err(anyhow::Error::msg)?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(digest.as_ref());
+    Ok(out)
+}
+
+fn build_approval_grant_for_resume(
+    session_id: [u8; 32],
     request_hash: [u8; 32],
+    policy_hash: [u8; 32],
     now_ms: u64,
-    pending_visual_hash: Option<[u8; 32]>,
-) -> ApprovalToken {
+    _pending_visual_hash: Option<[u8; 32]>,
+) -> Result<(ApprovalAuthority, ApprovalGrant)> {
+    let keypair =
+        Ed25519KeyPair::generate().map_err(|e| anyhow::anyhow!("approval keygen failed: {}", e))?;
+    let public_key = keypair.public_key().to_bytes();
+    let authority_id = account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+        .map_err(anyhow::Error::msg)?;
     let mut nonce = [0u8; 32];
     nonce.copy_from_slice(&request_hash);
-    ApprovalToken {
-        schema_version: 2,
+    let authority = ApprovalAuthority {
+        schema_version: 1,
+        authority_id,
+        public_key: public_key.clone(),
+        signature_suite: SignatureSuite::ED25519,
+        expires_at: now_ms.saturating_add(APPROVAL_GRANT_TTL_MS),
+        revoked: false,
+        scope_allowlist: vec!["desktop_agent.resume".to_string()],
+    };
+    let mut grant = ApprovalGrant {
+        schema_version: 1,
+        authority_id,
         request_hash,
-        audience: [0u8; 32],
-        revocation_epoch: 0,
+        policy_hash,
+        audience: session_id,
         nonce,
         counter: 1,
-        scope: ApprovalScope {
-            expires_at: now_ms.saturating_add(APPROVAL_TOKEN_TTL_MS),
-            max_usages: Some(1),
-        },
-        visual_hash: pending_visual_hash,
+        expires_at: now_ms.saturating_add(APPROVAL_GRANT_TTL_MS),
+        max_usages: Some(1),
+        window_id: None,
         pii_action: None,
         scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: public_key,
         approver_sig: Vec::new(),
         approver_suite: SignatureSuite::ED25519,
-    }
+    };
+    let signing_bytes = grant.signing_bytes().map_err(anyhow::Error::msg)?;
+    grant.approver_sig = keypair
+        .sign(&signing_bytes)
+        .map_err(|e| anyhow::anyhow!("approval signing failed: {}", e))?
+        .to_bytes()
+        .to_vec();
+    Ok((authority, grant))
 }
 
 fn build_deterministic_checks(

@@ -2,7 +2,8 @@ use super::*;
 use ioi_types::app::{
     StudioArtifactClass, StudioArtifactDeliverableShape, StudioArtifactPersistenceMode,
     StudioExecutionSubstrate, StudioOutcomeArtifactScope, StudioOutcomeArtifactVerificationRequest,
-    StudioPresentationSurface, StudioRendererKind,
+    StudioPresentationSurface, StudioRendererKind, StudioRuntimeProvenance,
+    StudioRuntimeProvenanceKind,
 };
 
 fn test_swarm_plan(strategy: &str, work_items: Vec<SwarmWorkItem>) -> SwarmPlan {
@@ -94,6 +95,82 @@ fn build_execution_envelope_derives_strategy_and_domain_kind_from_swarm() {
             .map(|entry| entry.current_stage.as_str()),
         Some("merge")
     );
+    validate_execution_envelope(&envelope).expect("derived execution envelope should validate");
+}
+
+#[test]
+fn execution_envelope_rejects_tampered_workflow_root_hash() {
+    let worker_receipts = vec![SwarmWorkerReceipt {
+        work_item_id: "draft".to_string(),
+        role: SwarmWorkerRole::Integrator,
+        status: SwarmWorkItemStatus::Succeeded,
+        result_kind: Some(SwarmWorkerResultKind::Completed),
+        summary: "Drafted artifact".to_string(),
+        started_at: "1".to_string(),
+        finished_at: Some("2".to_string()),
+        runtime: StudioRuntimeProvenance {
+            kind: StudioRuntimeProvenanceKind::MockRuntime,
+            label: "mock".to_string(),
+            model: None,
+            endpoint: None,
+        },
+        read_paths: Vec::new(),
+        write_paths: vec!["index.html".to_string()],
+        write_regions: vec!["main".to_string()],
+        spawned_work_item_ids: Vec::new(),
+        blocked_on_ids: Vec::new(),
+        prompt_bytes: None,
+        output_bytes: None,
+        output_preview: None,
+        preview_language: None,
+        notes: Vec::new(),
+        failure: None,
+    }];
+    let change_receipts = vec![SwarmChangeReceipt {
+        work_item_id: "draft".to_string(),
+        status: SwarmWorkItemStatus::Succeeded,
+        summary: "Patched index".to_string(),
+        operation_count: 1,
+        touched_paths: vec!["index.html".to_string()],
+        touched_regions: vec!["main".to_string()],
+        operation_kinds: vec!["replace_region".to_string()],
+        preview: None,
+        preview_language: None,
+        failure: None,
+    }];
+    let merge_receipts = vec![SwarmMergeReceipt {
+        work_item_id: "draft".to_string(),
+        status: SwarmWorkItemStatus::Succeeded,
+        summary: "Merged draft".to_string(),
+        applied_operation_count: 1,
+        touched_paths: vec!["index.html".to_string()],
+        touched_regions: vec!["main".to_string()],
+        rejected_reason: None,
+    }];
+    let envelope = build_execution_envelope_from_swarm_with_receipts(
+        Some(StudioExecutionStrategy::AdaptiveWorkGraph),
+        Some("studio_artifact".to_string()),
+        Some(ExecutionDomainKind::Artifact),
+        None,
+        None,
+        &worker_receipts,
+        &change_receipts,
+        &merge_receipts,
+        &[],
+        &[],
+        &[],
+        &[],
+        &[],
+        None,
+        &[],
+    )
+    .expect("envelope");
+    validate_execution_envelope(&envelope).expect("canonical envelope should validate");
+
+    let mut tampered = envelope.clone();
+    tampered.workflow_artifact_root_hash = Some("bad-root".to_string());
+    let err = validate_execution_envelope(&tampered).expect_err("tampered root hash must fail");
+    assert!(err.contains("workflow_artifact_root_hash"));
 }
 
 #[test]

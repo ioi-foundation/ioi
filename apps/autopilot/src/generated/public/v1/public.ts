@@ -238,7 +238,7 @@ export interface SubmitTransactionRequest {
 export interface SubmitTransactionResponse {
   /**
    * SHA-256 hash of the transaction.
-   * If status is PENDING_APPROVAL, this is the hash to sign in the ApprovalToken.
+   * If status is PENDING_APPROVAL, this is the request hash to bind into the ApprovalGrant.
    */
   txHash: string;
   /** Indicates if the transaction was accepted, rejected, or requires 2FA. */

@@ -34,13 +34,20 @@ fn normalize_blocked_web_read_for_continuation(
     }
 
     let note = blocked_web_read_note(read_url, challenged);
-    *success = true;
-    *error_msg = None;
+    *success = false;
+    if error_msg.is_none() {
+        *error_msg = Some(format!(
+            "ERROR_CLASS=BlockedWebRead {}",
+            note
+        ));
+    }
     *history_entry = Some(note.clone());
     *action_output = Some(note);
-    *stop_condition_hit = false;
-    *escalation_path = None;
-    verification_checks.push("web_blocked_read_continues=true".to_string());
+    *stop_condition_hit = true;
+    if escalation_path.is_none() {
+        *escalation_path = Some("blocked_web_read_requires_remediation".to_string());
+    }
+    verification_checks.push("web_blocked_read_requires_remediation=true".to_string());
 }
 
 fn maybe_normalize_unchanged_browser_snapshot(

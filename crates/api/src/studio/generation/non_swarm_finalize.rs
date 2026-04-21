@@ -101,6 +101,18 @@ pub(super) fn build_non_swarm_winner_bundle(
         },
         non_swarm_required_artifact_paths(&winner),
     );
+    if let Some(envelope) = execution_envelope.as_ref() {
+        crate::execution::validate_execution_envelope(envelope)
+            .map_err(|message| StudioArtifactGenerationError {
+                message,
+                brief: Some(brief.clone()),
+                blueprint: blueprint.clone(),
+                artifact_ir: artifact_ir.clone(),
+                selected_skills: selected_skills.clone(),
+                edit_intent: edit_intent.clone(),
+                candidate_summaries: final_candidate_summaries.clone(),
+            })?;
+    }
 
     Ok(StudioArtifactGenerationBundle {
         brief,

@@ -49,9 +49,15 @@ use crate::agentic::pii_scrubber::PiiScrubber;
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::os::OsDriver;
 
-use self::lifecycle::{handle_delete_session, handle_post_message, handle_resume, handle_start};
+use self::lifecycle::{
+    handle_delete_session, handle_post_message, handle_register_approval_authority, handle_resume,
+    handle_revoke_approval_authority, handle_start,
+};
 use self::step::handle_step;
-use crate::agentic::runtime::types::{PostMessageParams, StepAgentParams};
+use crate::agentic::runtime::types::{
+    PostMessageParams, RegisterApprovalAuthorityParams, RevokeApprovalAuthorityParams,
+    StepAgentParams,
+};
 
 use ioi_drivers::gui::accessibility::AccessibilityNode;
 use ioi_drivers::gui::lenses::LensRegistry;
@@ -184,6 +190,14 @@ impl BlockchainService for RuntimeAgentService {
             "post_message@v1" => {
                 let p: PostMessageParams = codec::from_bytes_canonical(params)?;
                 handle_post_message(self, state, p, ctx).await
+            }
+            "register_approval_authority@v1" => {
+                let p: RegisterApprovalAuthorityParams = codec::from_bytes_canonical(params)?;
+                handle_register_approval_authority(state, p, ctx).await
+            }
+            "revoke_approval_authority@v1" => {
+                let p: RevokeApprovalAuthorityParams = codec::from_bytes_canonical(params)?;
+                handle_revoke_approval_authority(state, p, ctx).await
             }
             "delete_session@v1" => handle_delete_session(self, state, params).await,
             _ => Err(TransactionError::Unsupported(method.into())),

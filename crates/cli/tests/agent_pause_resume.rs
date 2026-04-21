@@ -182,7 +182,7 @@ async fn test_agent_pause_resume() -> Result<()> {
     // 4. Resume
     let resume_params = ResumeAgentParams {
         session_id,
-        approval_token: None,
+        approval_grant: None,
     };
     let resume_bytes = codec::to_bytes_canonical(&resume_params).unwrap();
     service

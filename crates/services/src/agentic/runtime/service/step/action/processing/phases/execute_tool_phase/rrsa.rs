@@ -245,16 +245,16 @@ pub(super) fn record_rrsa_action_evidence(ctx: RrsaContext<'_>) -> Result<(), St
                 true,
             );
 
-            let approval_token_ref = wallet_approval_token_ref(ctx.tool_args, ctx.history_entry);
+            let approval_grant_ref = wallet_approval_grant_ref(ctx.tool_args, ctx.history_entry);
             let approval_required = matches!(target, ActionTarget::WalletSend)
                 || ctx
                     .policy_decision
                     .to_ascii_lowercase()
                     .contains("approved");
-            if approval_required && approval_token_ref.is_none() {
-                return Err("rrsa wallet approval token reference missing".to_string());
+            if approval_required && approval_grant_ref.is_none() {
+                return Err("rrsa wallet approval grant reference missing".to_string());
             }
-            if let Some(approval_token_ref) = approval_token_ref {
+            if let Some(approval_grant_ref) = approval_grant_ref {
                 record_rrsa_receipt(
                     ctx.service,
                     ctx.agent_state,
@@ -263,8 +263,8 @@ pub(super) fn record_rrsa_action_evidence(ctx: RrsaContext<'_>) -> Result<(), St
                     ctx.step_index,
                     ctx.resolved_intent_id,
                     ctx.synthesized_payload_hash.clone(),
-                    "rrsa_approval_token_ref",
-                    &approval_token_ref,
+                    "rrsa_approval_grant_ref",
+                    &approval_grant_ref,
                     true,
                 );
             }
@@ -430,10 +430,10 @@ fn wallet_tx_hash(tool_args: &Value, history_entry: Option<&str>) -> Option<Stri
     })
 }
 
-fn wallet_approval_token_ref(tool_args: &Value, history_entry: Option<&str>) -> Option<String> {
+fn wallet_approval_grant_ref(tool_args: &Value, history_entry: Option<&str>) -> Option<String> {
     const REF_KEYS: [&str; 4] = [
-        "approval_token_ref",
-        "approvalTokenRef",
+        "approval_grant_ref",
+        "approvalGrantRef",
         "approval_ref",
         "approvalRef",
     ];

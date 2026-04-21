@@ -6,7 +6,7 @@ use ioi_api::vm::inference::InferenceRuntime;
 use ioi_drivers::browser::BrowserDriver;
 use ioi_drivers::terminal::TerminalDriver;
 use ioi_memory::{ArchivalMemoryQuery, MemoryRuntime};
-use ioi_types::app::action::ApprovalToken;
+use ioi_types::app::action::ApprovalGrant;
 use ioi_types::app::agentic::{
     InferenceOptions, IntentConfidenceBand, IntentScopeProfile, ResolvedIntentState,
 };
@@ -50,7 +50,7 @@ fn sample_agent_state(session_id: [u8; 32], goal: &str) -> AgentState {
         budget: 0,
         tokens_used: 0,
         consecutive_failures: 0,
-        pending_approval: None::<ApprovalToken>,
+        pending_approval: None::<ApprovalGrant>,
         pending_tool_call: None,
         pending_tool_jcs: None,
         pending_tool_hash: None,

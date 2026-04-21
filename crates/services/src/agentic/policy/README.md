@@ -24,7 +24,7 @@ The policy engine evaluates the request against the active rules and returns one
     *   The agent state is set to `Paused`.
     *   The Kernel emits a `FirewallInterception` event to the UI.
     *   The user sees a pop-up: *"Agent wants to send 100 USDC. Approve?"*
-    *   If approved, the UI generates an **`ApprovalToken`**, which is submitted via `resume@v1` to unlock the action.
+    *   If approved, the runtime consumes an externally signed **`ApprovalGrant`**, which is submitted via `resume@v1` to unlock the action.
 
 ## Default Policy
 The `ioi-local` node defaults to **Interactive Mode** (`DefaultPolicy::RequireApproval`). This means the agent can try anything, but the user remains in the loop for any action not explicitly whitelisted.

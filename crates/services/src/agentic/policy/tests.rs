@@ -287,7 +287,7 @@ fn allow_domains_allows_exact_and_subdomain_hosts() {
             nonce: 1,
         };
 
-        let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+        let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
         assert_eq!(verdict, Verdict::Allow, "url should be allowed: {}", url);
     }
 }
@@ -338,7 +338,7 @@ fn allow_domains_blocks_substring_bypass_host() {
         nonce: 1,
     };
 
-    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
     assert_eq!(verdict, Verdict::Block);
 }
 
@@ -394,7 +394,6 @@ fn evaluate_with_working_directory_allows_relative_repo_read() {
         Some("/workspace/repo"),
         &safety,
         &os,
-        None,
     ));
     assert_eq!(verdict, Verdict::Allow);
 }
@@ -447,7 +446,7 @@ fn sys_exec_allow_commands_allows_rg_with_pipe_arg() -> Result<()> {
         nonce: 1,
     };
 
-    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
     assert_eq!(verdict, Verdict::Allow);
     Ok(())
 }
@@ -499,7 +498,7 @@ fn sys_exec_allowlist_ignores_missing_command_field() -> Result<()> {
         nonce: 1,
     };
 
-    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
     assert_eq!(verdict, Verdict::Allow);
     Ok(())
 }
@@ -552,7 +551,7 @@ fn sys_exec_allow_commands_cannot_enable_shell_binaries() -> Result<()> {
         nonce: 1,
     };
 
-    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os, None));
+    let verdict = rt.block_on(PolicyEngine::evaluate(&rules, &request, &safety, &os));
     assert_eq!(verdict, Verdict::Block);
     Ok(())
 }

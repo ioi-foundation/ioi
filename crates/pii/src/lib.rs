@@ -24,7 +24,8 @@ pub use assist::{
 
 pub use review_contract::{
     check_exception_usage_increment_ok, decode_exception_usage_state, expected_assist_identity,
-    resolve_expected_request_hash, validate_resume_review_contract, validate_review_request_compat,
+    resolve_expected_request_hash,
+    validate_resume_review_contract_for_grant, validate_review_request_compat,
     PiiReviewContractError, ResumeReviewMode, REVIEW_REQUEST_VERSION,
 };
 

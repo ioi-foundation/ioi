@@ -336,6 +336,9 @@ pub struct ExecutionContractReceiptEvent {
     /// Optional synthesized-payload hash.
     #[serde(default)]
     pub synthesized_payload_hash: Option<String>,
+    /// Execution-contract events are non-authoritative projections of persisted settlement artifacts.
+    #[serde(default)]
+    pub authoritative: bool,
 }
 
 /// Worker vertex captured in a planner receipt.
@@ -911,7 +914,7 @@ pub enum KernelEvent {
         verdict: String,
         /// The target capability (e.g., "net::fetch").
         target: String,
-        /// The hash of the ActionRequest, used for signing ApprovalTokens.
+        /// The hash of the ActionRequest, bound by ApprovalGrant artifacts.
         request_hash: [u8; 32],
         /// The session ID associated with this interception (if available).
         session_id: Option<[u8; 32]>,

@@ -4,7 +4,8 @@ use ioi_types::app::{
     StudioOutcomeKind, StudioRuntimeProvenance,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap};
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use ts_rs::TS;
 
 fn default_execution_domain() -> String {
@@ -287,6 +288,68 @@ pub struct SwarmVerificationReceipt {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct SwarmWorkItemCommit {
+    pub work_item_id: String,
+    pub status: SwarmWorkItemStatus,
+    #[serde(default)]
+    pub write_paths: Vec<String>,
+    #[serde(default)]
+    pub write_regions: Vec<String>,
+    pub write_scope_hash: String,
+    #[serde(default)]
+    pub worker_receipt_hash: Option<String>,
+    #[serde(default)]
+    pub change_receipt_hash: Option<String>,
+    pub commit_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SwarmMergeDecisionArtifact {
+    pub work_item_id: String,
+    pub status: SwarmWorkItemStatus,
+    pub scope_conflict_free: bool,
+    #[serde(default)]
+    pub required_commit_hashes: Vec<String>,
+    #[serde(default)]
+    pub merge_receipt_hash: Option<String>,
+    pub merge_hash: String,
+    #[serde(default)]
+    pub rejected_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SwarmRetryDecisionArtifact {
+    pub id: String,
+    pub status: String,
+    #[serde(default)]
+    pub triggered_by_work_item_id: Option<String>,
+    #[serde(default)]
+    pub spawned_work_item_ids: Vec<String>,
+    #[serde(default)]
+    pub blocked_work_item_ids: Vec<String>,
+    #[serde(default)]
+    pub replan_receipt_hash: Option<String>,
+    pub retry_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SwarmRepairActionArtifact {
+    pub id: String,
+    pub status: String,
+    #[serde(default)]
+    pub triggered_by_verification_id: Option<String>,
+    #[serde(default)]
+    pub work_item_ids: Vec<String>,
+    #[serde(default)]
+    pub repair_receipt_hash: Option<String>,
+    pub repair_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ExecutionGraphMutationReceipt {
     pub id: String,
     pub mutation_kind: String,
@@ -430,6 +493,8 @@ pub struct ExecutionEnvelope {
     #[serde(default)]
     pub domain_kind: Option<ExecutionDomainKind>,
     #[serde(default)]
+    pub workflow_artifact_root_hash: Option<String>,
+    #[serde(default)]
     pub completion_invariant: Option<ExecutionCompletionInvariant>,
     #[serde(default)]
     pub plan: Option<SwarmPlan>,
@@ -444,6 +509,10 @@ pub struct ExecutionEnvelope {
     #[serde(default)]
     pub verification_receipts: Vec<SwarmVerificationReceipt>,
     #[serde(default)]
+    pub work_item_commits: Vec<SwarmWorkItemCommit>,
+    #[serde(default)]
+    pub merge_decision_artifacts: Vec<SwarmMergeDecisionArtifact>,
+    #[serde(default)]
     pub graph_mutation_receipts: Vec<ExecutionGraphMutationReceipt>,
     #[serde(default)]
     pub dispatch_batches: Vec<ExecutionDispatchBatch>,
@@ -451,6 +520,10 @@ pub struct ExecutionEnvelope {
     pub repair_receipts: Vec<ExecutionRepairReceipt>,
     #[serde(default)]
     pub replan_receipts: Vec<ExecutionReplanReceipt>,
+    #[serde(default)]
+    pub retry_decision_artifacts: Vec<SwarmRetryDecisionArtifact>,
+    #[serde(default)]
+    pub repair_action_artifacts: Vec<SwarmRepairActionArtifact>,
     #[serde(default)]
     pub budget_summary: Option<ExecutionBudgetSummary>,
     #[serde(default)]
@@ -498,6 +571,316 @@ fn artifact_work_graph_size_estimate(request: &StudioOutcomeArtifactRequest) -> 
 
 fn clamp_score(value: f32) -> f32 {
     value.clamp(0.0, 1.0)
+}
+
+fn canonical_execution_hash<T: Serialize>(value: &T) -> String {
+    serde_jcs::to_vec(value)
+        .ok()
+        .map(|bytes| hex::encode(Sha256::digest(bytes)))
+        .unwrap_or_else(|| "unavailable".to_string())
+}
+
+fn build_swarm_work_item_commits(
+    worker_receipts: &[SwarmWorkerReceipt],
+    change_receipts: &[SwarmChangeReceipt],
+) -> Vec<SwarmWorkItemCommit> {
+    let worker_by_id = worker_receipts
+        .iter()
+        .map(|receipt| (receipt.work_item_id.clone(), receipt))
+        .collect::<BTreeMap<_, _>>();
+    let change_by_id = change_receipts
+        .iter()
+        .map(|receipt| (receipt.work_item_id.clone(), receipt))
+        .collect::<BTreeMap<_, _>>();
+    let work_item_ids = worker_by_id
+        .keys()
+        .chain(change_by_id.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    work_item_ids
+        .iter()
+        .map(|work_item_id| {
+            let worker = worker_by_id.get(work_item_id);
+            let change = change_by_id.get(work_item_id);
+            let write_paths = worker
+                .map(|receipt| receipt.write_paths.clone())
+                .or_else(|| change.map(|receipt| receipt.touched_paths.clone()))
+                .unwrap_or_default();
+            let write_regions = worker
+                .map(|receipt| receipt.write_regions.clone())
+                .or_else(|| change.map(|receipt| receipt.touched_regions.clone()))
+                .unwrap_or_default();
+            let status = worker
+                .map(|receipt| receipt.status)
+                .or_else(|| change.map(|receipt| receipt.status))
+                .unwrap_or(SwarmWorkItemStatus::Pending);
+            let write_scope_hash = canonical_execution_hash(&(
+                work_item_id,
+                &write_paths,
+                &write_regions,
+                status,
+            ));
+            let worker_receipt_hash = worker.map(canonical_execution_hash);
+            let change_receipt_hash = change.map(canonical_execution_hash);
+            let commit_hash = canonical_execution_hash(&(
+                work_item_id,
+                status,
+                &write_paths,
+                &write_regions,
+                &worker_receipt_hash,
+                &change_receipt_hash,
+            ));
+            SwarmWorkItemCommit {
+                work_item_id: work_item_id.clone(),
+                status,
+                write_paths,
+                write_regions,
+                write_scope_hash,
+                worker_receipt_hash,
+                change_receipt_hash,
+                commit_hash,
+            }
+        })
+        .collect()
+}
+
+fn build_swarm_merge_decision_artifacts(
+    merge_receipts: &[SwarmMergeReceipt],
+    work_item_commits: &[SwarmWorkItemCommit],
+) -> Vec<SwarmMergeDecisionArtifact> {
+    let commit_by_id = work_item_commits
+        .iter()
+        .map(|commit| (commit.work_item_id.clone(), commit))
+        .collect::<BTreeMap<_, _>>();
+    merge_receipts
+        .iter()
+        .map(|receipt| {
+            let required_commit_hashes = commit_by_id
+                .get(&receipt.work_item_id)
+                .map(|commit| vec![commit.commit_hash.clone()])
+                .unwrap_or_default();
+            let merge_receipt_hash = Some(canonical_execution_hash(receipt));
+            let scope_conflict_free =
+                receipt.status != SwarmWorkItemStatus::Rejected && receipt.rejected_reason.is_none();
+            let merge_hash = canonical_execution_hash(&(
+                &receipt.work_item_id,
+                receipt.status,
+                scope_conflict_free,
+                &required_commit_hashes,
+                &merge_receipt_hash,
+                &receipt.rejected_reason,
+            ));
+            SwarmMergeDecisionArtifact {
+                work_item_id: receipt.work_item_id.clone(),
+                status: receipt.status,
+                scope_conflict_free,
+                required_commit_hashes,
+                merge_receipt_hash,
+                merge_hash,
+                rejected_reason: receipt.rejected_reason.clone(),
+            }
+        })
+        .collect()
+}
+
+fn build_swarm_retry_decision_artifacts(
+    replan_receipts: &[ExecutionReplanReceipt],
+) -> Vec<SwarmRetryDecisionArtifact> {
+    replan_receipts
+        .iter()
+        .map(|receipt| {
+            let replan_receipt_hash = Some(canonical_execution_hash(receipt));
+            let retry_hash = canonical_execution_hash(&(
+                &receipt.id,
+                &receipt.status,
+                &receipt.triggered_by_work_item_id,
+                &receipt.spawned_work_item_ids,
+                &receipt.blocked_work_item_ids,
+                &replan_receipt_hash,
+            ));
+            SwarmRetryDecisionArtifact {
+                id: receipt.id.clone(),
+                status: receipt.status.clone(),
+                triggered_by_work_item_id: receipt.triggered_by_work_item_id.clone(),
+                spawned_work_item_ids: receipt.spawned_work_item_ids.clone(),
+                blocked_work_item_ids: receipt.blocked_work_item_ids.clone(),
+                replan_receipt_hash,
+                retry_hash,
+            }
+        })
+        .collect()
+}
+
+fn build_swarm_repair_action_artifacts(
+    repair_receipts: &[ExecutionRepairReceipt],
+) -> Vec<SwarmRepairActionArtifact> {
+    repair_receipts
+        .iter()
+        .map(|receipt| {
+            let repair_receipt_hash = Some(canonical_execution_hash(receipt));
+            let repair_hash = canonical_execution_hash(&(
+                &receipt.id,
+                &receipt.status,
+                &receipt.triggered_by_verification_id,
+                &receipt.work_item_ids,
+                &repair_receipt_hash,
+            ));
+            SwarmRepairActionArtifact {
+                id: receipt.id.clone(),
+                status: receipt.status.clone(),
+                triggered_by_verification_id: receipt.triggered_by_verification_id.clone(),
+                work_item_ids: receipt.work_item_ids.clone(),
+                repair_receipt_hash,
+                repair_hash,
+            }
+        })
+        .collect()
+}
+
+fn build_workflow_artifact_root_hash(
+    work_item_commits: &[SwarmWorkItemCommit],
+    merge_decision_artifacts: &[SwarmMergeDecisionArtifact],
+    retry_decision_artifacts: &[SwarmRetryDecisionArtifact],
+    repair_action_artifacts: &[SwarmRepairActionArtifact],
+) -> String {
+    canonical_execution_hash(&(
+        work_item_commits,
+        merge_decision_artifacts,
+        retry_decision_artifacts,
+        repair_action_artifacts,
+    ))
+}
+
+pub fn validate_execution_envelope(envelope: &ExecutionEnvelope) -> Result<(), String> {
+    let commit_by_id = envelope
+        .work_item_commits
+        .iter()
+        .map(|commit| (commit.work_item_id.clone(), commit))
+        .collect::<BTreeMap<_, _>>();
+
+    for commit in &envelope.work_item_commits {
+        let expected_scope_hash = canonical_execution_hash(&(
+            &commit.work_item_id,
+            &commit.write_paths,
+            &commit.write_regions,
+            commit.status,
+        ));
+        if commit.write_scope_hash != expected_scope_hash {
+            return Err(format!(
+                "workflow commit '{}' has non-canonical write_scope_hash",
+                commit.work_item_id
+            ));
+        }
+        let expected_commit_hash = canonical_execution_hash(&(
+            &commit.work_item_id,
+            commit.status,
+            &commit.write_paths,
+            &commit.write_regions,
+            &commit.worker_receipt_hash,
+            &commit.change_receipt_hash,
+        ));
+        if commit.commit_hash != expected_commit_hash {
+            return Err(format!(
+                "workflow commit '{}' has non-canonical commit_hash",
+                commit.work_item_id
+            ));
+        }
+    }
+
+    for receipt in &envelope.change_receipts {
+        if !commit_by_id.contains_key(&receipt.work_item_id) {
+            return Err(format!(
+                "change receipt '{}' missing matching work_item_commit",
+                receipt.work_item_id
+            ));
+        }
+    }
+    for receipt in &envelope.merge_receipts {
+        if !envelope
+            .merge_decision_artifacts
+            .iter()
+            .any(|artifact| artifact.work_item_id == receipt.work_item_id)
+        {
+            return Err(format!(
+                "merge receipt '{}' missing matching merge_decision_artifact",
+                receipt.work_item_id
+            ));
+        }
+    }
+    for artifact in &envelope.merge_decision_artifacts {
+        if !artifact
+            .required_commit_hashes
+            .iter()
+            .all(|hash| commit_by_id.values().any(|commit| &commit.commit_hash == hash))
+        {
+            return Err(format!(
+                "merge decision '{}' references unknown work item commit",
+                artifact.work_item_id
+            ));
+        }
+        let expected_merge_hash = canonical_execution_hash(&(
+            &artifact.work_item_id,
+            artifact.status,
+            artifact.scope_conflict_free,
+            &artifact.required_commit_hashes,
+            &artifact.merge_receipt_hash,
+            &artifact.rejected_reason,
+        ));
+        if artifact.merge_hash != expected_merge_hash {
+            return Err(format!(
+                "merge decision '{}' has non-canonical merge_hash",
+                artifact.work_item_id
+            ));
+        }
+    }
+    if envelope.retry_decision_artifacts.len() != envelope.replan_receipts.len() {
+        return Err("retry decision artifacts do not match replan receipt count".to_string());
+    }
+    if envelope.repair_action_artifacts.len() != envelope.repair_receipts.len() {
+        return Err("repair action artifacts do not match repair receipt count".to_string());
+    }
+    for artifact in &envelope.retry_decision_artifacts {
+        let expected = canonical_execution_hash(&(
+            &artifact.id,
+            &artifact.status,
+            &artifact.triggered_by_work_item_id,
+            &artifact.spawned_work_item_ids,
+            &artifact.blocked_work_item_ids,
+            &artifact.replan_receipt_hash,
+        ));
+        if artifact.retry_hash != expected {
+            return Err(format!(
+                "retry decision '{}' has non-canonical retry_hash",
+                artifact.id
+            ));
+        }
+    }
+    for artifact in &envelope.repair_action_artifacts {
+        let expected = canonical_execution_hash(&(
+            &artifact.id,
+            &artifact.status,
+            &artifact.triggered_by_verification_id,
+            &artifact.work_item_ids,
+            &artifact.repair_receipt_hash,
+        ));
+        if artifact.repair_hash != expected {
+            return Err(format!(
+                "repair action '{}' has non-canonical repair_hash",
+                artifact.id
+            ));
+        }
+    }
+    let expected_root = build_workflow_artifact_root_hash(
+        &envelope.work_item_commits,
+        &envelope.merge_decision_artifacts,
+        &envelope.retry_decision_artifacts,
+        &envelope.repair_action_artifacts,
+    );
+    if envelope.workflow_artifact_root_hash.as_deref() != Some(expected_root.as_str()) {
+        return Err("workflow_artifact_root_hash does not match canonical swarm settlement artifacts"
+            .to_string());
+    }
+    Ok(())
 }
 
 fn artifact_supports_direct_authoring(
@@ -1605,14 +1988,26 @@ pub fn build_execution_envelope_from_swarm_with_receipts(
     } else {
         dispatch_batches.to_vec()
     };
+    let work_item_commits = build_swarm_work_item_commits(worker_receipts, change_receipts);
+    let merge_decision_artifacts =
+        build_swarm_merge_decision_artifacts(merge_receipts, &work_item_commits);
+    let retry_decision_artifacts = build_swarm_retry_decision_artifacts(replan_receipts);
+    let repair_action_artifacts = build_swarm_repair_action_artifacts(repair_receipts);
+    let workflow_artifact_root_hash = build_workflow_artifact_root_hash(
+        &work_item_commits,
+        &merge_decision_artifacts,
+        &retry_decision_artifacts,
+        &repair_action_artifacts,
+    );
 
-    Some(ExecutionEnvelope {
+    let envelope = ExecutionEnvelope {
         version: 1,
         strategy: resolved_strategy,
         mode_decision: None,
         budget_envelope: None,
         execution_domain: resolved_domain,
         domain_kind: resolved_domain_kind,
+        workflow_artifact_root_hash: Some(workflow_artifact_root_hash),
         completion_invariant: plan.and_then(|entry| entry.completion_invariant.clone()),
         plan: plan.cloned(),
         execution_summary: execution_summary.cloned(),
@@ -1620,13 +2015,19 @@ pub fn build_execution_envelope_from_swarm_with_receipts(
         change_receipts: change_receipts.to_vec(),
         merge_receipts: merge_receipts.to_vec(),
         verification_receipts: verification_receipts.to_vec(),
+        work_item_commits,
+        merge_decision_artifacts,
         graph_mutation_receipts: graph_mutation_receipts.to_vec(),
         dispatch_batches: resolved_dispatch_batches,
         repair_receipts: repair_receipts.to_vec(),
         replan_receipts: replan_receipts.to_vec(),
+        retry_decision_artifacts,
+        repair_action_artifacts,
         budget_summary,
         live_previews: live_previews.to_vec(),
-    })
+    };
+    debug_assert!(validate_execution_envelope(&envelope).is_ok());
+    Some(envelope)
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 // Path: crates/types/src/app/agentic/execution.rs
 
-use crate::app::action::ApprovalToken;
+use crate::app::action::{ApprovalAuthority, ApprovalGrant};
 use crate::app::ActionRequest;
 use crate::app::{CanonicalCollapseObject, FinalityTier, SealedFinalityProof};
 use parity_scale_codec::{Decode, Encode};
@@ -420,7 +420,21 @@ pub struct StepTrace {
 pub struct ResumeAgentParams {
     /// The ID of the session to resume.
     pub session_id: [u8; 32],
-    /// Optional approval token to unblock a gated action.
-    /// If provided, this token authorizes the action that caused the pause.
-    pub approval_token: Option<ApprovalToken>,
+    /// Optional canonical approval grant to unblock a gated action.
+    /// This is the authoritative approval artifact for constitutional resume flows.
+    pub approval_grant: Option<ApprovalGrant>,
+}
+
+/// Parameters for registering an approval authority with the runtime.
+#[derive(Encode, Decode)]
+pub struct RegisterApprovalAuthorityParams {
+    /// Authority artifact to persist under the runtime namespace.
+    pub authority: ApprovalAuthority,
+}
+
+/// Parameters for revoking a previously registered approval authority.
+#[derive(Encode, Decode)]
+pub struct RevokeApprovalAuthorityParams {
+    /// Authority identifier to revoke.
+    pub authority_id: [u8; 32],
 }

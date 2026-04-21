@@ -1,7 +1,7 @@
 use super::*;
 
 #[tokio::test]
-async fn wallet_network_approval_token_consumption_via_real_callservice_txs() -> Result<()> {
+async fn wallet_network_approval_grant_consumption_via_real_callservice_txs() -> Result<()> {
     let _guard = E2E_TEST_LOCK.lock().expect("lock");
     build_test_artifacts();
 
@@ -19,7 +19,7 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
         let keypair = &node.keypair;
         let chain_id: ChainId = 1.into();
         let mut nonce = 0u64;
-        let approval_signer = new_hybrid_signer()?;
+        let approval_signer = new_approval_signer()?;
         let tx_signer_audience = account_id_from_key_material(
             SignatureSuite::ED25519,
             &keypair.public().encode_protobuf(),
@@ -34,6 +34,7 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
             session_id: Some(session_id_1),
             request_hash: request_hash_1,
             target: ioi_types::app::ActionTarget::WebRetrieve,
+            policy_hash: unique_id("wallet_network_approval_policy_1"),
             value_usd_micros: Some(42),
             reason: "manual approval required".to_string(),
             intercepted_at_ms: 4_100_000_000_000,
@@ -49,39 +50,41 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
         .await?;
         nonce += 1;
 
-        let approval_1 = sign_wallet_approval_decision(
-            WalletApprovalDecision {
-                interception: WalletInterceptionContext {
-                    session_id: Some(session_id_1),
-                    request_hash: request_hash_1,
-                    target: ioi_types::app::ActionTarget::WebRetrieve,
-                    value_usd_micros: Some(42),
-                    reason: "manual approval required".to_string(),
-                    intercepted_at_ms: 4_100_000_000_000,
-                },
-                decision: WalletApprovalDecisionKind::ApprovedByHuman,
-                approval_token: Some(ApprovalToken {
-                    schema_version: 2,
-                    request_hash: request_hash_1,
-                    audience: tx_signer_audience,
-                    revocation_epoch: 0,
-                    nonce: unique_id("wallet_network_approval_token_nonce_1"),
-                    counter: 1,
-                    scope: ApprovalScope {
-                        expires_at: 4_200_000_000_000,
-                        max_usages: Some(1),
-                    },
-                    visual_hash: None,
-                    pii_action: None,
-                    scoped_exception: None,
-                    approver_sig: vec![],
-                    approver_suite: SignatureSuite::HYBRID_ED25519_ML_DSA_44,
-                }),
-                surface: VaultSurface::Desktop,
-                decided_at_ms: 4_100_000_000_500,
-            },
+        register_wallet_approval_authority(
+            &cluster,
+            rpc_addr,
+            keypair,
+            chain_id,
+            nonce,
             &approval_signer,
-        )?;
+        )
+        .await?;
+        nonce += 1;
+
+        let approval_1 = WalletApprovalDecision {
+            interception: WalletInterceptionContext {
+                session_id: Some(session_id_1),
+                request_hash: request_hash_1,
+                target: ioi_types::app::ActionTarget::WebRetrieve,
+                policy_hash: unique_id("wallet_network_approval_policy_1"),
+                value_usd_micros: Some(42),
+                reason: "manual approval required".to_string(),
+                intercepted_at_ms: 4_100_000_000_000,
+            },
+            decision: WalletApprovalDecisionKind::ApprovedByHuman,
+            approval_grant: Some(signed_wallet_approval_grant(
+                &approval_signer,
+                request_hash_1,
+                unique_id("wallet_network_approval_policy_1"),
+                tx_signer_audience,
+                unique_id("wallet_network_approval_grant_nonce_1"),
+                1,
+                Some(1),
+                4_200_000_000_000,
+            )?),
+            surface: VaultSurface::Desktop,
+            decided_at_ms: 4_100_000_000_500,
+        };
         submit_wallet_call(
             rpc_addr,
             keypair,
@@ -95,9 +98,9 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
 
         let stored_approval: WalletApprovalDecision =
             load_wallet_value(rpc_addr, &approval_storage_key(&request_hash_1)).await?;
-        assert!(stored_approval.approval_token.is_some());
+        assert!(stored_approval.approval_grant.is_some());
 
-        let consume_1 = ConsumeApprovalTokenParams {
+        let consume_1 = ConsumeApprovalGrantParams {
             request_hash: request_hash_1,
             consumed_at_ms: 4_100_000_001_000,
         };
@@ -106,7 +109,7 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
             keypair,
             chain_id,
             nonce,
-            "consume_approval_token@v1",
+            "consume_approval_grant@v1",
             consume_1,
         )
         .await?;
@@ -119,7 +122,7 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
         assert_eq!(consumed_once.remaining_usages, 0);
         assert_eq!(consumed_once.bound_audience, Some(tx_signer_audience));
 
-        let consume_again = ConsumeApprovalTokenParams {
+        let consume_again = ConsumeApprovalGrantParams {
             request_hash: request_hash_1,
             consumed_at_ms: 4_100_000_002_000,
         };
@@ -130,7 +133,7 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
             keypair,
             chain_id,
             nonce,
-            "consume_approval_token@v1",
+            "consume_approval_grant@v1",
             consume_again,
         )
         .await;
@@ -145,6 +148,7 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
             session_id: None,
             request_hash: request_hash_2,
             target: ioi_types::app::ActionTarget::NetFetch,
+            policy_hash: unique_id("wallet_network_approval_policy_2"),
             value_usd_micros: None,
             reason: "manual approval required".to_string(),
             intercepted_at_ms: 4_100_000_003_000,
@@ -160,39 +164,30 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
         .await?;
         nonce += 1;
 
-        let approval_2 = sign_wallet_approval_decision(
-            WalletApprovalDecision {
-                interception: WalletInterceptionContext {
-                    session_id: None,
-                    request_hash: request_hash_2,
-                    target: ioi_types::app::ActionTarget::NetFetch,
-                    value_usd_micros: None,
-                    reason: "manual approval required".to_string(),
-                    intercepted_at_ms: 4_100_000_003_000,
-                },
-                decision: WalletApprovalDecisionKind::ApprovedByHuman,
-                approval_token: Some(ApprovalToken {
-                    schema_version: 2,
-                    request_hash: request_hash_2,
-                    audience: tx_signer_audience,
-                    revocation_epoch: 0,
-                    nonce: unique_id("wallet_network_approval_token_nonce_2"),
-                    counter: 2,
-                    scope: ApprovalScope {
-                        expires_at: 4_200_000_000_000,
-                        max_usages: Some(1),
-                    },
-                    visual_hash: None,
-                    pii_action: None,
-                    scoped_exception: None,
-                    approver_sig: vec![],
-                    approver_suite: SignatureSuite::HYBRID_ED25519_ML_DSA_44,
-                }),
-                surface: VaultSurface::Desktop,
-                decided_at_ms: 4_100_000_003_500,
+        let approval_2 = WalletApprovalDecision {
+            interception: WalletInterceptionContext {
+                session_id: None,
+                request_hash: request_hash_2,
+                target: ioi_types::app::ActionTarget::NetFetch,
+                policy_hash: unique_id("wallet_network_approval_policy_2"),
+                value_usd_micros: None,
+                reason: "manual approval required".to_string(),
+                intercepted_at_ms: 4_100_000_003_000,
             },
-            &approval_signer,
-        )?;
+            decision: WalletApprovalDecisionKind::ApprovedByHuman,
+            approval_grant: Some(signed_wallet_approval_grant(
+                &approval_signer,
+                request_hash_2,
+                unique_id("wallet_network_approval_policy_2"),
+                tx_signer_audience,
+                unique_id("wallet_network_approval_grant_nonce_2"),
+                2,
+                Some(1),
+                4_200_000_000_000,
+            )?),
+            surface: VaultSurface::Desktop,
+            decided_at_ms: 4_100_000_003_500,
+        };
         submit_wallet_call(
             rpc_addr,
             keypair,
@@ -217,7 +212,7 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
         .await?;
         nonce += 1;
 
-        let consume_revoked = ConsumeApprovalTokenParams {
+        let consume_revoked = ConsumeApprovalGrantParams {
             request_hash: request_hash_2,
             consumed_at_ms: 4_100_000_004_000,
         };
@@ -226,7 +221,7 @@ async fn wallet_network_approval_token_consumption_via_real_callservice_txs() ->
             keypair,
             chain_id,
             nonce,
-            "consume_approval_token@v1",
+            "consume_approval_grant@v1",
             consume_revoked,
         )
         .await;

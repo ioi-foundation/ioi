@@ -85,6 +85,7 @@ pub async fn run_wallet_network_audit_bridge_task<CS, ST, CE, V>(
                     session_id,
                     request_hash,
                     target: ActionTarget::Custom(target),
+                    policy_hash: [0xAB; 32],
                     value_usd_micros: None,
                     reason: reason.to_string(),
                     intercepted_at_ms: now_unix_ms(),

@@ -2,7 +2,7 @@ use super::super::sudo::{
     incident_waiting_for_sudo_password, maybe_restore_pending_install_from_incident,
     status_mentions_sudo_password, RUNTIME_SECRET_KIND_SUDO_PASSWORD,
 };
-use crate::agentic::runtime::keys::get_state_key;
+use crate::agentic::runtime::keys::{get_approval_grant_key, get_state_key};
 use crate::agentic::runtime::runtime_secret;
 use crate::agentic::runtime::service::RuntimeAgentService;
 use crate::agentic::runtime::types::{
@@ -29,7 +29,7 @@ pub async fn handle_resume(
     let incident_waiting_for_sudo = incident_waiting_for_sudo_password(state, p.session_id)?;
     let runtime_secret_ready =
         runtime_secret::has_secret(&session_id_hex, RUNTIME_SECRET_KIND_SUDO_PASSWORD);
-    let sudo_retry_resume = p.approval_token.is_none()
+    let sudo_retry_resume = p.approval_grant.is_none()
         && (waiting_for_sudo_password_before_resume
             || status_hints_sudo_wait
             || incident_waiting_for_sudo
@@ -69,20 +69,20 @@ pub async fn handle_resume(
             }
         }
 
-        if let Some(token) = p.approval_token {
+        if let Some(grant) = p.approval_grant {
             log::info!(
-                "Resuming session {} with Approval Token for hash {:?}",
+                "Resuming session {} with Approval Grant for hash {:?}",
                 hex::encode(&p.session_id[0..4]),
-                hex::encode(&token.request_hash)
+                hex::encode(&grant.request_hash)
             );
-
-            let mut pending = agent_state.pending_action_state();
-            pending.approval = Some(token);
-            agent_state.replace_pending_action_state(pending);
+            state.insert(
+                &get_approval_grant_key(&p.session_id),
+                &codec::to_bytes_canonical(&grant)?,
+            )?;
 
             let msg = ioi_types::app::agentic::ChatMessage {
                 role: "system".to_string(),
-                content: "Authorization GRANTED. You may retry the action immediately.".to_string(),
+                content: "Authorization GRANTED via ApprovalGrant. You may retry the action immediately.".to_string(),
                 timestamp: timestamp_ms_now(),
                 trace_hash: None,
             };
@@ -90,6 +90,7 @@ pub async fn handle_resume(
             let new_root = service.append_chat_to_scs(p.session_id, &msg, 0).await?;
             agent_state.transcript_root = new_root;
         } else {
+            state.delete(&get_approval_grant_key(&p.session_id))?;
             let msg = ioi_types::app::agentic::ChatMessage {
                 role: "system".to_string(),
                 content: "Resumed by user/controller without specific approval.".to_string(),

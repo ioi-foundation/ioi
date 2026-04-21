@@ -1,7 +1,7 @@
 // Path: crates/types/src/app/wallet_network/policy.rs
 
 use super::vault::VaultSurface;
-use crate::app::action::{ActionTarget, ApprovalToken};
+use crate::app::action::{ActionTarget, ApprovalGrant};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -16,6 +16,8 @@ pub struct WalletInterceptionContext {
     pub request_hash: [u8; 32],
     /// Action target being evaluated.
     pub target: ActionTarget,
+    /// Exact policy hash that triggered the interception.
+    pub policy_hash: [u8; 32],
     /// Optional value estimate in micro-USD.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value_usd_micros: Option<u64>,
@@ -46,9 +48,9 @@ pub struct WalletApprovalDecision {
     pub interception: WalletInterceptionContext,
     /// Decision result.
     pub decision: WalletApprovalDecisionKind,
-    /// Optional approval token when action is approved.
+    /// Optional approval grant when action is approved.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub approval_token: Option<ApprovalToken>,
+    pub approval_grant: Option<ApprovalGrant>,
     /// Surface that produced this decision.
     pub surface: VaultSurface,
     /// Decision timestamp.

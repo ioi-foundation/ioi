@@ -1,6 +1,6 @@
 // Path: crates/services/src/agentic/runtime/types.rs
 
-use ioi_types::app::action::ApprovalToken;
+use ioi_types::app::action::{ApprovalAuthority, ApprovalGrant};
 use ioi_types::app::agentic::{ResolvedIntentState, WebRetrievalContract};
 use ioi_types::app::ActionRequest;
 use ioi_types::app::{
@@ -639,7 +639,7 @@ pub struct RecordedMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode, PartialEq, Eq, Default)]
 #[serde(default)]
 pub struct PendingActionState {
-    pub approval: Option<ApprovalToken>,
+    pub approval: Option<ApprovalGrant>,
     pub tool_call: Option<String>,
     pub tool_jcs: Option<Vec<u8>>,
     pub tool_hash: Option<[u8; 32]>,
@@ -723,7 +723,7 @@ pub struct AgentState {
     pub budget: u64,
     pub tokens_used: u64,
     pub consecutive_failures: u8,
-    pub pending_approval: Option<ApprovalToken>,
+    pub pending_approval: Option<ApprovalGrant>,
     pub pending_tool_call: Option<String>,
 
     // [NEW] Canonical Resume State
@@ -731,7 +731,7 @@ pub struct AgentState {
     #[serde(default)]
     pub pending_tool_jcs: Option<Vec<u8>>,
 
-    // The hash of the tool JCS, which must match the ApprovalToken.
+    // The hash of the tool JCS, which must match the ApprovalGrant.
     #[serde(default)]
     pub pending_tool_hash: Option<[u8; 32]>,
 
@@ -830,7 +830,17 @@ pub struct PostMessageParams {
 #[derive(Encode, Decode)]
 pub struct ResumeAgentParams {
     pub session_id: [u8; 32],
-    pub approval_token: Option<ApprovalToken>,
+    pub approval_grant: Option<ApprovalGrant>,
+}
+
+#[derive(Encode, Decode)]
+pub struct RegisterApprovalAuthorityParams {
+    pub authority: ApprovalAuthority,
+}
+
+#[derive(Encode, Decode)]
+pub struct RevokeApprovalAuthorityParams {
+    pub authority_id: [u8; 32],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Encode, Decode)]

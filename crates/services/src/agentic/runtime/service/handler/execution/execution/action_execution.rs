@@ -387,6 +387,33 @@ pub async fn handle_action_execution(
         }),
     );
 
+    let persist_terminal_outcome = |
+        success: bool,
+        history_entry: Option<String>,
+        error: Option<String>,
+        visual_hash: Option<[u8; 32]>,
+        execution_state: &mut Option<&mut dyn StateAccess>,
+    | -> Result<ActionExecutionOutcome, TransactionError> {
+        let finished_at_ms = unix_timestamp_ms_now();
+        let started_at_ms =
+            finished_at_ms.saturating_sub(execution_started.elapsed().as_millis() as u64);
+        if let Some(state) = execution_state.as_deref_mut() {
+            persist_terminal_settlement(
+                state,
+                session_id,
+                step_index,
+                &determinism,
+                success,
+                history_entry.as_deref(),
+                error.as_deref(),
+                visual_hash,
+                started_at_ms,
+                finished_at_ms,
+            )?;
+        }
+        Ok((success, history_entry, error, visual_hash))
+    };
+
     let policy_started = Instant::now();
     enforce_policy_and_record(
         service,
@@ -432,46 +459,54 @@ pub async fn handle_action_execution(
                             query_active_window_with_timeout(os_driver, session_id, "post_focus")
                                 .await;
                         if !focus::window_matches_hint(foreground_window.as_ref(), hint) {
-                            return Ok(no_visual(
+                            return persist_terminal_outcome(
                                 false,
                                 None,
                                 Some(format!(
                                     "ERROR_CLASS=FocusMismatch Focused window still does not match target '{}'.",
                                     hint
                                 )),
-                            ));
+                                None,
+                                &mut execution_state,
+                            );
                         }
                     }
                     Ok(false) => {
-                        return Ok(no_visual(
+                        return persist_terminal_outcome(
                             false,
                             None,
                             Some(format!(
                                 "ERROR_CLASS=FocusMismatch Unable to focus target window '{}'.",
                                 hint
                             )),
-                        ));
+                            None,
+                            &mut execution_state,
+                        );
                     }
                     Err(e) => {
                         let err = e.to_string();
                         if focus::is_missing_focus_dependency_error(&err) {
-                            return Ok(no_visual(
+                            return persist_terminal_outcome(
                                 false,
                                 None,
                                 Some(format!(
                                     "ERROR_CLASS=MissingDependency Focus dependency unavailable while focusing '{}': {}",
                                     hint, err
                                 )),
-                            ));
+                                None,
+                                &mut execution_state,
+                            );
                         }
-                        return Ok(no_visual(
+                        return persist_terminal_outcome(
                             false,
                             None,
                             Some(format!(
                                 "ERROR_CLASS=FocusMismatch Focus attempt failed for '{}': {}",
                                 hint, err
                             )),
-                        ));
+                            None,
+                            &mut execution_state,
+                        );
                     }
                 }
             }
@@ -652,7 +687,10 @@ pub async fn handle_action_execution(
                         Some(goal.to_string())
                     }
                 });
-            let adapter_state = execution_state.take();
+            let mut adapter_state = execution_state.take();
+            let state_for_adapter = adapter_state
+                .as_mut()
+                .map(|state| &mut **state as &mut dyn StateAccess);
             if let Some(result) = adapters::execute_dynamic_tool(
                 service,
                 &value,
@@ -660,20 +698,22 @@ pub async fn handle_action_execution(
                 step_index,
                 &determinism.workload_spec,
                 agent_state,
-                adapter_state,
+                state_for_adapter,
                 execution_call_context,
                 latest_user_message_raw.as_deref(),
             )
             .await?
             {
-                return Ok(no_visual(
+                return persist_terminal_outcome(
                     result.success,
                     result.history_entry,
                     result.error,
-                ));
+                    None,
+                    &mut adapter_state,
+                );
             }
 
-            Ok(no_visual(
+            persist_terminal_outcome(
                 false,
                 None,
                 Some(format!(
@@ -683,7 +723,9 @@ pub async fn handle_action_execution(
                         .and_then(|entry| entry.as_str())
                         .unwrap_or("unknown")
                 )),
-            ))
+                None,
+                &mut adapter_state,
+            )
         }
 
         // Delegate Execution Tools
@@ -755,7 +797,7 @@ pub async fn handle_action_execution(
                                 "runtime_target": determinism.workload_spec.runtime_target.as_label(),
                             }),
                         );
-                        return Ok(no_visual(
+                        return persist_terminal_outcome(
                             false,
                             None,
                             Some(format!(
@@ -763,7 +805,9 @@ pub async fn handle_action_execution(
                                 browser_tool_name.as_deref().unwrap_or("browser"),
                                 timeout_duration.as_millis()
                             )),
-                        ));
+                            None,
+                            &mut execution_state,
+                        );
                     }
                 }
             } else {
@@ -796,7 +840,8 @@ pub async fn handle_action_execution(
                 );
             }
             let finalize_started = Instant::now();
-            let finalized_result = finalize_executor_result(result);
+            let finalized_result: Result<ActionExecutionOutcome, TransactionError> =
+                finalize_executor_result(result);
             emit_execution_phase_timing_receipt(
                 service,
                 session_id,
@@ -833,7 +878,35 @@ pub async fn handle_action_execution(
                     "runtime_target": determinism.workload_spec.runtime_target.as_label(),
                 }),
             );
-            finalized_result
+            match finalized_result {
+                Ok((success, history_entry, error, visual_hash)) => persist_terminal_outcome(
+                    success,
+                    history_entry,
+                    error,
+                    visual_hash,
+                    &mut execution_state,
+                ),
+                Err(err) => {
+                    let finished_at_ms = unix_timestamp_ms_now();
+                    let started_at_ms =
+                        finished_at_ms.saturating_sub(execution_started.elapsed().as_millis() as u64);
+                    if let Some(state) = execution_state.as_deref_mut() {
+                        let _ = persist_terminal_settlement(
+                            state,
+                            session_id,
+                            step_index,
+                            &determinism,
+                            false,
+                            None,
+                            Some(&err.to_string()),
+                            None,
+                            started_at_ms,
+                            finished_at_ms,
+                        );
+                    }
+                    Err(err)
+                }
+            }
         }
     }
 }

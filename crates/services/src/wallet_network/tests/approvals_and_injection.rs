@@ -2,7 +2,7 @@ use super::*;
 use ioi_api::services::BlockchainService;
 
 #[test]
-fn approved_decision_requires_token() {
+fn approved_decision_requires_grant() {
     let service = WalletNetworkService;
     let mut state = MockState::default();
     let approval = WalletApprovalDecision {
@@ -10,12 +10,13 @@ fn approved_decision_requires_token() {
             session_id: Some([5u8; 32]),
             request_hash: [6u8; 32],
             target: ActionTarget::WebRetrieve,
+            policy_hash: [9u8; 32],
             value_usd_micros: Some(10),
             reason: "step-up".to_string(),
             intercepted_at_ms: 1_750_000_000_000,
         },
         decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
-        approval_token: None,
+        approval_grant: None,
         surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
         decided_at_ms: 1_750_000_000_500,
     };
@@ -25,41 +26,36 @@ fn approved_decision_requires_token() {
         let err =
             run_async(service.handle_service_call(&mut state, "record_approval@v1", &params, ctx))
                 .expect_err("approved decision without token must fail");
-        assert!(err.to_string().contains("approval_token"));
+        assert!(err.to_string().contains("approval_grant"));
     });
 }
 
 #[test]
-fn record_approval_rejects_non_hybrid_approver_signature_suite() {
+fn record_approval_rejects_unregistered_approval_authority() {
     let service = WalletNetworkService;
     let mut state = MockState::default();
+    let signer = new_approval_signer();
     let approval = WalletApprovalDecision {
         interception: WalletInterceptionContext {
             session_id: Some([15u8; 32]),
             request_hash: [16u8; 32],
             target: ActionTarget::WebRetrieve,
+            policy_hash: [17u8; 32],
             value_usd_micros: Some(10),
             reason: "step-up".to_string(),
             intercepted_at_ms: 1_750_000_000_000,
         },
         decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
-        approval_token: Some(ApprovalToken {
-            schema_version: 2,
-            request_hash: [16u8; 32],
-            audience: [7u8; 32],
-            revocation_epoch: 0,
-            nonce: [0x41u8; 32],
-            counter: 1,
-            scope: ApprovalScope {
-                expires_at: 1_750_000_010_000,
-                max_usages: Some(1),
-            },
-            visual_hash: None,
-            pii_action: None,
-            scoped_exception: None,
-            approver_sig: vec![1, 2, 3],
-            approver_suite: SignatureSuite::ED25519,
-        }),
+        approval_grant: Some(signed_wallet_approval_grant(
+            &signer,
+            [16u8; 32],
+            [17u8; 32],
+            [7u8; 32],
+            [0x41u8; 32],
+            1,
+            Some(1),
+            1_750_000_010_000,
+        )),
         surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
         decided_at_ms: 1_750_000_000_500,
     };
@@ -68,10 +64,8 @@ fn record_approval_rejects_non_hybrid_approver_signature_suite() {
     with_ctx(|ctx| {
         let err =
             run_async(service.handle_service_call(&mut state, "record_approval@v1", &params, ctx))
-                .expect_err("non-hybrid approval token must fail");
-        assert!(err
-            .to_string()
-            .contains("approver_suite must be HYBRID_ED25519_ML_DSA_44"));
+                .expect_err("unregistered approval authority must fail");
+        assert!(err.to_string().contains("not registered"));
     });
 }
 
@@ -111,81 +105,84 @@ fn record_approval_initializes_consumption_state_and_consumes_by_usage() {
     let mut state = MockState::default();
     let request_hash = [11u8; 32];
     let session_id = Some([12u8; 32]);
-    let approver = new_hybrid_signer();
+    let approver = new_approval_signer();
 
-    let approval = sign_wallet_approval_decision(
-        WalletApprovalDecision {
-            interception: WalletInterceptionContext {
-                session_id,
-                request_hash,
-                target: ActionTarget::WebRetrieve,
-                value_usd_micros: None,
-                reason: "step-up".to_string(),
-                intercepted_at_ms: 1_750_000_000_000,
-            },
-            decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
-            approval_token: Some(ApprovalToken {
-                schema_version: 2,
-                request_hash,
-                audience: [7u8; 32],
-                revocation_epoch: 0,
-                nonce: [0x42u8; 32],
-                counter: 7,
-                scope: ApprovalScope {
-                    expires_at: 1_750_000_060_000,
-                    max_usages: Some(2),
-                },
-                visual_hash: None,
-                pii_action: None,
-                scoped_exception: None,
-                approver_sig: vec![],
-                approver_suite: SignatureSuite::HYBRID_ED25519_ML_DSA_44,
-            }),
-            surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
-            decided_at_ms: 1_750_000_000_500,
+    let approval = WalletApprovalDecision {
+        interception: WalletInterceptionContext {
+            session_id,
+            request_hash,
+            target: ActionTarget::WebRetrieve,
+            policy_hash: [19u8; 32],
+            value_usd_micros: None,
+            reason: "step-up".to_string(),
+            intercepted_at_ms: 1_750_000_000_000,
         },
-        &approver,
-    );
+        decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
+        approval_grant: Some(signed_wallet_approval_grant(
+            &approver,
+            request_hash,
+            [19u8; 32],
+            [7u8; 32],
+            [0x42u8; 32],
+            7,
+            Some(2),
+            1_750_000_060_000,
+        )),
+        surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
+        decided_at_ms: 1_750_000_000_500,
+    };
 
     with_ctx(|ctx| {
+        let register = RegisterApprovalAuthorityParams {
+            authority: approver.authority.clone(),
+        };
+        let register_params = codec::to_bytes_canonical(&register).expect("encode");
+        run_async(service.handle_service_call(
+            &mut state,
+            "register_approval_authority@v1",
+            &register_params,
+            ctx,
+        ))
+        .expect("register approval authority");
+
         let params = codec::to_bytes_canonical(&approval).expect("encode");
         run_async(service.handle_service_call(&mut state, "record_approval@v1", &params, ctx))
             .expect("valid approval");
 
-        let consume_1 = ConsumeApprovalTokenParams {
+        let consume_1 = ConsumeApprovalGrantParams {
             request_hash,
             consumed_at_ms: 1_750_000_010_000,
         };
         let consume_1_params = codec::to_bytes_canonical(&consume_1).expect("encode");
         run_async(service.handle_service_call(
             &mut state,
-            "consume_approval_token@v1",
+            "consume_approval_grant@v1",
             &consume_1_params,
             ctx,
         ))
         .expect("first consume should succeed");
 
-        let consume_2 = ConsumeApprovalTokenParams {
+        let consume_2 = ConsumeApprovalGrantParams {
             request_hash,
             consumed_at_ms: 1_750_000_020_000,
         };
         let consume_2_params = codec::to_bytes_canonical(&consume_2).expect("encode");
         run_async(service.handle_service_call(
             &mut state,
-            "consume_approval_token@v1",
+            "consume_approval_grant@v1",
             &consume_2_params,
             ctx,
         ))
         .expect("second consume should succeed");
 
-        let consume_3 = ConsumeApprovalTokenParams {
+        let consume_3 = ConsumeApprovalGrantParams {
             request_hash,
             consumed_at_ms: 1_750_000_030_000,
         };
         let consume_3_params = codec::to_bytes_canonical(&consume_3).expect("encode");
         let err = run_async(service.handle_service_call(
             &mut state,
-            "consume_approval_token@v1",
+            "consume_approval_grant@v1",
             &consume_3_params,
             ctx,
         ))
@@ -209,47 +206,50 @@ fn record_approval_initializes_consumption_state_and_consumes_by_usage() {
 }
 
 #[test]
-fn consume_approval_token_enforces_revocation_epoch_and_audience_binding() {
+fn consume_approval_grant_enforces_revocation_epoch_and_audience_binding() {
     let service = WalletNetworkService;
     let mut state = MockState::default();
     let request_hash = [21u8; 32];
-    let approver = new_hybrid_signer();
+    let approver = new_approval_signer();
 
-    let approval = sign_wallet_approval_decision(
-        WalletApprovalDecision {
-            interception: WalletInterceptionContext {
-                session_id: None,
-                request_hash,
-                target: ActionTarget::NetFetch,
-                value_usd_micros: None,
-                reason: "step-up".to_string(),
-                intercepted_at_ms: 1_750_000_000_000,
-            },
-            decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
-            approval_token: Some(ApprovalToken {
-                schema_version: 2,
-                request_hash,
-                audience: [7u8; 32],
-                revocation_epoch: 0,
-                nonce: [0x43u8; 32],
-                counter: 9,
-                scope: ApprovalScope {
-                    expires_at: 1_850_000_000_000,
-                    max_usages: Some(1),
-                },
-                visual_hash: None,
-                pii_action: None,
-                scoped_exception: None,
-                approver_sig: vec![],
-                approver_suite: SignatureSuite::HYBRID_ED25519_ML_DSA_44,
-            }),
-            surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
-            decided_at_ms: 1_750_000_000_500,
+    let approval = WalletApprovalDecision {
+        interception: WalletInterceptionContext {
+            session_id: None,
+            request_hash,
+            target: ActionTarget::NetFetch,
+            policy_hash: [29u8; 32],
+            value_usd_micros: None,
+            reason: "step-up".to_string(),
+            intercepted_at_ms: 1_750_000_000_000,
         },
-        &approver,
-    );
+        decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
+        approval_grant: Some(signed_wallet_approval_grant(
+            &approver,
+            request_hash,
+            [29u8; 32],
+            [7u8; 32],
+            [0x43u8; 32],
+            9,
+            Some(1),
+            1_850_000_000_000,
+        )),
+        surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
+        decided_at_ms: 1_750_000_000_500,
+    };
 
     with_ctx(|ctx| {
+        let register = RegisterApprovalAuthorityParams {
+            authority: approver.authority.clone(),
+        };
+        let register_params = codec::to_bytes_canonical(&register).expect("encode");
+        run_async(service.handle_service_call(
+            &mut state,
+            "register_approval_authority@v1",
+            &register_params,
+            ctx,
+        ))
+        .expect("register approval authority");
+
         let approval_params = codec::to_bytes_canonical(&approval).expect("encode");
         run_async(service.handle_service_call(
             &mut state,
@@ -259,55 +259,45 @@ fn consume_approval_token_enforces_revocation_epoch_and_audience_binding() {
         ))
         .expect("approval");
 
-        let consume_bind = ConsumeApprovalTokenParams {
+        let consume_bind = ConsumeApprovalGrantParams {
             request_hash,
             consumed_at_ms: 1_750_000_001_000,
         };
         let consume_bind_params = codec::to_bytes_canonical(&consume_bind).expect("encode");
         run_async(service.handle_service_call(
             &mut state,
-            "consume_approval_token@v1",
+            "consume_approval_grant@v1",
             &consume_bind_params,
             ctx,
         ))
         .expect("consume should bind audience");
 
-        // Re-record with fresh token so we can exercise epoch invalidation path.
+        // Re-record with fresh grant so we can exercise epoch invalidation path.
         let request_hash_2 = [22u8; 32];
-        let approval_2 = sign_wallet_approval_decision(
-            WalletApprovalDecision {
-                interception: WalletInterceptionContext {
-                    session_id: None,
-                    request_hash: request_hash_2,
-                    target: ActionTarget::NetFetch,
-                    value_usd_micros: None,
-                    reason: "step-up".to_string(),
-                    intercepted_at_ms: 1_750_000_000_000,
-                },
-                decision:
-                    ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
-                approval_token: Some(ApprovalToken {
-                    schema_version: 2,
-                    request_hash: request_hash_2,
-                    audience: [7u8; 32],
-                    revocation_epoch: 0,
-                    nonce: [0x44u8; 32],
-                    counter: 10,
-                    scope: ApprovalScope {
-                        expires_at: 1_850_000_000_000,
-                        max_usages: Some(1),
-                    },
-                    visual_hash: None,
-                    pii_action: None,
-                    scoped_exception: None,
-                    approver_sig: vec![],
-                    approver_suite: SignatureSuite::HYBRID_ED25519_ML_DSA_44,
-                }),
-                surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
-                decided_at_ms: 1_750_000_000_500,
+        let approval_2 = WalletApprovalDecision {
+            interception: WalletInterceptionContext {
+                session_id: None,
+                request_hash: request_hash_2,
+                target: ActionTarget::NetFetch,
+                policy_hash: [30u8; 32],
+                value_usd_micros: None,
+                reason: "step-up".to_string(),
+                intercepted_at_ms: 1_750_000_000_000,
             },
-            &approver,
-        );
+            decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
+            approval_grant: Some(signed_wallet_approval_grant(
+                &approver,
+                request_hash_2,
+                [30u8; 32],
+                [7u8; 32],
+                [0x44u8; 32],
+                10,
+                Some(1),
+                1_850_000_000_000,
+            )),
+            surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
+            decided_at_ms: 1_750_000_000_500,
+        };
         let approval_2_params = codec::to_bytes_canonical(&approval_2).expect("encode");
         run_async(service.handle_service_call(
             &mut state,
@@ -324,14 +314,14 @@ fn consume_approval_token_enforces_revocation_epoch_and_audience_binding() {
         run_async(service.handle_service_call(&mut state, "panic_stop@v1", &panic_params, ctx))
             .expect("panic stop");
 
-        let consume_revoked = ConsumeApprovalTokenParams {
+        let consume_revoked = ConsumeApprovalGrantParams {
             request_hash: request_hash_2,
             consumed_at_ms: 1_750_000_002_000,
         };
         let consume_revoked_params = codec::to_bytes_canonical(&consume_revoked).expect("encode");
         let err = run_async(service.handle_service_call(
             &mut state,
-            "consume_approval_token@v1",
+            "consume_approval_grant@v1",
             &consume_revoked_params,
             ctx,
         ))
@@ -341,47 +331,50 @@ fn consume_approval_token_enforces_revocation_epoch_and_audience_binding() {
 }
 
 #[test]
-fn consume_approval_token_rejects_signer_audience_mismatch() {
+fn consume_approval_grant_rejects_signer_audience_mismatch() {
     let service = WalletNetworkService;
     let mut state = MockState::default();
     let request_hash = [31u8; 32];
-    let approver = new_hybrid_signer();
+    let approver = new_approval_signer();
 
-    let approval = sign_wallet_approval_decision(
-        WalletApprovalDecision {
-            interception: WalletInterceptionContext {
-                session_id: None,
-                request_hash,
-                target: ActionTarget::NetFetch,
-                value_usd_micros: None,
-                reason: "step-up".to_string(),
-                intercepted_at_ms: 1_750_000_000_000,
-            },
-            decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
-            approval_token: Some(ApprovalToken {
-                schema_version: 2,
-                request_hash,
-                audience: [7u8; 32],
-                revocation_epoch: 0,
-                nonce: [0x45u8; 32],
-                counter: 1,
-                scope: ApprovalScope {
-                    expires_at: 1_850_000_000_000,
-                    max_usages: Some(1),
-                },
-                visual_hash: None,
-                pii_action: None,
-                scoped_exception: None,
-                approver_sig: vec![],
-                approver_suite: SignatureSuite::HYBRID_ED25519_ML_DSA_44,
-            }),
-            surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
-            decided_at_ms: 1_750_000_000_500,
+    let approval = WalletApprovalDecision {
+        interception: WalletInterceptionContext {
+            session_id: None,
+            request_hash,
+            target: ActionTarget::NetFetch,
+            policy_hash: [39u8; 32],
+            value_usd_micros: None,
+            reason: "step-up".to_string(),
+            intercepted_at_ms: 1_750_000_000_000,
         },
-        &approver,
-    );
+        decision: ioi_types::app::wallet_network::WalletApprovalDecisionKind::ApprovedByHuman,
+        approval_grant: Some(signed_wallet_approval_grant(
+            &approver,
+            request_hash,
+            [39u8; 32],
+            [7u8; 32],
+            [0x45u8; 32],
+            1,
+            Some(1),
+            1_850_000_000_000,
+        )),
+        surface: ioi_types::app::wallet_network::VaultSurface::Desktop,
+        decided_at_ms: 1_750_000_000_500,
+    };
 
     with_ctx(|ctx| {
+        let register = RegisterApprovalAuthorityParams {
+            authority: approver.authority.clone(),
+        };
+        let register_params = codec::to_bytes_canonical(&register).expect("encode");
+        run_async(service.handle_service_call(
+            &mut state,
+            "register_approval_authority@v1",
+            &register_params,
+            ctx,
+        ))
+        .expect("register approval authority");
+
         let approval_params = codec::to_bytes_canonical(&approval).expect("encode");
         run_async(service.handle_service_call(
             &mut state,
@@ -393,14 +386,14 @@ fn consume_approval_token_rejects_signer_audience_mismatch() {
     });
 
     with_ctx_signer([8u8; 32], |ctx| {
-        let consume = ConsumeApprovalTokenParams {
+        let consume = ConsumeApprovalGrantParams {
             request_hash,
             consumed_at_ms: 1_750_000_001_000,
         };
         let consume_params = codec::to_bytes_canonical(&consume).expect("encode");
         let err = run_async(service.handle_service_call(
             &mut state,
-            "consume_approval_token@v1",
+            "consume_approval_grant@v1",
             &consume_params,
             ctx,
         ))

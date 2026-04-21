@@ -27,9 +27,7 @@ pub(super) async fn restore_pending_visual_context(
     agent_state: &AgentState,
 ) {
     let target_hash_opt = agent_state
-        .pending_approval
-        .as_ref()
-        .and_then(|t| t.visual_hash)
+        .pending_visual_hash
         .or(agent_state.last_screen_phash);
     if let Some(target_hash) = target_hash_opt {
         let _ = service.restore_visual_context(target_hash).await;

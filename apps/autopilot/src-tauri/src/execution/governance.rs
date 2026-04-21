@@ -171,8 +171,7 @@ pub(super) async fn check_governance(
     let policy = synthesize_node_policy(node_type, law_config);
     let request = map_to_action_request(node_type, logic_config, input_context, session_id);
 
-    let verdict =
-        PolicyEngine::evaluate(&policy, &request, &*SAFETY_MODEL, &*OS_DRIVER, None).await;
+    let verdict = PolicyEngine::evaluate(&policy, &request, &*SAFETY_MODEL, &*OS_DRIVER).await;
 
     match verdict {
         Verdict::Allow => Ok(()),

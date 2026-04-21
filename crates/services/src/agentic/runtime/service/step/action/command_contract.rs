@@ -45,7 +45,7 @@ const RRSA_FILESYSTEM_REQUIRED_RECEIPTS: [&str; 2] =
 const RRSA_NETWORK_REQUIRED_RECEIPTS: [&str; 2] = ["rrsa_output_commitment", "rrsa_domain_binding"];
 const RRSA_WALLET_REQUIRED_RECEIPTS: [&str; 3] = [
     "rrsa_tx_hash_binding",
-    "rrsa_approval_token_ref",
+    "rrsa_approval_grant_ref",
     "rrsa_eei_bundle_commitment",
 ];
 
